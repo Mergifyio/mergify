@@ -1,0 +1,47 @@
+<!doctype html>
+<html ng-app="triage">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<title>Pastamaker pull requests dashboard</title>
+<link rel="stylesheet" href="/static/bootstrap.min.css">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+<link rel="icon" type="image/png" href="/static/icon-32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/static/icon-64.png" sizes="64x64">
+<link rel="icon" type="image/png" href="/static/icon-256.png" sizes="256x256">
+<!-- build:css /static/style-$hash.min.css -->
+<link rel="stylesheet" href="/static/main.css">
+<!-- endbuild -->
+</head>
+<body>
+
+<div class="container" ng-controller="AppController">
+    <div xclass="page-header" style="padding-top:15px;padding-bottom:0px;margin-bottom:0px;">
+        <p class="lead">
+            <b>Pastamaker</b> pull requests dashboard
+        </p>
+    </div>
+
+    <ng-view></ng-view>
+</div><!-- /.container -->
+
+<!-- build:js /static/vendor-$hash.min.js -->
+<script src="/static/vendor/1.6.6/angular.min.js"></script>
+<script src="/static/vendor/1.6.6/angular-route.min.js"></script>
+<script src="/static/vendor/1.6.6/angular-sanitize.min.js"></script>
+<script src="/static/vendor/angular-classy.min.js"></script>
+<script src="/static/vendor/moment.min.js"></script>
+<script src="/static/vendor/angular-moment.min.js"></script>
+<script src="/static/vendor/showdown.min.js"></script>
+<script src="/static/vendor/ng-showdown.min.js"></script>
+<script src="/static/vendor/localforage.min.js "></script>
+<script src="/static/vendor/angular-localForage.min.js "></script>
+<!-- endbuild -->
+
+<!-- build:js /static/bundle-$hash.min.js -->
+<script src="/static/app.js"></script>
+<script src="/static/controllers.js"></script>
+<!-- endbuild -->
+
+</body>
+</html>

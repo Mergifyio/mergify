@@ -1,0 +1,168 @@
+
+<div style="margin-top:-50px;" class="pull-right">
+	<input placeholder="travis token" style="height:1.5em;" type="password" ng-model="travis_token" ng-change="save_travis_token()"/>
+	<a href="#" ng-click="hide_all_tabs()"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>
+</div>
+<div class="error" ng-class="{hidden: !general_error}">
+   <h3>Error :(</h3>
+   <p>
+     {{ general_error }}
+   </p>
+</div>
+<div class="autorefresh">
+    <i><small>
+        <span>Updated <time am-time-ago="last_update"></time></span>
+        <span ng-show="autorefresh">
+            <span ng-show="refreshing">, refreshing...</span>
+            <span ng-hide="refreshing">, refresh in {{ counter }} seconds</span>
+        </span>
+        <span ng-show="event">
+            by a push event
+        </span>
+        <span ng-hide="event || autorefresh">
+            , autorefresh disabled
+        </span>
+        <span ng-hide="rq_default_count < 0">, {{ rq_default_count }} github event<span ng-hide="rq_default_count == 0">s</span> pending</span>
+    </small></i>
+</div>
+<div ng-repeat="group in groups | orderBy:'updated_at':true" class="group">
+    <table class="table table-condensed multiple">
+     <thead>
+     <tr>
+         <th class="title">
+            <a href="https://github.com/{{ group.owner }}/{{ group.repo }}/pulls">{{ group.owner }}/{{ group.repo }}</a> - {{ group.branch }}
+         </th>
+         <th class="state"><span class="glyphicon glyphicon-comment"></span></th>
+         <th class="state"><span class="glyphicon glyphicon-list"></span></th>
+         <th class="state"><span class="glyphicon glyphicon-file"></span></th>
+         <th class="last-updated">Last updated</th>
+         <th class="state" title="Indicates its status">CI</th>
+         <th class="mergeable" title="Mergeable status"><span class="glyphicon glyphicon-random" title="Mergeable"></span></th>
+         <th class="milestone" title="Milestone"><span class="glyphicon glyphicon-gift" title="Milestone"></span></th>
+         <th class="reviews"><span class="glyphicon glyphicon-thumbs-up"></span></th>
+         <th class="reviews"><span class="glyphicon glyphicon-thumbs-down"></span></th>
+         <th class="queue">Weight
+         </th>
+     </tr>
+     </thead>
+     <tbody>
+         <tr ng-repeat-start="pull in group.pulls">
+             <td class="title">
+                 <div class="pull-right"><span style="color:green">+{{ pull.additions }}</span> / <span style="color:red">-{{ pull.deletions }}</span></div>
+                 <a href="{{ pull.user.html_url }}"><img ng-src="{{ pull.user.avatar_url }}" class="avatar" alt="{{ pull.user.login }}"></a>
+                 <a href="#" ng-click="toggle_info(pull, 'commits')" style="display:inline-block;padding-left:5px;"><span ng-class="{'glyphicon glyphicon-circle-arrow-down': pull.open_commits_row, 'glyphicon glyphicon-circle-arrow-right': !pull.open_commits_row}"></a>
+                 <a href="{{ pull.html_url }}" target="_blank">{{ pull.title }} <span style="color:grey">#{{ pull.number }}</span></a>
+             </td>
+	     <td class="state"><a href="{{ pull.html_url }}" target="_blank">{{ pull.comments }}</a></td>
+             <td class="state"><a href="{{ pull.html_url }}/commits" target="_blank">{{ pull.commits }}</a></td>
+             <td class="state"><a href="{{ pull.html_url }}/files" target="_blank">{{ pull.changed_files }}</a></td>
+             <td class="last-updated"><time am-time-ago="pull.updated_at"></time></td>
+             <td class="state" ng-if="pull.mergify_engine_travis_detail != null">
+                 <a href="#" ng-click="toggle_info(pull, 'travis')" ng-show="pull.mergify_engine_travis_detail.refreshing != true">
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'success'" title="Last test succeeded" class="good glyphicon glyphicon-ok"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'failure'" title="Last test failed!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'error'" title="Last test error!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'pending'" title="Latest test pending" class="maybe glyphicon glyphicon-time"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'working'" title="Latest test pending" class="maybe glyphicon glyphicon-cog"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'unknown'" title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
+                 </a>
+                 <span ng-if="pull.mergify_engine_travis_detail.refreshing == true" class="refreshing glyphicon glyphicon-cloud-download"></span>
+             </td>
+             <td class="state" ng-if="pull.mergify_engine_travis_detail == null">
+                 <a href="#" ng-click="toggle_info(pull, 'travis')">
+                    <span ng-if="pull.mergify_engine_travis_state == 'success'" title="Last test succeeded" class="good glyphicon glyphicon-ok"></span>
+                    <span ng-if="pull.mergify_engine_travis_state == 'failure'" title="Last test failed!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_engine_travis_state == 'error'" title="Last test error!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_engine_travis_state == 'pending'" title="Latest test pending" class="maybe glyphicon glyphicon-time"></span>
+                    <span ng-if="pull.mergify_engine_travis_state == 'working'" title="Latest test pending" class="maybe glyphicon glyphicon-cog"></span>
+                    <span ng-if="pull.mergify_engine_travis_state == 'unknown'" title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
+                 </a>
+             </td>
+             <td class="mergeable">
+                     <span ng-if="pull.mergeable == true" title="Can be merged, {{ pull.mergeable_state }}" class="good glyphicon glyphicon-ok"></span>
+                     <span ng-if="pull.mergeable == false" title="Cannot be merged, {{ pull.mergeable_state }}" class="bad glyphicon glyphicon-remove"></span>
+                     <span ng-if="pull.mergeable == null" title="Unknown status, {{ pull.mergeable_state }}" class="bad glyphicon glyphicon-question-sign"></span>
+             </td>
+             <td class="milestone">
+               <a href="{{ pull.milestone.html_url }}" target="_blank">{{ pull.milestone.title }}</a>
+             </td>
+             <td class="reviews info">
+                 <a ng-repeat="user in pull.mergify_engine_approvals[0]"
+                    href="{{ user.html_url }}"
+                    target="_blank"
+                    title="{{ user.login }}"><img ng-src="{{ user.avatar_url }}" class="avatar" alt="{{ user.login }}"></a>
+                 <span ng-repeat="n in pull.mergify_engine_approvals[3]">
+                     <img class="avatar" style="border:1px dashed white; background-color: #e2f1f9;" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA"/>
+                 </span>
+             </td>
+             <td class="reviews warning">
+                 <a ng-repeat="user in pull.mergify_engine_approvals[1]"
+                    href="{{ user.html_url }}"
+                    target="_blank"
+                    title="{{ user.login }}"><img ng-src="{{ user.avatar_url }}" class="avatar" alt="{{ user.login }}"></a>
+             </td>
+            <td class="queue" ng-class="{success: pull.mergify_engine_weight >= 10, active: pull.mergify_engine_weight == -1, info: pull.mergify_engine_weight >= 0 && pull.mergify_engine_weight < 10}">
+                <span ng-if="pull.mergify_engine_weight >= 0">{{ pull.mergify_engine_weight }}</span>
+                <span ng-if="pull.mergify_engine_weight < 0">N/A</span>
+            </td>
+        </tr>
+        <tr ng-if="pull.open_commits_row">
+            <td colspan="11">
+                <a href="#" class="pull-right" ng-click="toggle_info(pull, 'commits')"><span class="glyphicon glyphicon-remove"></span></a>
+                <a href="#" class="pull-right" style="margin-right:5px" ng-click="open_all_commits(pull)"><span class="glyphicon glyphicon-new-window"></span></a>
+                <ul style="padding-left: 70px;">
+                    <li ng-repeat="commit in pull.mergify_engine_commits">
+                        <a href="{{ pull.html_url }}/commits/{{ commit.sha }}" target="_blank" style="display:inline-block;padding-right:10px;">{{ commit | GetCommitTitle }}</a>
+                        <span style="color:green">+{{ commit.stats.additions }}</span> / <span style="color:red">-{{ commit.stats.deletions }}</span>
+                    </li>
+                </ul>
+            </td>
+             <td class="state"><a href="#" ng-click="toggle_info(pull, 'comments')">{{ filtered_comments.length }} !</a></td>
+        </tr>
+        <tr ng-repeat-end ng-if="pull.open_travis_row">
+            <td colspan="11">
+                <a href="#" class="pull-right" ng-click="toggle_info(pull, 'travis')"><span class="glyphicon glyphicon-remove"><span></a>
+                <a href="#" class="pull-right" style="margin-right:5px" ng-click="refresh_travis(pull)"><span class="glyphicon glyphicon-refresh"></span></a>
+                <a href="{{ pull.mergify_engine_travis_url }}" target="_blank" title="state: {{ pull.mergify_engine_travis_detail.state }}">
+                    <span ng-if="pull.mergify_engine_travis_detail.refreshing == true" class="refreshing glyphicon glyphicon-cloud-download"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.refreshing != true">
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'success'" title="Last test succeeded" class="good glyphicon glyphicon-ok"></span>
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'failure'" title="Last test failed!" class="bad glyphicon glyphicon-remove"></span>
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'error'" title="Last test error!" class="bad glyphicon glyphicon-remove"></span>
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'pending'" title="Latest test pending" class="maybe glyphicon glyphicon-time"></span>
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'working'" title="Latest test pending" class="maybe glyphicon glyphicon-cog"></span>
+                        <span ng-if="pull.mergify_engine_travis_detail.resume_state == 'unknown'" title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
+                    </span>
+                </a>
+                <a href="{{ pull.mergify_engine_travis_url }}" target="_blank" title="state: {{ pull.mergify_engine_travis_detail.state }}">
+                    <strong style="display:inline-block; width: 67px" ng-class="{maybe: ['pending', 'unknown'].indexOf(pull.mergify_engine_travis_state) !== -1, good: pull.mergify_engine_travis_state == 'success', bad: ['failure', 'error'].indexOf(pull.mergify_engine_travis_state) !== -1}">#{{ pull.mergify_engine_travis_detail.number }}</strong>
+                    <i>{{ pull.mergify_engine_travis_detail.job_ids.length }} jobs started <time am-time-ago="pull.mergify_engine_travis_detail.started_at"></time></i>
+                </a>
+                <div ng-repeat="job in pull.mergify_engine_travis_detail.jobs | orderBy: JobSorter" title="{{ job.state }} / {{ job.status }}" style="padding-left: 7px">
+                    <span ng-if="pull.mergify_engine_travis_detail.refreshing == true" class="refreshing glyphicon glyphicon-cloud-download"></span>
+                    <span ng-if="pull.mergify_engine_travis_detail.refreshing != true">
+                        <span ng-if="job.state == 'received'" class="maybe glyphicon glyphicon-option-horizontal"></span>
+                        <span ng-if="job.state == 'queued'" class="maybe glyphicon glyphicon-option-horizontal"></span>
+                        <span ng-if="job.state == 'started'" class="maybe glyphicon glyphicon-cog"></span>
+                        <span ng-if="job.state == 'created'"  class="maybe glyphicon glyphicon-time"></span>
+                        <span ng-if="job.state == 'passed'" class="good glyphicon glyphicon-ok"></span>
+                        <span ng-if="job.state == 'errored'" class="bad glyphicon glyphicon-remove"></span>
+                        <span ng-if="job.state == 'failed'" class="bad glyphicon glyphicon-remove"></span>
+                    </span>
+                    <strong style="display:inline-block; width: 60px" ng-class="{maybe: ['queued', 'received', 'started', 'created'].indexOf(job.state) !== -1, good: job.state == 'passed', bad: ['errored', 'failed'].indexOf(job.state) !== -1}">#{{ job.number }}</strong>
+		    <a ng-click="restart_job(pull, job)" ng-if="travis_token" ng-class="{'glyphicon glyphicon-repeat': !job.restart_state, 'bad glyphicon glyphicon-remove-circle': job.restart_state === 'ko', 'good glyphicon glyphicon-ok-circle': job.restart_state === 'ok'}" href="#"></a>
+                    <a ng-if="job.config.env" href="https://api.travis-ci.org/jobs/{{ job.id }}/log" target="_blank">{{ job.config.env }}</a>
+                    <a ng-if="!job.config.env" href="https://api.travis-ci.org/jobs/{{ job.id }}/log" target="_blank">Job #{{ $index }} </a>
+                    <i>
+                        <span ng-if="['started'].indexOf(job.state) !== -1">started <time am-time-ago="job.started_at"></time></span>
+                        <span ng-if="['queued', 'received', 'started', 'created'].indexOf(job.state) === -1">
+                            <i>tooks {{ job.finished_at | amDifference : job.started_at : "minute" }} minute(s)
+                        </span>
+                    </i>
+                </div>
+             </td>
+        </tr>
+     </tbody>
+    </table>
+</div>
+

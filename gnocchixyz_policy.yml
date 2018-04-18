@@ -1,0 +1,9 @@
+policies:
+  default:
+    required_pull_request_reviews:
+      required_approving_review_count: 2
+  branches:
+    stable/.*:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+
