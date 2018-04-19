@@ -27,7 +27,7 @@ import os
 import flask
 import github
 import rq
-import rq_dashboard
+# import rq_dashboard
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 
 app = flask.Flask(__name__)
 
-app.config.from_object(rq_dashboard.default_settings)
+# app.config.from_object(rq_dashboard.default_settings)
 # app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 app.config["REDIS_URL"] = utils.get_redis_url()
 # app.config["RQ_POLL_INTERVAL"] = 10000  # ms
@@ -165,35 +165,31 @@ def status(installation_id):
     return _get_status(r, installation_id)
 
 
-# def stream_message(_type, data):
-#     return 'event: %s\ndata: %s\n\n' % (_type, data)
-#
-#
-# def stream_generate():
-#     r = get_redis()
-#     yield stream_message("refresh", _get_status(r))
-#     yield stream_message("rq-refresh", get_queue().count)
-#     pubsub = r.pubsub()
-#     pubsub.subscribe("update")
-#     pubsub.subscribe("rq-update")
-#     while True:
-#         # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout
-#         # to 60s, this assume 5s is enough for http and redis round strip and
-#         # use 50s
-#         message = pubsub.get_message(timeout=50.0)
-#         if message is None:
-#             yield stream_message("ping", "{}")
-#         elif message["channel"] == "update":
-#             yield stream_message("refresh", _get_status(r))
-#             yield stream_message("rq-refresh", get_queue().count)
-#         elif message["channel"] == "rq-update":
-#             yield stream_message("rq-refresh", get_queue().count)
-#
-#
-# @app.route('/status/stream')
-# def stream():
-#     return flask.Response(flask.stream_with_context(stream_generate()),
-#                           mimetype="text/event-stream")
+def stream_message(_type, data):
+    return 'event: %s\ndata: %s\n\n' % (_type, data)
+
+
+def stream_generate(installation_id):
+    r = get_redis()
+    yield stream_message("refresh", _get_status(r, installation_id))
+    pubsub = r.pubsub()
+    pubsub.subscribe("update-%s", installation_id)
+    while True:
+        # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout
+        # to 60s, this assume 5s is enough for http and redis round strip and
+        # use 50s
+        message = pubsub.get_message(timeout=50.0)
+        if message is None:
+            yield stream_message("ping", "{}")
+        elif message["channel"] == "update-%s" % installation_id:
+            yield stream_message("refresh", _get_status(r, installation_id))
+
+
+@app.route('/status/stream/<installation_id>')
+def stream(installation_id):
+    return flask.Response(flask.stream_with_context(
+        stream_generate(installation_id)
+    ), mimetype="text/event-stream")
 
 
 @app.route("/event", methods=["POST"])
@@ -207,7 +203,6 @@ def event_handler():
     if event_type in ["refresh", "pull_request", "status",
                       "pull_request_review"]:
         get_queue().enqueue(worker.event_handler, event_type, data)
-        get_redis().publish("rq-update", "noop")
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]

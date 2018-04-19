@@ -23,11 +23,10 @@ app.classy.controller({
         this.$scope.installation_id = this.$routeParams.installation_id;
 
 
-        // NOTE(sileht): no event for now, it opens too many connections
-        if(false && typeof(EventSource) !== "undefined") {
+        if(typeof(EventSource) !== "undefined") {
             console.log("event enabled");
             this.$scope.event = true;
-            var source = new EventSource('/status/stream');
+            var source = new EventSource('/status/stream/' + this.$routeParams.installation_id);
             source.addEventListener("ping", (event) => {
                 // Just for testing the connection for heroku
             }, false);

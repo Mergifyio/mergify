@@ -298,7 +298,7 @@ class MergifyEngine(object):
             self._redis.set(key, payload)
         else:
             self._redis.delete(key)
-        self._redis.publish("update", key)
+        self._redis.publish("update-%s" % self._installation_id, key)
 
     def get_cache_for_pull(self, raw_pulls, number=None, sha=None):
         for pull in raw_pulls:
