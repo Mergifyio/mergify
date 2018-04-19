@@ -25,7 +25,7 @@ import six.moves
 LOG = logging.getLogger(__name__)
 TRAVIS_BASE_URL = 'https://api.travis-ci.org'
 TRAVIS_V2_HEADERS = {"Accept": "application/vnd.travis-ci.2+json",
-                     "User-Agent": "Pastamaker/1.0.0"}
+                     "User-Agent": "Mergify/1.0.0"}
 
 UNUSABLE_STATES = ["unknown", None]
 

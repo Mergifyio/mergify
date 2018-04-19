@@ -40,8 +40,8 @@ def event_handler(event_type, data):
         user = g.get_user(data["repository"]["owner"]["login"])
         repo = user.get_repo(data["repository"]["name"])
 
-        engine.PastaMakerEngine(g, data["installation"]["id"],
-                                user, repo).handle(event_type, data)
+        engine.MergifyEngine(g, data["installation"]["id"],
+                             user, repo).handle(event_type, data)
     except github.RateLimitExceededException:
         LOG.error("rate limit reached")
 

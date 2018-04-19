@@ -105,7 +105,7 @@ class Tester(testtools.TestCase):
         # the main token, the API have tiny differences.
         # It's safe for basic testing, but in the future we should
         # use the correct token
-        self.engine = engine.PastaMakerEngine(
+        self.engine = engine.MergifyEngine(
             self.g_main, 0, self.u_main, self.r_main)
         self.push_events()
 

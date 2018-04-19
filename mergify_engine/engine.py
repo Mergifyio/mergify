@@ -32,7 +32,7 @@ LOG = logging.getLogger(__name__)
 ENDING_STATES = ["failure", "error", "success"]
 
 
-class PastaMakerEngine(object):
+class MergifyEngine(object):
     def __init__(self, g, installation_id, user, repo):
         self._redis = utils.get_redis()
         self._g = g
