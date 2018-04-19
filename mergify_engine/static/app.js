@@ -13,7 +13,12 @@ angular.module('triage', [
     $routeProvider.when('/:installation_id', {
         templateUrl: "/static/table.html",
         controller: 'PullsController'
-    }).otherwise({ redirectTo: 'https://mergify.io/dashboard' });
+    }).otherwise({
+        controller : function(){
+            window.location.replace('https://mergify.io/');
+        },
+        template : "<div></div>"
+    });
 
 }])
 
