@@ -3,12 +3,6 @@
 	<input placeholder="travis token" style="height:1.5em;" type="password" ng-model="travis_token" ng-change="save_travis_token()"/>
 	<a href="#" ng-click="hide_all_tabs()"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>
 </div>
-<div class="error" ng-class="{hidden: !general_error}">
-   <h3>Error :(</h3>
-   <p>
-     {{ general_error }}
-   </p>
-</div>
 <div class="autorefresh">
     <i><small>
         <span>Updated <time am-time-ago="last_update"></time></span>
