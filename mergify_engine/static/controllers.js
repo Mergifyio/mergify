@@ -58,7 +58,11 @@ app.classy.controller({
             this.$scope.refreshing = true;
             this.$http({'method': 'GET', 'url': '/status/' + this.$routeParams.installation_id}).then((response) => {
                 this.update_pull_requests(response.data);
-            }).error(this.on_error);
+            }, (error) => {
+                console.warn(error);
+                this.$scope.refreshing = false;
+                this.$scope.counter = this.refresh_interval;
+            });
         },
         update_pull_requests: function(data) {
             var old_tabs = {"travis": this.opened_travis_tabs,
@@ -87,11 +91,6 @@ app.classy.controller({
                 this.$scope.groups.push(group)
             });
             this.$scope.last_update = new Date();
-            this.$scope.refreshing = false;
-            this.$scope.counter = this.refresh_interval;
-        },
-        on_error: function(data, status) {
-            console.warn(data, status);
             this.$scope.refreshing = false;
             this.$scope.counter = this.refresh_interval;
         },
