@@ -26,7 +26,6 @@ import os
 
 import flask
 import github
-import requests
 import rq
 import rq_dashboard
 
@@ -40,9 +39,9 @@ LOG = logging.getLogger(__name__)
 app = flask.Flask(__name__)
 
 app.config.from_object(rq_dashboard.default_settings)
-app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+# app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 app.config["REDIS_URL"] = utils.get_redis_url()
-app.config["RQ_POLL_INTERVAL"] = 10000  # ms
+# app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
 def get_redis():
@@ -56,11 +55,6 @@ def get_queue():
     if not hasattr(flask.g, 'rq_queue'):
         flask.g.rq_queue = rq.Queue(connection=get_redis())
     return flask.g.rq_queue
-
-
-@app.route("/auth", methods=["GET"])
-def auth():
-    return "mergify_engine don't need oauth setup"
 
 
 @app.route("/refresh/<owner>/<repo>/<path:refresh_ref>",
@@ -145,10 +139,10 @@ def queue(owner, repo, branch):
     return get_redis().get("queues~%s~%s~%s" % (owner, repo, branch)) or "[]"
 
 
-def _get_status(r):
+def _get_status(r, installation_id):
     queues = []
-    for key in r.keys("queues~*~*~*"):
-        _, owner, repo, branch = key.split("~")
+    for key in r.keys("queues~%s~*~*" % installation_id):
+        _, _, owner, repo, branch = key.split("~")
         updated_at = None
 
         payload = r.get(key)
@@ -165,41 +159,41 @@ def _get_status(r):
     return json.dumps(queues)
 
 
-@app.route("/status")
-def status():
+@app.route("/status/<installation_id>")
+def status(installation_id):
     r = get_redis()
-    return _get_status(r)
+    return _get_status(r, installation_id)
 
 
-def stream_message(_type, data):
-    return 'event: %s\ndata: %s\n\n' % (_type, data)
-
-
-def stream_generate():
-    r = get_redis()
-    yield stream_message("refresh", _get_status(r))
-    yield stream_message("rq-refresh", get_queue().count)
-    pubsub = r.pubsub()
-    pubsub.subscribe("update")
-    pubsub.subscribe("rq-update")
-    while True:
-        # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout to
-        # 60s, this assume 5s is enough for http and redis round strip and use
-        # 50s
-        message = pubsub.get_message(timeout=50.0)
-        if message is None:
-            yield stream_message("ping", "{}")
-        elif message["channel"] == "update":
-            yield stream_message("refresh", _get_status(r))
-            yield stream_message("rq-refresh", get_queue().count)
-        elif message["channel"] == "rq-update":
-            yield stream_message("rq-refresh", get_queue().count)
-
-
-@app.route('/status/stream')
-def stream():
-    return flask.Response(flask.stream_with_context(stream_generate()),
-                          mimetype="text/event-stream")
+# def stream_message(_type, data):
+#     return 'event: %s\ndata: %s\n\n' % (_type, data)
+#
+#
+# def stream_generate():
+#     r = get_redis()
+#     yield stream_message("refresh", _get_status(r))
+#     yield stream_message("rq-refresh", get_queue().count)
+#     pubsub = r.pubsub()
+#     pubsub.subscribe("update")
+#     pubsub.subscribe("rq-update")
+#     while True:
+#         # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout
+#         # to 60s, this assume 5s is enough for http and redis round strip and
+#         # use 50s
+#         message = pubsub.get_message(timeout=50.0)
+#         if message is None:
+#             yield stream_message("ping", "{}")
+#         elif message["channel"] == "update":
+#             yield stream_message("refresh", _get_status(r))
+#             yield stream_message("rq-refresh", get_queue().count)
+#         elif message["channel"] == "rq-update":
+#             yield stream_message("rq-refresh", get_queue().count)
+#
+#
+# @app.route('/status/stream')
+# def stream():
+#     return flask.Response(flask.stream_with_context(stream_generate()),
+#                           mimetype="text/event-stream")
 
 
 @app.route("/event", methods=["POST"])
@@ -263,48 +257,3 @@ def authentification():
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         flask.abort(403)
-
-
-@app.route("/login")
-def login():
-    installation_id = flask.request.args.get('installation_id')
-    params = {
-        'client_id': config.OAUTH_CLIENT_ID,
-        'redirect_uri': "%s/logged/%s" % (config.BASE_URL, installation_id),
-        'scope': 'repo',
-        'note': 'Mergify.io PR rebase/merge bot',
-        'note_url': config.BASE_URL
-    }
-    url = "https://github.com/login/oauth/authorize?"
-    url = url + "&".join("=".join(i) for i in params.items())
-    return flask.redirect(url, code=302)
-
-
-@app.route("/logged/<installation_id>")
-def logged(installation_id):
-    code = flask.request.args.get('code')
-    r = requests.post("https://github.com/login/oauth/access_token",
-                      params=dict(
-                          client_id=config.OAUTH_CLIENT_ID,
-                          client_secret=config.OAUTH_CLIENT_SECRET,
-                          code=code,
-                      ), headers={'Accept': 'application/json'})
-    r.raise_for_status()
-    token = r.json().get('access_token')
-    if not token:
-        return flask.abort(400, 'Invalid callback code')
-
-    r = requests.get(
-        "https://api.github.com/user/installations/%s/repositories" %
-        installation_id,
-        headers={"Accept": "application/vnd.github.machine-man-preview+json",
-                 "Authorization": "token %s" % token})
-    if r.status_code == 403:
-        return flask.abort(
-            400, "You don't have the write access on "
-            "repositories of this %s installation" % config.CONTEXT)
-
-    r.raise_for_status()
-
-    get_redis().set("installation-token-%s" % installation_id, token)
-    return "Registration OK"

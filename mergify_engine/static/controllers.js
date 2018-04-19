@@ -8,7 +8,7 @@ app.classy.controller({
 
 app.classy.controller({
     name: 'PullsController',
-    inject: ['$scope', '$http', '$interval', '$location', '$window', '$timeout', '$localForage'],
+    inject: ['$scope', '$http', '$interval', '$location', '$window', '$timeout', '$localForage', '$routeParams'],
     init: function() {
         'use strict';
         this.refresh_interval = 5 * 60;
@@ -16,13 +16,15 @@ app.classy.controller({
         this.$scope.counter = 0;
         this.$scope.rq_default_count = -1;
         this.$scope.autorefresh = false;
-	this.$localForage.getItem('travis_token').then((token) => { this.$scope.travis_token = token ; });
+	    this.$localForage.getItem('travis_token').then((token) => { this.$scope.travis_token = token ; });
         this.$scope.event = false;
         this.opened_travis_tabs = {};
         this.opened_commits_tabs = {};
         this.$scope.tabs_are_open = {};
 
-        if(typeof(EventSource) !== "undefined") {
+
+        // NOTE(sileht): no event for now, it opens too many connections
+        if(false && typeof(EventSource) !== "undefined") {
             console.log("event enabled");
             this.$scope.event = true;
             var source = new EventSource('/status/stream');
@@ -53,7 +55,7 @@ app.classy.controller({
         refresh: function() {
             console.log("refreshing");
             this.$scope.refreshing = true;
-            this.$http({'method': 'GET', 'url': '/status'}).then((response) => {
+            this.$http({'method': 'GET', 'url': '/status/' + this.$routeParams.installation_id}).then((response) => {
                 this.update_pull_requests(response.data);
             }).error(this.on_error);
         },

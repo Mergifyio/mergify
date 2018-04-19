@@ -275,7 +275,7 @@ class PastaMakerEngine(object):
             LOG.info("%s -> weight < 10", p.pretty())
 
     def set_cache_queues(self, branch, raw_pulls):
-        key = "queues~%s~%s~%s" % (self._u.login, self._r.name, branch)
+        key = self.get_cache_key(branch)
         LOG.info("%s, saving %d pulls to cache (%s)",
                  self._get_logprefix(branch), len(raw_pulls),
                  [p["number"] for p in raw_pulls])
@@ -301,14 +301,16 @@ class PastaMakerEngine(object):
             if incoming_pull:
                 return gh_pr.from_event(self._r, incoming_pull)
 
+    def get_cache_key(self, branch):
+        return "queues~%s~%s~%s~%s" % (self._installation_id, self._u.login,
+                                       self._r.name, branch)
+
     def get_cached_branches(self):
-        cache_key = "queues~%s~%s~*" % (self._u.login, self._r.name)
-        return [b.split('~')[3] for b in self._redis.keys(cache_key)]
+        return [b.split('~')[3] for b in
+                self._redis.keys(self.get_cache_key("*"))]
 
     def load_cache(self, branch):
-        cache_key = "queues~%s~%s~%s" % (self._u.login, self._r.name,
-                                         branch)
-        data = self._redis.get(cache_key)
+        data = self._redis.get(self.get_cache_key(branch))
         if data:
             return json.loads(data)
         else:
