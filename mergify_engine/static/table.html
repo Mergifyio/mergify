@@ -17,7 +17,6 @@
         <span ng-hide="event || autorefresh">
             , autorefresh disabled
         </span>
-        <span ng-hide="rq_default_count < 0">, {{ rq_default_count }} github event<span ng-hide="rq_default_count == 0">s</span> pending</span>
     </small></i>
 </div>
 <div ng-repeat="group in groups | orderBy:'updated_at':true" class="group">
