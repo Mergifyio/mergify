@@ -320,7 +320,7 @@ class PastaMakerEngine(object):
                                        self._r.name, branch)
 
     def get_cached_branches(self):
-        return [b.split('~')[3] for b in
+        return [b.split('~')[4] for b in
                 self._redis.keys(self.get_cache_key("*"))]
 
     def load_cache(self, branch):

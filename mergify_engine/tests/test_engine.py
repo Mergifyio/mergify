@@ -100,13 +100,13 @@ class Tester(testtools.TestCase):
         self.git("remote", "add", "fork", self.url_fork)
         self.git("fetch", "fork")
 
+        utils.get_redis().set("installation-token-0", MAIN_TOKEN)
         # FIXME(sileht): Use a GithubAPP token instead of
         # the main token, the API have tiny differences.
         # It's safe for basic testing, but in the future we should
         # use the correct token
         self.engine = engine.PastaMakerEngine(
             self.g_main, 0, self.u_main, self.r_main)
-        self.engine._updater_token = MAIN_TOKEN
         self.push_events()
 
     def tearDown(self):
