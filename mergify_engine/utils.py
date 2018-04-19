@@ -88,7 +88,7 @@ def get_installations(integration):
         },
     )
     if response.status_code == 200:
-        return response.json
+        return response.json()
     elif response.status_code == 403:
         raise GithubException.BadCredentialsException(
             status=response.status_code,
