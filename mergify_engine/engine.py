@@ -20,6 +20,7 @@ import logging
 import operator
 
 import github
+import requests
 
 from mergify_engine import config
 from mergify_engine import gh_branch
@@ -36,10 +37,23 @@ class PastaMakerEngine(object):
         self._redis = utils.get_redis()
         self._g = g
         self._installation_id = installation_id
-        self._updater_token = self._redis.get("installation-token-%s" %
-                                              self._installation_id)
+        self._updater_token = self.get_updater_token()
+
         self._u = user
         self._r = repo
+
+    def get_updater_token(self):
+        self._updater_token = self._redis.get("installation-token-%s" %
+                                              self._installation_id)
+        if self._updater_token is None:
+            resp = requests.get("https://mergify.io/engine/token/%s" %
+                                self._installation_id,
+                                auth=(config.OAUTH_CLIENT_ID,
+                                      config.OAUTH_CLIENT_SECRET))
+            self._updater_token = resp.json()['token']
+            self._redis.set("installation-token-%s" % self._installation_id,
+                            self._updater_token)
+        return self._updater_token
 
     def handle(self, event_type, data):
         # Everything start here
