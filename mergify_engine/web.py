@@ -223,6 +223,11 @@ def event_handler():
 
 @app.route("/")
 def index():
+    return flask.redirect("https://mergify.io/")
+
+
+@app.route("/<installation_id>")
+def installation(installation_id):
     return app.send_static_file("index.html")
 
 
