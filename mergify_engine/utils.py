@@ -91,16 +91,16 @@ def get_installations(integration):
         return response.json
     elif response.status_code == 403:
         raise GithubException.BadCredentialsException(
-            status_code=response.status_code,
+            status=response.status_code,
             data=response.text
         )
     elif response.status_code == 404:
         raise GithubException.UnknownObjectException(
-            status_code=response.status_code,
+            status=response.status_code,
             data=response.text
         )
     raise GithubException.GithubException(
-        status_code=response.status_code,
+        status=response.status_code,
         data=response.text
     )
 
