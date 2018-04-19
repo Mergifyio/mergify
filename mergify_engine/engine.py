@@ -44,6 +44,10 @@ class PastaMakerEngine(object):
     def handle(self, event_type, data):
         # Everything start here
 
+        # Don't handle private repo for now
+        if self._r.private:
+            return
+
         if event_type == "status":
             # Don't compute the queue for nothing
             if data["context"].startswith("%s/" % config.CONTEXT):
