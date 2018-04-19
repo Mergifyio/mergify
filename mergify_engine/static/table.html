@@ -2,11 +2,11 @@
 <div style="margin-top:-50px;" class="pull-right">
 	<input placeholder="travis token" style="height:1.5em;" type="password" ng-model="travis_token" ng-change="save_travis_token()"/>
 	<a href="#" ng-click="hide_all_tabs()"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>
-    <span>installation {{ installation_id }} </span>
 </div>
 <div class="autorefresh">
     <i><small>
-        <span>Updated <time am-time-ago="last_update"></time></span>
+        <span>Installation {{ installation_id }}, </span>
+        <span>updated <time am-time-ago="last_update"></time></span>
         <span ng-show="autorefresh">
             <span ng-show="refreshing">, refreshing...</span>
             <span ng-hide="refreshing">, refresh in {{ counter }} seconds</span>
