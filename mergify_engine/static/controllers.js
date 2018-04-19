@@ -21,6 +21,7 @@ app.classy.controller({
         this.opened_travis_tabs = {};
         this.opened_commits_tabs = {};
         this.$scope.tabs_are_open = {};
+        this.$scope.installation_id = this.$routeParams.installation_id;
 
 
         // NOTE(sileht): no event for now, it opens too many connections
