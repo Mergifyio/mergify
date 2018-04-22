@@ -14,27 +14,32 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import itertools
+import json
 import logging
 import os
 import re
-import time
-import uuid
 
+import betamax
+from betamax_serializers.pretty_json import PrettyJSONSerializer
+import fixtures
 import github
+import requests
 import testtools
 
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
+from mergify_engine import gh_update_branch
 from mergify_engine import utils
 
 gh_pr.monkeypatch_github()
 
 LOG = logging.getLogger(__name__)
 
-MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN")
-FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN")
+MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN", "<MAIN_TOKEN>")
+FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN", "<FORK_TOKEN>")
+RECORD_MODE = 'none' if MAIN_TOKEN == "<MAIN_TOKEN>" else 'all'
 
 CONFIG = """
 policies:
@@ -56,8 +61,66 @@ policies:
 """
 
 
-@testtools.skipIf(FORK_TOKEN is None or
-                  MAIN_TOKEN is None, "TOKEN missing")
+betamax.Betamax.register_serializer(PrettyJSONSerializer)
+
+with betamax.Betamax.configure() as c:
+    c.cassette_library_dir = 'mergify_engine/tests/fixtures/http_cassettes'
+    c.default_cassette_options.update({
+        'record_mode': RECORD_MODE,
+        'match_requests_on': ['method', 'uri', 'headers'],
+        'serialize_with': 'prettyjson',
+    })
+    c.define_cassette_placeholder("<MAIN_TOKEN>", MAIN_TOKEN)
+    c.define_cassette_placeholder("<FORK_TOKEN>", FORK_TOKEN)
+
+    if not os.path.exists(c.cassette_library_dir):
+        os.makedirs(c.cassette_library_dir)
+
+
+class GitterRecorder(utils.Gitter):
+    cassette_library_dir = 'mergify_engine/tests/fixtures/git_cassettes'
+
+    def __init__(self, cassette_name):
+        super(GitterRecorder, self).__init__()
+        self.name = cassette_name
+        self.cassette_path = os.path.join(self.cassette_library_dir,
+                                          "%s.json" % self.name)
+        if RECORD_MODE == 'all':
+            self.records = []
+        else:
+            self.load_records()
+
+    def load_records(self):
+        if not os.path.exists(self.cassette_path):
+            raise RuntimeError("Cassette %s not found" % self.cassette_path)
+        with open(self.cassette_path, 'r') as f:
+            self.records = json.loads(f.read())
+
+    def save_records(self):
+        if not os.path.exists(self.cassette_library_dir):
+            os.makedirs(self.cassette_library_dir)
+        with open(self.cassette_path, 'w') as f:
+            f.write(json.dumps(self.records).replace(
+                MAIN_TOKEN, "<MAIN_TOKEN>").replace(
+                    FORK_TOKEN, "<FORK_TOKEN>"))
+
+    def __call__(self, *args, **kwargs):
+        if RECORD_MODE == 'all':
+            out = super(GitterRecorder, self).__call__(*args, **kwargs)
+            self.records.append({"args": args, "kwargs": kwargs, "out": out})
+            return out
+        else:
+            r = self.records.pop(0)
+            assert r['args'] == list(args)
+            assert r['kwargs'] == kwargs
+            return r['out']
+
+    def cleanup(self):
+        super(GitterRecorder, self).cleanup()
+        if RECORD_MODE == 'all':
+            self.save_records()
+
+
 class Tester(testtools.TestCase):
     """Pastamaker engine tests
 
@@ -67,7 +130,20 @@ class Tester(testtools.TestCase):
 
     def setUp(self):
         super(Tester, self).setUp()
-        self.name = str(uuid.uuid4())
+        session = requests.Session()
+        session.trust_env = False
+        self.recorder = betamax.Betamax(session)
+        self.cassette = lambda n, *args, **kwargs: self.recorder.use_cassette(
+            self._testMethodName + "_" + n, *args, **kwargs)
+
+        self.useFixture(fixtures.MockPatchObject(
+            requests, 'Session', return_value=session))
+
+        self.useFixture(fixtures.MockPatchObject(
+            gh_update_branch.utils, 'Gitter',
+            lambda: GitterRecorder(self._testMethodName)))
+
+        self.name = "repo-%s" % self._testMethodName
 
         self.pr_counter = 0
         self.last_event_id = None
@@ -75,54 +151,56 @@ class Tester(testtools.TestCase):
         utils.setup_logging()
         config.log()
 
-        self.git = utils.Gitter()
+        self.git = GitterRecorder('%s-tests' % self._testMethodName)
+        self.addCleanup(self.git.cleanup)
 
-        self.g_main = github.Github(MAIN_TOKEN)
-        self.g_fork = github.Github(FORK_TOKEN)
-
-        self.u_main = self.g_main.get_user()
-        self.u_fork = self.g_fork.get_user()
-
-        self.r_main = self.u_main.create_repo(self.name)
-        self.url_main = "https://%s:@github.com/%s" % (
-            MAIN_TOKEN, self.r_main.full_name)
-
-        self.git("init")
-        self.git("remote", "add", "main", self.url_main)
-
-        with open(self.git.tmp + "/.mergify.yml", "w") as f:
-            f.write(CONFIG)
-        self.git("add", ".mergify.yml")
-        self.git("commit", "--no-edit", "-m", "initial commit")
-        self.git("push", "main", "master")
-
-        self.r_fork = self.u_fork.create_fork(self.r_main)
-        self.url_fork = "https://%s:@github.com/%s" % (
-            FORK_TOKEN, self.r_fork.full_name)
-        self.git("remote", "add", "fork", self.url_fork)
-        self.git("fetch", "fork")
-
+        # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis()
+        for k in self.redis.keys():
+            self.redis.delete(k)
         self.redis.set("installation-token-0", MAIN_TOKEN)
-        # FIXME(sileht): Use a GithubAPP token instead of
-        # the main token, the API have tiny differences.
-        # It's safe for basic testing, but in the future we should
-        # use the correct token
-        self.engine = engine.MergifyEngine(
-            self.g_main, 0, self.u_main, self.r_main)
-        self.push_events()
+
+        with self.cassette("setUp"):
+            self.g_main = github.Github(MAIN_TOKEN)
+            self.g_fork = github.Github(FORK_TOKEN)
+
+            self.u_main = self.g_main.get_user()
+            self.u_fork = self.g_fork.get_user()
+            assert self.u_main.login == "mergify-test1"
+            assert self.u_fork.login == "mergify-test2"
+
+            self.r_main = self.u_main.create_repo(self.name)
+            self.url_main = "https://%s:@github.com/%s" % (
+                MAIN_TOKEN, self.r_main.full_name)
+            self.git("init")
+            self.git("config", "user.name", "%s-bot" % config.CONTEXT)
+            self.git("config", "user.email", "noreply@mergify.io")
+            self.git("remote", "add", "main", self.url_main)
+            with open(self.git.tmp + "/.mergify.yml", "w") as f:
+                f.write(CONFIG)
+            self.git("add", ".mergify.yml")
+            self.git("commit", "--no-edit", "-m", "initial commit")
+            self.git("push", "main", "master")
+
+            self.r_fork = self.u_fork.create_fork(self.r_main)
+            self.url_fork = "https://%s:@github.com/%s" % (
+                FORK_TOKEN, self.r_fork.full_name)
+            self.git("remote", "add", "fork", self.url_fork)
+            self.git("fetch", "fork")
+
+            # FIXME(sileht): Use a GithubAPP token instead of
+            # the main token, the API have tiny differences.
+            # It's safe for basic testing, but in the future we should
+            # use the correct token
+            self.engine = engine.MergifyEngine(
+                self.g_main, 0, self.u_main, self.r_main)
+            self.push_events()
 
     def tearDown(self):
         super(Tester, self).tearDown()
-        if self.git:
-            self.git.cleanup()
-
-        if os.getenv("MERGIFYENGINE_KEEP_REPO"):
-            return
-        if self.r_main:
-            self.r_main.delete()
-        if self.r_fork:
+        with self.cassette("tearDown"):
             self.r_fork.delete()
+            self.r_main.delete()
 
     def create_pr(self):
         branch = "fork/pr%d" % self.pr_counter
@@ -140,6 +218,7 @@ class Tester(testtools.TestCase):
             base="master",
             head="%s:%s" % (self.r_fork.owner.login, branch),
             title=title, body=title)
+        self.push_events()
 
         # NOTE(sileht): We return the same but owned by the main project
         return self.r_main.get_pull(p.number)
@@ -183,10 +262,13 @@ class Tester(testtools.TestCase):
     def create_review_and_push_event(self, pr, commit):
         # NOTE(sileht): Same as status for pull_request_review
         r = pr.create_review(commit, "Perfect", event="APPROVE")
+
+        # Get a updated pull request
+        pull_request = self.r_main.get_pull(pr.number).raw_data
         payload = {
             "action": "submitted",
             "review": r.raw_data,
-            "pull_request": pr.raw_data,
+            "pull_request": pull_request,
             "repository": pr.base.repo.raw_data,
             "organization": None,
             "installation": {"id": 0},
@@ -196,15 +278,15 @@ class Tester(testtools.TestCase):
         self.engine.handle("pull_request_review", payload)
 
     def push_events(self):
-        # FIXME(sileht): maybe wait for a minimal number of event.
-        time.sleep(0.1)
-
         # NOTE(sileht): Simulate push Github events
         events = list(
             itertools.takewhile(lambda e: e.id != self.last_event_id,
                                 self.r_main.get_events()))
         if events:
             self.last_event_id = events[0].id
+        else:
+            # FIXME(sileht): Use retry
+            self.push_events()
 
         for event in reversed(events):
             # NOTE(sileht): PullRequestEvent -> pull_request
@@ -213,9 +295,11 @@ class Tester(testtools.TestCase):
             self.engine.handle(etype, event.payload)
 
     def test_basic(self):
-        self.create_pr()
-        p2 = self.create_pr()
-        self.push_events()
+        with self.cassette("create_pr1", allow_playback_repeats=True):
+            self.create_pr()
+        with self.cassette("create_pr2", allow_playback_repeats=True):
+            p2 = self.create_pr()
+            commits = list(p2.get_commits())
 
         # Check we have only on branch registered
         self.assertEqual(["master"], self.engine.get_cached_branches())
@@ -234,8 +318,9 @@ class Tester(testtools.TestCase):
             "restrictions": None,
             "enforce_admins": False,
         }
-        self.assertTrue(gh_branch.is_protected(self.r_main, "master",
-                                               expected_policy))
+        with self.cassette("branch"):
+            self.assertTrue(gh_branch.is_protected(self.r_main, "master",
+                                                   expected_policy))
 
         # Checks the content of the cache
         pulls = self.engine.build_queue("master")
@@ -243,12 +328,12 @@ class Tester(testtools.TestCase):
         for p in pulls:
             self.assertEqual(-1, p.mergify_engine['weight'])
 
-        commits = list(p2.get_commits())
-
-        # Post CI status
-        self.create_status_and_push_event(p2, commits[0])
-        # Approve the patch
-        self.create_review_and_push_event(p2, commits[0])
+        with self.cassette("status"):
+            # Post CI status
+            self.create_status_and_push_event(p2, commits[0])
+        with self.cassette("review"):
+            # Approve the patch
+            self.create_review_and_push_event(p2, commits[0])
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
@@ -259,36 +344,37 @@ class Tester(testtools.TestCase):
         self.assertEqual(-1, pulls[1].mergify_engine['weight'])
 
         # Check the merged pull request is gone
-        self.push_events()
+        with self.cassette("merge"):
+            self.push_events()
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
     def test_refresh(self):
-        p1 = self.create_pr()
-        p2 = self.create_pr()
-        self.push_events()
+        with self.cassette("create_pr1", allow_playback_repeats=True):
+            p1 = self.create_pr()
+        with self.cassette("create_pr2", allow_playback_repeats=True):
+            p2 = self.create_pr()
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
 
-        # Test pr refresh API
-        self.engine.handle("refresh", {
-            'repository': self.r_main.raw_data,
-            'installation': {'id': '0'},
-            "pull_request": p1.raw_data,
-        })
-        self.engine.handle("refresh", {
-            'repository': self.r_main.raw_data,
-            'installation': {'id': '0'},
-            "pull_request": p2.raw_data,
-        })
+        with self.cassette("refresh-1"):
+            self.engine.handle("refresh", {
+                'repository': self.r_main.raw_data,
+                'installation': {'id': '0'},
+                "pull_request": p1.raw_data,
+            })
+        with self.cassette("refresh-2"):
+            self.engine.handle("refresh", {
+                'repository': self.r_main.raw_data,
+                'installation': {'id': '0'},
+                "pull_request": p2.raw_data,
+            })
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        self.assertEqual(1, pulls[0].number)
-        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))

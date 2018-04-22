@@ -31,7 +31,6 @@ import requests
 from mergify_engine import config
 
 LOG = logging.getLogger(__name__)
-NULL = open(os.devnull, 'wb')
 
 
 global REDIS_CONNECTION
@@ -120,10 +119,7 @@ class Gitter(object):
     def __call__(self, *args, **kwargs):
         LOG.info("calling: %s" % " ".join(args))
         kwargs["cwd"] = self.tmp
-        kwargs.setdefault("stdout", NULL)
-        p = subprocess.Popen(["git"] + list(args), **kwargs)
-        p.wait()
-        return p
+        return subprocess.check_output(["git"] + list(args), **kwargs)
 
     def cleanup(self):
         LOG.info("cleaning: %s" % self.tmp)
