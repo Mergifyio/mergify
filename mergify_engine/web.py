@@ -40,7 +40,7 @@ app = flask.Flask(__name__)
 
 # app.config.from_object(rq_dashboard.default_settings)
 # app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
-app.config["REDIS_URL"] = utils.get_redis_url()
+# app.config["REDIS_URL"] = utils.get_redis_url()
 # app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
@@ -69,34 +69,23 @@ def refresh(owner, repo, refresh_ref):
     if not installation_id:
         flask.abort(404, "%s have not installed mergify_engine" % owner)
 
+    token = integration.get_access_token(installation_id).token
+    g = github.Github(token)
+    r = g.get_repo("%s/%s" % (owner, repo))
     if refresh_ref == "full":
-        token = integration.get_access_token(installation_id).token
-        g = github.Github(token)
-        r = g.get_repo("%s/%s" % (owner, repo))
         pulls = r.get_pulls()
         branches = set([p.base.ref for p in pulls])
-        for branch in branches:
-            # Mimic the github event format
-            data = {
-                'repository': {
-                    'name': repo,
-                    'full_name': '%s/%s' % (owner, repo),
-                    'owner': {'login': owner},
-                },
-                'installation': {'id': installation_id},
-                "refresh_ref": "branch/%s" % branch,
-            }
-            get_queue().enqueue(worker.event_handler, "refresh", data)
+        keys = ["queues~%s~%s~%s~%s" % (installation_id, owner, repo, b)
+                for b in branches]
+        utils.get_redis().delete(*keys)
     else:
+        pulls = [r.get_pull(int(refresh_ref[5:]))]
+    for p in pulls:
         # Mimic the github event format
         data = {
-            'repository': {
-                'name': repo,
-                'full_name': '%s/%s' % (owner, repo),
-                'owner': {'login': owner},
-            },
+            'repository': r.raw_data,
             'installation': {'id': installation_id},
-            "refresh_ref": refresh_ref,
+            'pull_request': p.raw_data,
         }
         get_queue().enqueue(worker.event_handler, "refresh", data)
 
@@ -143,12 +132,12 @@ def _get_status(r, installation_id):
     queues = []
     for key in r.keys("queues~%s~*~*" % installation_id):
         _, _, owner, repo, branch = key.split("~")
-        updated_at = None
-
-        payload = r.get(key)
-        if payload:
-            pulls = json.loads(payload)
+        payload = r.hgetall(key)
+        pulls = [json.loads(p) for p in payload.values()]
+        if pulls:
             updated_at = list(sorted([p["updated_at"] for p in pulls]))[-1]
+        else:
+            updated_at = None
         queues.append({
             "owner": owner,
             "repo": repo,

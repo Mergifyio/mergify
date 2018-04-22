@@ -40,7 +40,7 @@
      </tr>
      </thead>
      <tbody>
-         <tr ng-repeat-start="pull in group.pulls">
+         <tr ng-repeat-start="pull in group.pulls | orderBy:['-mergify_engine_weight','-updated_at']">
              <td class="title">
                  <div class="pull-right"><span style="color:green">+{{ pull.additions }}</span> / <span style="color:red">-{{ pull.deletions }}</span></div>
                  <a href="{{ pull.user.html_url }}"><img ng-src="{{ pull.user.avatar_url }}" class="avatar" alt="{{ pull.user.login }}"></a>

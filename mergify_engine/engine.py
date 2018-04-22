@@ -60,10 +60,6 @@ class MergifyEngine(object):
     def handle(self, event_type, data):
         # Everything start here
 
-        # Don't handle private repo for now
-        if self._r.private:
-            return
-
         if event_type == "status":
             # Don't compute the queue for nothing
             if data["context"].startswith("%s/" % config.CONTEXT):
@@ -73,35 +69,28 @@ class MergifyEngine(object):
 
         # Get the current pull request
         incoming_pull = gh_pr.from_event(self._r, data)
+        if not incoming_pull and event_type == "status":
+            # It's safe to take the one from cache, since only status have
+            # changed
+            incoming_pull = self.get_incoming_pull_from_cache(data["sha"])
+            if not incoming_pull:
+                issues = list(self._g.search_issues("is:pr %s" %
+                                                    data["sha"]))
+                if len(issues) >= 1:
+                    incoming_pull = self._r.get_pull(issues[0].number)
+
         if not incoming_pull:
-            if event_type == "status":
-                # It's safe to take the one from cache, since only status have
-                # changed
-                incoming_pull = self.get_incoming_pull_from_cache(data["sha"])
-                if not incoming_pull:
-                    issues = list(self._g.search_issues("is:pr %s" %
-                                                        data["sha"]))
-                    if len(issues) >= 1:
-                        incoming_pull = self._r.get_pull(issues[0].number)
-
-            elif (event_type == "refresh" and
-                  data["refresh_ref"].startswith("pull/")):
-                incoming_pull = self._r.get_pull(int(data["refresh_ref"][5:]))
-
-        # Get the current branch
-        current_branch = None
-        if incoming_pull:
-            current_branch = incoming_pull.base.ref
-        elif (event_type == "refresh" and
-              data["refresh_ref"].startswith("branch/")):
-            current_branch = data["refresh_ref"][7:]
-        else:
-            LOG.info("No pull request or branch found in the event %s, "
+            LOG.info("No pull request found in the event %s, "
                      "ignoring" % event_type)
             return
 
         # Log the event
         self.log_formated_event(event_type, incoming_pull, data)
+
+        # Don't handle private repo for now
+        if self._r.private:
+            LOG.info("No need to proceed queue (private repo)")
+            return
 
         # Unhandled and already logged
         if event_type not in ["pull_request", "pull_request_review",
@@ -109,23 +98,28 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted event_type)")
             return
 
-        if event_type == "status" and incoming_pull.head.sha != data["sha"]:
+        elif event_type == "status" and incoming_pull.head.sha != data["sha"]:
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
         # We don't care about *labeled/*assigned/review_request*/edited
-        if (event_type == "pull_request" and data["action"] not in [
+        elif (event_type == "pull_request" and data["action"] not in [
                 "opened", "reopened", "closed", "synchronize", "edited"]):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
+        elif event_type == "pull_request" and data["action"] == "closed":
+            self.cache_remove_pull(incoming_pull)
+            LOG.info("Just update cache (pull_request closed)")
+            return
+
+        branch_policy = None
+        branch_policy_error = None
         try:
-            branch_policy_error = None
-            branch_policy = gh_branch.get_branch_policy(self._r,
-                                                        current_branch)
+            branch_policy = gh_branch.get_branch_policy(
+                self._r, incoming_pull.base.ref)
         except gh_branch.NoPolicies as e:
             branch_policy_error = str(e)
-            branch_policy = None
 
         fullify_extra = {
             "branch_policy": branch_policy,
@@ -136,71 +130,62 @@ class MergifyEngine(object):
                 data["context"] == "continuous-integration/travis-ci/pr"):
             fullify_extra["travis"] = data
 
-        # Retrieve cache
-        cached_pulls = self.load_cache(current_branch)
+        # First, remove informations we don't want to get from cache, so their
+        # will be got/computed by PullRequest.fullify()
+        if event_type == "refresh":
+            cache = {}
+        else:
+            cache = self.get_cache_for_pull_number(incoming_pull.base.ref,
+                                                   incoming_pull.number)
+            cache = dict((k, v) for k, v in cache.items()
+                         if k.startswith("mergify_engine_"))
+            cache.pop("mergify_engine_weight", None)
 
-        # Gather missing github/travis information and compute weight
-        if incoming_pull:
-            # First, remove informations we don't want to get from cache
-            if event_type == "refresh":
-                cache = {}
-            else:
-                cache = self.get_cache_for_pull(cached_pulls,
-                                                incoming_pull.number)
-                cache = dict((k, v) for k, v in cache.items()
-                             if k.startswith("mergify_engine_"))
-                cache.pop("mergify_engine_weight", None)
+            if (event_type == "status" and
+                    data["state"] == cache.get(
+                        "mergify_engine_travis_state")):
+                LOG.info("No need to proceed queue (got status without "
+                         "state change '%s')" % data["state"])
+                return
+            elif event_type == "status":
+                cache.pop("mergify_engine_combined_status", None)
+                cache["mergify_engine_ci_statuses"] = {}
+                cache["mergify_engine_travis_state"] = data["state"]
+                cache["mergify_engine_travis_url"] = data["target_url"]
+                if data["state"] in ENDING_STATES:
+                    cache.pop("mergify_engine_travis_detail", None)
+                else:
+                    cache["mergify_engine_travis_detail"] = {}
 
-                if (event_type == "status" and
-                        data["state"] == cache.get(
-                            "mergify_engine_travis_state")):
-                    LOG.info("No need to proceed queue (got status without "
-                             "state change '%s')" % data["state"])
-                    return
-                elif event_type == "status":
+            elif event_type == "pull_request_review":
+                cache.pop("mergify_engine_reviews", None)
+                cache.pop("mergify_engine_approvals", None)
+                cache.pop("mergify_engine_approved", None)
+            elif event_type == "pull_request":
+                if data["action"] not in ["closed", "edited"]:
+                    cache.pop("mergify_engine_commits", None)
+                if data["action"] == "synchronize":
+                    # NOTE(sileht): hardcode ci status that will be refresh
+                    # on next travis event
                     cache.pop("mergify_engine_combined_status", None)
                     cache["mergify_engine_ci_statuses"] = {}
-                    cache["mergify_engine_travis_state"] = data["state"]
-                    cache["mergify_engine_travis_url"] = data["target_url"]
-                    if data["state"] in ENDING_STATES:
-                        cache.pop("mergify_engine_travis_detail", None)
-                    else:
-                        cache["mergify_engine_travis_detail"] = {}
+                    cache.pop("mergify_engine_travis_state", None)
+                    cache.pop("mergify_engine_travis_url", None)
+                    cache.pop("mergify_engine_travis_detail", None)
 
-                elif event_type == "pull_request_review":
-                    cache.pop("mergify_engine_reviews", None)
-                    cache.pop("mergify_engine_approvals", None)
-                    cache.pop("mergify_engine_approved", None)
-                elif event_type == "pull_request":
-                    if data["action"] not in ["closed", "edited"]:
-                        cache.pop("mergify_engine_commits", None)
-                    if data["action"] == "synchronize":
-                        # NOTE(sileht): hardcode ci status that will be refresh
-                        # on next travis event
-                        cache.pop("mergify_engine_combined_status", None)
-                        cache["mergify_engine_ci_statuses"] = {}
-                        cache.pop("mergify_engine_travis_state", None)
-                        cache.pop("mergify_engine_travis_url", None)
-                        cache.pop("mergify_engine_travis_detail", None)
-
-            incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
+        incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
+        self.cache_save_pull(incoming_pull)
 
         # NOTE(sileht): just refresh this pull request in cache
         if event_type == "status" and data["state"] == "pending":
-            self.build_queue_and_save_to_cache(cached_pulls, current_branch,
-                                               incoming_pull)
             LOG.info("Just update cache (ci status pending)")
             return
         elif event_type == "pull_request" and data["action"] == "edited":
-            self.build_queue_and_save_to_cache(cached_pulls, current_branch,
-                                               incoming_pull)
             LOG.info("Just update cache (pull_request edited)")
             return
         elif (event_type == "pull_request_review" and
                 data["review"]["user"]["id"] not in
                 fullify_extra["collaborators"]):
-            self.build_queue_and_save_to_cache(cached_pulls, current_branch,
-                                               incoming_pull)
             LOG.info("Just update cache (pull_request_review non-collab)")
             return
 
@@ -219,37 +204,25 @@ class MergifyEngine(object):
         # NOTE(sileht): PullRequest updated or comment posted, maybe we need to
         # update github
         # Get and refresh the queues
-        if not incoming_pull:
-            queues = self.get_updated_queues_from_github(
-                current_branch, **fullify_extra)
-            if event_type == "refresh":
-                for p in queues:
-                    p.mergify_engine_github_post_check_status(
-                        self._installation_id, self._updater_token,
-                        branch_policy_error)
-            else:
-                LOG.warning("FIXME: We got a event without incoming_pull:"
-                            "%s : %s" % (event_type, data))
-        else:
-            if event_type in ["pull_request", "pull_request_review",
-                              "refresh"]:
-                incoming_pull.mergify_engine_github_post_check_status(
-                    self._installation_id, self._updater_token,
-                    branch_policy_error)
-            queues = self.build_queue_and_save_to_cache(cached_pulls,
-                                                        current_branch,
-                                                        incoming_pull)
+        if event_type in ["pull_request", "pull_request_review",
+                          "refresh"]:
+            incoming_pull.mergify_engine_github_post_check_status(
+                self._installation_id, self._updater_token,
+                branch_policy_error)
 
+        # NOTE(sileht): Starting here cache should not be updated
+
+        queue = self.build_queue(incoming_pull.base.ref)
         # Proceed the queue
-        if branch_policy and queues:
+        if branch_policy and queue:
             # protect the branch before doing anything
             try:
-                gh_branch.protect_if_needed(self._r, current_branch,
+                gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
                                             branch_policy)
             except github.UnknownObjectException:
                 LOG.exception("Fail to protect branch, disabled automerge")
                 return
-            self.proceed_queues(queues)
+            self.proceed_queue(queue[0])
         elif not branch_policy:
             LOG.info("No policies setuped, skipping queues processing")
         else:
@@ -259,13 +232,27 @@ class MergifyEngine(object):
     # State machine goes here #
     ###########################
 
-    def proceed_queues(self, queues):
+    def build_queue(self, branch):
+        data = self._redis.hgetall(self.get_cache_key(branch))
+
+        with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
+            pulls = list(tpe.map(
+                lambda p: gh_pr.from_cache(self._r, json.loads(p)),
+                data.values()))
+
+        sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
+        pulls = list(sorted(pulls, key=sort_key, reverse=True))
+        LOG.info("%s, queues content:" % self._get_logprefix(branch))
+        for p in pulls:
+            LOG.info("%s, sha: %s->%s)", p.pretty(), p.base.sha, p.head.sha)
+        return pulls
+
+    def proceed_queue(self, p):
         """Do the next action for this pull request
 
         'p' is the top priority pull request to merge
         """
 
-        p = queues[0]
         LOG.info("%s selected", p.pretty())
 
         if p.mergify_engine_weight >= 11:
@@ -290,30 +277,31 @@ class MergifyEngine(object):
         else:
             LOG.info("%s -> weight < 10", p.pretty())
 
-    def set_cache_queues(self, branch, raw_pulls):
-        key = self.get_cache_key(branch)
-        LOG.info("%s, saving %d pulls to cache (%s)",
-                 self._get_logprefix(branch), len(raw_pulls),
-                 [p["number"] for p in raw_pulls])
-        if raw_pulls:
-            payload = json.dumps(raw_pulls)
-            self._redis.set(key, payload)
-        else:
-            self._redis.delete(key)
-        self._redis.publish("update-%s" % self._installation_id, key)
+    def cache_save_pull(self, pull):
+        key = self.get_cache_key(pull.base.ref)
+        self._redis.hset(key, pull.number, json.dumps(pull.jsonify()))
 
-    def get_cache_for_pull(self, raw_pulls, number=None, sha=None):
-        for pull in raw_pulls:
-            if sha is not None and pull["head"]["sha"] == sha:
-                return pull
-            if number is not None and pull["number"] == number:
+    def cache_remove_pull(self, pull):
+        key = self.get_cache_key(pull.base.ref)
+        self._redis.hdel(key, pull.number)
+
+    def get_cache_for_pull_number(self, current_branch, number):
+        key = self.get_cache_key(current_branch)
+        p = self._redis.hget(key, number)
+        return {} if p is None else json.loads(p)
+
+    def get_cache_for_pull_sha(self, current_branch, sha):
+        key = self.get_cache_key(current_branch)
+        raw_pulls = self._redis.hgetall(key)
+        for pull in raw_pulls.values():
+            pull = json.loads(pull)
+            if pull["head"]["sha"] == sha:
                 return pull
         return {}
 
     def get_incoming_pull_from_cache(self, sha):
         for branch in self.get_cached_branches():
-            cached_pulls = self.load_cache(branch)
-            incoming_pull = self.get_cache_for_pull(cached_pulls, sha=sha)
+            incoming_pull = self.get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
                 return gh_pr.from_event(self._r, incoming_pull)
 
@@ -324,53 +312,6 @@ class MergifyEngine(object):
     def get_cached_branches(self):
         return [b.split('~')[4] for b in
                 self._redis.keys(self.get_cache_key("*"))]
-
-    def load_cache(self, branch):
-        data = self._redis.get(self.get_cache_key(branch))
-        if data:
-            return json.loads(data)
-        else:
-            return []
-
-    def build_queue_and_save_to_cache(self, pulls, branch, incoming_pull):
-        LOG.info("%s, load %d pulls from cache (%s)",
-                 incoming_pull.pretty(),
-                 len(pulls),
-                 [p["number"] for p in pulls])
-
-        pulls = [p for p in pulls if int(p["number"]) != incoming_pull.number]
-
-        LOG.info("%s, convert %d pulls from cache (%s)",
-                 incoming_pull.pretty(),
-                 len(pulls),
-                 [p["number"] for p in pulls])
-
-        with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
-            pulls = list(tpe.map(lambda p: gh_pr.from_cache(self._r, p),
-                                 pulls))
-
-        if incoming_pull.state == "open":
-            LOG.info("%s, add #%s to cache", incoming_pull.pretty(),
-                     incoming_pull.number)
-            pulls.append(incoming_pull)
-        return self.sort_save_and_log_queues(branch, pulls)
-
-    def get_updated_queues_from_github(self, branch, **extra):
-        LOG.info("%s, retrieving pull requests", self._get_logprefix(branch))
-        pulls = self._r.get_pulls(sort="created", direction="asc", base=branch)
-        with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
-            list(tpe.map(lambda p: p.fullify(**extra), pulls))
-        return self.sort_save_and_log_queues(branch, pulls)
-
-    def sort_save_and_log_queues(self, branch, pulls):
-        sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
-        pulls = list(sorted(pulls, key=sort_key, reverse=True))
-        LOG.info("%s, cache content:" % self._get_logprefix(branch))
-        for p in pulls:
-            LOG.info("%s, sha: %s->%s)", p.pretty(), p.base.sha, p.head.sha)
-        raw_queues = [p.jsonify() for p in pulls]
-        self.set_cache_queues(branch, raw_queues)
-        return pulls
 
     def _get_logprefix(self, branch="<unknown>"):
         return (self._u.login + "/" + self._r.name +
@@ -399,10 +340,7 @@ class MergifyEngine(object):
             extra = ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
 
         elif event_type == "refresh":
-            if incoming_pull:
-                p_info = incoming_pull.pretty()
-            else:
-                p_info = self._get_logprefix(data["refresh_ref"])
+            p_info = incoming_pull.pretty()
             extra = ""
         else:
             if incoming_pull:

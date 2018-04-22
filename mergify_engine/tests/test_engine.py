@@ -238,10 +238,10 @@ class Tester(testtools.TestCase):
                                                expected_policy))
 
         # Checks the content of the cache
-        pulls = self.engine.load_cache("master")
+        pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
         for p in pulls:
-            self.assertEqual(-1, p["mergify_engine_weight"])
+            self.assertEqual(-1, p.mergify_engine['weight'])
 
         commits = list(p2.get_commits())
 
@@ -250,51 +250,47 @@ class Tester(testtools.TestCase):
         # Approve the patch
         self.create_review_and_push_event(p2, commits[0])
 
-        pulls = self.engine.load_cache("master")
+        pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        self.assertEqual(2, pulls[0]['number'])
-        self.assertEqual(11, pulls[0]['mergify_engine_weight'])
+        self.assertEqual(2, pulls[0].number)
+        self.assertEqual(11, pulls[0].mergify_engine['weight'])
 
-        self.assertEqual(1, pulls[1]['number'])
-        self.assertEqual(-1, pulls[1]['mergify_engine_weight'])
+        self.assertEqual(1, pulls[1].number)
+        self.assertEqual(-1, pulls[1].mergify_engine['weight'])
 
         # Check the merged pull request is gone
         self.push_events()
-        pulls = self.engine.load_cache("master")
+        pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
     def test_refresh(self):
-        self.create_pr()
-        self.create_pr()
+        p1 = self.create_pr()
+        p2 = self.create_pr()
         self.push_events()
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
-        pulls = self.engine.load_cache("master")
+        pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
 
         # Test pr refresh API
         self.engine.handle("refresh", {
             'repository': self.r_main.raw_data,
             'installation': {'id': '0'},
-            "refresh_ref": "pull/2",
+            "pull_request": p1.raw_data,
         })
-        pulls = self.engine.load_cache("master")
-        self.assertEqual(1, len(pulls))
-        self.assertEqual(2, pulls[0]['number'])
-        self.assertEqual(-1, pulls[0]['mergify_engine_weight'])
-
-        # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine.get_cache_key("master"))
-        pulls = self.engine.load_cache("master")
-        self.assertEqual(0, len(pulls))
-
-        # Test full refresh API
         self.engine.handle("refresh", {
             'repository': self.r_main.raw_data,
             'installation': {'id': '0'},
-            "refresh_ref": "branch/master",
+            "pull_request": p2.raw_data,
         })
-        pulls = self.engine.load_cache("master")
+
+        pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        # TODO(sileht): Do it per installation basis
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
