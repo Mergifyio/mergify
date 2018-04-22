@@ -56,6 +56,8 @@ policies:
 """
 
 
+@testtools.skipIf(FORK_TOKEN is None or
+                  MAIN_TOKEN is None, "TOKEN missing")
 class Tester(testtools.TestCase):
     """Pastamaker engine tests
 
@@ -100,7 +102,8 @@ class Tester(testtools.TestCase):
         self.git("remote", "add", "fork", self.url_fork)
         self.git("fetch", "fork")
 
-        utils.get_redis().set("installation-token-0", MAIN_TOKEN)
+        self.redis = utils.get_redis()
+        self.redis.set("installation-token-0", MAIN_TOKEN)
         # FIXME(sileht): Use a GithubAPP token instead of
         # the main token, the API have tiny differences.
         # It's safe for basic testing, but in the future we should
@@ -209,9 +212,7 @@ class Tester(testtools.TestCase):
             LOG.info("Got event %s" % etype)
             self.engine.handle(etype, event.payload)
 
-    @testtools.skipIf(FORK_TOKEN is None or
-                      MAIN_TOKEN is None, "TOKEN missing")
-    def test_scenario1(self):
+    def test_basic(self):
         self.create_pr()
         p2 = self.create_pr()
         self.push_events()
@@ -261,3 +262,39 @@ class Tester(testtools.TestCase):
         self.push_events()
         pulls = self.engine.load_cache("master")
         self.assertEqual(1, len(pulls))
+
+    def test_refresh(self):
+        self.create_pr()
+        self.create_pr()
+        self.push_events()
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.load_cache("master")
+        self.assertEqual(0, len(pulls))
+
+        # Test pr refresh API
+        self.engine.handle("refresh", {
+            'repository': self.r_main.raw_data,
+            'installation': {'id': '0'},
+            "refresh_ref": "pull/2",
+        })
+        pulls = self.engine.load_cache("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(2, pulls[0]['number'])
+        self.assertEqual(-1, pulls[0]['mergify_engine_weight'])
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.load_cache("master")
+        self.assertEqual(0, len(pulls))
+
+        # Test full refresh API
+        self.engine.handle("refresh", {
+            'repository': self.r_main.raw_data,
+            'installation': {'id': '0'},
+            "refresh_ref": "branch/master",
+        })
+        pulls = self.engine.load_cache("master")
+        self.assertEqual(2, len(pulls))
+        # TODO(sileht): Do it per installation basis
