@@ -29,9 +29,8 @@ from mergify_engine import utils
 LOG = logging.getLogger(__name__)
 
 
-def event_handler(event_type, data):
+def real_event_handler(event_type, data):
     """Everything start here"""
-
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     token = integration.get_access_token(data["installation"]["id"]).token
@@ -44,6 +43,12 @@ def event_handler(event_type, data):
                              user, repo).handle(event_type, data)
     except github.RateLimitExceededException:
         LOG.error("rate limit reached")
+
+
+def event_handler(event_type, data):
+    # NOTE(sileht): This is just here for easy mocking purpose
+    # rq pickles the method, so it must be as simple as possible
+    return real_event_handler(event_type, data)
 
 
 def main():

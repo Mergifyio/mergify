@@ -24,6 +24,7 @@ from betamax_serializers.pretty_json import PrettyJSONSerializer
 import fixtures
 import github
 import requests
+import rq
 import testtools
 
 from mergify_engine import config
@@ -32,6 +33,8 @@ from mergify_engine import gh_branch
 from mergify_engine import gh_pr
 from mergify_engine import gh_update_branch
 from mergify_engine import utils
+from mergify_engine import web
+from mergify_engine import worker
 
 gh_pr.monkeypatch_github()
 
@@ -143,6 +146,10 @@ class Tester(testtools.TestCase):
             gh_update_branch.utils, 'Gitter',
             lambda: GitterRecorder(self._testMethodName)))
 
+        # Web authentification always pass
+        self.useFixture(fixtures.MockPatch('hmac.compare_digest',
+                                           return_value=True))
+
         self.name = "repo-%s" % self._testMethodName
 
         self.pr_counter = 0
@@ -154,10 +161,12 @@ class Tester(testtools.TestCase):
         self.git = GitterRecorder('%s-tests' % self._testMethodName)
         self.addCleanup(self.git.cleanup)
 
+        web.app.testing = True
+        self.app = web.app.test_client()
+
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis()
-        for k in self.redis.keys():
-            self.redis.delete(k)
+        self.redis.flushall()
         self.redis.set("installation-token-0", MAIN_TOKEN)
 
         with self.cassette("setUp"):
@@ -194,6 +203,12 @@ class Tester(testtools.TestCase):
             # use the correct token
             self.engine = engine.MergifyEngine(
                 self.g_main, 0, self.u_main, self.r_main)
+            self.useFixture(fixtures.MockPatchObject(
+                worker, 'real_event_handler', self.engine.handle))
+
+            queue = rq.Queue(connection=self.redis)
+            self.rq_worker = rq.SimpleWorker([queue],
+                                             connection=queue.connection)
             self.push_events()
 
     def tearDown(self):
@@ -257,7 +272,7 @@ class Tester(testtools.TestCase):
             "organization": None,
             "installation": {"id": 0},
         }
-        self.engine.handle("status", payload)
+        self._send_event("status", payload)
 
     def create_review_and_push_event(self, pr, commit):
         # NOTE(sileht): Same as status for pull_request_review
@@ -275,7 +290,7 @@ class Tester(testtools.TestCase):
 
         }
         LOG.info("Got event pull_request_review")
-        self.engine.handle("pull_request_review", payload)
+        self._send_event("pull_request_review", payload)
 
     def push_events(self):
         # NOTE(sileht): Simulate push Github events
@@ -292,7 +307,19 @@ class Tester(testtools.TestCase):
             # NOTE(sileht): PullRequestEvent -> pull_request
             etype = re.sub('([A-Z]{1})', r'_\1', event.type)[1:-6].lower()
             LOG.info("Got event %s" % etype)
-            self.engine.handle(etype, event.payload)
+            event.payload['installation'] = {'id': 0}
+            event.payload.setdefault('repository', self.r_main.raw_data)
+            self._send_event(etype, event.payload)
+
+    def _send_event(self, etype, data):
+        r = self.app.post('/event', headers={
+            "X-GitHub-Event": etype,
+            "X-GitHub-Delivery": "123456789",
+            "X-Hub-Signature": "sha1=whatever",
+            "Content-type": "application/json",
+        }, data=json.dumps(data))
+        self.rq_worker.work(burst=True)
+        return r
 
     def test_basic(self):
         with self.cassette("create_pr1", allow_playback_repeats=True):
@@ -328,6 +355,13 @@ class Tester(testtools.TestCase):
         for p in pulls:
             self.assertEqual(-1, p.mergify_engine['weight'])
 
+        r = json.loads(self.app.get('/status/0').data)
+        self.assertEqual(1, len(r))
+        self.assertEqual(2, len(r[0]['pulls']))
+        self.assertEqual("master", r[0]['branch'])
+        self.assertEqual(self.u_main.login, r[0]['owner'])
+        self.assertEqual(self.r_main.name, r[0]['repo'])
+
         with self.cassette("status"):
             # Post CI status
             self.create_status_and_push_event(p2, commits[0])
@@ -348,6 +382,10 @@ class Tester(testtools.TestCase):
             self.push_events()
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
+
+        r = json.loads(self.app.get('/status/0').data)
+        self.assertEqual(1, len(r))
+        self.assertEqual(1, len(r[0]['pulls']))
 
     def test_refresh(self):
         with self.cassette("create_pr1", allow_playback_repeats=True):
@@ -375,8 +413,17 @@ class Tester(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
+        r = json.loads(self.app.get('/status/0').data)
+        self.assertEqual(1, len(r))
+        self.assertEqual(2, len(r[0]['pulls']))
+        self.assertEqual("master", r[0]['branch'])
+        self.assertEqual(self.u_main.login, r[0]['owner'])
+        self.assertEqual(self.r_main.name, r[0]['repo'])
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
+
+        r = json.loads(self.app.get('/status/0').data)
+        self.assertEqual(0, len(r))
