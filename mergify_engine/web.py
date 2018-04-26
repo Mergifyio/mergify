@@ -67,7 +67,7 @@ def refresh(owner, repo, refresh_ref):
 
     installation_id = utils.get_installation_id(integration, owner)
     if not installation_id:
-        flask.abort(404, "%s have not installed mergify_engine" % owner)
+        flask.abort(400, "%s have not installed mergify_engine" % owner)
 
     token = integration.get_access_token(installation_id).token
     g = github.Github(token)
