@@ -72,7 +72,8 @@ def setup_logging():
 
 
 def compute_hmac(data):
-    mac = hmac.new(config.WEBHOOK_SECRET, msg=data, digestmod=hashlib.sha1)
+    mac = hmac.new(config.WEBHOOK_SECRET.encode("utf8"),
+                   msg=data, digestmod=hashlib.sha1)
     return str(mac.hexdigest())
 
 

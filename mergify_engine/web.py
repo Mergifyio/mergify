@@ -134,9 +134,9 @@ def queue(owner, repo, branch):
 def _get_status(r, installation_id):
     queues = []
     for key in r.keys("queues~%s~*~*" % installation_id):
-        _, _, owner, repo, branch = key.split("~")
+        _, _, owner, repo, branch = key.decode("utf8").split("~")
         payload = r.hgetall(key)
-        pulls = [json.loads(p) for p in payload.values()]
+        pulls = [json.loads(p.decode("utf8")) for p in payload.values()]
         if pulls:
             updated_at = list(sorted([p["updated_at"] for p in pulls]))[-1]
         else:
