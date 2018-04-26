@@ -67,17 +67,20 @@ def refresh(owner, repo, refresh_ref):
 
     installation_id = utils.get_installation_id(integration, owner)
     if not installation_id:
-        flask.abort(404, "%s have not installed mergify_engine" % owner)
+        flask.abort(400, "%s have not installed mergify_engine" % owner)
 
     token = integration.get_access_token(installation_id).token
     g = github.Github(token)
     r = g.get_repo("%s/%s" % (owner, repo))
-    if refresh_ref == "full":
-        pulls = r.get_pulls()
-        branches = set([p.base.ref for p in pulls])
-        keys = ["queues~%s~%s~%s~%s" % (installation_id, owner, repo, b)
-                for b in branches]
-        utils.get_redis().delete(*keys)
+    if refresh_ref == "full" or refresh_ref.startswith("branch/"):
+        if refresh_ref.startswith("branch/"):
+            branch = refresh_ref[7:]
+            pulls = r.get_pulls(base=branch)
+        else:
+            branch = '*'
+            pulls = r.get_pulls()
+        key = "queues~%s~%s~%s~%s" % (installation_id, owner, repo, branch)
+        utils.get_redis().delete(key)
     else:
         pulls = [r.get_pull(int(refresh_ref[5:]))]
     for p in pulls:

@@ -15,7 +15,6 @@
 # under the License.
 
 import logging
-import subprocess
 import sys
 
 import github
@@ -51,7 +50,7 @@ def update_branch(self, token, merge=True):
         git("config", "user.name", "%s-bot" % config.CONTEXT)
         git("config", "user.email", "noreply@mergify.io")
 
-        out = git("log", "--pretty='format:%cI'", stdout=subprocess.PIPE)
+        out = git("log", "--pretty='format:%cI'")
         last_commit_date = out.split("\n")[-1]
 
         git("fetch", "upstream", self.base.ref,
