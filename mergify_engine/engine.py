@@ -115,11 +115,19 @@ class MergifyEngine(object):
 
         branch_policy = None
         branch_policy_error = None
+        branch_protected_as_expected = True
         try:
             branch_policy = gh_branch.get_branch_policy(
                 self._r, incoming_pull.base.ref)
         except gh_branch.NoPolicies as e:
             branch_policy_error = str(e)
+
+        try:
+            gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
+                                        branch_policy)
+        except github.UnknownObjectException:
+            branch_protected_as_expected = False
+            LOG.exception("Fail to protect branch, disabled automerge")
 
         fullify_extra = {
             "branch_policy": branch_policy,
@@ -213,16 +221,13 @@ class MergifyEngine(object):
 
         # NOTE(sileht): Starting here cache should not be updated
 
+        if not branch_protected_as_expected:
+            return
+
         queue = self.build_queue(incoming_pull.base.ref)
         # Proceed the queue
         if branch_policy and queue:
             # protect the branch before doing anything
-            try:
-                gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
-                                            branch_policy)
-            except github.UnknownObjectException:
-                LOG.exception("Fail to protect branch, disabled automerge")
-                return
             self.proceed_queue(queue[0])
         elif not branch_policy:
             LOG.info("No policies setuped, skipping queues processing")
