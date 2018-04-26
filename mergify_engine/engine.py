@@ -189,17 +189,18 @@ class MergifyEngine(object):
             LOG.info("Just update cache (pull_request_review non-collab)")
             return
 
+        # TODO(sileht): Disable that until we can configure it in the yml file
         # NOTE(sileht): We check the state of incoming_pull and the event
         # because user can have restart a travis job between the event
         # received and when we looks at it with travis API
-        if (event_type == "status"
-                and data["state"] in ENDING_STATES
-                and data["context"] in ["continuous-integration/travis-ci",
-                                        "continuous-integration/travis-ci/pr"]
-                and incoming_pull.mergify_engine["travis_state"]
-                in ENDING_STATES
-                and incoming_pull.mergify_engine["travis_detail"]):
-            incoming_pull.mergify_engine_travis_post_build_results()
+        #  if (event_type == "status"
+        #          and data["state"] in ENDING_STATES
+        #          and data["context"] in ["continuous-integration/travis-ci",
+        #                                  "continuous-integration/travis-ci/pr"]
+        #          and incoming_pull.mergify_engine["travis_state"]
+        #          in ENDING_STATES
+        #          and incoming_pull.mergify_engine["travis_detail"]):
+        #      incoming_pull.mergify_engine_travis_post_build_results()
 
         # NOTE(sileht): PullRequest updated or comment posted, maybe we need to
         # update github
