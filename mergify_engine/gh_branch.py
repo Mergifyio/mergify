@@ -107,7 +107,7 @@ UserConfigurationSchema = voluptuous.Schema({
         # TODO(sileht): allow None to disable mergify on a specific branch
         voluptuous.Optional('branches'): {str: Policy},
     }
-})
+}, required=True)
 
 
 def validate_policy(content):
@@ -136,7 +136,7 @@ def get_branch_policy(g_repo, branch):
             raise NoPolicies(".mergify.yml is missing")
 
     try:
-        policies = validate_policy(content, required=True)["policies"]
+        policies = validate_policy(content)["policies"]
     except voluptuous.MultipleInvalid as e:
         raise NoPolicies("Content of .mergify.yml is invalid: %s" % str(e))
 
