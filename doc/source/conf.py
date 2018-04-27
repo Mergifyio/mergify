@@ -53,8 +53,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Mergify.io'
-copyright = u'%s, Mergify.io Developers' % datetime.date.today().year
-# author = u''
+copyright = u'%s, Mergify.io' % datetime.date.today().year
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -113,9 +112,6 @@ pygments_style = 'sphinx'
 
 # If true, keep warnings as "system message" paragraphs in the built documents.
 # keep_warnings = False
-
-# If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = False
 
 
 # -- Options for HTML output ----------------------------------------------
@@ -216,10 +212,12 @@ html_sidebars = {
 # If true, links to the reST sources are added to the pages.
 #
 # html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #
 # html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 #
