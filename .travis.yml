@@ -19,3 +19,4 @@ deploy:
   local-dir: doc/build/html
   on:
     branch: master
+    condition: $TOXENV = docs
