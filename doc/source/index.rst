@@ -4,7 +4,7 @@ Mergify.io's documentation
 Welcome to the `mergify.io <https://mergify.io>`_ documentation!
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    getting-started
    faq

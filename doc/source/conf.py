@@ -132,14 +132,13 @@ html_theme = 'alabaster'
 # html_theme_options = {}
 html_theme_options = {
     'logo': 'logo.png',
-    'logo_name': 'Mergify.io',
+    'logo_name': True,
+    'logo_text_align': 'center',
+    'fixed_sidebar': True,
     'description': 'Stop merging your pull requests manually.',
-    'github_user': 'Mergifyio',
-    'github_type': 'Star',
-    'github_repo': 'mergify-engine',
-    'travis_button': True,
     'show_powered_by': False,
-    'extra_nav_links': {'mergify.io': 'https://mergify.io'},
+    'extra_nav_links': {'Website': 'https://mergify.io',
+                        'Support': 'mailto:support@mergify.io'},
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
