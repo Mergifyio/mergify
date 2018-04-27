@@ -135,6 +135,7 @@ html_theme_options = {
     'logo_name': 'Mergify.io',
     'description': 'Stop merging your pull requests manually.',
     'github_user': 'Mergifyio',
+    'github_type': 'Star',
     'github_repo': 'mergify-engine',
     'travis_button': True,
     'show_powered_by': False,
