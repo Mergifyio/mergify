@@ -19,16 +19,10 @@
 # import gevent.monkey
 # gevent.monkey.patch_all()
 
+import hmac
 import json
 import logging
 import os
-
-try:
-    from hmac import compare_digest
-except ImportError:
-    # NOTE(sileht): For python <= 2.7.6, like travis as on trusty...
-    from operator import _compare_digest as compare_digest
-
 
 import flask
 import github
@@ -252,6 +246,6 @@ def authentification():
         flask.abort(403)
 
     mac = utils.compute_hmac(flask.request.data)
-    if not compare_digest(mac, str(signature)):
+    if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         flask.abort(403)

@@ -8,7 +8,6 @@ script:
       - tox
 env:
       - TOXENV=pep8
-      - TOXENV=py27
       - TOXENV=py36
       - TOXENV=docs
 
