@@ -10,3 +10,12 @@ env:
       - TOXENV=pep8
       - TOXENV=py27
       - TOXENV=py35
+      - TOXENV=docs
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN  # Set in travis-ci.org dashboard, marked secure
+  keep-history: true
+  on:
+    branch: master
