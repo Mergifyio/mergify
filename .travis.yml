@@ -2,7 +2,7 @@ dist: trusty
 sudo: required
 language: generic
 install:
-      - sudo add-apt-repository -y ppa:deadsnakes/ppa ; sudo apt-get -qq update ; sudo apt-get install -y python3.6 python3.6-dev python2.7 python2.7-dev;
+      - sudo add-apt-repository -y ppa:deadsnakes/ppa ; sudo apt-get -qq update ; sudo apt-get install -y python3.6 python3.6-dev;
       - sudo pip install -U pip tox
 script:
       - tox
