@@ -42,10 +42,11 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 
-def is_protected(g_repo, branch, policy):
+def is_configured(g_repo, branch, policy):
     g_branch = g_repo.get_branch(branch)
+
     if not g_branch.protected:
-        return False
+        return policy is None
 
     headers, data = g_repo._requester.requestJsonAndCheck(
         "GET", g_repo.url + "/branches/" + branch + '/protection',
@@ -82,6 +83,17 @@ def protect(g_repo, branch, policy):
         "{base_url}/branches/{branch}/protection".format(base_url=g_repo.url,
                                                          branch=branch),
         input=policy,
+        headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
+    )
+
+
+def unprotect(g_repo, branch):
+    # NOTE(sileht): Not yet part of the API
+    # maybe soon https://github.com/PyGithub/PyGithub/pull/527
+    g_repo._requester.requestJsonAndCheck(
+        'DELETE',
+        "{base_url}/branches/{branch}/protection".format(base_url=g_repo.url,
+                                                         branch=branch),
         headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
     )
 
@@ -144,17 +156,24 @@ def get_branch_policy(g_repo, branch):
 
     for branch_re in policies.get("branches", []):
         if re.match(branch_re, branch):
-            dict_merge(policy, policies["branches"][branch_re])
+            if policies["branches"][branch_re] is None:
+                LOG.info("Policy for %s branch: %s" % (branch, policy))
+                return None
+            else:
+                dict_merge(policy, policies["branches"][branch_re])
 
     LOG.info("Policy for %s branch: %s" % (branch, policy))
     return policy
 
 
 def protect_if_needed(g_repo, branch, policy):
-    if not is_protected(g_repo, branch, policy):
+    if not is_configured(g_repo, branch, policy):
         LOG.warning("Branch %s of %s is misconfigured, configuring it to %s",
                     branch, g_repo.full_name, policy)
-        protect(g_repo, branch, policy)
+        if policy is None:
+            unprotect(g_repo, branch)
+        else:
+            protect(g_repo, branch, policy)
 
 
 def test():

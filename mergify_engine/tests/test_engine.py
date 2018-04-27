@@ -346,8 +346,8 @@ class Tester(testtools.TestCase):
             "enforce_admins": False,
         }
         with self.cassette("branch"):
-            self.assertTrue(gh_branch.is_protected(self.r_main, "master",
-                                                   expected_policy))
+            self.assertTrue(gh_branch.is_configured(self.r_main, "master",
+                                                    expected_policy))
 
         # Checks the content of the cache
         pulls = self.engine.build_queue("master")
