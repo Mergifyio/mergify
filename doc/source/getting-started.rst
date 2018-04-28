@@ -53,7 +53,9 @@ You can define a per branch policy using the `branches` settings. To match multi
           required_pull_request_reviews:
             required_approving_review_count: 1
 
-Mergify supports every available GitHub branch protection feature. You can read more detail on each feature in [GitHub branch API documentation](https://developer.github.com/v3/repos/branches/#update-branch-protection).
+Mergify supports every available GitHub branch protection feature. You can read
+more detail on each `feature in GitHub branch API documentation
+<https://developer.github.com/v3/repos/branches/#update-branch-protection>`_.
 
 Mergify.io is now ready, what will happen next?
 -----------------------------------------------
