@@ -30,7 +30,7 @@ A more realistic example of the `.mergify.yml` file would look like :
       default:
         required_status_checks:
           contexts:
-            1. continuous-integration/travis-ci
+            - continuous-integration/travis-ci
         required_pull_request_reviews:
           required_approving_review_count: 2
 
@@ -45,7 +45,7 @@ You can define a per branch policy using the `branches` settings. To match multi
       default:
         required_status_checks:
           contexts:
-            1. continuous-integration/travis-ci
+            - continuous-integration/travis-ci
         required_pull_request_reviews:
           required_approving_review_count: 2
       branches:
@@ -74,19 +74,3 @@ Once the required services status are approved, Mergify will automatically merge
 You can follow the state of the Mergify merge queue at https://mergify.io/dashboard
 
 Now, that Mergify.io is setup, you can go back on what matters for your project and let us babysit your pull requests!
-
-Default policy configuration
-----------------------------
-
-.. code-block:: yaml
-
-    required_status_checks:
-      strict: True
-      contexts:
-          1. continuous-integration/travis-ci
-    required_pull_request_reviews:
-      dismiss_stale_reviews: true
-      require_code_owner_reviews: false
-      required_approving_review_count: 1
-    restrictions: null
-    enforce_admins: true
