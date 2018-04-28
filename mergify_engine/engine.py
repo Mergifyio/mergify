@@ -113,24 +113,24 @@ class MergifyEngine(object):
             LOG.info("Just update cache (pull_request closed)")
             return
 
-        branch_policy = None
-        branch_policy_error = None
+        branch_rule = None
+        branch_rule_error = None
         branch_protected_as_expected = True
         try:
-            branch_policy = gh_branch.get_branch_policy(
+            branch_rule = gh_branch.get_branch_rule(
                 self._r, incoming_pull.base.ref)
-        except gh_branch.NoPolicies as e:
-            branch_policy_error = str(e)
+        except gh_branch.NoRules as e:
+            branch_rule_error = str(e)
 
         try:
             gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
-                                        branch_policy)
+                                        branch_rule)
         except github.UnknownObjectException:
             branch_protected_as_expected = False
             LOG.exception("Fail to protect branch, disabled automerge")
 
         fullify_extra = {
-            "branch_policy": branch_policy,
+            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
@@ -217,7 +217,7 @@ class MergifyEngine(object):
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
                 self._installation_id, self._updater_token,
-                branch_policy_error)
+                branch_rule_error)
 
         # NOTE(sileht): Starting here cache should not be updated
 
@@ -226,11 +226,11 @@ class MergifyEngine(object):
 
         queue = self.build_queue(incoming_pull.base.ref)
         # Proceed the queue
-        if branch_policy and queue:
+        if branch_rule and queue:
             # protect the branch before doing anything
             self.proceed_queue(queue[0])
-        elif not branch_policy:
-            LOG.info("No policies setuped, skipping queues processing")
+        elif not branch_rule:
+            LOG.info("No rules setuped, skipping queues processing")
         else:
             LOG.info("Nothing queued, skipping queues processing")
 

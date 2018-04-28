@@ -45,22 +45,24 @@ FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN", "<FORK_TOKEN>")
 RECORD_MODE = 'none' if MAIN_TOKEN == "<MAIN_TOKEN>" else 'all'
 
 CONFIG = """
-policies:
+rules:
   default:
-    required_status_checks:
-      strict: True
-      contexts:
-          - continuous-integration/fake-ci
-    required_pull_request_reviews:
-      dismiss_stale_reviews: true
-      require_code_owner_reviews: false
-      required_approving_review_count: 2
-    restrictions: null
-    enforce_admins: false
+    protection:
+      required_status_checks:
+        strict: True
+        contexts:
+            - continuous-integration/fake-ci
+      required_pull_request_reviews:
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: false
+        required_approving_review_count: 2
+      restrictions: null
+      enforce_admins: false
   branches:
     master:
-      required_pull_request_reviews:
-        required_approving_review_count: 1
+      protection:
+        required_pull_request_reviews:
+          required_approving_review_count: 1
 """
 
 
@@ -332,22 +334,24 @@ class Tester(testtools.TestCase):
         self.assertEqual(["master"], self.engine.get_cached_branches())
 
         # Check policy of that branch is the expected one
-        expected_policy = {
-            "required_status_checks": {
-                "strict": True,
-                "contexts": ["continuous-integration/fake-ci"],
-            },
-            "required_pull_request_reviews": {
-                "dismiss_stale_reviews": True,
-                "require_code_owner_reviews": False,
-                "required_approving_review_count": 1,
-            },
-            "restrictions": None,
-            "enforce_admins": False,
+        expected_rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
         }
         with self.cassette("branch"):
             self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                    expected_policy))
+                                                    expected_rule))
 
         # Checks the content of the cache
         pulls = self.engine.build_queue("master")

@@ -17,7 +17,6 @@
 import collections
 import copy
 import logging
-import os
 import re
 import sys
 
@@ -29,8 +28,8 @@ from mergify_engine import config
 
 LOG = logging.getLogger(__name__)
 
-with open("default_policy.yml", "r") as f:
-    DEFAULT_POLICY = yaml.load(f.read())
+with open("default_rule.yml", "r") as f:
+    DEFAULT_RULE = yaml.load(f.read())
 
 
 def dict_merge(dct, merge_dct):
@@ -42,18 +41,20 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 
-def is_configured(g_repo, branch, policy):
+def is_configured(g_repo, branch, rule):
     g_branch = g_repo.get_branch(branch)
 
     if not g_branch.protected:
-        return policy is None
+        return rule is None
+    elif rule is None:
+        return False
 
     headers, data = g_repo._requester.requestJsonAndCheck(
         "GET", g_repo.url + "/branches/" + branch + '/protection',
         headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
     )
 
-    # NOTE(sileht): Transform the payload into policy
+    # NOTE(sileht): Transform the payload into rule
     del data['url']
     del data["required_status_checks"]["url"]
     del data["required_status_checks"]["contexts_url"]
@@ -66,15 +67,16 @@ def is_configured(g_repo, branch, policy):
     if "restrictions" not in data:
         data["restrictions"] = None
 
-    policy["required_status_checks"]["contexts"] = sorted(
-        policy["required_status_checks"]["contexts"])
+    rule['protection']["required_status_checks"]["contexts"] = sorted(
+        rule['protection']["required_status_checks"]["contexts"])
 
-    return policy == data
+    return rule['protection'] == data
 
 
-def protect(g_repo, branch, policy):
+def protect(g_repo, branch, rule):
     if g_repo.organization:
-        policy['required_pull_request_reviews']['dismissal_restrictions'] = {}
+        rule['protection']['required_pull_request_reviews'][
+            'dismissal_restrictions'] = {}
 
     # NOTE(sileht): Not yet part of the API
     # maybe soon https://github.com/PyGithub/PyGithub/pull/527
@@ -82,7 +84,7 @@ def protect(g_repo, branch, policy):
         'PUT',
         "{base_url}/branches/{branch}/protection".format(base_url=g_repo.url,
                                                          branch=branch),
-        input=policy,
+        input=rule['protection'],
         headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
     )
 
@@ -97,8 +99,8 @@ def unprotect(g_repo, branch):
         headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
     )
 
-
-Policy = voluptuous.Schema({
+# TODO(sileht): move rule parsing on another module
+Protection = voluptuous.Schema({
     'required_status_checks': voluptuous.Any(
         None, {
             'strict': bool,
@@ -113,67 +115,67 @@ Policy = voluptuous.Schema({
     'enforce_admins': bool,
 })
 
+# TODO(sileht): We can add some otherthing like
+# automatic backport tag
+# option to disable mergify on a particular PR
+Rule = voluptuous.Schema({
+    'protection': Protection,
+})
+
 UserConfigurationSchema = voluptuous.Schema({
-    'policies': {
-        voluptuous.Optional('default'): Policy,
+    'rules': {
+        voluptuous.Optional('default'): Rule,
         # TODO(sileht): allow None to disable mergify on a specific branch
-        voluptuous.Optional('branches'): {str: Policy},
+        voluptuous.Optional('branches'): {str: Rule},
     }
 }, required=True)
 
 
-def validate_policy(content):
+def validate_rule(content):
     return UserConfigurationSchema(yaml.load(content))
 
 
-class NoPolicies(Exception):
+class NoRules(Exception):
     pass
 
 
-def get_branch_policy(g_repo, branch):
+def get_branch_rule(g_repo, branch):
     # TODO(sileht): Ensure the file is valid
-    policy = copy.deepcopy(DEFAULT_POLICY)
+    rule = copy.deepcopy(DEFAULT_RULE)
 
     try:
         content = g_repo.get_contents(".mergify.yml").decoded_content
         LOG.info("found mergify.yml")
     except github.UnknownObjectException:
-        # NOTE(sileht): Fallback to a local file
-        f = "%s_policy.yml" % g_repo.owner.login
-        if os.path.exists(f):
-            LOG.info("fallback to local %s", f)
-            with open(f, "r") as f:
-                content = f.read()
-        else:
-            raise NoPolicies(".mergify.yml is missing")
+        raise NoRules(".mergify.yml is missing")
 
     try:
-        policies = validate_policy(content)["policies"]
+        rules = validate_rule(content)["rules"]
     except voluptuous.MultipleInvalid as e:
-        raise NoPolicies("Content of .mergify.yml is invalid: %s" % str(e))
+        raise NoRules("Content of .mergify.yml is invalid: %s" % str(e))
 
-    dict_merge(policy, policies.get("default", {}))
+    dict_merge(rule, rules.get("default", {}))
 
-    for branch_re in policies.get("branches", []):
+    for branch_re in rules.get("branches", []):
         if re.match(branch_re, branch):
-            if policies["branches"][branch_re] is None:
-                LOG.info("Policy for %s branch: %s" % (branch, policy))
+            if rules["branches"][branch_re] is None:
+                LOG.info("Rule for %s branch: %s" % (branch, rule))
                 return None
             else:
-                dict_merge(policy, policies["branches"][branch_re])
+                dict_merge(rule, rules["branches"][branch_re])
 
-    LOG.info("Policy for %s branch: %s" % (branch, policy))
-    return policy
+    LOG.info("Rule for %s branch: %s" % (branch, rule))
+    return rule
 
 
-def protect_if_needed(g_repo, branch, policy):
-    if not is_configured(g_repo, branch, policy):
+def protect_if_needed(g_repo, branch, rule):
+    if not is_configured(g_repo, branch, rule):
         LOG.warning("Branch %s of %s is misconfigured, configuring it to %s",
-                    branch, g_repo.full_name, policy)
-        if policy is None:
+                    branch, g_repo.full_name, rule)
+        if rule is None:
             unprotect(g_repo, branch)
         else:
-            protect(g_repo, branch, policy)
+            protect(g_repo, branch, rule)
 
 
 def test():
@@ -199,8 +201,8 @@ def test():
     user = g.get_user(parts[3])
     repo = user.get_repo(parts[4])
     LOG.info("Protecting repo %s branch %s ..." % (sys.argv[1], sys.argv[2]))
-    policy = get_branch_policy(repo, sys.argv[2])
-    protect_if_needed(repo, sys.argv[2], policy)
+    rule = get_branch_rule(repo, sys.argv[2])
+    protect_if_needed(repo, sys.argv[2], rule)
 
 
 if __name__ == '__main__':

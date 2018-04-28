@@ -47,12 +47,12 @@ def pretty(self):
 
 def mergify_engine_github_post_check_status(self, installation_id,
                                             updater_token,
-                                            branch_policy_error):
+                                            branch_rule_error):
 
-    if branch_policy_error:
+    if branch_rule_error:
         state = "failure"
         link = "and"
-        description = "PR automerge disabled (%s)", branch_policy_error
+        description = "PR automerge disabled (%s)" % branch_rule_error
         # FIXME(sileht): put url to mergify doc
         target_url = config.BASE_URL
     else:
