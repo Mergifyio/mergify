@@ -121,7 +121,7 @@ class MergifyEngine(object):
         except rules.NoRules as e:
             # Not configured, post status check with the error message
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, str(e))
+                self._redis, self._installation_id, str(e))
             return
 
         try:
@@ -223,7 +223,7 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id)
+                self._redis, self._installation_id)
 
         # NOTE(sileht): Starting here cache should not be updated
         queue = self.build_queue(incoming_pull.base.ref)
@@ -276,7 +276,7 @@ class MergifyEngine(object):
                 updater_token = self.get_updater_token()
                 if not updater_token:
                     p.mergify_engine_github_post_check_status(
-                        self._installation_id,
+                        self._redis, self._installation_id,
                         "No user access_token setuped for rebasing")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())

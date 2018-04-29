@@ -249,6 +249,15 @@ def favicon():
     return app.send_static_file("favicon.ico")
 
 
+@app.route("/check_status_msg/<path:key>")
+def check_status_msg(key):
+    msg = utils.get_redis().hset("status", key)
+    if msg:
+        return flask.render_template("msg.html", msg=msg.decode("utf8"))
+    else:
+        flask.abort(404)
+
+
 @app.route("/fonts/<file>")
 def fonts(file):
     # bootstrap fonts

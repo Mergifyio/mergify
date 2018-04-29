@@ -45,17 +45,31 @@ def pretty(self):
     )
 
 
-def mergify_engine_github_post_check_status(self, installation_id, error=None):
+def mergify_engine_github_post_check_status(self, redis, installation_id,
+                                            error=None):
+
+    msg_key = "%s/%s/%d" % (installation_id, self.base.repo.full_name,
+                            self.number)
+
     if error:
         state = "failure"
-        description = error
-        # FIXME(sileht): put url to mergify doc
+        # FIXME(sileht): Github limitations, so cut it for now
+        if len(error) >= 140:
+            description = error[0:137] + "..."
+        else:
+            description = error
+
+        redis.hset("status", msg_key, error.encode('utf8'))
+        target_url = "http://gh.mergify.io/check_status_msg/%s" % msg_key
+
     elif not self.maintainer_can_modify:
         state = "failure"
         description = "PR owner doesn't allow modification"
+        target_url = None
     else:
         state = "success"
         description = "PR automerge enabled"
+        target_url = None
 
         # We don't have cache filled, so mergify_engine[] stuffs are not
         # computed
@@ -73,11 +87,6 @@ def mergify_engine_github_post_check_status(self, installation_id, error=None):
               self.mergify_engine["combined_status"] == "success"):
             description = "Pull request will be rebased soon"
 
-    # FIXME(sileht): Github limitations, so cut it for now
-    if len(description) >= 140:
-        description = description[0:137] + "..."
-
-    target_url = "http://doc.mergify.io"
     context = "%s/pr" % config.CONTEXT
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
