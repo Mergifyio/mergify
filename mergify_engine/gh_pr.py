@@ -45,31 +45,20 @@ def pretty(self):
     )
 
 
-def mergify_engine_github_post_check_status(self, installation_id,
-                                            updater_token,
-                                            branch_rule_error=None):
-
-    if branch_rule_error:
+def mergify_engine_github_post_check_status(self, installation_id, error=None):
+    if error:
         state = "failure"
-        link = "and"
-        description = "misconfigured: %s" % branch_rule_error
+        description = error
         # FIXME(sileht): put url to mergify doc
         target_url = config.BASE_URL
+    elif not self.maintainer_can_modify:
+        state = "failure"
+        description = "PR owner doesn't allow modification"
     else:
         state = "success"
-        link = "but"
         description = "PR automerge enabled"
         target_url = config.BASE_URL
 
-    if not self.maintainer_can_modify:
-        state = "failure"
-        description += ", %s PR owner doesn't allow modification" % link
-    elif not updater_token:
-        state = "failure"
-        description += ", %s no user access_token setuped for rebasing" % link
-        target_url += "/login?installation_id=%s" % installation_id
-
-    if not branch_rule_error:
         # We don't have cache filled, so mergify_engine[] stuffs are not
         # computed
         detail = []
@@ -79,41 +68,36 @@ def mergify_engine_github_post_check_status(self, installation_id,
             detail.append("approvals")
 
         if detail:
-            description += ", warting for %s" % " and ".join(detail)
+            description = "Waiting for %s" % " and ".join(detail)
+        elif self.mergify_engine_weight >= 11:
+            description = "Pull request will be merged soon"
+        elif (self.mergeable_state == "behind" and
+              self.mergify_engine["combined_status"] == "success"):
+            description = "Pull request will be rebased soon"
+
+    # FIXME(sileht): Github limitations, so cut it for now
+    if len(description) >= 140:
+        description = description[0:137] + "..."
 
     context = "%s/pr" % config.CONTEXT
-    old_context = "%s/reviewers" % config.CONTEXT
-    context_to_update = None
 
-    commit = self.base.repo.get_commit(self.head.sha)
-    for s in commit.get_statuses():
-        if s.context in [context, old_context]:
-            if (s.state != state or s.description != description):
-                context_to_update = s.context
-            break
-    else:
-        context_to_update = context
-
-    if context_to_update:
-        LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
-        # NOTE(sileht): We can't use commit.create_status() because
-        # if use the head repo instead of the base repo
-        try:
-            self._requester.requestJsonAndCheck(
-                "POST",
-                self.base.repo.url + "/statuses/" + self.head.sha,
-                input={'state': state,
-                       'description': description,
-                       'target_url': target_url,
-                       'context': context_to_update},
-                headers={'Accept':
-                         'application/vnd.github.machine-man-preview+json'}
-            )
-        except github.GithubException as e:
-            LOG.exception("%s set status fail: %s",
-                          self.pretty(), e.data["message"])
-
-    return context_to_update is not None
+    LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
+    # NOTE(sileht): We can't use commit.create_status() because
+    # if use the head repo instead of the base repo
+    try:
+        self._requester.requestJsonAndCheck(
+            "POST",
+            self.base.repo.url + "/statuses/" + self.head.sha,
+            input={'state': state,
+                   'description': description,
+                   'target_url': target_url,
+                   'context': context},
+            headers={'Accept':
+                     'application/vnd.github.machine-man-preview+json'}
+        )
+    except github.GithubException as e:
+        LOG.exception("%s set status fail: %s",
+                      self.pretty(), e.data["message"])
 
 
 def mergify_engine_travis_post_build_results(self):

@@ -37,25 +37,24 @@ class MergifyEngine(object):
         self._redis = utils.get_redis()
         self._g = g
         self._installation_id = installation_id
-        self._updater_token = self.get_updater_token()
 
         self._u = user
         self._r = repo
 
     def get_updater_token(self):
-        self._updater_token = self._redis.get("installation-token-%s" %
-                                              self._installation_id)
-        if self._updater_token is None:
+        updater_token = self._redis.get("installation-token-%s" %
+                                        self._installation_id)
+        if updater_token is None:
             LOG.info("Token for %s not cached, retrieving it..." %
                      self._installation_id)
             resp = requests.get("https://mergify.io/engine/token/%s" %
                                 self._installation_id,
                                 auth=(config.OAUTH_CLIENT_ID,
                                       config.OAUTH_CLIENT_SECRET))
-            self._updater_token = resp.json()['access_token']
+            updater_token = resp.json()['access_token']
             self._redis.set("installation-token-%s" % self._installation_id,
-                            self._updater_token)
-        return self._updater_token
+                            updater_token)
+        return updater_token
 
     def handle(self, event_type, data):
         # Everything start here
@@ -115,21 +114,20 @@ class MergifyEngine(object):
 
         # BRANCH CONFIGURATION CHECKING
         branch_rule = None
-        branch_protected_as_expected = False
         try:
             branch_rule = gh_branch.get_branch_rule(
                 self._r, incoming_pull.base.ref)
         except gh_branch.NoRules as e:
             # Not configured, post status check with the error message
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, self._updater_token, str(e))
+                self._installation_id, str(e))
             return
 
         try:
             gh_branch.configure_protection_if_needed(
                 self._r, incoming_pull.base.ref, branch_rule)
         except github.UnknownObjectException:
-            LOG.exception("Fail to protect branch, disabled automerge")
+            LOG.exception("Fail to protect branch, disabled mergify")
             return
 
         if not branch_rule:
@@ -224,11 +222,7 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, self._updater_token)
-
-        # Branch protection is not configured as expected don't go further
-        if not branch_protected_as_expected:
-            return
+                self._installation_id)
 
         # NOTE(sileht): Starting here cache should not be updated
         queue = self.build_queue(incoming_pull.base.ref)
@@ -278,7 +272,14 @@ class MergifyEngine(object):
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
-                if p.mergify_engine_update_branch(self._updater_token):
+                updater_token = self.get_updater_token()
+                if not updater_token:
+                    p.mergify_engine_github_post_check_status(
+                        self._installation_id,
+                        "No user access_token setuped for rebasing")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
+                elif p.mergify_engine_update_branch(updater_token):
                     LOG.info("%s -> branch updated", p.pretty())
                 else:
                     LOG.info("%s -> branch not updatable, "

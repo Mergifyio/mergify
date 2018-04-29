@@ -152,7 +152,7 @@ def get_branch_rule(g_repo, branch):
     try:
         rules = validate_rule(content)["rules"]
     except voluptuous.MultipleInvalid as e:
-        raise NoRules("Content of .mergify.yml is invalid: %s" % str(e))
+        raise NoRules(".mergify.yml is invalid: %s" % str(e))
 
     dict_merge(rule, rules.get("default", {}))
 
