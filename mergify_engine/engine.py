@@ -280,6 +280,12 @@ class MergifyEngine(object):
                         "No user access_token setuped for rebasing")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
+                elif not p.maintainer_can_modify:
+                    p.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id,
+                        "PR owner doesn't allow modification")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
                 elif p.mergify_engine_update_branch(updater_token):
                     LOG.info("%s -> branch updated", p.pretty())
                 else:
