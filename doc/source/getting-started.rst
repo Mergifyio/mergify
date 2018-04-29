@@ -27,8 +27,8 @@ A more realistic example of the `.mergify.yml` file would look like :
 .. code-block:: yaml
 
     rules:
-      protection:
-        default:
+      default:
+        protection:
           required_status_checks:
             contexts:
               - continuous-integration/travis-ci
@@ -43,14 +43,15 @@ You can define a per branch rule using the `branches` settings. To match multipl
 .. code-block:: yaml
 
     rules:
-      protection:
-        default:
+      default:
+        protection:
           required_status_checks:
             contexts:
               - continuous-integration/travis-ci
           required_pull_request_reviews:
             required_approving_review_count: 2
-        branches:
+      branches:
+        protection:
           stable/.*:
             required_pull_request_reviews:
               required_approving_review_count: 1
