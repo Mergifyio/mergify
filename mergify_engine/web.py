@@ -196,6 +196,33 @@ def event_handler():
                       "pull_request_review"]:
         get_queue().enqueue(worker.event_handler, event_type, data)
 
+    # TODO(sileht): handle installation modification
+    # "installation_repositories" event
+    elif event_type == "installation" and data["action"] == "created":
+        integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                               config.PRIVATE_KEY)
+        token = integration.get_access_token(data["installation"]["id"]).token
+        g = github.Github(token)
+        for repository in data["repositories"]:
+            if repository["private"]:
+                # Skip private for now
+                continue
+
+            r = g.get_repo(repository["full_name"])
+            pulls = r.get_pulls()
+            for p in pulls:
+                # Mimic the github event format
+                data = {
+                    'repository': r.raw_data,
+                    'installation': data["installation"],
+                    'pull_request': p.raw_data,
+                }
+                get_queue().enqueue(worker.event_handler, "refresh", data)
+
+    elif event_type == "installation" and data["action"] == "deleted":
+        key = "queues~%s~*~*~*" % data["installation"]["id"]
+        utils.get_redis().delete(key)
+
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
     else:
