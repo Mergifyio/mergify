@@ -126,7 +126,7 @@ UserConfigurationSchema = voluptuous.Schema({
     'rules': voluptuous.Any({
         voluptuous.Optional('default'): Rule,
         # TODO(sileht): allow None to disable mergify on a specific branch
-        voluptuous.Optional('branches'): {str: Rule},
+        voluptuous.Optional('branches'): {str: voluptuous.Any(Rule, None)},
     }, None)
 }, required=True)
 
