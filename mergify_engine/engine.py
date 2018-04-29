@@ -25,6 +25,7 @@ import requests
 from mergify_engine import config
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
+from mergify_engine import rules
 from mergify_engine import utils
 
 LOG = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class MergifyEngine(object):
         # BRANCH CONFIGURATION CHECKING
         branch_rule = None
         try:
-            branch_rule = gh_branch.get_branch_rule(
+            branch_rule = rules.get_branch_rule(
                 self._r, incoming_pull.base.ref)
         except gh_branch.NoRules as e:
             # Not configured, post status check with the error message

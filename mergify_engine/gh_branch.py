@@ -14,31 +14,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import collections
-import copy
 import logging
-import re
 import sys
 
-import github
-import voluptuous
-import yaml
-
 from mergify_engine import config
+from mergify_engine import rules
 
 LOG = logging.getLogger(__name__)
-
-with open("default_rule.yml", "r") as f:
-    DEFAULT_RULE = yaml.load(f.read())
-
-
-def dict_merge(dct, merge_dct):
-    for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.Mapping)):
-            dict_merge(dct[k], merge_dct[k])
-        else:
-            dct[k] = merge_dct[k]
 
 
 def is_configured(g_repo, branch, rule):
@@ -99,74 +81,6 @@ def unprotect(g_repo, branch):
         headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
     )
 
-# TODO(sileht): move rule parsing on another module
-Protection = voluptuous.Schema({
-    'required_status_checks': voluptuous.Any(
-        None, {
-            'strict': bool,
-            'contexts': [str],
-        }),
-    'required_pull_request_reviews': {
-        'dismiss_stale_reviews': bool,
-        'require_code_owner_reviews': bool,
-        'required_approving_review_count': int,
-    },
-    'restrictions': voluptuous.Any(None, []),
-    'enforce_admins': bool,
-})
-
-# TODO(sileht): We can add some otherthing like
-# automatic backport tag
-# option to disable mergify on a particular PR
-Rule = voluptuous.Schema({
-    'protection': Protection,
-})
-
-UserConfigurationSchema = voluptuous.Schema({
-    'rules': voluptuous.Any({
-        voluptuous.Optional('default'): Rule,
-        # TODO(sileht): allow None to disable mergify on a specific branch
-        voluptuous.Optional('branches'): {str: voluptuous.Any(Rule, None)},
-    }, None)
-}, required=True)
-
-
-def validate_rule(content):
-    return UserConfigurationSchema(yaml.load(content))
-
-
-class NoRules(Exception):
-    pass
-
-
-def get_branch_rule(g_repo, branch):
-    # TODO(sileht): Ensure the file is valid
-    rule = copy.deepcopy(DEFAULT_RULE)
-
-    try:
-        content = g_repo.get_contents(".mergify.yml").decoded_content
-        LOG.info("found mergify.yml")
-    except github.UnknownObjectException:
-        raise NoRules(".mergify.yml is missing")
-
-    try:
-        rules = validate_rule(content)["rules"] or {}
-    except voluptuous.MultipleInvalid as e:
-        raise NoRules(".mergify.yml is invalid: %s" % str(e))
-
-    dict_merge(rule, rules.get("default", {}))
-
-    for branch_re in rules.get("branches", []):
-        if re.match(branch_re, branch):
-            if rules["branches"][branch_re] is None:
-                LOG.info("Rule for %s branch: %s" % (branch, rule))
-                return None
-            else:
-                dict_merge(rule, rules["branches"][branch_re])
-
-    LOG.info("Rule for %s branch: %s" % (branch, rule))
-    return rule
-
 
 def configure_protection_if_needed(g_repo, branch, rule):
     if not is_configured(g_repo, branch, rule):
@@ -201,7 +115,7 @@ def test():
     user = g.get_user(parts[3])
     repo = user.get_repo(parts[4])
     LOG.info("Protecting repo %s branch %s ..." % (sys.argv[1], sys.argv[2]))
-    rule = get_branch_rule(repo, sys.argv[2])
+    rule = rules.get_branch_rule(repo, sys.argv[2])
     configure_protection_if_needed(repo, sys.argv[2], rule)
 
 
