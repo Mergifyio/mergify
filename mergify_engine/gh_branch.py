@@ -168,7 +168,7 @@ def get_branch_rule(g_repo, branch):
     return rule
 
 
-def protect_if_needed(g_repo, branch, rule):
+def configure_protection_if_needed(g_repo, branch, rule):
     if not is_configured(g_repo, branch, rule):
         LOG.warning("Branch %s of %s is misconfigured, configuring it to %s",
                     branch, g_repo.full_name, rule)
@@ -202,7 +202,7 @@ def test():
     repo = user.get_repo(parts[4])
     LOG.info("Protecting repo %s branch %s ..." % (sys.argv[1], sys.argv[2]))
     rule = get_branch_rule(repo, sys.argv[2])
-    protect_if_needed(repo, sys.argv[2], rule)
+    configure_protection_if_needed(repo, sys.argv[2], rule)
 
 
 if __name__ == '__main__':

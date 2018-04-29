@@ -47,7 +47,7 @@ def pretty(self):
 
 def mergify_engine_github_post_check_status(self, installation_id,
                                             updater_token,
-                                            branch_rule_error):
+                                            branch_rule_error=None):
 
     if branch_rule_error:
         state = "failure"
@@ -69,14 +69,17 @@ def mergify_engine_github_post_check_status(self, installation_id,
         description += ", %s no user access_token setuped for rebasing" % link
         target_url += "/login?installation_id=%s" % installation_id
 
-    detail = []
-    if self.mergify_engine["combined_status"] != "success":
-        detail.append("CI")
-    if not self.mergify_engine["approved"]:
-        detail.append("approvals")
+    if not branch_rule_error:
+        # We don't have cache filled, so mergify_engine[] stuffs are not
+        # computed
+        detail = []
+        if self.mergify_engine["combined_status"] != "success":
+            detail.append("CI")
+        if not self.mergify_engine["approved"]:
+            detail.append("approvals")
 
-    if detail:
-        description += ", warting for %s" % " and ".join(detail)
+        if detail:
+            description += ", warting for %s" % " and ".join(detail)
 
     context = "%s/pr" % config.CONTEXT
     old_context = "%s/reviewers" % config.CONTEXT

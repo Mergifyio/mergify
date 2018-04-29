@@ -113,24 +113,32 @@ class MergifyEngine(object):
             LOG.info("Just update cache (pull_request closed)")
             return
 
+        # BRANCH CONFIGURATION CHECKING
         branch_rule = None
-        branch_rule_error = None
-        branch_protected_as_expected = True
+        branch_protected_as_expected = False
         try:
             branch_rule = gh_branch.get_branch_rule(
                 self._r, incoming_pull.base.ref)
         except gh_branch.NoRules as e:
-            branch_rule_error = str(e)
+            # Not configured, post status check with the error message
+            incoming_pull.mergify_engine_github_post_check_status(
+                self._installation_id, self._updater_token, str(e))
+            return
 
         try:
-            gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
-                                        branch_rule)
+            gh_branch.configure_protection_if_needed(
+                self._r, incoming_pull.base.ref, branch_rule)
         except github.UnknownObjectException:
-            branch_protected_as_expected = False
             LOG.exception("Fail to protect branch, disabled automerge")
+            return
+
+        if not branch_rule:
+            LOG.info("Mergify disabled on branch %s", incoming_pull.base.ref)
+            return
+
+        # PULL REQUEST UPDATER
 
         fullify_extra = {
-            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
@@ -216,21 +224,18 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, self._updater_token,
-                branch_rule_error)
+                self._installation_id, self._updater_token)
 
-        # NOTE(sileht): Starting here cache should not be updated
-
+        # Branch protection is not configured as expected don't go further
         if not branch_protected_as_expected:
             return
 
+        # NOTE(sileht): Starting here cache should not be updated
         queue = self.build_queue(incoming_pull.base.ref)
         # Proceed the queue
-        if branch_rule and queue:
+        if queue:
             # protect the branch before doing anything
             self.proceed_queue(queue[0])
-        elif not branch_rule:
-            LOG.info("No rules setuped, skipping queues processing")
         else:
             LOG.info("Nothing queued, skipping queues processing")
 
