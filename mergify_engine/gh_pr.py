@@ -52,7 +52,7 @@ def mergify_engine_github_post_check_status(self, installation_id,
     if branch_rule_error:
         state = "failure"
         link = "and"
-        description = "PR automerge disabled (%s)" % branch_rule_error
+        description = "misconfigured: %s" % branch_rule_error
         # FIXME(sileht): put url to mergify doc
         target_url = config.BASE_URL
     else:
@@ -95,6 +95,7 @@ def mergify_engine_github_post_check_status(self, installation_id,
         context_to_update = context
 
     if context_to_update:
+        LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
         # NOTE(sileht): We can't use commit.create_status() because
         # if use the head repo instead of the base repo
         try:
