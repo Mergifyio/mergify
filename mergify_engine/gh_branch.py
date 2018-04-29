@@ -123,11 +123,11 @@ Rule = voluptuous.Schema({
 })
 
 UserConfigurationSchema = voluptuous.Schema({
-    'rules': {
+    'rules': voluptuous.Any({
         voluptuous.Optional('default'): Rule,
         # TODO(sileht): allow None to disable mergify on a specific branch
         voluptuous.Optional('branches'): {str: Rule},
-    }
+    }, None)
 }, required=True)
 
 
@@ -150,7 +150,7 @@ def get_branch_rule(g_repo, branch):
         raise NoRules(".mergify.yml is missing")
 
     try:
-        rules = validate_rule(content)["rules"]
+        rules = validate_rule(content)["rules"] or {}
     except voluptuous.MultipleInvalid as e:
         raise NoRules(".mergify.yml is invalid: %s" % str(e))
 
