@@ -50,14 +50,12 @@ def mergify_engine_github_post_check_status(self, installation_id, error=None):
         state = "failure"
         description = error
         # FIXME(sileht): put url to mergify doc
-        target_url = config.BASE_URL
     elif not self.maintainer_can_modify:
         state = "failure"
         description = "PR owner doesn't allow modification"
     else:
         state = "success"
         description = "PR automerge enabled"
-        target_url = config.BASE_URL
 
         # We don't have cache filled, so mergify_engine[] stuffs are not
         # computed
@@ -79,6 +77,7 @@ def mergify_engine_github_post_check_status(self, installation_id, error=None):
     if len(description) >= 140:
         description = description[0:137] + "..."
 
+    target_url = "http://doc.mergify.io"
     context = "%s/pr" % config.CONTEXT
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
