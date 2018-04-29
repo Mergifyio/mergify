@@ -118,7 +118,7 @@ class MergifyEngine(object):
         try:
             branch_rule = rules.get_branch_rule(
                 self._r, incoming_pull.base.ref)
-        except gh_branch.NoRules as e:
+        except rules.NoRules as e:
             # Not configured, post status check with the error message
             incoming_pull.mergify_engine_github_post_check_status(
                 self._installation_id, str(e))
