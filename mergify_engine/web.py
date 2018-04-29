@@ -109,19 +109,18 @@ def refresh_all():
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
-        for repo in i.get_repos():
+        for r in i.get_repos():
             counts[1] += 1
-            pulls = repo.get_pulls()
-            branches = set([p.base.ref for p in pulls])
+            pulls = r.get_pulls()
+            for p in pulls:
+                # Mimic the github event format
+                data = {
+                    'repository': r.raw_data,
+                    'installation': {'id': install["id"]},
+                    'pull_request': p.raw_data,
+                }
+                get_queue().enqueue(worker.event_handler, "refresh", data)
 
-            # Mimic the github event format
-            for branch in branches:
-                counts[2] += 1
-                get_queue().enqueue(worker.event_handler, "refresh", {
-                    'repository': repo.raw_data,
-                    'installation': {'id': install['id']},
-                    'refresh_ref': "branch/%s" % branch,
-                })
     return ("Updated %s installations, %s repositories, "
             "%s branches" % tuple(counts)), 202
 
