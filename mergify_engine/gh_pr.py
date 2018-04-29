@@ -36,7 +36,7 @@ def pretty(self):
         self.base.repo.name,
         self.number,
         self.base.ref,
-        ("merged" if self.state == "merged"
+        ("merged" if self.merged
          else (self.mergeable_state or "none")),
         synced,
         status,

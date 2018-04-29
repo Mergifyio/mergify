@@ -108,7 +108,7 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-        elif event_type == "pull_request" and data["action"] == "closed":
+        elif incoming_pull.state == "closed":
             self.cache_remove_pull(incoming_pull)
             LOG.info("Just update cache (pull_request closed)")
             return
