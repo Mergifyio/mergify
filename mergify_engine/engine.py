@@ -158,6 +158,8 @@ class MergifyEngine(object):
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
             cache.pop("mergify_engine_weight", None)
+            cache.pop("mergify_engine_status_desc", None)
+            cache.pop("mergify_engine_weight_and_status", None)
 
             if (event_type == "status" and
                     data["state"] == cache.get(

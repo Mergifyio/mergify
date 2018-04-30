@@ -160,38 +160,65 @@ def compute_travis_url(pull, **extra):
     )["url"]
 
 
-def compute_weight(pull, **extra):
-    if not pull.mergify_engine["approved"]:
+def compute_weight_and_status(pull, **extra):
+    labels = [l.name for l in pull.labels]
+    if extra["branch_rule"]["disabling_label"] in labels:
         weight = -1
+        status_desc = "Disabled by label"
+    elif not pull.mergify_engine["approved"]:
+        weight = -1
+        status_desc = "Waiting for approvals"
     elif (pull.mergeable_state == "clean"
           and pull.mergify_engine["combined_status"] == "success"):
         # Best PR ever, up2date and CI OK
         weight = 11
+        status_desc = "Will be merged soon"
     elif pull.mergeable_state in ["clean", "unstable"]:
         weight = 10
+        status_desc = "Will be merged soon"
     elif (pull.mergeable_state == "blocked"
           and pull.mergify_engine["combined_status"] == "pending"):
         # Maybe clean soon, or maybe this is the previous run
         # selected PR that we just rebase
         weight = 10
+        status_desc = "Waiting for CI success"
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
         if not pull.maintainer_can_modify:
             weight = -1
+            status_desc = ("Pull request can't be updated with latest "
+                           "base branch changes, owner doesn't allow "
+                           "modification")
         elif pull.mergify_engine["combined_status"] == "success":
             weight = 7
+            status_desc = ("Pull request will be updated with latest base "
+                           "branch changes soon")
         elif pull.mergify_engine["combined_status"] == "pending":
             weight = 5
+            status_desc = "Waiting for CI success"
         else:
             weight = -1
+            status_desc = "Waiting for CI success"
     else:
         weight = -1
+        status_desc = "Waiting for CI sucess"
+
     if weight >= 0 and pull.milestone is not None:
         weight += 1
     # LOG.info("%s prio: %s, %s, %s, %s, %s", pull.pretty(), weight,
     #          pull.mergify_engine["approved"], pull.mergeable_state,
     #          pull.mergify_engine["combined_status"])
-    return weight
+    return (weight, status_desc)
+
+
+def compute_weight(pull, **extra):
+    # TODO(sileht): Don't store this twice
+    return pull.mergify_engine["weight_and_status"][0]
+
+
+def compute_status_desc(pull, **extra):
+    # TODO(sileht): Don't store this twice
+    return pull.mergify_engine["weight_and_status"][1]
 
 
 # Order matter, some method need result of some other
@@ -205,7 +232,10 @@ FULLIFIER = [
     ("travis_state", compute_travis_state),    # Need ci_statuses
     ("travis_url", compute_travis_url),        # Need ci_statuses
     ("travis_detail", compute_travis_detail),  # Need travis_url
-    ("weight", compute_weight),                # Need approved, travis_state
+    ("weight_and_status",
+     compute_weight_and_status),               # Need approved, travis_state
+    ("weight", compute_weight),                # Need weight_and_status
+    ("status_desc", compute_status_desc),      # Need weight_and_status
 ]
 
 CACHE_HOOK_LIST_CONVERT = {

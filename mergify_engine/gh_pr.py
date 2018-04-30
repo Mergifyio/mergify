@@ -63,30 +63,8 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
         target_url = "http://gh.mergify.io/check_status_msg/%s" % msg_key
     else:
         state = "success"
-        description = "Mergify is ready"
+        description = self.mergify_engine["status_desc"]
         target_url = None
-
-        # We don't have cache filled, so mergify_engine[] stuffs are not
-        # computed
-        detail = []
-        if self.mergify_engine["combined_status"] != "success":
-            detail.append("CI")
-        if not self.mergify_engine["approved"]:
-            detail.append("approvals")
-
-        if detail:
-            description = "Waiting for %s" % " and ".join(detail)
-        elif self.mergify_engine_weight >= 11:
-            description = "Pull request will be merged soon"
-        elif (self.mergeable_state == "behind" and
-              self.mergify_engine["combined_status"] == "success"):
-            if self.maintainer_can_modify:
-                description = ("Pull request will be updated with latest base "
-                               "branch changes soon")
-            else:
-                description = ("Pull request can't be updated with latest "
-                               "base branch changes, owner doesn't allow "
-                               "modification")
 
     context = "%s/pr" % config.CONTEXT
 
