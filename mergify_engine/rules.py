@@ -41,7 +41,7 @@ Protection = voluptuous.Schema({
         'required_approving_review_count': int,
     },
     'restrictions': voluptuous.Any(None, []),
-    'enforce_admins': bool,
+    'enforce_admins': voluptuous.Any(None, bool),
 })
 
 # TODO(sileht): We can add some otherthing like
