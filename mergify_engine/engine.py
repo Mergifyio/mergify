@@ -234,16 +234,6 @@ class MergifyEngine(object):
     # State machine goes here #
     ###########################
 
-    def process_queue(self, branch):
-        # NOTE(sileht): Starting here cache should not be updated
-        queue = self.build_queue(branch)
-        # Proceed the queue
-        if queue:
-            # protect the branch before doing anything
-            self.proceed_queue(queue[0])
-        else:
-            LOG.info("Nothing queued, skipping queues processing")
-
     def build_queue(self, branch):
         data = self._redis.hgetall(self.get_cache_key(branch))
 
@@ -260,11 +250,15 @@ class MergifyEngine(object):
             LOG.info("%s, sha: %s->%s)", p.pretty(), p.base.sha, p.head.sha)
         return pulls
 
-    def proceed_queue(self, p):
-        """Do the next action for this pull request
+    def proceed_queue(self, branch):
 
-        'p' is the top priority pull request to merge
-        """
+        queue = self.build_queue(branch)
+        # Proceed the queue
+        if not queue:
+            LOG.info("Nothing queued, skipping queues processing")
+            return
+
+        p = queue[0]
 
         LOG.info("%s selected", p.pretty())
 
