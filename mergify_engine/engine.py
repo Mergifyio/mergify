@@ -300,10 +300,12 @@ class MergifyEngine(object):
     def cache_save_pull(self, pull):
         key = self.get_cache_key(pull.base.ref)
         self._redis.hset(key, pull.number, json.dumps(pull.jsonify()))
+        self._redis.publish("update-%s" % self._installation_id, key)
 
     def cache_remove_pull(self, pull):
         key = self.get_cache_key(pull.base.ref)
         self._redis.hdel(key, pull.number)
+        self._redis.publish("update-%s" % self._installation_id, key)
 
     def get_cache_for_pull_number(self, current_branch, number):
         key = self.get_cache_key(current_branch)
