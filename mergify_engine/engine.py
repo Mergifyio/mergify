@@ -110,6 +110,7 @@ class MergifyEngine(object):
 
         elif incoming_pull.state == "closed":
             self.cache_remove_pull(incoming_pull)
+            self.proceed_queue(incoming_pull.base.ref)
             LOG.info("Just update cache (pull_request closed)")
             return
 
@@ -227,18 +228,21 @@ class MergifyEngine(object):
             incoming_pull.mergify_engine_github_post_check_status(
                 self._redis, self._installation_id)
 
+        self.proceed_queue(incoming_pull.base.ref)
+
+    ###########################
+    # State machine goes here #
+    ###########################
+
+    def process_queue(self, branch):
         # NOTE(sileht): Starting here cache should not be updated
-        queue = self.build_queue(incoming_pull.base.ref)
+        queue = self.build_queue(branch)
         # Proceed the queue
         if queue:
             # protect the branch before doing anything
             self.proceed_queue(queue[0])
         else:
             LOG.info("Nothing queued, skipping queues processing")
-
-    ###########################
-    # State machine goes here #
-    ###########################
 
     def build_queue(self, branch):
         data = self._redis.hgetall(self.get_cache_key(branch))
