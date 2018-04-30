@@ -61,14 +61,9 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
 
         redis.hset("status", msg_key, error.encode('utf8'))
         target_url = "http://gh.mergify.io/check_status_msg/%s" % msg_key
-
-    elif not self.maintainer_can_modify:
-        state = "failure"
-        description = "PR owner doesn't allow modification"
-        target_url = None
     else:
         state = "success"
-        description = "PR automerge enabled"
+        description = "Mergify is ready"
         target_url = None
 
         # We don't have cache filled, so mergify_engine[] stuffs are not
@@ -85,7 +80,13 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
             description = "Pull request will be merged soon"
         elif (self.mergeable_state == "behind" and
               self.mergify_engine["combined_status"] == "success"):
-            description = "Pull request will be rebased soon"
+            if self.maintainer_can_modify:
+                description = ("Pull request will be updated with latest base "
+                               "branch changes soon")
+            else:
+                description = ("Pull request can't be updated with latest "
+                               "base branch changes, owner doesn't allow "
+                               "modification")
 
     context = "%s/pr" % config.CONTEXT
 

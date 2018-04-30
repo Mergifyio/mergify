@@ -44,7 +44,7 @@ class MergifyEngine(object):
 
     def get_updater_token(self):
         updater_token = self._redis.get("installation-token-%s" %
-                                        self._installation_id)
+                                        self._installation_id).decode("utf8")
         if updater_token is None:
             LOG.info("Token for %s not cached, retrieving it..." %
                      self._installation_id)
@@ -54,7 +54,7 @@ class MergifyEngine(object):
                                       config.OAUTH_CLIENT_SECRET))
             updater_token = resp.json()['access_token']
             self._redis.set("installation-token-%s" % self._installation_id,
-                            updater_token)
+                            updater_token.encode("utf8"))
         return updater_token
 
     def handle(self, event_type, data):
@@ -138,6 +138,8 @@ class MergifyEngine(object):
         # PULL REQUEST UPDATER
 
         fullify_extra = {
+            # NOTE(sileht): Both are used by compute_approvals
+            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
@@ -278,6 +280,12 @@ class MergifyEngine(object):
                     p.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id,
                         "No user access_token setuped for rebasing")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
+                elif not p.maintainer_can_modify:
+                    p.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id,
+                        "PR owner doesn't allow modification")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
                 elif p.mergify_engine_update_branch(updater_token):

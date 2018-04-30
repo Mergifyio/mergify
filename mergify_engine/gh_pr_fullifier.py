@@ -104,10 +104,10 @@ def compute_approvals(pull, **extra):
                       pull.pretty(), review.state)
 
     try:
-        required = extra["branch_policy"][
+        required = extra["branch_rule"]["protection"][
             "required_pull_request_reviews"]["required_approving_review_count"]
     except KeyError:
-        return [], [], 1, 1
+        return [], [], 0, 0
 
     # FIXME(sileht): Compute the thing on JS side
     remaining = list(six.moves.range(max(0, required - len(reviews_ok))))
