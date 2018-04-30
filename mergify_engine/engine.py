@@ -44,7 +44,7 @@ class MergifyEngine(object):
 
     def get_updater_token(self):
         updater_token = self._redis.get("installation-token-%s" %
-                                        self._installation_id)
+                                        self._installation_id).decode("utf8")
         if updater_token is None:
             LOG.info("Token for %s not cached, retrieving it..." %
                      self._installation_id)
@@ -54,7 +54,7 @@ class MergifyEngine(object):
                                       config.OAUTH_CLIENT_SECRET))
             updater_token = resp.json()['access_token']
             self._redis.set("installation-token-%s" % self._installation_id,
-                            updater_token)
+                            updater_token.encode("utf8"))
         return updater_token
 
     def handle(self, event_type, data):
