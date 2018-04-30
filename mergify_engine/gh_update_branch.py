@@ -51,7 +51,7 @@ def update_branch(self, token, merge=True):
         git("config", "user.email", "noreply@mergify.io")
 
         out = git("log", "--pretty='format:%cI'")
-        last_commit_date = out.split("\n")[-1]
+        last_commit_date = out.decode("utf8").split("\n")[-1]
 
         git("fetch", "upstream", self.base.ref,
             "--shallow-since='%s'" % last_commit_date)
