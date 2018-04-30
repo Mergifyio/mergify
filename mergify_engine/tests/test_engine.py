@@ -128,7 +128,6 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
-@testtools.skip("disable until we got our testing github accounts reenabled")
 class Tester(testtools.TestCase):
     """Pastamaker engine tests
 
@@ -188,8 +187,8 @@ class Tester(testtools.TestCase):
 
             self.u_main = self.g_main.get_user()
             self.u_fork = self.g_fork.get_user()
-            assert self.u_main.login == "mergify1"
-            assert self.u_fork.login == "mergify2"
+            assert self.u_main.login == "mergify-test1"
+            assert self.u_fork.login == "mergify-test2"
 
             self.r_main = self.u_main.create_repo(self.name)
             self.url_main = "https://%s:@github.com/%s" % (
