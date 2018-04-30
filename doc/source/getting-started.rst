@@ -38,6 +38,8 @@ A more realistic example of the `.mergify.yml` file would look like :
 The key `default` stores the default merging rules to use on all branches. The `required_status_checks` lists all checks that must pass before merging a pull request.
 The `required_pull_request_reviews` defines how many reviewer of the repository should approve the pull request before it gets merged.
 
+You can read the :doc:`full list of configuration option <configuration>`.
+
 You can define a per branch rule using the `branches` settings. To match multiple branches at once, you can use a regular expression:
 
 .. code-block:: yaml
@@ -55,8 +57,6 @@ You can define a per branch rule using the `branches` settings. To match multipl
           stable/.*:
             required_pull_request_reviews:
               required_approving_review_count: 1
-
-Mergify supports every available GitHub branch protection feature. You can read more detail on each feature in `GitHub branch API documentation <https://developer.github.com/v3/repos/branches/#update-branch-protection>`_.
 
 Mergify.io is now ready, what will happen next?
 -----------------------------------------------
