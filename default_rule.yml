@@ -1,49 +1,13 @@
 protection:
-  #
-  # Require status checks to pass before merging. Set to null to disable.
   required_status_checks:
-    # Require branches to be up to date before merging.
-    strict: True
-    # The list of status checks to require in order to merge into this branch
+    strict: true
     contexts:
         - continuous-integration/travis-ci
-
-  # Require at least one approving review on a pull request, before merging. Set to null to disable.
   required_pull_request_reviews:
-    # Set to true if you want to automatically dismiss approving reviews when
-    # someone pushes a new commit.
     dismiss_stale_reviews: true
-    # Blocks merging pull requests until code owners review them.
     require_code_owner_reviews: false
-    # Specify the number of reviewers required to approve pull requests. Use a
-    # number between 1 and 6.
     required_approving_review_count: 1
-    # Specify which users and teams can dismiss pull request reviews (not yet supported)
-    # dismissal_restrictions: null
-    # to enable us a dict like:
-    #  users: ["login", ... ]
-    #  teams: ["team slug", ... ]
-
-  # Restrict who can push to this branch. Team and user restrictions are only
-  # available for organization-owned repositories. Set to null to disable.
   restrictions: null
-  # to enable us a dict like:
-  #  users: ["login", ... ]
-  #  teams: ["team slug", ... ]
-
-  # Enforce all configured restrictions for administrators. Set to true to
-  # enforce required status checks for repository administrators. Set to null
-  # to disable.
   enforce_admins: null
 
-### Coming soon options ###
-
-# Disable mergify for pull request that have this label
 disabling_label: no-mergify
-
-# # Automatically propose a backport of pull request have this label to other branches
-# # when this pull request is merged
-# automated_backport_labels:
-#    bp-3.1:
-#      from: master
-#      to: stable/3.1
