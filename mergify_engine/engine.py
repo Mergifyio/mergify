@@ -25,6 +25,7 @@ import requests
 from mergify_engine import config
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
+from mergify_engine import rules
 from mergify_engine import utils
 
 LOG = logging.getLogger(__name__)
@@ -37,25 +38,24 @@ class MergifyEngine(object):
         self._redis = utils.get_redis()
         self._g = g
         self._installation_id = installation_id
-        self._updater_token = self.get_updater_token()
 
         self._u = user
         self._r = repo
 
     def get_updater_token(self):
-        self._updater_token = self._redis.get("installation-token-%s" %
-                                              self._installation_id)
-        if self._updater_token is None:
+        updater_token = self._redis.get("installation-token-%s" %
+                                        self._installation_id)
+        if updater_token is None:
             LOG.info("Token for %s not cached, retrieving it..." %
                      self._installation_id)
             resp = requests.get("https://mergify.io/engine/token/%s" %
                                 self._installation_id,
                                 auth=(config.OAUTH_CLIENT_ID,
                                       config.OAUTH_CLIENT_SECRET))
-            self._updater_token = resp.json()['access_token']
+            updater_token = resp.json()['access_token']
             self._redis.set("installation-token-%s" % self._installation_id,
-                            self._updater_token)
-        return self._updater_token
+                            updater_token)
+        return updater_token
 
     def handle(self, event_type, data):
         # Everything start here
@@ -108,29 +108,38 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-        elif event_type == "pull_request" and data["action"] == "closed":
+        elif incoming_pull.state == "closed":
             self.cache_remove_pull(incoming_pull)
             LOG.info("Just update cache (pull_request closed)")
             return
 
-        branch_policy = None
-        branch_policy_error = None
-        branch_protected_as_expected = True
+        # BRANCH CONFIGURATION CHECKING
+        branch_rule = None
         try:
-            branch_policy = gh_branch.get_branch_policy(
+            branch_rule = rules.get_branch_rule(
                 self._r, incoming_pull.base.ref)
-        except gh_branch.NoPolicies as e:
-            branch_policy_error = str(e)
+        except rules.NoRules as e:
+            # Not configured, post status check with the error message
+            incoming_pull.mergify_engine_github_post_check_status(
+                self._redis, self._installation_id, str(e))
+            return
 
         try:
-            gh_branch.protect_if_needed(self._r, incoming_pull.base.ref,
-                                        branch_policy)
+            gh_branch.configure_protection_if_needed(
+                self._r, incoming_pull.base.ref, branch_rule)
         except github.UnknownObjectException:
-            branch_protected_as_expected = False
-            LOG.exception("Fail to protect branch, disabled automerge")
+            LOG.exception("Fail to protect branch, disabled mergify")
+            return
+
+        if not branch_rule:
+            LOG.info("Mergify disabled on branch %s", incoming_pull.base.ref)
+            return
+
+        # PULL REQUEST UPDATER
 
         fullify_extra = {
-            "branch_policy": branch_policy,
+            # NOTE(sileht): Both are used by compute_approvals
+            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
@@ -216,21 +225,14 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, self._updater_token,
-                branch_policy_error)
+                self._redis, self._installation_id)
 
         # NOTE(sileht): Starting here cache should not be updated
-
-        if not branch_protected_as_expected:
-            return
-
         queue = self.build_queue(incoming_pull.base.ref)
         # Proceed the queue
-        if branch_policy and queue:
+        if queue:
             # protect the branch before doing anything
             self.proceed_queue(queue[0])
-        elif not branch_policy:
-            LOG.info("No policies setuped, skipping queues processing")
         else:
             LOG.info("Nothing queued, skipping queues processing")
 
@@ -273,7 +275,20 @@ class MergifyEngine(object):
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
-                if p.mergify_engine_update_branch(self._updater_token):
+                updater_token = self.get_updater_token()
+                if not updater_token:
+                    p.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id,
+                        "No user access_token setuped for rebasing")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
+                elif not p.maintainer_can_modify:
+                    p.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id,
+                        "PR owner doesn't allow modification")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
+                elif p.mergify_engine_update_branch(updater_token):
                     LOG.info("%s -> branch updated", p.pretty())
                 else:
                     LOG.info("%s -> branch not updatable, "

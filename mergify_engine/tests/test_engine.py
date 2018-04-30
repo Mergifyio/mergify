@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import uuid
 
 import betamax
 from betamax_serializers.pretty_json import PrettyJSONSerializer
@@ -45,22 +46,24 @@ FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN", "<FORK_TOKEN>")
 RECORD_MODE = 'none' if MAIN_TOKEN == "<MAIN_TOKEN>" else 'all'
 
 CONFIG = """
-policies:
+rules:
   default:
-    required_status_checks:
-      strict: True
-      contexts:
-          - continuous-integration/fake-ci
-    required_pull_request_reviews:
-      dismiss_stale_reviews: true
-      require_code_owner_reviews: false
-      required_approving_review_count: 2
-    restrictions: null
-    enforce_admins: false
+    protection:
+      required_status_checks:
+        strict: True
+        contexts:
+            - continuous-integration/fake-ci
+      required_pull_request_reviews:
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: false
+        required_approving_review_count: 2
+      restrictions: null
+      enforce_admins: false
   branches:
     master:
-      required_pull_request_reviews:
-        required_approving_review_count: 1
+      protection:
+        required_pull_request_reviews:
+          required_approving_review_count: 1
 """
 
 
@@ -96,21 +99,22 @@ class GitterRecorder(utils.Gitter):
     def load_records(self):
         if not os.path.exists(self.cassette_path):
             raise RuntimeError("Cassette %s not found" % self.cassette_path)
-        with open(self.cassette_path, 'r') as f:
-            self.records = json.loads(f.read())
+        with open(self.cassette_path, 'rb') as f:
+            self.records = json.loads(f.read().decode('utf8'))
 
     def save_records(self):
         if not os.path.exists(self.cassette_library_dir):
             os.makedirs(self.cassette_library_dir)
-        with open(self.cassette_path, 'w') as f:
+        with open(self.cassette_path, 'wb') as f:
             f.write(json.dumps(self.records).replace(
                 MAIN_TOKEN, "<MAIN_TOKEN>").replace(
-                    FORK_TOKEN, "<FORK_TOKEN>"))
+                    FORK_TOKEN, "<FORK_TOKEN>").encode('utf8'))
 
     def __call__(self, *args, **kwargs):
         if RECORD_MODE == 'all':
             out = super(GitterRecorder, self).__call__(*args, **kwargs)
-            self.records.append({"args": args, "kwargs": kwargs, "out": out})
+            self.records.append({"args": args, "kwargs": kwargs, "out":
+                                 out.decode('utf8')})
             return out
         else:
             r = self.records.pop(0)
@@ -150,7 +154,15 @@ class Tester(testtools.TestCase):
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
 
-        self.name = "repo-%s" % self._testMethodName
+        if RECORD_MODE == "none":
+            with open("mergify_engine/tests/fixtures/repo_uuid", "r") as f:
+                record_uuid = f.read()
+        else:
+            record_uuid = str(uuid.uuid4())
+            with open("mergify_engine/tests/fixtures/repo_uuid", "w") as f:
+                f.write(record_uuid)
+
+        self.name = "repo-%s-%s" % (record_uuid, self._testMethodName)
 
         self.pr_counter = 0
         self.last_event_id = None
@@ -175,8 +187,8 @@ class Tester(testtools.TestCase):
 
             self.u_main = self.g_main.get_user()
             self.u_fork = self.g_fork.get_user()
-            assert self.u_main.login == "mergify-test1"
-            assert self.u_fork.login == "mergify-test2"
+            assert self.u_main.login == "mergify1"
+            assert self.u_fork.login == "mergify2"
 
             self.r_main = self.u_main.create_repo(self.name)
             self.url_main = "https://%s:@github.com/%s" % (
@@ -213,9 +225,12 @@ class Tester(testtools.TestCase):
 
     def tearDown(self):
         super(Tester, self).tearDown()
-        with self.cassette("tearDown"):
-            self.r_fork.delete()
-            self.r_main.delete()
+
+        # NOTE(sileht): I'm guessing that deleting repository help to get
+        # account flagged, so just keep them
+        # with self.cassette("tearDown"):
+        #     self.r_fork.delete()
+        #     self.r_main.delete()
 
     def create_pr(self):
         branch = "fork/pr%d" % self.pr_counter
@@ -332,22 +347,24 @@ class Tester(testtools.TestCase):
         self.assertEqual(["master"], self.engine.get_cached_branches())
 
         # Check policy of that branch is the expected one
-        expected_policy = {
-            "required_status_checks": {
-                "strict": True,
-                "contexts": ["continuous-integration/fake-ci"],
-            },
-            "required_pull_request_reviews": {
-                "dismiss_stale_reviews": True,
-                "require_code_owner_reviews": False,
-                "required_approving_review_count": 1,
-            },
-            "restrictions": None,
-            "enforce_admins": False,
+        expected_rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
         }
         with self.cassette("branch"):
             self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                    expected_policy))
+                                                    expected_rule))
 
         # Checks the content of the cache
         pulls = self.engine.build_queue("master")

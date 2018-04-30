@@ -109,19 +109,18 @@ def refresh_all():
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
-        for repo in i.get_repos():
+        for r in i.get_repos():
             counts[1] += 1
-            pulls = repo.get_pulls()
-            branches = set([p.base.ref for p in pulls])
+            pulls = r.get_pulls()
+            for p in pulls:
+                # Mimic the github event format
+                data = {
+                    'repository': r.raw_data,
+                    'installation': {'id': install["id"]},
+                    'pull_request': p.raw_data,
+                }
+                get_queue().enqueue(worker.event_handler, "refresh", data)
 
-            # Mimic the github event format
-            for branch in branches:
-                counts[2] += 1
-                get_queue().enqueue(worker.event_handler, "refresh", {
-                    'repository': repo.raw_data,
-                    'installation': {'id': install['id']},
-                    'refresh_ref': "branch/%s" % branch,
-                })
     return ("Updated %s installations, %s repositories, "
             "%s branches" % tuple(counts)), 202
 
@@ -196,6 +195,33 @@ def event_handler():
                       "pull_request_review"]:
         get_queue().enqueue(worker.event_handler, event_type, data)
 
+    # TODO(sileht): handle installation modification
+    # "installation_repositories" event
+    elif event_type == "installation" and data["action"] == "created":
+        integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                               config.PRIVATE_KEY)
+        token = integration.get_access_token(data["installation"]["id"]).token
+        g = github.Github(token)
+        for repository in data["repositories"]:
+            if repository["private"]:
+                # Skip private for now
+                continue
+
+            r = g.get_repo(repository["full_name"])
+            pulls = r.get_pulls()
+            for p in pulls:
+                # Mimic the github event format
+                data = {
+                    'repository': r.raw_data,
+                    'installation': data["installation"],
+                    'pull_request': p.raw_data,
+                }
+                get_queue().enqueue(worker.event_handler, "refresh", data)
+
+    elif event_type == "installation" and data["action"] == "deleted":
+        key = "queues~%s~*~*~*" % data["installation"]["id"]
+        utils.get_redis().delete(key)
+
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
     else:
@@ -221,6 +247,15 @@ def installation(installation_id):
 @app.route("/favicon.ico")
 def favicon():
     return app.send_static_file("favicon.ico")
+
+
+@app.route("/check_status_msg/<path:key>")
+def check_status_msg(key):
+    msg = utils.get_redis().hget("status", key)
+    if msg:
+        return flask.render_template("msg.html", msg=msg.decode("utf8"))
+    else:
+        flask.abort(404)
 
 
 @app.route("/fonts/<file>")

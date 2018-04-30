@@ -12,12 +12,12 @@ Once this is done, you need to enable the Mergify GitHub Application on the repo
 Configuration
 -------------
 
-In the root directory of each enabled repository, create a `.mergify.yml` file with the minimal content to apply the defaults policies:
+In the root directory of each enabled repository, create a `.mergify.yml` file with the minimal content to apply the defaults rules:
 
 .. code-block:: shell
 
     $ cd myrepository
-    $ echo "policies:" > .mergify.yml
+    $ echo "rules:" > .mergify.yml
     $ git add .mergify.yml
     $ git commit -m "Enable mergify.io"
     $ git push
@@ -26,34 +26,37 @@ A more realistic example of the `.mergify.yml` file would look like :
 
 .. code-block:: yaml
 
-    policies:
+    rules:
       default:
-        required_status_checks:
-          contexts:
-            - continuous-integration/travis-ci
-        required_pull_request_reviews:
-          required_approving_review_count: 2
+        protection:
+          required_status_checks:
+            contexts:
+              - continuous-integration/travis-ci
+          required_pull_request_reviews:
+            required_approving_review_count: 2
 
 The key `default` stores the default merging rules to use on all branches. The `required_status_checks` lists all checks that must pass before merging a pull request.
 The `required_pull_request_reviews` defines how many reviewer of the repository should approve the pull request before it gets merged.
 
-You can define a per branch policy using the `branches` settings. To match multiple branches at once, you can use a regular expression:
+You can define a per branch rule using the `branches` settings. To match multiple branches at once, you can use a regular expression:
 
 .. code-block:: yaml
 
-    policies:
+    rules:
       default:
-        required_status_checks:
-          contexts:
-            - continuous-integration/travis-ci
-        required_pull_request_reviews:
-          required_approving_review_count: 2
-      branches:
-        stable/.*:
+        protection:
+          required_status_checks:
+            contexts:
+              - continuous-integration/travis-ci
           required_pull_request_reviews:
-            required_approving_review_count: 1
+            required_approving_review_count: 2
+      branches:
+        protection:
+          stable/.*:
+            required_pull_request_reviews:
+              required_approving_review_count: 1
 
-Mergify supports every available GitHub branch protection feature. You can read more detail on each feature in [GitHub branch API documentation](https://developer.github.com/v3/repos/branches/#update-branch-protection).
+Mergify supports every available GitHub branch protection feature. You can read more detail on each feature in `GitHub branch API documentation <https://developer.github.com/v3/repos/branches/#update-branch-protection>`_.
 
 Mergify.io is now ready, what will happen next?
 -----------------------------------------------
@@ -64,7 +67,7 @@ of the pull request according to the defined rules.
 .. image:: _static/mergify-status-ko.png
    :alt: status check
 
-When all criterias of the policies are satisfied, Mergify will merge the base branch into the pull request if the pull request is not up-to-date with the base branch. This is made to ensure that the pull request is tested one last time while being up-to-date with the base branch.
+When all criterias of the rules are satisfied, Mergify will merge the base branch into the pull request if the pull request is not up-to-date with the base branch. This is made to ensure that the pull request is tested one last time while being up-to-date with the base branch.
 
 Once the required services status are approved, Mergify will automatically merge the pull request.
 
