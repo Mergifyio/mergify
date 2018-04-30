@@ -251,7 +251,7 @@ def favicon():
 
 @app.route("/check_status_msg/<path:key>")
 def check_status_msg(key):
-    msg = utils.get_redis().hset("status", key)
+    msg = utils.get_redis().hget("status", key)
     if msg:
         return flask.render_template("msg.html", msg=msg.decode("utf8"))
     else:
