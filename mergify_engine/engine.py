@@ -138,6 +138,8 @@ class MergifyEngine(object):
         # PULL REQUEST UPDATER
 
         fullify_extra = {
+            # NOTE(sileht): Both are used by compute_approvals
+            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
