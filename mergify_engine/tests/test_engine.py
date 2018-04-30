@@ -128,6 +128,7 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
+@testtools.skip("disable until we got our testing github accounts reenabled")
 class Tester(testtools.TestCase):
     """Pastamaker engine tests
 
