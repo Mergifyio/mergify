@@ -108,7 +108,7 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-        elif event_type == "pull_request" and data["action"] == "closed":
+        elif incoming_pull.state == "closed":
             self.cache_remove_pull(incoming_pull)
             LOG.info("Just update cache (pull_request closed)")
             return
@@ -121,7 +121,7 @@ class MergifyEngine(object):
         except rules.NoRules as e:
             # Not configured, post status check with the error message
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id, str(e))
+                self._redis, self._installation_id, str(e))
             return
 
         try:
@@ -138,6 +138,8 @@ class MergifyEngine(object):
         # PULL REQUEST UPDATER
 
         fullify_extra = {
+            # NOTE(sileht): Both are used by compute_approvals
+            "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
 
@@ -223,7 +225,7 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._installation_id)
+                self._redis, self._installation_id)
 
         # NOTE(sileht): Starting here cache should not be updated
         queue = self.build_queue(incoming_pull.base.ref)
@@ -276,8 +278,14 @@ class MergifyEngine(object):
                 updater_token = self.get_updater_token()
                 if not updater_token:
                     p.mergify_engine_github_post_check_status(
-                        self._installation_id,
+                        self._redis, self._installation_id,
                         "No user access_token setuped for rebasing")
+                    LOG.info("%s -> branch not updatable, token missing",
+                             p.pretty())
+                elif not p.maintainer_can_modify:
+                    p.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id,
+                        "PR owner doesn't allow modification")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
                 elif p.mergify_engine_update_branch(updater_token):
