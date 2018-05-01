@@ -128,7 +128,7 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
-class Tester(testtools.TestCase):
+class TestEngineScenario(testtools.TestCase):
     """Pastamaker engine tests
 
     Tests user github resource and are slow, so we must reduce the number
@@ -136,7 +136,7 @@ class Tester(testtools.TestCase):
     """
 
     def setUp(self):
-        super(Tester, self).setUp()
+        super(TestEngineScenario, self).setUp()
         session = requests.Session()
         session.trust_env = False
         self.recorder = betamax.Betamax(session)
@@ -224,7 +224,7 @@ class Tester(testtools.TestCase):
             self.push_events()
 
     def tearDown(self):
-        super(Tester, self).tearDown()
+        super(TestEngineScenario, self).tearDown()
 
         # NOTE(sileht): I'm guessing that deleting repository help to get
         # account flagged, so just keep them
@@ -444,3 +444,22 @@ class Tester(testtools.TestCase):
 
         r = json.loads(self.app.get('/status/0').data.decode("utf8"))
         self.assertEqual(0, len(r))
+
+    def test_disabling_label(self):
+        with self.cassette("create_pr", allow_playback_repeats=True):
+            p = self.create_pr()
+            commits = list(p.get_commits())
+            self.r_main.create_label("no-mergify", "000000")
+            p.add_to_labels("no-mergify")
+
+        with self.cassette("status"):
+            # Post CI status
+            self.create_status_and_push_event(p, commits[0])
+        with self.cassette("review"):
+            # Approve the patch
+            self.create_review_and_push_event(p, commits[0])
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
