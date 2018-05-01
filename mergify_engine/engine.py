@@ -108,12 +108,6 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-        elif incoming_pull.state == "closed":
-            self.cache_remove_pull(incoming_pull)
-            self.proceed_queue(incoming_pull.base.ref)
-            LOG.info("Just update cache (pull_request closed)")
-            return
-
         # BRANCH CONFIGURATION CHECKING
         branch_rule = None
         try:
@@ -143,6 +137,12 @@ class MergifyEngine(object):
             "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()]
         }
+
+        if incoming_pull.state == "closed":
+            self.cache_remove_pull(incoming_pull)
+            self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
+            LOG.info("Just update cache (pull_request closed)")
+            return
 
         if (event_type == "status" and
                 data["context"] == "continuous-integration/travis-ci/pr"):
@@ -230,19 +230,20 @@ class MergifyEngine(object):
             incoming_pull.mergify_engine_github_post_check_status(
                 self._redis, self._installation_id)
 
-        self.proceed_queue(incoming_pull.base.ref)
+        self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
 
     ###########################
     # State machine goes here #
     ###########################
 
-    def build_queue(self, branch):
+    def build_queue(self, branch, **extra):
         data = self._redis.hgetall(self.get_cache_key(branch))
 
         with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
             pulls = list(tpe.map(
                 lambda p: gh_pr.from_cache(self._r,
-                                           json.loads(p.decode("utf8"))),
+                                           json.loads(p.decode("utf8")),
+                                           **extra),
                 data.values()))
 
         sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
@@ -252,9 +253,9 @@ class MergifyEngine(object):
             LOG.info("%s, sha: %s->%s)", p.pretty(), p.base.sha, p.head.sha)
         return pulls
 
-    def proceed_queue(self, branch):
+    def proceed_queue(self, branch, **extra):
 
-        queue = self.build_queue(branch)
+        queue = self.build_queue(branch, **extra)
         # Proceed the queue
         if not queue:
             LOG.info("Nothing queued, skipping queues processing")
