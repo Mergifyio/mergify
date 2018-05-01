@@ -38,19 +38,26 @@ def is_configured(g_repo, branch, rule):
 
     # NOTE(sileht): Transform the payload into rule
     del data['url']
-    del data["required_status_checks"]["url"]
-    del data["required_status_checks"]["contexts_url"]
+
+    if "required_status_checks" in data:
+        del data["required_status_checks"]["url"]
+        del data["required_status_checks"]["contexts_url"]
+        data["required_status_checks"]["contexts"] = sorted(
+            data["required_status_checks"]["contexts"])
+    else:
+        data["required_status_checks"] = None
+
     del data["required_pull_request_reviews"]["url"]
     del data["enforce_admins"]["url"]
-    data["required_status_checks"]["contexts"] = sorted(
-        data["required_status_checks"]["contexts"])
     data["enforce_admins"] = data["enforce_admins"]["enabled"]
 
     if "restrictions" not in data:
         data["restrictions"] = None
 
-    rule['protection']["required_status_checks"]["contexts"] = sorted(
-        rule['protection']["required_status_checks"]["contexts"])
+    rsc = rule["protection"].get("required_status_checks")
+    if rsc and "contexts" in rsc:
+        rsc["contexts"] = sorted(rsc["contexts"])
+    LOG.info("rsc %s", rsc)
 
     return rule['protection'] == data
 

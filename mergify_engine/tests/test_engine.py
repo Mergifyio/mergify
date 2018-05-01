@@ -64,6 +64,10 @@ rules:
       protection:
         required_pull_request_reviews:
           required_approving_review_count: 1
+    stable:
+      protection:
+        required_status_checks: null
+
 """
 
 
@@ -205,6 +209,9 @@ class TestEngineScenario(testtools.TestCase):
             self.git("commit", "--no-edit", "-m", "initial commit")
             self.git("push", "main", "master")
 
+            self.git("checkout", "-b", "stable")
+            self.git("push", "main", "stable")
+
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.url_fork = "https://%s:@github.com/%s" % (
                 FORK_TOKEN, self.r_fork.full_name)
@@ -234,11 +241,11 @@ class TestEngineScenario(testtools.TestCase):
         #     self.r_fork.delete()
         #     self.r_main.delete()
 
-    def create_pr(self):
+    def create_pr(self, base="master"):
         branch = "fork/pr%d" % self.pr_counter
         title = "Pull request n%d from fork" % self.pr_counter
 
-        self.git("checkout", "fork/master", "-b", branch)
+        self.git("checkout", "fork/%s" % base, "-b", branch)
         open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
         self.git("add", "test%d" % self.pr_counter)
         self.git("commit", "--no-edit", "-m", title)
@@ -247,7 +254,7 @@ class TestEngineScenario(testtools.TestCase):
         self.pr_counter += 1
 
         p = self.r_fork.parent.create_pull(
-            base="master",
+            base=base,
             head="%s:%s" % (self.r_fork.owner.login, branch),
             title=title, body=title)
         self.push_events()
@@ -471,3 +478,24 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(-1, pulls[0].mergify_engine['weight'])
         self.assertEqual("Disabled by label",
                          pulls[0].mergify_engine['status_desc'])
+
+    def test_missing_required_status_check(self):
+        with self.cassette("create_pr", allow_playback_repeats=True):
+            self.create_pr("stable")
+
+        # Check policy of that branch is the expected one
+        expected_rule = {
+            "protection": {
+                "required_status_checks": None,
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 2,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+        with self.cassette("branch"):
+            self.assertTrue(gh_branch.is_configured(self.r_main, "stable",
+                                                    expected_rule))
