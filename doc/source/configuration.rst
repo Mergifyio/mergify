@@ -118,7 +118,8 @@ request to be merged. It is a dictionary with the following optional keys:
        when someone pushes a new commit.
    * - ``require_code_owner_reviews``
      - ``boolean``
-     - Blocks merging pull requests until code owners review them.
+     - Blocks merging pull requests until `code owners
+       <https://help.github.com/articles/about-codeowners/>`_ review them.
    * - ``required_approving_review_count``
      - ``integer``
      - Specify the number of reviewers required to approve pull requests. Use a
