@@ -154,12 +154,12 @@ def from_event(repo, data):
             repo._requester, {}, data["pull_request"], completed=True)
 
 
-def from_cache(repo, data):
+def from_cache(repo, data, **extra):
     # NOTE(sileht): Reload our PullRequest custom object from cache data
     # instead of querying the API
     p = github.PullRequest.PullRequest(
         repo._requester, {}, data, completed=True)
-    return p.fullify(data)
+    return p.fullify(data, **extra)
 
 
 def monkeypatch_github():
