@@ -38,7 +38,8 @@ Protection = voluptuous.Schema({
     'required_pull_request_reviews': {
         'dismiss_stale_reviews': bool,
         'require_code_owner_reviews': bool,
-        'required_approving_review_count': int,
+        'required_approving_review_count': voluptuous.All(
+            int, voluptuous.Range(min=1, max=6)),
     },
     'restrictions': voluptuous.Any(None, []),
     'enforce_admins': voluptuous.Any(None, bool),
