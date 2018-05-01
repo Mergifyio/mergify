@@ -14,75 +14,74 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import pytest
-import testtools
 import voluptuous
 import yaml
 
 from mergify_engine import rules
 
 
-class TestConfig(testtools.TestCase):
-    def test_config(self):
-        with open("default_rule.yml", "r") as f:
-            print(f.read())
-            f.seek(0)
-            config = yaml.load(f.read())
+def test_config():
+    with open("default_rule.yml", "r") as f:
+        print(f.read())
+        f.seek(0)
+        config = yaml.load(f.read())
 
-        config = {
-            "rules": {
-                "default": config,
-                "branches": {
-                    "stable/.*": config,
-                    "stable/3.1": config,
-                    "stable/foo": {
-                        "automated_backport_labels": {
-                            'bp-3.1': 'stable/3.1',
-                            'bp-3.2': 'stable/4.2',
-                        }
+    config = {
+        "rules": {
+            "default": config,
+            "branches": {
+                "stable/.*": config,
+                "stable/3.1": config,
+                "stable/foo": {
+                    "automated_backport_labels": {
+                        'bp-3.1': 'stable/3.1',
+                        'bp-3.2': 'stable/4.2',
                     }
                 }
             }
         }
+    }
+    rules.validate_rule(yaml.dump(config))
+
+
+def test_review_count_range():
+    config = {
+        "rules": {
+            "default": {
+                "protection": {
+                    "required_pull_request_reviews": {
+                        "required_approving_review_count": 2
+                    }
+                }
+            }
+        }
+    }
+    rules.validate_rule(yaml.dump(config))
+
+    config = {
+        "rules": {
+            "default": {
+                "protection": {
+                    "required_pull_request_reviews": {
+                        "required_approving_review_count": -1
+                    }
+                }
+            }
+        }
+    }
+    with pytest.raises(voluptuous.error.MultipleInvalid):
         rules.validate_rule(yaml.dump(config))
 
-    def test_review_count_range(self):
-        config = {
-            "rules": {
-                "default": {
-                    "protection": {
-                        "required_pull_request_reviews": {
-                            "required_approving_review_count": 2
-                        }
+    config = {
+        "rules": {
+            "default": {
+                "protection": {
+                    "required_pull_request_reviews": {
+                        "required_approving_review_count": 10
                     }
                 }
             }
         }
+    }
+    with pytest.raises(voluptuous.error.MultipleInvalid):
         rules.validate_rule(yaml.dump(config))
-
-        config = {
-            "rules": {
-                "default": {
-                    "protection": {
-                        "required_pull_request_reviews": {
-                            "required_approving_review_count": -1
-                        }
-                    }
-                }
-            }
-        }
-        with pytest.raises(voluptuous.error.MultipleInvalid):
-            rules.validate_rule(yaml.dump(config))
-
-        config = {
-            "rules": {
-                "default": {
-                    "protection": {
-                        "required_pull_request_reviews": {
-                            "required_approving_review_count": 10
-                        }
-                    }
-                }
-            }
-        }
-        with pytest.raises(voluptuous.error.MultipleInvalid):
-            rules.validate_rule(yaml.dump(config))
