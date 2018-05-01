@@ -13,8 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import pytest
 import testtools
+import voluptuous
 import yaml
 
 from mergify_engine import rules
@@ -43,3 +44,45 @@ class TestConfig(testtools.TestCase):
             }
         }
         rules.validate_rule(yaml.dump(config))
+
+    def test_review_count_range(self):
+        config = {
+            "rules": {
+                "default": {
+                    "protection": {
+                        "required_pull_request_reviews": {
+                            "required_approving_review_count": 2
+                        }
+                    }
+                }
+            }
+        }
+        rules.validate_rule(yaml.dump(config))
+
+        config = {
+            "rules": {
+                "default": {
+                    "protection": {
+                        "required_pull_request_reviews": {
+                            "required_approving_review_count": -1
+                        }
+                    }
+                }
+            }
+        }
+        with pytest.raises(voluptuous.error.MultipleInvalid):
+            rules.validate_rule(yaml.dump(config))
+
+        config = {
+            "rules": {
+                "default": {
+                    "protection": {
+                        "required_pull_request_reviews": {
+                            "required_approving_review_count": 10
+                        }
+                    }
+                }
+            }
+        }
+        with pytest.raises(voluptuous.error.MultipleInvalid):
+            rules.validate_rule(yaml.dump(config))
