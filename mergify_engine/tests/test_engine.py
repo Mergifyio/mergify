@@ -392,9 +392,13 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(2, len(pulls))
         self.assertEqual(2, pulls[0].number)
         self.assertEqual(11, pulls[0].mergify_engine['weight'])
+        self.assertEqual("Will be merged soon",
+                         pulls[0].mergify_engine['status_desc'])
 
         self.assertEqual(1, pulls[1].number)
         self.assertEqual(-1, pulls[1].mergify_engine['weight'])
+        self.assertEqual("Waiting for approvals",
+                         pulls[1].mergify_engine['status_desc'])
 
         # Check the merged pull request is gone
         with self.cassette("merge"):
@@ -465,3 +469,5 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
         self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual("Disabled by label",
+                         pulls[0].mergify_engine['status_desc'])
