@@ -106,7 +106,9 @@ class GitterRecorder(utils.Gitter):
         if not os.path.exists(self.cassette_library_dir):
             os.makedirs(self.cassette_library_dir)
         with open(self.cassette_path, 'wb') as f:
-            f.write(json.dumps(self.records).replace(
+            data = json.dumps(self.records, sort_keys=True,
+                              indent=4, separators=(',', ': '))
+            f.write(data.replace(
                 MAIN_TOKEN, "<MAIN_TOKEN>").replace(
                     FORK_TOKEN, "<FORK_TOKEN>").encode('utf8'))
 
