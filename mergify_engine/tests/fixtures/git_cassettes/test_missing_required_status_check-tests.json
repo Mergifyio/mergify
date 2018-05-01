@@ -4,7 +4,7 @@
             "init"
         ],
         "kwargs": {},
-        "out": "Initialized empty Git repository in /tmp/mergify-gitterx3wcmn3s/.git/\n"
+        "out": "Initialized empty Git repository in /tmp/mergify-gitter_40krofp/.git/\n"
     },
     {
         "args": [
@@ -29,7 +29,7 @@
             "remote",
             "add",
             "main",
-            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-6a40b787-df8e-4b81-ba41-8f9d364104c2-test_missing_required_status_check"
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-3f2ccfed-e0d4-499c-85fa-055edadb71fd-test_missing_required_status_check"
         ],
         "kwargs": {},
         "out": ""
@@ -50,7 +50,7 @@
             "initial commit"
         ],
         "kwargs": {},
-        "out": "[master (root-commit) 4755f48] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
+        "out": "[master (root-commit) 82de352] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
     },
     {
         "args": [
@@ -84,7 +84,7 @@
             "remote",
             "add",
             "fork",
-            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-6a40b787-df8e-4b81-ba41-8f9d364104c2-test_missing_required_status_check"
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-3f2ccfed-e0d4-499c-85fa-055edadb71fd-test_missing_required_status_check"
         ],
         "kwargs": {},
         "out": ""
@@ -123,7 +123,7 @@
             "Pull request n0 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr0 ef947a6] Pull request n0 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test0\n"
+        "out": "[fork/pr0 4fb9587] Pull request n0 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test0\n"
     },
     {
         "args": [
