@@ -74,7 +74,7 @@ in a branch. It is a dictionary with the following optional keys:
      - ``boolean``
      - Enforce all configured restrictions for administrators. Set to ``true``
        to enforce required status checks for repository administrators. Set to
-       ``null`` to disable.
+       ``false`` to disable.
 
 .. _required status checks:
 
