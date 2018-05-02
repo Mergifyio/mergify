@@ -20,7 +20,7 @@ import yaml
 from mergify_engine import rules
 
 
-def validate_with_get_branch_rule(config):
+def validate_with_get_branch_rule(config, branch="master"):
     fake_repo = mock.Mock()
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content=yaml.dump(config))
@@ -49,10 +49,21 @@ def test_config():
         }
     }
     validate_with_get_branch_rule(config)
+    validate_with_get_branch_rule(config, "stable/3.1")
+    validate_with_get_branch_rule(config, "stable/foo")
 
 
 def test_defauls_get_branch_rule():
     validate_with_get_branch_rule({"rules": None})
+
+
+def test_invalid_yaml():
+    fake_repo = mock.Mock()
+    fake_repo.get_contents.return_value = mock.Mock(
+        decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
+    with pytest.raises(rules.NoRules) as excinfo:
+        rules.get_branch_rule(fake_repo, "master")
+    assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
 
 def test_review_count_range():

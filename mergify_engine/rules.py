@@ -103,6 +103,12 @@ def get_branch_rule(g_repo, branch):
 
     try:
         rules = validate_user_config(content)["rules"] or {}
+    except yaml.YAMLError as e:
+        if hasattr(e, 'problem_mark'):
+            raise NoRules(".mergify.yml is invalid at position: (%s:%s)" %
+                          (e.problem_mark.line+1, e.problem_mark.column+1))
+        else:
+            raise NoRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:
         raise NoRules(".mergify.yml is invalid: %s" % str(e))
 
