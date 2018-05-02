@@ -104,7 +104,8 @@ class MergifyEngine(object):
 
         # We don't care about *labeled/*assigned/review_request*/edited
         elif (event_type == "pull_request" and data["action"] not in [
-                "opened", "reopened", "closed", "synchronize", "edited"]):
+                "opened", "reopened", "closed", "synchronize", "edited",
+                "labeled"]):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
