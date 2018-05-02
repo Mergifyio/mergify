@@ -57,8 +57,8 @@ def is_configured(g_repo, branch, rule):
     rsc = rule["protection"].get("required_status_checks")
     if rsc and "contexts" in rsc:
         rsc["contexts"] = sorted(rsc["contexts"])
-    LOG.info("rsc %s", rsc)
 
+    LOG.info("Comparing protections: %s == %s", rule['protection'], data)
     return rule['protection'] == data
 
 
@@ -91,8 +91,8 @@ def unprotect(g_repo, branch):
 
 def configure_protection_if_needed(g_repo, branch, rule):
     if not is_configured(g_repo, branch, rule):
-        LOG.warning("Branch %s of %s is misconfigured, configuring it to %s",
-                    branch, g_repo.full_name, rule)
+        LOG.warning("Branch %s of %s is misconfigured, configuring it.",
+                    branch, g_repo.full_name)
         if rule is None:
             unprotect(g_repo, branch)
         else:
