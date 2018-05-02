@@ -44,6 +44,10 @@ app = flask.Flask(__name__)
 # app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
+INTEGRATION = github.GithubIntegration(config.INTEGRATION_ID,
+                                       config.PRIVATE_KEY)
+
+
 def get_redis():
     if not hasattr(flask.g, 'redis'):
         conn = utils.get_redis()
@@ -57,19 +61,38 @@ def get_queue():
     return flask.g.rq_queue
 
 
+def authentification():
+    # Only SHA1 is supported
+    header_signature = flask.request.headers.get('X-Hub-Signature')
+    if header_signature is None:
+        LOG.warning("Webhook without signature")
+        flask.abort(403)
+
+    try:
+        sha_name, signature = header_signature.split('=')
+    except ValueError:
+        sha_name = None
+
+    if sha_name != 'sha1':
+        LOG.warning("Webhook signature malformed")
+        flask.abort(403)
+
+    mac = utils.compute_hmac(flask.request.data)
+    if not hmac.compare_digest(mac, str(signature)):
+        LOG.warning("Webhook signature invalid")
+        flask.abort(403)
+
+
 @app.route("/refresh/<owner>/<repo>/<path:refresh_ref>",
            methods=["POST"])
 def refresh(owner, repo, refresh_ref):
     authentification()
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-
-    installation_id = utils.get_installation_id(integration, owner)
+    installation_id = utils.get_installation_id(INTEGRATION, owner)
     if not installation_id:
         flask.abort(400, "%s have not installed mergify_engine" % owner)
 
-    token = integration.get_access_token(installation_id).token
+    token = INTEGRATION.get_access_token(installation_id).token
     g = github.Github(token)
     r = g.get_repo("%s/%s" % (owner, repo))
     if refresh_ref == "full" or refresh_ref.startswith("branch/"):
@@ -99,13 +122,10 @@ def refresh(owner, repo, refresh_ref):
 def refresh_all():
     authentification()
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-
     counts = [0, 0, 0]
-    for install in utils.get_installations(integration):
+    for install in utils.get_installations(INTEGRATION):
         counts[0] += 1
-        token = integration.get_access_token(install["id"]).token
+        token = INTEGRATION.get_access_token(install["id"]).token
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
@@ -130,9 +150,9 @@ def queue(owner, repo, branch):
     return get_redis().get("queues~%s~%s~%s" % (owner, repo, branch)) or "[]"
 
 
-def _get_status(r, installation_id):
+def _get_status(r, installation_id, login='*', repo='*'):
     queues = []
-    for key in r.keys("queues~%s~*~*" % installation_id):
+    for key in r.keys("queues~%s~%s~%s~*" % (installation_id, login, repo)):
         _, _, owner, repo, branch = key.decode("utf8").split("~")
         payload = r.hgetall(key)
         pulls = [json.loads(p.decode("utf8")) for p in payload.values()]
@@ -150,19 +170,14 @@ def _get_status(r, installation_id):
     return json.dumps(queues)
 
 
-@app.route("/status/<installation_id>")
-def status(installation_id):
-    r = get_redis()
-    return _get_status(r, installation_id)
-
-
 def stream_message(_type, data):
     return 'event: %s\ndata: %s\n\n' % (_type, data)
 
 
-def stream_generate(installation_id):
+def stream_generate(installation_id, login="*", repo="*"):
     r = get_redis()
-    yield stream_message("refresh", _get_status(r, installation_id))
+    yield stream_message("refresh", _get_status(r, installation_id,
+                                                login, repo))
     pubsub = r.pubsub()
     pubsub.subscribe("update-%s", installation_id)
     while True:
@@ -173,10 +188,34 @@ def stream_generate(installation_id):
         if message is None:
             yield stream_message("ping", "{}")
         elif message["channel"] == "update-%s" % installation_id:
-            yield stream_message("refresh", _get_status(r, installation_id))
+            yield stream_message("refresh", _get_status(r, installation_id,
+                                                        login, repo))
 
 
-@app.route('/status/stream/<installation_id>')
+@app.route("/status/install/<installation_id>")
+def status(installation_id):
+    r = get_redis()
+    return _get_status(r, installation_id)
+
+
+@app.route("/status/repos/<login>/")
+@app.route("/status/repos/<login>/<repo>/")
+def status_repo(login, repo="*"):
+    r = get_redis()
+    installation_id = utils.get_installation_id(INTEGRATION, login)
+    return _get_status(r, installation_id, login, repo)
+
+
+@app.route('/stream/status/repos/<login>/')
+@app.route('/stream/status/repos/<login>/<repo>/')
+def stream_repo(login, repo="*"):
+    installation_id = utils.get_installation_id(INTEGRATION, login)
+    return flask.Response(flask.stream_with_context(
+        stream_generate(installation_id, login, repo)
+    ), mimetype="text/event-stream")
+
+
+@app.route('/stream/status/install/<installation_id>')
 def stream(installation_id):
     return flask.Response(flask.stream_with_context(
         stream_generate(installation_id)
@@ -198,9 +237,7 @@ def event_handler():
     # TODO(sileht): handle installation modification
     # "installation_repositories" event
     elif event_type == "installation" and data["action"] == "created":
-        integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                               config.PRIVATE_KEY)
-        token = integration.get_access_token(data["installation"]["id"]).token
+        token = INTEGRATION.get_access_token(data["installation"]["id"]).token
         g = github.Github(token)
         for repository in data["repositories"]:
             if repository["private"]:
@@ -234,16 +271,6 @@ def event_handler():
     return "", 202
 
 
-@app.route("/")
-def index():
-    return flask.redirect("https://mergify.io/")
-
-
-@app.route("/<installation_id>")
-def installation(installation_id):
-    return app.send_static_file("index.html")
-
-
 @app.route("/favicon.ico")
 def favicon():
     return app.send_static_file("favicon.ico")
@@ -264,23 +291,12 @@ def fonts(file):
     return flask.send_from_directory(os.path.join("static", "fonts"), file)
 
 
-def authentification():
-    # Only SHA1 is supported
-    header_signature = flask.request.headers.get('X-Hub-Signature')
-    if header_signature is None:
-        LOG.warning("Webhook without signature")
-        flask.abort(403)
+@app.route("/")
+def index():
+    return flask.redirect("https://mergify.io/")
 
-    try:
-        sha_name, signature = header_signature.split('=')
-    except ValueError:
-        sha_name = None
 
-    if sha_name != 'sha1':
-        LOG.warning("Webhook signature malformed")
-        flask.abort(403)
-
-    mac = utils.compute_hmac(flask.request.data)
-    if not hmac.compare_digest(mac, str(signature)):
-        LOG.warning("Webhook signature invalid")
-        flask.abort(403)
+# NOTE(sileht): Must be the last one, since it catch any remaning routes
+@app.route("/<path:path>")
+def installation(path):
+    return app.send_static_file("index.html")

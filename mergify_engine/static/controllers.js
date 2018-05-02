@@ -20,13 +20,21 @@ app.classy.controller({
         this.opened_travis_tabs = {};
         this.opened_commits_tabs = {};
         this.$scope.tabs_are_open = {};
-        this.$scope.installation_id = this.$routeParams.installation_id;
 
+        var install_id = Number.parseInt(this.$routeParams.login);
+        if (!Number.isNaN(install_id)) {
+            this.$scope.server_url = "/status/install/" + this.$routeParams.login + '/';
+        } else if (this.$routeParams.repo) {
+            this.$scope.server_url = "/status/repos/" + this.$routeParams.login + '/' + this.$routeParams.repo + '/';
+        } else {
+            this.$scope.server_url = "/status/repos/" + this.$routeParams.login + '/';
+        }
 
         if(typeof(EventSource) !== "undefined") {
             console.log("event enabled");
             this.$scope.event = true;
-            var source = new EventSource('/status/stream/' + this.$routeParams.installation_id);
+            var dest;
+            var source = new EventSource('/stream/' + this.$scope.server_url);
             source.addEventListener("ping", (event) => {
                 // Just for testing the connection for heroku
             }, false);
@@ -51,7 +59,7 @@ app.classy.controller({
         refresh: function() {
             console.log("refreshing");
             this.$scope.refreshing = true;
-            this.$http({'method': 'GET', 'url': '/status/' + this.$routeParams.installation_id}).then((response) => {
+            this.$http({'method': 'GET', 'url': this.$scope.server_url}).then((response) => {
                 this.update_pull_requests(response.data);
             }, (error) => {
                 console.warn(error);
