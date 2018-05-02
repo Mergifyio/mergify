@@ -5,6 +5,6 @@ protection:
     dismiss_stale_reviews: true
     required_approving_review_count: 1
   restrictions: null
-  enforce_admins: null
+  enforce_admins: false
 
 disabling_label: no-mergify
