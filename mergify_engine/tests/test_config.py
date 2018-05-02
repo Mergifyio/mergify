@@ -13,11 +13,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import mock
 import pytest
-import voluptuous
 import yaml
 
 from mergify_engine import rules
+
+
+def validate_with_get_branch_rule(config, branch="master"):
+    fake_repo = mock.Mock()
+    fake_repo.get_contents.return_value = mock.Mock(
+        decoded_content=yaml.dump(config))
+    rules.get_branch_rule(fake_repo, "master")
 
 
 def test_config():
@@ -41,7 +48,22 @@ def test_config():
             }
         }
     }
-    rules.validate_rule(yaml.dump(config))
+    validate_with_get_branch_rule(config)
+    validate_with_get_branch_rule(config, "stable/3.1")
+    validate_with_get_branch_rule(config, "stable/foo")
+
+
+def test_defauls_get_branch_rule():
+    validate_with_get_branch_rule({"rules": None})
+
+
+def test_invalid_yaml():
+    fake_repo = mock.Mock()
+    fake_repo.get_contents.return_value = mock.Mock(
+        decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
+    with pytest.raises(rules.NoRules) as excinfo:
+        rules.get_branch_rule(fake_repo, "master")
+    assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
 
 def test_review_count_range():
@@ -56,7 +78,7 @@ def test_review_count_range():
             }
         }
     }
-    rules.validate_rule(yaml.dump(config))
+    validate_with_get_branch_rule(config)
 
     config = {
         "rules": {
@@ -69,8 +91,8 @@ def test_review_count_range():
             }
         }
     }
-    with pytest.raises(voluptuous.error.MultipleInvalid):
-        rules.validate_rule(yaml.dump(config))
+    with pytest.raises(rules.NoRules):
+        validate_with_get_branch_rule(config)
 
     config = {
         "rules": {
@@ -83,5 +105,5 @@ def test_review_count_range():
             }
         }
     }
-    with pytest.raises(voluptuous.error.MultipleInvalid):
-        rules.validate_rule(yaml.dump(config))
+    with pytest.raises(rules.NoRules):
+        validate_with_get_branch_rule(config)

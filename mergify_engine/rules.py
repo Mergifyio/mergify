@@ -29,45 +29,57 @@ with open("default_rule.yml", "r") as f:
     DEFAULT_RULE = yaml.load(f.read())
 
 
-Protection = voluptuous.Schema({
+Protection = {
     'required_status_checks': voluptuous.Any(
         None, {
             'strict': bool,
             'contexts': [str],
         }),
-    'required_pull_request_reviews': {
-        'dismiss_stale_reviews': bool,
-        'require_code_owner_reviews': bool,
-        'required_approving_review_count': voluptuous.All(
-            int, voluptuous.Range(min=1, max=6)),
-    },
+    'required_pull_request_reviews': voluptuous.Any(
+        None, {
+            'dismiss_stale_reviews': bool,
+            'require_code_owner_reviews': bool,
+            'required_approving_review_count': voluptuous.All(
+                int, voluptuous.Range(min=1, max=6)),
+        }),
     'restrictions': voluptuous.Any(None, []),
     'enforce_admins': voluptuous.Any(None, bool),
-})
+}
 
 # TODO(sileht): We can add some otherthing like
 # automatic backport tag
 # option to disable mergify on a particular PR
-Rule = voluptuous.Schema({
+Rule = {
     'protection': Protection,
     'disabling_label': str,
-    'automated_backport_labels': {str: str},
-})
+    voluptuous.Optional('automated_backport_labels'): {str: str},
+}
 
-UserConfigurationSchema = voluptuous.Schema({
+UserConfigurationSchema = {
     voluptuous.Required('rules'): voluptuous.Any({
         'default': Rule,
         'branches': {str: voluptuous.Any(Rule, None)},
     }, None)
-})
+}
 
 
 class NoRules(Exception):
     pass
 
 
-def validate_rule(content):
-    return UserConfigurationSchema(yaml.load(content))
+def validate_user_config(content):
+    # NOTE(sileht): This is just to check the syntax some attributes can be
+    # missing, the important thing is that once merged with the default.
+    # Everything need by Github is set
+    return voluptuous.Schema(UserConfigurationSchema)(yaml.load(content))
+
+
+def validate_merged_config(config):
+    # NOTE(sileht): To be sure the POST request to protect branch works
+    # we must have all keys set, so we set required=True here.
+    # Optional key in Github API side have to be explicitly Optional with
+    # voluptuous
+    return voluptuous.Schema(Rule, required=True)(config)
 
 
 def dict_merge(dct, merge_dct):
@@ -90,7 +102,13 @@ def get_branch_rule(g_repo, branch):
         raise NoRules(".mergify.yml is missing")
 
     try:
-        rules = validate_rule(content)["rules"] or {}
+        rules = validate_user_config(content)["rules"] or {}
+    except yaml.YAMLError as e:
+        if hasattr(e, 'problem_mark'):
+            raise NoRules(".mergify.yml is invalid at position: (%s:%s)" %
+                          (e.problem_mark.line+1, e.problem_mark.column+1))
+        else:
+            raise NoRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:
         raise NoRules(".mergify.yml is invalid: %s" % str(e))
 
@@ -103,6 +121,10 @@ def get_branch_rule(g_repo, branch):
                 return None
             else:
                 dict_merge(rule, rules["branches"][branch_re])
+    try:
+        rule = validate_merged_config(rule)
+    except voluptuous.MultipleInvalid as e:
+        raise NoRules("mergify configuration invalid: %s" % str(e))
 
     LOG.info("Rule for %s branch: %s" % (branch, rule))
     return rule
