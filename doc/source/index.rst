@@ -7,6 +7,7 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    :maxdepth: 2
 
    getting-started
+   strict-workflow
    configuration
    faq
 
