@@ -276,14 +276,17 @@ class TestEngineScenario(testtools.TestCase):
                 "https://gh.mergify.io/events-testing?id=%s" %
                 self.events_getter_counter)
             events = resp.json()
-        for event in events:
+        for event in reversed(events):
             self._send_event(**event)
         return len(events)
 
     def _send_event(self, id, type, payload):
         self.events_handler_counter += 1
         with self.cassette("events-handler-%s" % self.events_handler_counter):
-            LOG.info("GOT EVENT: %s/%s" % (type, id))
+            extra = payload.get("state", payload.get("action"))
+            LOG.info("")
+            LOG.info("=======================================================")
+            LOG.info(">>> GOT EVENT: %s %s/%s" % (id, type, extra))
             r = self.app.post('/event', headers={
                 "X-GitHub-Event": type,
                 "X-GitHub-Delivery": "123456789",
@@ -294,6 +297,8 @@ class TestEngineScenario(testtools.TestCase):
             return r
 
     def create_pr(self, base="master"):
+        self.pr_counter += 1
+
         branch = "fork/pr%d" % self.pr_counter
         title = "Pull request n%d from fork" % self.pr_counter
 
@@ -319,10 +324,10 @@ class TestEngineScenario(testtools.TestCase):
             p = self.r_main.get_pull(p.number)
             commits = list(p.get_commits())
 
-        self.pr_counter += 1
         return p, commits
 
-    def create_status_and_push_event(self, pr, commit):
+    def create_status_and_push_event(self, pr, commit, excepted_events=1):
+        self.status_counter += 1
         # TODO(sileht): monkey patch PR with this
         with self.cassette("status-%s" % self.status_counter):
             _, data = self.r_main._requester.requestJsonAndCheck(
@@ -334,8 +339,7 @@ class TestEngineScenario(testtools.TestCase):
                 headers={'Accept':
                          'application/vnd.github.machine-man-preview+json'}
             )
-        self.status_counter += 1
-        self.push_events()
+        self.push_events(excepted_events)
 
     def create_review_and_push_event(self, pr, commit):
         with self.cassette("reviews-%s" % self.reviews_counter):
@@ -474,6 +478,72 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(-1, pulls[0].mergify_engine['weight'])
         self.assertEqual("Disabled by label",
                          pulls[0].mergify_engine['status_desc'])
+
+    def test_update_branch(self):
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
+
+        # merge the two PR
+        self.create_status_and_push_event(p1, commits1[0])
+        self.create_status_and_push_event(p2, commits2[0])
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(2, len(pulls))
+        self.assertEqual("success", pulls[0].mergify_engine["combined_status"])
+        self.assertEqual("success", pulls[1].mergify_engine["combined_status"])
+
+        with self.cassette("get-master-commits"):
+            master_sha = self.r_main.get_commits()[0].sha
+
+        self.create_review_and_push_event(p1, commits1[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon")
+        # * pull_request : close event for pr1
+        self.push_events(2)
+
+        # First PR merged
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+
+        with self.cassette("get-master-commits"):
+            previous_master_sha = master_sha
+            master_sha = self.r_main.get_commits()[0].sha
+        self.assertNotEqual(previous_master_sha, master_sha)
+
+        # Try to merge pr2
+        self.create_status_and_push_event(p2, commits2[0])
+        self.create_review_and_push_event(p2, commits2[0])
+
+        # Got
+        # * pull_request : synchronise
+        # * status: mergify "Wait for CI")
+        self.push_events(2)
+
+        with self.cassette("refresh-commits"):
+            p2 = self.r_main.get_pull(p2.number)
+            commits2 = list(p2.get_commits())
+
+        # Check master have been merged into the PR
+        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+                      commits2[-1].commit.message)
+
+        # Retry to merge pr2
+        self.create_status_and_push_event(p2, commits2[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon")
+        # * pull_request : close event for pr2
+        self.push_events(2)
+
+        # Second PR merged
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        with self.cassette("get-master-commits"):
+            previous_master_sha = master_sha
+            master_sha = self.r_main.get_commits()[0].sha
+        self.assertNotEqual(previous_master_sha, master_sha)
 
     def test_missing_required_status_check(self):
         self.create_pr("stable")

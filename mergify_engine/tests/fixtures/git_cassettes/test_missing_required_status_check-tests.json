@@ -4,7 +4,7 @@
             "init"
         ],
         "kwargs": {},
-        "out": "Initialized empty Git repository in /tmp/mergify-gitter5g_ef5wo/.git/\n"
+        "out": "Initialized empty Git repository in /tmp/mergify-gitterr0otrd5d/.git/\n"
     },
     {
         "args": [
@@ -29,7 +29,7 @@
             "remote",
             "add",
             "main",
-            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-2fb27c87-fe11-4b37-84a1-92d3e8198d79-test_missing_required_status_check"
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-98331b45-0148-4c1b-99a1-06a670eb8b74-test_missing_required_status_check"
         ],
         "kwargs": {},
         "out": ""
@@ -50,7 +50,7 @@
             "initial commit"
         ],
         "kwargs": {},
-        "out": "[master (root-commit) d7b91d2] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
+        "out": "[master (root-commit) 44700f4] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
     },
     {
         "args": [
@@ -84,7 +84,7 @@
             "remote",
             "add",
             "fork",
-            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-2fb27c87-fe11-4b37-84a1-92d3e8198d79-test_missing_required_status_check"
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-98331b45-0148-4c1b-99a1-06a670eb8b74-test_missing_required_status_check"
         ],
         "kwargs": {},
         "out": ""
@@ -102,15 +102,15 @@
             "checkout",
             "fork/stable",
             "-b",
-            "fork/pr0"
+            "fork/pr1"
         ],
         "kwargs": {},
-        "out": "Branch fork/pr0 set up to track remote branch stable from fork.\n"
+        "out": "Branch fork/pr1 set up to track remote branch stable from fork.\n"
     },
     {
         "args": [
             "add",
-            "test0"
+            "test1"
         ],
         "kwargs": {},
         "out": ""
@@ -120,16 +120,16 @@
             "commit",
             "--no-edit",
             "-m",
-            "Pull request n0 from fork"
+            "Pull request n1 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr0 b5781e9] Pull request n0 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test0\n"
+        "out": "[fork/pr1 9aecbaf] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
     },
     {
         "args": [
             "push",
             "fork",
-            "fork/pr0"
+            "fork/pr1"
         ],
         "kwargs": {},
         "out": ""
