@@ -93,7 +93,8 @@ following optional keys:
      - Value description
    * - ``strict``
      - ``boolean``
-     - Require branches to be up to date before merging.
+     - Require branches to be up to date before merging. See
+       :doc:`strict-workflow`.
    * - ``contexts``
      - ``array``
      - The list of status checks to require in order to merge into this branch
