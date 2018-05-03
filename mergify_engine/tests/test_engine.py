@@ -13,11 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import itertools
 import json
 import logging
 import os
-import re
 import uuid
 
 import betamax
@@ -43,7 +41,21 @@ LOG = logging.getLogger(__name__)
 
 MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN", "<MAIN_TOKEN>")
 FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN", "<FORK_TOKEN>")
+INSTALLATION_ID = os.getenv("MERGIFYENGINE_INSTALLATION_ID")
 RECORD_MODE = 'none' if MAIN_TOKEN == "<MAIN_TOKEN>" else 'all'
+
+
+if RECORD_MODE == "all":
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    ACCESS_TOKEN = integration.get_access_token(INSTALLATION_ID).token
+    REPO_UUID = str(uuid.uuid4())
+    with open("mergify_engine/tests/fixtures/repo_uuid", "w") as f:
+        f.write(REPO_UUID)
+else:
+    with open("mergify_engine/tests/fixtures/repo_uuid", "r") as f:
+        REPO_UUID = f.read()
+    ACCESS_TOKEN = "<ACCESS_TOKEN>"
 
 CONFIG = """
 rules:
@@ -82,9 +94,7 @@ with betamax.Betamax.configure() as c:
     })
     c.define_cassette_placeholder("<MAIN_TOKEN>", MAIN_TOKEN)
     c.define_cassette_placeholder("<FORK_TOKEN>", FORK_TOKEN)
-
-    if not os.path.exists(c.cassette_library_dir):
-        os.makedirs(c.cassette_library_dir)
+    c.define_cassette_placeholder("<ACCESS_TOKEN>", ACCESS_TOKEN)
 
 
 class GitterRecorder(utils.Gitter):
@@ -107,8 +117,6 @@ class GitterRecorder(utils.Gitter):
             self.records = json.loads(f.read().decode('utf8'))
 
     def save_records(self):
-        if not os.path.exists(self.cassette_library_dir):
-            os.makedirs(self.cassette_library_dir)
         with open(self.cassette_path, 'wb') as f:
             data = json.dumps(self.records, sort_keys=True,
                               indent=4, separators=(',', ': '))
@@ -143,14 +151,12 @@ class TestEngineScenario(testtools.TestCase):
 
     def setUp(self):
         super(TestEngineScenario, self).setUp()
-        session = requests.Session()
-        session.trust_env = False
-        self.recorder = betamax.Betamax(session)
-        self.cassette = lambda n, *args, **kwargs: self.recorder.use_cassette(
-            self._testMethodName + "_" + n, *args, **kwargs)
+        self.session = requests.Session()
+        self.session.trust_env = False
+        self.recorder = betamax.Betamax(self.session)
 
         self.useFixture(fixtures.MockPatchObject(
-            requests, 'Session', return_value=session))
+            requests, 'Session', return_value=self.session))
 
         self.useFixture(fixtures.MockPatchObject(
             gh_update_branch.utils, 'Gitter',
@@ -160,16 +166,13 @@ class TestEngineScenario(testtools.TestCase):
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
 
-        if RECORD_MODE == "none":
-            with open("mergify_engine/tests/fixtures/repo_uuid", "r") as f:
-                record_uuid = f.read()
-        else:
-            record_uuid = str(uuid.uuid4())
-            with open("mergify_engine/tests/fixtures/repo_uuid", "w") as f:
-                f.write(record_uuid)
+        self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
 
-        self.name = "repo-%s-%s" % (record_uuid, self._testMethodName)
-
+        self.cassette_counter = 0
+        self.events_handler_counter = 0
+        self.events_getter_counter = 0
+        self.status_counter = 0
+        self.reviews_counter = 0
         self.pr_counter = 0
         self.last_event_id = None
 
@@ -185,9 +188,13 @@ class TestEngineScenario(testtools.TestCase):
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis()
         self.redis.flushall()
-        self.redis.set("installation-token-0", MAIN_TOKEN)
+        self.redis.set("installation-token-%s" % INSTALLATION_ID, MAIN_TOKEN)
 
-        with self.cassette("setUp"):
+        with self.cassette("setUp-prepare-repo", allow_playback_repeats=True):
+            # Cleanup the remote testing redis
+            r = self.session.delete("https://gh.mergify.io/events-testing")
+            r.raise_for_status()
+
             self.g_main = github.Github(MAIN_TOKEN)
             self.g_fork = github.Github(FORK_TOKEN)
 
@@ -218,19 +225,26 @@ class TestEngineScenario(testtools.TestCase):
             self.git("remote", "add", "fork", self.url_fork)
             self.git("fetch", "fork")
 
-            # FIXME(sileht): Use a GithubAPP token instead of
-            # the main token, the API have tiny differences.
-            # It's safe for basic testing, but in the future we should
-            # use the correct token
-            self.engine = engine.MergifyEngine(
-                self.g_main, 0, self.u_main, self.r_main)
+        with self.cassette("setUp-login-engine", allow_playback_repeats=True):
+            g = github.Github(ACCESS_TOKEN)
+            user = g.get_user("mergify-test1")
+            repo = user.get_repo(self.name)
+
+        with self.cassette("setUp-create-engine", allow_playback_repeats=True):
+            self.engine = engine.MergifyEngine(g, INSTALLATION_ID, user, repo)
             self.useFixture(fixtures.MockPatchObject(
                 worker, 'real_event_handler', self.engine.handle))
 
-            queue = rq.Queue(connection=self.redis)
-            self.rq_worker = rq.SimpleWorker([queue],
-                                             connection=queue.connection)
-            self.push_events()
+        queue = rq.Queue(connection=self.redis)
+        self.rq_worker = rq.SimpleWorker([queue],
+                                         connection=queue.connection)
+
+        # NOTE(sileht): Github looks buggy here:
+        # We receive for the new repo the expected events:
+        # * installation_repositories
+        # * integration_installation_repositories
+        # but we receive them 6 times with the same sha1...
+        self.push_events(12)
 
     def tearDown(self):
         super(TestEngineScenario, self).tearDown()
@@ -240,6 +254,44 @@ class TestEngineScenario(testtools.TestCase):
         # with self.cassette("tearDown"):
         #     self.r_fork.delete()
         #     self.r_main.delete()
+
+    def cassette(self, name, *args, **kwargs):
+        name = "%s_%d_%s" % (self._testMethodName, self.cassette_counter, name)
+        self.cassette_counter += 1
+        return self.recorder.use_cassette(name, *args, **kwargs)
+
+    def push_events(self, n=1):
+        got = 0
+        while got < n:
+            got += self._push_events()
+        if got != n:
+            raise RuntimeError("We received more events than expected")
+
+    def _push_events(self):
+        # NOTE(sileht): Simulate push Github events, we use a counter
+        # for have each cassette call unique
+        self.events_getter_counter += 1
+        with self.cassette("events-getter-%s" % self.events_getter_counter):
+            resp = self.session.get(
+                "https://gh.mergify.io/events-testing?id=%s" %
+                self.events_getter_counter)
+            events = resp.json()
+        for event in events:
+            self._send_event(**event)
+        return len(events)
+
+    def _send_event(self, id, type, payload):
+        self.events_handler_counter += 1
+        with self.cassette("events-handler-%s" % self.events_handler_counter):
+            LOG.info("GOT EVENT: %s/%s" % (type, id))
+            r = self.app.post('/event', headers={
+                "X-GitHub-Event": type,
+                "X-GitHub-Delivery": "123456789",
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            }, data=json.dumps(payload))
+            self.rq_worker.work(burst=True)
+            return r
 
     def create_pr(self, base="master"):
         branch = "fork/pr%d" % self.pr_counter
@@ -251,108 +303,55 @@ class TestEngineScenario(testtools.TestCase):
         self.git("commit", "--no-edit", "-m", title)
         self.git("push", "fork", branch)
 
-        self.pr_counter += 1
+        with self.cassette("create_pr%s" % self.pr_counter):
+            p = self.r_fork.parent.create_pull(
+                base=base,
+                head="%s:%s" % (self.r_fork.owner.login, branch),
+                title=title, body=title)
 
-        p = self.r_fork.parent.create_pull(
-            base=base,
-            head="%s:%s" % (self.r_fork.owner.login, branch),
-            title=title, body=title)
-        self.push_events()
+        # NOTE(sileht): This generated many events:
+        # - pull_request : open
+        # - status: Waiting for CI status (set by mergify)
+        self.push_events(2)
 
         # NOTE(sileht): We return the same but owned by the main project
-        return self.r_main.get_pull(p.number)
+        with self.cassette("get_pr%s" % self.pr_counter):
+            p = self.r_main.get_pull(p.number)
+            commits = list(p.get_commits())
+
+        self.pr_counter += 1
+        return p, commits
 
     def create_status_and_push_event(self, pr, commit):
-        # NOTE(sileht): status events does not shown in
-        # GET /repos/xxx/yyy/events API, so this method build a fake event and
-        # push it directly to the engine
-
         # TODO(sileht): monkey patch PR with this
-        _, data = self.r_main._requester.requestJsonAndCheck(
-            "POST",
-            pr.base.repo.url + "/statuses/" + pr.head.sha,
-            input={'state': 'success',
-                   'description': 'Your change works',
-                   'context': 'continuous-integration/fake-ci'},
-            headers={'Accept':
-                     'application/vnd.github.machine-man-preview+json'}
-        )
-        LOG.info("Got event status")
-
-        payload = {
-            "id": data["id"],  # Not the event id, but we don't care
-            "sha": pr.head.sha,
-            "name": pr.base.repo.full_name,
-            "target_url": data["target_url"],
-            "context": data["context"],
-            "description": data["description"],
-            "state": data["state"],
-            "commit": commit.raw_data,
-            "branches": [],
-            "created_at": data["created_at"],
-            "updated_at": data["updated_at"],
-            "repository": pr.base.repo.raw_data,
-            "sender": data["creator"],
-            "organization": None,
-            "installation": {"id": 0},
-        }
-        self._send_event("status", payload)
+        with self.cassette("status-%s" % self.status_counter):
+            _, data = self.r_main._requester.requestJsonAndCheck(
+                "POST",
+                pr.base.repo.url + "/statuses/" + pr.head.sha,
+                input={'state': 'success',
+                       'description': 'Your change works',
+                       'context': 'continuous-integration/fake-ci'},
+                headers={'Accept':
+                         'application/vnd.github.machine-man-preview+json'}
+            )
+        self.status_counter += 1
+        self.push_events()
 
     def create_review_and_push_event(self, pr, commit):
-        # NOTE(sileht): Same as status for pull_request_review
-        r = pr.create_review(commit, "Perfect", event="APPROVE")
-
-        # Get a updated pull request
-        pull_request = self.r_main.get_pull(pr.number).raw_data
-        payload = {
-            "action": "submitted",
-            "review": r.raw_data,
-            "pull_request": pull_request,
-            "repository": pr.base.repo.raw_data,
-            "organization": None,
-            "installation": {"id": 0},
-
-        }
-        LOG.info("Got event pull_request_review")
-        self._send_event("pull_request_review", payload)
-
-    def push_events(self):
-        # NOTE(sileht): Simulate push Github events
-        events = list(
-            itertools.takewhile(lambda e: e.id != self.last_event_id,
-                                self.r_main.get_events()))
-        if events:
-            self.last_event_id = events[0].id
-        else:
-            # FIXME(sileht): Use retry
-            self.push_events()
-
-        for event in reversed(events):
-            # NOTE(sileht): PullRequestEvent -> pull_request
-            etype = re.sub('([A-Z]{1})', r'_\1', event.type)[1:-6].lower()
-            LOG.info("Got event %s" % etype)
-            event.payload['installation'] = {'id': 0}
-            event.payload.setdefault('repository', self.r_main.raw_data)
-            self._send_event(etype, event.payload)
-
-    def _send_event(self, etype, data):
-        r = self.app.post('/event', headers={
-            "X-GitHub-Event": etype,
-            "X-GitHub-Delivery": "123456789",
-            "X-Hub-Signature": "sha1=whatever",
-            "Content-type": "application/json",
-        }, data=json.dumps(data))
-        self.rq_worker.work(burst=True)
+        with self.cassette("reviews-%s" % self.reviews_counter):
+            r = pr.create_review(commit, "Perfect", event="APPROVE")
+        self.reviews_counter += 1
+        self.push_events()
         return r
 
     def test_basic(self):
-        with self.cassette("create_pr1", allow_playback_repeats=True):
-            self.create_pr()
-        with self.cassette("create_pr2", allow_playback_repeats=True):
-            p2 = self.create_pr()
-            commits = list(p2.get_commits())
+        self.create_pr()
+        p2, commits = self.create_pr()
 
         # Check we have only on branch registered
+        self.assertEqual("queues~%s~mergify-test1~%s~master"
+                         % (INSTALLATION_ID, self.name),
+                         self.engine.get_cache_key("master"))
         self.assertEqual(["master"], self.engine.get_cached_branches())
 
         # Check policy of that branch is the expected one
@@ -371,6 +370,7 @@ class TestEngineScenario(testtools.TestCase):
                 "enforce_admins": False,
             }
         }
+
         with self.cassette("branch"):
             self.assertTrue(gh_branch.is_configured(self.r_main, "master",
                                                     expected_rule))
@@ -381,19 +381,16 @@ class TestEngineScenario(testtools.TestCase):
         for p in pulls:
             self.assertEqual(-1, p.mergify_engine['weight'])
 
-        r = json.loads(self.app.get('/status/0').data.decode("utf8"))
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+                                    ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(2, len(r[0]['pulls']))
         self.assertEqual("master", r[0]['branch'])
         self.assertEqual(self.u_main.login, r[0]['owner'])
         self.assertEqual(self.r_main.name, r[0]['repo'])
 
-        with self.cassette("status"):
-            # Post CI status
-            self.create_status_and_push_event(p2, commits[0])
-        with self.cassette("review"):
-            # Approve the patch
-            self.create_review_and_push_event(p2, commits[0])
+        self.create_status_and_push_event(p2, commits[0])
+        self.create_review_and_push_event(p2, commits[0])
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
@@ -408,20 +405,19 @@ class TestEngineScenario(testtools.TestCase):
                          pulls[1].mergify_engine['status_desc'])
 
         # Check the merged pull request is gone
-        with self.cassette("merge"):
-            self.push_events()
+        self.push_events(2)
+
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
-        r = json.loads(self.app.get('/status/0').data.decode("utf8"))
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+                                    ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(1, len(r[0]['pulls']))
 
     def test_refresh(self):
-        with self.cassette("create_pr1", allow_playback_repeats=True):
-            p1 = self.create_pr()
-        with self.cassette("create_pr2", allow_playback_repeats=True):
-            p2 = self.create_pr()
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
@@ -437,13 +433,14 @@ class TestEngineScenario(testtools.TestCase):
         with self.cassette("refresh-2"):
             self.engine.handle("refresh", {
                 'repository': self.r_main.raw_data,
-                'installation': {'id': '0'},
+                'installation': {'id': INSTALLATION_ID},
                 "pull_request": p2.raw_data,
             })
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        r = json.loads(self.app.get('/status/0').data.decode("utf8"))
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+                                    ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(2, len(r[0]['pulls']))
         self.assertEqual("master", r[0]['branch'])
@@ -455,22 +452,21 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
 
-        r = json.loads(self.app.get('/status/0').data.decode("utf8"))
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+                                    ).data.decode("utf8"))
         self.assertEqual(0, len(r))
 
     def test_disabling_label(self):
-        with self.cassette("create_pr", allow_playback_repeats=True):
-            p = self.create_pr()
-            commits = list(p.get_commits())
+        p, commits = self.create_pr()
+
+        with self.cassette("set-labels"):
             self.r_main.create_label("no-mergify", "000000")
             p.add_to_labels("no-mergify")
 
-        with self.cassette("status"):
-            # Post CI status
-            self.create_status_and_push_event(p, commits[0])
-        with self.cassette("review"):
-            # Approve the patch
-            self.create_review_and_push_event(p, commits[0])
+        self.push_events()
+
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
@@ -480,8 +476,7 @@ class TestEngineScenario(testtools.TestCase):
                          pulls[0].mergify_engine['status_desc'])
 
     def test_missing_required_status_check(self):
-        with self.cassette("create_pr", allow_playback_repeats=True):
-            self.create_pr("stable")
+        self.create_pr("stable")
 
         # Check policy of that branch is the expected one
         expected_rule = {

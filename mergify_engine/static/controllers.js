@@ -34,7 +34,7 @@ app.classy.controller({
             console.log("event enabled");
             this.$scope.event = true;
             var dest;
-            var source = new EventSource('/stream/' + this.$scope.server_url);
+            var source = new EventSource('/stream' + this.$scope.server_url);
             source.addEventListener("ping", (event) => {
                 // Just for testing the connection for heroku
             }, false);
