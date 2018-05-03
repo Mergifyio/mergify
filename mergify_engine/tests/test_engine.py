@@ -385,7 +385,7 @@ class TestEngineScenario(testtools.TestCase):
         for p in pulls:
             self.assertEqual(-1, p.mergify_engine['weight'])
 
-        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(2, len(r[0]['pulls']))
@@ -414,7 +414,7 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
-        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(1, len(r[0]['pulls']))
@@ -443,7 +443,7 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
         self.assertEqual(1, len(r))
         self.assertEqual(2, len(r[0]['pulls']))
@@ -456,7 +456,7 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
 
-        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
         self.assertEqual(0, len(r))
 
