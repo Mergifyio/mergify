@@ -147,6 +147,8 @@ applies. It is a dictionary with the following optional keys:
      - The list of team slugs with push access
 
 
+.. _default:
+
 Default branch configuration
 ============================
 
