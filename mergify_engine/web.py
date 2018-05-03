@@ -83,6 +83,15 @@ def authentification():
         flask.abort(403)
 
 
+@app.route("/check_status_msg/<path:key>")
+def check_status_msg(key):
+    msg = utils.get_redis().hget("status", key)
+    if msg:
+        return flask.render_template("msg.html", msg=msg.decode("utf8"))
+    else:
+        flask.abort(404)
+
+
 @app.route("/refresh/<owner>/<repo>/<path:refresh_ref>",
            methods=["POST"])
 def refresh(owner, repo, refresh_ref):
@@ -271,18 +280,35 @@ def event_handler():
     return "", 202
 
 
+# NOTE(sileht): These endpoints are used for recording cassetes, we receive
+# Github event on POST, we store them is redis, GET to retreive and delete
+@app.route("/events-testing", methods=["POST", "GET", "DELETE"])
+def event_testing_handler():
+    r = get_redis()
+    if flask.request.method == "DELETE":
+        r.delete("events-testing")
+        return "", 202
+    elif flask.request.method == "POST":
+        authentification()
+        event_type = flask.request.headers.get("X-GitHub-Event")
+        event_id = flask.request.headers.get("X-GitHub-Delivery")
+        data = flask.request.get_json()
+        r.rpush("events-testing", json.dumps(
+            {"id": event_id, "type": event_type, "payload": data}
+        ).encode('utf8'))
+        return "", 202
+    else:
+        p = r.pipeline()
+        p.lrange("events-testing", 0, -1)
+        p.delete("events-testing")
+        values = p.execute()[0]
+        data = [json.loads(i.decode('utf8')) for i in values]
+        return flask.jsonify(data)
+
+
 @app.route("/favicon.ico")
 def favicon():
     return app.send_static_file("favicon.ico")
-
-
-@app.route("/check_status_msg/<path:key>")
-def check_status_msg(key):
-    msg = utils.get_redis().hget("status", key)
-    if msg:
-        return flask.render_template("msg.html", msg=msg.decode("utf8"))
-    else:
-        flask.abort(404)
 
 
 @app.route("/fonts/<file>")
