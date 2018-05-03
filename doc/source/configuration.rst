@@ -103,8 +103,10 @@ following optional keys:
 Required Reviews
 ================
 
-A ``Required Reviews`` defines what kind of reviews are needed for a pull
-request to be merged. It is a dictionary with the following optional keys:
+A ``Required Reviews`` defines what kind of `reviews
+<https://help.github.com/articles/about-pull-request-reviews/>`_ are needed for
+a pull request to be merged. It is a dictionary with the following optional
+keys:
 
 .. list-table::
    :header-rows: 1
