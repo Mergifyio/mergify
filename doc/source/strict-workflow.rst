@@ -84,7 +84,7 @@ To enable it on all your branches, you can write a ``mergify.yml`` like this:
 
 
 Of course, it makes even more sense to enable it with a continuous integration
-system required to pass. If you use `Travis CI <http://travis-ci.org>`, your
+system required to pass. If you use `Travis CI <http://travis-ci.org>`_, your
 configuration would look like:
 
 .. code-block:: yaml
