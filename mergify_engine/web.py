@@ -201,7 +201,7 @@ def stream_generate(installation_id, login="*", repo="*"):
                                                         login, repo))
 
 
-@app.route("/status/install/<installation_id>")
+@app.route("/status/install/<installation_id>/")
 def status(installation_id):
     r = get_redis()
     return _get_status(r, installation_id)
@@ -224,7 +224,7 @@ def stream_repo(login, repo="*"):
     ), mimetype="text/event-stream")
 
 
-@app.route('/stream/status/install/<installation_id>')
+@app.route('/stream/status/install/<installation_id>/')
 def stream(installation_id):
     return flask.Response(flask.stream_with_context(
         stream_generate(installation_id)
