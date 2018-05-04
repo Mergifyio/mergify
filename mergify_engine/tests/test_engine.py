@@ -79,6 +79,12 @@ rules:
       protection:
         required_pull_request_reviews:
           required_approving_review_count: 1
+    nostrict:
+      protection:
+        required_status_checks:
+          strict: False
+        required_pull_request_reviews:
+          required_approving_review_count: 1
     stable:
       protection:
         required_status_checks: null
@@ -247,6 +253,9 @@ class TestEngineScenario(testtools.TestCase):
             self.git("checkout", "-b", "stable")
             self.git("push", "main", "stable")
 
+            self.git("checkout", "-b", "nostrict")
+            self.git("push", "main", "nostrict")
+
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.url_fork = "https://%s:@github.com/%s" % (
                 FORK_TOKEN, self.r_fork.full_name)
@@ -291,10 +300,14 @@ class TestEngineScenario(testtools.TestCase):
 
     def push_events(self, n=1):
         got = 0
+        loop = 0
         while got < n:
             got += self._push_events()
             if got < n:
                 time.sleep(0.01)
+            loop += 1
+            if loop > 1000:
+                raise RuntimeError("Never got expected events")
         if got != n:
             raise RuntimeError("We received more events than expected")
 
@@ -575,6 +588,37 @@ class TestEngineScenario(testtools.TestCase):
             previous_master_sha = master_sha
             master_sha = self.r_main.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
+
+    def test_update_branch_disabled(self):
+        p1, commits1 = self.create_pr("nostrict")
+        p2, commits2 = self.create_pr("nostrict")
+
+        # merge the two PR
+        self.create_status_and_push_event(p1, commits1[0])
+        self.create_status_and_push_event(p2, commits2[0])
+
+        pulls = self.engine.build_queue("nostrict")
+        self.assertEqual(2, len(pulls))
+        self.assertEqual("success", pulls[0].mergify_engine["combined_status"])
+        self.assertEqual("success", pulls[1].mergify_engine["combined_status"])
+
+        self.create_review_and_push_event(p1, commits1[0])
+        self.create_review_and_push_event(p2, commits2[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon"
+        # * pull_request : close event
+        self.push_events(4)
+
+        pulls = self.engine.build_queue("nostrict")
+        self.assertEqual(0, len(pulls))
+
+        with self.cassette("refresh-commits"):
+            p2 = self.r_main.get_pull(p2.number)
+            commits2 = list(p2.get_commits())
+
+        # Check master have not been merged into the PR
+        self.assertNotIn("Merge branch", commits2[-1].commit.message)
 
     def test_missing_required_status_check(self):
         self.create_pr("stable")

@@ -1,0 +1,192 @@
+[
+    {
+        "args": [
+            "init"
+        ],
+        "kwargs": {},
+        "out": "Initialized empty Git repository in /tmp/mergify-gitter3rdigacc/.git/\n"
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-bot"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "main",
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-9005b080-a30c-46ce-ad0e-34d5aa304354-test_update_branch_disabled"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "add",
+            ".mergify.yml"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "initial commit"
+        ],
+        "kwargs": {},
+        "out": "[master (root-commit) 342a7de] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "master"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "-b",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "-b",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "fork",
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-9005b080-a30c-46ce-ad0e-34d5aa304354-test_update_branch_disabled"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "fetch",
+            "fork"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "fork/nostrict",
+            "-b",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": "Branch fork/pr1 set up to track remote branch nostrict from fork.\n"
+    },
+    {
+        "args": [
+            "add",
+            "test1"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "Pull request n1 from fork"
+        ],
+        "kwargs": {},
+        "out": "[fork/pr1 7a948f9] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+    },
+    {
+        "args": [
+            "push",
+            "fork",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "fork/nostrict",
+            "-b",
+            "fork/pr2"
+        ],
+        "kwargs": {},
+        "out": "Branch fork/pr2 set up to track remote branch nostrict from fork.\n"
+    },
+    {
+        "args": [
+            "add",
+            "test2"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "Pull request n2 from fork"
+        ],
+        "kwargs": {},
+        "out": "[fork/pr2 78a2c38] Pull request n2 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test2\n"
+    },
+    {
+        "args": [
+            "push",
+            "fork",
+            "fork/pr2"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]
