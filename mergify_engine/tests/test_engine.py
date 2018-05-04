@@ -16,6 +16,7 @@
 import json
 import logging
 import os
+import time
 import uuid
 
 import betamax
@@ -39,23 +40,25 @@ gh_pr.monkeypatch_github()
 
 LOG = logging.getLogger(__name__)
 
-MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN", "<MAIN_TOKEN>")
-FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN", "<FORK_TOKEN>")
+RECORD_MODE = os.getenv("MERGIFYENGINE_RECORD_MODE", "none")
 INSTALLATION_ID = os.getenv("MERGIFYENGINE_INSTALLATION_ID")
-RECORD_MODE = 'none' if MAIN_TOKEN == "<MAIN_TOKEN>" else 'all'
 
+if RECORD_MODE in ["all", "once"]:
+    MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN")
+    FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN")
 
-if RECORD_MODE == "all":
+    if config.PRIVATE_KEY == "X" or not MAIN_TOKEN or not FORK_TOKEN:
+        raise RuntimeError("MERGIFYENGINE_MAIN_TOKEN/MERGIFYENGINE_FORK_TOKEN"
+                           "/MERGIFYENGINE_PRIVATE_KEY must be set to record "
+                           "new tests")
+
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     ACCESS_TOKEN = integration.get_access_token(INSTALLATION_ID).token
-    REPO_UUID = str(uuid.uuid4())
-    with open("mergify_engine/tests/fixtures/repo_uuid", "w") as f:
-        f.write(REPO_UUID)
 else:
-    with open("mergify_engine/tests/fixtures/repo_uuid", "r") as f:
-        REPO_UUID = f.read()
     ACCESS_TOKEN = "<ACCESS_TOKEN>"
+    MAIN_TOKEN = "<MAIN_TOKEN>"
+    FORK_TOKEN = "<FORK_TOKEN>"
 
 CONFIG = """
 rules:
@@ -86,7 +89,7 @@ rules:
 betamax.Betamax.register_serializer(PrettyJSONSerializer)
 
 with betamax.Betamax.configure() as c:
-    c.cassette_library_dir = 'mergify_engine/tests/fixtures/http_cassettes'
+    c.cassette_library_dir = 'mergify_engine/tests/fixtures/cassettes'
     c.default_cassette_options.update({
         'record_mode': RECORD_MODE,
         'match_requests_on': ['method', 'uri', 'headers'],
@@ -98,14 +101,19 @@ with betamax.Betamax.configure() as c:
 
 
 class GitterRecorder(utils.Gitter):
-    cassette_library_dir = 'mergify_engine/tests/fixtures/git_cassettes'
+    cassette_library_dir = 'mergify_engine/tests/fixtures/cassettes'
 
     def __init__(self, cassette_name):
         super(GitterRecorder, self).__init__()
-        self.name = cassette_name
         self.cassette_path = os.path.join(self.cassette_library_dir,
-                                          "%s.json" % self.name)
-        if RECORD_MODE == 'all':
+                                          "git_%s.json" % cassette_name)
+
+        self.do_record = (
+            RECORD_MODE == 'all' or
+            (RECORD_MODE == 'once' and not os.path.exists(self.cassette_path))
+        )
+
+        if self.do_record:
             self.records = []
         else:
             self.load_records()
@@ -114,7 +122,11 @@ class GitterRecorder(utils.Gitter):
         if not os.path.exists(self.cassette_path):
             raise RuntimeError("Cassette %s not found" % self.cassette_path)
         with open(self.cassette_path, 'rb') as f:
-            self.records = json.loads(f.read().decode('utf8'))
+            self.records = json.loads(
+                f.read().decode('utf8').replace(
+                    "<MAIN_TOKEN>", MAIN_TOKEN
+                ).replace("<FORK_TOKEN>", FORK_TOKEN)
+            )
 
     def save_records(self):
         with open(self.cassette_path, 'wb') as f:
@@ -125,7 +137,7 @@ class GitterRecorder(utils.Gitter):
                     FORK_TOKEN, "<FORK_TOKEN>").encode('utf8'))
 
     def __call__(self, *args, **kwargs):
-        if RECORD_MODE == 'all':
+        if self.do_record:
             out = super(GitterRecorder, self).__call__(*args, **kwargs)
             self.records.append({"args": args, "kwargs": kwargs, "out":
                                  out.decode('utf8')})
@@ -138,7 +150,7 @@ class GitterRecorder(utils.Gitter):
 
     def cleanup(self):
         super(GitterRecorder, self).cleanup()
-        if RECORD_MODE == 'all':
+        if self.do_record:
             self.save_records()
 
 
@@ -165,6 +177,22 @@ class TestEngineScenario(testtools.TestCase):
         # Web authentification always pass
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
+
+        reponame_path = ("mergify_engine/tests/fixtures/cassettes/reponame_%s"
+                         % self._testMethodName)
+
+        gen_new_uuid = (
+            RECORD_MODE == 'all' or
+            (RECORD_MODE == 'once' and not os.path.exists(reponame_path))
+        )
+
+        if gen_new_uuid:
+            REPO_UUID = str(uuid.uuid4())
+            with open(reponame_path, "w") as f:
+                f.write(REPO_UUID)
+        else:
+            with open(reponame_path, "r") as f:
+                REPO_UUID = f.read()
 
         self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
 
@@ -256,7 +284,8 @@ class TestEngineScenario(testtools.TestCase):
         #     self.r_main.delete()
 
     def cassette(self, name, *args, **kwargs):
-        name = "%s_%d_%s" % (self._testMethodName, self.cassette_counter, name)
+        name = "http_%s_%d_%s" % (self._testMethodName, self.cassette_counter,
+                                  name)
         self.cassette_counter += 1
         return self.recorder.use_cassette(name, *args, **kwargs)
 
@@ -264,6 +293,8 @@ class TestEngineScenario(testtools.TestCase):
         got = 0
         while got < n:
             got += self._push_events()
+            if got < n:
+                time.sleep(0.01)
         if got != n:
             raise RuntimeError("We received more events than expected")
 

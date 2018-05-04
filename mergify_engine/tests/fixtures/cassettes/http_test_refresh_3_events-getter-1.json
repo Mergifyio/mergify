@@ -1,0 +1,65 @@
+{
+  "http_interactions": [
+    {
+      "recorded_at": "2018-05-04T06:29:17",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "python-requests/2.18.4"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://gh.mergify.io/events-testing?id=1"
+      },
+      "response": {
+        "body": {
+          "base64_string": "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",
+          "encoding": null,
+          "string": ""
+        },
+        "headers": {
+          "Connection": [
+            "close"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Date": [
+            "Fri, 04 May 2018 06:29:17 GMT"
+          ],
+          "Server": [
+            "nginx/1.13.3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=15768000"
+          ],
+          "Vary": [
+            "Accept-Encoding"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://gh.mergify.io/events-testing?id=1"
+      }
+    }
+  ],
+  "recorded_with": "betamax/0.8.1"
+}

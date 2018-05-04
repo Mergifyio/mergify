@@ -1,0 +1,137 @@
+[
+    {
+        "args": [
+            "init"
+        ],
+        "kwargs": {},
+        "out": "Initialized empty Git repository in /tmp/mergify-gitter9pu3l0ki/.git/\n"
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-bot"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "main",
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-0e82cf18-95cf-4a92-9a51-028dda311933-test_missing_required_status_check"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "add",
+            ".mergify.yml"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "initial commit"
+        ],
+        "kwargs": {},
+        "out": "[master (root-commit) ec8baf3] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "master"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "-b",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "fork",
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-0e82cf18-95cf-4a92-9a51-028dda311933-test_missing_required_status_check"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "fetch",
+            "fork"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "fork/stable",
+            "-b",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": "Branch fork/pr1 set up to track remote branch stable from fork.\n"
+    },
+    {
+        "args": [
+            "add",
+            "test1"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "Pull request n1 from fork"
+        ],
+        "kwargs": {},
+        "out": "[fork/pr1 45b337a] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+    },
+    {
+        "args": [
+            "push",
+            "fork",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]

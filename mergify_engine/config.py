@@ -37,7 +37,7 @@ for name, config_value in CONFIG.items():
         value = type(config_value)(value)
     globals()[name] = value
 
-    if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET", "WEBHACK_PASSWORD"]
+    if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET"]
             and value is not None):
         value = "*****"
     cfg_msg += "* MERGIFYENGINE_%s: %s\n" % (name, value)

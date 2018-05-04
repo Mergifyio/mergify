@@ -1,0 +1,79 @@
+[
+    {
+        "args": [
+            "clone",
+            "--depth=2",
+            "-b",
+            "fork/pr2",
+            "https://<MAIN_TOKEN>@github.com/mergify-test2/repo-9a424e53-390e-4d6e-a554-ea5157a803b2-test_update_branch/",
+            "."
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "upstream",
+            "https://<MAIN_TOKEN>@github.com/mergify-test1/repo-9a424e53-390e-4d6e-a554-ea5157a803b2-test_update_branch.git"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-bot"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "log",
+            "--pretty='format:%cI'"
+        ],
+        "kwargs": {},
+        "out": "'format:2018-05-04T08:30:00+02:00'\n'format:2018-05-04T08:29:42+02:00'\n"
+    },
+    {
+        "args": [
+            "fetch",
+            "upstream",
+            "master",
+            "--shallow-since=''"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "merge",
+            "upstream/master",
+            "-m",
+            "Merge branch 'master' into 'fork/pr2'"
+        ],
+        "kwargs": {},
+        "out": "Merge made by the 'recursive' strategy.\n test1 | 0\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+    },
+    {
+        "args": [
+            "push",
+            "origin",
+            "fork/pr2"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]
