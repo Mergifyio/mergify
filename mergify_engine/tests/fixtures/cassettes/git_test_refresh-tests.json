@@ -4,7 +4,7 @@
             "init"
         ],
         "kwargs": {},
-        "out": "Initialized empty Git repository in /tmp/mergify-gitteri0ck9uek/.git/\n"
+        "out": "Initialized empty Git repository in /tmp/mergify-gitter16vnwjg2/.git/\n"
     },
     {
         "args": [
@@ -29,7 +29,7 @@
             "remote",
             "add",
             "main",
-            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-66a4a457-c883-4822-b2ae-999554ff45e3-test_refresh"
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-b077774e-1cd3-418d-b774-4635fbcd94d1-test_refresh"
         ],
         "kwargs": {},
         "out": ""
@@ -50,7 +50,7 @@
             "initial commit"
         ],
         "kwargs": {},
-        "out": "[master (root-commit) 00e9937] initial commit\n 1 file changed, 23 insertions(+)\n create mode 100644 .mergify.yml\n"
+        "out": "[master (root-commit) a9856da] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
     },
     {
         "args": [
@@ -81,10 +81,28 @@
     },
     {
         "args": [
+            "checkout",
+            "-b",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
             "remote",
             "add",
             "fork",
-            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-66a4a457-c883-4822-b2ae-999554ff45e3-test_refresh"
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-b077774e-1cd3-418d-b774-4635fbcd94d1-test_refresh"
         ],
         "kwargs": {},
         "out": ""
@@ -123,7 +141,7 @@
             "Pull request n1 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr1 948c37a] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+        "out": "[fork/pr1 81ee871] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
     },
     {
         "args": [
@@ -160,7 +178,7 @@
             "Pull request n2 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr2 2004f57] Pull request n2 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test2\n"
+        "out": "[fork/pr2 25494ed] Pull request n2 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test2\n"
     },
     {
         "args": [
