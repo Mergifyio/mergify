@@ -47,7 +47,11 @@ def is_configured(g_repo, branch, rule):
     else:
         data["required_status_checks"] = None
 
-    del data["required_pull_request_reviews"]["url"]
+    if "required_pull_request_reviews" in data:
+        del data["required_pull_request_reviews"]["url"]
+    else:
+        data["required_pull_request_reviews"] = None
+
     del data["enforce_admins"]["url"]
     data["enforce_admins"] = data["enforce_admins"]["enabled"]
 
