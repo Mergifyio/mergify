@@ -1,7 +1,7 @@
 {
   "http_interactions": [
     {
-      "recorded_at": "2018-05-05T19:05:06",
+      "recorded_at": "2018-05-05T19:15:59",
       "request": {
         "body": {
           "encoding": "utf-8",
@@ -29,7 +29,7 @@
       },
       "response": {
         "body": {
-          "base64_string": "H4sIAAAAAAAAA52UwW6cMBCGXwX5vBsDu2k3lqqkp77A9pLLyhgDVo1t2YbVFuXd+xs2VcOlCuIAY+b//DPMeCLatsoQRnrpW9Xc9lGGWJAdUTVhh9PxCddhR/jII/eXwWukdjG6wChdFsPhoVWxG6ohSC+sidLEB2F7OtB3/fP47Qhk6++YxCZYWOGcupMWOXCBrm11sdcrG8vus2ad3Vit7RWctfP/bkX/SuFzeVam3YqBdKI2dhIlxGe9pWKoEDfYmmUTTbeLqhMo4Md4WX/e2l0IY1cDTxP10tmZOFRBeOWismaDxQ9y4KxvuVG/+UYc5AGUZG6DmVkGuRzRlhv0i26izquRi1sqj5dCqhEV38pcAYCMNycxEj/RG6n+KsoLr/s0lw3XQe6I4X1KWPc3et5xc8Obl/srZQGoMNTLhGkr5roTZgatUYaeK4zwEnTKS15pgJe4gpiRc6dCxoWwg4kZHhvrs3QooIczN3iUU2a2ydDM2dX6Xw0GLMU/5jMg++5c9sGLGyqtxGX5D6wsvuzIfWluZcLy9/nCmP4TYbs5EvAYUWwe4a3Mi9M+P+6L07nI2bFkj0+v+N7B1eucR6Sd86+sLFl+eCVvfwA40DMO6QQAAA==",
+          "base64_string": "H4sIAAAAAAAAA52UzY6bMBSFXwV5nYzJn5qxVLWzmhdIN7OJjDFg1diWf4hSNO/eY8hUHTZVEQu45p7Ph8u9Hom2rTKEkV76VjX3bZQh7siGqJqww/n4jOuwIXzgkftr8hqpXYwuMErnxXB4alXsUpWC9MKaKE18EraniX7ovw1fj0C2/oHJbIKFBc6pB2mWAxfo0lYXe72wMe8+aZbZjdXa3sBZOv/nVvSPFD7nZ2XatRhIR2pjJ1FCfNZ7LoYKcYWtSTbSfLuqOoMCfoyX9f9bewhh7GbgaaReOjsRUxWEVy4qa1ZY/CQHzvqWG/WLr8RBHkDJ5laYmWSQywFtuUI/60bqvBq4uOfyeCmkGlDxtcwFAMh4dxIj8QO9keuvorzyus9z2XAd5IYY3ueEZX+j5x03d7z5/nilLAAVhnqeMG3FVHfCTNIaZei5wgjPQae85JUGeI4riBm5dCoUXAibTCzw2Fhf5EMBPVy45FFOWdimQDMXN+t/NhiwHL9OZ0Dx4lzxyYtLlVbiOv8Htt+fNuSxNLUyYeXHfGFM/4qw3RQJeIwoNo/wti9352153O7Ol13Jjnt2en7D9yZXL3NOSLuUX7AhKw9v5P036B/X2ekEAAA=",
           "encoding": "utf-8",
           "string": ""
         },
@@ -53,10 +53,10 @@
             "application/json; charset=utf-8"
           ],
           "Date": [
-            "Sat, 05 May 2018 19:05:06 GMT"
+            "Sat, 05 May 2018 19:15:59 GMT"
           ],
           "ETag": [
-            "W/\"22374c7f428d41b4ad6644e269ac50d3\""
+            "W/\"34b11a4e8b24c7fa35fc840135acb93b\""
           ],
           "Last-Modified": [
             "Fri, 04 May 2018 07:22:03 GMT"
@@ -89,19 +89,19 @@
             "github.v3; format=json"
           ],
           "X-GitHub-Request-Id": [
-            "92AC:1095:193BF05:380C624:5AEE0060"
+            "93C4:1095:19463B0:382317A:5AEE02EE"
           ],
           "X-RateLimit-Limit": [
             "12500"
           ],
           "X-RateLimit-Remaining": [
-            "12499"
+            "11977"
           ],
           "X-RateLimit-Reset": [
             "1525550706"
           ],
           "X-Runtime-rack": [
-            "0.042755"
+            "0.044775"
           ],
           "X-XSS-Protection": [
             "1; mode=block"
@@ -115,7 +115,7 @@
       }
     },
     {
-      "recorded_at": "2018-05-05T19:05:06",
+      "recorded_at": "2018-05-05T19:15:59",
       "request": {
         "body": {
           "encoding": "utf-8",
@@ -139,11 +139,11 @@
           ]
         },
         "method": "GET",
-        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5863beb7-bf2a-45d9-86f9-f6c19b37c1b1-test_change_mergify_yml"
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-27111e88-8149-44e0-b82d-42e8f9fc84c0-test_change_mergify_yml"
       },
       "response": {
         "body": {
-          "base64_string": "H4sIAAAAAAAAA8VZ246jOBD9F143aTqdviXSavYjdl/2BRkw4G3ArG0SpVH/+56ygUCk6fRkG1kzmkkcV53jcrlcVe4CkQb7zfbh4eX5ZfOyCmpW8WAfKN7I9dPr8zbm8cs6zh7Y+vEp3a1fn7PdOntONrt4+5Js4s3acG2ipGB1zqOKq1xkp+hUlcEqyNqyjHp9/S929ib8Du3yWHMV7LuglLmoQXkGAXha2Pb1cYc/21XADswwFbWqxNTCmEbvw9AN6u1dLkzRxq3mKpG14bW5S2QVtuEg/+Pw+yNU5qpXQ7oDDFyoa0SvyYlDnQ4vaRWmKi9oOHQrczk7k2Upj9BzyfwqVDiK0lZYNaLOb1UD0S6UpuAwIZb1QcYQ2txAy4p1If0XiZQUaWyM4umvU+sFQYx84aOzfmU1trFOlGiMkPUNFGfiUCdVzmrxzm5UB3ENLUTuBjJWDOL8ALe8Qd7JdWGjxIElJzKP4gkXB1j8Vp0XCqDSnBoKG3/BN8j+wvCIpRWdy4yVmn+sAotvMMkOrHAGv3wOviVepHx0iWBfIzTRqVBvI59Pj7LdhPnh/BZSxODKni4CjeAAYOzUGz95wSfcLsS/fQxIEKBYLBUz8lqsW8YgMwJdOP1KR8ZwVnkxlAUGgUJKP55igUFAaN3yL0WMZTbI4utwCGd1W8XuHvpKEFuGkkOGbZjWIq859+IhI3gXDldzrFidFH7oDNhd6D7Z08NyL6YhXMDHpYy94COxCy14F+qCuaTJRL6sQWwIe0ZG8cybaQh7JGOUp/NjzULgIxXklQZHyYtdBuyw6z2mRGXVstwPmxGckjqk6Tl7v1qLLBNrz+igQkWaEnHrL1k445NlXLmB+8iPy5zhz2Rs7fN5SbXQRk1qL7tVVSWu1S3LMOmhZ+HOIx2KM5eU6Pv1sm458xB2F55zKZfk9ax8eE+f5Q12mXLrOzNejtiAHXa/NcwUdJODYsMU92GkHjrsYobS+u7uris4s60Uah/5uSkcMigwlRRoLviwSzdgo7qtmLENoYzMkqJBVEqWevGdERxEnHv7sI1Dnp6nBj0QLwaxwFMmlSjRFpa1J88d0aecamlEJpKv9PyWCc8zAt0PLeqErxjaVog6RiQCcQhNWfJuNE64n510yDAbHg1cY7HkCElevEpxh92Frquc8qaUJ2+36wSeLgvF0ftMI2bQJH2437yu75/w98/Nbn//uH/a/o05bZN+NueV5jStLn6i5gmaaArSjD6+4BPeOH72uPD/+5f01gFArYsz4B9nuP03v/n0cEmJQHERQZdf4+Eyl14OEiYtZMUb1HxDo1qLd3y+n9VgiWxreBMGj8yg2YPa4zw01G2DgoLpyN0Awd6oltrvGGmU/IcnRk/HzrfVZOJRvImZINWjY+fcNbF78A2SEKGU7J/aXKO9v5fxaNY3/2XD657QlLVIeK3HVbse9R4aJ9NnK7ZfUp6xtjSRazfRQyDTxj5DNFxVWDU9AtFD4fRBwh2lkQ9dSeenCkRZeYz0vy2Da9vEZli8+8UOgTdVNvNfFKeUbC5Tc3NEt31YJ5YzrReHPfv4D8lUBEiKHQAA",
+          "base64_string": "H4sIAAAAAAAAA8VZwW7jNhD9F11rh7HjNI6BYvsR7aUXgZZoiY0kqiRlwxHy731DSrJkYOPUjUDsYtemOfMeh8MhZ6aNZBrtVk/r9cvL5tfVIqp4KaJdpEWtluuX1WolttvldrV5XW424nG5367T5WYttofXQ7LdJI9LK4yNk5xXmYhLoTN5OMfnsogW0aEpirjT1/3iZq/Yd2hXp0roaNdGhcpkBcoTCMDTwp62m1f8eVpE/Mgt13GjC0zNra3NjjE/aJ4eMmnzZt8YoRNVWVHZh0SVrGG9/I/jbxuozHSnhnRHGLhSV8tOkxeHOsOuaeW2LK5oeHQncz37oIpCnaDnmvlNKDaI0lY4NbLK7lUD0ZYpmwuYEMv6IGNIY++g5cRaRv/FMiVFBhujRfrfqXWCIEa+8NE6v3Iam71JtKytVNUdFCfiUKd0xiv5zu9UB3EDLUTuDjJODOLiCLe8Q97LtazW8siTM5lHi0TIIyx+r84rBVBpzzWFjT/hG2R/aUXM05LO5YEXRnwsIodvMckNLHAGv3wOviVepGJwiWhXITTRqdBvA59Pj7LbhOnh/BZSxODGns4CjeAAYOzUmzgHwSfcluHfLgYkCFB8rzS36lasm8cgEwItG3+lI2MFL4MYygGDQK5UGE9xwCAgjWnElyLGPBvk8A3rw1nVlHt/D30liM1DySPDNtwYmVVCBPGQAbxl/dW817xK8jB0euyW+U/u9PAsiGkIF/D7Qu2D4ONhxxx4y0zO/aPJxqGsQWwIe0JGi0Mw0xD2QMbqQOfHmYXAByp4V1ocpSB26bFZ23lMgcyq4VkYNgM4PerwTM/4+81cZJ5Ye0EHFUrStNw34R4LF3yyjE83cB+FcZkL/IWMy30+T6lm2qhR7uW2qizlrbxlHiYd9CTcBaRDceaaEn2/ndbNZx7CbtnlLeUfeR2rEN7TvfJ6u4y5dZWZIEesx2btLzW3Od3koFhzLUIYqYNm7Z4jtX54eGhzwV0phcpHYW4KjwwKXCc5igsh7NL22MhuS25dQehAZklRICoUT4P4zgAOIt69Q9jGI4/PU40aSBCDOOAxk1IWKAurKpDnDuhjTpWy8iCTr9T85gnPEwLtDyOrRCw4ylaIOlYmEnEIRVnybhRORJid9MgwG5oGvrBYCISkIF6lhcduma8qp6Iu1DnY7TqCp8tCC9Q+05hbFEnXj6vt8vEZf/9Yve5Wz7vN9i/Maer0kznPTzSnbkz+UzXPTg2eGV18wSf0OH7WXPj/9UvqdQDQmPwC+PsFbvfNPZ8OLikQKK4i6PxrPF6/peeDhElzVYoaOV9fqDbyHZ8fJzlYopoK3oTBE7co9iD3uAz1eVuvIOcm9jdAtLO6ofI7Rmqt/haJNeOxy201mniSb3IiSPnoUDn3RewOHC3EUmqtulabL7R39zKaZl3xX9Wi6giNWctEVGZYta9R76BxNH2yYvclFQfeFDb25SZqBHJjXRuiFrrEqqkJRI3CcUPCH6WBD11Jl1YFoqw6xeafhsO13cOmX7z/xQ2BN2U201+0oCfZVKYS9oRqe79OLGecL/Z79vEvWnCJKIodAAA=",
           "encoding": "utf-8",
           "string": ""
         },
@@ -167,13 +167,13 @@
             "application/json; charset=utf-8"
           ],
           "Date": [
-            "Sat, 05 May 2018 19:05:06 GMT"
+            "Sat, 05 May 2018 19:15:59 GMT"
           ],
           "ETag": [
-            "W/\"e60f11b43984a950290879968ef6c47e\""
+            "W/\"1d8cc2f2b8f65f46de9d8f6cf58f3be7\""
           ],
           "Last-Modified": [
-            "Sat, 05 May 2018 19:04:58 GMT"
+            "Sat, 05 May 2018 19:15:53 GMT"
           ],
           "Referrer-Policy": [
             "origin-when-cross-origin, strict-origin-when-cross-origin"
@@ -203,19 +203,19 @@
             "github.v3; format=json"
           ],
           "X-GitHub-Request-Id": [
-            "92AC:1095:193BF16:380C79B:5AEE0062"
+            "93C4:1095:19463B5:38231DB:5AEE02EF"
           ],
           "X-RateLimit-Limit": [
             "12500"
           ],
           "X-RateLimit-Remaining": [
-            "12498"
+            "11976"
           ],
           "X-RateLimit-Reset": [
             "1525550706"
           ],
           "X-Runtime-rack": [
-            "0.056955"
+            "0.062957"
           ],
           "X-XSS-Protection": [
             "1; mode=block"
@@ -225,7 +225,7 @@
           "code": 200,
           "message": "OK"
         },
-        "url": "https://api.github.com:443/repos/mergify-test1/repo-5863beb7-bf2a-45d9-86f9-f6c19b37c1b1-test_change_mergify_yml"
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-27111e88-8149-44e0-b82d-42e8f9fc84c0-test_change_mergify_yml"
       }
     }
   ],

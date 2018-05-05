@@ -5,7 +5,7 @@
             "--depth=2",
             "-b",
             "fork/pr2",
-            "https://<MAIN_TOKEN>@github.com/mergify-test2/repo-9a043adf-b523-4376-9886-7fe66c696f12-test_update_branch/",
+            "https://<MAIN_TOKEN>@github.com/mergify-test2/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/",
             "."
         ],
         "kwargs": {},
@@ -16,7 +16,7 @@
             "remote",
             "add",
             "upstream",
-            "https://<MAIN_TOKEN>@github.com/mergify-test1/repo-9a043adf-b523-4376-9886-7fe66c696f12-test_update_branch.git"
+            "https://<MAIN_TOKEN>@github.com/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch.git"
         ],
         "kwargs": {},
         "out": ""
@@ -45,7 +45,7 @@
             "--pretty='format:%cI'"
         ],
         "kwargs": {},
-        "out": "'format:2018-05-04T09:47:22+02:00'\n'format:2018-05-04T09:47:01+02:00'\n"
+        "out": "'format:2018-05-05T21:18:01+02:00'\n'format:2018-05-05T21:17:40+02:00'\n"
     },
     {
         "args": [

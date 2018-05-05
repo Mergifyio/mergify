@@ -1,0 +1,1229 @@
+{
+  "http_interactions": [
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/search/issues?q=is%3Apr+ac79a08a7865c451e2ff1373f28de39b4b24763f"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA8VWTY+bMBD9K5HPITh8ZAlS1VOv2x7aS6sVMsaAtcamtskqRfnvHTss2o22+5GuslKkCJh58xjPe8OIrLJEFFQN0qJ8vURcUtX1gllWaGYGYQ3KayIMg0eWdXD1a0SDFihHrbW9ycOQ9HzVcNsO5QpyQ816ZcKO6YbX+8AyY9f+XpDSbHMV1SSIMK6CZItZQMpkE7ByE+OrEsfRNvXxxdBXBAiUmkjahtyYgZkwQkvksblVel9clAOUFqRkwly27Pzq4bH6GErSsQOwgUZ3TNoP43NfH6iw3UcSOVYHGq3txMnpPBjKdxzHfhDCDyOvUB5HOI2TNMuWSA5dyTTKoyWy3AoGCvkGoQvNfsP42oWMFrVW3aJW+hayB+OCRyRUwyXEPmQ4o2fJNsUYwMmOWKJPp8/fNOtJfQ6RKmnhOLwQhzCe8j/vPiVQstETjGOOHIfndOzgHuvY0Xp9m110rYRQd4BzyvyxZTxRKpxTZxgum3NhIHUMlW0ZtBBeyymo4eYl+TxFy6eNofsreOWADJyBZtXbqU2JQOxOAqfRu6RHHEpDNe8tV/KMzj1KBzilGyL5H3ImHKQbQPHW+/aX9GmQ/hqXeKrfx7wx7DXfEbp37dGMMr6Djp+LeQIAkHbfO73+cJqE/sOmK0jVOV363Xe4t3/Yfjf+xK0LVz2TEC4UvWWgqGlNEmN4IxkESJA/SHe6dqsTkjsuwA2UnJ/PVppj8HXNALsqCGxjFOF1FuAUft/X23yd5XjzE+odt+O/YuLUxVChzAQzsRhsq3QBZBTlfhSgwPXX6y8Q7BwNtr23KWdJz9rCu693V/243V/vLf/5RTFbeMXr+oJLY+XquYYTS9tL1vUFEYxxqar9C4vJUKVhOPEqyRIcX0XR4ebwF3Sd0sUoCgAA",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1A4:448809C:5AEE0391"
+          ],
+          "X-RateLimit-Limit": [
+            "30"
+          ],
+          "X-RateLimit-Remaining": [
+            "26"
+          ],
+          "X-RateLimit-Reset": [
+            "1525547953"
+          ],
+          "X-Runtime-rack": [
+            "0.111282"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/search/issues?q=is%3Apr+ac79a08a7865c451e2ff1373f28de39b4b24763f"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2"
+      },
+      "response": {
+        "body": {
+          "base64_string": "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",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "ETag": [
+            "W/\"055edeae3c328e329b191e83d403d310\""
+          ],
+          "Last-Modified": [
+            "Sat, 05 May 2018 19:18:35 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1B3:4488167:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11693"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.157573"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/files"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA72Q3WrDMAyF38XXTe3Yjn8KZQ8yRpFsuQmkSYgdxhh797krZWNXG4xdCR1JnKPv8ZXlHtiBkfGRpEeUsY1GK40OpQeytoPogiTtQqd8y3YsDSNNcKF6VSgXWaVcoGy5ChAjxSrUOpRhnqomdizSSJ9d6GE6022C44ynbR3raV/Kkg+cn4fSb7gP84VfaD0P6aW52rR8pWVuuuCMlQkaKURstBfUAGrTEBolLAolffexf9qWCIVOuMIUen414hCsB+HAOtMF3bUkU2qVVUm6SMqjRqmtUYnf/1rh+V/SVZ/fhwvzVGgq+VtCWIb9F4ZXavkvSd5tb5AeVkrHn3Jlb0/vJ0qQwXECAAA=",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "ETag": [
+            "W/\"bf643253fc9bff7576c8b1bec0383a46\""
+          ],
+          "Last-Modified": [
+            "Sat, 05 May 2018 19:18:35 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1C5:448818F:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11692"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.063737"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/files"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/contents.mergify.yml"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA82VaW+bQBCG/4s/1+HyESJVVZLWEFclClUAI0vRXhzOsiAOO7jqf+8sENc5qqpVW/UDX4admWfedxa+jATK2OhsdJKxMk6j9qTN+OjNqEB18jJaJQiC2tzEJjZQpJ7SKSEGJVSbavh0YhJtfkpUQrDOEJlDmSrdQ/G5PnszakoOuUldF9WZoqAiPYnTOmnwCckzpWRFXikDwrhmVa11sfGUnM7meoTGuqrS8cRU2RjhyWzM8MxQ51g1dHPanb9rCopqdodLJEiikFzUTNSVcjzXu5JFbzNU1awEtqTO+N1TqiOiP8iCeY6Vvu0THGCAhs8Q/rYw0FGRQJXyCzbSfCd4jugz1hLtBhObipWD5J2ff1C914Wr20JubZRyBjIOrSFwKZYatrz9dZzHV5bLw2yhYftmdpmex1eXFzuSmWroOyryzaY7c9nF2zBYaGuBgiUPF+aeWguVBk600hO+0uu+WncSHttRScY39H0ee/ZSC2/6KmvRvbWcLRYuZ7b7NKvProf3BRbelgafauRPgYe2a7EK3ALrky0Ql+FnbYOGuo90A9uO+g9VYCw5CTxODDcimacDue8ZZJ9/7OfpZrpHgVPDsw8MR135D1xm0YxzanyaXdluS/3b7vxAPqgg+wS6sw0tL8IGbcJg2fUYOsTAVxG9z3zM7vUbCBNiX7TYCAuc0UOmrEhh1uv0vO29kEou+VrADC0aHIEJYlCmwucHZzjOwi3JHGBa3GOfN/LMI4Mkv0hJtmikU4f5LS2BqpxsvutB7OWWWt6GWnyLh/jLucH7V/V9qW6nGvCDCwWocw90u65HxptQM2GfwiIMKGyQqWFxM7t6/6H3xppu5cTSMUc92sAfbGav0qGLdDJwYVOJZm4QzIPAy4Oe/S7vqb0sVgb0/BAm2Hb48XtgfVgL6vM29GF3bNB6IWkXWhg46vGGPKvanZEOrwWo9DOPH4b7Jm9Siq3bA6NUTW6Hy1dGt+9P6CXdgc1wE2p7e9icHG5sKX1fi2E7Pq4FXHsmSE5TEcO9x6hiswnE7ngq7qvR2ZdRxXj0f/1x4Nv7D4F+60svf4pHjP/4h/j16zfqtMN3kAgAAA==",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "ETag": [
+            "W/\"179b9b3af08d5cc3dcd151b849c178c0ccb2eac7\""
+          ],
+          "Last-Modified": [
+            "Sat, 05 May 2018 19:18:21 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1CE:448819D:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11691"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.047861"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/contents.mergify.yml"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/branches/master"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA71W227jNhD9lUDAvlnRxaQuBoouFv2APvSpi8CgqJFNRCJVkvLWNfzvnZHkJPai6cbOBvCDLGrOHB4Oz8wh0KKDYBV0wnmwwSKQpuuUD1aHwG0FLuRFXnKWiJI3MVQ5xCxZcsiBlxnjhZBNkmSsqPOzUDH4rbEEcoIHu1HNPqyMxw+hE6pFbG0s9O3+czet3iuDi7XwRCiNkyKMOf7+SMpVkq948mdwPPEjrt+je3D+K6Z4eJFjxg6f1j4PDqy7n3Pfb5TfDtU9bvs/cxerdMrdgXNiQ+x+H9r2zsJfA2a808ldY0131xj7iCDeAn5y0k9kmSxLqBPBJKRNzfKGs4bnZR0XkrMig7hmjJF+gyVRtt73bhVFolcvyEWolHHRy90k47uQyyLL00aEaRzXIStjCEXFshCqbBnnVbxMSz7ufj30pO26skLLbYQbj4iqi36YIsr/8RyngnTRGwsRtF9LM2gs5XgR7MCqRknhldF0NtN/qINVI1oHi8CCcLQUDNqpjcaVRUAPwg8WT1PjeS+CXuxbIzCI/h4/XI0rlNj6rl2fn9lzwb9nNU3crjgkd0HvZ5f9W0WMKACLyWFBnGxtqoYJaXai1mwUlc93doNhCitmWfA4jhlHkJ3wwl7uenzpkvnGk0VJoz3mJWeKhmiZFwhRsF93vzCE3NgZhrCD//OO0fHOTvsT/4I++Yn/hqGv14jo+/NQjGhM25pviHm5i3PLeiVt9ATxBKf05lY4hDhExm8B5cUtH0ko5fwNNMfwA3ol2qeqCdDhOVmor6c6AyDRbxo5HkYXH5GHykmrevKoGyifwSCssRuh1T+j9d0AizB0BcY2dP3mx3CEgR1dqetxpvhD1Fu1E3JP8lmQoHZ4MrdiXwAhtN/31PS/jMOLU9hDRd3RdR+bB/aBXtjRIlZfT20/AcF5mvIce3GVipJV+ZLxlC/LhqdZKbNa8rQsKgT82JZ68r83EHzdIN5xJJmbyA9TOz6g9utW6UeUHpWHtvnAAWqao3B+epqdSagXBH5Op6WZ7ZSSSs8aD9LTKOPtgJPM/GIedECLqn1epJFVkX2hC/nBreUW5CQeaBxfJVCrW7d4hab5XE+VTld27Ed/j0U+Pis9mMGFCt9iNyJ3iRrxCKFUwQPNRs88Xr/m7z7YXpwLesSoEAly/BfywUou8AwAAA==",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "ETag": [
+            "W/\"01ffc57e550108018611bf488d6dfbb4\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1D8:44881AA:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11690"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.075601"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/branches/master"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:42",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "application/vnd.github.luke-cage-preview+json"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/branches/master/protection"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA82SzW7DIBCE34WzCc5/41epKoRhbaPYQJclaRXl3YudKKmq9O4TaDWgmf3mwhL2rGIdUYiVECrYRWupS/VC+0EgBB/FANja5psTRFpOM77Vb7v9qlF8VZaGbw4lcFVvdhzq3brc1+V6ddhOepmCUQSyRuV0J24H5D9VJEAR0BNost6xgiF8JotgZCRFKUrdgT5GVl1mYzKHf2mxYJHQamIVYYKCae8Ivih7f5/u1iWfIrd52qIa44pGHYFryz6eajkXFv/EFI9Y11+wQup7Oe5lpI1wsnCeKbOXTgtmbBxsjGPrengmuJG8A5faG5D+7ACfikb1McN+dEKFXOeTde1dkh8llzuxzOsC13jUIJUZrJvXfv5YG72qugfDqing9foDinIhYiUEAAA=",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:42 GMT"
+          ],
+          "ETag": [
+            "W/\"a99b01e34a8831801c72bf5185565400\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.luke-cage-preview; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1E4:44881C6:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11689"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.046442"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/branches/master/protection"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:43",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/collaborators"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA52TwWrEIBCG38XzdqXsHtpA6VP0VJbgJrPJgFEZxyzbsO/eMckWmkup5BBRv8/fUT8nZX2HTlVqAOrwcntiiPysdgpbVR1ejq/yHXbKjIYN1YmsTO2ZQ6y0XjrjYd8h9+mcIlDjHYPjfeMHnfSDfx/fjqLsaNVkt5KOjS7galpw0UW9jdXzYDcxltVnZjv74q31V/Fsk/+5lP5BJefSRteVagSdtOcepISyrXsuBkYuiDVjk86/GtssinIwBO3/o62gBLs6yTRpguBnYzrHhjAwelcQ8RcuOk+dcfhlCnWCR7HkcAVhZkxwGOVaFvALN+lAOJrmlstD0ACOUvFS50YgSr4FkCfxIXcj1x8ZatMO+V1ejI2wUwFowBjzgahqUusgU8pjKfaqerStvNDcvt9P301AQ37eAwAA",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:43 GMT"
+          ],
+          "ETag": [
+            "W/\"1a13025e227fe0553b7c6ef23c4181a8\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA1F7:44881E0:5AEE0392"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11688"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.046443"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/collaborators"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:43",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/commits/ac79a08a7865c451e2ff1373f28de39b4b24763f"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA71W24rbMBD9leCXvMRrSZYsKVDaH+hbn1qWMJLHiakvwZZblpB/7yheQ1soJEvX4AfrMjPHR2eOdUnGEyT7BLy2wAxoUygvFUdRVTzXeSVMibl10gmpi7xKdonv27YOyf6SwBRO/RDfOmiRsrQ4HOvqJXV9oI3YQt3QbNcPeG5ePr2uPtU9LZYQYoRg3KRM0fOF2z03+5x/Ta5LkYDvk73FcYRjrP+ZEOPGDdD502bbwkglt5u6C/1mW/XD9+w8iC3BDQPS9ssrWxK8tcxoBjaXqLkVaI0qDU0JzhXmDIwxuabAaYgUnEI4j/ssg3P9dKzDaXJPRGNGvPRjtrAWcAz8NpcqbwotKkgFY2UqLcMUnCxSdEXOtGO5sCqN+w/TOTJ5mL8go9xZhDpmd0MkstfHOGtozB6UHXbh4PupI/WxXfIDh7qqPYS67+LZzGMsk30FzYi7ZEAY41IydWN97Ghll8QXCNNAp9lNTbNLzvDS9EBBcXhdnY03MHEKbXP488x+09R/VNOM7Q2HNP4F771l/yiJWQwgMY0kiMXEZjXMmW6+s8hjuG3cf1uaP4fCG8c0csyB+pFM0gOXomClq5SvCiY8IzNYvfkXFh4AuLaU7oZ23S10a6Otkhysqhg6jUzyXKFGZQupDPiK80Kacn2vXeh+AODadN8N7fpMzhgg6vyShD4A/bTIYaEs6+iuNE2jEhtcRuSTVd3g732BhS1RWOdEyctC5tIZJyyg1gpK4wVK41VuOfVFDH29Mtx+etGXqfpE6WLNm1H/uzbdDk7QHWNxQuWa3q3ihrHQ3V6YLd81wM9V0FGdx8H5vgvR3Va367nsTNLHAasPd18Ers/XXwr5Eli0CgAA",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:43 GMT"
+          ],
+          "ETag": [
+            "W/\"9f70d39b7754c05d2394411f7231d874\""
+          ],
+          "Last-Modified": [
+            "Sat, 05 May 2018 19:18:31 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA208:448820E:5AEE0393"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11686"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.052696"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/commits/ac79a08a7865c451e2ff1373f28de39b4b24763f"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:43",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/commits/ac79a08a7865c451e2ff1373f28de39b4b24763f/status"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA9VZ266rNhD9lYjXJjEBEpJI1XnoU99bVW1VRQYMWBswMia7OSj/3hmbkIuOcjs5jqq9tS8JnrW8PLPGdjqnUVQxZ+00bRyzpnHG+pW2YY2z/rtzWlnAm7lSdbMmhNZ8mnGVt9E0FiWRrBYNKZnMeLqbKNaomX5tMo+Xi9BL6cRz3WQSrFw2oVGwmLBo4bth5Preaq6f37R1AvibSNIqzskBmtA4XFF3ScPlYh4H8xnz0nTmh37qLRPmr6Ig8oJw4adAlyfOOljNFuFivvIWhv75hBLWxJLXiosK5vIH5YpX2SgVcvTLr6PjvBWVGQNGOOOqLYqxE4tKsX8VDOrnSGoJiLFkwDnZUHzHc2fLiTuH799mq/VsuQ7cv+AZM69rz+zH/zd1A/e2un+KVo7inFYZG30K+YEJdU1YlJhXrWibCQexM0lxmUhKP9gk5rfFnt0hNjyz/weo5xTW64HMUkLRYhOLtoKF9saOTneuhNw5607n3cz3vDCch+HYqWiJWfc96Q+zTSHvNn2o19UVBBafFZNIuxAZxzI4i96Xkb8MVvDljx26pbBqphaO1a9fbPzeAsAjpK6QSmk3aMlh/JftzwGEhMU0YVAqB4vimplguAszgSG5KosLGicGdDmJVBSF+IQ4l8zPfesbUGQYiqugw4BJPBsGhnZEqJyBhDCtPYrBG/UELT2sI/hrwxMMBB4pJbjPo2KiueJAIIa5sO+0VeuIbTQY5BMUz4ZDOCEzWvGvupCfCAfD0TR0sT0+ST0MhrMtpOUT4824Doyeb2m8Q3kkixnfguLPxrwIACHVrkaz+B1yA/Xn0AFpUmJdprRo2H7saHxszPqFh+rgu1ow0Dlrl6YRQq/8GKhcTbxXbwmAD4LfWMlXo4IbmNb1wXa2oRGyI/Czr/cYzIhGAhqjuOVrL5fhDLsjp/9iZShGS9vyaEzAzoWwnhUaE7B507TsLjt4+Ypo6IYcbKpqy8j0l3vM6eVsDCgoQpuGZxVjtrNhwO3IodGao4R1JgfYjpi/dH3QzLYgCAnIUSEi29CwLyMatyOw1TZ7HrV5gwZIBGHPeEiWvkMQhB14KGm/QrQYiDuwOByyr2+uXu4Vw9m+67OjgENiSzPrlTrgQp3gnjijX2+eGH6EGj0wsMBTlORR+5YOf4RGPcxRAHqK7WI5QT7y0Hc2tvP05DSk16Ys+a2TxMvTo0c9c7D3MEH/uGSD/98+Xv0QURC2I8dtj9mK9YQsZ0q/FzuocUqrvxexXUQHWNL9VFOVYw8GdjWVzLI0PSrpIgrH2el02uWM6usLvLKxbvkGFNCpjHM4y1tWozvAwrGypEpfvaQoRgJXMYWgie08GXCBg8liy4oY0NOKqeHm07YMGvOURMkL+FBCVPYTdAA+pVMJxVMe33OT9nKzPcPuvjS8itmYwqci4CaKxxz8BW45MYnhdoJZXzoDCmLBtbu5pCsYWI3tDJLMwHbEXM4mrC7E7h3N8QTZgftD07ItV3W/T3jk0zurl4mHjczdBPsPJJ39f66+rm0oHQAA",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:43 GMT"
+          ],
+          "ETag": [
+            "W/\"3928d1026bac77a45278fb9bd59f984b\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA213:4488221:5AEE0393"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11685"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.046701"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/commits/ac79a08a7865c451e2ff1373f28de39b4b24763f/status"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:43",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/merge"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAAxXJMQ4CIRAF0KuYsXWWwm4PYOkVDLt8gQQYhJltjHdXy5f3poo5fQStdBc93cRaoAsF2a2iqdcs7WGj/D6p9rk6F3CgSMdYYtZk27JLdcfVdStlunOEcn6y57954GWYyslP3oDGFSMi0OcLhzcVxnoAAAA=",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:43 GMT"
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "404 Not Found"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA219:4488234:5AEE0393"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11684"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "0.037615"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 404,
+          "message": "Not Found"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/merge"
+      }
+    },
+    {
+      "recorded_at": "2018-05-05T19:18:45",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": "{\"sha\": \"ac79a08a7865c451e2ff1373f28de39b4b24763f\", \"merge_method\": \"rebase\"}"
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <ACCESS_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Content-Length": [
+            "77"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "PUT",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/merge"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAAy2MQQ6EIBAEv0LmvIcJQkBfsfEHCD160MM6cjAb/y4mHrsq1X/SJdFAXjyLC+h6uDRxTN46YeEQEbtSYkDurZ2YPrRhn1FoOPaKZ6mmGe3iW9fVjPhV6GG05tyMNHaat7huAqdEdG0AAAA=",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sat, 05 May 2018 19:18:45 GMT"
+          ],
+          "ETag": [
+            "W/\"f8b24a2bd83c6dfcaf7dd97f76a8a119\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "87EA:1096:21FA223:448824E:5AEE0393"
+          ],
+          "X-RateLimit-Limit": [
+            "12500"
+          ],
+          "X-RateLimit-Remaining": [
+            "11683"
+          ],
+          "X-RateLimit-Reset": [
+            "1525550706"
+          ],
+          "X-Runtime-rack": [
+            "1.479983"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-5c8672fa-200d-490e-ab46-eb6307b03295-test_update_branch/pulls/2/merge"
+      }
+    }
+  ],
+  "recorded_with": "betamax/0.8.1"
+}
