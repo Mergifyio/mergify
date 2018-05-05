@@ -91,12 +91,21 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 
-def get_branch_rule(g_repo, branch):
-    # TODO(sileht): Ensure the file is valid
+def get_branch_rule(g_repo, incoming_pull):
     rule = copy.deepcopy(DEFAULT_RULE)
 
+    branch = incoming_pull.base.ref
+
+    ref = github.GithubObject.NotSet
+    if g_repo.default_branch == branch:
+        # NOTE(sileht): If the PR on the default branch change the .mergify.yml
+        # we use it, otherwise we the file on the default branch
+        for f in incoming_pull.get_files():
+            if f.filename == ".mergify.yml":
+                ref = f.contents_url.split("?ref=")[1]
+
     try:
-        content = g_repo.get_contents(".mergify.yml").decoded_content
+        content = g_repo.get_contents(".mergify.yml", ref=ref).decoded_content
         LOG.info("found mergify.yml")
     except github.UnknownObjectException:
         raise NoRules(".mergify.yml is missing")
