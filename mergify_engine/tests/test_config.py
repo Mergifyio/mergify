@@ -19,26 +19,27 @@ import yaml
 
 from mergify_engine import rules
 
+with open("default_rule.yml", "r") as f:
+    print(f.read())
+    f.seek(0)
+    DEFAULT_CONFIG = yaml.load(f.read())
+
 
 def validate_with_get_branch_rule(config, branch="master"):
+    fake_pr = mock.Mock(base=mock.Mock(ref="master"))
     fake_repo = mock.Mock()
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content=yaml.dump(config))
-    rules.get_branch_rule(fake_repo, "master")
+    rules.get_branch_rule(fake_repo, fake_pr)
 
 
 def test_config():
-    with open("default_rule.yml", "r") as f:
-        print(f.read())
-        f.seek(0)
-        config = yaml.load(f.read())
-
     config = {
         "rules": {
-            "default": config,
+            "default": DEFAULT_CONFIG,
             "branches": {
-                "stable/.*": config,
-                "stable/3.1": config,
+                "stable/.*": DEFAULT_CONFIG,
+                "stable/3.1": DEFAULT_CONFIG,
                 "stable/foo": {
                     "automated_backport_labels": {
                         'bp-3.1': 'stable/3.1',
@@ -58,11 +59,12 @@ def test_defauls_get_branch_rule():
 
 
 def test_invalid_yaml():
+    fake_pr = mock.Mock(base=mock.Mock(ref="master"))
     fake_repo = mock.Mock()
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
     with pytest.raises(rules.NoRules) as excinfo:
-        rules.get_branch_rule(fake_repo, "master")
+        rules.get_branch_rule(fake_repo, fake_pr)
     assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
 

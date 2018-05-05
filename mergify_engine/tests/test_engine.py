@@ -18,6 +18,7 @@ import logging
 import os
 import time
 import uuid
+import yaml
 
 import betamax
 from betamax_serializers.pretty_json import PrettyJSONSerializer
@@ -340,15 +341,21 @@ class TestEngineScenario(testtools.TestCase):
             self.rq_worker.work(burst=True)
             return r
 
-    def create_pr(self, base="master"):
+    def create_pr(self, base="master", files=None):
         self.pr_counter += 1
 
         branch = "fork/pr%d" % self.pr_counter
         title = "Pull request n%d from fork" % self.pr_counter
 
         self.git("checkout", "fork/%s" % base, "-b", branch)
-        open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
-        self.git("add", "test%d" % self.pr_counter)
+        if files:
+            for name, content in files.items():
+                with open(self.git.tmp + "/" + name, "w") as f:
+                    f.write(content)
+                self.git("add", name)
+        else:
+            open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
+            self.git("add", "test%d" % self.pr_counter)
         self.git("commit", "--no-edit", "-m", title)
         self.git("push", "fork", branch)
 
@@ -588,6 +595,38 @@ class TestEngineScenario(testtools.TestCase):
             previous_master_sha = master_sha
             master_sha = self.r_main.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
+
+    def test_change_mergify_yml(self):
+        config = yaml.load(CONFIG)
+        config["rules"]["branches"]["master"]["protection"][
+            "required_pull_request_reviews"][
+                "required_approving_review_count"] = 6
+        config = yaml.dump(config)
+        p1, commits1 = self.create_pr(files={".mergify.yml": config})
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(6, pulls[0].mergify_engine["approvals"][2])
+
+        # Check policy of that branch is the expected one
+        expected_rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 6,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+
+        with self.cassette("branch"):
+            self.assertTrue(gh_branch.is_configured(self.r_main, "master",
+                                                    expected_rule))
 
     def test_update_branch_disabled(self):
         p1, commits1 = self.create_pr("nostrict")
