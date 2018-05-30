@@ -109,16 +109,6 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-        # BRANCH CONFIGURATION CHECKING
-        branch_rule = None
-        try:
-            branch_rule = rules.get_branch_rule(self._r,
-                                                incoming_pull.base.ref)
-        except rules.NoRules as e:
-            # Not configured, post status check with the error message
-            incoming_pull.mergify_engine_github_post_check_status(
-                self._redis, self._installation_id, "failure", str(e))
-            return
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
         if self._r.default_branch == incoming_pull.base.ref:
@@ -140,6 +130,17 @@ class MergifyEngine(object):
                         self._redis, self._installation_id, "success",
                         "The new configuration is valid",
                         "future-config-checker")
+
+        # BRANCH CONFIGURATION CHECKING
+        branch_rule = None
+        try:
+            branch_rule = rules.get_branch_rule(self._r,
+                                                incoming_pull.base.ref)
+        except rules.NoRules as e:
+            # Not configured, post status check with the error message
+            incoming_pull.mergify_engine_github_post_check_status(
+                self._redis, self._installation_id, "failure", str(e))
+            return
 
         try:
             gh_branch.configure_protection_if_needed(
