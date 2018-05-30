@@ -96,8 +96,8 @@ rules.
 
    When a pull request changes the configuration of Mergify, the ``mergify/pr``
    status is built with the current configuration (without the pull request
-   change). To validate the Mergify configuration change a additional status is
-   posted named ``mergify/future-config-checker``
+   change). To validate the Mergify configuration change an additional status is
+   posted named ``mergify/future-config-checker``.
 
 When all the criterias of the rules are satisfied, Mergify will merge the base
 branch into the pull request if the pull request is not up-to-date with the
