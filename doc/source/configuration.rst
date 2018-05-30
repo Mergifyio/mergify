@@ -45,10 +45,10 @@ A ``Rule`` is a dictionary with the following optional keys:
        ``no-mergify``.
    * - ``merge_strategy``
      - :ref:`Merge Strategy`
-     - The method to use to merge pull requests
+     - The method to use to merge pull requests.
 
 
-.. _merge_strategy:
+.. _merge strategy:
 
 Merge Strategy
 ==============
@@ -69,9 +69,10 @@ dictionary with the following optional keys:
        ``rebase``. Default is ``rebase``.
    * - ``rebase_fallback``
      - ``string``
-     - If ``method=rebase``, but the pull request can't be rebased, this method
-       will be used instead. Possible values are ``merge``, ``squash``,
-       ``none``. Default is ``merge``
+     - If ``method`` is set to ``rebase``, but the pull request cannot be
+       rebased, the method defined in ``rebase_fallback`` will be used instead.
+       Possible values are ``merge``, ``squash``, ``none``. Default is
+       ``merge``.
 
 .. _protection:
 
