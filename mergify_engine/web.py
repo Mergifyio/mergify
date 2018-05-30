@@ -188,7 +188,7 @@ def stream_generate(installation_id, login="*", repo="*"):
     yield stream_message("refresh", _get_status(r, installation_id,
                                                 login, repo))
     pubsub = r.pubsub()
-    pubsub.subscribe("update-%s", installation_id)
+    pubsub.subscribe("update-%s" % installation_id)
     while True:
         # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout
         # to 60s, this assume 5s is enough for http and redis round strip and
