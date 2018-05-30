@@ -8,3 +8,6 @@ protection:
   enforce_admins: false
 
 disabling_label: no-mergify
+merge_strategy:
+  method: rebase
+  rebase_fallback: merge

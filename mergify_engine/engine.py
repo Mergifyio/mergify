@@ -266,7 +266,7 @@ class MergifyEngine(object):
         LOG.info("%s selected", p.pretty())
 
         if p.mergify_engine_weight >= 11:
-            if p.mergify_engine_merge():
+            if p.mergify_engine_merge(extra["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p.pretty())
             else:

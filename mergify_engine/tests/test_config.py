@@ -13,6 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+
+import copy
+
 import mock
 import pytest
 import yaml
@@ -30,7 +33,7 @@ def validate_with_get_branch_rule(config, branch="master"):
     fake_repo = mock.Mock()
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content=yaml.dump(config))
-    rules.get_branch_rule(fake_repo, fake_pr)
+    return rules.get_branch_rule(fake_repo, fake_pr)
 
 
 def test_config():
@@ -66,6 +69,32 @@ def test_invalid_yaml():
     with pytest.raises(rules.NoRules) as excinfo:
         rules.get_branch_rule(fake_repo, fake_pr)
     assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
+
+
+def test_merge_strategy():
+    config = {
+        "rules": {
+            "default": copy.deepcopy(DEFAULT_CONFIG),
+        }
+    }
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["merge_strategy"]["method"] == "rebase"
+
+    config["rules"]["default"]["merge_strategy"]["method"] = "squash"
+    config["rules"]["default"]["merge_strategy"]["rebase_fallback"] = "squash"
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["merge_strategy"]["method"] == "squash"
+    assert parsed["merge_strategy"]["rebase_fallback"] == "squash"
+
+    config["rules"]["default"]["merge_strategy"]["method"] = "merge"
+    config["rules"]["default"]["merge_strategy"]["rebase_fallback"] = "none"
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["merge_strategy"]["method"] == "merge"
+    assert parsed["merge_strategy"]["rebase_fallback"] == "none"
+
+    with pytest.raises(rules.NoRules):
+        config["rules"]["default"]["merge_strategy"]["method"] = "foobar"
+        validate_with_get_branch_rule(config)
 
 
 def test_review_count_range():

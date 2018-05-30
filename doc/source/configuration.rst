@@ -43,6 +43,35 @@ A ``Rule`` is a dictionary with the following optional keys:
      - A `label <https://help.github.com/articles/about-labels/>`_ name that
        will disable Mergify if it is applied to a pull request. Default is
        ``no-mergify``.
+   * - ``merge_strategy``
+     - :ref:`Merge Strategy`
+     - The method to use to merge pull requests
+
+
+.. _merge_strategy:
+
+Merge Strategy
+==============
+
+A ``Merge Strategy`` defines the method to merge pull requests. It is a
+dictionary with the following optional keys:
+
+.. list-table::
+   :header-rows: 1
+
+
+   * - Key name
+     - Value type
+     - Value description
+   * - ``method``
+     - ``string``
+     - Merge method to use. Possible values are ``merge``, ``squash`` or
+       ``rebase``. Default is ``rebase``.
+   * - ``rebase_fallback``
+     - ``string``
+     - If ``method=rebase``, but the pull request can't be rebased, this method
+       will be used instead. Possible values are ``merge``, ``squash``,
+       ``none``. Default is ``merge``
 
 .. _protection:
 

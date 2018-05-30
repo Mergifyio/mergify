@@ -113,24 +113,30 @@ def mergify_engine_travis_post_build_results(self):
     self.create_issue_comment(message)
 
 
-def mergify_engine_merge(self, **post_parameters):
-    post_parameters["sha"] = self.head.sha
+def mergify_engine_merge(self, rule):
+    post_parameters = {
+        "sha": self.head.sha,
+        "merge_method": rule["merge_strategy"]["method"],
+    }
     # FIXME(sileht): use self.merge when it will
     # support sha and merge_method arguments
     try:
-        post_parameters['merge_method'] = "rebase"
         headers, data = self._requester.requestJsonAndCheck(
             "PUT", self.url + "/merge", input=post_parameters)
         return github.PullRequestMergeStatus.PullRequestMergeStatus(
             self._requester, headers, data, completed=True)
     except github.GithubException as e:
-        if e.data["message"] != "This branch can't be rebased":
+        fallback = rule["merge_strategy"]["rebase_fallback"]
+
+        if (e.data["message"] != "This branch can't be rebased" or
+                rule["merge_strategy"]["method"] != "rebase" or
+                fallback == "none"):
             LOG.exception("%s merge fail: %d, %s",
                           self.pretty(), e.status, e.data["message"])
             return
 
         # If rebase fail retry with merge
-        post_parameters['merge_method'] = "merge"
+        post_parameters['merge_method'] = fallback
         try:
             headers, data = self._requester.requestJsonAndCheck(
                 "PUT", self.url + "/merge", input=post_parameters)
