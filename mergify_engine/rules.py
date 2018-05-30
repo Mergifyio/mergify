@@ -95,25 +95,8 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 
-def get_branch_rule(g_repo, incoming_pull):
+def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     rule = copy.deepcopy(DEFAULT_RULE)
-
-    branch = incoming_pull.base.ref
-
-    ref = github.GithubObject.NotSet
-    if g_repo.default_branch == branch:
-        # FIXME(sileht): This is not an ideal solution, because changing the
-        # file means changing the branch protection, for now we run only one
-        # worker, we don't have concurrency issue, each PR reconfigure the
-        # branch protection safely. But with multiple workers
-        # this will change the protection while maybe an other worker will try
-        # to merge a PR...
-
-        # NOTE(sileht): If the PR on the default branch change the .mergify.yml
-        # we use it, otherwise we the file on the default branch
-        for f in incoming_pull.get_files():
-            if f.filename == ".mergify.yml":
-                ref = f.contents_url.split("?ref=")[1]
 
     try:
         content = g_repo.get_contents(".mergify.yml", ref=ref).decoded_content

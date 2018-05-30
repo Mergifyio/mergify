@@ -368,7 +368,11 @@ class TestEngineScenario(testtools.TestCase):
         # NOTE(sileht): This generated many events:
         # - pull_request : open
         # - status: Waiting for CI status (set by mergify)
-        self.push_events(2)
+        # - status: config checker if configuration change detected
+        if ".mergify.yml" in files:
+            self.push_events(3)
+        else:
+            self.push_events(2)
 
         # NOTE(sileht): We return the same but owned by the main project
         with self.cassette("get_pr%s" % self.pr_counter):
@@ -605,7 +609,8 @@ class TestEngineScenario(testtools.TestCase):
         p1, commits1 = self.create_pr(files={".mergify.yml": config})
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
-        self.assertEqual(6, pulls[0].mergify_engine["approvals"][2])
+
+        self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
 
         # Check policy of that branch is the expected one
         expected_rule = {
@@ -617,7 +622,7 @@ class TestEngineScenario(testtools.TestCase):
                 "required_pull_request_reviews": {
                     "dismiss_stale_reviews": True,
                     "require_code_owner_reviews": False,
-                    "required_approving_review_count": 6,
+                    "required_approving_review_count": 1,
                 },
                 "restrictions": None,
                 "enforce_admins": False,
@@ -627,6 +632,14 @@ class TestEngineScenario(testtools.TestCase):
         with self.cassette("branch"):
             self.assertTrue(gh_branch.is_configured(self.r_main, "master",
                                                     expected_rule))
+
+        with self.cassette("statuses"):
+            p1 = self.r_main.get_pull(p1.number)
+            commit = p1.base.repo.get_commit(p1.head.sha)
+            ctxts = [s.raw_data["context"] for s in
+                     reversed(list(commit.get_statuses()))]
+
+        self.assertIn("mergify/future-config-checker", ctxts)
 
     def test_update_branch_disabled(self):
         p1, commits1 = self.create_pr("nostrict")

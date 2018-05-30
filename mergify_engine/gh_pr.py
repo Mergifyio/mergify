@@ -46,27 +46,24 @@ def pretty(self):
 
 
 def mergify_engine_github_post_check_status(self, redis, installation_id,
-                                            error=None):
+                                            state="success", msg=None,
+                                            context=None):
 
-    msg_key = "%s/%s/%d" % (installation_id, self.base.repo.full_name,
-                            self.number)
-
-    if error:
-        state = "failure"
+    context = "pr" if context is None else context
+    msg_key = "%s/%s/%d/%s" % (installation_id, self.base.repo.full_name,
+                               self.number, context)
+    if msg:
         # FIXME(sileht): Github limitations, so cut it for now
-        if len(error) >= 140:
-            description = error[0:137] + "..."
+        if len(msg) >= 140:
+            description = msg[0:137] + "..."
         else:
-            description = error
+            description = msg
 
-        redis.hset("status", msg_key, error.encode('utf8'))
+        redis.hset("status", msg_key, msg.encode('utf8'))
         target_url = "http://gh.mergify.io/check_status_msg/%s" % msg_key
     else:
-        state = "success"
         description = self.mergify_engine["status_desc"]
         target_url = None
-
-    context = "%s/pr" % config.CONTEXT
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
     # NOTE(sileht): We can't use commit.create_status() because
@@ -78,7 +75,7 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
             input={'state': state,
                    'description': description,
                    'target_url': target_url,
-                   'context': context},
+                   'context': "%s/%s" % (config.CONTEXT, context)},
             headers={'Accept':
                      'application/vnd.github.machine-man-preview+json'}
         )

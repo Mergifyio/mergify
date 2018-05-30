@@ -112,12 +112,34 @@ class MergifyEngine(object):
         # BRANCH CONFIGURATION CHECKING
         branch_rule = None
         try:
-            branch_rule = rules.get_branch_rule(self._r, incoming_pull)
+            branch_rule = rules.get_branch_rule(self._r,
+                                                incoming_pull.base.ref)
         except rules.NoRules as e:
             # Not configured, post status check with the error message
             incoming_pull.mergify_engine_github_post_check_status(
-                self._redis, self._installation_id, str(e))
+                self._redis, self._installation_id, "failure", str(e))
             return
+
+        # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
+        if self._r.default_branch == incoming_pull.base.ref:
+            ref = None
+            for f in incoming_pull.get_files():
+                if f.filename == ".mergify.yml":
+                    ref = f.contents_url.split("?ref=")[1]
+
+            if ref is not None:
+                try:
+                    rules.get_branch_rule(self._r, incoming_pull.base.ref, ref)
+                except rules.NoRules as e:
+                    # Not configured, post status check with the error message
+                    incoming_pull.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id, "failure",
+                        str(e), "future-config-checker")
+                else:
+                    incoming_pull.mergify_engine_github_post_check_status(
+                        self._redis, self._installation_id, "success",
+                        "The new configuration is valid",
+                        "future-config-checker")
 
         try:
             gh_branch.configure_protection_if_needed(
@@ -279,13 +301,13 @@ class MergifyEngine(object):
                 updater_token = self.get_updater_token()
                 if not updater_token:
                     p.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id,
+                        self._redis, self._installation_id, "failure",
                         "No user access_token setuped for rebasing")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
                 elif not p.maintainer_can_modify:
                     p.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id,
+                        self._redis, self._installation_id, "failure",
                         "PR owner doesn't allow modification")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
