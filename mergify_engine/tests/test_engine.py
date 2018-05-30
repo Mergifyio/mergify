@@ -369,7 +369,7 @@ class TestEngineScenario(testtools.TestCase):
         # - pull_request : open
         # - status: Waiting for CI status (set by mergify)
         # - status: config checker if configuration change detected
-        if ".mergify.yml" in files:
+        if files and ".mergify.yml" in files:
             self.push_events(3)
         else:
             self.push_events(2)

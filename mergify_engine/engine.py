@@ -109,7 +109,6 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (unwanted pull_request action)")
             return
 
-
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
         if self._r.default_branch == incoming_pull.base.ref:
             ref = None

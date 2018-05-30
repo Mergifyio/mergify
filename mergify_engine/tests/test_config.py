@@ -76,7 +76,7 @@ def test_merge_strategy():
         }
     }
     parsed = validate_with_get_branch_rule(config)
-    assert parsed["merge_strategy"]["method"] == "rebase"
+    assert parsed["merge_strategy"]["method"] == "merge"
 
     config["rules"]["default"]["merge_strategy"]["method"] = "squash"
     config["rules"]["default"]["merge_strategy"]["rebase_fallback"] = "squash"
@@ -84,10 +84,10 @@ def test_merge_strategy():
     assert parsed["merge_strategy"]["method"] == "squash"
     assert parsed["merge_strategy"]["rebase_fallback"] == "squash"
 
-    config["rules"]["default"]["merge_strategy"]["method"] = "merge"
+    config["rules"]["default"]["merge_strategy"]["method"] = "rebase"
     config["rules"]["default"]["merge_strategy"]["rebase_fallback"] = "none"
     parsed = validate_with_get_branch_rule(config)
-    assert parsed["merge_strategy"]["method"] == "merge"
+    assert parsed["merge_strategy"]["method"] == "rebase"
     assert parsed["merge_strategy"]["rebase_fallback"] == "none"
 
     with pytest.raises(rules.NoRules):
