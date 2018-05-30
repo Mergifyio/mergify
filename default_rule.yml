@@ -9,5 +9,5 @@ protection:
 
 disabling_label: no-mergify
 merge_strategy:
-  method: rebase
+  method: merge
   rebase_fallback: merge
