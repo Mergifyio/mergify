@@ -10,9 +10,9 @@ Understanding the Problem
 =========================
 
 To understand what the problem is, imagining the following situation: the base
-branch (e.g., ``master``) branch have its continuous integration testing passing
-correctly. A pull request is created, and the pull requests also pass. The
-state of the repository can be represented like this:
+branch (e.g., ``master``) has its continuous integration testing passing
+correctly.  A passing pull request is created then. The state of the repository
+can be represented like this:
 
 .. image:: _static/master-pr-ci-pass.png
    :alt: Pull request is open
@@ -56,7 +56,7 @@ pull request as failing the test, removing it from the mergeable candidate.
 .. image:: _static/merge-ci-fail.png
    :alt: Rebase make CI fails
 
-When the *strict* workflow is enabled, Mergify takes in charge the rebase of
+When the *strict* workflow is enabled, Mergify takes care of rebasing
 any pull request that is not up-to-date with its base branch. If multiple pull
 requests are mergeable, they are scheduled to be merged sequentially, and they
 will be rebased on top of each other.
