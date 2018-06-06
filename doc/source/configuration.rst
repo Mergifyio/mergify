@@ -66,7 +66,7 @@ dictionary with the following optional keys:
    * - ``method``
      - ``string``
      - Merge method to use. Possible values are ``merge``, ``squash`` or
-       ``rebase``. Default is ``rebase``.
+       ``rebase``. Default is ``merge``.
    * - ``rebase_fallback``
      - ``string``
      - If ``method`` is set to ``rebase``, but the pull request cannot be
