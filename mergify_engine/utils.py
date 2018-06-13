@@ -112,6 +112,32 @@ def get_installation_id(integration, owner):
             return install["id"]
 
 
+def get_subscription(r, installation_id):
+    sub = r.hgetall("subscription-cache-%d" % installation_id)
+    if sub is None:
+        LOG.info("Subscription for %s not cached, retrieving it..." %
+                 installation_id)
+        resp = requests.get("https://mergify.io/engine/token/%s" %
+                            installation_id,
+                            auth=(config.OAUTH_CLIENT_ID,
+                                  config.OAUTH_CLIENT_SECRET))
+        if resp.status_code == 404:
+            sub = {
+                "token": None,
+                "subscribed": False
+            }
+        elif resp.status_code == 200:
+            sub = resp.json()
+            sub["subscribed"] = sub["subscription"] is not None
+            del sub["subscription"]
+        else:
+            # NOTE(sileht): handle this better
+            resp.raise_for_status()
+        r.hmset("subscription-cache-%s" % installation_id, sub)
+    else:
+        return sub
+
+
 class Gitter(object):
     def __init__(self):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")

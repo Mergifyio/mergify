@@ -115,6 +115,14 @@ def refresh(owner, repo, refresh_ref):
         utils.get_redis().delete(key)
     else:
         pulls = [r.get_pull(int(refresh_ref[5:]))]
+
+    subscription = utils.get_subscription(get_redis(), installation_id)
+    if not subscription["token"]:
+        return "", 202
+
+    if r.private and not subscription["subscribed"]:
+        return "", 202
+
     for p in pulls:
         # Mimic the github event format
         data = {
@@ -122,7 +130,8 @@ def refresh(owner, repo, refresh_ref):
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
         }
-        get_queue().enqueue(worker.event_handler, "refresh", data)
+        get_queue().enqueue(worker.event_handler, "refresh",
+                            subscription, data)
 
     return "", 202
 
@@ -138,7 +147,14 @@ def refresh_all():
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
+        subscription = utils.get_subscription(get_redis(), install["id"])
+        if not subscription["token"]:
+            continue
+
         for r in i.get_repos():
+            if r.private and not subscription["subscribed"]:
+                continue
+
             counts[1] += 1
             pulls = r.get_pulls()
             for p in pulls:
@@ -241,16 +257,30 @@ def event_handler():
 
     if event_type in ["refresh", "pull_request", "status",
                       "pull_request_review"]:
-        get_queue().enqueue(worker.event_handler, event_type, data)
+        subscription = utils.get_subscription(
+            get_redis(), data["installation"]["id"])
+
+        if not subscription["token"]:
+            return "", 202
+
+        if data["repository"]["private"] and not subscription["subscribed"]:
+            return "", 202
+
+        get_queue().enqueue(worker.event_handler, event_type,
+                            subscription, data)
 
     # TODO(sileht): handle installation modification
     # "installation_repositories" event
     elif event_type == "installation" and data["action"] == "created":
         token = INTEGRATION.get_access_token(data["installation"]["id"]).token
+        subscription = utils.get_subscription(get_redis(),
+                                              data["installation"]["id"])
+        if not subscription["token"]:
+            return "", 202
+
         g = github.Github(token)
         for repository in data["repositories"]:
-            if repository["private"]:
-                # Skip private for now
+            if repository["private"] and not subscription["subscribed"]:
                 continue
 
             r = g.get_repo(repository["full_name"])
@@ -262,7 +292,8 @@ def event_handler():
                     'installation': data["installation"],
                     'pull_request': p.raw_data,
                 }
-                get_queue().enqueue(worker.event_handler, "refresh", data)
+                get_queue().enqueue(worker.event_handler, "refresh",
+                                    subscription, data)
 
     elif event_type == "installation" and data["action"] == "deleted":
         key = "queues~%s~*~*~*" % data["installation"]["id"]

@@ -20,7 +20,6 @@ import logging
 import operator
 
 import github
-import requests
 
 from mergify_engine import config
 from mergify_engine import gh_branch
@@ -34,28 +33,14 @@ ENDING_STATES = ["failure", "error", "success"]
 
 
 class MergifyEngine(object):
-    def __init__(self, g, installation_id, user, repo):
+    def __init__(self, g, installation_id, subscription, user, repo):
         self._redis = utils.get_redis()
         self._g = g
         self._installation_id = installation_id
+        self._subscription = subscription
 
         self._u = user
         self._r = repo
-
-    def get_updater_token(self):
-        updater_token = self._redis.get("installation-token-%s" %
-                                        self._installation_id).decode("utf8")
-        if updater_token is None:
-            LOG.info("Token for %s not cached, retrieving it..." %
-                     self._installation_id)
-            resp = requests.get("https://mergify.io/engine/token/%s" %
-                                self._installation_id,
-                                auth=(config.OAUTH_CLIENT_ID,
-                                      config.OAUTH_CLIENT_SECRET))
-            updater_token = resp.json()['access_token']
-            self._redis.set("installation-token-%s" % self._installation_id,
-                            updater_token.encode("utf8"))
-        return updater_token
 
     def handle(self, event_type, data):
         # Everything start here
@@ -86,11 +71,6 @@ class MergifyEngine(object):
 
         # Log the event
         self.log_formated_event(event_type, incoming_pull, data)
-
-        # Don't handle private repo for now
-        if self._r.private:
-            LOG.info("No need to proceed queue (private repo)")
-            return
 
         # Unhandled and already logged
         if event_type not in ["pull_request", "pull_request_review",
@@ -298,8 +278,7 @@ class MergifyEngine(object):
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
-                updater_token = self.get_updater_token()
-                if not updater_token:
+                if not self._subcription["token"]:
                     p.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
                         "No user access_token setuped for rebasing")
@@ -311,7 +290,8 @@ class MergifyEngine(object):
                         "PR owner doesn't allow modification")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
-                elif p.mergify_engine_update_branch(updater_token):
+                elif p.mergify_engine_update_branch(
+                        self._subscription["token"]):
                     LOG.info("%s -> branch updated", p.pretty())
                 else:
                     LOG.info("%s -> branch not updatable, "
@@ -353,6 +333,7 @@ class MergifyEngine(object):
                 return gh_pr.from_event(self._r, incoming_pull)
 
     def get_cache_key(self, branch):
+        # Use only IDs, not name
         return "queues~%s~%s~%s~%s" % (self._installation_id, self._u.login,
                                        self._r.name, branch)
 

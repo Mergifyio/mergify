@@ -224,7 +224,9 @@ class TestEngineScenario(testtools.TestCase):
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis()
         self.redis.flushall()
-        self.redis.set("installation-token-%s" % INSTALLATION_ID, MAIN_TOKEN)
+        subscription = {"token": MAIN_TOKEN, "subscribed": False}
+        self.redis.hmset("subscription-cache-%s" % INSTALLATION_ID,
+                         subscription)
 
         with self.cassette("setUp-prepare-repo", allow_playback_repeats=True):
             # Cleanup the remote testing redis
@@ -270,9 +272,14 @@ class TestEngineScenario(testtools.TestCase):
             repo = user.get_repo(self.name)
 
         with self.cassette("setUp-create-engine", allow_playback_repeats=True):
-            self.engine = engine.MergifyEngine(g, INSTALLATION_ID, user, repo)
+            self.engine = engine.MergifyEngine(g, INSTALLATION_ID,
+                                               subscription, user, repo)
+
+            def event_handler(event_type, subscription, data):
+                return self.engine.handle(event_type, data)
+
             self.useFixture(fixtures.MockPatchObject(
-                worker, 'real_event_handler', self.engine.handle))
+                worker, 'real_event_handler', event_handler))
 
         queue = rq.Queue(connection=self.redis)
         self.rq_worker = rq.SimpleWorker([queue],
