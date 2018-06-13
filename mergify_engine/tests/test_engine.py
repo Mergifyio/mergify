@@ -172,6 +172,7 @@ class TestEngineScenario(testtools.TestCase):
         super(TestEngineScenario, self).setUp()
         self.session = requests.Session()
         self.session.trust_env = False
+        self.session.headers.update({'User-Agent': 'python-requests/X.X.X'})
         self.recorder = betamax.Betamax(self.session)
 
         self.useFixture(fixtures.MockPatchObject(
