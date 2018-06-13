@@ -33,8 +33,11 @@ from mergify_engine import config
 LOG = logging.getLogger(__name__)
 
 
-global REDIS_CONNECTION
-REDIS_CONNECTION = None
+global REDIS_CONNECTION_RQ
+REDIS_CONNECTION_RQ = None
+
+global REDIS_CONNECTION_CACHE
+REDIS_CONNECTION_CACHE = None
 
 
 def get_redis_url():
@@ -48,11 +51,20 @@ def get_redis_url():
     return redis_url
 
 
-def get_redis():
-    global REDIS_CONNECTION
-    if REDIS_CONNECTION is None:
-        REDIS_CONNECTION = redis.from_url(get_redis_url())
-    return REDIS_CONNECTION
+def get_redis_for_rq():
+    global REDIS_CONNECTION_RQ
+    if REDIS_CONNECTION_RQ is None:
+        REDIS_CONNECTION_RQ = redis.StrictRedis.from_url(
+            get_redis_url(), decode_responses=False)
+    return REDIS_CONNECTION_RQ
+
+
+def get_redis_for_cache():
+    global REDIS_CONNECTION_CACHE
+    if REDIS_CONNECTION_CACHE is None:
+        REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
+            get_redis_url(), decode_responses=True)
+    return REDIS_CONNECTION_CACHE
 
 
 def setup_logging():

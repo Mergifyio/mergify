@@ -34,7 +34,7 @@ ENDING_STATES = ["failure", "error", "success"]
 
 class MergifyEngine(object):
     def __init__(self, g, installation_id, subscription, user, repo):
-        self._redis = utils.get_redis()
+        self._redis = utils.get_redis_for_cache()
         self._g = g
         self._installation_id = installation_id
         self._subscription = subscription
@@ -243,9 +243,7 @@ class MergifyEngine(object):
 
         with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
             pulls = list(tpe.map(
-                lambda p: gh_pr.from_cache(self._r,
-                                           json.loads(p.decode("utf8")),
-                                           **extra),
+                lambda p: gh_pr.from_cache(self._r, json.loads(p), **extra),
                 data.values()))
 
         sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
@@ -315,13 +313,13 @@ class MergifyEngine(object):
     def get_cache_for_pull_number(self, current_branch, number):
         key = self.get_cache_key(current_branch)
         p = self._redis.hget(key, number)
-        return {} if p is None else json.loads(p.decode("utf8"))
+        return {} if p is None else json.loads(p)
 
     def get_cache_for_pull_sha(self, current_branch, sha):
         key = self.get_cache_key(current_branch)
         raw_pulls = self._redis.hgetall(key)
         for pull in raw_pulls.values():
-            pull = json.loads(pull.decode("utf8"))
+            pull = json.loads(pull)
             if pull["head"]["sha"] == sha:
                 return pull
         return {}
@@ -338,7 +336,7 @@ class MergifyEngine(object):
                                        self._r.name, branch)
 
     def get_cached_branches(self):
-        return [b.decode('utf8').split('~')[4] for b in
+        return [b.split('~')[4] for b in
                 self._redis.keys(self.get_cache_key("*"))]
 
     def _get_logprefix(self, branch="<unknown>"):

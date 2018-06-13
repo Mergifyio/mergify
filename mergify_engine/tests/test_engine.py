@@ -222,7 +222,7 @@ class TestEngineScenario(testtools.TestCase):
         self.app = web.app.test_client()
 
         # NOTE(sileht): Prepare a fresh redis
-        self.redis = utils.get_redis()
+        self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
         subscription = {"token": MAIN_TOKEN, "subscribed": False}
         self.redis.hmset("subscription-cache-%s" % INSTALLATION_ID,
@@ -281,7 +281,7 @@ class TestEngineScenario(testtools.TestCase):
             self.useFixture(fixtures.MockPatchObject(
                 worker, 'real_event_handler', event_handler))
 
-        queue = rq.Queue(connection=self.redis)
+        queue = rq.Queue(connection=utils.get_redis_for_rq())
         self.rq_worker = rq.SimpleWorker([queue],
                                          connection=queue.connection)
 
