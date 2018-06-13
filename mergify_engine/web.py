@@ -104,7 +104,8 @@ def refresh(owner, repo, refresh_ref):
         else:
             branch = '*'
             pulls = r.get_pulls()
-        key = "queues~%s~%s~%s~%s" % (installation_id, owner, repo, branch)
+        key = "queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
+                                         r.private, branch)
         utils.get_redis_for_cache().delete(key)
     else:
         pulls = [r.get_pull(int(refresh_ref[5:]))]
@@ -167,14 +168,17 @@ def refresh_all():
 
 @app.route("/queue/<owner>/<repo>/<path:branch>")
 def queue(owner, repo, branch):
-    return utils.get_redis_for_cache().get(
-        "queues~%s~%s~%s" % (owner, repo, branch)) or "[]"
+    r = utils.get_redis_for_cache()
+    installation_id = utils.get_installation_id(INTEGRATION, owner)
+    return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
+                                            False, branch)) or "[]"
 
 
 def _get_status(r, installation_id, login='*', repo='*'):
     queues = []
-    for key in r.keys("queues~%s~%s~%s~*" % (installation_id, login, repo)):
-        _, _, owner, repo, branch = key.split("~")
+    for key in r.keys("queues~%s~%s~%s~%s~*" % (installation_id, login, repo,
+                                                False)):
+        _, _, owner, repo, private, branch = key.split("~")
         payload = r.hgetall(key)
         pulls = [json.loads(p) for p in payload.values()]
         if pulls:
@@ -292,7 +296,7 @@ def event_handler():
                                     subscription, data)
 
     elif event_type == "installation" and data["action"] == "deleted":
-        key = "queues~%s~*~*~*" % data["installation"]["id"]
+        key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
 
     if "repository" in data:

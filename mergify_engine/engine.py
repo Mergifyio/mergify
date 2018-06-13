@@ -276,7 +276,7 @@ class MergifyEngine(object):
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
-                if not self._subcription["token"]:
+                if not self._subscription["token"]:
                     p.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
                         "No user access_token setuped for rebasing")
@@ -332,11 +332,12 @@ class MergifyEngine(object):
 
     def get_cache_key(self, branch):
         # Use only IDs, not name
-        return "queues~%s~%s~%s~%s" % (self._installation_id, self._u.login,
-                                       self._r.name, branch)
+        return "queues~%s~%s~%s~%s~%s" % (
+            self._installation_id, self._u.login,
+            self._r.name, self._r.private, branch)
 
     def get_cached_branches(self):
-        return [b.split('~')[4] for b in
+        return [b.split('~')[5] for b in
                 self._redis.keys(self.get_cache_key("*"))]
 
     def _get_logprefix(self, branch="<unknown>"):

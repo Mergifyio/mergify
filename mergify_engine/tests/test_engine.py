@@ -416,7 +416,7 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits = self.create_pr()
 
         # Check we have only on branch registered
-        self.assertEqual("queues~%s~mergify-test1~%s~master"
+        self.assertEqual("queues~%s~mergify-test1~%s~False~master"
                          % (INSTALLATION_ID, self.name),
                          self.engine.get_cache_key("master"))
         self.assertEqual(["master"], self.engine.get_cached_branches())
