@@ -48,16 +48,9 @@ INTEGRATION = github.GithubIntegration(config.INTEGRATION_ID,
                                        config.PRIVATE_KEY)
 
 
-def get_redis():
-    if not hasattr(flask.g, 'redis'):
-        conn = utils.get_redis()
-        flask.g.redis = conn
-    return flask.g.redis
-
-
 def get_queue():
     if not hasattr(flask.g, 'rq_queue'):
-        flask.g.rq_queue = rq.Queue(connection=get_redis())
+        flask.g.rq_queue = rq.Queue(connection=utils.get_redis_for_rq())
     return flask.g.rq_queue
 
 
@@ -85,9 +78,9 @@ def authentification():
 
 @app.route("/check_status_msg/<path:key>")
 def check_status_msg(key):
-    msg = utils.get_redis().hget("status", key)
+    msg = utils.get_redis_for_cache().hget("status", key)
     if msg:
-        return flask.render_template("msg.html", msg=msg.decode("utf8"))
+        return flask.render_template("msg.html", msg=msg)
     else:
         flask.abort(404)
 
@@ -111,10 +104,20 @@ def refresh(owner, repo, refresh_ref):
         else:
             branch = '*'
             pulls = r.get_pulls()
-        key = "queues~%s~%s~%s~%s" % (installation_id, owner, repo, branch)
-        utils.get_redis().delete(key)
+        key = "queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
+                                         r.private, branch)
+        utils.get_redis_for_cache().delete(key)
     else:
         pulls = [r.get_pull(int(refresh_ref[5:]))]
+
+    subscription = utils.get_subscription(utils.get_redis_for_cache(),
+                                          installation_id)
+    if not subscription["token"]:
+        return "", 202
+
+    if r.private and not subscription["subscribed"]:
+        return "", 202
+
     for p in pulls:
         # Mimic the github event format
         data = {
@@ -122,7 +125,8 @@ def refresh(owner, repo, refresh_ref):
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
         }
-        get_queue().enqueue(worker.event_handler, "refresh", data)
+        get_queue().enqueue(worker.event_handler, "refresh",
+                            subscription, data)
 
     return "", 202
 
@@ -138,7 +142,15 @@ def refresh_all():
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
+        subscription = utils.get_subscription(utils.get_redis_for_cache(),
+                                              install["id"])
+        if not subscription["token"]:
+            continue
+
         for r in i.get_repos():
+            if r.private and not subscription["subscribed"]:
+                continue
+
             counts[1] += 1
             pulls = r.get_pulls()
             for p in pulls:
@@ -156,15 +168,19 @@ def refresh_all():
 
 @app.route("/queue/<owner>/<repo>/<path:branch>")
 def queue(owner, repo, branch):
-    return get_redis().get("queues~%s~%s~%s" % (owner, repo, branch)) or "[]"
+    r = utils.get_redis_for_cache()
+    installation_id = utils.get_installation_id(INTEGRATION, owner)
+    return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
+                                            False, branch)) or "[]"
 
 
 def _get_status(r, installation_id, login='*', repo='*'):
     queues = []
-    for key in r.keys("queues~%s~%s~%s~*" % (installation_id, login, repo)):
-        _, _, owner, repo, branch = key.decode("utf8").split("~")
+    for key in r.keys("queues~%s~%s~%s~%s~*" % (installation_id, login, repo,
+                                                False)):
+        _, _, owner, repo, private, branch = key.split("~")
         payload = r.hgetall(key)
-        pulls = [json.loads(p.decode("utf8")) for p in payload.values()]
+        pulls = [json.loads(p) for p in payload.values()]
         if pulls:
             updated_at = list(sorted([p["updated_at"] for p in pulls]))[-1]
         else:
@@ -184,7 +200,7 @@ def stream_message(_type, data):
 
 
 def stream_generate(installation_id, login="*", repo="*"):
-    r = get_redis()
+    r = utils.get_redis_for_cache()
     yield stream_message("refresh", _get_status(r, installation_id,
                                                 login, repo))
     pubsub = r.pubsub()
@@ -203,14 +219,14 @@ def stream_generate(installation_id, login="*", repo="*"):
 
 @app.route("/status/install/<installation_id>/")
 def status(installation_id):
-    r = get_redis()
+    r = utils.get_redis_for_cache()
     return _get_status(r, installation_id)
 
 
 @app.route("/status/repos/<login>/")
 @app.route("/status/repos/<login>/<repo>/")
 def status_repo(login, repo="*"):
-    r = get_redis()
+    r = utils.get_redis_for_cache()
     installation_id = utils.get_installation_id(INTEGRATION, login)
     return _get_status(r, installation_id, login, repo)
 
@@ -241,16 +257,30 @@ def event_handler():
 
     if event_type in ["refresh", "pull_request", "status",
                       "pull_request_review"]:
-        get_queue().enqueue(worker.event_handler, event_type, data)
+        subscription = utils.get_subscription(
+            utils.get_redis_for_cache(), data["installation"]["id"])
+
+        if not subscription["token"]:
+            return "", 202
+
+        if data["repository"]["private"] and not subscription["subscribed"]:
+            return "", 202
+
+        get_queue().enqueue(worker.event_handler, event_type,
+                            subscription, data)
 
     # TODO(sileht): handle installation modification
     # "installation_repositories" event
     elif event_type == "installation" and data["action"] == "created":
         token = INTEGRATION.get_access_token(data["installation"]["id"]).token
+        subscription = utils.get_subscription(utils.get_redis_for_cache(),
+                                              data["installation"]["id"])
+        if not subscription["token"]:
+            return "", 202
+
         g = github.Github(token)
         for repository in data["repositories"]:
-            if repository["private"]:
-                # Skip private for now
+            if repository["private"] and not subscription["subscribed"]:
                 continue
 
             r = g.get_repo(repository["full_name"])
@@ -262,11 +292,12 @@ def event_handler():
                     'installation': data["installation"],
                     'pull_request': p.raw_data,
                 }
-                get_queue().enqueue(worker.event_handler, "refresh", data)
+                get_queue().enqueue(worker.event_handler, "refresh",
+                                    subscription, data)
 
     elif event_type == "installation" and data["action"] == "deleted":
-        key = "queues~%s~*~*~*" % data["installation"]["id"]
-        utils.get_redis().delete(key)
+        key = "queues~%s~*~*~*~*" % data["installation"]["id"]
+        utils.get_redis_for_cache().delete(key)
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
@@ -284,7 +315,7 @@ def event_handler():
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.route("/events-testing", methods=["POST", "GET", "DELETE"])
 def event_testing_handler():
-    r = get_redis()
+    r = utils.get_redis_for_cache()
     if flask.request.method == "DELETE":
         r.delete("events-testing")
         return "", 202
@@ -295,14 +326,14 @@ def event_testing_handler():
         data = flask.request.get_json()
         r.rpush("events-testing", json.dumps(
             {"id": event_id, "type": event_type, "payload": data}
-        ).encode('utf8'))
+        ))
         return "", 202
     else:
         p = r.pipeline()
         p.lrange("events-testing", 0, -1)
         p.delete("events-testing")
         values = p.execute()[0]
-        data = [json.loads(i.decode('utf8')) for i in values]
+        data = [json.loads(i) for i in values]
         return flask.jsonify(data)
 
 

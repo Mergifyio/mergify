@@ -20,7 +20,6 @@ import logging
 import operator
 
 import github
-import requests
 
 from mergify_engine import config
 from mergify_engine import gh_branch
@@ -34,28 +33,14 @@ ENDING_STATES = ["failure", "error", "success"]
 
 
 class MergifyEngine(object):
-    def __init__(self, g, installation_id, user, repo):
-        self._redis = utils.get_redis()
+    def __init__(self, g, installation_id, subscription, user, repo):
+        self._redis = utils.get_redis_for_cache()
         self._g = g
         self._installation_id = installation_id
+        self._subscription = subscription
 
         self._u = user
         self._r = repo
-
-    def get_updater_token(self):
-        updater_token = self._redis.get("installation-token-%s" %
-                                        self._installation_id).decode("utf8")
-        if updater_token is None:
-            LOG.info("Token for %s not cached, retrieving it..." %
-                     self._installation_id)
-            resp = requests.get("https://mergify.io/engine/token/%s" %
-                                self._installation_id,
-                                auth=(config.OAUTH_CLIENT_ID,
-                                      config.OAUTH_CLIENT_SECRET))
-            updater_token = resp.json()['access_token']
-            self._redis.set("installation-token-%s" % self._installation_id,
-                            updater_token.encode("utf8"))
-        return updater_token
 
     def handle(self, event_type, data):
         # Everything start here
@@ -86,11 +71,6 @@ class MergifyEngine(object):
 
         # Log the event
         self.log_formated_event(event_type, incoming_pull, data)
-
-        # Don't handle private repo for now
-        if self._r.private:
-            LOG.info("No need to proceed queue (private repo)")
-            return
 
         # Unhandled and already logged
         if event_type not in ["pull_request", "pull_request_review",
@@ -263,9 +243,7 @@ class MergifyEngine(object):
 
         with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
             pulls = list(tpe.map(
-                lambda p: gh_pr.from_cache(self._r,
-                                           json.loads(p.decode("utf8")),
-                                           **extra),
+                lambda p: gh_pr.from_cache(self._r, json.loads(p), **extra),
                 data.values()))
 
         sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
@@ -298,8 +276,7 @@ class MergifyEngine(object):
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
-                updater_token = self.get_updater_token()
-                if not updater_token:
+                if not self._subscription["token"]:
                     p.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
                         "No user access_token setuped for rebasing")
@@ -311,7 +288,8 @@ class MergifyEngine(object):
                         "PR owner doesn't allow modification")
                     LOG.info("%s -> branch not updatable, token missing",
                              p.pretty())
-                elif p.mergify_engine_update_branch(updater_token):
+                elif p.mergify_engine_update_branch(
+                        self._subscription["token"]):
                     LOG.info("%s -> branch updated", p.pretty())
                 else:
                     LOG.info("%s -> branch not updatable, "
@@ -335,13 +313,13 @@ class MergifyEngine(object):
     def get_cache_for_pull_number(self, current_branch, number):
         key = self.get_cache_key(current_branch)
         p = self._redis.hget(key, number)
-        return {} if p is None else json.loads(p.decode("utf8"))
+        return {} if p is None else json.loads(p)
 
     def get_cache_for_pull_sha(self, current_branch, sha):
         key = self.get_cache_key(current_branch)
         raw_pulls = self._redis.hgetall(key)
         for pull in raw_pulls.values():
-            pull = json.loads(pull.decode("utf8"))
+            pull = json.loads(pull)
             if pull["head"]["sha"] == sha:
                 return pull
         return {}
@@ -353,11 +331,13 @@ class MergifyEngine(object):
                 return gh_pr.from_event(self._r, incoming_pull)
 
     def get_cache_key(self, branch):
-        return "queues~%s~%s~%s~%s" % (self._installation_id, self._u.login,
-                                       self._r.name, branch)
+        # Use only IDs, not name
+        return "queues~%s~%s~%s~%s~%s" % (
+            self._installation_id, self._u.login,
+            self._r.name, self._r.private, branch)
 
     def get_cached_branches(self):
-        return [b.decode('utf8').split('~')[4] for b in
+        return [b.split('~')[5] for b in
                 self._redis.keys(self.get_cache_key("*"))]
 
     def _get_logprefix(self, branch="<unknown>"):

@@ -222,9 +222,11 @@ class TestEngineScenario(testtools.TestCase):
         self.app = web.app.test_client()
 
         # NOTE(sileht): Prepare a fresh redis
-        self.redis = utils.get_redis()
+        self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
-        self.redis.set("installation-token-%s" % INSTALLATION_ID, MAIN_TOKEN)
+        subscription = {"token": MAIN_TOKEN, "subscribed": False}
+        self.redis.hmset("subscription-cache-%s" % INSTALLATION_ID,
+                         subscription)
 
         with self.cassette("setUp-prepare-repo", allow_playback_repeats=True):
             # Cleanup the remote testing redis
@@ -270,11 +272,16 @@ class TestEngineScenario(testtools.TestCase):
             repo = user.get_repo(self.name)
 
         with self.cassette("setUp-create-engine", allow_playback_repeats=True):
-            self.engine = engine.MergifyEngine(g, INSTALLATION_ID, user, repo)
-            self.useFixture(fixtures.MockPatchObject(
-                worker, 'real_event_handler', self.engine.handle))
+            self.engine = engine.MergifyEngine(g, INSTALLATION_ID,
+                                               subscription, user, repo)
 
-        queue = rq.Queue(connection=self.redis)
+            def event_handler(event_type, subscription, data):
+                return self.engine.handle(event_type, data)
+
+            self.useFixture(fixtures.MockPatchObject(
+                worker, 'real_event_handler', event_handler))
+
+        queue = rq.Queue(connection=utils.get_redis_for_rq())
         self.rq_worker = rq.SimpleWorker([queue],
                                          connection=queue.connection)
 
@@ -409,7 +416,7 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits = self.create_pr()
 
         # Check we have only on branch registered
-        self.assertEqual("queues~%s~mergify-test1~%s~master"
+        self.assertEqual("queues~%s~mergify-test1~%s~False~master"
                          % (INSTALLATION_ID, self.name),
                          self.engine.get_cache_key("master"))
         self.assertEqual(["master"], self.engine.get_cached_branches())
