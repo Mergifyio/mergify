@@ -56,9 +56,10 @@ def main():
     utils.setup_logging()
     config.log()
     gh_pr.monkeypatch_github()
+    r = utils.get_redis_for_rq()
     if config.FLUSH_REDIS_ON_STARTUP:
-        utils.get_redis().flushall()
-    with rq.Connection(utils.get_redis()):
+        r.flushall()
+    with rq.Connection(r):
         worker = rq.Worker(['default'])
         worker.work()
 
