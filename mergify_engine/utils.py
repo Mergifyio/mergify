@@ -126,7 +126,7 @@ def get_installation_id(integration, owner):
 
 def get_subscription(r, installation_id):
     sub = r.hgetall("subscription-cache-%d" % installation_id)
-    if sub is None:
+    if not sub:
         LOG.info("Subscription for %s not cached, retrieving it..." %
                  installation_id)
         resp = requests.get("https://mergify.io/engine/installation/%s" %
@@ -146,8 +146,8 @@ def get_subscription(r, installation_id):
             # NOTE(sileht): handle this better
             resp.raise_for_status()
         r.hmset("subscription-cache-%s" % installation_id, sub)
-    else:
-        return sub
+    LOG.info("Subscription for installation %s: %s", installation_id, sub)
+    return sub
 
 
 class Gitter(object):
