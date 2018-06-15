@@ -108,7 +108,11 @@ def refresh(owner, repo, refresh_ref):
                                          r.private, branch)
         utils.get_redis_for_cache().delete(key)
     else:
-        pulls = [r.get_pull(int(refresh_ref[5:]))]
+        try:
+            pull_number = int(refresh_ref[5:])
+        except ValueError:
+            return "Invalid PR ref", 400
+        pulls = [r.get_pull(pull_number)]
 
     subscription = utils.get_subscription(utils.get_redis_for_cache(),
                                           installation_id)
