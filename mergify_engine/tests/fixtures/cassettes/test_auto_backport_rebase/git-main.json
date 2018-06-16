@@ -1,0 +1,79 @@
+[
+    {
+        "args": [
+            "clone",
+            "--depth=1",
+            "-b",
+            "mergify/bp/stable/pr-1",
+            "https://x-access-token:<ACCESS_TOKEN>@github.com/mergify-test1/repo-3d347852-d518-43b8-869e-9a7b2ca49792-test_auto_backport_rebase/",
+            "."
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-bot"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "fetch",
+            "origin",
+            "nostrict",
+            "--shallow-since='2018-06-17 15:48:30'"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "cherry-pick",
+            "-x",
+            "76166c745179fbb7a4737dc9364768d360650426"
+        ],
+        "kwargs": {},
+        "out": "[mergify/bp/stable/pr-1 be80951] Pull request n1 from fork, moved\n Author: mergify-tester <noreply@mergify.io>\n Date: Sun Jun 17 17:48:15 2018 +0200\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1-moved\n"
+    },
+    {
+        "args": [
+            "fetch",
+            "origin",
+            "nostrict",
+            "--shallow-since='2018-06-17 15:48:30'"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "cherry-pick",
+            "-x",
+            "730b58dbfe05f6fc79c9ac76643115b5b6c15808"
+        ],
+        "kwargs": {},
+        "out": "[mergify/bp/stable/pr-1 13b301b] Pull request n1 from fork\n Author: mergify-tester <noreply@mergify.io>\n Date: Sun Jun 17 17:48:15 2018 +0200\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+    },
+    {
+        "args": [
+            "push",
+            "origin",
+            "mergify/bp/stable/pr-1"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]

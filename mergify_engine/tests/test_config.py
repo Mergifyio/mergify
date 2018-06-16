@@ -115,6 +115,27 @@ def test_merge_strategy():
         validate_with_get_branch_rule(config)
 
 
+def test_automated_backport_labels():
+    config = {
+        "rules": {
+            "default": {
+                "automated_backport_labels": {"foo": "bar"}
+            }
+        }
+    }
+    validate_with_get_branch_rule(config)
+
+    config = {
+        "rules": {
+            "default": {
+                "automated_backport_labels": "foo"
+            }
+        }
+    }
+    with pytest.raises(rules.NoRules):
+        validate_with_get_branch_rule(config)
+
+
 def test_review_count_range():
     config = {
         "rules": {

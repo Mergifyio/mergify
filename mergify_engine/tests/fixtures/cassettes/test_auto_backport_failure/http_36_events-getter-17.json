@@ -1,0 +1,65 @@
+{
+  "http_interactions": [
+    {
+      "recorded_at": "2018-06-17T15:49:07",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "python-requests/X.X.X"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://gh.mergify.io/events-testing?id=17"
+      },
+      "response": {
+        "body": {
+          "base64_string": "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",
+          "encoding": null,
+          "string": ""
+        },
+        "headers": {
+          "Connection": [
+            "close"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Date": [
+            "Sun, 17 Jun 2018 15:49:07 GMT"
+          ],
+          "Server": [
+            "nginx/1.13.3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=15768000"
+          ],
+          "Vary": [
+            "Accept-Encoding"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://gh.mergify.io/events-testing?id=17"
+      }
+    }
+  ],
+  "recorded_with": "betamax/0.8.1"
+}

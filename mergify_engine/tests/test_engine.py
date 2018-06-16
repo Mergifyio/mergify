@@ -28,6 +28,7 @@ import requests
 import rq
 import testtools
 
+from mergify_engine import backports
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import gh_branch
@@ -77,6 +78,9 @@ rules:
       enforce_admins: false
     disabling_files:
       - foo?ar
+    automated_backport_labels:
+      bp-stable: stable
+
   branches:
     master:
       protection:
@@ -88,6 +92,8 @@ rules:
           strict: False
         required_pull_request_reviews:
           required_approving_review_count: 1
+      merge_strategy:
+        method: rebase
     stable:
       protection:
         required_status_checks: null
@@ -196,6 +202,10 @@ class TestEngineScenario(testtools.TestCase):
             gh_update_branch.utils, 'Gitter',
             lambda: GitterRecorder(self.cassette_library_dir)))
 
+        self.useFixture(fixtures.MockPatchObject(
+            backports.utils, 'Gitter',
+            lambda: GitterRecorder(self.cassette_library_dir)))
+
         # Web authentification always pass
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
@@ -289,6 +299,7 @@ class TestEngineScenario(testtools.TestCase):
 
         with self.cassette("setUp-create-engine", allow_playback_repeats=True):
             self.engine = engine.MergifyEngine(g, INSTALLATION_ID,
+                                               ACCESS_TOKEN,
                                                subscription, user, repo)
 
             def event_handler(event_type, subscription, data):
@@ -364,7 +375,7 @@ class TestEngineScenario(testtools.TestCase):
             self.rq_worker.work(burst=True)
             return r
 
-    def create_pr(self, base="master", files=None):
+    def create_pr(self, base="master", files=None, two_commits=False):
         self.pr_counter += 1
 
         branch = "fork/pr%d" % self.pr_counter
@@ -380,6 +391,10 @@ class TestEngineScenario(testtools.TestCase):
             open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
             self.git("add", "test%d" % self.pr_counter)
         self.git("commit", "--no-edit", "-m", title)
+        if two_commits:
+            self.git("mv", "test%d" % self.pr_counter,
+                     "test%d-moved" % self.pr_counter)
+            self.git("commit", "--no-edit", "-m", "%s, moved" % title)
         self.git("push", "fork", branch)
 
         with self.cassette("create_pr%s" % self.pr_counter):
@@ -569,6 +584,92 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(-1, pulls[0].mergify_engine['weight'])
         self.assertEqual("Disabled with label",
                          pulls[0].mergify_engine['status_desc'])
+
+    def test_auto_backport_failure(self):
+        p, commits = self.create_pr("nostrict", two_commits=True)
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
+        self.push_events(2)
+
+        # Change the moved file of the previous PR
+        p, commits = self.create_pr("nostrict", files={
+            "test%d-moved" % self.pr_counter: "data"
+        })
+
+        # Backport it, but the file doesn't exists on the base branch
+        with self.cassette("set-labels"):
+            self.r_main.create_label("bp-stable", "000000")
+            p.add_to_labels("bp-stable")
+
+        # Got label event
+        self.push_events()
+
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon")
+        # * pull_request : close event for pr
+        self.push_events(3)
+
+        with self.cassette("get_pulls"):
+            pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual("stable", pulls[0].base.ref)
+        self.assertEqual("Automatic backport of pull request #%d" % p.number,
+                         pulls[0].title)
+        self.assertIn("To fixup this pull request, you can checking out it",
+                      pulls[0].body)
+
+    def test_auto_backport_rebase(self):
+        p, commits = self.create_pr("nostrict", two_commits=True)
+
+        with self.cassette("set-labels"):
+            self.r_main.create_label("bp-stable", "000000")
+            p.add_to_labels("bp-stable")
+
+        # Got label event
+        self.push_events()
+
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon")
+        # * pull_request : close event for pr
+        self.push_events(3)
+
+        with self.cassette("get_pulls"):
+            pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual("stable", pulls[0].base.ref)
+        self.assertEqual("Automatic backport of pull request #%d" % p.number,
+                         pulls[0].title)
+
+    def test_auto_backport_merge(self):
+        p, commits = self.create_pr(two_commits=True)
+
+        with self.cassette("set-labels"):
+            self.r_main.create_label("bp-stable", "000000")
+            p.add_to_labels("bp-stable")
+
+        # Got label event
+        self.push_events()
+
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
+
+        # Got:
+        # * status: mergify "Will be merged soon")
+        # * pull_request : close event for pr
+        self.push_events(4)
+
+        with self.cassette("get_pulls"):
+            pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual("stable", pulls[0].base.ref)
+        self.assertEqual("Automatic backport of pull request #%d" % p.number,
+                         pulls[0].title)
 
     def test_update_branch(self):
         p1, commits1 = self.create_pr()

@@ -57,7 +57,7 @@ Rule = {
         "method": voluptuous.Any("rebase", "merge", "squash"),
         "rebase_fallback": voluptuous.Any("merge", "squash", "none"),
     },
-    voluptuous.Optional('automated_backport_labels'): {str: str},
+    'automated_backport_labels': voluptuous.Any({str: str}, None),
 }
 
 UserConfigurationSchema = {

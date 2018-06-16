@@ -1,0 +1,75 @@
+[
+    {
+        "args": [
+            "clone",
+            "--depth=1",
+            "-b",
+            "mergify/bp/stable/pr-2",
+            "https://x-access-token:<ACCESS_TOKEN>@github.com/mergify-test1/repo-0fe8d5e8-b9b2-422c-b298-6c5229ced68a-test_auto_backport_failure/",
+            "."
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-bot"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "fetch",
+            "origin",
+            "nostrict",
+            "--shallow-since='2018-06-17 15:49:32'"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "status"
+        ],
+        "kwargs": {},
+        "out": "On branch mergify/bp/stable/pr-2\nYour branch is up to date with 'origin/mergify/bp/stable/pr-2'.\n\nYou are currently cherry-picking commit 3332b18.\n  (fix conflicts and run \"git cherry-pick --continue\")\n  (use \"git cherry-pick --abort\" to cancel the cherry-pick operation)\n\nUnmerged paths:\n  (use \"git add/rm <file>...\" as appropriate to mark resolution)\n\n\tdeleted by us:   test1-moved\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\n"
+    },
+    {
+        "args": [
+            "add",
+            "*"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "-a",
+            "--no-edit"
+        ],
+        "kwargs": {},
+        "out": "[mergify/bp/stable/pr-2 627f3f6] Pull request n2 from fork\n Author: mergify-tester <noreply@mergify.io>\n Date: Sun Jun 17 17:49:15 2018 +0200\n 1 file changed, 1 insertion(+)\n create mode 100644 test1-moved\n"
+    },
+    {
+        "args": [
+            "push",
+            "origin",
+            "mergify/bp/stable/pr-2"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]

@@ -1,0 +1,128 @@
+{
+  "http_interactions": [
+    {
+      "recorded_at": "2018-06-17T15:48:26",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": "{\"event\": \"APPROVE\", \"commit_id\": \"5cfd4d69aea7336b4e83348f0c0bcd7bfe9e7a9c\", \"body\": \"Perfect\", \"comments\": []}"
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Authorization": [
+            "token <MAIN_TOKEN>"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Content-Length": [
+            "112"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "User-Agent": [
+            "PyGithub/Python"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://api.github.com:443/repos/mergify-test1/repo-3d347852-d518-43b8-869e-9a7b2ca49792-test_auto_backport_rebase/pulls/1/reviews"
+      },
+      "response": {
+        "body": {
+          "base64_string": "H4sIAAAAAAAAA7VVUW/aMBD+L9lrU5M4kARpmja1m/YAtB2lVV8ix7mAR4gz26EDxH/fOWFVQduqRp14MLLv++7z57vLzhGZM/T8mMa0T8Mzp5QZJHbPGV1c0knxyUu//Pz2cP/Ze7gf925XM5/dzeho+rU/2i634+mIOmdOrUE5w51TyLkoEboCNRf5xjWgjYfnlo9GQYw/epziejC7Hxf8+ygYXyx7k+n1FsPZmhmmkloVyLUwptJDQtpNTc/nwizq1KbksjRQmnMuV6QmvxN8WL8PkGSuDjTNZazIY7pKHJhaONJpcqp7YVbFiYw2e4M5jc5lUchH5DlV/mIq8gRFne1/Uc670iB0R6RZAFqI19pbM4Q2HWQ1sB2xC9aEJdL4MAqy10s7AFHYY4madkRBJRvGOtVcicoIWXaQeARHOqnmrBRb1pEO4RpZrLgOYhoYwmGNZdkB3+J2pFJizfjG2qOAg1ij4105TwiQ0mwqwJa4tU2L/gsDCctWtnFzVmjYnzmpzDYYcQUqB27aZzcW8/Hq6mYyu7zArVf0RvPWLs1oEEZ93836XuQGNI3caBCDG7Mw9TkL4jD2m4mRsNrIJGV8WUllEgUp00CquiiI984uCn7UGKdgLeDRfRpeKMqeIqA5/neNNk913MJvJlMTO/TwFgupEqa15KKpRzRwcje+vMHDpBDlUtuZaX1sVgX5s3H3tznzZiJf8BKr4LmZf1DIjsfa/zZ0j4qw2VfCGOwGZtArv4eF1Bu4Xjj1+sMgGvqDB/QWZzNGtR+xPs+zIBvEDFhI6SANIKI0iPIe76U8C9McYghZzJ39L+xP4UEKBwAA",
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Expose-Headers": [
+            "ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval"
+          ],
+          "Cache-Control": [
+            "private, max-age=60, s-maxage=60"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Security-Policy": [
+            "default-src 'none'"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Date": [
+            "Sun, 17 Jun 2018 15:48:26 GMT"
+          ],
+          "ETag": [
+            "W/\"7bf5ac0d9a4519eebe367adfec692892\""
+          ],
+          "Referrer-Policy": [
+            "origin-when-cross-origin, strict-origin-when-cross-origin"
+          ],
+          "Server": [
+            "GitHub.com"
+          ],
+          "Status": [
+            "200 OK"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubdomains; preload"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Vary": [
+            "Accept, Authorization, Cookie, X-GitHub-OTP"
+          ],
+          "X-Accepted-OAuth-Scopes": [
+            ""
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Frame-Options": [
+            "deny"
+          ],
+          "X-GitHub-Media-Type": [
+            "github.v3; format=json"
+          ],
+          "X-GitHub-Request-Id": [
+            "C84C:3AC9:15F2B5F:34226E7:5B2682CA"
+          ],
+          "X-OAuth-Scopes": [
+            "repo"
+          ],
+          "X-RateLimit-Limit": [
+            "5000"
+          ],
+          "X-RateLimit-Remaining": [
+            "4958"
+          ],
+          "X-RateLimit-Reset": [
+            "1529253570"
+          ],
+          "X-Runtime-rack": [
+            "0.267347"
+          ],
+          "X-XSS-Protection": [
+            "1; mode=block"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://api.github.com:443/repos/mergify-test1/repo-3d347852-d518-43b8-869e-9a7b2ca49792-test_auto_backport_rebase/pulls/1/reviews"
+      }
+    }
+  ],
+  "recorded_with": "betamax/0.8.1"
+}

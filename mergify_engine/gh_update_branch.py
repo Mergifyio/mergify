@@ -48,7 +48,7 @@ def update_branch(self, token, merge=True):
         git("remote", "add", "upstream",
             "https://%s@github.com/%s.git" % (token, self.base.repo.full_name))
         git("config", "user.name", "%s-bot" % config.CONTEXT)
-        git("config", "user.email", "noreply@mergify.io")
+        git("config", "user.email", config.GIT_EMAIL)
 
         out = git("log", "--pretty='format:%cI'")
         last_commit_date = out.decode("utf8").split("\n")[-1]
@@ -64,7 +64,7 @@ def update_branch(self, token, merge=True):
             git("rebase", "upstream/%s" % self.base.ref)
         git("push", "origin", self.head.ref)
     except Exception:
-        LOG.exception("git rebase fail")
+        LOG.error("%s: update branch fail", self.pretty(), exc_info=True)
         return False
     finally:
         git.cleanup()

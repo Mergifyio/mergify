@@ -33,13 +33,15 @@ def real_event_handler(event_type, subscription, data):
     """Everything start here"""
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    token = integration.get_access_token(data["installation"]["id"]).token
-    g = github.Github(token)
+    installation_token = integration.get_access_token(
+        data["installation"]["id"]).token
+    g = github.Github(installation_token)
     try:
         user = g.get_user(data["repository"]["owner"]["login"])
         repo = user.get_repo(data["repository"]["name"])
 
         engine.MergifyEngine(g, data["installation"]["id"],
+                             installation_token,
                              subscription,
                              user, repo).handle(event_type, data)
     except github.RateLimitExceededException:
