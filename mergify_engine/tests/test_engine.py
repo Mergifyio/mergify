@@ -110,11 +110,11 @@ with betamax.Betamax.configure() as c:
 class GitterRecorder(utils.Gitter):
     cassette_library_dir = 'mergify_engine/tests/fixtures/cassettes'
 
-    def __init__(self, cassette_name):
+    def __init__(self, cassette_name, suffix="main"):
         super(GitterRecorder, self).__init__()
         self.cassette_path = os.path.join(self.cassette_library_dir,
-                                          "git_%s.json" % cassette_name)
-
+                                          cassette_name,
+                                          "git-%s.json" % suffix)
         self.do_record = (
             RECORD_MODE == 'all' or
             (RECORD_MODE == 'once' and not os.path.exists(self.cassette_path))
@@ -173,7 +173,11 @@ class TestEngineScenario(testtools.TestCase):
         self.session = requests.Session()
         self.session.trust_env = False
         self.session.headers.update({'User-Agent': 'python-requests/X.X.X'})
-        self.recorder = betamax.Betamax(self.session)
+        self.recorder = betamax.Betamax(
+            self.session, cassette_library_dir=(
+                'mergify_engine/tests/fixtures/cassettes/%s'
+                % self._testMethodName)
+        )
 
         self.useFixture(fixtures.MockPatchObject(
             requests, 'Session', return_value=self.session))
@@ -186,7 +190,7 @@ class TestEngineScenario(testtools.TestCase):
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
 
-        reponame_path = ("mergify_engine/tests/fixtures/cassettes/reponame_%s"
+        reponame_path = ("mergify_engine/tests/fixtures/cassettes/%s/reponame"
                          % self._testMethodName)
 
         gen_new_uuid = (
@@ -215,7 +219,7 @@ class TestEngineScenario(testtools.TestCase):
         utils.setup_logging()
         config.log()
 
-        self.git = GitterRecorder('%s-tests' % self._testMethodName)
+        self.git = GitterRecorder(self._testMethodName, "tests")
         self.addCleanup(self.git.cleanup)
 
         web.app.testing = True
@@ -301,11 +305,10 @@ class TestEngineScenario(testtools.TestCase):
         #     self.r_fork.delete()
         #     self.r_main.delete()
 
-    def cassette(self, name, *args, **kwargs):
-        name = "http_%s_%d_%s" % (self._testMethodName, self.cassette_counter,
-                                  name)
+    def cassette(self, name, **kwargs):
+        kwargs["cassette_name"] = "http_%d_%s" % (self.cassette_counter, name)
         self.cassette_counter += 1
-        return self.recorder.use_cassette(name, *args, **kwargs)
+        return self.recorder.use_cassette(**kwargs)
 
     def push_events(self, n=1):
         got = 0
