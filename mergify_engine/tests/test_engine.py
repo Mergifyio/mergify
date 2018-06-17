@@ -102,7 +102,8 @@ with betamax.Betamax.configure() as c:
     c.default_cassette_options.update({
         'record_mode': RECORD_MODE,
         'match_requests_on': ['method', 'uri', 'headers'],
-        'serialize_with': 'prettyjson',
+        # Useful for debuging
+        # 'serialize_with': 'prettyjson',
     })
     c.define_cassette_placeholder("<MAIN_TOKEN>", MAIN_TOKEN)
     c.define_cassette_placeholder("<FORK_TOKEN>", FORK_TOKEN)
@@ -191,10 +192,6 @@ class TestEngineScenario(testtools.TestCase):
 
         self.useFixture(fixtures.MockPatchObject(
             gh_update_branch.utils, 'Gitter',
-            lambda: GitterRecorder(self.cassette_library_dir)))
-
-        self.useFixture(fixtures.MockPatchObject(
-            backports.utils, 'Gitter',
             lambda: GitterRecorder(self.cassette_library_dir)))
 
         # Web authentification always pass
