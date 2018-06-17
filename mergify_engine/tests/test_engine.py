@@ -229,8 +229,8 @@ class TestEngineScenario(testtools.TestCase):
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
         subscription = {"token": MAIN_TOKEN, "subscribed": False}
-        self.redis.hmset("subscription-cache-%s" % INSTALLATION_ID,
-                         subscription)
+        self.redis.set("subscription-cache-%s" % INSTALLATION_ID,
+                       json.dumps(subscription))
 
         with self.cassette("setUp-prepare-repo", allow_playback_repeats=True):
             # Cleanup the remote testing redis
