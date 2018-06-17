@@ -16,6 +16,7 @@
 
 import hashlib
 import hmac
+import json
 import logging
 import os
 import shutil
@@ -125,7 +126,7 @@ def get_installation_id(integration, owner):
 
 
 def get_subscription(r, installation_id):
-    sub = r.hgetall("subscription-cache-%d" % installation_id)
+    sub = r.get("subscription-cache-%d" % installation_id)
     if not sub:
         LOG.info("Subscription for %s not cached, retrieving it..." %
                  installation_id)
@@ -141,12 +142,20 @@ def get_subscription(r, installation_id):
         elif resp.status_code == 200:
             sub = resp.json()
             sub["subscribed"] = sub["subscription"] is not None
+            sub["token"] = sub["token"]["access_token"]
             del sub["subscription"]
         else:
             # NOTE(sileht): handle this better
             resp.raise_for_status()
-        r.hmset("subscription-cache-%s" % installation_id, sub)
-    LOG.info("Subscription for installation %s: %s", installation_id, sub)
+        r.set("subscription-cache-%s" % installation_id, json.dumps(sub))
+    else:
+        sub = json.loads(sub)
+
+    filtered_sub = sub.copy()
+    if filtered_sub["token"]:
+        filtered_sub["token"] = "*******"
+    LOG.info("Subscription for installation %s: %s", installation_id,
+             filtered_sub)
     return sub
 
 
