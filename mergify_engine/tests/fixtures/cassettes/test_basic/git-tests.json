@@ -4,13 +4,13 @@
             "init"
         ],
         "kwargs": {},
-        "out": "Initialized empty Git repository in /tmp/mergify-gitterm_vn495m/.git/\n"
+        "out": "Initialized empty Git repository in /tmp/mergify-gitter1p7bhuvl/.git/\n"
     },
     {
         "args": [
             "config",
             "user.name",
-            "mergify-bot"
+            "mergify-tester"
         ],
         "kwargs": {},
         "out": ""
@@ -29,7 +29,7 @@
             "remote",
             "add",
             "main",
-            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-6796e7a6-df35-428d-9c55-d8763f73b07d-test_basic"
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-21948944-b320-4e46-9045-fde46f8f768e-test_basic"
         ],
         "kwargs": {},
         "out": ""
@@ -50,7 +50,7 @@
             "initial commit"
         ],
         "kwargs": {},
-        "out": "[master (root-commit) 69ee473] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
+        "out": "[master (root-commit) 80b649f] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
     },
     {
         "args": [
@@ -102,7 +102,7 @@
             "remote",
             "add",
             "fork",
-            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-6796e7a6-df35-428d-9c55-d8763f73b07d-test_basic"
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-21948944-b320-4e46-9045-fde46f8f768e-test_basic"
         ],
         "kwargs": {},
         "out": ""
@@ -123,7 +123,7 @@
             "fork/pr1"
         ],
         "kwargs": {},
-        "out": "Branch fork/pr1 set up to track remote branch master from fork.\n"
+        "out": "Branch 'fork/pr1' set up to track remote branch 'master' from 'fork'.\n"
     },
     {
         "args": [
@@ -141,7 +141,7 @@
             "Pull request n1 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr1 fc291bf] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
+        "out": "[fork/pr1 52eb15e] Pull request n1 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test1\n"
     },
     {
         "args": [
@@ -160,7 +160,7 @@
             "fork/pr2"
         ],
         "kwargs": {},
-        "out": "Branch fork/pr2 set up to track remote branch master from fork.\n"
+        "out": "Branch 'fork/pr2' set up to track remote branch 'master' from 'fork'.\n"
     },
     {
         "args": [
@@ -178,7 +178,7 @@
             "Pull request n2 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr2 3cdcf9d] Pull request n2 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test2\n"
+        "out": "[fork/pr2 4093e8c] Pull request n2 from fork\n 1 file changed, 0 insertions(+), 0 deletions(-)\n create mode 100644 test2\n"
     },
     {
         "args": [

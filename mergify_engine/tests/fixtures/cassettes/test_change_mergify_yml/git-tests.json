@@ -4,13 +4,13 @@
             "init"
         ],
         "kwargs": {},
-        "out": "Initialized empty Git repository in /tmp/mergify-gittermxegj2je/.git/\n"
+        "out": "Initialized empty Git repository in /tmp/mergify-gitterf7f1mx06/.git/\n"
     },
     {
         "args": [
             "config",
             "user.name",
-            "mergify-bot"
+            "mergify-tester"
         ],
         "kwargs": {},
         "out": ""
@@ -29,7 +29,7 @@
             "remote",
             "add",
             "main",
-            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-60cbdaf3-5bf8-4cee-8950-25aa1ef44ee2-test_change_mergify_yml"
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-58c5e55d-207c-460d-8809-7d7a735eca29-test_change_mergify_yml"
         ],
         "kwargs": {},
         "out": ""
@@ -50,7 +50,7 @@
             "initial commit"
         ],
         "kwargs": {},
-        "out": "[master (root-commit) 6d371b8] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
+        "out": "[master (root-commit) 3921915] initial commit\n 1 file changed, 29 insertions(+)\n create mode 100644 .mergify.yml\n"
     },
     {
         "args": [
@@ -102,7 +102,7 @@
             "remote",
             "add",
             "fork",
-            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-60cbdaf3-5bf8-4cee-8950-25aa1ef44ee2-test_change_mergify_yml"
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-58c5e55d-207c-460d-8809-7d7a735eca29-test_change_mergify_yml"
         ],
         "kwargs": {},
         "out": ""
@@ -141,7 +141,7 @@
             "Pull request n1 from fork"
         ],
         "kwargs": {},
-        "out": "[fork/pr1 4de05c0] Pull request n1 from fork\n 1 file changed, 20 insertions(+), 29 deletions(-)\n rewrite .mergify.yml (72%)\n"
+        "out": "[fork/pr1 90ba77e] Pull request n1 from fork\n 1 file changed, 20 insertions(+), 29 deletions(-)\n rewrite .mergify.yml (72%)\n"
     },
     {
         "args": [

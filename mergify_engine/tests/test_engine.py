@@ -249,7 +249,7 @@ class TestEngineScenario(testtools.TestCase):
             self.url_main = "https://%s:@github.com/%s" % (
                 MAIN_TOKEN, self.r_main.full_name)
             self.git("init")
-            self.git("config", "user.name", "%s-bot" % config.CONTEXT)
+            self.git("config", "user.name", "%s-tester" % config.CONTEXT)
             self.git("config", "user.email", "noreply@mergify.io")
             self.git("remote", "add", "main", self.url_main)
             with open(self.git.tmp + "/.mergify.yml", "w") as f:
