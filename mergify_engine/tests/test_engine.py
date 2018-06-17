@@ -95,8 +95,10 @@ rules:
 
 betamax.Betamax.register_serializer(PrettyJSONSerializer)
 
+cassette_library_dir_base = 'mergify_engine/tests/fixtures/cassettes'
+
 with betamax.Betamax.configure() as c:
-    c.cassette_library_dir = 'mergify_engine/tests/fixtures/cassettes'
+    c.cassette_library_dir = cassette_library_dir_base
     c.default_cassette_options.update({
         'record_mode': RECORD_MODE,
         'match_requests_on': ['method', 'uri', 'headers'],
@@ -108,12 +110,9 @@ with betamax.Betamax.configure() as c:
 
 
 class GitterRecorder(utils.Gitter):
-    cassette_library_dir = 'mergify_engine/tests/fixtures/cassettes'
-
-    def __init__(self, cassette_name, suffix="main"):
+    def __init__(self, cassette_library_dir, suffix="main"):
         super(GitterRecorder, self).__init__()
-        self.cassette_path = os.path.join(self.cassette_library_dir,
-                                          cassette_name,
+        self.cassette_path = os.path.join(cassette_library_dir,
                                           "git-%s.json" % suffix)
         self.do_record = (
             RECORD_MODE == 'all' or
@@ -132,7 +131,11 @@ class GitterRecorder(utils.Gitter):
             self.records = json.loads(
                 f.read().decode('utf8').replace(
                     "<MAIN_TOKEN>", MAIN_TOKEN
-                ).replace("<FORK_TOKEN>", FORK_TOKEN)
+                ).replace(
+                    "<FORK_TOKEN>", FORK_TOKEN
+                ).replace(
+                    "<ACCESS_TOKEN>", ACCESS_TOKEN
+                )
             )
 
     def save_records(self):
@@ -141,7 +144,9 @@ class GitterRecorder(utils.Gitter):
                               indent=4, separators=(',', ': '))
             f.write(data.replace(
                 MAIN_TOKEN, "<MAIN_TOKEN>").replace(
-                    FORK_TOKEN, "<FORK_TOKEN>").encode('utf8'))
+                    FORK_TOKEN, "<FORK_TOKEN>").replace(
+                        ACCESS_TOKEN, "<ACCESS_TOKEN>"
+                    ).encode('utf8'))
 
     def __call__(self, *args, **kwargs):
         if self.do_record:
@@ -173,25 +178,33 @@ class TestEngineScenario(testtools.TestCase):
         self.session = requests.Session()
         self.session.trust_env = False
         self.session.headers.update({'User-Agent': 'python-requests/X.X.X'})
+
+        self.cassette_library_dir = os.path.join(cassette_library_dir_base,
+                                                 self._testMethodName)
+
         self.recorder = betamax.Betamax(
-            self.session, cassette_library_dir=(
-                'mergify_engine/tests/fixtures/cassettes/%s'
-                % self._testMethodName)
-        )
+            self.session,
+            cassette_library_dir=self.cassette_library_dir)
 
         self.useFixture(fixtures.MockPatchObject(
             requests, 'Session', return_value=self.session))
 
         self.useFixture(fixtures.MockPatchObject(
             gh_update_branch.utils, 'Gitter',
-            lambda: GitterRecorder(self._testMethodName)))
+            lambda: GitterRecorder(self.cassette_library_dir)))
+
+        self.useFixture(fixtures.MockPatchObject(
+            backports.utils, 'Gitter',
+            lambda: GitterRecorder(self.cassette_library_dir)))
 
         # Web authentification always pass
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
                                            return_value=True))
 
-        reponame_path = ("mergify_engine/tests/fixtures/cassettes/%s/reponame"
-                         % self._testMethodName)
+        if not os.path.exists(self.cassette_library_dir):
+            os.mkdir(self.cassette_library_dir)
+
+        reponame_path = os.path.join(self.cassette_library_dir, "reponame")
 
         gen_new_uuid = (
             RECORD_MODE == 'all' or
@@ -219,7 +232,7 @@ class TestEngineScenario(testtools.TestCase):
         utils.setup_logging()
         config.log()
 
-        self.git = GitterRecorder(self._testMethodName, "tests")
+        self.git = GitterRecorder(self.cassette_library_dir, "tests")
         self.addCleanup(self.git.cleanup)
 
         web.app.testing = True
