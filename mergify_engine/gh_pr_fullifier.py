@@ -15,6 +15,7 @@
 # under the License.
 
 import copy
+import fnmatch
 import logging
 import time
 
@@ -160,11 +161,24 @@ def compute_travis_url(pull, **extra):
     )["url"]
 
 
-def compute_weight_and_status(pull, **extra):
+def disabled_by_rules(pull, **extra):
     labels = [l.name for l in pull.labels]
     if extra["branch_rule"]["disabling_label"] in labels:
+        return "Disabled with label"
+
+    pull_files = [f.filename for f in pull.get_files()]
+    for w in extra["branch_rule"]["disabling_files"]:
+        filtered = fnmatch.filter(pull_files, w)
+        if filtered:
+            return ("Disabled, %s is modified in this pull request"
+                    % filtered[0])
+    return None
+
+
+def compute_weight_and_status(pull, **extra):
+    status_desc = disabled_by_rules(pull, **extra)
+    if status_desc is not None:
         weight = -1
-        status_desc = "Disabled by label"
     elif not pull.mergify_engine["approved"]:
         weight = -1
         status_desc = "Waiting for approvals"

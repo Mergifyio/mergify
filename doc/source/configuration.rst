@@ -43,6 +43,14 @@ A ``Rule`` is a dictionary with the following optional keys:
      - A `label <https://help.github.com/articles/about-labels/>`_ name that
        will disable Mergify if it is applied to a pull request. Default is
        ``no-mergify``.
+   * - ``disabling_files``
+     - ``array of string``
+     - A list of files paths that disables Mergify if they are part of the pull
+       request. Any file that changes the behavior of the continuous integration
+       workflow should be listed. The default is ``[.mergify.yml]``. Note that
+       the engine always ignore pull requests that modify ``.mergify.yml``
+       anyway. Those pull requests will have to be merged manually, even if
+       `.mergify.yml` is not listed in this setting.
    * - ``merge_strategy``
      - :ref:`Merge Strategy`
      - The method to use to merge pull requests.

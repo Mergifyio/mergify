@@ -52,6 +52,7 @@ Protection = {
 Rule = {
     'protection': Protection,
     'disabling_label': str,
+    'disabling_files': [str],
     'merge_strategy': {
         "method": voluptuous.Any("rebase", "merge", "squash"),
         "rebase_fallback": voluptuous.Any("merge", "squash", "none"),
@@ -128,6 +129,10 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
         rule = validate_merged_config(rule)
     except voluptuous.MultipleInvalid as e:
         raise NoRules("mergify configuration invalid: %s" % str(e))
+
+    # NOTE(sileht): Always disable Mergify if its configuration is changed
+    if ".mergify.yml" not in rule["disabling_files"]:
+        rule["disabling_files"].append(".mergify.yml")
 
     LOG.info("Rule for %s branch: %s" % (branch, rule))
     return rule
