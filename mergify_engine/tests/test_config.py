@@ -69,6 +69,26 @@ def test_invalid_yaml():
     assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
 
+def test_disabling_files():
+    config = {
+        "rules": {
+            "default": copy.deepcopy(DEFAULT_CONFIG),
+        }
+    }
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["disabling_files"] == [".mergify.yml"]
+
+    config["rules"]["default"]["disabling_files"] = ["foobar.json"]
+    parsed = validate_with_get_branch_rule(config)
+    assert len(parsed["disabling_files"]) == 2
+    assert "foobar.json" in parsed["disabling_files"]
+    assert ".mergify.yml" in parsed["disabling_files"]
+
+    with pytest.raises(rules.NoRules):
+        config["rules"]["default"]["disabling_files"] = None
+        validate_with_get_branch_rule(config)
+
+
 def test_merge_strategy():
     config = {
         "rules": {

@@ -8,6 +8,8 @@ protection:
   enforce_admins: false
 
 disabling_label: no-mergify
+disabling_files:
+  - .mergify.yml
 merge_strategy:
   method: merge
   rebase_fallback: merge

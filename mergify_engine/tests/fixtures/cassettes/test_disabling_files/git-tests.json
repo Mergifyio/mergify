@@ -1,0 +1,155 @@
+[
+    {
+        "args": [
+            "init"
+        ],
+        "kwargs": {},
+        "out": "Initialized empty Git repository in /tmp/mergify-gitterhelxr5ix/.git/\n"
+    },
+    {
+        "args": [
+            "config",
+            "user.name",
+            "mergify-tester"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "config",
+            "user.email",
+            "noreply@mergify.io"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "main",
+            "https://<MAIN_TOKEN>:@github.com/mergify-test1/repo-16e748b1-ac18-4f06-b7ee-97d67c1b1dd9-test_disabling_files"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "add",
+            ".mergify.yml"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "initial commit"
+        ],
+        "kwargs": {},
+        "out": "[master (root-commit) c3dd093] initial commit\n 1 file changed, 31 insertions(+)\n create mode 100644 .mergify.yml\n"
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "master"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "-b",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "stable"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "-b",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "push",
+            "main",
+            "nostrict"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "remote",
+            "add",
+            "fork",
+            "https://<FORK_TOKEN>:@github.com/mergify-test2/repo-16e748b1-ac18-4f06-b7ee-97d67c1b1dd9-test_disabling_files"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "fetch",
+            "fork"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "checkout",
+            "fork/master",
+            "-b",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": "Branch 'fork/pr1' set up to track remote branch 'master' from 'fork'.\n"
+    },
+    {
+        "args": [
+            "add",
+            "foobar"
+        ],
+        "kwargs": {},
+        "out": ""
+    },
+    {
+        "args": [
+            "commit",
+            "--no-edit",
+            "-m",
+            "Pull request n1 from fork"
+        ],
+        "kwargs": {},
+        "out": "[fork/pr1 b39a600] Pull request n1 from fork\n 1 file changed, 1 insertion(+)\n create mode 100644 foobar\n"
+    },
+    {
+        "args": [
+            "push",
+            "fork",
+            "fork/pr1"
+        ],
+        "kwargs": {},
+        "out": ""
+    }
+]

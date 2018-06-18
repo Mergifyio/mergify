@@ -75,6 +75,8 @@ rules:
         required_approving_review_count: 2
       restrictions: null
       enforce_admins: false
+    disabling_files:
+      - foo?ar
   branches:
     master:
       protection:
@@ -102,7 +104,7 @@ with betamax.Betamax.configure() as c:
     c.default_cassette_options.update({
         'record_mode': RECORD_MODE,
         'match_requests_on': ['method', 'uri', 'headers'],
-        # Useful for debuging
+        # Useful for debugging
         # 'serialize_with': 'prettyjson',
     })
     c.define_cassette_placeholder("<MAIN_TOKEN>", MAIN_TOKEN)
@@ -536,6 +538,19 @@ class TestEngineScenario(testtools.TestCase):
                                     ).data.decode("utf8"))
         self.assertEqual(0, len(r))
 
+    def test_disabling_files(self):
+        p, commits = self.create_pr(files={"foobar": "what"})
+
+        self.create_status_and_push_event(p, commits[0])
+        self.create_review_and_push_event(p, commits[0])
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual("Disabled, foobar is modified in this pull request",
+                         pulls[0].mergify_engine['status_desc'])
+
     def test_disabling_label(self):
         p, commits = self.create_pr()
 
@@ -552,7 +567,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
         self.assertEqual(-1, pulls[0].mergify_engine['weight'])
-        self.assertEqual("Disabled by label",
+        self.assertEqual("Disabled with label",
                          pulls[0].mergify_engine['status_desc'])
 
     def test_update_branch(self):
