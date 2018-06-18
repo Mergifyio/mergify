@@ -277,7 +277,7 @@ class MergifyEngine(object):
             else:
                 LOG.info("%s -> merge fail", p.pretty())
 
-        elif p.mergeable_state == "behind":
+        elif p.mergify_engine_weight >= 5 and p.mergeable_state == "behind":
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
                 # (synchronize)
