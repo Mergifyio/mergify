@@ -45,12 +45,17 @@ class MergifyEngine(object):
     def handle(self, event_type, data):
         # Everything start here
 
-        if event_type == "status":
-            # Don't compute the queue for nothing
-            if data["context"].startswith("%s/" % config.CONTEXT):
-                return
-            elif data["context"] == "continuous-integration/travis-ci/push":
-                return
+        # FIXME(sileht): while it safe computation times, when the repository
+        # have no mandatory CI configured, the state never go to "success". The
+        # initial lookup put it to "pending", I don't get why ? A github thing
+        # I guess...
+        #
+        # if event_type == "status":
+        #     # Don't compute the queue for nothing
+        #     if data["context"].startswith("%s/" % config.CONTEXT):
+        #         return
+        #     elif data["context"] == "continuous-integration/travis-ci/push":
+        #         return
 
         # Get the current pull request
         incoming_pull = gh_pr.from_event(self._r, data)
