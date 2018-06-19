@@ -50,11 +50,13 @@ class CommitOrderingKey(object):
 
 
 def is_base_branch_merge_commit(commit):
-    return (commit.commit.author.name == "%s-bot" % config.CONTEXT and
-            commit.commit.committer.name == "%s-bot" % config.CONTEXT)
+    return (commit.commit.message.startswith("Merge branch '") and
+            len(commit.parents) == 2)
 
 
 def _get_commits_to_cherrypick(pull, commit):
+    commits = list(filter(lambda c: not is_base_branch_merge_commit(c),
+                          sorted(pull.get_commits(), key=CommitOrderingKey)))
     if len(commit.parents) == 1:
         LOG.info("%s: backport, was a rebased before merge", pull.pretty())
         # NOTE(sileht): Was rebased before merge
@@ -63,14 +65,9 @@ def _get_commits_to_cherrypick(pull, commit):
         # So browse the branch to get the commit to
         # cherry-pick
         out_commits = []
-        for n in range(pull.commits):
+        for _ in range(len(commits)):
             if len(commit.parents) == 1:
                 out_commits.append(commit)
-                commit = commit.parents[0]
-            elif (len(commit.parents) == 2 and
-                  is_base_branch_merge_commit(commit)):
-                # NOTE(sileht): Skip 'Merge branch "<base-branch>" into
-                # "blabla"' done by Mergify-bot
                 commit = commit.parents[0]
             else:
                 # NOTE(sileht): What is that? A merge here?
@@ -82,8 +79,7 @@ def _get_commits_to_cherrypick(pull, commit):
     elif len(commit.parents) == 2:
         LOG.info("%s: backport, was just merged", pull.pretty())
         # NOTE(sileht): Was merged, we can take commit from the PR
-        return list(filter(lambda c: not is_base_branch_merge_commit(c),
-                           sorted(pull.get_commits(), key=CommitOrderingKey)))
+        return commits
     else:
         # NOTE(sileht): What is that ?
         LOG.error("%s: backport, unhandled commit structure", pull.pretty())
@@ -103,20 +99,18 @@ def _backport(repo, pull, branch_name, installation_token):
     body = ("This is an automated backport of pull request #%d done "
             "by Mergify.io" % pull.number)
 
-    repo.create_git_ref(ref="refs/heads/%s" % bp_branch, sha=branch.commit.sha)
-
     git = utils.Gitter()
 
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
     try:
-        git("clone", "--depth=1", "-b", bp_branch,
+        git("clone", "-b", branch_name,
             "https://x-access-token:%s@github.com/%s/" %
             (installation_token, repo.full_name), ".")
+        git("branch", "-M", bp_branch)
         git("config", "user.name", "%s-bot" % config.CONTEXT)
         git("config", "user.email", config.GIT_EMAIL)
-
         merge_commit = repo.get_commit(pull.merge_commit_sha)
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
@@ -124,9 +118,9 @@ def _backport(repo, pull, branch_name, installation_token):
             # git("fetch", "origin", "%s:refs/remotes/origin/%s-commit" %
             #    (commit.sha, commit.sha)
             #    )
-            last_commit_date = commit.commit.committer.date
-            git("fetch", "origin", pull.base.ref,
-                "--shallow-since='%s'" % last_commit_date)
+            # last_commit_date = commit.commit.committer.date
+            # git("fetch", "origin", pull.base.ref,
+            #    "--shallow-since='%s'" % last_commit_date)
             try:
                 git("cherry-pick", "-x", commit.sha)
             except subprocess.CalledProcessError:
