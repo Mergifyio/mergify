@@ -188,21 +188,24 @@ class MergifyEngine(object):
             cache.pop("mergify_engine_status_desc", None)
             cache.pop("mergify_engine_weight_and_status", None)
 
-            if (event_type == "status" and
-                    data["state"] == cache.get(
-                        "mergify_engine_travis_state")):
-                LOG.info("No need to proceed queue (got status without "
-                         "state change '%s')" % data["state"])
-                return
-            elif event_type == "status":
+            if event_type == "status":
                 cache.pop("mergify_engine_combined_status", None)
                 cache["mergify_engine_ci_statuses"] = {}
-                cache["mergify_engine_travis_state"] = data["state"]
-                cache["mergify_engine_travis_url"] = data["target_url"]
-                if data["state"] in ENDING_STATES:
-                    cache.pop("mergify_engine_travis_detail", None)
-                else:
-                    cache["mergify_engine_travis_detail"] = {}
+
+                if data["context"] == "continuous-integration/travis-ci/pr":
+
+                    if data["state"] == cache.get(
+                            "mergify_engine_travis_state"):
+                        LOG.info("No need to proceed queue (got status "
+                                 "without state change '%s')" % data["state"])
+                        return
+
+                    cache["mergify_engine_travis_state"] = data["state"]
+                    cache["mergify_engine_travis_url"] = data["target_url"]
+                    if data["state"] in ENDING_STATES:
+                        cache.pop("mergify_engine_travis_detail", None)
+                    else:
+                        cache["mergify_engine_travis_detail"] = {}
 
             elif event_type == "pull_request_review":
                 cache.pop("mergify_engine_reviews", None)
