@@ -54,6 +54,14 @@ A ``Rule`` is a dictionary with the following optional keys:
    * - ``merge_strategy``
      - :ref:`Merge Strategy`
      - The method to use to merge pull requests.
+   * - ``automated_backport_labels``
+     - ``dict``
+     - A dictionary where keys are `labels
+       <https://help.github.com/articles/about-labels/>`_ name and values are
+       branch name. When a pull request is merged and labeled with one of the
+       keys, a new pull request is created on the branch associated to the
+       key. The new pull request have all commits cherry-picked from the
+       original pull request.
 
 
 .. _merge strategy:

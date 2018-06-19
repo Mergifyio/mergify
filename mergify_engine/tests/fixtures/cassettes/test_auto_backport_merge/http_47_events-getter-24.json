@@ -1,0 +1,65 @@
+{
+  "http_interactions": [
+    {
+      "recorded_at": "2018-06-17T15:47:40",
+      "request": {
+        "body": {
+          "encoding": "utf-8",
+          "string": ""
+        },
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Accept-Encoding": [
+            "gzip, deflate"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "User-Agent": [
+            "python-requests/X.X.X"
+          ]
+        },
+        "method": "GET",
+        "uri": "https://gh.mergify.io/events-testing?id=24"
+      },
+      "response": {
+        "body": {
+          "base64_string": "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",
+          "encoding": null,
+          "string": ""
+        },
+        "headers": {
+          "Connection": [
+            "close"
+          ],
+          "Content-Encoding": [
+            "gzip"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Date": [
+            "Sun, 17 Jun 2018 15:47:40 GMT"
+          ],
+          "Server": [
+            "nginx/1.13.3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=15768000"
+          ],
+          "Vary": [
+            "Accept-Encoding"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "url": "https://gh.mergify.io/events-testing?id=24"
+      }
+    }
+  ],
+  "recorded_with": "betamax/0.8.1"
+}

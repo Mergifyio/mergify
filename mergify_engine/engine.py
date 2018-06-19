@@ -21,6 +21,7 @@ import operator
 
 import github
 
+from mergify_engine import backports
 from mergify_engine import config
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
@@ -33,10 +34,12 @@ ENDING_STATES = ["failure", "error", "success"]
 
 
 class MergifyEngine(object):
-    def __init__(self, g, installation_id, subscription, user, repo):
+    def __init__(self, g, installation_id, installation_token, subscription,
+                 user, repo):
         self._redis = utils.get_redis_for_cache()
         self._g = g
         self._installation_id = installation_id
+        self._installation_token = installation_token
         self._subscription = subscription
 
         self._u = user
@@ -149,6 +152,10 @@ class MergifyEngine(object):
             self.cache_remove_pull(incoming_pull)
             self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
             LOG.info("Just update cache (pull_request closed)")
+            if incoming_pull.merged:
+                backports.backports(self._r, incoming_pull,
+                                    branch_rule["automated_backport_labels"],
+                                    self._installation_token)
             return
 
         if (event_type == "status" and
