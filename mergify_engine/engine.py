@@ -166,6 +166,8 @@ class MergifyEngine(object):
                 try:
                     self._r.get_git_ref("heads/%s" % incoming_pull.head.ref
                                         ).delete()
+                    LOG.info("%s: branch %s deleted", incoming_pull.pretty(),
+                             incoming_pull.head.ref)
                 except github.UnknownObjectException:
                     pass
 
