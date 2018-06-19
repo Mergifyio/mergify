@@ -161,6 +161,12 @@ class MergifyEngine(object):
                 backports.backports(self._r, incoming_pull,
                                     branch_rule["automated_backport_labels"],
                                     self._installation_token)
+            if incoming_pull.head.ref.startswith("mergify/bp/"):
+                try:
+                    self._r.get_git_ref(incoming_pull.head.ref).delete()
+                except github.UnknownObjectException:
+                    pass
+
             return
 
         if (event_type == "status" and
