@@ -164,7 +164,8 @@ class MergifyEngine(object):
             if incoming_pull.head.ref.startswith("mergify/bp/%s" %
                                                  incoming_pull.base.ref):
                 try:
-                    self._r.get_git_ref(incoming_pull.head.ref).delete()
+                    self._r.get_git_ref("heads/%s" % incoming_pull.head.ref
+                                        ).delete()
                 except github.UnknownObjectException:
                     pass
 
