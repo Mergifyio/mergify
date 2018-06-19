@@ -90,6 +90,11 @@ class MergifyEngine(object):
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
+        elif event_type == "status" and incoming_pull.merged:
+            LOG.info("No need to proceed queue (got status of a merged "
+                     "pull request)")
+            return
+
         # We don't care about *assigned/review_request*/edited
         elif (event_type == "pull_request" and data["action"] not in [
                 "opened", "reopened", "closed", "synchronize", "edited",
