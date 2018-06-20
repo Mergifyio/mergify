@@ -48,19 +48,6 @@ class MergifyEngine(object):
     def handle(self, event_type, data):
         # Everything start here
 
-        # FIXME(sileht): while it safe computation times, when the repository
-        # have no mandatory CI configured, the state never go to "success". The
-        # initial lookup put it to "pending", I don't get why ? A github thing
-        # I guess...
-        #
-        # if event_type == "status":
-        #     # Don't compute the queue for nothing
-        #     if data["context"].startswith("%s/" % config.CONTEXT):
-        #         return
-        #     elif data["context"] == "continuous-integration/travis-ci/push":
-        #         return
-
-        # Get the current pull request
         incoming_pull = gh_pr.from_event(self._r, data)
         if not incoming_pull and event_type == "status":
             # It's safe to take the one from cache, since only status have
@@ -80,13 +67,7 @@ class MergifyEngine(object):
         # Log the event
         self.log_formated_event(event_type, incoming_pull, data)
 
-        # Unhandled and already logged
-        if event_type not in ["pull_request", "pull_request_review",
-                              "status", "refresh"]:
-            LOG.info("No need to proceed queue (unwanted event_type)")
-            return
-
-        elif event_type == "status" and incoming_pull.head.sha != data["sha"]:
+        if event_type == "status" and incoming_pull.head.sha != data["sha"]:
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
@@ -173,10 +154,6 @@ class MergifyEngine(object):
 
             return
 
-        if (event_type == "status" and
-                data["context"] == "continuous-integration/travis-ci/pr"):
-            fullify_extra["travis"] = data
-
         # First, remove informations we don't want to get from cache, so their
         # will be got/computed by PullRequest.fullify()
         if event_type == "refresh":
@@ -193,66 +170,23 @@ class MergifyEngine(object):
             if event_type == "status":
                 cache.pop("mergify_engine_combined_status", None)
                 cache["mergify_engine_ci_statuses"] = {}
-
-                if data["context"] == "continuous-integration/travis-ci/pr":
-
-                    if data["state"] == cache.get(
-                            "mergify_engine_travis_state"):
-                        LOG.info("No need to proceed queue (got status "
-                                 "without state change '%s')" % data["state"])
-                        return
-
-                    cache["mergify_engine_travis_state"] = data["state"]
-                    cache["mergify_engine_travis_url"] = data["target_url"]
-                    if data["state"] in ENDING_STATES:
-                        cache.pop("mergify_engine_travis_detail", None)
-                    else:
-                        cache["mergify_engine_travis_detail"] = {}
-
             elif event_type == "pull_request_review":
                 cache.pop("mergify_engine_reviews", None)
                 cache.pop("mergify_engine_approvals", None)
                 cache.pop("mergify_engine_approved", None)
-            elif event_type == "pull_request":
-                if data["action"] not in ["closed", "edited"]:
-                    cache.pop("mergify_engine_commits", None)
-                if data["action"] == "synchronize":
-                    # NOTE(sileht): hardcode ci status that will be refresh
-                    # on next travis event
+            elif (event_type == "pull_request" and
+                  data["action"] == "synchronize"):
                     cache.pop("mergify_engine_combined_status", None)
                     cache["mergify_engine_ci_statuses"] = {}
-                    cache.pop("mergify_engine_travis_state", None)
-                    cache.pop("mergify_engine_travis_url", None)
-                    cache.pop("mergify_engine_travis_detail", None)
 
         incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
         self.cache_save_pull(incoming_pull)
 
-        # NOTE(sileht): just refresh this pull request in cache
-        if event_type == "status" and data["state"] == "pending":
-            LOG.info("Just update cache (ci status pending)")
-            return
-        elif event_type == "pull_request" and data["action"] == "edited":
-            LOG.info("Just update cache (pull_request edited)")
-            return
-        elif (event_type == "pull_request_review" and
+        if (event_type == "pull_request_review" and
                 data["review"]["user"]["id"] not in
                 fullify_extra["collaborators"]):
             LOG.info("Just update cache (pull_request_review non-collab)")
             return
-
-        # TODO(sileht): Disable that until we can configure it in the yml file
-        # NOTE(sileht): We check the state of incoming_pull and the event
-        # because user can have restart a travis job between the event
-        # received and when we looks at it with travis API
-        #  if (event_type == "status"
-        #          and data["state"] in ENDING_STATES
-        #          and data["context"] in ["continuous-integration/travis-ci",
-        #                                  "continuous-integration/travis-ci/pr"]
-        #          and incoming_pull.mergify_engine["travis_state"]
-        #          in ENDING_STATES
-        #          and incoming_pull.mergify_engine["travis_detail"]):
-        #      incoming_pull.mergify_engine_travis_post_build_results()
 
         # NOTE(sileht): PullRequest updated or comment posted, maybe we need to
         # update github
