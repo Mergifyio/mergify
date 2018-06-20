@@ -259,17 +259,7 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    if event_type not in ["pull_request", "pull_request_review",
-                          "status", "refresh", "installation"]:
-        msg_action = "ignored (unexpected event_type)"
-
-    elif event_type == "status" and data["state"] == "pending":
-        msg_action = "ignored (state pending)"
-
-    elif event_type == "pull_request" and data["action"] == "edited":
-        msg_action = "ignored (action edited)"
-
-    elif event_type == "installation" and data["action"] == "deleted":
+    if event_type == "installation" and data["action"] == "deleted":
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
         msg_action = "handled, cache cleaned"
@@ -277,8 +267,9 @@ def event_handler():
     elif event_type == "installation":
         msg_action = "ignored (action %s)" % data["action"]
 
-    elif event_type in ["refresh", "pull_request", "status",
-                        "pull_request_review"]:
+    elif event_type in ["pull_request", "pull_request_review", "status",
+                        "refresh"]:
+
         subscription = utils.get_subscription(
             utils.get_redis_for_cache(), data["installation"]["id"])
 
@@ -288,10 +279,19 @@ def event_handler():
         elif data["repository"]["private"] and not subscription["subscribed"]:
             msg_action = "ignored (not public or subscribe)"
 
+        elif event_type == "status" and data["state"] == "pending":
+            msg_action = "ignored (state pending)"
+
+        elif event_type == "pull_request" and data["action"] == "edited":
+            msg_action = "ignored (action edited)"
+
         else:
             get_queue().enqueue(worker.event_handler, event_type,
                                 subscription, data)
             msg_action = "pushed to backend"
+
+    else:
+        msg_action = "ignored (unexpected event_type)"
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
