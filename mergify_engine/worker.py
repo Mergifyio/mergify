@@ -45,7 +45,9 @@ def real_event_handler(event_type, subscription, data):
                              subscription,
                              user, repo).handle(event_type, data)
     except github.RateLimitExceededException:
-        LOG.error("rate limit reached")
+        LOG.error("rate limit reached for install %d (%s)",
+                  data["installation"]["id"],
+                  data["repository"]["full_name"])
 
 
 def event_handler(event_type, subscription, data):
