@@ -259,8 +259,17 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    if event_type not in ["pull_request", "pull_request_review",
-                          "status", "refresh", "installation"]:
+    subscription = utils.get_subscription(
+        utils.get_redis_for_cache(), data["installation"]["id"])
+
+    if data["repository"]["private"] and not subscription["subscribed"]:
+        msg_action = "ignored (not public or subscribed)"
+
+    elif not subscription["token"]:
+        msg_action = "ignored (no token)"
+
+    elif event_type not in ["pull_request", "pull_request_review",
+                            "status", "refresh", "installation"]:
         msg_action = "ignored (unexpected event_type)"
 
     elif event_type == "status" and data["state"] == "pending":
@@ -279,19 +288,9 @@ def event_handler():
 
     elif event_type in ["refresh", "pull_request", "status",
                         "pull_request_review"]:
-        subscription = utils.get_subscription(
-            utils.get_redis_for_cache(), data["installation"]["id"])
-
-        if not subscription["token"]:
-            msg_action = "ignored (no token)"
-
-        elif data["repository"]["private"] and not subscription["subscribed"]:
-            msg_action = "ignored (not public or subscribe)"
-
-        else:
-            get_queue().enqueue(worker.event_handler, event_type,
-                                subscription, data)
-            msg_action = "pushed to backend"
+        get_queue().enqueue(worker.event_handler, event_type,
+                            subscription, data)
+        msg_action = "pushed to backend"
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
