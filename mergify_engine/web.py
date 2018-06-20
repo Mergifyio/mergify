@@ -259,63 +259,48 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    if event_type in ["refresh", "pull_request", "status",
-                      "pull_request_review"]:
-        subscription = utils.get_subscription(
-            utils.get_redis_for_cache(), data["installation"]["id"])
+    if event_type not in ["pull_request", "pull_request_review",
+                          "status", "refresh", "installation"]:
+        msg_action = "ignored (unexpected event_type)"
 
-        if not subscription["token"]:
-            return "", 202
+    elif event_type == "status" and data["state"] == "pending":
+        msg_action = "ignored (state pending)"
 
-        if data["repository"]["private"] and not subscription["subscribed"]:
-            return "", 202
-
-        get_queue().enqueue(worker.event_handler, event_type,
-                            subscription, data)
-
-    # FIXME(sileht): This is finally not a good idea
-    # On big project, this code timeout, and is useless as
-    # the project have not yet created the .mergify.yml
-    #
-    # TODO(sileht): handle installation modification
-    # "installation_repositories" event
-    # elif event_type == "installation" and data["action"] == "created":
-    #     token = INTEGRATION.get_access_token(
-    #                           data["installation"]["id"]).token
-    #     subscription = utils.get_subscription(utils.get_redis_for_cache(),
-    #                                           data["installation"]["id"])
-    #     if not subscription["token"]:
-    #         return "", 202
-
-    #     g = github.Github(token)
-    #     for repository in data["repositories"]:
-    #         if repository["private"] and not subscription["subscribed"]:
-    #             continue
-
-    #         r = g.get_repo(repository["full_name"])
-    #         pulls = r.get_pulls()
-    #         for p in pulls:
-    #             # Mimic the github event format
-    #             data = {
-    #                 'repository': r.raw_data,
-    #                 'installation': data["installation"],
-    #                 'pull_request': p.raw_data,
-    #             }
-    #             get_queue().enqueue(worker.event_handler, "refresh",
-    #                                 subscription, data)
+    elif event_type == "pull_request" and data["action"] == "edited":
+        msg_action = "ignored (action edited)"
 
     elif event_type == "installation" and data["action"] == "deleted":
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
+        msg_action = "handled, cache cleaned"
+
+    elif event_type == "installation":
+        msg_action = "ignored (action %s)" % data["action"]
+
+    elif event_type in ["refresh", "pull_request", "status",
+                        "pull_request_review"]:
+        subscription = utils.get_subscription(
+            utils.get_redis_for_cache(), data["installation"]["id"])
+
+        if not subscription["token"]:
+            msg_action = "ignored (no token)"
+
+        elif data["repository"]["private"] and not subscription["subscribed"]:
+            msg_action = "ignored (not public or subscribe)"
+
+        else:
+            get_queue().enqueue(worker.event_handler, event_type,
+                                subscription, data)
+            msg_action = "pushed to backend"
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
     else:
         repo_name = data["installation"]["account"]["login"]
 
-    LOG.info('[%s/%s] received "%s" event "%s"',
+    LOG.info('[%s/%s] received "%s" event "%s", %s',
              data["installation"]["id"], repo_name,
-             event_type, event_id)
+             event_type, event_id, msg_action)
 
     return "", 202
 
