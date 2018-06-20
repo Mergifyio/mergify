@@ -86,7 +86,7 @@ app.classy.controller({
                         }
                     });
 
-                    if (pull.mergify_engine_travis_state == "pending") {
+                    if (pull.mergify_engine_combined_status == "pending") {
                         this.refresh_travis(pull);
                     }
                 });
@@ -112,10 +112,10 @@ app.classy.controller({
             if (!open) {
                 this.open_info(pull, type);
 
-                if (type === "travis") {
-                    if (["success", "failure", "error"].indexOf(pull.mergify_engine_travis_state) === -1) {
-                        this.refresh_travis(pull);
-                    }
+                if (type === "travis" && !pull.mergify_ui_travis_detail) {
+                    this.refresh_travis(pull);
+                } else if (type === "commits" && !pull.mergify_ui_commits) {
+                    this.refresh_commits(pull);
                 }
             }
         },
@@ -137,45 +137,70 @@ app.classy.controller({
             this[tab][repo] = this[tab][repo].filter(e => e !== pull.number);
             pull["open_" + type + "_row"] = false;
         },
+        refresh_commits: function(pull) {
+            this.$http({"method": "GET", "url": pull.commits_url}).then((response) => {
+                pull.mergify_ui_commits = [];
+                response.data.forEach((commit_ref) => {
+                    this.$http({"method": "GET", "url": commit_ref.url}).then((response) => {
+                        pull.mergify_ui_commits.push(response.data);
+                    });
+                });
+            });
+        },
         refresh_travis: function(pull) {
-            if (!pull.mergify_engine_travis_detail)
-                pull.mergify_engine_travis_detail = new Object()
-            pull.mergify_engine_travis_detail.refreshing = true;
+            if (!pull.mergify_ui_travis_detail)
+                pull.mergify_ui_travis_detail = new Object()
+            pull.mergify_ui_travis_detail.refreshing = true;
 
-            var build_id = pull.mergify_engine_travis_url.split("?")[0].split("/").slice(-1)[0];
-            var v2_headers = { "Accept": "application/vnd.travis-ci.2.1+json" };
-            var travis_base_url = 'https://api.travis-ci.org';
             this.$http({
                 "method": "GET",
-                "url": travis_base_url + "/builds/" + build_id,
-                "headers": v2_headers,
+                "url": pull.statuses_url,
             }).then((response) => {
+                var travis_url = null;
+                response.data.some((el) => {
+                    if (el.context == "continuous-integration/travis-ci/pr") {
+                        travis_url = el.target_url;
+                        return true;
+                    } else {
+                      return false;
+                    }
+                });
 
-                var count_updated_job = 0;
-                var build = response.data.build;
-                build.resume_state = pull.mergify_engine_travis_state;
-                build.jobs = [];
-                build.refreshing = false;
-                build.job_ids.forEach((job_id) => {
-                    this.$http({
-                        "method": "GET",
-                        "url": travis_base_url + "/jobs/" + job_id,
-                        "headers": v2_headers,
-                    }).then((response) => {
-                        if (pull.mergify_engine_travis_state == "pending" && response.data.job.state == "started") {
-                            build.resume_state = "working";
-                        }
-                        build.jobs.push(response.data.job);
-                        count_updated_job += 1;
-                        if (count_updated_job == build.job_ids.length){
-                            pull.mergify_engine_travis_detail = build;
-                        }
-                    });
-                })
+                var build_id = travis_url.split("?")[0].split("/").slice(-1)[0];
+                var v2_headers = { "Accept": "application/vnd.travis-ci.2.1+json" };
+                var travis_base_url = 'https://api.travis-ci.org';
+                this.$http({
+                    "method": "GET",
+                    "url": travis_base_url + "/builds/" + build_id,
+                    "headers": v2_headers,
+                }).then((response) => {
+
+                    var count_updated_job = 0;
+                    var build = response.data.build;
+                    build.resume_state = pull.mergify_engine_combined_status;
+                    build.jobs = [];
+                    build.refreshing = false;
+                    build.job_ids.forEach((job_id) => {
+                        this.$http({
+                            "method": "GET",
+                            "url": travis_base_url + "/jobs/" + job_id,
+                            "headers": v2_headers,
+                        }).then((response) => {
+                            if (pull.mergify_engine_combined_status == "pending" && response.data.job.state == "started") {
+                                build.resume_state = "working";
+                            }
+                            build.jobs.push(response.data.job);
+                            count_updated_job += 1;
+                            if (count_updated_job == build.job_ids.length){
+                                pull.mergify_ui_travis_detail = build;
+                            }
+                        });
+                    })
+                });
             });
         },
         open_all_commits: function(pull){
-            pull.mergify_engine_commits.forEach((commit) => {
+            pull.mergify_ui_commits.forEach((commit) => {
                 var url = "https://github.com/" + pull.base.repo.full_name +
                     "/pull/" + pull.number + "/commits/" + commit.sha;
                 this.$window.open(url, commit.sha);

@@ -20,13 +20,9 @@ import logging
 import time
 
 import github
-import requests
 import six.moves
 
 LOG = logging.getLogger(__name__)
-TRAVIS_BASE_URL = 'https://api.travis-ci.org'
-TRAVIS_V2_HEADERS = {"Accept": "application/vnd.travis-ci.2+json",
-                     "User-Agent": "Mergify/1.0.0"}
 
 UNUSABLE_STATES = ["unknown", None]
 
@@ -44,37 +40,6 @@ def ensure_mergable_state(pull):
         time.sleep(0.42)  # you known, this one always work
 
     return pull
-
-
-def compute_travis_detail(pull, **extra):
-    if (not pull.mergify_engine["travis_url"] or
-            pull.mergify_engine["travis_url"] == "#"):
-        return None
-    build_id = pull.mergify_engine["travis_url"].split("?")[0].split("/")[-1]
-    r = requests.get(TRAVIS_BASE_URL + "/builds/" + build_id,
-                     headers=TRAVIS_V2_HEADERS)
-    if r.status_code != 200:
-        return None
-    build = r.json()["build"]
-    build["resume_state"] = pull.mergify_engine["travis_state"]
-    build["jobs"] = []
-    for job_id in build["job_ids"]:
-        r = requests.get(TRAVIS_BASE_URL + "/jobs/%s" % job_id,
-                         headers=TRAVIS_V2_HEADERS)
-        if r.status_code == 200:
-            job = r.json()["job"]
-            job["log_url"] = TRAVIS_BASE_URL + "/jobs/%s/log" % job_id
-            LOG.debug("%s: job %s %s -> %s" % (pull.pretty(), job_id,
-                                               job["state"],
-                                               job["log_url"]))
-            build["jobs"].append(job)
-            if (pull.mergify_engine["travis_state"] == "pending" and
-                    job["state"] == "started"):
-                build["resume_state"] = "working"
-    LOG.debug("%s: build %s %s/%s" % (pull.pretty(), build_id,
-                                      build["state"],
-                                      build["resume_state"]))
-    return build
 
 
 def compute_approvals(pull, **extra):
@@ -123,22 +88,6 @@ def compute_combined_status(pull, **extra):
     return status.state
 
 
-def compute_ci_statuses(pull, **extra):
-    # We need only travis, so shorcut to it here
-    if "travis" in extra:
-        raw_statuses = [extra["travis"]]
-    else:
-        # NOTE(sileht): Statuses are returned in reverse chronological order.
-        # The first status in the list will be the latest one.
-        commit = pull.base.repo.get_commit(pull.head.sha)
-        raw_statuses = [s.raw_data
-                        for s in reversed(list(commit.get_statuses()))]
-    statuses = {}
-    for s in raw_statuses:
-        statuses[s["context"]] = {"state": s["state"], "url": s["target_url"]}
-    return statuses
-
-
 def compute_approved(pull, **extra):
     approved = len(pull.mergify_engine["approvals"][0])
     requested_changes = len(pull.mergify_engine['approvals'][1])
@@ -147,18 +96,6 @@ def compute_approved(pull, **extra):
         return False
     else:
         return approved >= required
-
-
-def compute_travis_state(pull, **extra):
-    return pull.mergify_engine["ci_statuses"].get(
-        "continuous-integration/travis-ci/pr", {"state": "unknown"}
-    )["state"]
-
-
-def compute_travis_url(pull, **extra):
-    return pull.mergify_engine["ci_statuses"].get(
-        "continuous-integration/travis-ci/pr", {"url": "#"}
-    )["url"]
 
 
 def disabled_by_rules(pull, **extra):
@@ -237,23 +174,17 @@ def compute_status_desc(pull, **extra):
 
 # Order matter, some method need result of some other
 FULLIFIER = [
-    ("commits", lambda p, **extra: list(p.get_commits())),
     ("reviews", lambda p, **extra: list(p.get_reviews())),
     ("combined_status", compute_combined_status),
     ("approvals", compute_approvals),          # Need reviews
     ("approved", compute_approved),            # Need approvals
-    ("ci_statuses", compute_ci_statuses),      # Need approvals
-    ("travis_state", compute_travis_state),    # Need ci_statuses
-    ("travis_url", compute_travis_url),        # Need ci_statuses
-    ("travis_detail", compute_travis_detail),  # Need travis_url
     ("weight_and_status",
-     compute_weight_and_status),               # Need approved, travis_state
+     compute_weight_and_status),               # Need approved
     ("weight", compute_weight),                # Need weight_and_status
     ("status_desc", compute_status_desc),      # Need weight_and_status
 ]
 
 CACHE_HOOK_LIST_CONVERT = {
-    "commits": github.Commit.Commit,
     "reviews": github.PullRequestReview.PullRequestReview,
 }
 

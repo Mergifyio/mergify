@@ -84,32 +84,6 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
                       self.pretty(), e.data["message"])
 
 
-def mergify_engine_travis_post_build_results(self):
-    message = ["Tests %s for HEAD %s\n" % (
-        self.mergify_engine["travis_state"].upper(),
-        self.head.sha)]
-    for i, job in enumerate(self.mergify_engine["travis_detail"]["jobs"]):
-        try:
-            state = job["state"].upper()
-            if state == "PASSED":
-                icon = u" ✅"
-            elif state == "FAILED":
-                icon = u" ❌"
-            else:
-                icon = u""
-            message.append(u'- [%s](%s): %s%s' % (
-                job["config"].get("env", "JOB #%d" % i),
-                job["log_url"],
-                state, icon,
-            ))
-        except KeyError:
-            LOG.error("%s, malformed travis job: %s",
-                      self.pretty(), job)
-    message = "\n".join(message)
-    LOG.debug("%s POST comment: %s" % (self.pretty(), message))
-    self.create_issue_comment(message)
-
-
 def mergify_engine_merge(self, rule):
     post_parameters = {
         "sha": self.head.sha,
@@ -179,8 +153,6 @@ def monkeypatch_github():
     p.mergify_engine_merge = mergify_engine_merge
     p.mergify_engine_github_post_check_status = \
         mergify_engine_github_post_check_status
-    p.mergify_engine_travis_post_build_results = \
-        mergify_engine_travis_post_build_results
 
     # Missing Github API
     p.mergify_engine_update_branch = gh_update_branch.update_branch
