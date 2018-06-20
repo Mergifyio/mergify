@@ -273,31 +273,36 @@ def event_handler():
         get_queue().enqueue(worker.event_handler, event_type,
                             subscription, data)
 
+    # FIXME(sileht): This is finally not a good idea
+    # On big project, this code timeout, and is useless as
+    # the project have not yet created the .mergify.yml
+    #
     # TODO(sileht): handle installation modification
     # "installation_repositories" event
-    elif event_type == "installation" and data["action"] == "created":
-        token = INTEGRATION.get_access_token(data["installation"]["id"]).token
-        subscription = utils.get_subscription(utils.get_redis_for_cache(),
-                                              data["installation"]["id"])
-        if not subscription["token"]:
-            return "", 202
+    # elif event_type == "installation" and data["action"] == "created":
+    #     token = INTEGRATION.get_access_token(
+    #                           data["installation"]["id"]).token
+    #     subscription = utils.get_subscription(utils.get_redis_for_cache(),
+    #                                           data["installation"]["id"])
+    #     if not subscription["token"]:
+    #         return "", 202
 
-        g = github.Github(token)
-        for repository in data["repositories"]:
-            if repository["private"] and not subscription["subscribed"]:
-                continue
+    #     g = github.Github(token)
+    #     for repository in data["repositories"]:
+    #         if repository["private"] and not subscription["subscribed"]:
+    #             continue
 
-            r = g.get_repo(repository["full_name"])
-            pulls = r.get_pulls()
-            for p in pulls:
-                # Mimic the github event format
-                data = {
-                    'repository': r.raw_data,
-                    'installation': data["installation"],
-                    'pull_request': p.raw_data,
-                }
-                get_queue().enqueue(worker.event_handler, "refresh",
-                                    subscription, data)
+    #         r = g.get_repo(repository["full_name"])
+    #         pulls = r.get_pulls()
+    #         for p in pulls:
+    #             # Mimic the github event format
+    #             data = {
+    #                 'repository': r.raw_data,
+    #                 'installation': data["installation"],
+    #                 'pull_request': p.raw_data,
+    #             }
+    #             get_queue().enqueue(worker.event_handler, "refresh",
+    #                                 subscription, data)
 
     elif event_type == "installation" and data["action"] == "deleted":
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
