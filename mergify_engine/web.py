@@ -282,8 +282,10 @@ def event_handler():
         elif event_type == "status" and data["state"] == "pending":
             msg_action = "ignored (state pending)"
 
-        elif event_type == "pull_request" and data["action"] == "edited":
-            msg_action = "ignored (action edited)"
+        elif (event_type == "pull_request" and data["action"] not in [
+                "opened", "reopened", "closed", "synchronize",
+                "labeled", "unlabeled"]):
+            msg_action = "ignored (action %s)" % data["action"]
 
         else:
             get_queue().enqueue(worker.event_handler, event_type,

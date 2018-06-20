@@ -76,13 +76,6 @@ class MergifyEngine(object):
                      "pull request)")
             return
 
-        # We don't care about *assigned/review_request*/edited
-        elif (event_type == "pull_request" and data["action"] not in [
-                "opened", "reopened", "closed", "synchronize", "edited",
-                "labeled", "unlabeled"]):
-            LOG.info("No need to proceed queue (unwanted pull_request action)")
-            return
-
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
         if self._r.default_branch == incoming_pull.base.ref:
             ref = None
