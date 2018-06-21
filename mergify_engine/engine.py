@@ -77,7 +77,7 @@ class MergifyEngine(object):
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
         if (event_type == "pull_request"
-                and data["action"] == ["open", "synchronize"]
+                and data["action"] in ["opened", "synchronize"]
                 and self._r.default_branch == incoming_pull.base.ref):
             ref = None
             for f in incoming_pull.get_files():
@@ -109,7 +109,7 @@ class MergifyEngine(object):
         except rules.InvalidRules as e:
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
-                    data["action"] == ["open", "synchronize"]):
+                    data["action"] in ["opened", "synchronize"]):
                 incoming_pull.mergify_engine_github_post_check_status(
                     self._redis, self._installation_id, "failure", str(e))
             return
