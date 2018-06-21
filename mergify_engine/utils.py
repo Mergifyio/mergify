@@ -48,6 +48,8 @@ def get_redis_url():
         if redis_url:
             break
     if not redis_url:
+        redis_url = config.REDIS_URL
+    if not redis_url:
         raise RuntimeError("No redis url found in environments")
     return redis_url
 
