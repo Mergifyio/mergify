@@ -3,6 +3,7 @@ context: mergify
 git_email: noreply@mergify.io
 workers: 5
 base_url: "<required>"
+subscription_url: "<required>"
 integration_id: "<required>"
 private_key: "<required>"
 oauth_client_id: "<required>"

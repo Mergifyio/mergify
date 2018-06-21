@@ -130,7 +130,7 @@ def get_subscription(r, installation_id):
     if not sub:
         LOG.info("Subscription for %s not cached, retrieving it..." %
                  installation_id)
-        resp = requests.get("https://mergify.io/engine/installation/%s" %
+        resp = requests.get(config.SUBSCRIPTION_URL %
                             installation_id,
                             auth=(config.OAUTH_CLIENT_ID,
                                   config.OAUTH_CLIENT_SECRET))
