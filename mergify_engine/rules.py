@@ -72,6 +72,10 @@ class NoRules(Exception):
     pass
 
 
+class InvalidRules(Exception):
+    pass
+
+
 def validate_user_config(content):
     # NOTE(sileht): This is just to check the syntax some attributes can be
     # missing, the important thing is that once merged with the default.
@@ -109,12 +113,13 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
         rules = validate_user_config(content)["rules"] or {}
     except yaml.YAMLError as e:
         if hasattr(e, 'problem_mark'):
-            raise NoRules(".mergify.yml is invalid at position: (%s:%s)" %
-                          (e.problem_mark.line+1, e.problem_mark.column+1))
+            raise InvalidRules(".mergify.yml is invalid at position: (%s:%s)" %
+                               (e.problem_mark.line+1,
+                                e.problem_mark.column+1))
         else:
-            raise NoRules(".mergify.yml is invalid: %s" % str(e))
+            raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:
-        raise NoRules(".mergify.yml is invalid: %s" % str(e))
+        raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
 
     dict_merge(rule, rules.get("default", {}))
 
@@ -128,7 +133,7 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     try:
         rule = validate_merged_config(rule)
     except voluptuous.MultipleInvalid as e:
-        raise NoRules("mergify configuration invalid: %s" % str(e))
+        raise InvalidRules("mergify configuration invalid: %s" % str(e))
 
     # NOTE(sileht): Always disable Mergify if its configuration is changed
     if ".mergify.yml" not in rule["disabling_files"]:

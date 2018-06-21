@@ -64,7 +64,7 @@ def test_invalid_yaml():
     fake_repo = mock.Mock()
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
-    with pytest.raises(rules.NoRules) as excinfo:
+    with pytest.raises(rules.InvalidRules) as excinfo:
         rules.get_branch_rule(fake_repo, "master")
     assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
@@ -84,7 +84,7 @@ def test_disabling_files():
     assert "foobar.json" in parsed["disabling_files"]
     assert ".mergify.yml" in parsed["disabling_files"]
 
-    with pytest.raises(rules.NoRules):
+    with pytest.raises(rules.InvalidRules):
         config["rules"]["default"]["disabling_files"] = None
         validate_with_get_branch_rule(config)
 
@@ -110,7 +110,7 @@ def test_merge_strategy():
     assert parsed["merge_strategy"]["method"] == "rebase"
     assert parsed["merge_strategy"]["rebase_fallback"] == "none"
 
-    with pytest.raises(rules.NoRules):
+    with pytest.raises(rules.InvalidRules):
         config["rules"]["default"]["merge_strategy"]["method"] = "foobar"
         validate_with_get_branch_rule(config)
 
@@ -132,7 +132,7 @@ def test_automated_backport_labels():
             }
         }
     }
-    with pytest.raises(rules.NoRules):
+    with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)
 
 
@@ -161,7 +161,7 @@ def test_review_count_range():
             }
         }
     }
-    with pytest.raises(rules.NoRules):
+    with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)
 
     config = {
@@ -175,5 +175,5 @@ def test_review_count_range():
             }
         }
     }
-    with pytest.raises(rules.NoRules):
+    with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)

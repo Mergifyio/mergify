@@ -54,8 +54,7 @@ class MergifyEngine(object):
             # changed
             incoming_pull = self.get_incoming_pull_from_cache(data["sha"])
             if not incoming_pull:
-                issues = list(self._g.search_issues("is:pr %s" %
-                                                    data["sha"]))
+                issues = list(self._g.search_issues("is:pr %s" % data["sha"]))
                 if len(issues) >= 1:
                     incoming_pull = self._r.get_pull(issues[0].number)
 
@@ -88,7 +87,7 @@ class MergifyEngine(object):
             if ref is not None:
                 try:
                     rules.get_branch_rule(self._r, incoming_pull.base.ref, ref)
-                except rules.NoRules as e:
+                except rules.InvalidRules as e:
                     # Not configured, post status check with the error message
                     incoming_pull.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
@@ -105,6 +104,9 @@ class MergifyEngine(object):
             branch_rule = rules.get_branch_rule(self._r,
                                                 incoming_pull.base.ref)
         except rules.NoRules as e:
+            LOG.info("No need to proceed queue (.mergify.yml is missing)")
+            return
+        except rules.InvalidRules as e:
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
                     data["action"] == ["open", "synchronize"]):
