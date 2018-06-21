@@ -1,0 +1,24 @@
+---
+WORKERS: 5
+
+LOG_RATELIMIT: false
+DEBUG: true
+FLUSH_REDIS_ON_STARTUP: false
+
+CONTEXT: mergify
+GIT_EMAIL: noreply@mergify.io
+INTEGRATION_ID: 00000
+
+BASE_URL: https://whatever
+SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%d"
+REDISCLOUD_URL: "redis://localhost:6379"
+
+PRIVATE_KEY: X
+OAUTH_CLIENT_ID: X
+OAUTH_CLIENT_SECRET: X
+WEBHOOK_SECRET: X
+
+# For tox -erecord
+FAKE_DATA: "<FAKE_DATA>" # Must be 11 char
+MAIN_TOKEN: "<MAIN_TOKEN>"
+FORK_TOKEN: "<FORK_TOKEN>"

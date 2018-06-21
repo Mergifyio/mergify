@@ -54,9 +54,9 @@ TO_HIDE = [
 ]
 
 if RECORD_MODE in ["all", "once"]:
-    MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN")
-    FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN")
-    FAKE_DATA = os.getenv("MERGIFYENGINE_FAKE_DATA")
+    MAIN_TOKEN = config.MAIN_TOKEN
+    FORK_TOKEN = config.FORK_TOKEN
+    FAKE_DATA = config.FAKE_DATA
     FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
     if config.PRIVATE_KEY == "X" or not MAIN_TOKEN or not FORK_TOKEN:

@@ -22,30 +22,18 @@ import yaml
 LOG = logging.getLogger(__name__)
 
 
-with open("config.yml") as f:
+with open(os.getenv("MERGIFYENGINE_SETTINGS", "fake.yml")) as f:
     CONFIG = yaml.safe_load(f.read())
 
-global cfg_msg
-cfg_msg = ""
-for name, config_value in CONFIG.items():
-    name = name.upper()
-    value = os.getenv("MERGIFYENGINE_%s" % name, config_value)
-    if value == "<required>":
-        raise RuntimeError("MERGIFYENGINE_%s environement of %s configuration"
-                           "option must be set." % (name, name.lower()))
-    if config_value is not None and value is not None:
-        value = type(config_value)(value)
-    globals()[name] = value
-
-    if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET"]
-            and value is not None):
-        value = "*****"
-    cfg_msg += "* MERGIFYENGINE_%s: %s\n" % (name, value)
+globals().update(CONFIG)
 
 
 def log():
-    global cfg_msg
-    LOG.info("""
-##################### CONFIGURATION ######################
-%s##########################################################
-""" % cfg_msg)
+    LOG.info("##################### CONFIGURATION ######################")
+    for name, value in CONFIG.items():
+        if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET", "OAUTH_CLIENT_ID",
+                     "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN"]
+                and value is not None):
+            value = "*****"
+        LOG.info("* MERGIFYENGINE_%s: %s", name, value)
+    LOG.info("##########################################################")
