@@ -45,9 +45,19 @@ LOG = logging.getLogger(__name__)
 RECORD_MODE = os.getenv("MERGIFYENGINE_RECORD_MODE", "none")
 INSTALLATION_ID = os.getenv("MERGIFYENGINE_INSTALLATION_ID")
 
+TO_HIDE = [
+    "ACCESS_TOKEN",
+    "MAIN_TOKEN",
+    "FORK_TOKEN",
+    "FAKE_DATA",
+    "FAKE_HMAC",
+]
+
 if RECORD_MODE in ["all", "once"]:
     MAIN_TOKEN = os.getenv("MERGIFYENGINE_MAIN_TOKEN")
     FORK_TOKEN = os.getenv("MERGIFYENGINE_FORK_TOKEN")
+    FAKE_DATA = os.getenv("MERGIFYENGINE_FAKE_DATA")
+    FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
     if config.PRIVATE_KEY == "X" or not MAIN_TOKEN or not FORK_TOKEN:
         raise RuntimeError("MERGIFYENGINE_MAIN_TOKEN/MERGIFYENGINE_FORK_TOKEN"
@@ -57,10 +67,14 @@ if RECORD_MODE in ["all", "once"]:
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     ACCESS_TOKEN = integration.get_access_token(INSTALLATION_ID).token
+
 else:
     ACCESS_TOKEN = "<ACCESS_TOKEN>"
     MAIN_TOKEN = "<MAIN_TOKEN>"
     FORK_TOKEN = "<FORK_TOKEN>"
+    FAKE_DATA = "<FAKE_DATA>"
+    FAKE_HMAC = "<FAKE_HMAC>"
+
 
 CONFIG = """
 rules:
@@ -113,9 +127,8 @@ with betamax.Betamax.configure() as c:
         # Useful for debugging
         # 'serialize_with': 'prettyjson',
     })
-    c.define_cassette_placeholder("<MAIN_TOKEN>", MAIN_TOKEN)
-    c.define_cassette_placeholder("<FORK_TOKEN>", FORK_TOKEN)
-    c.define_cassette_placeholder("<ACCESS_TOKEN>", ACCESS_TOKEN)
+    for var in TO_HIDE:
+        c.define_cassette_placeholder("<%s>" % var, globals()[var])
 
 
 class GitterRecorder(utils.Gitter):
@@ -137,25 +150,18 @@ class GitterRecorder(utils.Gitter):
         if not os.path.exists(self.cassette_path):
             raise RuntimeError("Cassette %s not found" % self.cassette_path)
         with open(self.cassette_path, 'rb') as f:
-            self.records = json.loads(
-                f.read().decode('utf8').replace(
-                    "<MAIN_TOKEN>", MAIN_TOKEN
-                ).replace(
-                    "<FORK_TOKEN>", FORK_TOKEN
-                ).replace(
-                    "<ACCESS_TOKEN>", ACCESS_TOKEN
-                )
-            )
+            data = f.read().decode('utf8')
+            for var in TO_HIDE:
+                data = data.replace("<%s>" % var, globals()[var])
+            self.records = json.loads(data)
 
     def save_records(self):
         with open(self.cassette_path, 'wb') as f:
             data = json.dumps(self.records)
             #  , sort_keys=True, indent=4, separators=(',', ': '))
-            f.write(data.replace(
-                MAIN_TOKEN, "<MAIN_TOKEN>").replace(
-                    FORK_TOKEN, "<FORK_TOKEN>").replace(
-                        ACCESS_TOKEN, "<ACCESS_TOKEN>"
-                    ).encode('utf8'))
+            for var in TO_HIDE:
+                data = data.replace(globals()[var], "<%s>" % var)
+            f.write(data.encode('utf8'))
 
     def __call__(self, *args, **kwargs):
         if self.do_record:
@@ -256,7 +262,10 @@ class TestEngineScenario(testtools.TestCase):
 
         with self.cassette("setUp-prepare-repo", allow_playback_repeats=True):
             # Cleanup the remote testing redis
-            r = self.session.delete("https://gh.mergify.io/events-testing")
+            r = self.session.delete(
+                "https://gh.mergify.io/events-testing",
+                data=FAKE_DATA,
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
             r.raise_for_status()
 
             self.g_main = github.Github(MAIN_TOKEN)
@@ -353,7 +362,10 @@ class TestEngineScenario(testtools.TestCase):
         with self.cassette("events-getter-%s" % self.events_getter_counter):
             resp = self.session.get(
                 "https://gh.mergify.io/events-testing?id=%s" %
-                self.events_getter_counter)
+                self.events_getter_counter,
+                data=FAKE_DATA,
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+            )
             events = resp.json()
         for event in reversed(events):
             self._send_event(**event)
@@ -618,8 +630,8 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("stable", pulls[0].base.ref)
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
-        self.assertIn("To fixup this pull request, you can checking out it",
-                      pulls[0].body)
+        self.assertIn("To fixup this pull request, you can check out it "
+                      "locally", pulls[0].body)
 
     def test_auto_backport_rebase(self):
         p, commits = self.create_pr("nostrict", two_commits=True)

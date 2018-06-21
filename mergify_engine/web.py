@@ -311,12 +311,12 @@ def event_handler():
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.route("/events-testing", methods=["POST", "GET", "DELETE"])
 def event_testing_handler():
+    authentification()
     r = utils.get_redis_for_cache()
     if flask.request.method == "DELETE":
         r.delete("events-testing")
         return "", 202
     elif flask.request.method == "POST":
-        authentification()
         event_type = flask.request.headers.get("X-GitHub-Event")
         event_id = flask.request.headers.get("X-GitHub-Delivery")
         data = flask.request.get_json()

@@ -229,6 +229,9 @@ class MergifyEngine(object):
         LOG.info("%s selected", p.pretty())
 
         if p.mergify_engine_weight >= 11:
+            # FIXME(sileht): If two PR are ready at the same times
+            # this can fail, that's not a big deal, but we should ignore
+            # the error here. And maybe try the next PR.
             if p.mergify_engine_merge(extra["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p.pretty())

@@ -42,8 +42,8 @@ REDIS_CONNECTION_CACHE = None
 
 
 def get_redis_url():
-    for envvar in ["REDIS_URL", "REDISTOGO_URL", "REDISCLOUD_URL",
-                   "PIFPAF_URL"]:
+    for envvar in ["PIFPAF_URL", "REDIS_URL",
+                   "REDISTOGO_URL", "REDISCLOUD_URL"]:
         redis_url = os.getenv(envvar)
         if redis_url:
             break
