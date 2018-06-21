@@ -149,8 +149,8 @@ class GitterRecorder(utils.Gitter):
 
     def save_records(self):
         with open(self.cassette_path, 'wb') as f:
-            data = json.dumps(self.records, sort_keys=True,
-                              indent=4, separators=(',', ': '))
+            data = json.dumps(self.records)
+            #  , sort_keys=True, indent=4, separators=(',', ': '))
             f.write(data.replace(
                 MAIN_TOKEN, "<MAIN_TOKEN>").replace(
                     FORK_TOKEN, "<FORK_TOKEN>").replace(
