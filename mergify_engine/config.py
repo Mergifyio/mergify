@@ -23,7 +23,7 @@ LOG = logging.getLogger(__name__)
 
 
 with open("config.yml") as f:
-    CONFIG = yaml.load(f.read())
+    CONFIG = yaml.safe_load(f.read())
 
 global cfg_msg
 cfg_msg = ""

@@ -25,7 +25,7 @@ from mergify_engine import rules
 with open("default_rule.yml", "r") as f:
     print(f.read())
     f.seek(0)
-    DEFAULT_CONFIG = yaml.load(f.read())
+    DEFAULT_CONFIG = yaml.safe_load(f.read())
 
 
 def validate_with_get_branch_rule(config, branch="master"):

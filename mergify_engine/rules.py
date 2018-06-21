@@ -26,7 +26,7 @@ import yaml
 LOG = logging.getLogger(__name__)
 
 with open("default_rule.yml", "r") as f:
-    DEFAULT_RULE = yaml.load(f.read())
+    DEFAULT_RULE = yaml.safe_load(f.read())
 
 
 Protection = {
@@ -80,7 +80,7 @@ def validate_user_config(content):
     # NOTE(sileht): This is just to check the syntax some attributes can be
     # missing, the important thing is that once merged with the default.
     # Everything need by Github is set
-    return voluptuous.Schema(UserConfigurationSchema)(yaml.load(content))
+    return voluptuous.Schema(UserConfigurationSchema)(yaml.safe_load(content))
 
 
 def validate_merged_config(config):
