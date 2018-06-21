@@ -77,7 +77,9 @@ class MergifyEngine(object):
             return
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
-        if self._r.default_branch == incoming_pull.base.ref:
+        if (event_type == "pull_request"
+                and data["action"] == ["open", "synchronize"]
+                and self._r.default_branch == incoming_pull.base.ref):
             ref = None
             for f in incoming_pull.get_files():
                 if f.filename == ".mergify.yml":
@@ -104,8 +106,10 @@ class MergifyEngine(object):
                                                 incoming_pull.base.ref)
         except rules.NoRules as e:
             # Not configured, post status check with the error message
-            incoming_pull.mergify_engine_github_post_check_status(
-                self._redis, self._installation_id, "failure", str(e))
+            if (event_type == "pull_request" and
+                    data["action"] == ["open", "synchronize"]):
+                incoming_pull.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id, "failure", str(e))
             return
 
         try:
