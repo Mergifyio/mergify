@@ -149,7 +149,8 @@ def get_subscription(r, installation_id):
         else:
             # NOTE(sileht): handle this better
             resp.raise_for_status()
-        r.set("subscription-cache-%s" % installation_id, json.dumps(sub))
+        r.set("subscription-cache-%s" % installation_id, json.dumps(sub),
+              ex=60*60)
     else:
         sub = json.loads(sub)
 
