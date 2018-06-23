@@ -10,7 +10,7 @@ GIT_EMAIL: noreply@mergify.io
 INTEGRATION_ID: 00000
 
 BASE_URL: https://whatever
-SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%d"
+SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%s"
 REDISCLOUD_URL: "redis://localhost:6379"
 
 PRIVATE_KEY: X
