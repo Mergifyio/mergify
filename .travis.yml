@@ -8,7 +8,7 @@ script:
       - tox
 env:
       - TOXENV=pep8
-      - TOXENV=py36
+      - TOXENV=py36-coveralls
       - TOXENV=docs
 
 deploy:
