@@ -128,7 +128,7 @@ def get_installation_id(integration, owner):
 
 
 def get_subscription(r, installation_id):
-    sub = r.get("subscription-cache-%d" % installation_id)
+    sub = r.get("subscription-cache-%s" % installation_id)
     if not sub:
         LOG.info("Subscription for %s not cached, retrieving it..." %
                  installation_id)
