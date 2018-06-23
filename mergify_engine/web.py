@@ -255,7 +255,7 @@ def stream(installation_id):
 def subscription_cache(installation_id):
     authentification()
     r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%d" % installation_id)
+    r.delete("subscription-cache-%s" % installation_id)
     return "Cache cleaned", 200
 
 
