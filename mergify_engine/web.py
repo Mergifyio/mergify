@@ -251,6 +251,14 @@ def stream(installation_id):
     ), mimetype="text/event-stream")
 
 
+@app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
+def subscription_cache(installation_id):
+    authentification()
+    r = utils.get_redis_for_cache()
+    r.delete("subscription-cache-%d" % installation_id)
+    return "Cache cleaned", 200
+
+
 @app.route("/event", methods=["POST"])
 def event_handler():
     authentification()
