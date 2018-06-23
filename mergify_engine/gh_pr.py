@@ -60,7 +60,7 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
             description = msg
 
         redis.hset("status", msg_key, msg.encode('utf8'))
-        target_url = "http://gh.mergify.io/check_status_msg/%s" % msg_key
+        target_url = "%s/check_status_msg/%s" % (config.BASE_URL, msg_key)
     else:
         description = self.mergify_engine["status_desc"]
         target_url = None
