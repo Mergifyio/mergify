@@ -81,8 +81,9 @@ def setup_logging():
         level=(logging.DEBUG if config.DEBUG else logging.INFO),
     )
     daiquiri.set_default_log_levels([
-        ("rq", "ERROR"),
-        # ("github.Requester", "DEBUG"),
+        ("rq", "WARN"),
+        ("github.Requester", "WARN"),
+        ("urllib3.connectionpool", "WARN"),
     ])
 
 

@@ -9,7 +9,8 @@ CONTEXT: mergify
 GIT_EMAIL: noreply@mergify.io
 INTEGRATION_ID: 00000
 
-BASE_URL: https://whatever
+BASE_URL: http://localhost:8802
+
 SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%s"
 REDISCLOUD_URL: "redis://localhost:6379"
 

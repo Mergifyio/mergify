@@ -347,10 +347,10 @@ class TestEngineScenario(testtools.TestCase):
         loop = 0
         while got < n:
             got += self._push_events()
-            if got < n:
-                time.sleep(0.01)
+            if got < n and RECORD_MODE in ["all", "once"]:
+                time.sleep(0.1)
             loop += 1
-            if loop > 1000:
+            if loop > 100:
                 raise RuntimeError("Never got expected events")
         if got != n:
             raise RuntimeError("We received more events than expected")
@@ -633,6 +633,9 @@ class TestEngineScenario(testtools.TestCase):
         self.assertIn("To fixup this pull request, you can check out it "
                       "locally", pulls[0].body)
 
+        # Consume remaining events
+        self.push_events(2)
+
     def test_auto_backport_rebase(self):
         p, commits = self.create_pr("nostrict", two_commits=True)
 
@@ -658,6 +661,9 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
 
+        # Consume remaining events
+        self.push_events(2)
+
     def test_auto_backport_merge(self):
         p, commits = self.create_pr(two_commits=True)
 
@@ -682,6 +688,9 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("stable", pulls[0].base.ref)
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
+
+        # Consume remaining events
+        self.push_events(1)
 
     def test_update_branch(self):
         p1, commits1 = self.create_pr()
