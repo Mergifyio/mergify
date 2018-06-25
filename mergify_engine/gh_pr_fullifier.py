@@ -20,7 +20,6 @@ import logging
 import time
 
 import github
-import six.moves
 
 LOG = logging.getLogger(__name__)
 
@@ -43,6 +42,13 @@ def ensure_mergable_state(pull):
 
 
 def compute_approvals(pull, **extra):
+    """Compute approvals.
+
+    :param pull: The pull request.
+    :param extra: Extra stuff
+    :return: A tuple (users_with_review_ok, users_with_review_ko,
+                      number_of_review_required)
+    """
     users_info = {}
     reviews_ok = set()
     reviews_ko = set()
@@ -73,29 +79,17 @@ def compute_approvals(pull, **extra):
         required = extra["branch_rule"]["protection"][
             "required_pull_request_reviews"]["required_approving_review_count"]
     except KeyError:
-        return [], [], 0, 0
+        return [], [], 0
 
-    # FIXME(sileht): Compute the thing on JS side
-    remaining = list(six.moves.range(max(0, required - len(reviews_ok))))
     return ([users_info[u] for u in reviews_ok],
             [users_info[u] for u in reviews_ko],
-            required, remaining)
+            required)
 
 
 def compute_combined_status(pull, **extra):
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
     return status.state
-
-
-def compute_approved(pull, **extra):
-    approved = len(pull.mergify_engine["approvals"][0])
-    requested_changes = len(pull.mergify_engine['approvals'][1])
-    required = pull.mergify_engine['approvals'][2]
-    if requested_changes != 0:
-        return False
-    else:
-        return approved >= required
 
 
 def disabled_by_rules(pull, **extra):
@@ -114,11 +108,18 @@ def disabled_by_rules(pull, **extra):
 
 def compute_weight_and_status(pull, **extra):
     status_desc = disabled_by_rules(pull, **extra)
+    reviews_ok, reviews_ko, reviews_required = pull.mergify_engine["approvals"]
     if status_desc is not None:
         weight = -1
-    elif not pull.mergify_engine["approved"]:
+    elif reviews_ko:
         weight = -1
-        status_desc = "Waiting for approvals"
+        status_desc = "Change requests need to be dismissed"
+    elif len(reviews_ok) < reviews_required:
+        weight = -1
+        status_desc = (
+            "%d/%d approvals required" %
+            (len(reviews_ok), reviews_required)
+        )
     elif (pull.mergeable_state == "clean"
           and pull.mergify_engine["combined_status"] == "success"):
         # Best PR ever, up2date and CI OK
@@ -156,9 +157,6 @@ def compute_weight_and_status(pull, **extra):
 
     if weight >= 0 and pull.milestone is not None:
         weight += 1
-    # LOG.info("%s prio: %s, %s, %s, %s, %s", pull.pretty(), weight,
-    #          pull.mergify_engine["approved"], pull.mergeable_state,
-    #          pull.mergify_engine["combined_status"])
     return (weight, status_desc)
 
 
@@ -177,9 +175,7 @@ FULLIFIER = [
     ("reviews", lambda p, **extra: list(p.get_reviews())),
     ("combined_status", compute_combined_status),
     ("approvals", compute_approvals),          # Need reviews
-    ("approved", compute_approved),            # Need approvals
-    ("weight_and_status",
-     compute_weight_and_status),               # Need approved
+    ("weight_and_status", compute_weight_and_status),  # Need approvals
     ("weight", compute_weight),                # Need weight_and_status
     ("status_desc", compute_status_desc),      # Need weight_and_status
 ]
