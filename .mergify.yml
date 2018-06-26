@@ -6,7 +6,7 @@ rules:
         contexts:
           - continuous-integration/travis-ci
       required_pull_request_reviews:
-        required_approving_review_count: 2
+        required_approving_review_count: 1
     merge_strategy:
       method: rebase
 
