@@ -46,7 +46,7 @@ def pretty(self):
 
 
 def mergify_engine_github_post_check_status(self, redis, installation_id,
-                                            state="success", msg=None,
+                                            state="pending", msg=None,
                                             context=None):
 
     context = "pr" if context is None else context

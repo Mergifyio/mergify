@@ -228,16 +228,19 @@ class MergifyEngine(object):
 
         LOG.info("%s selected", p.pretty())
 
-        if p.mergify_engine_weight >= 11:
-            # FIXME(sileht): If two PR are ready at the same times
-            # this can fail, that's not a big deal, but we should ignore
-            # the error here. And maybe try the next PR.
-            if p.mergify_engine_merge(extra["branch_rule"]):
-                # Wait for the closed event now
-                LOG.info("%s -> merged", p.pretty())
-            else:
-                LOG.info("%s -> merge fail", p.pretty())
-
+        if p.mergify_engine_weight >= 10:
+            p.mergify_engine_github_post_check_status(
+                self._redis, self._installation_id, "success",
+                "Merging")
+            if p.mergify_engine_weight >= 11:
+                # FIXME(sileht): If two PR are ready at the same times
+                # this can fail, that's not a big deal, but we should ignore
+                # the error here. And maybe try the next PR.
+                if p.mergify_engine_merge(extra["branch_rule"]):
+                    # Wait for the closed event now
+                    LOG.info("%s -> merged", p.pretty())
+                else:
+                    LOG.info("%s -> merge fail", p.pretty())
         elif p.mergify_engine_weight >= 5 and p.mergeable_state == "behind":
             if p.mergify_engine["combined_status"] == "success":
                 # rebase it and wait the next pull_request event
