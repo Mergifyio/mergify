@@ -251,11 +251,22 @@ def stream(installation_id):
     ), mimetype="text/event-stream")
 
 
+# FIXME(sileht): rename this to new subscription something
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
 def subscription_cache(installation_id):
     authentification()
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
+
+    subscription = utils.get_subscription(
+        utils.get_redis_for_cache(), installation_id)
+
+    # New subscription, create initial configuration for private repo
+    # public repository have already been done during the installation
+    # event.
+    if subscription["token"] and subscription["subscribed"]:
+        get_queue().enqueue(worker.private_installation_handler,
+                            installation_id)
     return "Cache cleaned", 200
 
 
@@ -267,24 +278,57 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    if event_type == "installation" and data["action"] == "deleted":
+    subscription = utils.get_subscription(
+        utils.get_redis_for_cache(), data["installation"]["id"])
+
+    if not subscription["token"]:
+        msg_action = "ignored (no token)"
+
+    elif event_type == "installation" and data["action"] == "created":
+        for repository in data["repositories"]:
+            if repository["private"] and not subscription["subscribed"]:
+                continue
+
+            get_queue().enqueue(worker.installation_handler,
+                                data["installation"], repository)
+        msg_action = "pushed to backend"
+
+    elif event_type == "installation" and data["action"] == "deleted":
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
         msg_action = "handled, cache cleaned"
 
-    elif event_type == "installation":
+    elif (event_type == "installation_repositories" and
+          data["action"] == "added"):
+        for repository in data["repositories_added"]:
+            if repository["private"] and not subscription["subscribed"]:
+                continue
+
+            get_queue().enqueue(worker.installation_handler,
+                                data["installation"], repository)
+
+        msg_action = "pushed to backend"
+
+    elif (event_type == "installation_repositories" and
+          data["action"] == "removed"):
+        for repository in data["repositories_removed"]:
+            if repository["private"] and not subscription["subscribed"]:
+                continue
+            key = "queues~%s~%s~%s~*~*" % (
+                data["installation"]["id"],
+                data["installation"]["account"]["login"],
+                repository["name"]
+            )
+            utils.get_redis_for_cache().delete(key)
+        msg_action = "handled, cache cleaned"
+
+    elif event_type in ["installation", "installation_repositories"]:
         msg_action = "ignored (action %s)" % data["action"]
 
     elif event_type in ["pull_request", "pull_request_review", "status",
                         "refresh"]:
 
-        subscription = utils.get_subscription(
-            utils.get_redis_for_cache(), data["installation"]["id"])
-
-        if not subscription["token"]:
-            msg_action = "ignored (no token)"
-
-        elif data["repository"]["private"] and not subscription["subscribed"]:
+        if data["repository"]["private"] and not subscription["subscribed"]:
             msg_action = "ignored (not public or subscribe)"
 
         elif event_type == "status" and data["state"] == "pending":
