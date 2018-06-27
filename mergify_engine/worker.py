@@ -23,7 +23,7 @@ import rq.worker
 
 from mergify_engine import config
 from mergify_engine import engine
-from mergify_engine import gh_pr
+from mergify_engine import pullrequest_utils
 from mergify_engine import initial_configuration
 from mergify_engine import utils
 
@@ -97,7 +97,7 @@ def installation_handler(installation, repository):
 def main():
     utils.setup_logging()
     config.log()
-    gh_pr.monkeypatch_github()
+    pullrequest_utils.monkeypatch_github()
     r = utils.get_redis_for_rq()
     if config.FLUSH_REDIS_ON_STARTUP:
         r.flushall()

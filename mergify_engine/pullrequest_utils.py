@@ -19,7 +19,7 @@ import logging
 import github
 
 from mergify_engine import config
-from mergify_engine import gh_pr_fullifier
+from mergify_engine import pull_cache
 from mergify_engine import gh_update_branch
 
 LOG = logging.getLogger(__name__)
@@ -147,8 +147,8 @@ def monkeypatch_github():
         lambda p: p.raw_data["maintainer_can_modify"])
 
     p.pretty = pretty
-    p.fullify = gh_pr_fullifier.fullify
-    p.jsonify = gh_pr_fullifier.jsonify
+    p.fullify = pull_cache.fullify
+    p.jsonify = pull_cache.jsonify
 
     p.mergify_engine_merge = mergify_engine_merge
     p.mergify_engine_github_post_check_status = \

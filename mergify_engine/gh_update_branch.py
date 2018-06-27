@@ -72,12 +72,12 @@ def update_branch(self, token, merge=True):
 
 
 def test():
-    from mergify_engine import gh_pr
+    from mergify_engine import pullrequest_utils
     from mergify_engine import utils
 
     utils.setup_logging()
     config.log()
-    gh_pr.monkeypatch_github()
+    pullrequest_utils.monkeypatch_github()
 
     parts = sys.argv[1].split("/")
     LOG.info("Getting repo %s ..." % sys.argv[1])

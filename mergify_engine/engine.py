@@ -24,7 +24,7 @@ import github
 from mergify_engine import backports
 from mergify_engine import config
 from mergify_engine import gh_branch
-from mergify_engine import gh_pr
+from mergify_engine import pullrequest_utils
 from mergify_engine import rules
 from mergify_engine import utils
 
@@ -48,7 +48,7 @@ class MergifyEngine(object):
     def handle(self, event_type, data):
         # Everything start here
 
-        incoming_pull = gh_pr.from_event(self._r, data)
+        incoming_pull = pullrequest_utils.from_event(self._r, data)
         if not incoming_pull and event_type == "status":
             # It's safe to take the one from cache, since only status have
             # changed
@@ -206,7 +206,7 @@ class MergifyEngine(object):
 
         with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
             pulls = list(tpe.map(
-                lambda p: gh_pr.from_cache(self._r, json.loads(p), **extra),
+                lambda p: pullrequest_utils.from_cache(self._r, json.loads(p), **extra),
                 data.values()))
 
         sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
@@ -294,7 +294,7 @@ class MergifyEngine(object):
         for branch in self.get_cached_branches():
             incoming_pull = self.get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
-                return gh_pr.from_event(self._r, incoming_pull)
+                return pullrequest_utils.from_event(self._r, incoming_pull)
 
     def get_cache_key(self, branch):
         # Use only IDs, not name

@@ -106,12 +106,12 @@ def configure_protection_if_needed(g_repo, branch, rule):
 def test():
     import github
 
-    from mergify_engine import gh_pr
+    from mergify_engine import pullrequest_utils
     from mergify_engine import utils
 
     utils.setup_logging()
     config.log()
-    gh_pr.monkeypatch_github()
+    pullrequest_utils.monkeypatch_github()
 
     parts = sys.argv[1].split("/")
 
