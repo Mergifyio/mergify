@@ -135,7 +135,7 @@ def compute_weight_and_status(pull, **extra):
         status_desc = "Waiting for CI success"
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
-        if not pull.maintainer_can_modify:
+        if not pull.base_is_modifiable:
             weight = -1
             status_desc = ("Pull request can't be updated with latest "
                            "base branch changes, owner doesn't allow "
