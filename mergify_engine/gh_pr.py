@@ -122,6 +122,11 @@ def mergify_engine_merge(self, rule):
         # to repoduce the issue
 
 
+def base_is_modifiable(self):
+    return (self.raw_data["maintainer_can_modify"] or
+            self.head.repo.id == self.base.repo.id)
+
+
 def from_event(repo, data):
     # TODO(sileht): do it only once in handle()
     # NOTE(sileht): Convert event payload, into pygithub object
@@ -142,14 +147,11 @@ def from_cache(repo, data, **extra):
 def monkeypatch_github():
     p = github.PullRequest.PullRequest
 
-    # Missing attribute
-    p.maintainer_can_modify = property(
-        lambda p: p.raw_data["maintainer_can_modify"])
-
     p.pretty = pretty
     p.fullify = gh_pr_fullifier.fullify
     p.jsonify = gh_pr_fullifier.jsonify
 
+    p.mergify_base_is_modifiable = base_is_modifiable
     p.mergify_engine_merge = mergify_engine_merge
     p.mergify_engine_github_post_check_status = \
         mergify_engine_github_post_check_status
