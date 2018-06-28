@@ -201,37 +201,72 @@ class MergifyEngine(object):
     # State machine goes here #
     ###########################
 
+    @staticmethod
+    def sort_pulls(pulls):
+        """Sort pull requests by weight and updated_at"""
+        sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
+        return list(sorted(pulls, key=sort_key, reverse=True))
+
     def build_queue(self, branch, **extra):
+        """Return the pull requests from redis cache ordered by weight"""
+
         data = self._redis.hgetall(self.get_cache_key(branch))
 
         with futures.ThreadPoolExecutor(max_workers=config.WORKERS) as tpe:
             pulls = list(tpe.map(
                 lambda p: gh_pr.from_cache(self._r, json.loads(p), **extra),
                 data.values()))
-
-        sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
-        pulls = list(sorted(pulls, key=sort_key, reverse=True))
+        pulls = self.sort_pulls(pulls)
         LOG.info("%s, queues content:" % self._get_logprefix(branch))
         for p in pulls:
             LOG.info("%s, sha: %s->%s)", p.pretty(), p.base.sha, p.head.sha)
         return pulls
 
-    def proceed_queue(self, branch, **extra):
+    def get_next_pull_to_processed(self, branch, **extra):
+        """Return the next pull request to proceed
+
+        This take the pull request with the higher weight that is not yet
+        closed.
+        """
 
         queue = self.build_queue(branch, **extra)
-        # Proceed the queue
-        if not queue:
+        while queue:
+            p = queue.pop()
+
+            expected_weight = p.mergify_engine_weight
+
+            # NOTE(sileht): We refresh it before processing, because the cache
+            # can be outdated, user may have manually merged the PR or weight
+            # may have changed by an event not yet received.
+
+            # FIXME(sileht): This will refresh the first pull request of the
+            # queue on each event. To limit this almost useless refresh, we
+            # should be smarted on when we call proceed_queue()
+            p = p.fullify({}, **extra)
+
+            if p.state == "closed":
+                # NOTE(sileht): PR merged in the meantime or manually
+                self.cache_remove_pull(p)
+            elif expected_weight != p.mergify_engine_weight:
+                # NOTE(sileht): The weight have changed, put back the pull into
+                # the queue and resort it
+                queue.append(p)
+                queue = self.sort_pulls(queue)
+            else:
+                # We found the next pull request to proceed
+                self.cache_save_pull(p)
+                return p
+
+    def proceed_queue(self, branch, **extra):
+
+        p = self.get_next_pull_to_processed(branch, **extra)
+        if not p:
             LOG.info("Nothing queued, skipping queues processing")
             return
-
-        p = queue[0]
 
         LOG.info("%s selected", p.pretty())
 
         if p.mergify_engine_weight >= 11:
-            # FIXME(sileht): If two PR are ready at the same times
-            # this can fail, that's not a big deal, but we should ignore
-            # the error here. And maybe try the next PR.
             if p.mergify_engine_merge(extra["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p.pretty())
