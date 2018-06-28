@@ -1,13 +1,8 @@
 sudo: false
 language: python
-python:
-  - "2.7"
-  - "3.6"
-install: pip install tox-travis # coveralls
+python: 3.6
+install: pip install tox-travis
 script: tox
-
-# after_success:
-#     - [ "$TOXENV" == "py36" ] && coveralls
 
 deploy:
   provider: pages
@@ -18,4 +13,4 @@ deploy:
   fqdn: doc.mergify.io
   on:
     branch: master
-    condition: $TOXENV = docs
+    python: 3.6
