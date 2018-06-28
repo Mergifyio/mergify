@@ -178,7 +178,7 @@ class MergifyEngine(object):
                         cache.pop("mergify_engine_combined_status", None)
                         cache["mergify_engine_ci_statuses"] = {}
             else:
-                LOG.debug("%s: cache format change, refreshing it.",
+                LOG.info("%s: cache format change, refreshing it.",
                           incoming_pull.pretty())
                 cache = {}
 
