@@ -46,23 +46,18 @@ def pretty(self):
 
 
 def mergify_engine_github_post_check_status(self, redis, installation_id,
-                                            state="success", msg=None,
-                                            context=None):
+                                            state, msg, context=None):
 
     context = "pr" if context is None else context
     msg_key = "%s/%s/%d/%s" % (installation_id, self.base.repo.full_name,
                                self.number, context)
-    if msg:
-        # FIXME(sileht): Github limitations, so cut it for now
-        if len(msg) >= 140:
-            description = msg[0:137] + "..."
-        else:
-            description = msg
 
+    if len(msg) >= 140:
+        description = msg[0:137] + "..."
         redis.hset("status", msg_key, msg.encode('utf8'))
         target_url = "%s/check_status_msg/%s" % (config.BASE_URL, msg_key)
     else:
-        description = self.mergify_engine["weight_and_status"][1]
+        description = msg
         target_url = None
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
