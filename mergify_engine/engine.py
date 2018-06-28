@@ -213,7 +213,8 @@ class MergifyEngine(object):
     @staticmethod
     def sort_pulls(pulls):
         """Sort pull requests by weight and updated_at"""
-        sort_key = operator.attrgetter('mergify_engine_weight', 'updated_at')
+        sort_key = operator.attrgetter('mergify_engine_weight',
+                                       'milestone_is_set', 'updated_at')
         return list(sorted(pulls, key=sort_key, reverse=True))
 
     def build_queue(self, branch, **extra):
