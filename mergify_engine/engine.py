@@ -162,20 +162,25 @@ class MergifyEngine(object):
                                                    incoming_pull.number)
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
-            cache.pop("mergify_engine_weight", None)
-            cache.pop("mergify_engine_status_desc", None)
-            cache.pop("mergify_engine_weight_and_status", None)
+            if self._is_cache_valid(cache):
+                cache.pop("mergify_engine_weight", None)
+                cache.pop("mergify_engine_status_desc", None)
+                cache.pop("mergify_engine_weight_and_status", None)
 
-            if event_type == "status":
-                cache.pop("mergify_engine_combined_status", None)
-                cache["mergify_engine_ci_statuses"] = {}
-            elif event_type == "pull_request_review":
-                cache.pop("mergify_engine_reviews", None)
-                cache.pop("mergify_engine_approvals", None)
-            elif (event_type == "pull_request" and
-                  data["action"] == "synchronize"):
+                if event_type == "status":
                     cache.pop("mergify_engine_combined_status", None)
                     cache["mergify_engine_ci_statuses"] = {}
+                elif event_type == "pull_request_review":
+                    cache.pop("mergify_engine_reviews", None)
+                    cache.pop("mergify_engine_approvals", None)
+                elif (event_type == "pull_request" and
+                      data["action"] == "synchronize"):
+                        cache.pop("mergify_engine_combined_status", None)
+                        cache["mergify_engine_ci_statuses"] = {}
+            else:
+                LOG.debug("%s: cache format change, refreshing it.",
+                          incoming_pull.pretty())
+                cache = {}
 
         incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
         self.cache_save_pull(incoming_pull)
@@ -195,6 +200,17 @@ class MergifyEngine(object):
                 self._redis, self._installation_id)
 
         self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
+
+    @staticmethod
+    def _is_cache_valid(cache):
+        """Check cache format validity
+
+        Sometimes we change the cache format, this method catch change in the
+        format and return False if the format is incorrect
+        """
+        if len(cache["mergify_engine_approvals"]) != 3:
+            return False
+        return True
 
     ###########################
     # State machine goes here #
