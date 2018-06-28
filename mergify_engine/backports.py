@@ -15,12 +15,10 @@
 import functools
 import logging
 import subprocess
-import sys
 
 import github
 
 from mergify_engine import config
-from mergify_engine import gh_pr
 from mergify_engine import utils
 
 LOG = logging.getLogger(__name__)
@@ -162,30 +160,3 @@ def backports(repo, pull, labels_branches, installation_token):
     labels = (set(labels_branches) & set(l.name for l in pull.labels))
     for l in labels:
         _backport(repo, pull, labels_branches[l], installation_token)
-
-
-def test():
-    utils.setup_logging()
-    config.log()
-    gh_pr.monkeypatch_github()
-
-    parts = sys.argv[1].split("/")
-    label = sys.argv[2]
-    branch = sys.argv[3]
-
-    LOG.info("Getting repo %s ..." % sys.argv[1])
-
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-
-    installation_id = utils.get_installation_id(integration, parts[3])
-    installation_token = integration.get_access_token(installation_id).token
-    g = github.Github(installation_token)
-    user = g.get_user(parts[3])
-    repo = user.get_repo(parts[4])
-    pull = repo.get_pull(int(parts[6]))
-    backports(repo, pull, {label: branch}, installation_token)
-
-
-if __name__ == '__main__':
-    test()
