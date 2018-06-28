@@ -246,7 +246,7 @@ class MergifyEngine(object):
 
         queue = self.build_queue(branch, **extra)
         while queue:
-            p = queue.pop()
+            p = queue.pop(0)
 
             expected_weight = p.mergify_engine_weight
 
