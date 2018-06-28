@@ -62,7 +62,7 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
         redis.hset("status", msg_key, msg.encode('utf8'))
         target_url = "%s/check_status_msg/%s" % (config.BASE_URL, msg_key)
     else:
-        description = self.mergify_engine["status_desc"]
+        description = self.mergify_engine["weight_and_status"][1]
         target_url = None
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
@@ -160,7 +160,8 @@ def monkeypatch_github():
     p.mergify_engine_update_branch = gh_update_branch.update_branch
 
     # FIXME(sileht): remove me, used by engine for sorting pulls
-    p.mergify_engine_weight = property(lambda p: p.mergify_engine["weight"])
+    p.mergify_engine_weight = property(
+        lambda p: p.mergify_engine["weight_and_status"][0])
 
     # FIXME(sileht): Workaround https://github.com/PyGithub/PyGithub/issues/660
     github.PullRequestReview.PullRequestReview._completeIfNeeded = (

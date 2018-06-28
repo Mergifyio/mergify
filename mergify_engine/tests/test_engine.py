@@ -505,7 +505,7 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
         for p in pulls:
-            self.assertEqual(-1, p.mergify_engine['weight'])
+            self.assertEqual(-1, p.mergify_engine['weight_and_status'][0])
 
         r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
@@ -524,14 +524,14 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
         self.assertEqual(2, pulls[0].number)
-        self.assertEqual(11, pulls[0].mergify_engine['weight'])
+        self.assertEqual(11, pulls[0].mergify_engine['weight_and_status'][0])
         self.assertEqual("Will be merged soon",
-                         pulls[0].mergify_engine['status_desc'])
+                         pulls[0].mergify_engine['weight_and_status'][1])
 
         self.assertEqual(1, pulls[1].number)
-        self.assertEqual(-1, pulls[1].mergify_engine['weight'])
+        self.assertEqual(-1, pulls[1].mergify_engine['weight_and_status'][0])
         self.assertEqual("0/1 approvals required",
-                         pulls[1].mergify_engine['status_desc'])
+                         pulls[1].mergify_engine['weight_and_status'][1])
 
         # Check the merged pull request is gone
         self.push_events(2)
@@ -633,9 +633,9 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
-        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual(-1, pulls[0].mergify_engine['weight_and_status'][0])
         self.assertEqual("Disabled, foobar is modified in this pull request",
-                         pulls[0].mergify_engine['status_desc'])
+                         pulls[0].mergify_engine['weight_and_status'][1])
 
     def test_disabling_label(self):
         p, commits = self.create_pr()
@@ -652,9 +652,9 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
-        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual(-1, pulls[0].mergify_engine['weight_and_status'][0])
         self.assertEqual("Disabled with label",
-                         pulls[0].mergify_engine['status_desc'])
+                         pulls[0].mergify_engine['weight_and_status'][1])
 
     def test_auto_backport_failure(self):
         p, commits = self.create_pr("nostrict", two_commits=True)

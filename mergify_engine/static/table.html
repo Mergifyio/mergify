@@ -39,7 +39,7 @@
      </tr>
      </thead>
      <tbody>
-         <tr ng-repeat-start="pull in group.pulls | orderBy:['-mergify_engine_weight','-updated_at']">
+         <tr ng-repeat-start="pull in group.pulls | orderBy:['-mergify_engine_weight_and_status','-updated_at']">
              <td class="title">
                  <div class="pull-right"><span style="color:green">+{{ pull.additions }}</span> / <span style="color:red">-{{ pull.deletions }}</span></div>
                  <a href="{{ pull.user.html_url }}"><img ng-src="{{ pull.user.avatar_url }}" class="avatar" alt="{{ pull.user.login }}"></a>
@@ -94,7 +94,7 @@
                     target="_blank"
                     title="{{ user.login }}"><img ng-src="{{ user.avatar_url }}" class="avatar" alt="{{ user.login }}"></a>
              </td>
-            <td class="queue" ng-class="{success: pull.mergify_engine_weight >= 10, active: pull.mergify_engine_weight == -1, info: pull.mergify_engine_weight >= 0 && pull.mergify_engine_weight < 10}">
+            <td class="queue" ng-class="{success: pull.mergify_engine_weight_and_status[0] >= 10, active: pull.mergify_engine_weight_and_status[0] == -1, info: pull.mergify_engine_weight_and_status[0] >= 0 && pull.mergify_engine_weight_and_status[0] < 10}">
                 <span ng-if="pull.mergify_engine_weight >= 0">{{ pull.mergify_engine_weight }}</span>
                 <span ng-if="pull.mergify_engine_weight < 0">N/A</span>
             </td>

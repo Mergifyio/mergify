@@ -170,23 +170,11 @@ def compute_weight_and_status(pull, **extra):
     return (weight, status_desc)
 
 
-def compute_weight(pull, **extra):
-    # TODO(sileht): Don't store this twice
-    return pull.mergify_engine["weight_and_status"][0]
-
-
-def compute_status_desc(pull, **extra):
-    # TODO(sileht): Don't store this twice
-    return pull.mergify_engine["weight_and_status"][1]
-
-
 # Order matter, some method need result of some other
 FULLIFIER = [
     ("combined_status", compute_combined_status),
     ("approvals", compute_approvals),          # Need reviews
     ("weight_and_status", compute_weight_and_status),  # Need approvals
-    ("weight", compute_weight),                # Need weight_and_status
-    ("status_desc", compute_status_desc),      # Need weight_and_status
 ]
 
 CACHE_HOOK_LIST_CONVERT = {
