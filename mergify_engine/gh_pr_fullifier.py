@@ -152,7 +152,7 @@ def compute_weight_and_status(pull, **extra):
             status_desc = "Waiting for CI success"
     else:
         weight = -1
-        status_desc = "Waiting for CI sucess"
+        status_desc = "Waiting for CI success"
 
     if weight >= 0 and pull.milestone is not None:
         weight += 1
