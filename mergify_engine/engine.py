@@ -191,7 +191,10 @@ class MergifyEngine(object):
         if event_type in ["pull_request", "pull_request_review",
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
-                self._redis, self._installation_id)
+                self._redis, self._installation_id,
+                incoming_pull.mergify_engine["weight_and_status"][2],
+                incoming_pull.mergify_engine["weight_and_status"][1],
+            )
 
         self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
 
