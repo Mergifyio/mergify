@@ -156,6 +156,8 @@ def monkeypatch_github():
     p.mergify_engine_github_post_check_status = \
         mergify_engine_github_post_check_status
 
+    p.milestone_is_set = property(
+        lambda p: p.milestone is not None)
     # Missing Github API
     p.mergify_engine_update_branch = gh_update_branch.update_branch
 

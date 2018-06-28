@@ -118,56 +118,73 @@ def disabled_by_rules(pull, **extra):
                     % filtered[0])
     return None
 
+# NOTE(sileht): Github mergeable_state is undocumented, here my finding by
+# testing and and some info from other project:
+#
+# unknown: not yet computed by Github
+# dirty: pull request conflict with the base branch
+# behind: head branch is behind the base branch (only if strict: True)
+# unstable: branch up2date (if strict: True) and not required status
+#           checks are failure or pending
+# clean: branch up2date (if strict: True) and all status check OK
+#
+# https://platform.github.community/t/documentation-about-mergeable-state/4259
+# https://github.com/octokit/octokit.net/issues/1763
+
 
 def compute_weight_and_status(pull, **extra):
-    status_desc = disabled_by_rules(pull, **extra)
+    disabled = disabled_by_rules(pull, **extra)
     reviews_ok, reviews_ko, reviews_required = pull.mergify_engine["approvals"]
-    if status_desc is not None:
+    if disabled:
         weight = -1
+        status_state = "failure"
+        status_desc = disabled
     elif reviews_ko:
         weight = -1
+        status_state = "pending"
         status_desc = "Change requests need to be dismissed"
     elif len(reviews_ok) < reviews_required:
         weight = -1
+        status_state = "pending"
         status_desc = (
             "%d/%d approvals required" %
             (len(reviews_ok), reviews_required)
         )
-    elif (pull.mergeable_state in ["clean", "unstable"]
-          and pull.mergify_engine["combined_status"] == "success"):
-        # Best PR ever, up2date and CI OK
+    elif pull.mergeable_state in ["clean", "unstable"]:
         weight = 11
+        status_state = "success"
         status_desc = "Will be merged soon"
     elif (pull.mergeable_state == "blocked"
           and pull.mergify_engine["combined_status"] == "pending"):
-        # Maybe clean soon, or maybe this is the previous run
-        # selected PR that we just rebase
+        # Maybe clean soon, or maybe this is the previous run selected PR that
+        # we just rebase, or maybe not. But we set the weight to 10 to ensure
+        # we do not rebase multiple pull request in //
         weight = 10
+        status_state = "pending"
         status_desc = "Waiting for CI success"
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
         if not pull.base_is_modifiable:
             weight = -1
+            status_state = "failure"
             status_desc = ("Pull request can't be updated with latest "
                            "base branch changes, owner doesn't allow "
                            "modification")
         elif pull.mergify_engine["combined_status"] == "success":
             weight = 7
+            status_state = "pending"
             status_desc = ("Pull request will be updated with latest base "
                            "branch changes soon")
-        elif pull.mergify_engine["combined_status"] == "pending":
-            weight = 5
-            status_desc = "Waiting for CI success"
         else:
             weight = -1
+            status_state = "pending"
             status_desc = "Waiting for CI success"
     else:
         weight = -1
+        status_state = "pending"
         status_desc = "Waiting for CI success"
 
-    if weight >= 0 and pull.milestone is not None:
-        weight += 1
-    return (weight, status_desc)
+    return (weight, status_desc, status_state)
 
 
 # Order matter, some method need result of some other
