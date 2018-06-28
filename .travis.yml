@@ -1,18 +1,13 @@
-dist: trusty
-sudo: required
-language: generic
-env:
-      - TOXENV=pep8
-      - TOXENV=py36-cover
-      - TOXENV=docs
+sudo: false
+language: python
+python:
+  - "2.7"
+  - "3.6"
+install: pip install tox-travis # coveralls
+script: tox
 
-install:
-      - sudo add-apt-repository -y ppa:deadsnakes/ppa ; sudo apt-get -qq update ; sudo apt-get install -y python3.6 python3.6-dev;
-      - sudo pip install -U pip tox coveralls
-script:
-      - tox
-after_success:
-    - [ "$TOXENV" == "py36-cover" ] && coveralls
+# after_success:
+#     - [ "$TOXENV" == "py36" ] && coveralls
 
 deploy:
   provider: pages
