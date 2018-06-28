@@ -510,7 +510,7 @@ class TestEngineScenario(testtools.TestCase):
 
         self.assertEqual(1, pulls[1].number)
         self.assertEqual(-1, pulls[1].mergify_engine['weight'])
-        self.assertEqual("Waiting for approvals",
+        self.assertEqual("0/1 approvals required",
                          pulls[1].mergify_engine['status_desc'])
 
         # Check the merged pull request is gone
