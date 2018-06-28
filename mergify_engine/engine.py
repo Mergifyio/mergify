@@ -163,10 +163,7 @@ class MergifyEngine(object):
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
             if self._is_cache_valid(cache):
-                cache.pop("mergify_engine_weight", None)
-                cache.pop("mergify_engine_status_desc", None)
                 cache.pop("mergify_engine_weight_and_status", None)
-
                 if event_type == "status":
                     cache.pop("mergify_engine_combined_status", None)
                 elif event_type == "pull_request_review":
