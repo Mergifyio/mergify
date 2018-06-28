@@ -151,7 +151,7 @@ def monkeypatch_github():
     p.fullify = gh_pr_fullifier.fullify
     p.jsonify = gh_pr_fullifier.jsonify
 
-    p.mergify_base_is_modifiable = base_is_modifiable
+    p.base_is_modifiable = base_is_modifiable
     p.mergify_engine_merge = mergify_engine_merge
     p.mergify_engine_github_post_check_status = \
         mergify_engine_github_post_check_status
