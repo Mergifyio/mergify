@@ -179,7 +179,7 @@ class MergifyEngine(object):
                         cache["mergify_engine_ci_statuses"] = {}
             else:
                 LOG.info("%s: cache format change, refreshing it.",
-                          incoming_pull.pretty())
+                         incoming_pull.pretty())
                 cache = {}
 
         incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
@@ -208,7 +208,7 @@ class MergifyEngine(object):
         Sometimes we change the cache format, this method catch change in the
         format and return False if the format is incorrect
         """
-        if len(cache["mergify_engine_approvals"]) != 3:
+        if cache and len(cache["mergify_engine_approvals"]) != 3:
             return False
         return True
 
