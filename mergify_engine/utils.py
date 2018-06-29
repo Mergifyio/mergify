@@ -99,8 +99,9 @@ def get_installations(integration):
     installs = []
     url = "https://api.github.com/app/installations"
     token = "Bearer {}".format(integration.create_jwt())
+    session = requests.Session()
     while True:
-        response = requests.get(url, headers={
+        response = session.get(url, headers={
                 "Authorization": token,
                 "Accept": "application/vnd.github.machine-man-preview+json",
                 "User-Agent": "PyGithub/Python"

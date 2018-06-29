@@ -26,6 +26,7 @@ from betamax_serializers.pretty_json import PrettyJSONSerializer
 import fixtures
 import github
 import requests
+import requests.sessions
 import rq
 import testtools
 
@@ -37,7 +38,6 @@ from mergify_engine import gh_pr
 from mergify_engine import gh_update_branch
 from mergify_engine import utils
 from mergify_engine import web
-from mergify_engine import worker
 
 gh_pr.monkeypatch_github()
 
@@ -206,11 +206,9 @@ class TestEngineScenario(testtools.TestCase):
             self.session,
             cassette_library_dir=self.cassette_library_dir)
 
-        self.useFixture(fixtures.MockPatchObject(
-            requests, 'Session', return_value=self.session))
-
-        self.useFixture(fixtures.MockPatchObject(
-            requests, 'get', side_effect=self.session.get))
+        for mod in ["github.Requester", "mergify_engine.utils"]:
+            self.useFixture(fixtures.MockPatch(
+                '%s.requests.Session' % mod, return_value=self.session))
 
         self.useFixture(fixtures.MockPatchObject(
             gh_update_branch.utils, 'Gitter',
@@ -287,27 +285,29 @@ class TestEngineScenario(testtools.TestCase):
             self.r_main = self.u_main.create_repo(self.name)
             self.url_main = "https://%s:@github.com/%s" % (
                 MAIN_TOKEN, self.r_main.full_name)
-            self.git("init")
-            self.git("config", "user.name", "%s-tester" % config.CONTEXT)
-            self.git("config", "user.email", "noreply@mergify.io")
-            self.git("remote", "add", "main", self.url_main)
-            with open(self.git.tmp + "/.mergify.yml", "w") as f:
-                f.write(CONFIG)
-            self.git("add", ".mergify.yml")
-            self.git("commit", "--no-edit", "-m", "initial commit")
-            self.git("push", "main", "master")
 
-            self.git("checkout", "-b", "stable")
-            self.git("push", "main", "stable")
+            if self._testMethodName != "test_creation_pull_of_initial_config":
+                self.git("init")
+                self.git("config", "user.name", "%s-tester" % config.CONTEXT)
+                self.git("config", "user.email", "noreply@mergify.io")
+                self.git("remote", "add", "main", self.url_main)
+                with open(self.git.tmp + "/.mergify.yml", "w") as f:
+                    f.write(CONFIG)
+                self.git("add", ".mergify.yml")
+                self.git("commit", "--no-edit", "-m", "initial commit")
+                self.git("push", "main", "master")
 
-            self.git("checkout", "-b", "nostrict")
-            self.git("push", "main", "nostrict")
+                self.git("checkout", "-b", "stable")
+                self.git("push", "main", "stable")
 
-            self.r_fork = self.u_fork.create_fork(self.r_main)
-            self.url_fork = "https://%s:@github.com/%s" % (
-                FORK_TOKEN, self.r_fork.full_name)
-            self.git("remote", "add", "fork", self.url_fork)
-            self.git("fetch", "fork")
+                self.git("checkout", "-b", "nostrict")
+                self.git("push", "main", "nostrict")
+
+                self.r_fork = self.u_fork.create_fork(self.r_main)
+                self.url_fork = "https://%s:@github.com/%s" % (
+                    FORK_TOKEN, self.r_fork.full_name)
+                self.git("remote", "add", "fork", self.url_fork)
+                self.git("fetch", "fork")
 
         with self.cassette("setUp-login-engine", allow_playback_repeats=True):
             g = github.Github(ACCESS_TOKEN)
@@ -322,15 +322,10 @@ class TestEngineScenario(testtools.TestCase):
             github, 'GithubIntegration', return_value=FakeIntegration))
 
         with self.cassette("setUp-create-engine", allow_playback_repeats=True):
+            # Used to access the cache with its helper
             self.engine = engine.MergifyEngine(g, INSTALLATION_ID,
                                                ACCESS_TOKEN,
                                                subscription, user, repo)
-
-            def event_handler(event_type, subscription, data):
-                return self.engine.handle(event_type, data)
-
-            self.useFixture(fixtures.MockPatchObject(
-                worker, 'real_event_handler', event_handler))
 
         queue = rq.Queue(connection=utils.get_redis_for_rq())
         self.rq_worker = rq.SimpleWorker([queue],
@@ -341,7 +336,8 @@ class TestEngineScenario(testtools.TestCase):
         # * installation_repositories
         # * integration_installation_repositories
         # but we receive them 6 times with the same sha1...
-        self.push_events(12)
+        if self._testMethodName != "test_creation_pull_of_initial_config":
+            self.push_events(12)
 
     def tearDown(self):
         super(TestEngineScenario, self).tearDown()
@@ -366,9 +362,11 @@ class TestEngineScenario(testtools.TestCase):
                 time.sleep(0.1)
             loop += 1
             if loop > 100:
-                raise RuntimeError("Never got expected events")
+                raise RuntimeError("Never got expected events, "
+                                   "%d instead of %d" % (got, n))
         if got != n:
-            raise RuntimeError("We received more events than expected")
+            raise RuntimeError("We received more events than expected, "
+                               "%d instead of %d" % (got, n))
 
     def _push_events(self):
         # NOTE(sileht): Simulate push Github events, we use a counter
@@ -968,3 +966,60 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
         self.assertEqual(30,
                          pulls[0].mergify_engine['status']['mergify_state'])
+
+    def test_creation_pull_of_initial_config(self):
+        # FIXME(sileht): split setUp to not prepare useless resources
+
+        with self.cassette("create-new-repo"):
+            self.git("init")
+            self.git("config", "user.name", "%s-tester" % config.CONTEXT)
+            self.git("config", "user.email", "noreply@mergify.io")
+            self.git("remote", "add", "main", self.url_main)
+            with open(self.git.tmp + "/randomfile", "w") as f:
+                f.write("foobar")
+            self.git("add", "randomfile")
+            self.git("commit", "--no-edit", "-m", "initial commit")
+            self.git("push", "main", "master")
+
+            self.git("branch", "-M", "otherbranch")
+            with open(self.git.tmp + "/secondfile", "w") as f:
+                f.write("foobar")
+            self.git("add", "secondfile")
+            self.git("commit", "--no-edit", "-m", "second commit")
+            self.git("push", "main", "otherbranch")
+
+        with self.cassette("create_pr"):
+            p = self.r_main.create_pull(
+                base="refs/heads/master",
+                head="refs/heads/otherbranch",
+                title="PR title", body="PR body")
+            commits = list(p.get_commits())
+
+        self.create_status_and_push_event(p, commits[0], excepted_events=0)
+
+        self.push_events(16)
+
+        with self.cassette("get-pulls"):
+            pulls = list(self.r_main.get_pulls())
+
+        self.assertEqual(2, len(pulls))
+
+        with self.cassette("get-files"):
+            files = list(pulls[0].get_files())
+
+        self.assertEqual("Mergify initial configuration", pulls[0].title)
+        self.assertEqual(1, len(files))
+        self.assertEqual(".mergify.yml", files[0].filename)
+
+        expected_config = """rules:
+  protection:
+    required_pull_request_reviews:
+      required_approving_review_count: 1
+    required_status_checks:
+      contexts:
+      - continuous-integration/fake-ci
+"""
+        with self.cassette("get-config"):
+            got_config = self.session.get(files[0].raw_url).text
+
+        self.assertEqual(expected_config, got_config)
