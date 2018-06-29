@@ -349,8 +349,8 @@ class MergifyEngine(object):
     def get_cache_key(self, branch):
         # Use only IDs, not name
         return "queues~%s~%s~%s~%s~%s" % (
-            self._installation_id, self._u.login,
-            self._r.name, self._r.private, branch)
+            self._installation_id, self._u.login.lower(),
+            self._r.name.lower(), self._r.private, branch)
 
     def get_cached_branches(self):
         return [b.split('~')[5] for b in

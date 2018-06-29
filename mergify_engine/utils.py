@@ -132,7 +132,7 @@ def get_installations(integration):
 def get_installation_id(integration, owner):
     installations = get_installations(integration)
     for install in installations:
-        if install["account"]["login"] == owner:
+        if install["account"]["login"].lower() == owner.lower():
             return install["id"]
 
 

@@ -104,8 +104,8 @@ def refresh(owner, repo, refresh_ref):
         else:
             branch = '*'
             pulls = r.get_pulls()
-        key = "queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
-                                         r.private, branch)
+        key = "queues~%s~%s~%s~%s~%s" % (installation_id, owner.lower(),
+                                         repo.lower(), r.private, branch)
         utils.get_redis_for_cache().delete(key)
     else:
         try:
@@ -174,14 +174,15 @@ def refresh_all():
 def queue(owner, repo, branch):
     r = utils.get_redis_for_cache()
     installation_id = utils.get_installation_id(INTEGRATION, owner)
-    return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner, repo,
-                                            False, branch)) or "[]"
+    return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner.lower(),
+                                            repo.lower(), False, branch)
+                 ) or "[]"
 
 
 def _get_status(r, installation_id, login='*', repo='*'):
     queues = []
-    for key in r.keys("queues~%s~%s~%s~%s~*" % (installation_id, login, repo,
-                                                False)):
+    for key in r.keys("queues~%s~%s~%s~%s~*" % (installation_id, login.lower(),
+                                                repo.lower(), False)):
         _, _, owner, repo, private, branch = key.split("~")
         payload = r.hgetall(key)
         pulls = [json.loads(p) for p in payload.values()]
@@ -316,8 +317,8 @@ def event_handler():
                 continue
             key = "queues~%s~%s~%s~*~*" % (
                 data["installation"]["id"],
-                data["installation"]["account"]["login"],
-                repository["name"]
+                data["installation"]["account"]["login"].lower(),
+                repository["name"].lower()
             )
             utils.get_redis_for_cache().delete(key)
         msg_action = "handled, cache cleaned"
