@@ -273,8 +273,8 @@ def subscription_cache(installation_id):
     # public repository have already been done during the installation
     # event.
     if subscription["token"] and subscription["subscribed"]:
-        get_queue().enqueue(worker.private_installation_handler,
-                            installation_id)
+        get_queue().enqueue(worker.installation_handler,
+                            installation_id, "private")
     return "Cache cleaned", 200
 
 
@@ -298,7 +298,7 @@ def event_handler():
                 continue
 
             get_queue().enqueue(worker.installation_handler,
-                                data["installation"], repository)
+                                data["installation"]["id"], [repository])
         msg_action = "pushed to backend"
 
     elif event_type == "installation" and data["action"] == "deleted":
@@ -313,7 +313,7 @@ def event_handler():
                 continue
 
             get_queue().enqueue(worker.installation_handler,
-                                data["installation"], repository)
+                                data["installation"]["id"], [repository])
 
         msg_action = "pushed to backend"
 
