@@ -169,13 +169,11 @@ class MergifyEngine(object):
 
                 if event_type == "status":
                     cache.pop("mergify_engine_combined_status", None)
-                    cache["mergify_engine_ci_statuses"] = {}
                 elif event_type == "pull_request_review":
                     cache.pop("mergify_engine_approvals", None)
                 elif (event_type == "pull_request" and
                       data["action"] == "synchronize"):
                         cache.pop("mergify_engine_combined_status", None)
-                        cache["mergify_engine_ci_statuses"] = {}
             else:
                 LOG.info("%s: cache format change, refreshing it.",
                          incoming_pull.pretty())
