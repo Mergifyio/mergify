@@ -46,7 +46,7 @@ system, and probably your software. Good work.
 The Strict Workflow Solution
 ============================
 
-The *strict* workflow solves that issue by rebasing any pull request that is
+The *strict* workflow solves that issue by updating any pull request that is
 not up-to-date with its base branch before being merged. That forces the
 continuous integration system to test again the pull request with the new code.
 
@@ -56,14 +56,14 @@ pull request as failing the test, removing it from the mergeable candidate.
 .. image:: _static/merge-ci-fail.png
    :alt: Rebase make CI fails
 
-When the *strict* workflow is enabled, Mergify takes care of rebasing
-any pull request that is not up-to-date with its base branch. If multiple pull
-requests are mergeable, they are scheduled to be merged sequentially, and they
-will be rebased on top of each other.
+When the *strict* workflow is enabled, Mergify takes care of merging the target
+branch in any pull request that is not up-to-date with its target branch. If
+multiple pull requests are mergeable, they are scheduled to be merged
+sequentially, and they will be updated on top of each other.
 
-If any conflict occurs, the pull request will be marked as
-conflicting and no merge will happen until the solution is resolved by a nice
-human.
+The pull request branch update is only done when the pull request is ready to
+be merged by the engine, e.g., when the status checks are OK and the number of
+postive reviews are enough.
 
 
 Enabling the Strict Workflow
