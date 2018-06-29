@@ -31,7 +31,7 @@ app.classy.controller({
         }
 
         if(typeof(EventSource) !== "undefined") {
-            console.log("event enabled");
+            console.log("event enabled on " + this.$scope.server_url);
             this.$scope.event = true;
             var dest;
             var source = new EventSource('/stream' + this.$scope.server_url);

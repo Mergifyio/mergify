@@ -95,30 +95,38 @@ def compute_hmac(data):
 
 def get_installations(integration):
     # FIXME(sileht): Need to be in github libs
-    response = requests.get(
-        "https://api.github.com/app/installations",
-        headers={
-            "Authorization": "Bearer {}".format(integration.create_jwt()),
-            "Accept": "application/vnd.github.machine-man-preview+json",
-            "User-Agent": "PyGithub/Python"
-        },
-    )
-    if response.status_code == 200:
-        return response.json()
-    elif response.status_code == 403:
-        raise GithubException.BadCredentialsException(
+
+    installs = []
+    url = "https://api.github.com/app/installations"
+    token = "Bearer {}".format(integration.create_jwt())
+    while True:
+        response = requests.get(url, headers={
+                "Authorization": token,
+                "Accept": "application/vnd.github.machine-man-preview+json",
+                "User-Agent": "PyGithub/Python"
+            },
+        )
+        if response.status_code == 200:
+            installs.extend(response.json())
+            if "next" in response.links:
+                url = response.links["next"]["url"]
+                continue
+            else:
+                return installs
+        elif response.status_code == 403:
+            raise GithubException.BadCredentialsException(
+                status=response.status_code,
+                data=response.text
+            )
+        elif response.status_code == 404:
+            raise GithubException.UnknownObjectException(
+                status=response.status_code,
+                data=response.text
+            )
+        raise GithubException.GithubException(
             status=response.status_code,
             data=response.text
         )
-    elif response.status_code == 404:
-        raise GithubException.UnknownObjectException(
-            status=response.status_code,
-            data=response.text
-        )
-    raise GithubException.GithubException(
-        status=response.status_code,
-        data=response.text
-    )
 
 
 def get_installation_id(integration, owner):
