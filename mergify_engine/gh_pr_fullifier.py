@@ -132,66 +132,66 @@ def disabled_by_rules(pull, **extra):
 # https://github.com/octokit/octokit.net/issues/1763
 
 
-def compute_weight_and_status(pull, **extra):
+# Use enum.Enum and make is serializable ?
+class MergifyState(object):
+    NOT_READY = 0
+    NEED_BRANCH_UPDATE = 10
+    ALMOST_READY = 20
+    READY = 30
+
+
+def compute_status(pull, **extra):
     disabled = disabled_by_rules(pull, **extra)
     reviews_ok, reviews_ko, reviews_required = pull.mergify_engine["approvals"]
+
+    mergify_state = MergifyState.NOT_READY
+    github_state = "pending"
+    github_desc = "Waiting for status checks success"
+
     if disabled:
-        weight = -1
-        status_state = "failure"
-        status_desc = disabled
+        github_state = "failure"
+        github_desc = disabled
     elif reviews_ko:
-        weight = -1
-        status_state = "pending"
-        status_desc = "Change requests need to be dismissed"
+        github_desc = "Change requests need to be dismissed"
     elif len(reviews_ok) < reviews_required:
-        weight = -1
-        status_state = "pending"
-        status_desc = (
+        mergify_state = MergifyState.NOT_READY
+        github_state = "pending"
+        github_desc = (
             "%d/%d approvals required" %
             (len(reviews_ok), reviews_required)
         )
     elif pull.mergeable_state in ["clean", "unstable"]:
-        weight = 11
-        status_state = "success"
-        status_desc = "Will be merged soon"
+        mergify_state = MergifyState.READY
+        github_state = "success"
+        github_desc = "Will be merged soon"
     elif (pull.mergeable_state == "blocked"
           and pull.mergify_engine["combined_status"] == "pending"):
         # Maybe clean soon, or maybe this is the previous run selected PR that
-        # we just rebase, or maybe not. But we set the weight to 10 to ensure
-        # we do not rebase multiple pull request in //
-        weight = 10
-        status_state = "pending"
-        status_desc = "Waiting for CI success"
+        # we just rebase, or maybe not. But we set the mergify_state to
+        # ALMOST_READY to ensure we do not rebase multiple pull request in //
+        mergify_state = MergifyState.ALMOST_READY
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
         if not pull.base_is_modifiable:
-            weight = -1
-            status_state = "failure"
-            status_desc = ("Pull request can't be updated with latest "
+            github_state = "failure"
+            github_desc = ("Pull request can't be updated with latest "
                            "base branch changes, owner doesn't allow "
                            "modification")
         elif pull.mergify_engine["combined_status"] == "success":
-            weight = 7
-            status_state = "pending"
-            status_desc = ("Pull request will be updated with latest base "
+            mergify_state = MergifyState.NEED_BRANCH_UPDATE
+            github_desc = ("Pull request will be updated with latest base "
                            "branch changes soon")
-        else:
-            weight = -1
-            status_state = "pending"
-            status_desc = "Waiting for CI success"
-    else:
-        weight = -1
-        status_state = "pending"
-        status_desc = "Waiting for CI success"
 
-    return (weight, status_desc, status_state)
+    return {"mergify_state": mergify_state,
+            "github_description": github_desc,
+            "github_state": github_state}
 
 
 # Order matter, some method need result of some other
 FULLIFIER = [
     ("combined_status", compute_combined_status),
-    ("approvals", compute_approvals),          # Need reviews
-    ("weight_and_status", compute_weight_and_status),  # Need approvals
+    ("approvals", compute_approvals),   # Need reviews
+    ("status", compute_status),         # Need approvals and combined_status
 ]
 
 CACHE_HOOK_LIST_CONVERT = {

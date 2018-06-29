@@ -29,7 +29,6 @@ def pretty(self):
     extra = getattr(self, "mergify_engine", {})
     status = extra.get("combined_status", "nc")
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
-    weight = extra["weight"] if extra.get("weight", -1) >= 0 else "NA"
     synced = extra.get("sync_with_master", "nc")
     return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s)" % (
         self.base.user.login,
@@ -41,7 +40,7 @@ def pretty(self):
         synced,
         status,
         approvals,
-        weight
+        extra.get("status", {}).get("mergify_state", -1)
     )
 
 
@@ -151,14 +150,12 @@ def monkeypatch_github():
     p.mergify_engine_github_post_check_status = \
         mergify_engine_github_post_check_status
 
-    p.milestone_is_set = property(
-        lambda p: p.milestone is not None)
     # Missing Github API
     p.mergify_engine_update_branch = gh_update_branch.update_branch
 
     # FIXME(sileht): remove me, used by engine for sorting pulls
-    p.mergify_engine_weight = property(
-        lambda p: p.mergify_engine["weight_and_status"][0])
+    p.mergify_engine_sort_status = property(
+        lambda p: p.mergify_engine["status"]["mergify_state"])
 
     # FIXME(sileht): Workaround https://github.com/PyGithub/PyGithub/issues/660
     github.PullRequestReview.PullRequestReview._completeIfNeeded = (
