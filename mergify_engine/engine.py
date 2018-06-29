@@ -299,7 +299,7 @@ class MergifyEngine(object):
                     p.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
                         "PR owner doesn't allow modification")
-                    LOG.info("%s -> branch not updatable, token missing",
+                    LOG.info("%s -> branch not updatable, base not modifiable",
                              p.pretty())
                 elif p.mergify_engine_update_branch(
                         self._subscription["token"]):
