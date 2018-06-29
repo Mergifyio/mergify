@@ -446,9 +446,9 @@ class TestEngineScenario(testtools.TestCase):
             )
         self.push_events(excepted_events)
 
-    def create_review_and_push_event(self, pr, commit):
+    def create_review_and_push_event(self, pr, commit, event="APPROVE"):
         with self.cassette("reviews-%s" % self.reviews_counter):
-            r = pr.create_review(commit, "Perfect", event="APPROVE")
+            r = pr.create_review(commit, "Perfect", event=event)
         self.reviews_counter += 1
         self.push_events()
         return r
@@ -849,3 +849,52 @@ class TestEngineScenario(testtools.TestCase):
         with self.cassette("branch"):
             self.assertTrue(gh_branch.is_configured(self.r_main, "stable",
                                                     expected_rule))
+
+    def test_reviews(self):
+        p, commits = self.create_pr()
+        self.create_review_and_push_event(p, commits[0],
+                                          event="COMMENT")
+        r = self.create_review_and_push_event(p, commits[0],
+                                              event="REQUEST_CHANGES")
+
+        self.push_events(2)
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual([], pulls[0].mergify_engine["approvals"][0])
+        self.assertEqual("mergify-test1",
+                         pulls[0].mergify_engine["approvals"][1][0]["login"])
+        self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
+        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual("Change requests need to be dismissed",
+                         pulls[0].mergify_engine['status_desc'])
+
+        with self.cassette("dismiss"):
+            self.r_main._requester.requestJsonAndCheck(
+                'PUT',
+                "{base_url}/pulls/{number}/reviews/{review_id}/dismissals".
+                format(
+                    base_url=self.r_main.url,
+                    number=p.number, review_id=r.id
+                ),
+                input={"message": "message"},
+                headers={'Accept':
+                         'application/vnd.github.luke-cage-preview+json'}
+            )
+
+        self.push_events(2)
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual([], pulls[0].mergify_engine["approvals"][0])
+        self.assertEqual([], pulls[0].mergify_engine["approvals"][1])
+        self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
+
+        self.create_review_and_push_event(p, commits[0])
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual("mergify-test1",
+                         pulls[0].mergify_engine["approvals"][0][0]["login"])
+        self.assertEqual([], pulls[0].mergify_engine["approvals"][1])
+        self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
