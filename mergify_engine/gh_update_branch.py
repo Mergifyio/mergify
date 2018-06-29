@@ -69,37 +69,3 @@ def update_branch(self, token, merge=True):
     finally:
         git.cleanup()
     return True
-
-
-def test():
-    from mergify_engine import gh_pr
-    from mergify_engine import utils
-
-    utils.setup_logging()
-    config.log()
-    gh_pr.monkeypatch_github()
-
-    parts = sys.argv[1].split("/")
-    LOG.info("Getting repo %s ..." % sys.argv[1])
-
-    if True:
-        # With access_token got from oauth
-        token = sys.argv[2]
-
-        g = github.Github(token)
-        user = g.get_user(parts[3])
-        repo = user.get_repo(parts[4])
-        pull = repo.get_pull(int(parts[6]))
-        update_branch(pull, token)
-    else:
-        # With access_token got from integration
-        integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                               config.PRIVATE_KEY)
-
-        installation_id = utils.get_installation_id(integration, parts[3])
-        token = integration.get_access_token(installation_id).token
-        update_branch(pull, "x-access-token:%s" % token)
-
-
-if __name__ == '__main__':
-    test()

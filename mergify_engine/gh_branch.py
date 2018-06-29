@@ -15,10 +15,6 @@
 # under the License.
 
 import logging
-import sys
-
-from mergify_engine import config
-from mergify_engine import rules
 
 LOG = logging.getLogger(__name__)
 
@@ -101,34 +97,3 @@ def configure_protection_if_needed(g_repo, branch, rule):
             unprotect(g_repo, branch)
         else:
             protect(g_repo, branch, rule)
-
-
-def test():
-    import github
-
-    from mergify_engine import gh_pr
-    from mergify_engine import utils
-
-    utils.setup_logging()
-    config.log()
-    gh_pr.monkeypatch_github()
-
-    parts = sys.argv[1].split("/")
-
-    LOG.info("Getting repo %s ..." % sys.argv[1])
-
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-
-    installation_id = utils.get_installation_id(integration, parts[3])
-    token = integration.get_access_token(installation_id).token
-    g = github.Github(token)
-    user = g.get_user(parts[3])
-    repo = user.get_repo(parts[4])
-    LOG.info("Protecting repo %s branch %s ..." % (sys.argv[1], sys.argv[2]))
-    rule = rules.get_branch_rule(repo, sys.argv[2])
-    configure_protection_if_needed(repo, sys.argv[2], rule)
-
-
-if __name__ == '__main__':
-    test()
