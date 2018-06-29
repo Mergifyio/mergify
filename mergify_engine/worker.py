@@ -57,8 +57,8 @@ def event_handler(event_type, subscription, data):
     return real_event_handler(event_type, subscription, data)
 
 
-def private_installation_handler(installation_id):
-    """Create the initial configuration on all private repositories"""
+def installation_handler(installation_id, repositories):
+    """Create the initial configuration on an repository"""
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
@@ -66,32 +66,36 @@ def private_installation_handler(installation_id):
         installation_id).token
     g = github.Github(installation_token)
     try:
-        installation = g.get_installation(installation_id)
-        for repo in installation.get_repos():
-            if repo.private:
-                initial_configuration.create_pull_request_if_needed(
-                    installation_token, repo)
+        if isinstance(repositories, str):
+            installation = g.get_installation(installation_id)
+            if repositories == "private":
+                repositories = [repo for repo in installation.get_repos()
+                                if repo.private]
+            elif repositories == "all":
+                repositories = [repo for repo in installation.get_repos()]
+            else:
+                raise RuntimeError("Unexpected 'repositories' format: %s",
+                                   type(repositories))
+        elif isinstance(repositories, list):
+            # Some events return incomplete repository structure (like
+            # installation event). Complete them in this case
+            new_repos = []
+            for repository in repositories:
+                user = g.get_user(repository["full_name"].split("/")[0])
+                repo = user.get_repo(repository["name"])
+                new_repos.append(repo)
+            repositories = new_repos
+        else:
+            raise RuntimeError("Unexpected 'repositories' format: %s",
+                               type(repositories))
+
+        for repository in repositories:
+            initial_configuration.create_pull_request_if_needed(
+                installation_token, repo)
+
     except github.RateLimitExceededException:
-        LOG.error("rate limit reached for install %d", installation_id)
-
-
-def installation_handler(installation, repository):
-    """Create the initial configuration on an repository"""
-
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    installation_token = integration.get_access_token(
-        installation["id"]).token
-    g = github.Github(installation_token)
-    try:
-        user = g.get_user(installation["account"]["login"])
-        repo = user.get_repo(repository["name"])
-        initial_configuration.create_pull_request_if_needed(
-            installation_token, repo)
-    except github.RateLimitExceededException:
-        LOG.error("rate limit reached for install %d (%s)",
-                  installation["id"],
-                  repository["full_name"])
+        LOG.error("rate limit reached for install %d",
+                  installation_id)
 
 
 def main():
