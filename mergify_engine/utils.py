@@ -25,7 +25,7 @@ import sys
 import tempfile
 
 import daiquiri
-from github import GithubException
+import github
 import redis
 import requests
 
@@ -114,16 +114,16 @@ def get_installations(integration):
             else:
                 return installs
         elif response.status_code == 403:
-            raise GithubException.BadCredentialsException(
+            raise github.BadCredentialsException(
                 status=response.status_code,
                 data=response.text
             )
         elif response.status_code == 404:
-            raise GithubException.UnknownObjectException(
+            raise github.UnknownObjectException(
                 status=response.status_code,
                 data=response.text
             )
-        raise GithubException.GithubException(
+        raise github.GithubException(
             status=response.status_code,
             data=response.text
         )

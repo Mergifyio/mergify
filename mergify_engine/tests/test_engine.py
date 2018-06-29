@@ -15,6 +15,7 @@
 # under the License.
 import json
 import logging
+import mock
 import os
 import time
 import uuid
@@ -51,7 +52,11 @@ TO_HIDE = [
     "FORK_TOKEN",
     "FAKE_DATA",
     "FAKE_HMAC",
+    "JWT_TOKEN",
 ]
+
+INTEGRATION = github.GithubIntegration(config.INTEGRATION_ID,
+                                       config.PRIVATE_KEY)
 
 if RECORD_MODE in ["all", "once"]:
     MAIN_TOKEN = config.MAIN_TOKEN
@@ -64,13 +69,13 @@ if RECORD_MODE in ["all", "once"]:
                            "/MERGIFYENGINE_PRIVATE_KEY must be set to record "
                            "new tests")
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    ACCESS_TOKEN = integration.get_access_token(INSTALLATION_ID).token
+    ACCESS_TOKEN = INTEGRATION.get_access_token(INSTALLATION_ID).token
+    JWT_TOKEN = INTEGRATION.create_jwt()
 
 else:
     ACCESS_TOKEN = "<ACCESS_TOKEN>"
     MAIN_TOKEN = "<MAIN_TOKEN>"
+    JWT_TOKEN = "<JWT_TOKEN>"
     FORK_TOKEN = "<FORK_TOKEN>"
     FAKE_DATA = "<FAKE_DATA>"
     FAKE_HMAC = "<FAKE_HMAC>"
@@ -205,6 +210,9 @@ class TestEngineScenario(testtools.TestCase):
             requests, 'Session', return_value=self.session))
 
         self.useFixture(fixtures.MockPatchObject(
+            requests, 'get', side_effect=self.session.get))
+
+        self.useFixture(fixtures.MockPatchObject(
             gh_update_branch.utils, 'Gitter',
             lambda: GitterRecorder(self.cassette_library_dir)))
 
@@ -305,6 +313,13 @@ class TestEngineScenario(testtools.TestCase):
             g = github.Github(ACCESS_TOKEN)
             user = g.get_user("mergify-test1")
             repo = user.get_repo(self.name)
+
+        FakeInstallation = mock.Mock(token=ACCESS_TOKEN)
+        FakeIntegration = mock.Mock()
+        FakeIntegration.create_jwt.return_value = JWT_TOKEN
+        FakeIntegration.get_access_token.return_value = FakeInstallation
+        self.useFixture(fixtures.MockPatchObject(
+            github, 'GithubIntegration', return_value=FakeIntegration))
 
         with self.cassette("setUp-create-engine", allow_playback_repeats=True):
             self.engine = engine.MergifyEngine(g, INSTALLATION_ID,
@@ -524,7 +539,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, len(r))
         self.assertEqual(1, len(r[0]['pulls']))
 
-    def test_refresh(self):
+    def test_refresh_pull(self):
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
 
@@ -534,17 +549,56 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(0, len(pulls))
 
         with self.cassette("refresh-1"):
-            self.engine.handle("refresh", {
-                'repository': self.r_main.raw_data,
-                'installation': {'id': '0'},
-                "pull_request": p1.raw_data,
-            })
+            self.app.post("/refresh/%s/pull/%s" % (
+                p1.base.repo.full_name, p1.number),
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
+
+        with self.cassette("refresh-consume-1"):
+            self.rq_worker.work(burst=True)
+
         with self.cassette("refresh-2"):
-            self.engine.handle("refresh", {
-                'repository': self.r_main.raw_data,
-                'installation': {'id': INSTALLATION_ID},
-                "pull_request": p2.raw_data,
-            })
+            self.app.post("/refresh/%s/pull/%s" % (
+                p2.base.repo.full_name, p2.number),
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
+
+        with self.cassette("refresh-consume-2"):
+            self.rq_worker.work(burst=True)
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(2, len(pulls))
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
+                                    ).data.decode("utf8"))
+        self.assertEqual(1, len(r))
+        self.assertEqual(2, len(r[0]['pulls']))
+        self.assertEqual("master", r[0]['branch'])
+        self.assertEqual(self.u_main.login, r[0]['owner'])
+        self.assertEqual(self.r_main.name, r[0]['repo'])
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
+                                    ).data.decode("utf8"))
+        self.assertEqual(0, len(r))
+
+    def test_refresh_branch(self):
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        with self.cassette("refresh-1"):
+            self.app.post("/refresh/%s/branch/master" % (
+                p1.base.repo.full_name),
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
+
+        with self.cassette("refresh-consume-1"):
+            self.rq_worker.work(burst=True)
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
