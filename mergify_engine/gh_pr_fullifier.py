@@ -85,9 +85,24 @@ def compute_approvals(pull, **extra):
 
 
 def compute_combined_status(pull, **extra):
+    try:
+        contexts = extra["branch_rule"]["protection"][
+            "required_status_checks"]["contexts"]
+    except KeyError:
+        return "success"
+
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
-    return status.state
+
+    combined_status = "success"
+    for check in status.statuses:
+        if check.context in contexts:
+            if check.state in ["error", "failure"]:
+                return "failure"
+            elif check.state == "pending":
+                combined_status = "pending"
+
+    return combined_status
 
 
 def disabled_by_rules(pull, **extra):
@@ -118,13 +133,10 @@ def compute_weight_and_status(pull, **extra):
             "%d/%d approvals required" %
             (len(reviews_ok), reviews_required)
         )
-    elif (pull.mergeable_state == "clean"
+    elif (pull.mergeable_state in ["clean", "unstable"]
           and pull.mergify_engine["combined_status"] == "success"):
         # Best PR ever, up2date and CI OK
         weight = 11
-        status_desc = "Will be merged soon"
-    elif pull.mergeable_state in ["clean", "unstable"]:
-        weight = 10
         status_desc = "Will be merged soon"
     elif (pull.mergeable_state == "blocked"
           and pull.mergify_engine["combined_status"] == "pending"):
