@@ -19,8 +19,6 @@ import fnmatch
 import logging
 import time
 
-import github
-
 LOG = logging.getLogger(__name__)
 
 UNUSABLE_STATES = ["unknown", None]
@@ -52,7 +50,7 @@ def compute_approvals(pull, **extra):
     users_info = {}
     reviews_ok = set()
     reviews_ko = set()
-    for review in pull.mergify_engine["reviews"]:
+    for review in pull.get_reviews():
         if review.user.id not in extra["collaborators"]:
             continue
 
@@ -172,7 +170,6 @@ def compute_status_desc(pull, **extra):
 
 # Order matter, some method need result of some other
 FULLIFIER = [
-    ("reviews", lambda p, **extra: list(p.get_reviews())),
     ("combined_status", compute_combined_status),
     ("approvals", compute_approvals),          # Need reviews
     ("weight_and_status", compute_weight_and_status),  # Need approvals
@@ -181,7 +178,6 @@ FULLIFIER = [
 ]
 
 CACHE_HOOK_LIST_CONVERT = {
-    "reviews": github.PullRequestReview.PullRequestReview,
 }
 
 

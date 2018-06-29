@@ -171,7 +171,6 @@ class MergifyEngine(object):
                     cache.pop("mergify_engine_combined_status", None)
                     cache["mergify_engine_ci_statuses"] = {}
                 elif event_type == "pull_request_review":
-                    cache.pop("mergify_engine_reviews", None)
                     cache.pop("mergify_engine_approvals", None)
                 elif (event_type == "pull_request" and
                       data["action"] == "synchronize"):
