@@ -30,7 +30,7 @@ from mergify_engine import utils
 LOG = logging.getLogger(__name__)
 
 
-def real_event_handler(event_type, subscription, data):
+def event_handler(event_type, subscription, data):
     """Everything start here"""
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
@@ -49,12 +49,6 @@ def real_event_handler(event_type, subscription, data):
         LOG.error("rate limit reached for install %d (%s)",
                   data["installation"]["id"],
                   data["repository"]["full_name"])
-
-
-def event_handler(event_type, subscription, data):
-    # NOTE(sileht): This is just here for easy mocking purpose
-    # rq pickles the method, so it must be as simple as possible
-    return real_event_handler(event_type, subscription, data)
 
 
 def installation_handler(installation_id, repositories):
