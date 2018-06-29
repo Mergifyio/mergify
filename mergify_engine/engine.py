@@ -25,6 +25,7 @@ from mergify_engine import backports
 from mergify_engine import config
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
+from mergify_engine import gh_pr_fullifier
 from mergify_engine import rules
 from mergify_engine import utils
 
@@ -163,7 +164,7 @@ class MergifyEngine(object):
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
             if self._is_cache_valid(cache):
-                cache.pop("mergify_engine_weight_and_status", None)
+                cache.pop("mergify_engine_status", None)
                 if event_type == "status":
                     cache.pop("mergify_engine_combined_status", None)
                 elif event_type == "pull_request_review":
@@ -192,8 +193,8 @@ class MergifyEngine(object):
                           "refresh"]:
             incoming_pull.mergify_engine_github_post_check_status(
                 self._redis, self._installation_id,
-                incoming_pull.mergify_engine["weight_and_status"][2],
-                incoming_pull.mergify_engine["weight_and_status"][1],
+                incoming_pull.mergify_engine["status"]["github_state"],
+                incoming_pull.mergify_engine["status"]["github_description"],
             )
 
         self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
@@ -215,13 +216,13 @@ class MergifyEngine(object):
 
     @staticmethod
     def sort_pulls(pulls):
-        """Sort pull requests by weight and updated_at"""
-        sort_key = operator.attrgetter('mergify_engine_weight',
-                                       'milestone_is_set', 'updated_at')
+        """Sort pull requests by state and updated_at"""
+        sort_key = operator.attrgetter('mergify_engine_sort_status',
+                                       'milestone', 'updated_at')
         return list(sorted(pulls, key=sort_key, reverse=True))
 
     def build_queue(self, branch, **extra):
-        """Return the pull requests from redis cache ordered by weight"""
+        """Return the pull requests from redis cache ordered by sort status"""
 
         data = self._redis.hgetall(self.get_cache_key(branch))
 
@@ -238,7 +239,7 @@ class MergifyEngine(object):
     def get_next_pull_to_processed(self, branch, **extra):
         """Return the next pull request to proceed
 
-        This take the pull request with the higher weight that is not yet
+        This take the pull request with the higher status that is not yet
         closed.
         """
 
@@ -246,11 +247,11 @@ class MergifyEngine(object):
         while queue:
             p = queue.pop(0)
 
-            expected_weight = p.mergify_engine_weight
+            expected_state = p.mergify_engine["status"]["mergify_state"]
 
             # NOTE(sileht): We refresh it before processing, because the cache
-            # can be outdated, user may have manually merged the PR or weight
-            # may have changed by an event not yet received.
+            # can be outdated, user may have manually merged the PR or
+            # mergify_state may have changed by an event not yet received.
 
             # FIXME(sileht): This will refresh the first pull request of the
             # queue on each event. To limit this almost useless refresh, we
@@ -260,8 +261,8 @@ class MergifyEngine(object):
             if p.state == "closed":
                 # NOTE(sileht): PR merged in the meantime or manually
                 self.cache_remove_pull(p)
-            elif expected_weight != p.mergify_engine_weight:
-                # NOTE(sileht): The weight have changed, put back the pull into
+            elif expected_state != p.mergify_engine["status"]["mergify_state"]:
+                # NOTE(sileht): The state have changed, put back the pull into
                 # the queue and resort it
                 queue.append(p)
                 queue = self.sort_pulls(queue)
@@ -279,40 +280,38 @@ class MergifyEngine(object):
 
         LOG.info("%s selected", p.pretty())
 
-        if p.mergify_engine_weight >= 11:
+        state = p.mergify_engine["status"]["mergify_state"]
+
+        if state == gh_pr_fullifier.MergifyState.READY:
             if p.mergify_engine_merge(extra["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p.pretty())
             else:
                 LOG.info("%s -> merge fail", p.pretty())
 
-        elif p.mergify_engine_weight >= 5 and p.mergeable_state == "behind":
-            if p.mergify_engine["combined_status"] == "success":
-                # rebase it and wait the next pull_request event
-                # (synchronize)
-                if not self._subscription["token"]:
-                    p.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id, "failure",
-                        "No user access_token setuped for rebasing")
-                    LOG.info("%s -> branch not updatable, token missing",
-                             p.pretty())
-                elif not p.base_is_modifiable:
-                    p.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id, "failure",
-                        "PR owner doesn't allow modification")
-                    LOG.info("%s -> branch not updatable, base not modifiable",
-                             p.pretty())
-                elif p.mergify_engine_update_branch(
-                        self._subscription["token"]):
-                    LOG.info("%s -> branch updated", p.pretty())
-                else:
-                    LOG.info("%s -> branch not updatable, "
-                             "manual intervention required", p.pretty())
+        elif state == gh_pr_fullifier.MergifyState.NEED_BRANCH_UPDATE:
+            # rebase it and wait the next pull_request event
+            # (synchronize)
+            if not self._subscription["token"]:
+                p.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id, "failure",
+                    "No user access_token setuped for rebasing")
+                LOG.info("%s -> branch not updatable, token missing",
+                         p.pretty())
+            elif not p.base_is_modifiable:
+                p.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id, "failure",
+                    "PR owner doesn't allow modification")
+                LOG.info("%s -> branch not updatable, base not modifiable",
+                         p.pretty())
+            elif p.mergify_engine_update_branch(
+                    self._subscription["token"]):
+                LOG.info("%s -> branch updated", p.pretty())
             else:
-                LOG.info("%s -> github combined status != success", p.pretty())
-
+                LOG.info("%s -> branch not updatable, "
+                         "manual intervention required", p.pretty())
         else:
-            LOG.info("%s -> weight < 10", p.pretty())
+            LOG.info("%s -> nothing to do (state: %s)", p.pretty(), state)
 
     def cache_save_pull(self, pull):
         key = self.get_cache_key(pull.base.ref)

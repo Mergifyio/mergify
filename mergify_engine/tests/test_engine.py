@@ -505,7 +505,7 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
         for p in pulls:
-            self.assertEqual(-1, p.mergify_engine['weight_and_status'][0])
+            self.assertEqual(0, p.mergify_engine['status']['mergify_state'])
 
         r = json.loads(self.app.get('/status/install/' + INSTALLATION_ID + "/"
                                     ).data.decode("utf8"))
@@ -524,14 +524,17 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
         self.assertEqual(2, pulls[0].number)
-        self.assertEqual(11, pulls[0].mergify_engine['weight_and_status'][0])
+        self.assertEqual(30,
+                         pulls[0].mergify_engine['status']['mergify_state'])
         self.assertEqual("Will be merged soon",
-                         pulls[0].mergify_engine['weight_and_status'][1])
+                         pulls[0].mergify_engine['status'
+                                                 ]['github_description'])
 
         self.assertEqual(1, pulls[1].number)
-        self.assertEqual(-1, pulls[1].mergify_engine['weight_and_status'][0])
+        self.assertEqual(0, pulls[1].mergify_engine['status']['mergify_state'])
         self.assertEqual("0/1 approvals required",
-                         pulls[1].mergify_engine['weight_and_status'][1])
+                         pulls[1].mergify_engine['status'
+                                                 ]['github_description'])
 
         # Check the merged pull request is gone
         self.push_events(2)
@@ -633,9 +636,10 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
-        self.assertEqual(-1, pulls[0].mergify_engine['weight_and_status'][0])
+        self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
         self.assertEqual("Disabled, foobar is modified in this pull request",
-                         pulls[0].mergify_engine['weight_and_status'][1])
+                         pulls[0].mergify_engine['status'
+                                                 ]['github_description'])
 
     def test_disabling_label(self):
         p, commits = self.create_pr()
@@ -652,9 +656,10 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
-        self.assertEqual(-1, pulls[0].mergify_engine['weight_and_status'][0])
+        self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
         self.assertEqual("Disabled with label",
-                         pulls[0].mergify_engine['weight_and_status'][1])
+                         pulls[0].mergify_engine['status'
+                                                 ]['github_description'])
 
     def test_auto_backport_failure(self):
         p, commits = self.create_pr("nostrict", two_commits=True)
@@ -911,6 +916,7 @@ class TestEngineScenario(testtools.TestCase):
 
     def test_reviews(self):
         p, commits = self.create_pr()
+        self.create_status_and_push_event(p, commits[0])
         self.create_review_and_push_event(p, commits[0],
                                           event="COMMENT")
         r = self.create_review_and_push_event(p, commits[0],
@@ -924,9 +930,12 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("mergify-test1",
                          pulls[0].mergify_engine["approvals"][1][0]["login"])
         self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
-        self.assertEqual(-1, pulls[0].mergify_engine['weight'])
+        self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
+        self.assertEqual("pending",
+                         pulls[0].mergify_engine['status']["github_state"])
         self.assertEqual("Change requests need to be dismissed",
-                         pulls[0].mergify_engine['status_desc'])
+                         pulls[0].mergify_engine['status'][
+                             "github_description"])
 
         with self.cassette("dismiss"):
             self.r_main._requester.requestJsonAndCheck(
@@ -957,3 +966,5 @@ class TestEngineScenario(testtools.TestCase):
                          pulls[0].mergify_engine["approvals"][0][0]["login"])
         self.assertEqual([], pulls[0].mergify_engine["approvals"][1])
         self.assertEqual(1, pulls[0].mergify_engine["approvals"][2])
+        self.assertEqual(30,
+                         pulls[0].mergify_engine['status']['mergify_state'])
