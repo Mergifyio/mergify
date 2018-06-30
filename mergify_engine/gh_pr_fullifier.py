@@ -73,11 +73,12 @@ def compute_approvals(pull, **extra):
             LOG.error("%s FIXME review state unhandled: %s",
                       pull.pretty(), review.state)
 
-    try:
-        required = extra["branch_rule"]["protection"][
-            "required_pull_request_reviews"]["required_approving_review_count"]
-    except KeyError:
+    protection = extra["branch_rule"]["protection"]
+    if not protection["required_pull_request_reviews"]:
         return [], [], 0
+
+    required = protection["required_pull_request_reviews"
+                          ]["required_approving_review_count"]
 
     return ([users_info[u] for u in reviews_ok],
             [users_info[u] for u in reviews_ko],
@@ -85,11 +86,11 @@ def compute_approvals(pull, **extra):
 
 
 def compute_combined_status(pull, **extra):
-    try:
-        contexts = extra["branch_rule"]["protection"][
-            "required_status_checks"]["contexts"]
-    except KeyError:
+    protection = extra["branch_rule"]["protection"]
+    if not protection["required_status_checks"]:
         return "success"
+
+    contexts = protection["required_status_checks"]["contexts"]
 
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
