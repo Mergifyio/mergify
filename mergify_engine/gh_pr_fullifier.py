@@ -32,7 +32,7 @@ def ensure_mergable_state(pull):
     for i in range(0, 5):
         LOG.info("%s, refreshing...", pull.pretty())
         pull.update()
-        if pull.is_merged() or pull.mergeable_state not in UNUSABLE_STATES:
+        if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
             break
         time.sleep(0.42)  # you known, this one always work
 
