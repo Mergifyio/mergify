@@ -44,10 +44,6 @@ app = flask.Flask(__name__)
 # app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
-INTEGRATION = github.GithubIntegration(config.INTEGRATION_ID,
-                                       config.PRIVATE_KEY)
-
-
 def get_queue():
     if not hasattr(flask.g, 'rq_queue'):
         flask.g.rq_queue = rq.Queue(connection=utils.get_redis_for_rq())
@@ -90,11 +86,13 @@ def check_status_msg(key):
 def refresh(owner, repo, refresh_ref):
     authentification()
 
-    installation_id = utils.get_installation_id(INTEGRATION, owner)
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, owner)
     if not installation_id:
         flask.abort(400, "%s have not installed mergify_engine" % owner)
 
-    token = INTEGRATION.get_access_token(installation_id).token
+    token = integration.get_access_token(installation_id).token
     g = github.Github(token)
     r = g.get_repo("%s/%s" % (owner, repo))
     if refresh_ref == "full" or refresh_ref.startswith("branch/"):
@@ -139,10 +137,13 @@ def refresh(owner, repo, refresh_ref):
 def refresh_all():
     authentification()
 
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+
     counts = [0, 0, 0]
-    for install in utils.get_installations(INTEGRATION):
+    for install in utils.get_installations(integration):
         counts[0] += 1
-        token = INTEGRATION.get_access_token(install["id"]).token
+        token = integration.get_access_token(install["id"]).token
         g = github.Github(token)
         i = g.get_installation(install["id"])
 
@@ -173,7 +174,9 @@ def refresh_all():
 @app.route("/queue/<owner>/<repo>/<path:branch>")
 def queue(owner, repo, branch):
     r = utils.get_redis_for_cache()
-    installation_id = utils.get_installation_id(INTEGRATION, owner)
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, owner)
     return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner.lower(),
                                             repo.lower(), False, branch)
                  ) or "[]"
@@ -232,14 +235,18 @@ def status(installation_id):
 @app.route("/status/repos/<login>/<repo>/")
 def status_repo(login, repo="*"):
     r = utils.get_redis_for_cache()
-    installation_id = utils.get_installation_id(INTEGRATION, login)
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, login)
     return _get_status(r, installation_id, login, repo)
 
 
 @app.route('/stream/status/repos/<login>/')
 @app.route('/stream/status/repos/<login>/<repo>/')
 def stream_repo(login, repo="*"):
-    installation_id = utils.get_installation_id(INTEGRATION, login)
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, login)
     return flask.Response(flask.stream_with_context(
         stream_generate(installation_id, login, repo)
     ), mimetype="text/event-stream")
