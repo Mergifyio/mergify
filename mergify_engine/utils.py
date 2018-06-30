@@ -84,6 +84,7 @@ def setup_logging():
         ("rq", "WARN"),
         ("github.Requester", "WARN"),
         ("urllib3.connectionpool", "WARN"),
+        ("vcr", "WARN"),
     ])
 
 
