@@ -446,16 +446,18 @@ class TestEngineScenario(testtools.TestCase):
 
         return p, commits
 
-    def create_status_and_push_event(self, pr, commit, excepted_events=1):
+    def create_status_and_push_event(self, pr, commit, excepted_events=1,
+                                     context='continuous-integration/fake-ci',
+                                     state='success'):
         self.status_counter += 1
         # TODO(sileht): monkey patch PR with this
         with self.cassette("status-%s" % self.status_counter):
             _, data = self.r_main._requester.requestJsonAndCheck(
                 "POST",
                 pr.base.repo.url + "/statuses/" + pr.head.sha,
-                input={'state': 'success',
+                input={'state': state,
                        'description': 'Your change works',
-                       'context': 'continuous-integration/fake-ci'},
+                       'context': context},
                 headers={'Accept':
                          'application/vnd.github.machine-man-preview+json'}
             )
@@ -513,6 +515,9 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(self.u_main.login, r[0]['owner'])
         self.assertEqual(self.r_main.name, r[0]['repo'])
 
+        self.create_status_and_push_event(p2, commits[0],
+                                          context="not required status check",
+                                          state="error")
         self.create_status_and_push_event(p2, commits[0])
         self.create_review_and_push_event(p2, commits[0])
 
