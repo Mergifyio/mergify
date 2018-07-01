@@ -116,7 +116,7 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
             raise InvalidRules(".mergify.yml is invalid at position: (%s:%s)" %
                                (e.problem_mark.line+1,
                                 e.problem_mark.column+1))
-        else:
+        else:  # pragma: no cover
             raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:
         raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
@@ -132,7 +132,7 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
                 dict_merge(rule, rules["branches"][branch_re])
     try:
         rule = validate_merged_config(rule)
-    except voluptuous.MultipleInvalid as e:
+    except voluptuous.MultipleInvalid as e:  # pragma: no cover
         raise InvalidRules("mergify configuration invalid: %s" % str(e))
 
     # NOTE(sileht): Always disable Mergify if its configuration is changed

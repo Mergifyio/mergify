@@ -67,7 +67,7 @@ def _get_commits_to_cherrypick(pull, commit):
             if len(commit.parents) == 1:
                 out_commits.append(commit)
                 commit = commit.parents[0]
-            else:
+            else:  # pragma: no cover
                 # NOTE(sileht): What is that? A merge here?
                 LOG.error("%s: backport, unhandled commit structure",
                           pull.pretty())
@@ -78,7 +78,7 @@ def _get_commits_to_cherrypick(pull, commit):
         LOG.info("%s: backport, was just merged", pull.pretty())
         # NOTE(sileht): Was merged, we can take commit from the PR
         return commits
-    else:
+    else:  # pragma: no cover
         # NOTE(sileht): What is that ?
         LOG.error("%s: backport, unhandled commit structure", pull.pretty())
         return []
@@ -87,7 +87,13 @@ def _get_commits_to_cherrypick(pull, commit):
 def _backport(repo, pull, branch_name, installation_token):
     try:
         branch = repo.get_branch(branch_name)
-    except github.UnknownObjectException:
+    except github.GithubException as e:
+        # NOTE(sileht): PyGitHub is buggy here it should
+        # UnknownObjectException. but because the message is "Branch not
+        # found", instead of "Not found", we got the generic exception.
+        if e.status != 404:  # pragma: no cover
+            raise
+
         LOG.info("%s doesn't exist for repo %s", branch_name, repo.full_name)
         return
 

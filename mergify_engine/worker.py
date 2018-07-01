@@ -45,7 +45,7 @@ def event_handler(event_type, subscription, data):
                              installation_token,
                              subscription,
                              user, repo).handle(event_type, data)
-    except github.RateLimitExceededException:
+    except github.RateLimitExceededException:  # pragma: no cover
         LOG.error("rate limit reached for install %d (%s)",
                   data["installation"]["id"],
                   data["repository"]["full_name"])
@@ -79,7 +79,7 @@ def installation_handler(installation_id, repositories):
                 repo = user.get_repo(repository["name"])
                 new_repos.append(repo)
             repositories = new_repos
-        else:
+        else:  # pragma: no cover
             raise RuntimeError("Unexpected 'repositories' format: %s",
                                type(repositories))
 
@@ -87,12 +87,12 @@ def installation_handler(installation_id, repositories):
             initial_configuration.create_pull_request_if_needed(
                 installation_token, repo)
 
-    except github.RateLimitExceededException:
+    except github.RateLimitExceededException:  # pragma: no cover
         LOG.error("rate limit reached for install %d",
                   installation_id)
 
 
-def main():
+def main():  # pragma: no cover
     utils.setup_logging()
     config.log()
     gh_pr.monkeypatch_github()
@@ -104,5 +104,5 @@ def main():
         worker.work()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()

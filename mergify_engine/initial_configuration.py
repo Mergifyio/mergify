@@ -100,7 +100,7 @@ def create_pull_request_if_needed(installation_token, repo):
             # NOTE(sileht): PyGitHub is buggy here it should
             # UnknownObjectException. but because the message is "Branch not
             # found", instead of "Not found", we got the generic exception.
-            if e.status != 404:
+            if e.status != 404:  # pragma: no cover
                 raise
             create_pull_request(installation_token, repo)
         else:

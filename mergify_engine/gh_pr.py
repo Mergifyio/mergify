@@ -27,20 +27,19 @@ LOG = logging.getLogger(__name__)
 
 def pretty(self):
     extra = getattr(self, "mergify_engine", {})
-    status = extra.get("combined_status", "nc")
+    combined_status = extra.get("combined_status", "nc")
+    status = extra.get("status", {})
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
-    synced = extra.get("sync_with_master", "nc")
-    return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s)" % (
+    return "%s/%s/pull/%s@%s (%s/%s/%s/%s)" % (
         self.base.user.login,
         self.base.repo.name,
         self.number,
         self.base.ref,
         ("merged" if self.merged
          else (self.mergeable_state or "none")),
-        synced,
-        status,
+        combined_status,
         approvals,
-        extra.get("status", {}).get("mergify_state", -1)
+        status.get("mergify_state", 'nc'),
     )
 
 
@@ -73,7 +72,7 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
             headers={'Accept':
                      'application/vnd.github.machine-man-preview+json'}
         )
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         LOG.exception("%s set status fail: %s",
                       self.pretty(), e.data["message"])
 
@@ -88,32 +87,36 @@ def mergify_engine_merge(self, rule):
     try:
         headers, data = self._requester.requestJsonAndCheck(
             "PUT", self.url + "/merge", input=post_parameters)
-        return github.PullRequestMergeStatus.PullRequestMergeStatus(
-            self._requester, headers, data, completed=True)
     except github.GithubException as e:
-        fallback = rule["merge_strategy"]["rebase_fallback"]
+        if (self.is_merged() and
+                e.data["message"] == "Pull Request is not mergeable"):
+            # Not a big deal, we will received soon the pull_request/close
+            # event
+            LOG.info("%s: was merged in the meantime")
+            return True
 
+        fallback = rule["merge_strategy"]["rebase_fallback"]
         if (e.data["message"] != "This branch can't be rebased" or
                 rule["merge_strategy"]["method"] != "rebase" or
                 fallback == "none"):
             LOG.exception("%s merge fail: %d, %s",
                           self.pretty(), e.status, e.data["message"])
-            return
+            return False
 
         # If rebase fail retry with merge
         post_parameters['merge_method'] = fallback
         try:
             headers, data = self._requester.requestJsonAndCheck(
                 "PUT", self.url + "/merge", input=post_parameters)
-            return github.PullRequestMergeStatus.PullRequestMergeStatus(
-                self._requester, headers, data, completed=True)
         except github.GithubException as e:
             LOG.exception("%s merge fail: %d, %s",
                           self.pretty(), e.status, e.data["message"])
+            return False
 
         # FIXME(sileht): depending on the kind of failure we can endloop
         # to try to merge the pr again and again.
         # to repoduce the issue
+    return True
 
 
 def base_is_modifiable(self):
