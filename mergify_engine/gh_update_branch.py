@@ -15,9 +15,6 @@
 # under the License.
 
 import logging
-import sys
-
-import github
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -58,7 +55,7 @@ def update_branch(self, token, merge=True):
         if merge:
             git("merge", "upstream/%s" % self.base.ref, "-m",
                 "Merge branch '%s' into '%s'" % (self.base.ref, self.head.ref))
-        else:
+        else:  # pragma: no cover
             # TODO(sileht): This will removes approvals, we need to add them
             # back
             git("rebase", "upstream/%s" % self.base.ref)

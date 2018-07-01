@@ -13,7 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-# import copy
+import copy
 import json
 import logging
 import os
@@ -37,6 +37,7 @@ from mergify_engine import engine
 from mergify_engine import gh_branch
 from mergify_engine import gh_pr
 from mergify_engine import gh_update_branch
+from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine import web
 
@@ -66,6 +67,7 @@ rules:
       - foo?ar
     automated_backport_labels:
       bp-stable: stable
+      bp-not-exist: not-exist
 
   branches:
     master:
@@ -83,8 +85,14 @@ rules:
     stable:
       protection:
         required_status_checks: null
+    disabled: null
 
 """
+
+MERGE_EVENTS = [
+    ("status", {"state": "success"}),
+    ("pull_request", {"action": "closed"})
+]
 
 
 class GitterRecorder(utils.Gitter):
@@ -167,7 +175,7 @@ class TestEngineScenario(testtools.TestCase):
                 ('Accept-Encoding', None),
                 ('Connection', None),
             ],
-            before_record_response=self.remove_access_token,
+            before_record_response=self.response_filter,
             custom_patches=(
                 (github.MainClass, 'HTTPSConnection',
                  vcr.stubs.VCRHTTPSConnection),
@@ -204,6 +212,7 @@ class TestEngineScenario(testtools.TestCase):
         self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
 
         self.pr_counter = 0
+        self.remaining_events = []
 
         utils.setup_logging()
         config.log()
@@ -283,6 +292,9 @@ class TestEngineScenario(testtools.TestCase):
             self.git("checkout", "-b", "nostrict")
             self.git("push", "main", "nostrict")
 
+            self.git("checkout", "-b", "disabled")
+            self.git("push", "main", "disabled")
+
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.url_fork = "https://%s:@github.com/%s" % (
                 config.FORK_TOKEN, self.r_fork.full_name)
@@ -294,60 +306,92 @@ class TestEngineScenario(testtools.TestCase):
             # * installation_repositories
             # * integration_installation_repositories
             # but we receive them 6 times with the same sha1...
-            self.push_events(12)
+            self.push_events([(None, {"action": "added"})] * 12)
 
     def tearDown(self):
         # NOTE(sileht): I'm guessing that deleting repository help to get
         # account flagged, so just keep them
         # self.r_fork.delete()
         # self.r_main.delete()
+
+        self.assertEqual([], self.remaining_events)
         super(TestEngineScenario, self).tearDown()
 
     @staticmethod
-    def remove_access_token(response):
-        try:
-            decoded_response = json.loads(response["body"]["string"].decode())
-        except ValueError:
-            return response
-
-        if "token" in decoded_response:
-            decoded_response["token"] = "<TOKEN>"
-            response["body"]["string"] = json.dumps(decoded_response).encode()
+    def response_filter(response):
+        for h in ["X-GitHub-Request-Id", "Date", "ETag",
+                  "X-RateLimit-Remaining", "X-Runtime-rack"]:
+            response["headers"].pop(h, None)
+#        try:
+#            decoded_response = json.loads(response["body"]["string"].decode())
+#        except ValueError:
+#            return response
+#
+#        if "token" in decoded_response:
+#            decoded_response["token"] = "<TOKEN>"
+#            response["body"]["string"] = json.dumps(decoded_response).encode()
         return response
 
-    def push_events(self, n=1):
-        got = 0
+    def push_events(self, expected_events):
+        expected_events = copy.deepcopy(expected_events)
+        total = len(expected_events)
         loop = 0
-        while got < n:
-            got += self._push_events()
-            if got < n and RECORD_MODE in ["all", "once"]:
-                time.sleep(0.1)
+        events = self.remaining_events
+        while expected_events:
             loop += 1
             if loop > 100:
-                raise RuntimeError("Never got expected events, "
-                                   "%d instead of %d" % (got, n))
-        if got != n:
-            raise RuntimeError("We received more events than expected, "
-                               "%d instead of %d" % (got, n))
+                raise RuntimeError(
+                    "Never got expected events, "
+                    "%d instead of %d" % (total - len(expected_events), total))
 
-    def _push_events(self):
+            if RECORD_MODE in ["all", "once"]:
+                time.sleep(0.1)
+
+            if not events:
+                events = self._get_events()
+                if events:
+                    LOG.debug("==============================================")
+                    LOG.debug("Got events: %s",
+                              [(e["type"], e["payload"].get(
+                                  "action", e["payload"].get("state")))
+                               for e in events])
+                    LOG.debug("==============================================")
+
+            while events:
+                event = events.pop(0)
+                expected_type, expected_data = expected_events.pop(0)
+
+                if (expected_type is not None
+                        and expected_type != event["type"]):
+                    raise Exception("Got %s event type instead of %s: %s" %
+                                    (event["type"],  expected_type,
+                                     event["payload"]))
+
+                for key, expected in expected_data.items():
+                    value = event["payload"].get(key)
+                    if value != expected:
+                        raise Exception("Got %s for %s instead of %s: %s" %
+                                        (value, key, expected, event))
+
+                self._send_event(**event)
+
+                if not expected_events:
+                    break
+
+        self.remaining_events = events
+
+    def _get_events(self):
         # NOTE(sileht): Simulate push Github events, we use a counter
         # for have each cassette call unique
-        resp = self.session.get(
+        return list(reversed(self.session.get(
             "https://gh.mergify.io/events-testing",
             data=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
-        )
-        events = resp.json()
-        for event in reversed(events):
-            self._send_event(**event)
-        return len(events)
+        ).json()))
 
     def _send_event(self, id, type, payload):
         extra = payload.get("state", payload.get("action"))
-        LOG.info("")
-        LOG.info("=======================================================")
-        LOG.info(">>> GOT EVENT: %s %s/%s" % (id, type, extra))
+        LOG.debug("> Processing event: %s %s/%s" % (id, type, extra))
         r = self.app.post('/event', headers={
             "X-GitHub-Event": type,
             "X-GitHub-Delivery": "123456789",
@@ -357,7 +401,8 @@ class TestEngineScenario(testtools.TestCase):
         self.rq_worker.work(burst=True)
         return r
 
-    def create_pr(self, base="master", files=None, two_commits=False):
+    def create_pr(self, base="master", files=None, two_commits=False,
+                  state="pending"):
         self.pr_counter += 1
 
         branch = "fork/pr%d" % self.pr_counter
@@ -384,14 +429,16 @@ class TestEngineScenario(testtools.TestCase):
             head="%s:%s" % (self.r_fork.owner.login, branch),
             title=title, body=title)
 
-        # NOTE(sileht): This generated many events:
-        # - pull_request : open
-        # - status: Waiting for CI status (set by mergify)
-        # - status: config checker if configuration change detected
+        expected_events = [("pull_request", {"action": "opened"})]
         if files and ".mergify.yml" in files:
-            self.push_events(3)
-        else:
-            self.push_events(2)
+            expected_events += [
+                ("status", {"state": "failure"}),
+                ("status", {"state": "success"})
+            ]
+        elif base != "disabled":
+            expected_events += [("status", {"state": state})]
+
+        self.push_events(expected_events)
 
         # NOTE(sileht): We return the same but owned by the main project
         p = self.r_main.get_pull(p.number)
@@ -399,11 +446,16 @@ class TestEngineScenario(testtools.TestCase):
 
         return p, commits
 
-    def create_status_and_push_event(self, pr, commit, excepted_events=1,
+    def create_status_and_push_event(self, pr,
                                      context='continuous-integration/fake-ci',
                                      state='success'):
+        self.create_status(pr, context, state)
+        self.push_events([("status", {"state": state})])
+
+    def create_status(self, pr, context='continuous-integration/fake-ci',
+                      state='success'):
         # TODO(sileht): monkey patch PR with this
-        _, data = self.r_main._requester.requestJsonAndCheck(
+        self.r_main._requester.requestJsonAndCheck(
             "POST",
             pr.base.repo.url + "/statuses/" + pr.head.sha,
             input={'state': state,
@@ -412,12 +464,48 @@ class TestEngineScenario(testtools.TestCase):
             headers={'Accept':
                      'application/vnd.github.machine-man-preview+json'}
         )
-        self.push_events(excepted_events)
 
     def create_review_and_push_event(self, pr, commit, event="APPROVE"):
         r = pr.create_review(commit, "Perfect", event=event)
-        self.push_events()
+        self.push_events([("pull_request_review", {"action": "submitted"})])
         return r
+
+    def add_label_and_push_events(self, pr, label, state="pending"):
+        self.r_main.create_label(label, "000000")
+        pr.add_to_labels(label)
+        self.push_events([
+            ("pull_request", {"action": "labeled"}),
+            ("status", {"state": state})
+        ])
+
+    def test_branch_disabled(self):
+        old_rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/no-ci"],
+                },
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+        gh_branch.protect(self.r_main, "disabled", old_rule)
+
+        rule = rules.get_branch_rule(self.r_main, "disabled")
+        self.assertEqual(None, rule)
+        self.assertFalse(gh_branch.is_configured(self.r_main, "disabled",
+                                                 rule))
+
+        self.create_pr("disabled")
+        self.assertEqual([], self.engine.get_cached_branches())
+        self.assertEqual([], self.engine.build_queue("disabled"))
+
+        self.assertTrue(gh_branch.is_configured(self.r_main, "disabled", rule))
 
     def test_basic(self):
         self.create_pr()
@@ -455,19 +543,37 @@ class TestEngineScenario(testtools.TestCase):
         for p in pulls:
             self.assertEqual(0, p.mergify_engine['status']['mergify_state'])
 
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(1, len(r))
-        self.assertEqual(2, len(r[0]['pulls']))
-        self.assertEqual("master", r[0]['branch'])
-        self.assertEqual(self.u_main.login, r[0]['owner'])
-        self.assertEqual(self.r_main.name, r[0]['repo'])
+        # Some Web API checks
+        for url in ['/status/repos/%s/' % self.u_main.login,
+                    '/status/repos/%s/' % self.r_main.full_name,
+                    '/status/install/%s/' % config.INSTALLATION_ID]:
+            r = self.app.get(url).get_json()
+            self.assertEqual(1, len(r))
+            self.assertEqual(2, len(r[0]['pulls']))
+            self.assertEqual("master", r[0]['branch'])
+            self.assertEqual(self.u_main.login, r[0]['owner'])
+            self.assertEqual(self.r_main.name, r[0]['repo'])
 
-        self.create_status_and_push_event(p2, commits[0],
+        for url in ['/stream/status/repos/%s/' % self.u_main.login,
+                    '/stream/status/repos/%s/' % self.r_main.full_name,
+                    '/stream/status/install/%s/' % config.INSTALLATION_ID]:
+            r = self.app.get(url)
+            lines = [l for l in next(r.iter_encoded()).decode().split("\n")
+                     if l]
+            self.assertEqual("event: refresh", lines[0])
+            self.assertEqual("data: ", lines[1][:6])
+
+            r = json.loads(lines[1][6:])
+            self.assertEqual(1, len(r))
+            self.assertEqual(2, len(r[0]['pulls']))
+            self.assertEqual("master", r[0]['branch'])
+            self.assertEqual(self.u_main.login, r[0]['owner'])
+            self.assertEqual(self.r_main.name, r[0]['repo'])
+
+        self.create_status_and_push_event(p2,
                                           context="not required status check",
                                           state="error")
-        self.create_status_and_push_event(p2, commits[0])
+        self.create_status_and_push_event(p2)
         self.create_review_and_push_event(p2, commits[0])
 
         pulls = self.engine.build_queue("master")
@@ -486,7 +592,7 @@ class TestEngineScenario(testtools.TestCase):
                                                  ]['github_description'])
 
         # Check the merged pull request is gone
-        self.push_events(2)
+        self.push_events(MERGE_EVENTS)
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
@@ -575,10 +681,61 @@ class TestEngineScenario(testtools.TestCase):
         ).data.decode("utf8"))
         self.assertEqual(0, len(r))
 
-    def test_disabling_files(self):
-        p, commits = self.create_pr(files={"foobar": "what"})
+    def test_refresh_all(self):
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
 
-        self.create_status_and_push_event(p, commits[0])
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        real_get_subscription = utils.get_subscription
+
+        def fake_subscription(r, install_id):
+            if install_id == config.INSTALLATION_ID:
+                return real_get_subscription(r, install_id)
+            else:
+                return {"token": None, "subscribed": False}
+
+        self.useFixture(fixtures.MockPatch(
+            "mergify_engine.web.utils.get_subscription",
+            side_effect=fake_subscription))
+
+        self.useFixture(fixtures.MockPatch(
+            "github.MainClass.Installation.Installation.get_repos",
+            return_value=[self.r_main]))
+
+        self.app.post("/refresh",
+                      headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
+
+        self.rq_worker.work(burst=True)
+
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(2, len(pulls))
+        r = json.loads(self.app.get(
+            '/status/install/%s/' % config.INSTALLATION_ID
+        ).data.decode("utf8"))
+        self.assertEqual(1, len(r))
+        self.assertEqual(2, len(r[0]['pulls']))
+        self.assertEqual("master", r[0]['branch'])
+        self.assertEqual(self.u_main.login, r[0]['owner'])
+        self.assertEqual(self.r_main.name, r[0]['repo'])
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.engine.get_cache_key("master"))
+        pulls = self.engine.build_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        r = json.loads(self.app.get(
+            '/status/install/%s/' % config.INSTALLATION_ID
+        ).data.decode("utf8"))
+        self.assertEqual(0, len(r))
+
+    def test_disabling_files(self):
+        p, commits = self.create_pr(files={"foobar": "what"}, state="failure")
+
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
         pulls = self.engine.build_queue("master")
@@ -592,12 +749,9 @@ class TestEngineScenario(testtools.TestCase):
     def test_disabling_label(self):
         p, commits = self.create_pr()
 
-        self.r_main.create_label("no-mergify", "000000")
-        p.add_to_labels("no-mergify")
+        self.add_label_and_push_events(p, "no-mergify", state="failure")
 
-        self.push_events()
-
-        self.create_status_and_push_event(p, commits[0])
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
         pulls = self.engine.build_queue("master")
@@ -608,11 +762,11 @@ class TestEngineScenario(testtools.TestCase):
                          pulls[0].mergify_engine['status'
                                                  ]['github_description'])
 
-    def test_auto_backport_failure(self):
+    def test_auto_backport_branch_not_exists(self):
         p, commits = self.create_pr("nostrict", two_commits=True)
-        self.create_status_and_push_event(p, commits[0])
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
-        self.push_events(2)
+        self.push_events(MERGE_EVENTS)
 
         # Change the moved file of the previous PR
         p, commits = self.create_pr("nostrict", files={
@@ -620,90 +774,93 @@ class TestEngineScenario(testtools.TestCase):
         })
 
         # Backport it, but the file doesn't exists on the base branch
-        self.r_main.create_label("bp-stable", "000000")
-        p.add_to_labels("bp-stable")
+        self.add_label_and_push_events(p, "bp-not-exist")
 
-        # Got label event
-        self.push_events()
-
-        self.create_status_and_push_event(p, commits[0])
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        # Got:
-        # * status: mergify "Will be merged soon")
-        # * pull_request : close event for pr
-        self.push_events(3)
+        self.push_events(MERGE_EVENTS)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_auto_backport_failure(self):
+        p, commits = self.create_pr("nostrict", two_commits=True)
+        self.create_status_and_push_event(p)
+        self.create_review_and_push_event(p, commits[0])
+        self.push_events(MERGE_EVENTS)
+
+        # Change the moved file of the previous PR
+        p, commits = self.create_pr("nostrict", files={
+            "test%d-moved" % self.pr_counter: "data"
+        })
+
+        # Backport it, but the file doesn't exists on the base branch
+        self.add_label_and_push_events(p, "bp-stable")
+
+        self.create_status_and_push_event(p)
+        self.create_review_and_push_event(p, commits[0])
+
+        self.push_events(MERGE_EVENTS + [
+            ("pull_request", {"action": "opened"}),
+            ("status", {"state": "pending"}),
+        ])
 
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual("stable", pulls[0].base.ref)
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
+        self.assertIn("Cherry-pick of", pulls[0].body)
+        self.assertIn("have failed", pulls[0].body)
         self.assertIn("To fixup this pull request, you can check out it "
                       "locally", pulls[0].body)
-
-        # Consume remaining events
-        self.push_events(2)
 
     def test_auto_backport_rebase(self):
         p, commits = self.create_pr("nostrict", two_commits=True)
 
-        self.r_main.create_label("bp-stable", "000000")
-        p.add_to_labels("bp-stable")
+        self.add_label_and_push_events(p, "bp-stable")
 
-        # Got label event
-        self.push_events()
-
-        self.create_status_and_push_event(p, commits[0])
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        # Got:
-        # * status: mergify "Will be merged soon")
-        # * pull_request : close event for pr
-        self.push_events(3)
+        self.push_events(MERGE_EVENTS + [
+            ("pull_request", {"action": "opened"}),
+            ("status", {"state": "pending"}),
+        ])
 
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual("stable", pulls[0].base.ref)
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
-
-        # Consume remaining events
-        self.push_events(2)
 
     def test_auto_backport_merge(self):
         p, commits = self.create_pr(two_commits=True)
 
-        self.r_main.create_label("bp-stable", "000000")
-        p.add_to_labels("bp-stable")
+        self.add_label_and_push_events(p, "bp-stable")
 
-        # Got label event
-        self.push_events()
-
-        self.create_status_and_push_event(p, commits[0])
+        self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        # Got:
-        # * status: mergify "Will be merged soon")
-        # * pull_request : close event for pr
-        self.push_events(4)
+        self.push_events(MERGE_EVENTS + [
+            ("pull_request", {"action": "opened"}),
+            ("status", {"state": "pending"}),
+        ])
 
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual("stable", pulls[0].base.ref)
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
-
-        # Consume remaining events
-        self.push_events(1)
 
     def test_update_branch_strict(self):
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
 
         # merge the two PR
-        self.create_status_and_push_event(p1, commits1[0])
-        self.create_status_and_push_event(p2, commits2[0])
+        self.create_status_and_push_event(p1)
+        self.create_status_and_push_event(p2)
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
@@ -714,10 +871,7 @@ class TestEngineScenario(testtools.TestCase):
 
         self.create_review_and_push_event(p1, commits1[0])
 
-        # Got:
-        # * status: mergify "Will be merged soon")
-        # * pull_request : close event for pr1
-        self.push_events(2)
+        self.push_events(MERGE_EVENTS)
 
         # First PR merged
         pulls = self.engine.build_queue("master")
@@ -728,13 +882,14 @@ class TestEngineScenario(testtools.TestCase):
         self.assertNotEqual(previous_master_sha, master_sha)
 
         # Try to merge pr2
-        self.create_status_and_push_event(p2, commits2[0])
+        self.create_status_and_push_event(p2)
         self.create_review_and_push_event(p2, commits2[0])
 
-        # Got
-        # * pull_request : synchronise
-        # * status: mergify "Wait for CI")
-        self.push_events(2)
+        self.push_events([
+            ("status", {"state": "pending"}),
+            ("pull_request", {"action": "synchronize"}),
+            ("status", {"state": "pending"}),
+        ])
 
         p2 = self.r_main.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -744,12 +899,9 @@ class TestEngineScenario(testtools.TestCase):
                       commits2[-1].commit.message)
 
         # Retry to merge pr2
-        self.create_status_and_push_event(p2, commits2[0])
+        self.create_status_and_push_event(p2)
 
-        # Got:
-        # * status: mergify "Will be merged soon")
-        # * pull_request : close event for pr2
-        self.push_events(2)
+        self.push_events([("pull_request", {"action": "closed"})])
 
         # Second PR merged
         pulls = self.engine.build_queue("master")
@@ -765,7 +917,8 @@ class TestEngineScenario(testtools.TestCase):
             "required_pull_request_reviews"][
                 "required_approving_review_count"] = 6
         config = yaml.dump(config)
-        p1, commits1 = self.create_pr(files={".mergify.yml": config})
+        p1, commits1 = self.create_pr(files={".mergify.yml": config},
+                                      state="failure")
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
@@ -803,8 +956,8 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits2 = self.create_pr("nostrict")
 
         # merge the two PR
-        self.create_status_and_push_event(p1, commits1[0])
-        self.create_status_and_push_event(p2, commits2[0])
+        self.create_status_and_push_event(p1)
+        self.create_status_and_push_event(p2)
 
         pulls = self.engine.build_queue("nostrict")
         self.assertEqual(2, len(pulls))
@@ -812,13 +965,13 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("success", pulls[1].mergify_engine["combined_status"])
 
         self.create_review_and_push_event(p1, commits1[0])
+        self.push_events(MERGE_EVENTS)
+
         self.create_review_and_push_event(p2, commits2[0])
-
-        # Got:
-        # * status: mergify "Will be merged soon"
-        # * pull_request : close event
-        self.push_events(4)
-
+        self.push_events([
+            ("status", {"state": "success"}),
+            ("pull_request", {"action": "closed"})
+        ])
         pulls = self.engine.build_queue("nostrict")
         self.assertEqual(0, len(pulls))
 
@@ -849,13 +1002,12 @@ class TestEngineScenario(testtools.TestCase):
 
     def test_reviews(self):
         p, commits = self.create_pr()
-        self.create_status_and_push_event(p, commits[0])
-        self.create_review_and_push_event(p, commits[0],
-                                          event="COMMENT")
+        self.create_status_and_push_event(p)
+        self.create_review_and_push_event(p, commits[0], event="COMMENT")
+        self.push_events([("status", {"state": "pending"})])
         r = self.create_review_and_push_event(p, commits[0],
                                               event="REQUEST_CHANGES")
-
-        self.push_events(2)
+        self.push_events([("status", {"state": "pending"})])
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
@@ -882,7 +1034,10 @@ class TestEngineScenario(testtools.TestCase):
                      'application/vnd.github.luke-cage-preview+json'}
         )
 
-        self.push_events(2)
+        self.push_events([
+            ("pull_request_review", {"action": "dismissed"}),
+            ("status", {"state": "pending"})
+        ])
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
@@ -925,11 +1080,15 @@ class TestEngineScenario(testtools.TestCase):
             base="refs/heads/master",
             head="refs/heads/otherbranch",
             title="PR title", body="PR body")
-        commits = list(p.get_commits())
 
-        self.create_status_and_push_event(p, commits[0], excepted_events=0)
+        self.create_status(p)
 
-        self.push_events(16)
+        self.push_events([("pull_request", {"action": "opened"})])
+        self.push_events([(None, {"action": "added"})] * 12)
+        self.push_events([
+            ("pull_request", {"action": "opened"}),
+            ("status", {"state": "success"})
+        ])
 
         pulls = list(self.r_main.get_pulls())
 

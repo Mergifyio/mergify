@@ -50,7 +50,7 @@ def get_queue():
     return flask.g.rq_queue
 
 
-def authentification():
+def authentification():  # pragma: no cover
     # Only SHA1 is supported
     header_signature = flask.request.headers.get('X-Hub-Signature')
     if header_signature is None:
@@ -157,29 +157,18 @@ def refresh_all():
                 continue
 
             counts[1] += 1
-            pulls = r.get_pulls()
-            for p in pulls:
+            for p in list(r.get_pulls()):
                 # Mimic the github event format
                 data = {
                     'repository': r.raw_data,
                     'installation': {'id': install["id"]},
                     'pull_request': p.raw_data,
                 }
-                get_queue().enqueue(worker.event_handler, "refresh", data)
+                get_queue().enqueue(worker.event_handler, "refresh",
+                                    subscription, data)
 
     return ("Updated %s installations, %s repositories, "
             "%s branches" % tuple(counts)), 202
-
-
-@app.route("/queue/<owner>/<repo>/<path:branch>")
-def queue(owner, repo, branch):
-    r = utils.get_redis_for_cache()
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, owner)
-    return r.get("queues~%s~%s~%s~%s~%s" % (installation_id, owner.lower(),
-                                            repo.lower(), False, branch)
-                 ) or "[]"
 
 
 def _get_status(r, installation_id, login='*', repo='*'):
@@ -228,7 +217,8 @@ def stream_generate(installation_id, login="*", repo="*"):
 @app.route("/status/install/<installation_id>/")
 def status(installation_id):
     r = utils.get_redis_for_cache()
-    return _get_status(r, installation_id)
+    return (_get_status(r, installation_id),
+            200, {'Content-Type': 'application/json'})
 
 
 @app.route("/status/repos/<login>/")
@@ -238,7 +228,8 @@ def status_repo(login, repo="*"):
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     installation_id = utils.get_installation_id(integration, login)
-    return _get_status(r, installation_id, login, repo)
+    return (_get_status(r, installation_id, login, repo),
+            200, {'Content-Type': 'application/json'})
 
 
 @app.route('/stream/status/repos/<login>/')
@@ -370,7 +361,7 @@ def event_handler():
 # NOTE(sileht): These endpoints are used for recording cassetes, we receive
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.route("/events-testing", methods=["POST", "GET", "DELETE"])
-def event_testing_handler():
+def event_testing_handler():  # pragma: no cover
     authentification()
     r = utils.get_redis_for_cache()
     if flask.request.method == "DELETE":
@@ -394,22 +385,22 @@ def event_testing_handler():
 
 
 @app.route("/favicon.ico")
-def favicon():
+def favicon():  # pragma: no cover
     return app.send_static_file("favicon.ico")
 
 
 @app.route("/fonts/<file>")
-def fonts(file):
+def fonts(file):  # pragma: no cover
     # bootstrap fonts
     return flask.send_from_directory(os.path.join("static", "fonts"), file)
 
 
 @app.route("/")
-def index():
+def index():  # pragma: no cover
     return flask.redirect("https://mergify.io/")
 
 
 # NOTE(sileht): Must be the last one, since it catch any remaning routes
 @app.route("/<path:path>")
-def installation(path):
+def installation(path):  # pragma: no cover
     return app.send_static_file("index.html")

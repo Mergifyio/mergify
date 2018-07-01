@@ -47,9 +47,9 @@ def get_redis_url():
         redis_url = os.getenv(envvar)
         if redis_url:
             break
-    if not redis_url:
+    if not redis_url:  # pragma: no cover
         redis_url = config.REDIS_URL
-    if not redis_url:
+    if not redis_url:  # pragma: no cover
         raise RuntimeError("No redis url found in environments")
     return redis_url
 
@@ -140,7 +140,7 @@ def get_installation_id(integration, owner):
 
 def get_subscription(r, installation_id):
     sub = r.get("subscription-cache-%s" % installation_id)
-    if not sub:
+    if not sub:  # pragma: no cover
         LOG.info("Subscription for %s not cached, retrieving it..." %
                  installation_id)
         resp = requests.get(config.SUBSCRIPTION_URL %
@@ -157,7 +157,7 @@ def get_subscription(r, installation_id):
             sub["subscribed"] = sub["subscription"] is not None
             sub["token"] = sub["token"]["access_token"]
             del sub["subscription"]
-        else:
+        else:  # pragma: no cover
             # NOTE(sileht): handle this better
             resp.raise_for_status()
         r.set("subscription-cache-%s" % installation_id, json.dumps(sub),
@@ -178,7 +178,7 @@ class Gitter(object):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")
         LOG.info("working in: %s" % self.tmp)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):  # pragma: no cover
         LOG.info("calling: %s" % " ".join(args))
         kwargs["cwd"] = self.tmp
         return subprocess.check_output(["git"] + list(args), **kwargs)

@@ -19,18 +19,26 @@ import fnmatch
 import logging
 import time
 
+from github import Consts
+
 LOG = logging.getLogger(__name__)
 
 UNUSABLE_STATES = ["unknown", None]
 
 
 def ensure_mergable_state(pull):
-    if pull.is_merged() or pull.mergeable_state not in UNUSABLE_STATES:
+    if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
         return pull
 
     # Github is currently processing this PR, we wait the completion
+    # TODO(sileht): We should be able to do better that retry 15x
     for i in range(0, 5):
         LOG.info("%s, refreshing...", pull.pretty())
+
+        # FIXME(sileht): Well github doesn't always update etag/last_modified
+        # when mergeable_state change...
+        pull._headers.pop(Consts.RES_ETAG, None)
+        pull._headers.pop(Consts.RES_LAST_MODIFIED, None)
         pull.update()
         if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
             break
@@ -195,26 +203,16 @@ FULLIFIER = [
     ("status", compute_status),         # Need approvals and combined_status
 ]
 
-CACHE_HOOK_LIST_CONVERT = {
-}
-
 
 def jsonify(pull):
     raw = copy.copy(pull.raw_data)
     for key, method in FULLIFIER:
         value = pull.mergify_engine[key]
-        if key in CACHE_HOOK_LIST_CONVERT:
-            try:
-                value = [item.raw_data for item in value]
-            except AttributeError:
-                LOG.exception("%s, fail to cache %s: %s",
-                              pull.pretty(), key, value)
-
         raw["mergify_engine_%s" % key] = value
     return raw
 
 
-def fullify(pull, cache=None, **extra):
+def fullify(pull, cache=None, force=False, **extra):
     LOG.debug("%s, fullifing...", pull.pretty())
     if not hasattr(pull, "mergify_engine"):
         pull.mergify_engine = {}
@@ -222,13 +220,9 @@ def fullify(pull, cache=None, **extra):
     pull = ensure_mergable_state(pull)
 
     for key, method in FULLIFIER:
-        if key not in pull.mergify_engine:
+        if key not in pull.mergify_engine or force:
             if cache and "mergify_engine_%s" % key in cache:
                 value = cache["mergify_engine_%s" % key]
-                klass = CACHE_HOOK_LIST_CONVERT.get(key)
-                if klass:
-                    value = [klass(pull.base.repo._requester, {}, item,
-                                   completed=True) for item in value]
             elif key == "raw_data":
                 value = method(pull, **extra)
             else:

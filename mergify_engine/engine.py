@@ -206,7 +206,7 @@ class MergifyEngine(object):
         Sometimes we change the cache format, this method catch change in the
         format and return False if the format is incorrect
         """
-        if cache and len(cache["mergify_engine_approvals"]) != 3:
+        if cache and len(cache["mergify_engine_approvals"]) != 3:  # noqa pragma: no cover
             return False
         return True
 
@@ -256,7 +256,7 @@ class MergifyEngine(object):
             # FIXME(sileht): This will refresh the first pull request of the
             # queue on each event. To limit this almost useless refresh, we
             # should be smarted on when we call proceed_queue()
-            p = p.fullify({}, **extra)
+            p = p.fullify(force=True, **extra)
 
             if p.state == "closed":
                 # NOTE(sileht): PR merged in the meantime or manually
@@ -391,7 +391,7 @@ class MergifyEngine(object):
 
         LOG.info("***********************************************************")
         LOG.info("%s received event '%s'%s", p_info, event_type, extra)
-        if config.LOG_RATELIMIT:
+        if config.LOG_RATELIMIT:  # pragma: no cover
             rate = self._g.get_rate_limit().rate
             LOG.info("%s ratelimit: %s/%s, reset at %s", p_info,
                      rate.remaining, rate.limit, rate.reset)
