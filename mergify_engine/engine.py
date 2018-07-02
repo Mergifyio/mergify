@@ -202,7 +202,7 @@ class MergifyEngine(object):
     def sort_pulls(pulls):
         """Sort pull requests by state and updated_at"""
         sort_key = operator.attrgetter('mergify_engine_sort_status',
-                                       'milestone', 'updated_at')
+                                       'updated_at')
         return list(sorted(pulls, key=sort_key, reverse=True))
 
     def build_queue(self, branch, **extra):
