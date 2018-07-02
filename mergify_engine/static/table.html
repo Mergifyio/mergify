@@ -93,10 +93,10 @@
                     target="_blank"
                     title="{{ user.login }}"><img ng-src="{{ user.avatar_url }}" class="avatar" alt="{{ user.login }}"></a>
              </td>
-            <td class="queue" ng-class="{success: pull.mergify_engine_status.mergify_state >= 20, active: pull.mergify_engine_status.mergify_state <= 0, info: pull.mergify_engine_status.mergify_state == 10}">
+             <td class="queue" ng-class="{success: pull.mergify_engine_status.mergify_state >= 20, active: !pull.mergify_engine_status || pull.mergify_engine_status.mergify_state <= 0, info: pull.mergify_engine_status.mergify_state == 10}">
                 <span ng-if="pull.mergify_engine_status.mergify_state >= 0">{{ pull.mergify_engine_status.github_description }}</span>
-                <span ng-if="pull.mergify_engine_status.mergify_state == -1">Not ready</span>
-                <span ng-if="pull.mergify_engine_status.mergify_state > 0 and pull.mergify_engine_status.mergify_state < 10">Not ready</span>
+                <span ng-if="pull.mergify_engine_status.mergify_state == -1">Pull request not ready</span>
+                <span ng-if="!pull.mergify_engine_status">Pull request not ready</span>
             </td>
         </tr>
         <tr ng-if="pull.open_commits_row">
