@@ -108,16 +108,17 @@ def refresh(owner, repo, refresh_ref):
     else:
         try:
             pull_number = int(refresh_ref[5:])
-        except ValueError:
+        except ValueError:  # pragma: no cover
             return "Invalid PR ref", 400
         pulls = [r.get_pull(pull_number)]
 
     subscription = utils.get_subscription(utils.get_redis_for_cache(),
                                           installation_id)
-    if not subscription["token"]:
+
+    if not subscription["token"]:  # pragma: no cover
         return "", 202
 
-    if r.private and not subscription["subscribed"]:
+    if r.private and not subscription["subscribed"]:  # pragma: no cover
         return "", 202
 
     for p in pulls:
@@ -149,7 +150,7 @@ def refresh_all():
 
         subscription = utils.get_subscription(utils.get_redis_for_cache(),
                                               install["id"])
-        if not subscription["token"]:
+        if not subscription["token"]:  # pragma: no cover
             continue
 
         for r in i.get_repos():
@@ -196,7 +197,7 @@ def stream_message(_type, data):
     return 'event: %s\ndata: %s\n\n' % (_type, data)
 
 
-def stream_generate(installation_id, login="*", repo="*"):
+def stream_generate(installation_id, login="*", repo="*"):  # pragma: no cover
     r = utils.get_redis_for_cache()
     yield stream_message("refresh", _get_status(r, installation_id,
                                                 login, repo))
@@ -252,7 +253,7 @@ def stream(installation_id):
 
 # FIXME(sileht): rename this to new subscription something
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
-def subscription_cache(installation_id):
+def subscription_cache(installation_id):  # pragma: no cover
     authentification()
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
@@ -285,7 +286,7 @@ def event_handler():
 
     elif event_type == "installation" and data["action"] == "created":
         for repository in data["repositories"]:
-            if repository["private"] and not subscription["subscribed"]:
+            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
 
             get_queue().enqueue(worker.installation_handler,
@@ -300,7 +301,7 @@ def event_handler():
     elif (event_type == "installation_repositories" and
           data["action"] == "added"):
         for repository in data["repositories_added"]:
-            if repository["private"] and not subscription["subscribed"]:
+            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
 
             get_queue().enqueue(worker.installation_handler,
@@ -311,7 +312,7 @@ def event_handler():
     elif (event_type == "installation_repositories" and
           data["action"] == "removed"):
         for repository in data["repositories_removed"]:
-            if repository["private"] and not subscription["subscribed"]:
+            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
             key = "queues~%s~%s~%s~*~*" % (
                 data["installation"]["id"],
