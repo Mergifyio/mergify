@@ -151,7 +151,14 @@ class MergifyState(object):
 
 def compute_status(pull, **extra):
     disabled = disabled_by_rules(pull, **extra)
-    reviews_ok, reviews_ko, reviews_required = pull.mergify_engine["approvals"]
+
+    # TODO(sileht): remove me
+    if len(pull.mergify_engine["approvals"]) == 4:
+        reviews_ok, reviews_ko, reviews_required, _ = \
+            pull.mergify_engine["approvals"]
+    else:
+        reviews_ok, reviews_ko, reviews_required = \
+            pull.mergify_engine["approvals"]
 
     mergify_state = MergifyState.NOT_READY
     github_state = "pending"
