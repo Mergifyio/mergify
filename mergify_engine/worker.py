@@ -18,7 +18,11 @@
 import logging
 
 import github
+import raven
+from raven.transport.http import HTTPTransport
 import rq
+from rq.contrib.sentry import register_sentry
+import rq.handlers
 import rq.worker
 
 from mergify_engine import config
@@ -101,6 +105,10 @@ def main():  # pragma: no cover
         r.flushall()
     with rq.Connection(r):
         worker = rq.Worker(['default'])
+        if config.SENTRY_URL:
+            client = raven.Client(config.SENTRY_URL,
+                                  transport=HTTPTransport)
+            register_sentry(client, worker)
         worker.work()
 
 
