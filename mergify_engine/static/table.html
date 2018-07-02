@@ -38,7 +38,7 @@
      </tr>
      </thead>
      <tbody>
-         <tr ng-repeat-start="pull in group.pulls | orderBy:['-mergify_engine_status.mergify_state','-milestone', '-updated_at']">
+         <tr ng-repeat-start="pull in group.pulls | orderBy:['-mergify_engine_status.mergify_state', '-updated_at']">
              <td class="title">
                  <div class="pull-right"><span style="color:green">+{{ pull.additions }}</span> / <span style="color:red">-{{ pull.deletions }}</span></div>
                  <a href="{{ pull.user.html_url }}"><img ng-src="{{ pull.user.avatar_url }}" class="avatar" alt="{{ pull.user.login }}"></a>
@@ -93,11 +93,10 @@
                     target="_blank"
                     title="{{ user.login }}"><img ng-src="{{ user.avatar_url }}" class="avatar" alt="{{ user.login }}"></a>
              </td>
-            <td class="queue" ng-class="{success: pull.mergify_engine_status.mergify_state >= 20, active: pull.mergify_engine_status.mergify_state == 0, info: pull.mergify_engine_status.mergify_state == 10}">
-                <span ng-if="pull.mergify_engine_status.mergify_state == 30">Ready to merge</span>
-                <span ng-if="pull.mergify_engine_status.mergify_state == 20">Almost ready</span>
-                <span ng-if="pull.mergify_engine_status.mergify_state == 10">Ready to update</span>
-                <span ng-if="pull.mergify_engine_status.mergify_state == 0">Not ready</span>
+            <td class="queue" ng-class="{success: pull.mergify_engine_status.mergify_state >= 20, active: pull.mergify_engine_status.mergify_state <= 0, info: pull.mergify_engine_status.mergify_state == 10}">
+                <span ng-if="pull.mergify_engine_status.mergify_state >= 0">{{ pull.mergify_engine_status.github_description }}</span>
+                <span ng-if="pull.mergify_engine_status.mergify_state == -1">Not ready</span>
+                <span ng-if="pull.mergify_engine_status.mergify_state > 0 and pull.mergify_engine_status.mergify_state < 10">Not ready</span>
             </td>
         </tr>
         <tr ng-if="pull.open_commits_row">

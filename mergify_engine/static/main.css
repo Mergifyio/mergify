@@ -69,8 +69,18 @@ table.multiple .reviews {
     padding-right: 3px;
     width: 65px;
 }
+table.multiple tr.queue{
+    text-align: right;
+}
+
+table.multiple td.queue{
+    text-align: right;
+    font-size: 80%;
+	white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 table.multiple .milestone,
-table.multiple .queue,
 table.multiple .mergeable,
 table.multiple .state {
     width: 35px;

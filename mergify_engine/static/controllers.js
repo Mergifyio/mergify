@@ -86,9 +86,11 @@ app.classy.controller({
                         }
                     });
 
-                    if (pull.mergify_engine_combined_status == "pending") {
+                    /*
+                     * if (pull.mergify_engine_combined_status == "pending") {
                         this.refresh_travis(pull);
                     }
+                    */
                 });
 
                 this.$scope.groups.push(group)
@@ -110,11 +112,11 @@ app.classy.controller({
             this.close_info(pull, "commits");
             this.close_info(pull, "travis");
             if (!open) {
-                this.open_info(pull, type);
 
                 if (type === "travis" && !pull.mergify_ui_travis_detail) {
                     this.refresh_travis(pull);
                 } else if (type === "commits" && !pull.mergify_ui_commits) {
+                    this.open_info(pull, type);
                     this.refresh_commits(pull);
                 }
             }
@@ -167,10 +169,11 @@ app.classy.controller({
                 });
 
                 if (travis_url == null) {
-                  pull.mergify_ui_travis_detail.refreshing = false;
-                  this.close_info(pull, "travis");
+                  pull.mergify_ui_travis_detail = null;
                   return;
                 }
+
+                this.open_info(pull, 'travis');
 
                 var build_id = travis_url.split("?")[0].split("/").slice(-1)[0];
                 var v2_headers = { "Accept": "application/vnd.travis-ci.2.1+json" };
