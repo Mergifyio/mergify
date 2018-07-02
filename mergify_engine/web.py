@@ -27,7 +27,7 @@ import os
 import flask
 import github
 import rq
-# import rq_dashboard
+import rq_dashboard
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -38,10 +38,10 @@ LOG = logging.getLogger(__name__)
 
 app = flask.Flask(__name__)
 
-# app.config.from_object(rq_dashboard.default_settings)
-# app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
-# app.config["REDIS_URL"] = utils.get_redis_url()
-# app.config["RQ_POLL_INTERVAL"] = 10000  # ms
+app.config.from_object(rq_dashboard.default_settings)
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+app.config["REDIS_URL"] = utils.get_redis_url()
+app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
 def get_queue():
