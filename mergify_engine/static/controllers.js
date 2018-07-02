@@ -166,6 +166,12 @@ app.classy.controller({
                     }
                 });
 
+                if (travis_url == null) {
+                  pull.mergify_ui_travis_detail.refreshing = false;
+                  this.close_info(pull, "travis");
+                  return;
+                }
+
                 var build_id = travis_url.split("?")[0].split("/").slice(-1)[0];
                 var v2_headers = { "Accept": "application/vnd.travis-ci.2.1+json" };
                 var travis_base_url = 'https://api.travis-ci.org';
