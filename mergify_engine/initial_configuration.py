@@ -47,12 +47,14 @@ def create_pull_request(installation_token, repo):
 
     mergify_config = {
         "rules": {
-            "protection": {
-                "required_status_checks": {
-                    "contexts": list(contexts),
-                },
-                "required_pull_request_reviews": {
-                    "required_approving_review_count": 1
+            "default": {
+                "protection": {
+                    "required_status_checks": {
+                        "contexts": list(contexts),
+                    },
+                    "required_pull_request_reviews": {
+                        "required_approving_review_count": 1
+                    },
                 },
             },
         }

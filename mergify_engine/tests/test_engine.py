@@ -1103,13 +1103,16 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(".mergify.yml", files[0].filename)
 
         expected_config = """rules:
-  protection:
-    required_pull_request_reviews:
-      required_approving_review_count: 1
-    required_status_checks:
-      contexts:
-      - continuous-integration/fake-ci
+  default:
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+      required_status_checks:
+        contexts:
+        - continuous-integration/fake-ci
 """
         got_config = self.session.get(files[0].raw_url).text
 
         self.assertEqual(expected_config, got_config)
+
+        rules.validate_user_config(got_config)
