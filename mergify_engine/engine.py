@@ -57,7 +57,10 @@ class MergifyEngine(object):
             if not incoming_pull:
                 issues = list(self._g.search_issues("is:pr %s" % data["sha"]))
                 if len(issues) >= 1:
-                    incoming_pull = self._r.get_pull(issues[0].number)
+                    try:
+                        incoming_pull = self._r.get_pull(issues[0].number)
+                    except github.UnknownObjectException:
+                        pass
 
         if not incoming_pull:
             LOG.info("No pull request found in the event %s, "
