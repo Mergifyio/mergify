@@ -320,6 +320,8 @@ class TestEngineScenario(testtools.TestCase):
     @staticmethod
     def response_filter(response):
         for h in ["X-GitHub-Request-Id", "Date", "ETag",
+                  "X-RateLimit-Reset", "Expires", "Fastly-Request-ID",
+                  "X-Timer", "X-Served-By",
                   "X-RateLimit-Remaining", "X-Runtime-rack"]:
             response["headers"].pop(h, None)
 #        try:
