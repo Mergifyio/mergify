@@ -89,7 +89,7 @@ def installation_handler(installation_id, repositories):
 
         for repository in repositories:
             initial_configuration.create_pull_request_if_needed(
-                installation_token, repo)
+                installation_token, repository)
 
     except github.RateLimitExceededException:  # pragma: no cover
         LOG.error("rate limit reached for install %d",
