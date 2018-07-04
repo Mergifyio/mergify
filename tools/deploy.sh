@@ -5,6 +5,7 @@ error() {
     echo "$1 unset, exiting"
     exit 1
 }
+[ ! $PRODUCTION_PROD ] && error PRODUCTION_PROD
 [ ! $PRODUCTION_URL ] && error PRODUCTION_URL
 [ ! $SENTRY_SLUG ] && error SENTRY_SLUG
 [ ! $SENTRY_TOKEN ] && error SENTRY_TOKEN
@@ -12,6 +13,13 @@ error() {
 commit_id="$(git rev-parse HEAD)"
 previous_commit_id="$(git rev-parse HEAD^)"
 commit_subject=$(git log -1 --pretty="%s")
+
+# ssh port looks not working with git version of travis
+mkdir -p ~/.ssh
+cat > ~/.ssh/config <<EOF
+Host *
+  Port $PRODUCTION_PORT
+EOF
 
 git remote add production $PRODUCTION_URL
 git push production --force HEAD:master
