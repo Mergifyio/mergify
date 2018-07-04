@@ -14,7 +14,7 @@ previous_commit_id="$(git rev-parse HEAD^)"
 commit_subject=$(git log -1 --pretty="%s")
 
 git remote add production $PRODUCTION_URL
-git push production --force
+git push production --force HEAD:master
 
 # Create a new release
 curl https://sentry.io/api/0/organizations/${SENTRY_SLUG}/releases/ \
