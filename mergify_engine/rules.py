@@ -42,7 +42,10 @@ Protection = {
             'required_approving_review_count': voluptuous.All(
                 int, voluptuous.Range(min=1, max=6)),
         }),
-    'restrictions': voluptuous.Any(None, []),
+    'restrictions': voluptuous.Any(None, {
+        voluptuous.Required('teams', default=[]): [str],
+        voluptuous.Required('users', default=[]): [str],
+    }),
     'enforce_admins': voluptuous.Any(None, bool),
 }
 

@@ -135,6 +135,60 @@ def test_automated_backport_labels():
     with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)
 
+def test_restrictions():
+    validate_with_get_branch_rule({
+        "rules": {
+            "default": {
+                "protection": {
+                    "restrictions": {},
+                },
+            },
+        },
+    })
+    validate_with_get_branch_rule({
+        "rules": {
+            "default": {
+                "protection": {
+                    "restrictions": None,
+                },
+            },
+        },
+    })
+    validate_with_get_branch_rule({
+        "rules": {
+            "default": {
+                "protection": {
+                    "restrictions": {
+                        "teams": ["foobar"],
+                    },
+                },
+            },
+        },
+    })
+    validate_with_get_branch_rule({
+        "rules": {
+            "default": {
+                "protection": {
+                    "restrictions": {
+                        "users": ["foo", "bar"],
+                    }
+                }
+            }
+        }
+    })
+    validate_with_get_branch_rule({
+        "rules": {
+            "default": {
+                "protection": {
+                    "restrictions": {
+                        "users": ["foo", "bar"],
+                        "teams": ["foobar"],
+                    },
+                },
+            },
+        },
+    })
+
 
 def test_partial_required_status_checks():
     config = {
