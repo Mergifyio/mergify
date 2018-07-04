@@ -142,9 +142,16 @@ class MergifyEngine(object):
             self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
             LOG.info("Just update cache (pull_request closed)")
             if incoming_pull.merged:
+                incoming_pull.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id, "success", "Merged")
                 backports.backports(self._r, incoming_pull,
                                     branch_rule["automated_backport_labels"],
                                     self._installation_token)
+            else:
+                incoming_pull.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id, "success",
+                    "Pull request closed unmerged")
+
             if incoming_pull.head.ref.startswith("mergify/bp/%s" %
                                                  incoming_pull.base.ref):
                 try:

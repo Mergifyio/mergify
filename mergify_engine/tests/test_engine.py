@@ -90,8 +90,9 @@ rules:
 """
 
 MERGE_EVENTS = [
-    ("status", {"state": "success"}),
-    ("pull_request", {"action": "closed"})
+    ("status", {"state": "success"}),  # Will be merged soon
+    ("pull_request", {"action": "closed"}),
+    ("status", {"state": "success"}),  # Merged
 ]
 
 
@@ -362,18 +363,18 @@ class TestEngineScenario(testtools.TestCase):
             while events:
                 event = events.pop(0)
                 expected_type, expected_data = expected_events.pop(0)
-
+                pos = total - len(expected_events) - 1
                 if (expected_type is not None
                         and expected_type != event["type"]):
-                    raise Exception("Got %s event type instead of %s: %s" %
-                                    (event["type"],  expected_type,
+                    raise Exception("[%d] Got %s event type instead of %s: %s" %
+                                    (pos, event["type"],  expected_type,
                                      event["payload"]))
 
                 for key, expected in expected_data.items():
                     value = event["payload"].get(key)
                     if value != expected:
-                        raise Exception("Got %s for %s instead of %s: %s" %
-                                        (value, key, expected, event))
+                        raise Exception("[%d] Got %s for %s instead of %s: %s" %
+                                        (pos, value, key, expected, event))
 
                 self._send_event(**event)
 
@@ -826,7 +827,10 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        self.push_events(MERGE_EVENTS + [
+        self.push_events([
+            ("status", {"state": "success"}),
+            ("pull_request", {"action": "closed"}),
+            ("status", {"state": "success"}),
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "pending"}),
         ])
@@ -903,7 +907,10 @@ class TestEngineScenario(testtools.TestCase):
         # Retry to merge pr2
         self.create_status_and_push_event(p2)
 
-        self.push_events([("pull_request", {"action": "closed"})])
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("status", {"state": "success"}),
+        ])
 
         # Second PR merged
         pulls = self.engine.build_queue("master")
@@ -970,10 +977,7 @@ class TestEngineScenario(testtools.TestCase):
         self.push_events(MERGE_EVENTS)
 
         self.create_review_and_push_event(p2, commits2[0])
-        self.push_events([
-            ("status", {"state": "success"}),
-            ("pull_request", {"action": "closed"})
-        ])
+        self.push_events(MERGE_EVENTS)
         pulls = self.engine.build_queue("nostrict")
         self.assertEqual(0, len(pulls))
 
