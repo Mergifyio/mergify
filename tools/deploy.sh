@@ -7,6 +7,7 @@ error() {
 }
 [ ! $PRODUCTION_PORT ] && error PRODUCTION_PORT
 [ ! $PRODUCTION_URL ] && error PRODUCTION_URL
+[ ! $PRODUCTION_KNOWN_HOSTS ] && error PRODUCTION_KNOWN_HOSTS
 [ ! $SENTRY_SLUG ] && error SENTRY_SLUG
 [ ! $SENTRY_TOKEN ] && error SENTRY_TOKEN
 
@@ -20,6 +21,8 @@ cat > ~/.ssh/config <<EOF
 Host *
   Port $PRODUCTION_PORT
 EOF
+
+echo "$PRODUCTION_KNOWN_HOSTS" | base64 -d > ~/.ssh/known_hosts
 
 git remote add production $PRODUCTION_URL
 git push production --force HEAD:master
