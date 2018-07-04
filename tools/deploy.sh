@@ -5,7 +5,7 @@ error() {
     echo "$1 unset, exiting"
     exit 1
 }
-[ ! $PRODUCTION_PROD ] && error PRODUCTION_PROD
+[ ! $PRODUCTION_PORT ] && error PRODUCTION_PORT
 [ ! $PRODUCTION_URL ] && error PRODUCTION_URL
 [ ! $SENTRY_SLUG ] && error SENTRY_SLUG
 [ ! $SENTRY_TOKEN ] && error SENTRY_TOKEN
