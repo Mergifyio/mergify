@@ -27,9 +27,6 @@ echo "$PRODUCTION_KEY" | base64 -d > ~/.ssh/id_ed25519
 echo "$PRODUCTION_KNOWN_HOSTS" | base64 -d > ~/.ssh/known_hosts
 chmod 600 ~/.ssh/id_ed25519
 
-git remote add production $PRODUCTION_URL
-git push production --force HEAD:master
-
 # Create a new release
 curl https://sentry.io/api/0/organizations/${SENTRY_SLUG}/releases/ \
   -X POST \
@@ -48,6 +45,8 @@ curl https://sentry.io/api/0/organizations/${SENTRY_SLUG}/releases/ \
 '
 
 # Create a new deploy
+git remote add production $PRODUCTION_URL
+git push production --force HEAD:master
 curl https://sentry.io/api/0/organizations/$SENTRY_SLUG/releases/${commit_id}/deploys/ \
   -X POST \
   -H "Authorization: Bearer ${SENTRY_TOKEN}" \
