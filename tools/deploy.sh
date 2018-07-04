@@ -25,6 +25,7 @@ EOF
 
 echo "$PRODUCTION_KEY" | base64 -d > ~/.ssh/id_ed25519
 echo "$PRODUCTION_KNOWN_HOSTS" | base64 -d > ~/.ssh/known_hosts
+chmod 600 ~/.ssh/id_ed25519
 
 git remote add production $PRODUCTION_URL
 git push production --force HEAD:master
