@@ -175,7 +175,7 @@ class MergifyEngine(object):
                   data["action"] == "synchronize"):
                     cache.pop("mergify_engine_combined_status", None)
 
-        incoming_pull = incoming_pull.fullify(cache, **fullify_extra)
+        incoming_pull.fullify(cache, **fullify_extra)
         self.cache_save_pull(incoming_pull)
 
         if (event_type == "pull_request_review" and
@@ -243,7 +243,7 @@ class MergifyEngine(object):
             # FIXME(sileht): This will refresh the first pull request of the
             # queue on each event. To limit this almost useless refresh, we
             # should be smarted on when we call proceed_queue()
-            p = p.fullify(force=True, **extra)
+            p.fullify(force=True, **extra)
 
             if p.state == "closed":
                 # NOTE(sileht): PR merged in the meantime or manually
