@@ -5,12 +5,12 @@ error() {
     echo "$1 unset, exiting"
     exit 1
 }
-[ ! $PRODUCTION_PORT ] && error PRODUCTION_PORT
-[ ! $PRODUCTION_URL ] && error PRODUCTION_URL
-[ ! $PRODUCTION_KEY ] && error PRODUCTION_KEY
-[ ! $PRODUCTION_KNOWN_HOSTS ] && error PRODUCTION_KNOWN_HOSTS
-[ ! $SENTRY_SLUG ] && error SENTRY_SLUG
-[ ! $SENTRY_TOKEN ] && error SENTRY_TOKEN
+[ -z "$PRODUCTION_PORT" ] && error PRODUCTION_PORT
+[ -z "$PRODUCTION_URL" ] && error PRODUCTION_URL
+[ -z "$PRODUCTION_KEY" ] && error PRODUCTION_KEY
+[ -z "$PRODUCTION_KNOWN_HOSTS" ] && error PRODUCTION_KNOWN_HOSTS
+[ -z "$SENTRY_SLUG" ] && error SENTRY_SLUG
+[ -z "$SENTRY_TOKEN" ] && error SENTRY_TOKEN
 
 commit_id="$(git rev-parse HEAD)"
 previous_commit_id="$(git rev-parse HEAD^)"
