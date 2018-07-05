@@ -17,6 +17,7 @@
 import copy
 import fnmatch
 import logging
+import tenacity
 import time
 
 from github import Consts
@@ -26,9 +27,11 @@ LOG = logging.getLogger(__name__)
 UNUSABLE_STATES = ["unknown", None]
 
 
-def ensure_mergable_state(pull):
-    if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
-        return pull
+def ensure_mergable_state(pull, force=False):
+    if pull.merged:
+        return
+    if not force and pull.mergeable_state not in UNUSABLE_STATES:
+        return
 
     # Github is currently processing this PR, we wait the completion
     # TODO(sileht): We should be able to do better that retry 15x
@@ -41,10 +44,8 @@ def ensure_mergable_state(pull):
         pull._headers.pop(Consts.RES_LAST_MODIFIED, None)
         pull.update()
         if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
-            break
+            return
         time.sleep(0.42)  # you known, this one always work
-
-    return pull
 
 
 def compute_approvals(pull, **extra):
@@ -98,7 +99,7 @@ def compute_combined_status(pull, **extra):
     if not protection["required_status_checks"]:
         return "success"
 
-    contexts = protection["required_status_checks"]["contexts"]
+    contexts = copy.copy(protection["required_status_checks"]["contexts"])
 
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
@@ -106,12 +107,17 @@ def compute_combined_status(pull, **extra):
     combined_status = "success"
     for check in status.statuses:
         if check.context in contexts:
+            contexts.remove(check.context)
             if check.state in ["error", "failure"]:
                 return "failure"
             elif check.state == "pending":
                 combined_status = "pending"
 
-    return combined_status
+    if contexts:
+        # We don't have all needed context
+        return "pending"
+    else:
+        return combined_status
 
 
 def disabled_by_rules(pull, **extra):
@@ -149,6 +155,8 @@ class MergifyState(object):
     READY = 30
 
 
+@tenacity.retry(stop=tenacity.stop_after_attempt(3),
+                retry=tenacity.retry_if_exception_type(tenacity.TryAgain))
 def compute_status(pull, **extra):
     disabled = disabled_by_rules(pull, **extra)
 
@@ -180,12 +188,24 @@ def compute_status(pull, **extra):
         mergify_state = MergifyState.READY
         github_state = "success"
         github_desc = "Will be merged soon"
-    elif (pull.mergeable_state == "blocked"
-          and pull.mergify_engine["combined_status"] == "pending"):
-        # Maybe clean soon, or maybe this is the previous run selected PR that
-        # we just rebase, or maybe not. But we set the mergify_state to
-        # ALMOST_READY to ensure we do not rebase multiple pull request in //
-        mergify_state = MergifyState.ALMOST_READY
+    elif pull.mergeable_state == "blocked":
+        if pull.mergify_engine["combined_status"] == "pending":
+            # Maybe clean soon, or maybe this is the previous run selected PR
+            # that we just rebase, or maybe not. But we set the mergify_state
+            # to ALMOST_READY to ensure we do not rebase multiple pull request
+            # in //
+            mergify_state = MergifyState.ALMOST_READY
+        elif pull.mergify_engine["combined_status"] == "success":
+            # NOTE(sileht): The mergeable_state is obviously wrong, we can't
+            # have required reviewers and combined_status to success. Sometimes
+            # Github is laggy to compute mergeable_state, so refreshing the the
+            # pull. Or maybe this is a mergify bug :), so retry only 3 times
+
+            LOG.warning("%s: the status is unexpected, force refresh.",
+                        pull.pretty())
+            pull.fullify(force=True, **extra)
+            raise tenacity.TryAgain
+
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
         if not pull.base_is_modifiable:
@@ -224,7 +244,7 @@ def fullify(pull, cache=None, force=False, **extra):
     if not hasattr(pull, "mergify_engine"):
         pull.mergify_engine = {}
 
-    pull = ensure_mergable_state(pull)
+    ensure_mergable_state(pull, force)
 
     for key, method in FULLIFIER:
         if key not in pull.mergify_engine or force:
