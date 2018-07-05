@@ -1,6 +1,6 @@
 sudo: false
 language: python
-python: 3.6
+python: 3.5
 install: pip install tox-travis coveralls
 script: tox
 after_success: coveralls
@@ -14,9 +14,9 @@ deploy:
     fqdn: doc.mergify.io
     on:
       branch: master
-      python: 3.6
+      python: 3.5
   - provider: script
     script: bash tools/deploy.sh production
     on:
       branch: master
-      python: 3.6
+      python: 3.5
