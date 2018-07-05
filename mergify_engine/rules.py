@@ -32,8 +32,8 @@ with open("default_rule.yml", "r") as f:
 Protection = {
     'required_status_checks': voluptuous.Any(
         None, {
-            'strict': bool,
-            'contexts': [str],
+            voluptuous.Required('strict', default=False): bool,
+            voluptuous.Required('contexts', default=[]): [str],
         }),
     'required_pull_request_reviews': voluptuous.Any(
         None, {

@@ -136,6 +136,36 @@ def test_automated_backport_labels():
         validate_with_get_branch_rule(config)
 
 
+def test_partial_required_status_checks():
+    config = {
+        "rules": {
+            "default": {
+                "protection": {
+                    "required_status_checks": {
+                        "strict": True
+                    }
+                }
+            }
+        }
+    }
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["protection"]["required_status_checks"]["contexts"] == []
+
+    config = {
+        "rules": {
+            "default": {
+                "protection": {
+                    "required_status_checks": {
+                        "contexts": ["foo"]
+                    }
+                }
+            }
+        }
+    }
+    parsed = validate_with_get_branch_rule(config)
+    assert parsed["protection"]["required_status_checks"]["strict"] is False
+
+
 def test_review_count_range():
     config = {
         "rules": {
