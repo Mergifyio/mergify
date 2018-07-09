@@ -5,7 +5,6 @@ rules:
         strict: True
         contexts:
           - continuous-integration/travis-ci
-          - coverage/coveralls
       required_pull_request_reviews:
         required_approving_review_count: 1
     merge_strategy:
