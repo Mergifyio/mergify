@@ -146,10 +146,12 @@ class MergifyEngine(object):
 
                 if incoming_pull.merged:
                     incoming_pull.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id, "success", "Merged")
-                    backports.backports(self._r, incoming_pull,
-                                        branch_rule["automated_backport_labels"],
-                                        self._installation_token)
+                        self._redis, self._installation_id,
+                        "success", "Merged")
+                    backports.backports(
+                        self._r, incoming_pull,
+                        branch_rule["automated_backport_labels"],
+                        self._installation_token)
                 else:
                     incoming_pull.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "success",
@@ -160,7 +162,8 @@ class MergifyEngine(object):
                     try:
                         self._r.get_git_ref("heads/%s" % incoming_pull.head.ref
                                             ).delete()
-                        LOG.info("%s: branch %s deleted", incoming_pull.pretty(),
+                        LOG.info("%s: branch %s deleted",
+                                 incoming_pull.pretty(),
                                  incoming_pull.head.ref)
                     except github.UnknownObjectException:
                         pass

@@ -366,15 +366,17 @@ class TestEngineScenario(testtools.TestCase):
                 pos = total - len(expected_events) - 1
                 if (expected_type is not None
                         and expected_type != event["type"]):
-                    raise Exception("[%d] Got %s event type instead of %s: %s" %
-                                    (pos, event["type"],  expected_type,
-                                     event["payload"]))
+                    raise Exception(
+                        "[%d] Got %s event type instead of %s: %s" %
+                        (pos, event["type"],  expected_type,
+                         event["payload"]))
 
                 for key, expected in expected_data.items():
                     value = event["payload"].get(key)
                     if value != expected:
-                        raise Exception("[%d] Got %s for %s instead of %s: %s" %
-                                        (pos, value, key, expected, event))
+                        raise Exception(
+                            "[%d] Got %s for %s instead of %s: %s" %
+                            (pos, value, key, expected, event))
 
                 self._send_event(**event)
 
