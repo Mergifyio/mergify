@@ -95,32 +95,34 @@ def compute_approvals(pull, **extra):
             required)
 
 
-def compute_combined_status(pull, **extra):
+def find_required_context(contexts, status_check):
+    for c in contexts:
+        if status_check.context.startswith(c):
+            return c
+
+
+def compute_required_statuses_succeed(pull, **extra):
     protection = extra["branch_rule"]["protection"]
     if not protection["required_status_checks"]:
-        return "success"
-
-    contexts = copy.copy(protection["required_status_checks"]["contexts"])
+        return True
 
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
 
-    combined_status = "success"
-    for check in status.statuses:
-        if check.context in contexts:
-            contexts.remove(check.context)
-            if check.state in ["error", "failure"]:
-                return "failure"
-            elif check.state == "pending":
-                combined_status = "pending"
+    contexts = set(protection["required_status_checks"]["contexts"])
+    seen_contexts = set()
 
-    if contexts:
-        # We don't have all needed context
-        LOG.info("%s: some required contexts are missing: %s",
-                 pull.pretty(), contexts)
-        return "pending"
+    for status_check in status.statuses:
+        required_context = find_required_context(contexts, status_check)
+        if required_context:
+            seen_contexts.add(required_context)
+            if status_check.state != "success":
+                return False
+
+    if contexts - seen_contexts:
+        return False
     else:
-        return combined_status
+        return True
 
 
 def disabled_by_rules(pull, **extra):
@@ -190,13 +192,7 @@ def compute_status(pull, **extra):
         github_state = "success"
         github_desc = "Will be merged soon"
     elif pull.mergeable_state == "blocked":
-        if pull.mergify_engine["combined_status"] == "pending":
-            # Maybe clean soon, or maybe this is the previous run selected PR
-            # that we just rebase, or maybe not. But we set the mergify_state
-            # to ALMOST_READY to ensure we do not rebase multiple pull request
-            # in //
-            mergify_state = MergifyState.ALMOST_READY
-        elif pull.mergify_engine["combined_status"] == "success":
+        if pull.mergify_engine["required_statuses_succeed"]:
             # NOTE(sileht): The mergeable_state is obviously wrong, we can't
             # have required reviewers and combined_status to success. Sometimes
             # Github is laggy to compute mergeable_state, so refreshing the the
@@ -211,6 +207,12 @@ def compute_status(pull, **extra):
             LOG.warning("status checks: %s", status.raw_data["statuses"])
             LOG.warning("pull content: %s", pull.raw_data)
             raise exceptions.RetryJob(3)
+        else:
+            # Maybe clean soon, or maybe this is the previous run selected PR
+            # that we just rebase, or maybe not. But we set the mergify_state
+            # to ALMOST_READY to ensure we do not rebase multiple pull request
+            # in //
+            mergify_state = MergifyState.ALMOST_READY
 
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
@@ -219,7 +221,7 @@ def compute_status(pull, **extra):
             github_desc = ("Pull request can't be updated with latest "
                            "base branch changes, owner doesn't allow "
                            "modification")
-        elif pull.mergify_engine["combined_status"] == "success":
+        elif pull.mergify_engine["required_statuses_succeed"]:
             mergify_state = MergifyState.NEED_BRANCH_UPDATE
             github_desc = ("Pull request will be updated with latest base "
                            "branch changes soon")
@@ -231,7 +233,7 @@ def compute_status(pull, **extra):
 
 # Order matter, some method need result of some other
 FULLIFIER = [
-    ("combined_status", compute_combined_status),
+    ("required_statuses_succeed", compute_required_statuses_succeed),
     ("approvals", compute_approvals),   # Need reviews
     ("status", compute_status),         # Need approvals and combined_status
 ]

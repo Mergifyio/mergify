@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 
 def pretty(self):
     extra = getattr(self, "mergify_engine", {})
-    combined_status = extra.get("combined_status", "nc")
+    required_statuses_succeed = extra.get("required_statuses_succeed", "nc")
     status = extra.get("status", {})
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
     return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s/%s)" % (
@@ -37,7 +37,7 @@ def pretty(self):
         self.base.ref,
         ("merged" if self.merged
          else (self.mergeable_state or "none")),
-        combined_status,
+        required_statuses_succeed,
         approvals,
         status.get("mergify_state", 'nc'),
         status.get("github_state", 'nc'),
