@@ -30,7 +30,7 @@ def pretty(self):
     combined_status = extra.get("combined_status", "nc")
     status = extra.get("status", {})
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
-    return "%s/%s/pull/%s@%s (%s/%s/%s/%s)" % (
+    return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s/%s)" % (
         self.base.user.login,
         self.base.repo.name,
         self.number,
@@ -40,6 +40,8 @@ def pretty(self):
         combined_status,
         approvals,
         status.get("mergify_state", 'nc'),
+        status.get("github_state", 'nc'),
+        status.get("github_description", 'nc'),
     )
 
 

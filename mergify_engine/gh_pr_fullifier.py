@@ -116,6 +116,8 @@ def compute_combined_status(pull, **extra):
 
     if contexts:
         # We don't have all needed context
+        LOG.info("%s: some required contexts are missing",
+                 pull.pretty(), contexts)
         return "pending"
     else:
         return combined_status
