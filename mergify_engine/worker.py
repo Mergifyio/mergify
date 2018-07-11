@@ -27,11 +27,16 @@ import rq.worker
 
 from mergify_engine import config
 from mergify_engine import engine
+from mergify_engine import exceptions
 from mergify_engine import gh_pr
 from mergify_engine import initial_configuration
 from mergify_engine import utils
 
 LOG = logging.getLogger(__name__)
+
+
+global QUEUES
+QUEUES = None
 
 
 def event_handler(event_type, subscription, data):
@@ -96,7 +101,41 @@ def installation_handler(installation_id, repositories):
                   installation_id)
 
 
+def retry_handler(job, exc_type, exc_value, traceback):
+    global QUEUES
+
+    if exc_type != exceptions.RetryJob:
+        return True
+
+    job.meta.setdefault('failures', 0)
+    job.meta['failures'] += 1
+
+    # Too many failures
+    if job.meta['failures'] >= exc_value.retries:
+        LOG.warn('job %s: failed too many times times - moving to failed queue'
+                 % job.id)
+        job.save()
+        return True
+
+    # Requeue job and stop it from being moved into the failed queue
+    LOG.warn('job %s: failed %d times - retrying' % (job.id,
+                                                     job.meta['failures']))
+
+    for queue in QUEUES:
+        if queue.name == job.origin:
+            queue.enqueue_job(job, at_front=True, timeout=job.timeout)
+            return False
+
+    # Can't find queue, which should basically never happen as we only work
+    # jobs that match the given queue names and queues are transient in rq.
+    LOG.warn('job %s: cannot find queue %s - moving to failed queue' %
+             (job.id, job.origin))
+    return True
+
+
 def main():  # pragma: no cover
+    global QUEUES
+
     utils.setup_logging()
     config.log()
     gh_pr.monkeypatch_github()
@@ -104,7 +143,9 @@ def main():  # pragma: no cover
     if config.FLUSH_REDIS_ON_STARTUP:
         r.flushall()
     with rq.Connection(r):
-        worker = rq.Worker(['default'])
+        QUEUES = [rq.Queue('default')]
+        worker = rq.Worker(QUEUES)
+        worker.push_exc_handler(retry_handler)
         if config.SENTRY_URL:
             client = raven.Client(config.SENTRY_URL,
                                   transport=HTTPTransport)

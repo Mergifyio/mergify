@@ -17,10 +17,11 @@
 import copy
 import fnmatch
 import logging
-import tenacity
 import time
 
 from github import Consts
+
+from mergify_engine import exceptions
 
 LOG = logging.getLogger(__name__)
 
@@ -155,8 +156,6 @@ class MergifyState(object):
     READY = 30
 
 
-@tenacity.retry(stop=tenacity.stop_after_attempt(3),
-                retry=tenacity.retry_if_exception_type(tenacity.TryAgain))
 def compute_status(pull, **extra):
     disabled = disabled_by_rules(pull, **extra)
 
@@ -201,10 +200,15 @@ def compute_status(pull, **extra):
             # Github is laggy to compute mergeable_state, so refreshing the the
             # pull. Or maybe this is a mergify bug :), so retry only 3 times
 
-            LOG.warning("%s: the status is unexpected, force refresh.",
+            LOG.warning("%s: the status is unexpected, requeue this event.",
                         pull.pretty())
-            pull.fullify(force=True, **extra)
-            raise tenacity.TryAgain
+            commit = pull.base.repo.get_commit(pull.head.sha)
+            status = commit.get_combined_status()
+            LOG.warning("reviews: %s", [r.raw_data for r in
+                                        list(pull.get_reviews())])
+            LOG.warning("status checks: %s", status.raw_data["statuses"])
+            LOG.warning("pull content: %s", pull.raw_data)
+            raise exceptions.RetryJob(3)
 
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
