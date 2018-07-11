@@ -62,12 +62,14 @@
              </td>
              <td class="state" ng-if="pull.mergify_ui_travis_detail == null">
                  <a href="#" ng-click="toggle_info(pull, 'travis')">
-                    <span ng-if="pull.mergify_engine_combined_status == 'success'" title="Last test succeeded" class="good glyphicon glyphicon-ok"></span>
-                    <span ng-if="pull.mergify_engine_combined_status == 'failure'" title="Last test failed!" class="bad glyphicon glyphicon-remove"></span>
-                    <span ng-if="pull.mergify_engine_combined_status == 'error'" title="Last test error!" class="bad glyphicon glyphicon-remove"></span>
-                    <span ng-if="pull.mergify_engine_combined_status == 'pending'" title="Latest test pending" class="maybe glyphicon glyphicon-time"></span>
-                    <span ng-if="pull.mergify_engine_combined_status == 'working'" title="Latest test pending" class="maybe glyphicon glyphicon-cog"></span>
-                    <span ng-if="pull.mergify_engine_combined_status == 'unknown'" title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
+                    <!-- FIXME(sileht): We don't compute this anymore with the backend -->
+                    <span ng-if="pull.mergify_ui_combined_status == 'success'" title="Last test succeeded" class="good glyphicon glyphicon-ok"></span>
+                    <span ng-if="pull.mergify_ui_combined_status == 'failure'" title="Last test failed!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_ui_combined_status == 'error'" title="Last test error!" class="bad glyphicon glyphicon-remove"></span>
+                    <span ng-if="pull.mergify_ui_combined_status == 'pending'" title="Latest test pending" class="maybe glyphicon glyphicon-time"></span>
+                    <span ng-if="pull.mergify_ui_combined_status == 'working'" title="Latest test pending" class="maybe glyphicon glyphicon-cog"></span>
+                    <span ng-if="pull.mergify_ui_combined_status == 'unknown'" title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
+                    <span title="Latest test unknown" class="maybe glyphicon glyphicon-question-sign"></span>
                  </a>
              </td>
              <td class="mergeable">
