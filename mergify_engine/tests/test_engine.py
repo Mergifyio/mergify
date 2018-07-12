@@ -366,15 +366,17 @@ class TestEngineScenario(testtools.TestCase):
                 pos = total - len(expected_events) - 1
                 if (expected_type is not None
                         and expected_type != event["type"]):
-                    raise Exception("[%d] Got %s event type instead of %s: %s" %
-                                    (pos, event["type"],  expected_type,
-                                     event["payload"]))
+                    raise Exception(
+                        "[%d] Got %s event type instead of %s: %s" %
+                        (pos, event["type"],  expected_type,
+                         event["payload"]))
 
                 for key, expected in expected_data.items():
                     value = event["payload"].get(key)
                     if value != expected:
-                        raise Exception("[%d] Got %s for %s instead of %s: %s" %
-                                        (pos, value, key, expected, event))
+                        raise Exception(
+                            "[%d] Got %s for %s instead of %s: %s" %
+                            (pos, value, key, expected, event))
 
                 self._send_event(**event)
 
@@ -870,8 +872,8 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        self.assertEqual("success", pulls[0].mergify_engine["combined_status"])
-        self.assertEqual("success", pulls[1].mergify_engine["combined_status"])
+        self.assertTrue(pulls[0].mergify_engine["required_statuses_succeed"])
+        self.assertTrue(pulls[1].mergify_engine["required_statuses_succeed"])
 
         master_sha = self.r_main.get_commits()[0].sha
 
@@ -970,8 +972,8 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("nostrict")
         self.assertEqual(2, len(pulls))
-        self.assertEqual("success", pulls[0].mergify_engine["combined_status"])
-        self.assertEqual("success", pulls[1].mergify_engine["combined_status"])
+        self.assertTrue(pulls[0].mergify_engine["required_statuses_succeed"])
+        self.assertTrue(pulls[1].mergify_engine["required_statuses_succeed"])
 
         self.create_review_and_push_event(p1, commits1[0])
         self.push_events(MERGE_EVENTS)

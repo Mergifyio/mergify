@@ -135,6 +135,7 @@ def test_automated_backport_labels():
     with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)
 
+
 def test_restrictions():
     validate_with_get_branch_rule({
         "rules": {
