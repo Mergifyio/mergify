@@ -43,8 +43,15 @@ def event_handler(event_type, subscription, data):
     """Everything start here"""
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installation_token = integration.get_access_token(
-        data["installation"]["id"]).token
+    try:
+        installation_token = integration.get_access_token(
+            data["installation"]["id"]).token
+    except github.UnknownObjectException:
+        LOG.error("token for install %d does not exists anymore (%s)",
+                  data["installation"]["id"],
+                  data["repository"]["full_name"])
+        return
+
     g = github.Github(installation_token)
     try:
         user = g.get_user(data["repository"]["owner"]["login"])
@@ -69,8 +76,14 @@ def installation_handler(installation_id, repositories):
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installation_token = integration.get_access_token(
-        installation_id).token
+    try:
+        installation_token = integration.get_access_token(
+            installation_id).token
+    except github.UnknownObjectException:
+        LOG.error("token for install %d does not exists anymore",
+                  installation_id)
+        return
+
     g = github.Github(installation_token)
     try:
         if isinstance(repositories, str):
