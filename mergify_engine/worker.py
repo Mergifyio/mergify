@@ -54,7 +54,7 @@ def event_handler(event_type, subscription, data):
                              installation_token,
                              subscription,
                              user, repo).handle(event_type, data)
-    except github.GithubException.BadCredentialsException:
+    except github.BadCredentialsException:
         LOG.error("token for install %d is no longuer valid (%s)",
                   data["installation"]["id"],
                   data["repository"]["full_name"])
