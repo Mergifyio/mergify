@@ -123,7 +123,7 @@ def retry_handler(job, exc_type, exc_value, traceback):
 
     for queue in QUEUES:
         if queue.name == job.origin:
-            queue.enqueue_job(job, at_front=True, timeout=job.timeout)
+            queue.enqueue_job(job, at_front=True)
             return False
 
     # Can't find queue, which should basically never happen as we only work
