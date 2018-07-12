@@ -97,6 +97,14 @@ def refresh(owner, repo, refresh_ref):
     token = integration.get_access_token(installation_id).token
     g = github.Github(token)
     r = g.get_repo("%s/%s" % (owner, repo))
+    try:
+        r.get_contents(".mergify.yml")
+    except github.GithubException as e:
+        if e.status == 404:
+            return "No .mergify.yml", 202
+        else:
+            raise
+
     if refresh_ref == "full" or refresh_ref.startswith("branch/"):
         if refresh_ref.startswith("branch/"):
             branch = refresh_ref[7:]
@@ -158,6 +166,13 @@ def refresh_all():
         for r in i.get_repos():
             if r.private and not subscription["subscribed"]:
                 continue
+            try:
+                r.get_contents(".mergify.yml")
+            except github.GithubException as e:
+                if e.status == 404:
+                    continue
+                else:
+                    raise
 
             counts[1] += 1
             for p in list(r.get_pulls()):
