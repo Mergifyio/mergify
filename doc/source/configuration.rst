@@ -110,7 +110,7 @@ in a branch. It is a dictionary with the following optional keys:
    * - ``required_pull_request_reviews``
      - :ref:`Required Reviews`
      - The required criterias on code reviews for the pull request to be
-       merged.
+       merged. Set to ``null`` to disable.
    * - ``restrictions``
      - :ref:`Restriction`
      - Restrict who can push to this branch. Team and user restrictions are
@@ -172,7 +172,8 @@ keys:
    * - ``required_approving_review_count``
      - ``integer``
      - Specify the number of reviewers required to approve pull requests. Use a
-       number between 1 and 6.
+       number between 1 and 6. If you don't need any reviewer, set
+       ``required_pull_request_reviews`` to ``null`` instead.
 
 .. _restriction:
 
