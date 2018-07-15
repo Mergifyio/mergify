@@ -61,28 +61,22 @@ def mergify_engine_github_post_check_status(self, redis, installation_id,
         target_url = None
 
     LOG.info("%s set status to %s (%s)", self.pretty(), state, description)
-
-    shas = set([self.head.sha])
-    if self.merged:
-        shas.add(self.merge_commit_sha)
-
-    for sha in shas:
-        # NOTE(sileht): We can't use commit.create_status() because
-        # if use the head repo instead of the base repo
-        try:
-            self._requester.requestJsonAndCheck(
-                "POST",
-                self.base.repo.url + "/statuses/" + sha,
-                input={'state': state,
-                       'description': description,
-                       'target_url': target_url,
-                       'context': "%s/%s" % (config.CONTEXT, context)},
-                headers={'Accept':
-                         'application/vnd.github.machine-man-preview+json'}
-            )
-        except github.GithubException as e:  # pragma: no cover
-            LOG.exception("%s set status fail: %s",
-                          self.pretty(), e.data["message"])
+    # NOTE(sileht): We can't use commit.create_status() because
+    # if use the head repo instead of the base repo
+    try:
+        self._requester.requestJsonAndCheck(
+            "POST",
+            self.base.repo.url + "/statuses/" + self.head.sha,
+            input={'state': state,
+                   'description': description,
+                   'target_url': target_url,
+                   'context': "%s/%s" % (config.CONTEXT, context)},
+            headers={'Accept':
+                     'application/vnd.github.machine-man-preview+json'}
+        )
+    except github.GithubException as e:  # pragma: no cover
+        LOG.exception("%s set status fail: %s",
+                      self.pretty(), e.data["message"])
 
 
 def mergify_engine_merge(self, rule):
