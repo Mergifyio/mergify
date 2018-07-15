@@ -29,6 +29,8 @@ def main():  # pragma: no cover
 
     active_slugs = set()
     for key in utils.get_redis_for_cache().keys("queues~*"):
+        _, _, owner, repo, private, branch = key.split("~")
         active_slugs.add("%s/%s" % (owner, repo))
 
-    print("installations with pending PRs: %d" % len(active_slugs))
+    print("repositories with pending PRs: %d" % len(active_slugs))
+    print(" * %s" % "\n * ".join(sorted(active_slugs)))
