@@ -79,6 +79,27 @@ multiple branches at once, you can use a regular expression:
 In this example, pull requests sent to a branch whose name matches ``stable/*``
 will only require one review approval and will still require Travis to pass.
 
+You can automatically merge a pull request as soon as all the required status
+checks pass:
+
+.. code-block:: yaml
+
+    rules:
+      protection:
+        required_status_checks:
+          contexts:
+            - continuous-integration/travis-ci
+        required_pull_request_reviews:
+          required_approving_review_count: 2
+      branches:
+        protection:
+          auto-deployment:
+            required_pull_request_reviews: null
+
+With that configuration, pull requests sent to the branch auto-deployment
+require no approvals, while still requiring Travis continuous integration to
+succeed.
+
 You can read the :doc:`full list of configuration option <configuration>` for
 more information.
 
