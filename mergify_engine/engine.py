@@ -145,9 +145,6 @@ class MergifyEngine(object):
                 self.proceed_queue(incoming_pull.base.ref, **fullify_extra)
 
                 if incoming_pull.merged:
-                    incoming_pull.mergify_engine_github_post_check_status(
-                        self._redis, self._installation_id,
-                        "success", "Merged")
                     backports.backports(
                         self._r, incoming_pull,
                         branch_rule["automated_backport_labels"],
@@ -283,11 +280,18 @@ class MergifyEngine(object):
         state = p.mergify_engine["status"]["mergify_state"]
 
         if state == gh_pr_fullifier.MergifyState.READY:
+            p.mergify_engine_github_post_check_status(
+                self._redis, self._installation_id,
+                "success", "Merged")
+
             if p.mergify_engine_merge(extra["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p.pretty())
             else:
                 LOG.info("%s -> merge fail", p.pretty())
+                p.mergify_engine_github_post_check_status(
+                    self._redis, self._installation_id,
+                    "failure", "Merge fail")
 
         elif state == gh_pr_fullifier.MergifyState.NEED_BRANCH_UPDATE:
             # rebase it and wait the next pull_request event

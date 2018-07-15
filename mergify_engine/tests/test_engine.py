@@ -91,8 +91,8 @@ rules:
 
 MERGE_EVENTS = [
     ("status", {"state": "success"}),  # Will be merged soon
-    ("pull_request", {"action": "closed"}),
     ("status", {"state": "success"}),  # Merged
+    ("pull_request", {"action": "closed"}),
 ]
 
 
@@ -831,8 +831,8 @@ class TestEngineScenario(testtools.TestCase):
 
         self.push_events([
             ("status", {"state": "success"}),
-            ("pull_request", {"action": "closed"}),
             ("status", {"state": "success"}),
+            ("pull_request", {"action": "closed"}),
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "pending"}),
         ])
@@ -910,8 +910,8 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p2)
 
         self.push_events([
-            ("pull_request", {"action": "closed"}),
             ("status", {"state": "success"}),
+            ("pull_request", {"action": "closed"}),
         ])
 
         # Second PR merged
