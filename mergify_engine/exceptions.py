@@ -13,6 +13,6 @@
 # under the License.
 
 
-class RetryJob(Exception):
+class RetryJob(Exception):  # pragma: no cover
     def __init__(self, retries=3):
         self.retries = retries

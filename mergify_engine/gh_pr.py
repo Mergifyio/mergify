@@ -89,7 +89,7 @@ def mergify_engine_merge(self, rule):
     try:
         headers, data = self._requester.requestJsonAndCheck(
             "PUT", self.url + "/merge", input=post_parameters)
-    except github.GithubException as e:
+    except github.GithubException as e:   # pragma: no cover
         if (self.is_merged() and
                 e.data["message"] == "Pull Request is not mergeable"):
             # Not a big deal, we will received soon the pull_request/close

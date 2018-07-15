@@ -91,7 +91,7 @@ def refresh(owner, repo, refresh_ref):
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     installation_id = utils.get_installation_id(integration, owner)
-    if not installation_id:
+    if not installation_id:  # pragma: no cover
         flask.abort(400, "%s have not installed mergify_engine" % owner)
 
     token = integration.get_access_token(installation_id).token
@@ -99,7 +99,7 @@ def refresh(owner, repo, refresh_ref):
     r = g.get_repo("%s/%s" % (owner, repo))
     try:
         r.get_contents(".mergify.yml")
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         if e.status == 404:
             return "No .mergify.yml", 202
         else:
@@ -168,7 +168,7 @@ def refresh_all():
                 continue
             try:
                 r.get_contents(".mergify.yml")
-            except github.GithubException as e:
+            except github.GithubException as e:  # pragma: no cover
                 if e.status == 404:
                     continue
                 else:

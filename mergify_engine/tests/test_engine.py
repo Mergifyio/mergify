@@ -82,8 +82,11 @@ rules:
           required_approving_review_count: 1
       merge_strategy:
         method: rebase
+      automated_backport_labels: null
     stable:
       protection:
+        required_pull_request_reviews:
+          required_approving_review_count: 1
         required_status_checks: null
     disabled: null
 
@@ -862,6 +865,22 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
 
+        # Ensure temporary bp branch exists
+        bp_branch_ref = "heads/%s" % pulls[0].head.ref
+        self.r_main.get_git_ref(bp_branch_ref)
+
+        commits = list(pulls[0].get_commits())
+        self.create_review_and_push_event(pulls[0], commits[0])
+
+        self.push_events(MERGE_EVENTS)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+        self.assertRaises(github.UnknownObjectException,
+                          self.r_main.get_git_ref,
+                          bp_branch_ref)
+
     def test_update_branch_strict(self):
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
@@ -999,7 +1018,7 @@ class TestEngineScenario(testtools.TestCase):
                 "required_pull_request_reviews": {
                     "dismiss_stale_reviews": True,
                     "require_code_owner_reviews": False,
-                    "required_approving_review_count": 2,
+                    "required_approving_review_count": 1,
                 },
                 "restrictions": None,
                 "enforce_admins": False,

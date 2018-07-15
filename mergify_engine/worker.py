@@ -61,7 +61,7 @@ def event_handler(event_type, subscription, data):
                              installation_token,
                              subscription,
                              user, repo).handle(event_type, data)
-    except github.BadCredentialsException:
+    except github.BadCredentialsException:  # pragma: no cover
         LOG.error("token for install %d is no longuer valid (%s)",
                   data["installation"]["id"],
                   data["repository"]["full_name"])
@@ -79,7 +79,7 @@ def installation_handler(installation_id, repositories):
     try:
         installation_token = integration.get_access_token(
             installation_id).token
-    except github.UnknownObjectException:
+    except github.UnknownObjectException:  # pragma: no cover
         LOG.error("token for install %d does not exists anymore",
                   installation_id)
         return
@@ -118,7 +118,7 @@ def installation_handler(installation_id, repositories):
                   installation_id)
 
 
-def retry_handler(job, exc_type, exc_value, traceback):
+def retry_handler(job, exc_type, exc_value, traceback):  # pragma: no cover
     global QUEUES
 
     if exc_type != exceptions.RetryJob:

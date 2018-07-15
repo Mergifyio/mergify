@@ -59,10 +59,10 @@ class MergifyEngine(object):
                 if len(issues) >= 1:
                     try:
                         incoming_pull = self._r.get_pull(issues[0].number)
-                    except github.UnknownObjectException:
+                    except github.UnknownObjectException:  # pragma: no cover
                         pass
 
-        if not incoming_pull:
+        if not incoming_pull:  # pragma: no cover
             LOG.info("No pull request found in the event %s, "
                      "ignoring" % event_type)
             return
@@ -70,7 +70,8 @@ class MergifyEngine(object):
         # Log the event
         self.log_formated_event(event_type, incoming_pull, data)
 
-        if event_type == "status" and incoming_pull.head.sha != data["sha"]:
+        if (event_type == "status" and
+                incoming_pull.head.sha != data["sha"]):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
@@ -91,7 +92,7 @@ class MergifyEngine(object):
             if ref is not None:
                 try:
                     rules.get_branch_rule(self._r, incoming_pull.base.ref, ref)
-                except rules.InvalidRules as e:
+                except rules.InvalidRules as e:  # pragma: no cover
                     # Not configured, post status check with the error message
                     incoming_pull.mergify_engine_github_post_check_status(
                         self._redis, self._installation_id, "failure",
@@ -110,7 +111,7 @@ class MergifyEngine(object):
         except rules.NoRules as e:
             LOG.info("No need to proceed queue (.mergify.yml is missing)")
             return
-        except rules.InvalidRules as e:
+        except rules.InvalidRules as e:  # pragma: no cover
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
                     data["action"] in ["opened", "synchronize"]):
@@ -121,7 +122,7 @@ class MergifyEngine(object):
         try:
             gh_branch.configure_protection_if_needed(
                 self._r, incoming_pull.base.ref, branch_rule)
-        except github.UnknownObjectException:
+        except github.UnknownObjectException:  # pragma: no cover
             LOG.exception("Fail to protect branch, disabled mergify")
             return
 
@@ -162,7 +163,7 @@ class MergifyEngine(object):
                         LOG.info("%s: branch %s deleted",
                                  incoming_pull.pretty(),
                                  incoming_pull.head.ref)
-                    except github.UnknownObjectException:
+                    except github.UnknownObjectException:  # pragma: no cover
                         pass
 
             return
@@ -296,13 +297,13 @@ class MergifyEngine(object):
         elif state == gh_pr_fullifier.MergifyState.NEED_BRANCH_UPDATE:
             # rebase it and wait the next pull_request event
             # (synchronize)
-            if not self._subscription["token"]:
+            if not self._subscription["token"]:  # pragma: no cover
                 p.mergify_engine_github_post_check_status(
                     self._redis, self._installation_id, "failure",
                     "No user access_token setuped for rebasing")
                 LOG.info("%s -> branch not updatable, token missing",
                          p.pretty())
-            elif not p.base_is_modifiable:
+            elif not p.base_is_modifiable:  # pragma: no cover
                 p.mergify_engine_github_post_check_status(
                     self._redis, self._installation_id, "failure",
                     "PR owner doesn't allow modification")
@@ -339,7 +340,7 @@ class MergifyEngine(object):
             pull = json.loads(pull)
             if pull["head"]["sha"] == sha:
                 return pull
-        return {}
+        return {}  # pragma: no cover
 
     def get_incoming_pull_from_cache(self, sha):
         for branch in self.get_cached_branches():
@@ -386,7 +387,7 @@ class MergifyEngine(object):
         elif event_type == "refresh":
             p_info = incoming_pull.pretty()
             extra = ""
-        else:
+        else:  # pragma: no cover
             if incoming_pull:
                 p_info = incoming_pull.pretty()
             else:
