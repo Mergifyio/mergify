@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -86,6 +87,11 @@ def setup_logging():
         ("urllib3.connectionpool", "WARN"),
         ("vcr", "WARN"),
     ])
+
+
+def get_fqdn():
+    return socket.getaddrinfo(socket.gethostname(), 0, 0, 0, 0,
+                              socket.AI_CANONNAME)[0][3]
 
 
 def compute_hmac(data):
