@@ -275,9 +275,11 @@ class TestEngineScenario(testtools.TestCase):
                                            access_token,
                                            subscription, user, repo)
 
-        queue = rq.Queue(connection=utils.get_redis_for_rq())
-        self.rq_worker = rq.SimpleWorker([queue],
-                                         connection=queue.connection)
+        self.rq_worker = rq.SimpleWorker(["localhost-000-high",
+                                          "localhost-001-high",
+                                          "localhost-000-low",
+                                          "localhost-001-low"],
+                                         connection=utils.get_redis_for_rq())
 
         if self._testMethodName != "test_creation_pull_of_initial_config":
             self.git("init")

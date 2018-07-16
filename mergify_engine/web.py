@@ -29,6 +29,7 @@ import github
 import raven.contrib.flask
 import rq
 import rq_dashboard
+import uhashring
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -45,11 +46,20 @@ app.config["REDIS_URL"] = utils.get_redis_url()
 app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 sentry = raven.contrib.flask.Sentry(app, dsn=config.SENTRY_URL)
 
+# TODO(sileht): Make the ring dynamic
+global RING
+nodes = []
+for fqdn, w in sorted(config.TOPOLOGY.items()):
+    nodes.extend(map(lambda x: "%s-%003d" % (fqdn, x), range(w)))
 
-def get_queue():
-    if not hasattr(flask.g, 'rq_queue'):
-        flask.g.rq_queue = rq.Queue(connection=utils.get_redis_for_rq())
-    return flask.g.rq_queue
+RING = uhashring.HashRing(nodes=nodes)
+
+
+def get_queue(slug, subscription):
+    global RING
+    name = "%s-%s" % (RING.get_node(slug),
+                      "high" if subscription["subscribed"] else "low")
+    return rq.Queue(name, connection=utils.get_redis_for_rq())
 
 
 def authentification():  # pragma: no cover
@@ -138,8 +148,8 @@ def refresh(owner, repo, refresh_ref):
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
         }
-        get_queue().enqueue(worker.event_handler, "refresh",
-                            subscription, data)
+        get_queue(r.full_name, subscription).enqueue(
+            worker.event_handler, "refresh", subscription, data)
 
     return "", 202
 
@@ -182,8 +192,8 @@ def refresh_all():
                     'installation': {'id': install["id"]},
                     'pull_request': p.raw_data,
                 }
-                get_queue().enqueue(worker.event_handler, "refresh",
-                                    subscription, data)
+                get_queue(r.full_name, subscription).enqueue(
+                    worker.event_handler, "refresh", subscription, data)
 
     return ("Updated %s installations, %s repositories, "
             "%s branches" % tuple(counts)), 202
@@ -282,8 +292,9 @@ def subscription_cache(installation_id):  # pragma: no cover
     # public repository have already been done during the installation
     # event.
     if subscription["token"] and subscription["subscribed"]:
-        get_queue().enqueue(worker.installation_handler,
-                            installation_id, "private")
+        # FIXME(sileht): We should pass the slugs
+        get_queue(installation_id, subscription).enqueue(
+            worker.installation_handler, installation_id, "private")
     return "Cache cleaned", 200
 
 
@@ -306,8 +317,9 @@ def event_handler():
             if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
 
-            get_queue().enqueue(worker.installation_handler,
-                                data["installation"]["id"], [repository])
+            get_queue(repository["full_name"], subscription).enqueue(
+                worker.installation_handler, data["installation"]["id"],
+                [repository])
         msg_action = "pushed to backend"
 
     elif event_type == "installation" and data["action"] == "deleted":
@@ -321,8 +333,9 @@ def event_handler():
             if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
 
-            get_queue().enqueue(worker.installation_handler,
-                                data["installation"]["id"], [repository])
+            get_queue(repository["full_name"], subscription).enqueue(
+                worker.installation_handler, data["installation"]["id"],
+                [repository])
 
         msg_action = "pushed to backend"
 
@@ -357,8 +370,8 @@ def event_handler():
             msg_action = "ignored (action %s)" % data["action"]
 
         else:
-            get_queue().enqueue(worker.event_handler, event_type,
-                                subscription, data)
+            get_queue(data["repository"]["full_name"], subscription).enqueue(
+                worker.event_handler, event_type, subscription, data)
             msg_action = "pushed to backend"
 
     else:

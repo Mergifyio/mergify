@@ -15,11 +15,13 @@
 # under the License.
 
 
+import argparse
 import logging
 
 import github
 import raven
 from raven.transport.http import HTTPTransport
+import redis
 import rq
 from rq.contrib.sentry import register_sentry
 import rq.handlers
@@ -33,10 +35,6 @@ from mergify_engine import initial_configuration
 from mergify_engine import utils
 
 LOG = logging.getLogger(__name__)
-
-
-global QUEUES
-QUEUES = None
 
 
 def event_handler(event_type, subscription, data):
@@ -118,56 +116,68 @@ def installation_handler(installation_id, repositories):
                   installation_id)
 
 
-def retry_handler(job, exc_type, exc_value, traceback):  # pragma: no cover
-    global QUEUES
+class MergifyWorker(rq.Worker):  # pragma: no cover
+    """rq.Worker for Mergify"""
 
-    if exc_type != exceptions.RetryJob:
-        return True
+    def __init__(self, fqdn, worker_id):
+        basename = '%s-%003d' % (fqdn, worker_id)
 
-    job.meta.setdefault('failures', 0)
-    job.meta['failures'] += 1
+        self._redis = redis.StrictRedis.from_url(utils.get_redis_url())
 
-    # Too many failures
-    if job.meta['failures'] >= exc_value.retries:
-        LOG.warn('job %s: failed too many times times - moving to failed queue'
-                 % job.id)
-        job.save()
-        return True
+        super(MergifyWorker, self).__init__(
+            ["%s-high" % basename,
+             "%s-low" % basename],
+            connection=self._redis)
 
-    # Requeue job and stop it from being moved into the failed queue
-    LOG.warn('job %s: failed %d times - retrying' % (job.id,
-                                                     job.meta['failures']))
+        self.push_exc_handler(self._retry_handler)
 
-    for queue in QUEUES:
-        if queue.name == job.origin:
-            queue.enqueue_job(job, at_front=True)
+        if config.SENTRY_URL:
+            client = raven.Client(config.SENTRY_URL,
+                                  transport=HTTPTransport)
+            register_sentry(client, self)
+
+    def _retry_handler(self, job, exc_type, exc_value, traceback):
+        if exc_type != exceptions.RetryJob:
+            return True
+
+        job.meta.setdefault('failures', 0)
+        job.meta['failures'] += 1
+
+        # Too many failures
+        if job.meta['failures'] >= exc_value.retries:
+            LOG.warn('job %s: failed too many times times - moving to '
+                     'failed queue' % job.id)
+            job.save()
+            return True
+
+        # Requeue job and stop it from being moved into the failed queue
+        LOG.warn('job %s: failed %d times - retrying' % (job.id,
+                                                         job.meta['failures']))
+
+        for queue in self._worker.queues:
+            if queue.name == job.origin:
+                queue.enqueue_job(job, at_front=True)
             return False
 
-    # Can't find queue, which should basically never happen as we only work
-    # jobs that match the given queue names and queues are transient in rq.
-    LOG.warn('job %s: cannot find queue %s - moving to failed queue' %
-             (job.id, job.origin))
-    return True
+        # Can't find queue, which should basically never happen as we only work
+        # jobs that match the given queue names and queues are transient in rq.
+        LOG.warn('job %s: cannot find queue %s - moving to failed queue' %
+                 (job.id, job.origin))
+        return True
 
 
 def main():  # pragma: no cover
-    global QUEUES
+    parser = argparse.ArgumentParser(description='Mergify RQ Worker.')
+    parser.add_argument('--fqdn', help='FQDN of the node',
+                        default=utils.get_fqdn())
+    parser.add_argument("worker_id", type=int, help='Worker ID')
+    args = parser.parse_args()
 
     utils.setup_logging()
     config.log()
     gh_pr.monkeypatch_github()
-    r = utils.get_redis_for_rq()
-    if config.FLUSH_REDIS_ON_STARTUP:
-        r.flushall()
-    with rq.Connection(r):
-        QUEUES = [rq.Queue('default')]
-        worker = rq.Worker(QUEUES)
-        worker.push_exc_handler(retry_handler)
-        if config.SENTRY_URL:
-            client = raven.Client(config.SENTRY_URL,
-                                  transport=HTTPTransport)
-            register_sentry(client, worker)
-        worker.work()
+
+    MergifyWorker(args.fqdn, args.worker_id).work()
 
 
 if __name__ == '__main__':  # pragma: no cover
