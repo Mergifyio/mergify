@@ -1,6 +1,8 @@
 ---
-WORKERS: 5
+TOPOLOGY:
+  localhost: 2
 
+FETCH_WORKERS: 5
 LOG_RATELIMIT: false
 DEBUG: true
 FLUSH_REDIS_ON_STARTUP: false
