@@ -95,13 +95,12 @@ See documentation: https://help.github.com/articles/checking-out-pull-requests-l
 def create_pull_request_if_needed(installation_token, repo):
     try:
         repo.get_file_contents(".mergify.yml")
-    except github.UnknownObjectException:
+    except github.GithubException as e:
+        if e.status != 404:  # pragma: no cover
+            raise
         try:
             repo.get_branch(INITIAL_CONFIG_BRANCH)
         except github.GithubException as e:
-            # NOTE(sileht): PyGitHub is buggy here it should
-            # UnknownObjectException. but because the message is "Branch not
-            # found", instead of "Not found", we got the generic exception.
             if e.status != 404:  # pragma: no cover
                 raise
             create_pull_request(installation_token, repo)
