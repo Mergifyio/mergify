@@ -28,6 +28,7 @@ import tenacity
 from mergify_engine import backports
 from mergify_engine import branch_protection
 from mergify_engine import branch_updater
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
@@ -65,9 +66,12 @@ class Caching(object):
         return [b.split('~')[5] for b in
                 self._redis.keys(self._get_cache_key("*"))]
 
+    def get_cache_for_pull_number(self, current_branch, number):
+        key = self._get_cache_key(current_branch)
+        p = self._redis.hget(key, number)
+        return {} if p is None else json.loads(p)
 
-class ShaToPullRequest(Caching):
-    def get(self, sha):
+    def get_cache_for_sha(self, sha):
         for branch in self._get_cached_branches():
             incoming_pull = self._get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
@@ -95,13 +99,12 @@ class MergifyEngine(Caching):
         self._installation_token = installation_token
         self._subscription = subscription
 
-    def get_cache_for_pull_number(self, current_branch, number):
-        key = self._get_cache_key(current_branch)
-        p = self._redis.hget(key, number)
-        return {} if p is None else json.loads(p)
-
     def handle(self, config, event_type, incoming_pull, data):
         # Everything start here
+        if (event_type == "check_suite" and data["action"] == "completed" and
+                not data["check_suite"]["conclusion"]):
+            data = check_api.workaround_for_unfinished_check_suite(
+                self.repository, data)
 
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_state = incoming_pull.g_pull.state
@@ -181,7 +184,7 @@ class MergifyEngine(Caching):
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
             old_status = cache.pop("mergify_engine_status", None)
-            if event_type == "status":
+            if event_type in ["status", "check_run", "check_suite"]:
                 cache.pop("mergify_engine_required_statuses", None)
             elif event_type == "pull_request_review":
                 cache.pop("mergify_engine_reviews_ok", None)

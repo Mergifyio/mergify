@@ -65,10 +65,9 @@ def get_github_pull_from_event(g, user, repo, installation_id,
 
         # TODO(sileht): Replace this optimisation when we drop engine v1
 
-        pull = v1.ShaToPullRequest(user=user,
-                                   repository=repo,
-                                   installation_id=installation_id
-                                   ).get(data["sha"])
+        pull = v1.Caching(user=user, repository=repo,
+                          installation_id=installation_id
+                          ).get_cache_for_sha(data["sha"])
         if pull:
             return pull
 
@@ -85,6 +84,33 @@ def get_github_pull_from_event(g, user, repo, installation_id,
             except github.GithubException as e:  # pragma: no cover
                 if e.status != 404:
                     raise
+            if pull and not pull.merged:
+                return pull
+
+    elif event_type in ["check_suite", "check_run"]:
+        if event_type == "check_run":
+            pulls = data["check_run"]["check_suite"]["pull_requests"]
+        else:
+            pulls = data["check_suite"]["pull_requests"]
+        if not pulls:  # pragma: no cover
+            LOG.warning("check_suite/check_run without pulls")
+            return
+        if len(pulls) > 1:  # pragma: no cover
+            # NOTE(sileht): It's that technically possible, but really ?
+            LOG.warning("check_suite/check_run attached on multiple pulls")
+        for p in pulls:
+
+            pull = v1.Caching(user=user, repository=repo,
+                              installation_id=installation_id
+                              ).get_cache_for_pull_number(
+                                  p["base"]["ref"],
+                                  p["number"])
+            if not pull:
+                try:
+                    pull = repo.get_pull(p["number"])
+                except github.UnknownObjectException:  # pragma: no cover
+                    pass
+
             if pull and not pull.merged:
                 return pull
 
@@ -160,9 +186,15 @@ def _job_run(event_type, data, subscription):
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
-        elif event_type == "status" and incoming_pull.g_pull.merged:
+        elif (event_type in ["status", "check_suite", "check_run"]
+              and incoming_pull.g_pull.merged):  # noqa pragma: no cover
             LOG.info("No need to proceed queue (got status of a merged "
                      "pull request)")
+            return
+        elif (event_type in ["check_suite", "check_run"]
+              and incoming_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
+            LOG.info("No need to proceed queue (got %s of an old "
+                     "commit)", event_type)
             return
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
