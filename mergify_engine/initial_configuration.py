@@ -62,7 +62,15 @@ def create_pull_request(installation_token, repo):
 
     content = yaml.dump(mergify_config, default_flow_style=False)
 
-    default_branch = repo.get_branch(repo.default_branch)
+    try:
+        default_branch = repo.get_branch(repo.default_branch)
+    except github.GithubException as e:
+        if e.status != 404:
+            raise
+        # TODO(sileht): When an empty repo is created we can't get the default
+        # branch this one doesn't yet exists. We may want to pospone the first
+        # PR in this case. For now just return to not raise backtrace
+        return
 
     message = "Mergify initial configuration"
     parents = [repo.get_git_commit(default_branch.commit.sha)]
