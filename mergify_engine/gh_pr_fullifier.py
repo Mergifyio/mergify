@@ -101,10 +101,20 @@ def find_required_context(contexts, status_check):
             return c
 
 
-def compute_required_statuses_succeed(pull, **extra):
+# Use enum.Enum and make is serializable ?
+class StatusState(object):
+    FAILURE = 0
+    SUCCESS = 1
+    PENDING = 2
+
+
+def compute_required_statuses(pull, **extra):
+    # return True is CIs succeed, False is their fail, None
+    # is we don't known yet.
+    # FIXME(sileht): I don't use a Enum yet to not
     protection = extra["branch_rule"]["protection"]
     if not protection["required_status_checks"]:
-        return True
+        return StatusState.SUCCESS
 
     commit = pull.base.repo.get_commit(pull.head.sha)
     status = commit.get_combined_status()
@@ -116,13 +126,15 @@ def compute_required_statuses_succeed(pull, **extra):
         required_context = find_required_context(contexts, status_check)
         if required_context:
             seen_contexts.add(required_context)
-            if status_check.state != "success":
-                return False
+            if status_check.state in ["pending", None]:
+                return StatusState.PENDING
+            elif status_check.state != "success":
+                return StatusState.FAILURE
 
     if contexts - seen_contexts:
-        return False
+        return StatusState.PENDING
     else:
-        return True
+        return StatusState.SUCCESS
 
 
 def disabled_by_rules(pull, **extra):
@@ -150,6 +162,7 @@ def disabled_by_rules(pull, **extra):
 #
 # https://platform.github.community/t/documentation-about-mergeable-state/4259
 # https://github.com/octokit/octokit.net/issues/1763
+# https://developer.github.com/v4/enum/mergestatestatus/
 
 
 # Use enum.Enum and make is serializable ?
@@ -192,7 +205,8 @@ def compute_status(pull, **extra):
         github_state = "success"
         github_desc = "Will be merged soon"
     elif pull.mergeable_state == "blocked":
-        if pull.mergify_engine["required_statuses_succeed"]:
+        if (pull.mergify_engine["required_statuses"] ==
+                StatusState.SUCCESS):
             # NOTE(sileht): The mergeable_state is obviously wrong, we can't
             # have required reviewers and combined_status to success. Sometimes
             # Github is laggy to compute mergeable_state, so refreshing the the
@@ -206,8 +220,10 @@ def compute_status(pull, **extra):
                                         list(pull.get_reviews())])
             LOG.warning("status checks: %s", status.raw_data["statuses"])
             LOG.warning("pull content: %s", pull.raw_data)
+
             raise exceptions.RetryJob(3)
-        else:
+        elif (pull.mergify_engine["required_statuses"] ==
+              StatusState.PENDING):
             # Maybe clean soon, or maybe this is the previous run selected PR
             # that we just rebase, or maybe not. But we set the mergify_state
             # to ALMOST_READY to ensure we do not rebase multiple pull request
@@ -221,7 +237,8 @@ def compute_status(pull, **extra):
             github_desc = ("Pull request can't be updated with latest "
                            "base branch changes, owner doesn't allow "
                            "modification")
-        elif pull.mergify_engine["required_statuses_succeed"]:
+        elif (pull.mergify_engine["required_statuses"] ==
+              StatusState.SUCCESS):
             mergify_state = MergifyState.NEED_BRANCH_UPDATE
             github_desc = ("Pull request will be updated with latest base "
                            "branch changes soon")
@@ -233,7 +250,7 @@ def compute_status(pull, **extra):
 
 # Order matter, some method need result of some other
 FULLIFIER = [
-    ("required_statuses_succeed", compute_required_statuses_succeed),
+    ("required_statuses", compute_required_statuses),
     ("approvals", compute_approvals),   # Need reviews
     ("status", compute_status),         # Need approvals and combined_status
 ]

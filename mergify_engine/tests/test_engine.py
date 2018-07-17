@@ -893,8 +893,8 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        self.assertTrue(pulls[0].mergify_engine["required_statuses_succeed"])
-        self.assertTrue(pulls[1].mergify_engine["required_statuses_succeed"])
+        self.assertTrue(pulls[0].mergify_engine["required_statuses"])
+        self.assertTrue(pulls[1].mergify_engine["required_statuses"])
 
         master_sha = self.r_main.get_commits()[0].sha
 
@@ -993,8 +993,8 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("nostrict")
         self.assertEqual(2, len(pulls))
-        self.assertTrue(pulls[0].mergify_engine["required_statuses_succeed"])
-        self.assertTrue(pulls[1].mergify_engine["required_statuses_succeed"])
+        self.assertTrue(pulls[0].mergify_engine["required_statuses"])
+        self.assertTrue(pulls[1].mergify_engine["required_statuses"])
 
         self.create_review_and_push_event(p1, commits1[0])
         self.push_events(MERGE_EVENTS)
