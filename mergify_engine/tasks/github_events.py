@@ -194,7 +194,8 @@ def job_filter_and_dispatch(event_type, event_id, data):
     elif event_type in ["installation", "installation_repositories"]:
         msg_action = "ignored (action %s)" % data["action"]
 
-    elif event_type in ["pull_request", "pull_request_review", "status"]:
+    elif event_type in ["pull_request", "pull_request_review", "status",
+                        "check_suite", "check_run"]:
 
         if data["repository"]["archived"]:  # pragma: no cover
             msg_action = "ignored (repository archived)"
@@ -233,6 +234,13 @@ def job_filter_and_dispatch(event_type, event_id, data):
                 msg_action += ", ci-status: %s, sha: %s" % (
                     data["state"], data["sha"])
 
+            elif event_type in ["check_run", "check_suite"]:
+                msg_action += (
+                    ", action: %s, status: %s, conclusion: %s, sha: %s" % (
+                        data["action"],
+                        data[event_type]["status"],
+                        data[event_type]["conclusion"],
+                        data[event_type]["head_sha"]))
     else:
         msg_action = "ignored (unexpected event_type)"
 

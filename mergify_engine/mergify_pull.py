@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import collections
 import copy
 import enum
 import fnmatch
@@ -26,6 +27,7 @@ from github import Consts
 
 import tenacity
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import utils
 
@@ -63,6 +65,9 @@ class StatusState(enum.Enum):
 
     def __str__(self):
         return self.value
+
+
+GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 
 
 @functools.total_ordering
@@ -218,9 +223,9 @@ class MergifyPull(object):
                 [users_info[u] for u in reviews_ko])
 
     @staticmethod
-    def _find_required_context(contexts, status_check):
+    def _find_required_context(contexts, generic_check):
         for c in contexts:
-            if status_check.context.startswith(c):
+            if generic_check.context.startswith(c):
                 return c
 
     def _get_combined_status(self):
@@ -240,19 +245,31 @@ class MergifyPull(object):
         if not protection["required_status_checks"]:
             return StatusState.SUCCESS
 
-        status = self._get_combined_status()
+        generic_checks = set()
 
+        # Statuses API
+        # NOTE(sileht): state can be one of error, failure, pending, or
+        # success.
+        generic_checks |= set([GenericCheck(s.context, s.state)
+                               for s in self._get_combined_status().statuses])
+        # Check API
+        # NOTE(sileht): conclusion can be one of success, failure, neutral,
+        # cancelled, timed_out, or action_required, and  None for "pending"
+        generic_checks |= set([GenericCheck(c.name, c.conclusion)
+                              for c in check_api.get_checks(self.g_pull)])
+
+        # NOTE(sileht): Due to the difference of both API we use only success
+        # bellow.
         contexts = set(protection["required_status_checks"]["contexts"])
         seen_contexts = set()
 
-        for status_check in status.statuses:
-            required_context = self._find_required_context(contexts,
-                                                           status_check)
+        for check in generic_checks:
+            required_context = self._find_required_context(contexts, check)
             if required_context:
                 seen_contexts.add(required_context)
-                if status_check.state in ["pending", None]:
+                if check.state in ["pending", None]:
                     return StatusState.PENDING
-                elif status_check.state != "success":
+                elif check.state != "success":
                     return StatusState.FAILURE
 
         if contexts - seen_contexts:
