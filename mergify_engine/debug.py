@@ -14,11 +14,26 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import logging
+
 import github
 
 from mergify_engine import config
+from mergify_engine import utils
 
-if __name__ == '__main__':
+
+LOG = logging.getLogger(__name__)
+
+
+def create_jwt():
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    print(integration.create_jwt())
+    return integration.create_jwt()
+
+
+def github_for(repo):
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    install_id = utils.get_installation_id(integration, repo.split("/")[0])
+    installation_token = integration.get_access_token(install_id).token
+    return github.Github(installation_token)
