@@ -135,7 +135,11 @@ class MergifyEngine(object):
         fullify_extra = {
             # NOTE(sileht): Both are used by compute_approvals
             "branch_rule": branch_rule,
-            "collaborators": [u.id for u in self._r.get_collaborators()]
+            "collaborators": [u.id for u in self._r.get_collaborators()],
+            # TODO(sileht): Remove me as soon as Github fix the mergeable_state
+            # not refreshed
+            "redis": self._redis,
+            "installation_id": self._installation_id,
         }
 
         if incoming_pull.state == "closed":
