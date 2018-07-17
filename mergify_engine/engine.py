@@ -179,12 +179,12 @@ class MergifyEngine(object):
                          if k.startswith("mergify_engine_"))
             cache.pop("mergify_engine_status", None)
             if event_type == "status":
-                cache.pop("mergify_engine_required_statuses_succeed", None)
+                cache.pop("mergify_engine_required_statuses", None)
             elif event_type == "pull_request_review":
                 cache.pop("mergify_engine_approvals", None)
             elif (event_type == "pull_request" and
                   data["action"] == "synchronize"):
-                    cache.pop("mergify_engine_required_statuses_succeed", None)
+                    cache.pop("mergify_engine_required_statuses", None)
 
         incoming_pull.fullify(cache, **fullify_extra)
         self.cache_save_pull(incoming_pull)
