@@ -27,7 +27,11 @@ LOG = logging.getLogger(__name__)
 
 def pretty(self):
     extra = getattr(self, "mergify_engine", {})
-    required_statuses = extra.get("required_statuses", "nc")
+    required_statuses = {
+        gh_pr_fullifier.StatusState.FAILURE: "failure",
+        gh_pr_fullifier.StatusState.SUCCESS: "success",
+        gh_pr_fullifier.StatusState.PENDING: "pending",
+    }.get(extra.get("required_statuses"), "nc")
     status = extra.get("status", {})
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
     return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s/%s)" % (
@@ -39,7 +43,13 @@ def pretty(self):
          else (self.mergeable_state or "none")),
         required_statuses,
         approvals,
-        status.get("mergify_state", 'nc'),
+        {
+            gh_pr_fullifier.MergifyState.NOT_READY: "not-ready",
+            gh_pr_fullifier.MergifyState.ALMOST_READY: "almost-ready",
+            gh_pr_fullifier.MergifyState.NEED_BRANCH_UPDATE:
+            "need-branch-update",
+            gh_pr_fullifier.MergifyState.READY: "ready"
+        }.get(status.get("mergify_state"), 'nc'),
         status.get("github_state", 'nc'),
         status.get("github_description", 'nc'),
     )
