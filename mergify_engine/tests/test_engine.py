@@ -32,9 +32,9 @@ import testtools
 import vcr
 
 from mergify_engine import backports
+from mergify_engine import branch_protection
 from mergify_engine import config
 from mergify_engine import engine
-from mergify_engine import gh_branch
 from mergify_engine import gh_pr
 from mergify_engine import gh_update_branch
 from mergify_engine import rules
@@ -530,21 +530,21 @@ class TestEngineScenario(testtools.TestCase):
                 "enforce_admins": False,
             }
         }
-        gh_branch.protect(self.r_main, "disabled", old_rule)
+        branch_protection.protect(self.r_main, "disabled", old_rule)
 
         rule = rules.get_branch_rule(self.r_main, "disabled")
         self.assertEqual(None, rule)
-        data = gh_branch.get_protection(self.r_main, "disabled")
-        self.assertFalse(gh_branch.is_configured(self.r_main, "disabled",
-                                                 rule, data))
+        data = branch_protection.get_protection(self.r_main, "disabled")
+        self.assertFalse(branch_protection.is_configured(
+            self.r_main, "disabled", rule, data))
 
         self.create_pr("disabled")
         self.assertEqual([], self.engine.get_cached_branches())
         self.assertEqual([], self.processor._build_queue("disabled"))
 
-        data = gh_branch.get_protection(self.r_main, "disabled")
-        self.assertTrue(gh_branch.is_configured(self.r_main, "disabled", rule,
-                                                data))
+        data = branch_protection.get_protection(self.r_main, "disabled")
+        self.assertTrue(branch_protection.is_configured(
+            self.r_main, "disabled", rule, data))
 
     def test_basic(self):
         self.create_pr()
@@ -573,9 +573,9 @@ class TestEngineScenario(testtools.TestCase):
             }
         }
 
-        data = gh_branch.get_protection(self.r_main, "master")
-        self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                expected_rule, data))
+        data = branch_protection.get_protection(self.r_main, "master")
+        self.assertTrue(branch_protection.is_configured(
+            self.r_main, "master", expected_rule, data))
 
         # Checks the content of the cache
         pulls = self.processor._build_queue("master")
@@ -1000,9 +1000,9 @@ class TestEngineScenario(testtools.TestCase):
             }
         }
 
-        data = gh_branch.get_protection(self.r_main, "master")
-        self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                expected_rule, data))
+        data = branch_protection.get_protection(self.r_main, "master")
+        self.assertTrue(branch_protection.is_configured(self.r_main, "master",
+                                                        expected_rule, data))
 
         p1 = self.r_main.get_pull(p1.number)
         commit = p1.base.repo.get_commit(p1.head.sha)
@@ -1054,9 +1054,9 @@ class TestEngineScenario(testtools.TestCase):
                 "enforce_admins": False,
             }
         }
-        data = gh_branch.get_protection(self.r_main, "stable")
-        self.assertTrue(gh_branch.is_configured(self.r_main, "stable",
-                                                expected_rule, data))
+        data = branch_protection.get_protection(self.r_main, "stable")
+        self.assertTrue(branch_protection.is_configured(self.r_main, "stable",
+                                                        expected_rule, data))
 
     def test_reviews(self):
         p, commits = self.create_pr()

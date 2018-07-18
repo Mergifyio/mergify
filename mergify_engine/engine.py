@@ -23,8 +23,8 @@ import attr
 import github
 
 from mergify_engine import backports
+from mergify_engine import branch_protection
 from mergify_engine import config
-from mergify_engine import gh_branch
 from mergify_engine import gh_pr
 from mergify_engine import gh_pr_fullifier
 from mergify_engine import rules
@@ -191,9 +191,8 @@ class MergifyEngine(Caching):
             return
 
         try:
-            gh_branch.configure_protection_if_needed(self.repository,
-                                                     incoming_pull.base.ref,
-                                                     branch_rule)
+            branch_protection.configure_protection_if_needed(
+                self.repository, incoming_pull.base.ref, branch_rule)
         except github.GithubException as e:  # pragma: no cover
             if e.status == 404 and e.data["message"] == "Branch not found":
                 LOG.info("%s: branch no longer exists: %s",
