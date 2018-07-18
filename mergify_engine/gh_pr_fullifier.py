@@ -212,15 +212,23 @@ def compute_status(pull, **extra):
             # Github is laggy to compute mergeable_state, so refreshing the the
             # pull. Or maybe this is a mergify bug :), so retry only 3 times
 
-            LOG.error("%s: the status is unexpected, requeue this event.",
-                      pull.pretty())
+            LOG.warning("%s: the status is unexpected, requeue this event.",
+                        pull.pretty())
             commit = pull.base.repo.get_commit(pull.head.sha)
             status = commit.get_combined_status()
-            LOG.error("reviews: %s", [r.raw_data for r in
+            LOG.warning("reviews: %s", [r.raw_data for r in
                                         list(pull.get_reviews())])
-            LOG.error("status checks: %s", status.raw_data["statuses"])
-            LOG.error("pull content: %s", pull.raw_data)
+            LOG.warning("status checks: %s", status.raw_data["statuses"])
+            LOG.warning("pull content: %s", pull.raw_data)
 
+            # NOTE(sileht): We have reviewers and the CI is OK, so this PR
+            # can be merged. But Github tell us it's blocked. As workaround
+            # we refresh our status_check, so Github should recompute the
+            # mergify_state and allow us to push the merge btn.
+            pull.mergify_engine_github_post_check_status(
+                        extra["redis"], extra["installation_id"], "success",
+                        "Will be merged soon")
+            time.sleep(1)
             raise exceptions.RetryJob(3)
         elif (pull.mergify_engine["required_statuses"] ==
               StatusState.PENDING):
