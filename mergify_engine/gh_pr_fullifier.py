@@ -20,12 +20,15 @@ import logging
 import time
 
 from github import Consts
+import tenacity
 
 LOG = logging.getLogger(__name__)
 
 UNUSABLE_STATES = ["unknown", None]
 
 
+@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
+                stop=tenacity.stop_after_attempt(5))
 def ensure_mergable_state(pull, force=False):
     if pull.merged:
         return
@@ -34,17 +37,16 @@ def ensure_mergable_state(pull, force=False):
 
     # Github is currently processing this PR, we wait the completion
     # TODO(sileht): We should be able to do better that retry 15x
-    for i in range(0, 5):
-        LOG.info("%s, refreshing...", pull.pretty())
+    LOG.info("%s, refreshing...", pull.pretty())
 
-        # FIXME(sileht): Well github doesn't always update etag/last_modified
-        # when mergeable_state change...
-        pull._headers.pop(Consts.RES_ETAG, None)
-        pull._headers.pop(Consts.RES_LAST_MODIFIED, None)
-        pull.update()
-        if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
-            return
-        time.sleep(0.42)  # you known, this one always work
+    # FIXME(sileht): Well github doesn't always update etag/last_modified
+    # when mergeable_state change...
+    pull._headers.pop(Consts.RES_ETAG, None)
+    pull._headers.pop(Consts.RES_LAST_MODIFIED, None)
+    pull.update()
+    if pull.merged or pull.mergeable_state not in UNUSABLE_STATES:
+        return
+    raise tenacity.TryAgain
 
 
 def compute_approvals(pull, **extra):
@@ -295,7 +297,11 @@ def fullify(pull, cache=None, force=False, **extra):
     if not hasattr(pull, "mergify_engine"):
         pull.mergify_engine = {}
 
-    ensure_mergable_state(pull, force)
+    try:
+        ensure_mergable_state(pull, force)
+    except tenacity.RetryError:
+        LOG.error("Unable to ensure mergeable state",
+                  pull_request=pull)
 
     for key, method in FULLIFIER:
         if key not in pull.mergify_engine or force:
