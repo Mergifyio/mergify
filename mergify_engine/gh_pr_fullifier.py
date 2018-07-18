@@ -207,29 +207,41 @@ def compute_status(pull, **extra):
     elif pull.mergeable_state == "blocked":
         if (pull.mergify_engine["required_statuses"] ==
                 StatusState.SUCCESS):
-            # NOTE(sileht): The mergeable_state is obviously wrong, we can't
-            # have required reviewers and combined_status to success. Sometimes
-            # Github is laggy to compute mergeable_state, so refreshing the the
-            # pull. Or maybe this is a mergify bug :), so retry only 3 times
 
-            LOG.warning("%s: the status is unexpected, requeue this event.",
-                        pull.pretty())
-            commit = pull.base.repo.get_commit(pull.head.sha)
-            status = commit.get_combined_status()
-            LOG.warning("reviews: %s", [r.raw_data for r in
-                                        list(pull.get_reviews())])
-            LOG.warning("status checks: %s", status.raw_data["statuses"])
-            LOG.warning("pull content: %s", pull.raw_data)
+            # NOTE(sileht): CI passed but we are blocked, since we are unable
+            # to known if that code owner is required or not, we guess it is.
+            # If it's not that a bug in Mergify or Github
+            protection = extra["branch_rule"]["protection"]
+            required_reviews = protection["required_pull_request_reviews"]
+            if required_reviews and required_reviews[
+                    "require_code_owner_reviews"]:
+                github_desc = "Waiting for code owner review"
+            else:
+                # NOTE(sileht): The mergeable_state is obviously wrong, we
+                # can't have required reviewers and combined_status to success.
+                # Sometimes Github is laggy to compute mergeable_state, so
+                # refreshing the the pull. Or maybe this is a mergify bug :),
+                # so retry only 3 times
 
-            # NOTE(sileht): We have reviewers and the CI is OK, so this PR
-            # can be merged. But Github tell us it's blocked. As workaround
-            # we refresh our status_check, so Github should recompute the
-            # mergify_state and allow us to push the merge btn.
-            pull.mergify_engine_github_post_check_status(
-                        extra["redis"], extra["installation_id"], "success",
-                        "Will be merged soon")
-            time.sleep(1)
-            raise exceptions.RetryJob(3)
+                LOG.error("%s: the status is unexpected, requeue this event.",
+                          pull.pretty())
+                commit = pull.base.repo.get_commit(pull.head.sha)
+                status = commit.get_combined_status()
+                LOG.warning("reviews: %s", [r.raw_data for r in
+                                            list(pull.get_reviews())])
+                LOG.warning("status checks: %s", status.raw_data["statuses"])
+                LOG.warning("pull content: %s", pull.raw_data)
+
+                # NOTE(sileht): We have reviewers and the CI is OK, so this PR
+                # can be merged. But Github tell us it's blocked. As workaround
+                # we refresh our status_check, so Github should recompute the
+                # mergify_state and allow us to push the merge btn.
+                pull.mergify_engine_github_post_check_status(
+                    extra["redis"], extra["installation_id"],
+                    "success", "Will be merged soon")
+                time.sleep(1)
+                raise exceptions.RetryJob(3)
+
         elif (pull.mergify_engine["required_statuses"] ==
               StatusState.PENDING):
             # Maybe clean soon, or maybe this is the previous run selected PR
