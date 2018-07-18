@@ -37,3 +37,15 @@ def github_for(repo):
     install_id = utils.get_installation_id(integration, repo.split("/")[0])
     installation_token = integration.get_access_token(install_id).token
     return github.Github(installation_token)
+
+
+def get_pull(path):
+    owner, repo, _, pull = path.split("/")
+    g = github_for(owner + "/" + repo)
+    return g.get_repo(owner + "/" + repo).get_pull(int(pull))
+
+
+def get_combined_status(path):
+    p = get_pull(path)
+    commit = p.base.repo.get_commit(p.head.sha)
+    return commit.get_combined_status()
