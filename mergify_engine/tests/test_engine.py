@@ -848,6 +848,48 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
 
+    def test_auto_backport_closed_pr(self):
+        p, commits = self.create_pr(two_commits=True)
+
+        self.create_status_and_push_event(p)
+        self.create_review_and_push_event(p, commits[0])
+
+        self.push_events(MERGE_EVENTS)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+        self.r_main.create_label("bp-stable", "000000")
+        p.add_to_labels("bp-stable")
+        self.push_events([
+            ("pull_request", {"action": "labeled"}),
+        ])
+        self.push_events([
+            ("pull_request", {"action": "opened"}),
+            ("status", {"state": "pending"}),
+        ])
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual("stable", pulls[0].base.ref)
+        self.assertEqual("Automatic backport of pull request #%d" % p.number,
+                         pulls[0].title)
+
+        # Ensure temporary bp branch exists
+        bp_branch_ref = "heads/%s" % pulls[0].head.ref
+        self.r_main.get_git_ref(bp_branch_ref)
+
+        commits = list(pulls[0].get_commits())
+        self.create_review_and_push_event(pulls[0], commits[0])
+
+        self.push_events(MERGE_EVENTS)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+        self.assertRaises(github.UnknownObjectException,
+                          self.r_main.get_git_ref,
+                          bp_branch_ref)
+
     def test_auto_backport_merge(self):
         p, commits = self.create_pr(two_commits=True)
 
