@@ -154,7 +154,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         LOG.warn('job %s: failed %d times - retrying' % (job.id,
                                                          job.meta['failures']))
 
-        for queue in self._worker.queues:
+        for queue in self.queues:
             if queue.name == job.origin:
                 queue.enqueue_job(job, at_front=True)
             return False
