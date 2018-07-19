@@ -353,7 +353,7 @@ class MergifyEngine(object):
         for branch in self.get_cached_branches():
             incoming_pull = self.get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
-                return gh_pr.from_event(self._r, incoming_pull)
+                return gh_pr.from_cache(self._r, incoming_pull)
 
     def get_cache_key(self, branch):
         # Use only IDs, not name
