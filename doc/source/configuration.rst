@@ -19,8 +19,9 @@ dict with the following optional keys:
 
    * - ``branches``
      - ``dict``
-     - A dictionary where keys are regular expression to match against branch
-       names and the values are of type :ref:`rule`.
+     - A dictionary where keys are string or regular expression (if
+       starting by ``^``) to match against branch names and the values are of
+       type :ref:`rule`.
 
 .. _rule:
 

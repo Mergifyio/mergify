@@ -134,7 +134,8 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     dict_merge(rule, rules.get("default", {}))
 
     for branch_re in rules.get("branches", []):
-        if re.match(branch_re, branch):
+        if ((branch_re[0] == "^" and re.match(branch_re, branch))
+                or (branch_re[0] != "^" and branch_re == branch)):
             if rules["branches"][branch_re] is None:
                 LOG.info("Rule for %s branch: %s" % (branch, rule))
                 return None
