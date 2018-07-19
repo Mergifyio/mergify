@@ -363,7 +363,7 @@ class MergifyEngine(object):
                 return pull
         return {}  # pragma: no cover
 
-    def get_incoming_pull_from_cache(self, sha):
+    def get_cached_incoming_pull_for_pull_sha(self, sha):
         for branch in self.get_cached_branches():
             incoming_pull = self.get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
