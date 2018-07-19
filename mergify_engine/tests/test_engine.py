@@ -82,7 +82,6 @@ rules:
           required_approving_review_count: 1
       merge_strategy:
         method: rebase
-      automated_backport_labels: null
     stable:
       protection:
         required_pull_request_reviews:
@@ -811,7 +810,8 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        self.push_events(MERGE_EVENTS + [
+        self.push_events(MERGE_EVENTS)
+        self.push_events([
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "pending"}),
         ])
@@ -834,10 +834,8 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
+        self.push_events(MERGE_EVENTS)
         self.push_events([
-            ("status", {"state": "success"}),
-            ("status", {"state": "success"}),
-            ("pull_request", {"action": "closed"}),
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "pending"}),
         ])
