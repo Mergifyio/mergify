@@ -136,15 +136,6 @@ def base_is_modifiable(self):
             self.head.repo.id == self.base.repo.id)
 
 
-def from_event(repo, data):
-    # TODO(sileht): do it only once in handle()
-    # NOTE(sileht): Convert event payload, into pygithub object
-    # instead of querying the API
-    if "pull_request" in data:
-        return github.PullRequest.PullRequest(
-            repo._requester, {}, data["pull_request"], completed=True)
-
-
 def from_cache(repo, data, **extra):
     # NOTE(sileht): Reload our PullRequest custom object from cache data
     # instead of querying the API

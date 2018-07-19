@@ -46,29 +46,43 @@ class MergifyEngine(object):
         self._u = user
         self._r = repo
 
+    def get_incoming_pull_for_sha(self, sha):
+        incoming_pull = self.get_cached_incoming_pull_for_pull_sha(sha)
+        if not incoming_pull:
+            LOG.error("%s: for sha not in cache", sha)
+            issues = list(self._g.search_issues("is:pr %s" % sha))
+            if not issues:
+                LOG.error("%s: for sha not in issues", sha)
+                return
+            if len(issues) > 1:
+                # NOTE(sileht): It's that technically possible, but really ?
+                LOG.warning("status attached on multiple pulls")
+            LOG.error("%s: for sha in issues? %s", sha, issues)
+            for i in issues:
+                try:
+                    incoming_pull = self._r.get_pull(i.number)
+                except github.UnknownObjectException:  # pragma: no cover
+                    pass
+                if incoming_pull and not incoming_pull.merged:
+                    return incoming_pull
+
+    def get_incoming_pull_from_event(self, event_type, data):
+        if "pull_request" in data:
+            return github.PullRequest.PullRequest(
+                self._r._requester, {}, data["pull_request"], completed=True)
+        elif event_type == "status":
+            return self.get_incoming_pull_for_sha(data["sha"])
+
     def handle(self, event_type, data):
         # Everything start here
 
-        incoming_pull = gh_pr.from_event(self._r, data)
-        if not incoming_pull and event_type == "status":
-            # It's safe to take the one from cache, since only status have
-            # changed
-            incoming_pull = self.get_incoming_pull_from_cache(data["sha"])
-            if not incoming_pull:
-                issues = list(self._g.search_issues("is:pr %s" % data["sha"]))
-                if len(issues) >= 1:
-                    try:
-                        incoming_pull = self._r.get_pull(issues[0].number)
-                    except github.UnknownObjectException:  # pragma: no cover
-                        pass
+        incoming_pull = self.get_incoming_pull_from_event(event_type, data)
+        self.log_formated_event(event_type, incoming_pull, data)
 
         if not incoming_pull:  # pragma: no cover
             LOG.info("No pull request found in the event %s, "
                      "ignoring" % event_type)
             return
-
-        # Log the event
-        self.log_formated_event(event_type, incoming_pull, data)
 
         if (event_type == "status" and
                 incoming_pull.head.sha != data["sha"]):  # pragma: no cover
