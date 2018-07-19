@@ -15,13 +15,13 @@ dict with the following optional keys:
    * - ``default``
      - :ref:`rule`
      - The rules to be applied by Mergify by default. See :ref:`rule` for the
-       rule format.
+       rule format. Or ``null`` to disable Mergify by default.
 
    * - ``branches``
      - ``dict``
      - A dictionary where keys are string or regular expression (if
        starting by ``^``) to match against branch names and the values are of
-       type :ref:`rule`.
+       type :ref:`rule` or ``null`` to disable Mergify on this branch.
 
 .. _rule:
 
