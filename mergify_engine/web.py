@@ -22,7 +22,6 @@
 import hmac
 import json
 import logging
-import os
 
 import flask
 import github
@@ -199,85 +198,6 @@ def refresh_all():
             "%s branches" % tuple(counts)), 202
 
 
-def _get_status(r, installation_id, login='*', repo='*'):
-    queues = []
-    for key in r.keys("queues~%s~%s~%s~%s~*" % (installation_id, login.lower(),
-                                                repo.lower(), False)):
-        _, _, owner, repo, private, branch = key.split("~")
-        payload = r.hgetall(key)
-        pulls = [json.loads(p) for p in payload.values()]
-        if pulls:
-            updated_at = list(sorted([p["updated_at"] for p in pulls]))[-1]
-        else:
-            updated_at = None
-        queues.append({
-            "owner": owner,
-            "repo": repo,
-            "branch": branch,
-            "pulls": pulls,
-            "updated_at": updated_at,
-        })
-    return json.dumps(queues)
-
-
-def stream_message(_type, data):
-    return 'event: %s\ndata: %s\n\n' % (_type, data)
-
-
-def stream_generate(installation_id, login="*", repo="*"):  # pragma: no cover
-    r = utils.get_redis_for_cache()
-    yield stream_message("refresh", _get_status(r, installation_id,
-                                                login, repo))
-    pubsub = r.pubsub()
-    pubsub.subscribe("update-%s" % installation_id)
-    while True:
-        # NOTE(sileht): heroku timeout is 55s, we have set gunicorn timeout
-        # to 60s, this assume 5s is enough for http and redis round strip and
-        # use 50s
-        message = pubsub.get_message(timeout=50.0)
-        if message is None:
-            yield stream_message("ping", "{}")
-        elif message["channel"] == "update-%s" % installation_id:
-            yield stream_message("refresh", _get_status(r, installation_id,
-                                                        login, repo))
-
-
-@app.route("/status/install/<installation_id>/")
-def status(installation_id):
-    r = utils.get_redis_for_cache()
-    return (_get_status(r, installation_id),
-            200, {'Content-Type': 'application/json'})
-
-
-@app.route("/status/repos/<login>/")
-@app.route("/status/repos/<login>/<repo>/")
-def status_repo(login, repo="*"):
-    r = utils.get_redis_for_cache()
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, login)
-    return (_get_status(r, installation_id, login, repo),
-            200, {'Content-Type': 'application/json'})
-
-
-@app.route('/stream/status/repos/<login>/')
-@app.route('/stream/status/repos/<login>/<repo>/')
-def stream_repo(login, repo="*"):
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, login)
-    return flask.Response(flask.stream_with_context(
-        stream_generate(installation_id, login, repo)
-    ), mimetype="text/event-stream")
-
-
-@app.route('/stream/status/install/<installation_id>/')
-def stream(installation_id):
-    return flask.Response(flask.stream_with_context(
-        stream_generate(installation_id)
-    ), mimetype="text/event-stream")
-
-
 # FIXME(sileht): rename this to new subscription something
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
 def subscription_cache(installation_id):  # pragma: no cover
@@ -415,23 +335,6 @@ def event_testing_handler():  # pragma: no cover
         return flask.jsonify(data)
 
 
-@app.route("/favicon.ico")
-def favicon():  # pragma: no cover
-    return app.send_static_file("favicon.ico")
-
-
-@app.route("/fonts/<file>")
-def fonts(file):  # pragma: no cover
-    # bootstrap fonts
-    return flask.send_from_directory(os.path.join("static", "fonts"), file)
-
-
 @app.route("/")
 def index():  # pragma: no cover
     return flask.redirect("https://mergify.io/")
-
-
-# NOTE(sileht): Must be the last one, since it catch any remaning routes
-@app.route("/<path:path>")
-def installation(path):  # pragma: no cover
-    return app.send_static_file("index.html")

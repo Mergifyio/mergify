@@ -385,14 +385,15 @@ class TestEngineScenario(testtools.TestCase):
                     raise Exception(
                         "[%d] Got %s event type instead of %s: %s" %
                         (pos, event["type"],  expected_type,
-                         event["payload"]))
+                         self._event_payload_for_log(event["payload"])))
 
                 for key, expected in expected_data.items():
                     value = event["payload"].get(key)
                     if value != expected:
                         raise Exception(
                             "[%d] Got %s for %s instead of %s: %s" %
-                            (pos, value, key, expected, event))
+                            (pos, value, key, expected,
+                             self._event_payload_for_log(event["payload"])))
 
                 self._send_event(**event)
 
@@ -400,6 +401,20 @@ class TestEngineScenario(testtools.TestCase):
                     break
 
         self.remaining_events = events
+
+    @staticmethod
+    def _event_payload_for_log(payload):
+        filtered_payload = copy.deepcopy(payload)
+        filtered_payload.pop("installation", None)
+        filtered_payload.pop("sender", None)
+        if "pull_request" in filtered_payload:
+            filtered_payload["pull_request"].pop("repository", None)
+            filtered_payload["pull_request"].pop("base", None)
+            filtered_payload["pull_request"].pop("head", None)
+            filtered_payload["pull_request"].pop("_links", None)
+            filtered_payload["pull_request"].pop("user", None)
+            filtered_payload["pull_request"].pop("body", None)
+        return filtered_payload
 
     def _get_events(self):
         # NOTE(sileht): Simulate push Github events, we use a counter
@@ -564,33 +579,6 @@ class TestEngineScenario(testtools.TestCase):
         for p in pulls:
             self.assertEqual(0, p.mergify_engine['status']['mergify_state'])
 
-        # Some Web API checks
-        for url in ['/status/repos/%s/' % self.u_main.login,
-                    '/status/repos/%s/' % self.r_main.full_name,
-                    '/status/install/%s/' % config.INSTALLATION_ID]:
-            r = self.app.get(url).get_json()
-            self.assertEqual(1, len(r))
-            self.assertEqual(2, len(r[0]['pulls']))
-            self.assertEqual("master", r[0]['branch'])
-            self.assertEqual(self.u_main.login, r[0]['owner'])
-            self.assertEqual(self.r_main.name, r[0]['repo'])
-
-        for url in ['/stream/status/repos/%s/' % self.u_main.login,
-                    '/stream/status/repos/%s/' % self.r_main.full_name,
-                    '/stream/status/install/%s/' % config.INSTALLATION_ID]:
-            r = self.app.get(url)
-            lines = [l for l in next(r.iter_encoded()).decode().split("\n")
-                     if l]
-            self.assertEqual("event: refresh", lines[0])
-            self.assertEqual("data: ", lines[1][:6])
-
-            r = json.loads(lines[1][6:])
-            self.assertEqual(1, len(r))
-            self.assertEqual(2, len(r[0]['pulls']))
-            self.assertEqual("master", r[0]['branch'])
-            self.assertEqual(self.u_main.login, r[0]['owner'])
-            self.assertEqual(self.r_main.name, r[0]['repo'])
-
         self.create_status_and_push_event(p2,
                                           context="not required status check",
                                           state="error")
@@ -618,12 +606,6 @@ class TestEngineScenario(testtools.TestCase):
         pulls = self.engine.build_queue("master")
         self.assertEqual(1, len(pulls))
 
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(1, len(r))
-        self.assertEqual(1, len(r[0]['pulls']))
-
     def test_refresh_pull(self):
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
@@ -647,24 +629,11 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(1, len(r))
-        self.assertEqual(2, len(r[0]['pulls']))
-        self.assertEqual("master", r[0]['branch'])
-        self.assertEqual(self.u_main.login, r[0]['owner'])
-        self.assertEqual(self.r_main.name, r[0]['repo'])
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
-
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(0, len(r))
 
     def test_refresh_branch(self):
         p1, commits1 = self.create_pr()
@@ -683,24 +652,11 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(1, len(r))
-        self.assertEqual(2, len(r[0]['pulls']))
-        self.assertEqual("master", r[0]['branch'])
-        self.assertEqual(self.u_main.login, r[0]['owner'])
-        self.assertEqual(self.r_main.name, r[0]['repo'])
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
-
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(0, len(r))
 
     def test_refresh_all(self):
         p1, commits1 = self.create_pr()
@@ -734,24 +690,11 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self.engine.build_queue("master")
         self.assertEqual(2, len(pulls))
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(1, len(r))
-        self.assertEqual(2, len(r[0]['pulls']))
-        self.assertEqual("master", r[0]['branch'])
-        self.assertEqual(self.u_main.login, r[0]['owner'])
-        self.assertEqual(self.r_main.name, r[0]['repo'])
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine.get_cache_key("master"))
         pulls = self.engine.build_queue("master")
         self.assertEqual(0, len(pulls))
-
-        r = json.loads(self.app.get(
-            '/status/install/%s/' % config.INSTALLATION_ID
-        ).data.decode("utf8"))
-        self.assertEqual(0, len(r))
 
     def test_disabling_files(self):
         p, commits = self.create_pr(files={"foobar": "what"}, state="failure")
