@@ -54,9 +54,10 @@ def is_base_branch_merge_commit(commit):
 
 def _get_commits_to_cherrypick(pull, commit):
     commits = list(filter(lambda c: not is_base_branch_merge_commit(c),
-                          sorted(pull.get_commits(), key=CommitOrderingKey)))
+                          sorted(pull.g_pull.get_commits(),
+                                 key=CommitOrderingKey)))
     if len(commit.parents) == 1:
-        LOG.info("%s: backport, was a rebased before merge", pull.pretty())
+        LOG.info("%s: backport, was a rebased before merge", pull)
         # NOTE(sileht): Was rebased before merge
         # so we can't use the commit from the PR
         # the SHAs in the branch are not the same
@@ -70,17 +71,17 @@ def _get_commits_to_cherrypick(pull, commit):
             else:  # pragma: no cover
                 # NOTE(sileht): What is that? A merge here?
                 LOG.error("%s: backport, unhandled commit structure",
-                          pull.pretty())
+                          pull)
                 return []
         return out_commits
 
     elif len(commit.parents) == 2:
-        LOG.info("%s: backport, was just merged", pull.pretty())
+        LOG.info("%s: backport, was just merged", pull)
         # NOTE(sileht): Was merged, we can take commit from the PR
         return commits
     else:  # pragma: no cover
         # NOTE(sileht): What is that ?
-        LOG.error("%s: backport, unhandled commit structure", pull.pretty())
+        LOG.error("%s: backport, unhandled commit structure", pull)
         return []
 
 
@@ -97,11 +98,11 @@ def _backport(repo, pull, branch_name, installation_token):
         LOG.info("%s doesn't exist for repo %s", branch_name, repo.full_name)
         return
 
-    bp_branch = "mergify/bp/%s/pr-%s" % (branch_name, pull.number)
+    bp_branch = "mergify/bp/%s/pr-%s" % (branch_name, pull.g_pull.number)
 
     cherry_pick_fail = False
     body = ("This is an automated backport of pull request #%d done "
-            "by Mergify.io" % pull.number)
+            "by Mergify.io" % pull.g_pull.number)
 
     git = utils.Gitter()
 
@@ -115,7 +116,7 @@ def _backport(repo, pull, branch_name, installation_token):
         git("branch", "-M", bp_branch)
         git("config", "user.name", "%s-bot" % config.CONTEXT)
         git("config", "user.email", config.GIT_EMAIL)
-        merge_commit = repo.get_commit(pull.merge_commit_sha)
+        merge_commit = repo.get_commit(pull.g_pull.merge_commit_sha)
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
@@ -138,7 +139,7 @@ def _backport(repo, pull, branch_name, installation_token):
 
         git("push", "origin", bp_branch)
     except Exception:
-        LOG.error("%s: backport to branch %s fail", pull.pretty(), branch.name,
+        LOG.error("%s: backport to branch %s fail", pull, branch.name,
                   exc_info=True)
         return
     finally:
@@ -152,7 +153,7 @@ def _backport(repo, pull, branch_name, installation_token):
             "checking-out-pull-requests-locally/")
 
     repo.create_pull(
-        title="Automatic backport of pull request #%d" % pull.number,
+        title="Automatic backport of pull request #%d" % pull.g_pull.number,
         body=body,
         base=branch.name,
         head=bp_branch,
@@ -163,6 +164,6 @@ def backports(repo, pull, labels_branches, installation_token):
     if not labels_branches:
         return
 
-    labels = (set(labels_branches) & set(l.name for l in pull.labels))
+    labels = (set(labels_branches) & set(l.name for l in pull.g_pull.labels))
     for l in labels:
         _backport(repo, pull, labels_branches[l], installation_token)
