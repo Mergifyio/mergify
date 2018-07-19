@@ -66,7 +66,7 @@ Rule = {
 
 UserConfigurationSchema = {
     voluptuous.Required('rules'): voluptuous.Any({
-        'default': Rule,
+        'default': voluptuous.Any(Rule, None),
         'branches': {str: voluptuous.Any(Rule, None)},
     }, None)
 }
@@ -104,9 +104,29 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 
-def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
-    rule = copy.deepcopy(DEFAULT_RULE)
+def build_branch_rule(rules, branch):
+    for branch_re in sorted(rules.get("branches", {})):
+        if ((branch_re[0] == "^" and re.match(branch_re, branch))
+                or (branch_re[0] != "^" and branch_re == branch)):
+            if rules["branches"][branch_re] is None:
+                return None
+            else:
+                rule = copy.deepcopy(DEFAULT_RULE)
+                if "default" in rules and rules["default"] is not None:
+                    dict_merge(rule, rules["default"])
+                dict_merge(rule, rules["branches"][branch_re])
+                return rule
 
+    # No match take the default
+    if "default" in rules and rules["default"] is None:
+        return None
+    else:
+        rule = copy.deepcopy(DEFAULT_RULE)
+        dict_merge(rule, rules.get("default", {}))
+        return rule
+
+
+def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     try:
         content = g_repo.get_contents(".mergify.yml", ref=ref).decoded_content
         LOG.info("found mergify.yml")
@@ -131,16 +151,10 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     except voluptuous.MultipleInvalid as e:
         raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
 
-    dict_merge(rule, rules.get("default", {}))
+    rule = build_branch_rule(rules, branch)
+    if rule is None:
+        return None
 
-    for branch_re in rules.get("branches", []):
-        if ((branch_re[0] == "^" and re.match(branch_re, branch))
-                or (branch_re[0] != "^" and branch_re == branch)):
-            if rules["branches"][branch_re] is None:
-                LOG.info("Rule for %s branch: %s" % (branch, rule))
-                return None
-            else:
-                dict_merge(rule, rules["branches"][branch_re])
     try:
         rule = validate_merged_config(rule)
     except voluptuous.MultipleInvalid as e:  # pragma: no cover
