@@ -48,23 +48,24 @@ class MergifyEngine(object):
 
     def get_incoming_pull_for_sha(self, sha):
         incoming_pull = self.get_cached_incoming_pull_for_pull_sha(sha)
-        if not incoming_pull:
-            LOG.error("%s: for sha not in cache", sha)
-            issues = list(self._g.search_issues("is:pr %s" % sha))
-            if not issues:
-                LOG.error("%s: for sha not in issues", sha)
-                return
-            if len(issues) > 1:
-                # NOTE(sileht): It's that technically possible, but really ?
-                LOG.warning("status attached on multiple pulls")
-            LOG.error("%s: for sha in issues? %s", sha, issues)
-            for i in issues:
-                try:
-                    incoming_pull = self._r.get_pull(i.number)
-                except github.UnknownObjectException:  # pragma: no cover
-                    pass
-                if incoming_pull and not incoming_pull.merged:
-                    return incoming_pull
+        if incoming_pull:
+            return incoming_pull
+
+        LOG.error("%s: for sha not in cache", sha)
+        issues = list(self._g.search_issues("is:pr %s" % sha))
+        if not issues:
+            LOG.info("%s: sha not attached to a pull request", sha)
+            return
+        if len(issues) > 1:
+            # NOTE(sileht): It's that technically possible, but really ?
+            LOG.warning("%s: sha attached to multiple pull requests", sha)
+        for i in issues:
+            try:
+                incoming_pull = self._r.get_pull(i.number)
+            except github.UnknownObjectException:  # pragma: no cover
+                pass
+            if incoming_pull and not incoming_pull.merged:
+                return incoming_pull
 
     def get_incoming_pull_from_event(self, event_type, data):
         if "pull_request" in data:
