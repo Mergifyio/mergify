@@ -82,6 +82,15 @@ rules:
           required_approving_review_count: 1
       merge_strategy:
         method: rebase
+    enabling_label:
+      protection:
+        required_status_checks:
+          strict: False
+        required_pull_request_reviews:
+          required_approving_review_count: 1
+      merge_strategy:
+        method: rebase
+      enabling_label: go-mergify
     stable:
       protection:
         required_pull_request_reviews:
@@ -299,6 +308,9 @@ class TestEngineScenario(testtools.TestCase):
 
             self.git("checkout", "-b", "disabled")
             self.git("push", "main", "disabled")
+
+            self.git("checkout", "-b", "enabling_label")
+            self.git("push", "main", "enabling_label")
 
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.url_fork = "https://%s:@github.com/%s" % (
@@ -751,7 +763,21 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
         self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
-        self.assertEqual("Disabled, foobar is modified in this pull request",
+        self.assertEqual("Disabled — foobar is modified",
+                         pulls[0].mergify_engine['status'
+                                                 ]['github_description'])
+
+    def test_enabling_label(self):
+        p, commits = self.create_pr("enabling_label", state="failure")
+
+        self.create_status_and_push_event(p)
+        self.create_review_and_push_event(p, commits[0])
+
+        pulls = self.engine.build_queue("enabling_label")
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
+        self.assertEqual("Disabled — enabling label missing",
                          pulls[0].mergify_engine['status'
                                                  ]['github_description'])
 
@@ -767,7 +793,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
         self.assertEqual(0, pulls[0].mergify_engine['status']['mergify_state'])
-        self.assertEqual("Disabled with label",
+        self.assertEqual("Disabled — disabling label present",
                          pulls[0].mergify_engine['status'
                                                  ]['github_description'])
 
