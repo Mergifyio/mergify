@@ -100,6 +100,24 @@ With that configuration, pull requests sent to the branch auto-deployment
 require no approvals, while still requiring Travis continuous integration to
 succeed.
 
+You can also disable Mergify on a particular branch:
+
+.. code-block:: yaml
+
+    rules:
+      protection:
+        required_status_checks:
+          contexts:
+            - continuous-integration/travis-ci
+        required_pull_request_reviews:
+          required_approving_review_count: 2
+      branches:
+        ^features/.*: null
+
+Here all branches starting by ``features/`` will not have Mergify enabled. All
+pull requests opened against thes branches will not be handled by Mergify, and
+GitHub branch protection will be disabled on them.
+
 You can read the :doc:`full list of configuration option <configuration>` for
 more information.
 
