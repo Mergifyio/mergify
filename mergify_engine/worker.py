@@ -30,7 +30,6 @@ import rq.worker
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import exceptions
-from mergify_engine import gh_pr
 from mergify_engine import initial_configuration
 from mergify_engine import utils
 
@@ -175,7 +174,6 @@ def main():  # pragma: no cover
 
     utils.setup_logging()
     config.log()
-    gh_pr.monkeypatch_github()
 
     MergifyWorker(args.fqdn, args.worker_id).work()
 

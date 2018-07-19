@@ -16,11 +16,9 @@
 
 
 from mergify_engine import config
-from mergify_engine import gh_pr
 from mergify_engine import utils
 from mergify_engine import web
 
 config.log()
 utils.setup_logging()
-gh_pr.monkeypatch_github()
 application = web.app
