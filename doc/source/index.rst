@@ -9,6 +9,7 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    getting-started
    strict-workflow
    automated-backport
+   disabling
    configuration
    faq
 

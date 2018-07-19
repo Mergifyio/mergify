@@ -56,8 +56,33 @@ def test_config():
     validate_with_get_branch_rule(config, "stable/foo")
 
 
-def test_defauls_get_branch_rule():
+def test_defaulpts_get_branch_rule():
     validate_with_get_branch_rule({"rules": None})
+
+
+def test_disabled_branch():
+    config = {
+        "rules": {
+            "default": copy.deepcopy(DEFAULT_CONFIG),
+            "branches": {
+                "^feature/.*": None
+            }
+        }
+    }
+    assert validate_with_get_branch_rule(config, "feature/foobar") is None
+
+
+def test_disabled_default():
+    config = {
+        "rules": {
+            "default": None,
+            "branches": {
+                "master": copy.deepcopy(DEFAULT_CONFIG),
+            }
+        }
+    }
+    assert validate_with_get_branch_rule(config, "feature/foobar") is None
+    assert validate_with_get_branch_rule(config, "master") is not None
 
 
 def test_invalid_yaml():

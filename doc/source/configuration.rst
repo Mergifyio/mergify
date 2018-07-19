@@ -15,12 +15,13 @@ dict with the following optional keys:
    * - ``default``
      - :ref:`rule`
      - The rules to be applied by Mergify by default. See :ref:`rule` for the
-       rule format.
+       rule format. Or ``null`` to disable Mergify by default.
 
    * - ``branches``
      - ``dict``
-     - A dictionary where keys are regular expression to match against branch
-       names and the values are of type :ref:`rule`.
+     - A dictionary where keys are string or regular expression (if
+       starting by ``^``) to match against branch names and the values are of
+       type :ref:`rule` or ``null`` to disable Mergify on this branch.
 
 .. _rule:
 
@@ -43,6 +44,11 @@ A ``Rule`` is a dictionary with the following optional keys:
      - A `label <https://help.github.com/articles/about-labels/>`_ name that
        will disable Mergify if it is applied to a pull request. Default is
        ``no-mergify``.
+   * - ``enabling_label``
+     - ``string``
+     - A `label <https://help.github.com/articles/about-labels/>`_ name that
+       will enable Mergify only if it is applied to a pull request. Default is
+       ``null``.
    * - ``disabling_files``
      - ``array of string``
      - A list of files paths that disables Mergify if they are part of the pull
