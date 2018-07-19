@@ -139,14 +139,19 @@ def compute_required_statuses(pull, **extra):
 
 def disabled_by_rules(pull, **extra):
     labels = [l.name for l in pull.labels]
+
+    enabling_label = extra["branch_rule"]["enabling_label"]
+    if enabling_label is not None and enabling_label not in labels:
+        return "Disabled — enabling label missing"
+
     if extra["branch_rule"]["disabling_label"] in labels:
-        return "Disabled with label"
+        return "Disabled — disabling label present"
 
     pull_files = [f.filename for f in pull.get_files()]
     for w in extra["branch_rule"]["disabling_files"]:
         filtered = fnmatch.filter(pull_files, w)
         if filtered:
-            return ("Disabled, %s is modified in this pull request"
+            return ("Disabled — %s is modified"
                     % filtered[0])
     return None
 

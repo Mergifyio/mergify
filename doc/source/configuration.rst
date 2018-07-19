@@ -43,6 +43,11 @@ A ``Rule`` is a dictionary with the following optional keys:
      - A `label <https://help.github.com/articles/about-labels/>`_ name that
        will disable Mergify if it is applied to a pull request. Default is
        ``no-mergify``.
+   * - ``enabling_label``
+     - ``string``
+     - A `label <https://help.github.com/articles/about-labels/>`_ name that
+       will enable Mergify only if it is applied to a pull request. Default is
+       ``null``.
    * - ``disabling_files``
      - ``array of string``
      - A list of files paths that disables Mergify if they are part of the pull
