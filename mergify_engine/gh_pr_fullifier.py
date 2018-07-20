@@ -217,8 +217,9 @@ def compute_status(pull, **extra):
             require_code_owner_reviews = protection[
                 "required_pull_request_reviews"].get(
                 "require_code_owner_reviews", False)
-            if require_code_owner_reviews and (pull.requested_teams or
-                                               pull.requested_reviewers):
+            if require_code_owner_reviews and (
+                    pull._rawData['requested_teams'] or
+                    pull._rawData['requested_reviewers']):
                 github_desc = "Waiting for code owner review"
 
             else:
