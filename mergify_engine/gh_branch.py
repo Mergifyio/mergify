@@ -73,7 +73,6 @@ def protect(g_repo, g_branch, rule):
 
     # NOTE(sileht): Not yet part of the API
     # maybe soon https://github.com/PyGithub/PyGithub/pull/527
-    try:
         g_repo._requester.requestJsonAndCheck(
             'PUT',
             "{base_url}/branches/{branch}/protection".format(
@@ -81,21 +80,22 @@ def protect(g_repo, g_branch, rule):
             input=rule['protection'],
             headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
         )
-    except github.GithubException as e:  # pragma: no cover
-        if e.status == 404 and e.message == 'Branch not protected':
-            return
-        raise
 
 
 def unprotect(g_repo, g_branch):
     # NOTE(sileht): Not yet part of the API
     # maybe soon https://github.com/PyGithub/PyGithub/pull/527
-    g_repo._requester.requestJsonAndCheck(
-        'DELETE',
-        "{base_url}/branches/{branch}/protection".format(base_url=g_repo.url,
-                                                         branch=g_branch.name),
-        headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
-    )
+    try:
+        g_repo._requester.requestJsonAndCheck(
+            'DELETE',
+            "{base_url}/branches/{branch}/protection".format(
+                base_url=g_repo.url, branch=g_branch.name),
+            headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
+        )
+    except github.GithubException as e:  # pragma: no cover
+        if e.status == 404 and e.message == 'Branch not protected':
+            return
+        raise
 
 
 def configure_protection_if_needed(g_repo, g_branch, rule):
