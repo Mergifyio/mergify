@@ -21,8 +21,6 @@ import time
 
 from github import Consts
 
-from mergify_engine import exceptions
-
 LOG = logging.getLogger(__name__)
 
 UNUSABLE_STATES = ["unknown", None]
