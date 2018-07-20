@@ -137,9 +137,12 @@ class MergifyEngine(object):
         try:
             gh_branch.configure_protection_if_needed(
                 self._r, incoming_pull.base.ref, branch_rule)
-        except github.UnknownObjectException:  # pragma: no cover
-            LOG.exception("Fail to protect branch, disabled mergify")
-            return
+        except github.GithubException as e:  # pragma: no cover
+            if e.status == 404:
+                LOG.info("%s: branch no longer exists", incoming_pull.pretty())
+                return
+            else:
+                raise
 
         if not branch_rule:
             LOG.info("Mergify disabled on branch %s", incoming_pull.base.ref)
