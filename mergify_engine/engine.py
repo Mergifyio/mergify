@@ -192,12 +192,13 @@ class MergifyEngine(object):
         # will be got/computed by PullRequest.fullify()
         if event_type == "refresh":
             cache = {}
+            old_status = None
         else:
             cache = self.get_cache_for_pull_number(incoming_pull.base.ref,
                                                    incoming_pull.number)
             cache = dict((k, v) for k, v in cache.items()
                          if k.startswith("mergify_engine_"))
-            cache.pop("mergify_engine_status", None)
+            old_status = cache.pop("mergify_engine_status", None)
             if event_type == "status":
                 cache.pop("mergify_engine_required_statuses", None)
             elif event_type == "pull_request_review":
@@ -218,8 +219,7 @@ class MergifyEngine(object):
         # NOTE(sileht): PullRequest updated or comment posted, maybe we need to
         # update github
         # Get and refresh the queues
-        if event_type in ["pull_request", "pull_request_review",
-                          "refresh"]:
+        if old_status != incoming_pull.mergify_engine["status"]:
             incoming_pull.mergify_engine_github_post_check_status(
                 self._redis, self._installation_id,
                 incoming_pull.mergify_engine["status"]["github_state"],
