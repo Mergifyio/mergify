@@ -257,6 +257,9 @@ def compute_status(pull, **extra):
         else:
             github_desc = "Waiting for status checks success"
 
+    elif pull.mergeable_state == "dirty":
+        github_desc = "Merge conflict need to be solved"
+
     elif pull.mergeable_state == "unknown":
         # Should not really occur, but who known
         github_desc = "Pull request state reported unknown by Github"
