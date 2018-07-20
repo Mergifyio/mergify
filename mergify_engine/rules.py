@@ -129,7 +129,6 @@ def build_branch_rule(rules, branch):
 def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     try:
         content = g_repo.get_contents(".mergify.yml", ref=ref).decoded_content
-        LOG.info("found mergify.yml")
     except github.GithubException as e:
         # NOTE(sileht): PyGithub is buggy here it should raise
         # UnknownObjectException. but depending of the error message

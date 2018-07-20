@@ -51,7 +51,7 @@ class MergifyEngine(object):
         if incoming_pull:
             return incoming_pull
 
-        LOG.error("%s: for sha not in cache", sha)
+        LOG.info("%s: sha not in cache", sha)
         issues = list(self._g.search_issues("is:pr %s" % sha))
         if not issues:
             LOG.info("%s: sha not attached to a pull request", sha)
@@ -154,10 +154,6 @@ class MergifyEngine(object):
             # NOTE(sileht): Both are used by compute_approvals
             "branch_rule": branch_rule,
             "collaborators": [u.id for u in self._r.get_collaborators()],
-            # TODO(sileht): Remove me as soon as Github fix the mergeable_state
-            # not refreshed
-            "redis": self._redis,
-            "installation_id": self._installation_id,
         }
 
         if incoming_pull.state == "closed":
