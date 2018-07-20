@@ -34,7 +34,9 @@ def pretty(self):
     }.get(extra.get("required_statuses"), "nc")
     status = extra.get("status", {})
     approvals = len(extra["approvals"][0]) if "approvals" in extra else "nc"
-    return "%s/%s/pull/%s@%s (%s/%s/%s/%s/%s/%s)" % (
+    requeired_approvals = (extra["approvals"][2]
+                           if "approvals" in extra else "nc")
+    return "%s/%s/pull/%s@%s s:%s/%s r:%s/%s -> %s (%s/%s)" % (
         self.base.user.login,
         self.base.repo.name,
         self.number,
@@ -43,6 +45,7 @@ def pretty(self):
          else (self.mergeable_state or "none")),
         required_statuses,
         approvals,
+        requeired_approvals,
         {
             gh_pr_fullifier.MergifyState.NOT_READY: "not-ready",
             gh_pr_fullifier.MergifyState.ALMOST_READY: "almost-ready",

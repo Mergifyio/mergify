@@ -228,7 +228,7 @@ def compute_status(pull, **extra):
                 # refreshing the the pull. Or maybe this is a mergify bug :),
                 # so retry only 3 times
 
-                raise RuntimeError("%s: the mergeable_state is unexpected",
+                raise RuntimeError("%s: the mergeable_state is unexpected" %
                                    pull.pretty())
         elif (pull.mergify_engine["required_statuses"] ==
               StatusState.PENDING):
