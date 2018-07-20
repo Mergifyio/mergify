@@ -100,4 +100,4 @@ def configure_protection_if_needed(g_repo, branch, rule):
 
     if not is_configured(g_repo, branch, rule):
         raise RuntimeError("Branch %s of %s is still misconfigured, "
-                           "abandoning")
+                           "abandoning" % (branch, g_repo.full_name))
