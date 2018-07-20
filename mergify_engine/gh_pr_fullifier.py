@@ -162,6 +162,7 @@ def disabled_by_rules(pull, **extra):
 # unstable: branch up2date (if strict: True) and not required status
 #           checks are failure or pending
 # clean: branch up2date (if strict: True) and all status check OK
+# has_hooks: Mergeable with passing commit status and pre-recieve hooks.
 #
 # https://platform.github.community/t/documentation-about-mergeable-state/4259
 # https://github.com/octokit/octokit.net/issues/1763
@@ -179,55 +180,56 @@ class MergifyState(object):
 def compute_status(pull, **extra):
     disabled = disabled_by_rules(pull, **extra)
 
-    # TODO(sileht): remove me
-    if len(pull.mergify_engine["approvals"]) == 4:
-        reviews_ok, reviews_ko, reviews_required, _ = \
-            pull.mergify_engine["approvals"]
-    else:
-        reviews_ok, reviews_ko, reviews_required = \
-            pull.mergify_engine["approvals"]
+    reviews_ok, reviews_ko, reviews_required = pull.mergify_engine["approvals"]
 
     mergify_state = MergifyState.NOT_READY
     github_state = "pending"
-    github_desc = "Waiting for status checks success"
+    github_desc = None
 
     if disabled:
         github_state = "failure"
         github_desc = disabled
+
     elif reviews_ko:
         github_desc = "Change requests need to be dismissed"
+
     elif len(reviews_ok) < reviews_required:
-        mergify_state = MergifyState.NOT_READY
-        github_state = "pending"
         github_desc = (
             "%d/%d approvals required" %
             (len(reviews_ok), reviews_required)
         )
-    elif pull.mergeable_state in ["clean", "unstable"]:
+
+    elif pull.mergeable_state in ["clean", "unstable", "has_hooks"]:
         mergify_state = MergifyState.READY
         github_state = "success"
         github_desc = "Will be merged soon"
+
     elif pull.mergeable_state == "blocked":
         if (pull.mergify_engine["required_statuses"] ==
                 StatusState.SUCCESS):
+            # FIXME(sileht) We are blocked but reviews are OK and CI passes
+            # So It's a Github bug or Github block the PR about something we
+            # don't yet support.
 
-            # NOTE(sileht): CI passed but we are blocked, since we are unable
-            # to known if that code owner is required or not, we guess it is.
-            # If it's not that a bug in Mergify or Github
+            # We don't fully support require_code_owner_reviews, try so do some
+            # guessing.
             protection = extra["branch_rule"]["protection"]
-            required_reviews = protection["required_pull_request_reviews"]
-            if required_reviews and required_reviews[
-                    "require_code_owner_reviews"]:
+            require_code_owner_reviews = protection[
+                "required_pull_request_reviews"].get(
+                "require_code_owner_reviews", False)
+            if require_code_owner_reviews and (pull.requested_teams or
+                                               pull.requested_reviewers):
                 github_desc = "Waiting for code owner review"
-            else:
-                # NOTE(sileht): The mergeable_state is obviously wrong, we
-                # can't have required reviewers and combined_status to success.
-                # Sometimes Github is laggy to compute mergeable_state, so
-                # refreshing the the pull. Or maybe this is a mergify bug :),
-                # so retry only 3 times
 
-                raise RuntimeError("%s: the mergeable_state is unexpected" %
-                                   pull.pretty())
+            else:
+                # NOTE(sileht): assume it's the Github bug and the PR is ready,
+                # if it's not the merge button will just fail.
+                LOG.error("%s: the mergeable_state is unexpected, trying to "
+                          "merge the pull request." % pull.pretty())
+                mergify_state = MergifyState.READY
+                github_state = "success"
+                github_desc = "Will be merged soon"
+
         elif (pull.mergify_engine["required_statuses"] ==
               StatusState.PENDING):
             # Maybe clean soon, or maybe this is the previous run selected PR
@@ -235,6 +237,9 @@ def compute_status(pull, **extra):
             # to ALMOST_READY to ensure we do not rebase multiple pull request
             # in //
             mergify_state = MergifyState.ALMOST_READY
+            github_desc = "Waiting for status checks success"
+        else:
+            github_desc = "Waiting for status checks success"
 
     elif pull.mergeable_state == "behind":
         # Not up2date, but ready to merge, is branch updatable
@@ -248,6 +253,18 @@ def compute_status(pull, **extra):
             mergify_state = MergifyState.NEED_BRANCH_UPDATE
             github_desc = ("Pull request will be updated with latest base "
                            "branch changes soon")
+        else:
+            github_desc = "Waiting for status checks success"
+
+    elif pull.mergeable_state == "unknown":
+        # Should not really occur, but who known
+        github_desc = "Pull request state reported unknown by Github"
+    else:
+        raise RuntimeError("%s: Unexpected mergify_state" % pull.pretty())
+
+    if github_desc is None:
+        # Seatbelt
+        raise RuntimeError("%s: github_desc have not been set")
 
     return {"mergify_state": mergify_state,
             "github_description": github_desc,
