@@ -135,18 +135,16 @@ class MergifyEngine(object):
             return
 
         try:
-            g_branch = self._r.get_branch(incoming_pull.base.ref)
+            gh_branch.configure_protection_if_needed(self._r,
+                                                     incoming_pull.base.ref,
+                                                     branch_rule)
         except github.GithubException as e:  # pragma: no cover
-            if e.status == 404:
+            if e.status == 404 and e.data["message"] == "Branch not found":
                 LOG.info("%s: branch no longer exists: %s",
                          incoming_pull.pretty(),
                          e.message)
                 return
-            else:
-                raise
-
-        gh_branch.configure_protection_if_needed(self._r, g_branch,
-                                                 branch_rule)
+            raise
 
         if not branch_rule:
             LOG.info("Mergify disabled on branch %s", incoming_pull.base.ref)

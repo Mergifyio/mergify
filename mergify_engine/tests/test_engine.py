@@ -509,10 +509,9 @@ class TestEngineScenario(testtools.TestCase):
     def add_label_and_push_events(self, pr, label, state="pending"):
         self.r_main.create_label(label, "000000")
         pr.add_to_labels(label)
-        self.push_events([
-            ("pull_request", {"action": "labeled"}),
-            ("status", {"state": state})
-        ])
+        self.push_events([("pull_request", {"action": "labeled"})])
+        if state:
+            self.push_events([("status", {"state": state})])
 
     def test_branch_disabled(self):
         old_rule = {
@@ -534,14 +533,17 @@ class TestEngineScenario(testtools.TestCase):
 
         rule = rules.get_branch_rule(self.r_main, "disabled")
         self.assertEqual(None, rule)
+        data = gh_branch.get_protection(self.r_main, "disabled")
         self.assertFalse(gh_branch.is_configured(self.r_main, "disabled",
-                                                 rule))
+                                                 rule, data))
 
         self.create_pr("disabled")
         self.assertEqual([], self.engine.get_cached_branches())
         self.assertEqual([], self.engine.build_queue("disabled"))
 
-        self.assertTrue(gh_branch.is_configured(self.r_main, "disabled", rule))
+        data = gh_branch.get_protection(self.r_main, "disabled")
+        self.assertTrue(gh_branch.is_configured(self.r_main, "disabled", rule,
+                                                data))
 
     def test_basic(self):
         self.create_pr()
@@ -570,8 +572,9 @@ class TestEngineScenario(testtools.TestCase):
             }
         }
 
+        data = gh_branch.get_protection(self.r_main, "master")
         self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                expected_rule))
+                                                expected_rule, data))
 
         # Checks the content of the cache
         pulls = self.engine.build_queue("master")
@@ -860,7 +863,7 @@ class TestEngineScenario(testtools.TestCase):
     def test_auto_backport_merge(self):
         p, commits = self.create_pr(two_commits=True)
 
-        self.add_label_and_push_events(p, "bp-stable")
+        self.add_label_and_push_events(p, "bp-stable", None)
 
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
@@ -982,8 +985,9 @@ class TestEngineScenario(testtools.TestCase):
             }
         }
 
+        data = gh_branch.get_protection(self.r_main, "master")
         self.assertTrue(gh_branch.is_configured(self.r_main, "master",
-                                                expected_rule))
+                                                expected_rule, data))
 
         p1 = self.r_main.get_pull(p1.number)
         commit = p1.base.repo.get_commit(p1.head.sha)
@@ -1035,14 +1039,14 @@ class TestEngineScenario(testtools.TestCase):
                 "enforce_admins": False,
             }
         }
+        data = gh_branch.get_protection(self.r_main, "stable")
         self.assertTrue(gh_branch.is_configured(self.r_main, "stable",
-                                                expected_rule))
+                                                expected_rule, data))
 
     def test_reviews(self):
         p, commits = self.create_pr()
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0], event="COMMENT")
-        self.push_events([("status", {"state": "pending"})])
         r = self.create_review_and_push_event(p, commits[0],
                                               event="REQUEST_CHANGES")
         self.push_events([("status", {"state": "pending"})])
