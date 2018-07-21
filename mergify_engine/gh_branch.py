@@ -61,8 +61,8 @@ def is_configured(g_repo, g_branch, rule):
 
     configured = rule['protection'] == data
     if not configured:
-        LOG.warning("Branch %s of %s is misconfigured: %s",
-                    g_branch.name, g_repo.full_name, data)
+        LOG.warning("Branch %s of %s is misconfigured: %s != %s",
+                    g_branch.name, g_repo.full_name, data, rule['protection'])
     return configured
 
 
