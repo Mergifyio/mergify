@@ -25,7 +25,13 @@ def main():  # pragma: no cover
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     installs = utils.get_installations(integration)
+    r = utils.get_redis_for_cache()
+    subscribed = 0
+    for i in installs:
+        if utils.get_subscription(r, i["id"])["subscribed"]:
+            subscribed += 1
     print("installations: %d" % len(installs))
+    print("subscriptions: %d" % subscribed)
 
     active_slugs = set()
     for key in utils.get_redis_for_cache().keys("queues~*"):
