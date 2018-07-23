@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import copy
 import logging
 
 import github
@@ -62,7 +63,9 @@ def is_configured(g_repo, branch, rule, data):
 
 
 def protect(g_repo, branch, rule):
-    if g_repo.organization:
+    if g_repo.organization and rule['protection'][
+            'required_pull_request_reviews']:
+        rule = copy.deepcopy(rule)
         rule['protection']['required_pull_request_reviews'][
             'dismissal_restrictions'] = {}
 
