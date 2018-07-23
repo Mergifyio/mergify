@@ -163,7 +163,8 @@ class MergifyEngine(object):
             LOG.info("Just update cache (pull_request closed)")
 
             if (event_type == "pull_request" and
-                    data["action"] in ["closed", "labeled"]):
+                    data["action"] in ["closed", "labeled"] and
+                    incoming_pull.merged):
                 backports.backports(
                     self._r, incoming_pull,
                     branch_rule["automated_backport_labels"],
