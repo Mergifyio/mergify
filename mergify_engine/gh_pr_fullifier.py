@@ -300,8 +300,8 @@ def fullify(pull, cache=None, force=False, **extra):
     try:
         ensure_mergable_state(pull, force)
     except tenacity.RetryError:
-        LOG.error("Unable to ensure mergeable state",
-                  pull_request=pull)
+        LOG.error("%s: Unable to ensure mergeable state",
+                  pull.pretty())
 
     for key, method in FULLIFIER:
         if key not in pull.mergify_engine or force:
