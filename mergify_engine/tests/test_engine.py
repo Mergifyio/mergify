@@ -818,6 +818,20 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual("Automatic backport of pull request #%d" % p.number,
                          pulls[0].title)
 
+    def test_auto_backport_not_merged_pr(self):
+        p, commits = self.create_pr("nostrict", two_commits=True)
+
+        self.r_main.create_label("bp-stable", "000000")
+        p.add_to_labels("bp-stable")
+        p.edit(state="closed")
+        self.push_events([
+            ("pull_request", {"action": "labeled"}),
+            ("pull_request", {"action": "closed"}),
+        ])
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
     def test_auto_backport_closed_pr(self):
         p, commits = self.create_pr(two_commits=True)
 
