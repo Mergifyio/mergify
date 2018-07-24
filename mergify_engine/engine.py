@@ -55,12 +55,10 @@ class Caching(object):
     def _cache_save_pull(self, pull):
         key = self._get_cache_key(pull.base.ref)
         self._redis.hset(key, pull.number, json.dumps(pull.jsonify()))
-        self._redis.publish("update-%s" % self.installation_id, key)
 
     def _cache_remove_pull(self, pull):
         key = self._get_cache_key(pull.base.ref)
         self._redis.hdel(key, pull.number)
-        self._redis.publish("update-%s" % self.installation_id, key)
 
 
 class MergifyEngine(Caching):
