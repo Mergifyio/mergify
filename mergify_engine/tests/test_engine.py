@@ -142,7 +142,7 @@ class GitterRecorder(utils.Gitter):
             r = self.records.pop(0)
             assert r['args'] == self.sanitize_uri(args)
             assert r['kwargs'] == kwargs
-            return r['out']
+            return r['out'].encode('utf8')
 
     @staticmethod
     def sanitize_uri(args):
