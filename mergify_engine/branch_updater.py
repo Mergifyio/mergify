@@ -53,8 +53,9 @@ def update(pull, token, merge=True):
         git("config", "user.name", "%s-bot" % config.CONTEXT)
         git("config", "user.email", config.GIT_EMAIL)
 
-        out = git("log", "--pretty='format:%cI'")
-        last_commit_date = out.decode("utf8").split("\n")[-1]
+        out = git("log", "--format=%cI")
+        last_commit_date = [d for d in out.decode("utf8").split("\n")
+                            if d.strip()][-1]
 
         git("fetch", "upstream", pull.g_pull.base.ref,
             "--shallow-since='%s'" % last_commit_date)
