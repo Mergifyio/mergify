@@ -121,6 +121,8 @@ def configure_protection_if_needed(g_repo, branch, rule):
         unprotect(g_repo, branch)
         if rule is not None:
             headers, data = protect(g_repo, branch, rule)
+        else:
+            data = get_protection(g_repo, branch)
 
         if not is_configured(g_repo, branch, rule, data):
             raise RuntimeError("Branch %s of %s is still misconfigured, "
