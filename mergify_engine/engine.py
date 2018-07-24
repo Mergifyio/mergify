@@ -295,7 +295,8 @@ class MergifyEngine(Caching):
             incoming_pull.base.ref, **fullify_extra)
 
     def get_processor(self):
-        return Processor(user=self.user,
+        return Processor(subscription=self._subscription,
+                         user=self.user,
                          repository=self.repository,
                          installation_id=self.installation_id,
                          redis=self._redis)
@@ -341,6 +342,12 @@ class MergifyEngine(Caching):
 
 
 class Processor(Caching):
+    def __init__(self, subscription, user, repository, installation_id, redis):
+        super(Processor, self).__init__(user=user,
+                                        repository=repository,
+                                        installation_id=installation_id,
+                                        redis=redis)
+        self._subscription = subscription
 
     @staticmethod
     def _sort_pulls(pulls):
