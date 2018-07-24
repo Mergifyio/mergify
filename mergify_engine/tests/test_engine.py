@@ -329,6 +329,9 @@ class TestEngineScenario(testtools.TestCase):
         # self.r_fork.delete()
         # self.r_main.delete()
 
+        failed_queue = rq.Queue("failed",
+                                connection=utils.get_redis_for_rq())
+        self.assertEqual(0, len(failed_queue))
         self.assertEqual([], self.remaining_events)
         super(TestEngineScenario, self).tearDown()
 
@@ -504,12 +507,10 @@ class TestEngineScenario(testtools.TestCase):
         self.push_events([("pull_request_review", {"action": "submitted"})])
         return r
 
-    def add_label_and_push_events(self, pr, label, state="pending"):
+    def add_label_and_push_events(self, pr, label):
         self.r_main.create_label(label, "000000")
         pr.add_to_labels(label)
         self.push_events([("pull_request", {"action": "labeled"})])
-        if state:
-            self.push_events([("status", {"state": state})])
 
     def test_branch_disabled(self):
         old_rule = {
@@ -724,7 +725,8 @@ class TestEngineScenario(testtools.TestCase):
     def test_disabling_label(self):
         p, commits = self.create_pr()
 
-        self.add_label_and_push_events(p, "no-mergify", state="failure")
+        self.add_label_and_push_events(p, "no-mergify")
+        self.push_events([("status", {"state": "failure"})])
 
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
@@ -870,7 +872,7 @@ class TestEngineScenario(testtools.TestCase):
     def test_auto_backport_merge(self):
         p, commits = self.create_pr(two_commits=True)
 
-        self.add_label_and_push_events(p, "bp-stable", None)
+        self.add_label_and_push_events(p, "bp-stable")
 
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
@@ -949,10 +951,7 @@ class TestEngineScenario(testtools.TestCase):
         # Retry to merge pr2
         self.create_status_and_push_event(p2)
 
-        self.push_events([
-            ("status", {"state": "success"}),
-            ("pull_request", {"action": "closed"}),
-        ])
+        self.push_events(MERGE_EVENTS)
 
         # Second PR merged
         pulls = self.processor._build_queue("master")
