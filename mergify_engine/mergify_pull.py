@@ -409,9 +409,6 @@ class MergifyPull(object):
                           self, e.status, e.data["message"], exc_info=True)
                 return False
 
-            # FIXME(sileht): depending on the kind of failure we can endloop
-            # to try to merge the pr again and again.
-            # to repoduce the issue
         return True
 
     def post_check_status(self, redis, installation_id, state, msg,
@@ -448,6 +445,14 @@ class MergifyPull(object):
         except github.GithubException as e:  # pragma: no cover
             LOG.error("%s set status fail: %s",
                       self, e.data["message"], exc_info=True)
+
+    def set_and_post_error(self, redis, installation_id, github_description):
+        self._mergify_state = MergifyState.NOT_READY
+        self._github_state = "failure"
+        self._github_description = github_description
+        self.post_check_status(redis, installation_id,
+                               self.github_state,
+                               self.github_description)
 
     def __str__(self):
         required_statuses = {
