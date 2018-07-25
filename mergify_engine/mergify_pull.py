@@ -381,15 +381,9 @@ class MergifyPull(object):
                 self.g_pull.head.repo.id == self.g_pull.base.repo.id)
 
     def merge(self, rule):
-        post_parameters = {
-            "sha": self.g_pull.head.sha,
-            "merge_method": rule["merge_strategy"]["method"],
-        }
-        # FIXME(sileht): use self.g_pull.merge when it will
-        # support sha and merge_method arguments
         try:
-            headers, data = self.g_pull._requester.requestJsonAndCheck(
-                "PUT", self.g_pull.url + "/merge", input=post_parameters)
+            self.g_pull.merge(sha=self.g_pull.head.sha,
+                              merge_method=rule["merge_strategy"]["method"])
         except github.GithubException as e:   # pragma: no cover
             if (self.g_pull.is_merged() and
                     e.data["message"] == "Pull Request is not mergeable"):
@@ -407,10 +401,9 @@ class MergifyPull(object):
                 return False
 
             # If rebase fail retry with merge
-            post_parameters['merge_method'] = fallback
             try:
-                headers, data = self.g_pull._requester.requestJsonAndCheck(
-                    "PUT", self.g_pull.url + "/merge", input=post_parameters)
+                self.g_pull.merge(sha=self.g_pull.head.sha,
+                                  merge_method=fallback)
             except github.GithubException as e:
                 LOG.error("%s merge fail: %d, %s",
                           self, e.status, e.data["message"], exc_info=True)
