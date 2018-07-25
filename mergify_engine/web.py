@@ -25,7 +25,6 @@ import logging
 
 import flask
 import github
-import raven.contrib.flask
 import rq
 import rq_dashboard
 import uhashring
@@ -43,7 +42,6 @@ app.config.from_object(rq_dashboard.default_settings)
 app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 app.config["REDIS_URL"] = utils.get_redis_url()
 app.config["RQ_POLL_INTERVAL"] = 10000  # ms
-sentry = raven.contrib.flask.Sentry(app, dsn=config.SENTRY_URL)
 
 # TODO(sileht): Make the ring dynamic
 global RING

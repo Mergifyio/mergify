@@ -19,8 +19,6 @@ import argparse
 import logging
 
 import github
-import raven
-from raven.transport.http import HTTPTransport
 import redis
 import rq
 from rq.contrib.sentry import register_sentry
@@ -130,11 +128,6 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
         self.push_exc_handler(self._retry_handler)
 
-        if config.SENTRY_URL:
-            client = raven.Client(config.SENTRY_URL,
-                                  transport=HTTPTransport)
-            register_sentry(client, self)
-
     def _retry_handler(self, job, exc_type, exc_value, traceback):
         if exc_type != exceptions.RetryJob:
             return True
@@ -172,10 +165,14 @@ def main():  # pragma: no cover
     parser.add_argument("worker_id", type=int, help='Worker ID')
     args = parser.parse_args()
 
-    utils.setup_logging()
-    config.log()
+    sentry_client = utils.prepare_service()
 
-    MergifyWorker(args.fqdn, args.worker_id).work()
+    worker = MergifyWorker(args.fqdn, args.worker_id)
+
+    if sentry_client:
+        register_sentry(sentry_client, worker)
+
+    worker.work()
 
 
 if __name__ == '__main__':  # pragma: no cover
