@@ -16,6 +16,7 @@ import copy
 import fnmatch
 import logging
 
+import attr
 import github
 from github import Consts
 import tenacity
@@ -55,19 +56,20 @@ class StatusState(object):
     PENDING = 2
 
 
+@attr.s
 class MergifyPull(object):
-    def __init__(self, pull):
-        # NOTE(sileht): Use from_cache/from_event not the constructor directly
-        self.g_pull = pull
-        self._complete = False
+    # NOTE(sileht): Use from_cache/from_event not the constructor directly
+    g_pull = attr.ib()
+    _complete = attr.ib(init=False, default=False)
 
-        # Cached attributes
-        self._approvals = None
-        self._required_statuses = None
-        self._mergify_state = None
-        self._github_state = None
-        self._github_description = None
+    # Cached attributes
+    _approvals = attr.ib(init=False, default=None)
+    _required_statuses = attr.ib(init=False, default=None)
+    _mergify_state = attr.ib(init=False, default=None)
+    _github_state = attr.ib(init=False, default=None)
+    _github_description = attr.ib(init=False, default=None)
 
+    def __attrs_post_init__(self):
         self._ensure_mergable_state()
 
     def _ensure_complete(self):
