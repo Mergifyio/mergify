@@ -67,7 +67,7 @@ def update(pull, token, merge=True):
             # back
             git("rebase", "upstream/%s" % base_branch)
         git("push", "origin", head_branch)
-    except Exception:
+    except Exception:  # pragma: no cover
         LOG.error("%s: update branch fail", pull, exc_info=True)
         return False
     finally:
