@@ -14,6 +14,7 @@
 
 import copy
 import fnmatch
+import functools
 import logging
 
 import attr
@@ -56,7 +57,8 @@ class StatusState(object):
     PENDING = 2
 
 
-@attr.s
+@functools.total_ordering
+@attr.s(cmp=False)
 class MergifyPull(object):
     # NOTE(sileht): Use from_cache/from_event not the constructor directly
     g_pull = attr.ib()
@@ -366,10 +368,13 @@ class MergifyPull(object):
             return
         raise tenacity.TryAgain
 
-    @property
-    def sort_key(self):
-        """Used to sort the pull request queue"""
-        return (self.mergify_state, self.g_pull.updated_at)
+    def __lt__(self, other):
+        return ((self.mergify_state, self.g_pull.updated_at) >
+                (other.mergify_state, other.g_pull.updated_at))
+
+    def __eq__(self, other):
+        return ((self.mergify_state, self.g_pull.updated_at) ==
+                (other.mergify_state, other.g_pull.updated_at))
 
     def base_is_modifiable(self):
         return (self.g_pull.raw_data["maintainer_can_modify"] or
