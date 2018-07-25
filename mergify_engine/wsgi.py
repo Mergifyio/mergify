@@ -15,10 +15,13 @@
 # under the License.
 
 
-from mergify_engine import config
 from mergify_engine import utils
-from mergify_engine import web
+from mergify_engine.web import app as application
 
-config.log()
-utils.setup_logging()
-application = web.app
+import raven.contrib.flask
+
+
+sentry_client = utils.prepare_service()
+if sentry_client:
+    raven.contrib.flask.Sentry(application, client=sentry_client).init_app(
+        application)

@@ -27,6 +27,9 @@ import tempfile
 
 import daiquiri
 import github
+import raven
+from raven.handlers import logging as raven_logging
+from raven.transport.http import HTTPTransport
 import redis
 import requests
 
@@ -40,6 +43,18 @@ REDIS_CONNECTION_RQ = None
 
 global REDIS_CONNECTION_CACHE
 REDIS_CONNECTION_CACHE = None
+
+
+def prepare_service():  # pragma: no cover
+    setup_logging()
+    config.log()
+
+    if config.SENTRY_URL:
+        sentry_client = raven.Client(config.SENTRY_URL,
+                                     transport=HTTPTransport)
+        logging.getLogger(None).addHandler(
+            raven_logging.SentryHandler(client=sentry_client))
+        return sentry_client
 
 
 def get_redis_url():
