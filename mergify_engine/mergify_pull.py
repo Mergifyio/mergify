@@ -346,7 +346,8 @@ class MergifyPull(object):
     UNUSABLE_STATES = ["unknown", None]
 
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
-                    stop=tenacity.stop_after_attempt(5))
+                    stop=tenacity.stop_after_attempt(5),
+                    retry=tenacity.retry_never)
     def _ensure_mergable_state(self, force=False):
         if self.g_pull.merged:
             return
