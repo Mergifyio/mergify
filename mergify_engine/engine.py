@@ -17,7 +17,6 @@
 from concurrent import futures
 import json
 import logging
-import operator
 
 import attr
 import github
@@ -346,12 +345,6 @@ class Processor(Caching):
                                         redis=redis)
         self._subscription = subscription
 
-    @staticmethod
-    def _sort_pulls(pulls):
-        """Sort pull requests by state and updated_at"""
-        sort_key = operator.attrgetter('sort_key')
-        return list(sorted(pulls, key=sort_key, reverse=True))
-
     def _build_queue(self, branch, **context):
         """Return the pull requests from redis cache ordered by sort status"""
 
@@ -362,7 +355,7 @@ class Processor(Caching):
             pulls = list(tpe.map(
                 lambda p: self._load_from_cache_and_complete(p, **context),
                 data.values()))
-        pulls = self._sort_pulls(pulls)
+        pulls.sort()
         LOG.info("%s, queues content:" % self._get_logprefix(branch))
         for p in pulls:
             LOG.info("%s, sha: %s->%s)", p, p.g_pull.base.sha,
@@ -408,7 +401,7 @@ class Processor(Caching):
                 # NOTE(sileht): The state have changed, put back the pull into
                 # the queue and resort it
                 queue.append(p)
-                queue = self._sort_pulls(queue)
+                queue.sort()
             else:
                 return p
 
