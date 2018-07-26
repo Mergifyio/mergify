@@ -13,6 +13,7 @@
 # under the License.
 
 import copy
+import enum
 import fnmatch
 import functools
 import logging
@@ -42,19 +43,24 @@ LOG = logging.getLogger(__name__)
 # https://developer.github.com/v4/enum/mergestatestatus/
 
 
-# Use enum.Enum and make is serializable ?
-class MergifyState(object):
+# Use IntEnum to be able to sort pull requests based on this state.
+class MergifyState(enum.IntEnum):
     NOT_READY = 0
     NEED_BRANCH_UPDATE = 10
     ALMOST_READY = 20
     READY = 30
 
+    def __str__(self):
+        return self._name_.lower().replace("_", "-")
 
-# Use enum.Enum and make is serializable ?
-class StatusState(object):
-    FAILURE = 0
-    SUCCESS = 1
-    PENDING = 2
+
+class StatusState(enum.Enum):
+    FAILURE = "failure"
+    SUCCESS = "success"
+    PENDING = "pending"
+
+    def __str__(self):
+        return self.value
 
 
 @functools.total_ordering
@@ -66,8 +72,16 @@ class MergifyPull(object):
 
     # Cached attributes
     _approvals = attr.ib(init=False, default=None)
-    _required_statuses = attr.ib(init=False, default=None)
-    _mergify_state = attr.ib(init=False, default=None)
+    _required_statuses = attr.ib(
+        init=False, default=None,
+        validator=attr.validators.optional(
+            attr.validators.instance_of(StatusState)),
+    )
+    _mergify_state = attr.ib(
+        init=False, default=None,
+        validator=attr.validators.optional(
+            attr.validators.instance_of(MergifyState)),
+    )
     _github_state = attr.ib(init=False, default=None)
     _github_description = attr.ib(init=False, default=None)
 
@@ -120,8 +134,8 @@ class MergifyPull(object):
             self._approvals = self._compute_approvals(**context)
 
         if "mergify_engine_required_statuses" in cache:
-            self._required_statuses = cache[
-                "mergify_engine_required_statuses"]
+            self._required_statuses = StatusState(cache[
+                "mergify_engine_required_statuses"])
         else:
             need_to_be_saved = True
             self._required_statuses = self._compute_required_statuses(
@@ -129,7 +143,7 @@ class MergifyPull(object):
 
         if "mergify_engine_status" in cache:
             s = cache["mergify_engine_status"]
-            self._mergify_state = s["mergify_state"]
+            self._mergify_state = MergifyState(s["mergify_state"])
             self._github_state = s["github_state"]
             self._github_description = s["github_description"]
         else:
@@ -147,9 +161,9 @@ class MergifyPull(object):
     def jsonify(self):
         raw = copy.copy(self.g_pull.raw_data)
         raw["mergify_engine_approvals"] = self._approvals
-        raw["mergify_engine_required_statuses"] = self._required_statuses
+        raw["mergify_engine_required_statuses"] = self._required_statuses.value
         raw["mergify_engine_status"] = {
-            "mergify_state": self._mergify_state,
+            "mergify_state": self._mergify_state.value,
             "github_description": self._github_description,
             "github_state": self._github_state
         }
@@ -457,22 +471,6 @@ class MergifyPull(object):
                                self.github_description)
 
     def __str__(self):
-        required_statuses = {
-            StatusState.FAILURE: "failure",
-            StatusState.SUCCESS: "success",
-            StatusState.PENDING: "pending",
-            None: "notset"
-        }[self._required_statuses]
-
-        state = {
-            MergifyState.NOT_READY: "not-ready",
-            MergifyState.ALMOST_READY: "almost-ready",
-            MergifyState.NEED_BRANCH_UPDATE:
-            "need-branch-update",
-            MergifyState.READY: "ready",
-            None: "notset"
-        }[self._mergify_state]
-
         return ("%(login)s/%(repo)s/pull/%(number)d@%(branch)s "
                 "s:%(pr_state)s/%(statuses)s "
                 "r:%(approvals)s/%(required_approvals)s "
@@ -483,13 +481,13 @@ class MergifyPull(object):
                     "branch": self.g_pull.base.ref,
                     "pr_state": ("merged" if self.g_pull.merged else
                                  (self.g_pull.mergeable_state or "none")),
-                    "statuses": required_statuses,
+                    "statuses": str(self._required_statuses),
                     "approvals": ("notset" if self._approvals is None
                                   else len(self._approvals[0])),
                     "required_approvals": ("notset"
                                            if self._approvals is None
                                            else self._approvals[2]),
-                    "mergify_state": state,
+                    "mergify_state": str(self._mergify_state),
                     "github_state": ("notset"
                                      if self._github_state is None
                                      else self._github_state),
