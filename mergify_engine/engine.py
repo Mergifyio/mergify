@@ -353,10 +353,9 @@ class Processor(Caching):
 
         with futures.ThreadPoolExecutor(
                 max_workers=config.FETCH_WORKERS) as tpe:
-            pulls = list(tpe.map(
+            pulls = sorted(tpe.map(
                 lambda p: self._load_from_cache_and_complete(p, **context),
                 data.values()))
-        pulls.sort()
         LOG.info("%s, queues content:" % self._get_logprefix(branch))
         for p in pulls:
             LOG.info("%s, sha: %s->%s)", p, p.g_pull.base.sha,
