@@ -14,12 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import logging
+import daiquiri
 
 from mergify_engine import config
 from mergify_engine import utils
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 def update(pull, token, merge=True):
@@ -68,7 +68,7 @@ def update(pull, token, merge=True):
             git("rebase", "upstream/%s" % base_branch)
         git("push", "origin", head_branch)
     except Exception:  # pragma: no cover
-        LOG.error("%s: update branch fail", pull, exc_info=True)
+        LOG.error("update branch fail", pull_request=pull, exc_info=True)
         return False
     finally:
         git.cleanup()

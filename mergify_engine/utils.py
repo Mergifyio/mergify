@@ -35,7 +35,7 @@ import requests
 
 from mergify_engine import config
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 global REDIS_CONNECTION_RQ

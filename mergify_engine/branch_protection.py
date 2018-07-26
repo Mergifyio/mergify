@@ -15,11 +15,11 @@
 # under the License.
 
 import copy
-import logging
+import daiquiri
 
 import github
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 def is_configured(g_repo, branch, rule, data):
@@ -57,8 +57,9 @@ def is_configured(g_repo, branch, rule, data):
 
     configured = rule['protection'] == data
     if not configured:
-        LOG.warning("Branch %s of %s is misconfigured: %s != %s",
-                    branch, g_repo.full_name, data, rule['protection'])
+        LOG.warning("Misconfigured branch: %s != %s",
+                    data, rule['protection'],
+                    branch=branch, repository=g_repo.full_name)
     return configured
 
 

@@ -15,11 +15,13 @@
 # under the License.
 
 
-import logging
 import os
+
+import daiquiri
+
 import yaml
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 with open(os.getenv("MERGIFYENGINE_SETTINGS", "fake.yml")) as f:

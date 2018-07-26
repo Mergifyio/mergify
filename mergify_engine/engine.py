@@ -16,9 +16,9 @@
 
 from concurrent import futures
 import json
-import logging
 
 import attr
+import daiquiri
 import github
 import tenacity
 
@@ -30,7 +30,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 ENDING_STATES = ["failure", "error", "success"]
 
@@ -103,14 +103,14 @@ class MergifyEngine(Caching):
         if pull:
             return pull
 
-        LOG.info("%s: sha not in cache", sha)
+        LOG.info("sha not in cache", sha=sha)
         issues = list(self._g.search_issues("is:pr %s" % sha))
         if not issues:
-            LOG.info("%s: sha not attached to a pull request", sha)
+            LOG.info("sha not attached to a pull request", sha=sha)
             return
         if len(issues) > 1:
             # NOTE(sileht): It's that technically possible, but really ?
-            LOG.warning("%s: sha attached to multiple pull requests", sha)
+            LOG.warning("sha attached to multiple pull requests", sha=sha)
         for i in issues:
             try:
                 pull = self.repository.get_pull(i.number)
@@ -210,7 +210,7 @@ class MergifyEngine(Caching):
             raise
 
         if not branch_rule:
-            LOG.info("Mergify disabled on branch %s", incoming_branch)
+            LOG.info("Mergify disabled on branch", branch=incoming_branch)
             return
 
         # PULL REQUEST UPDATER
@@ -225,7 +225,7 @@ class MergifyEngine(Caching):
 
         if incoming_state == "closed":
             self._cache_remove_pull(incoming_pull)
-            LOG.info("Just update cache (pull_request closed)")
+            LOG.info("Just update cache (pull request closed)")
 
             if (event_type == "pull_request" and
                     data["action"] in ["closed", "labeled"] and
@@ -250,8 +250,9 @@ class MergifyEngine(Caching):
                         self.repository.get_git_ref(
                             "heads/%s" % head_branch
                         ).delete()
-                        LOG.info("%s: branch %s deleted", incoming_pull,
-                                 head_branch)
+                        LOG.info("branch deleted",
+                                 pull_request=incoming_pull,
+                                 branch=head_branch)
                     except github.UnknownObjectException:  # pragma: no cover
                         pass
 
@@ -358,8 +359,9 @@ class Processor(Caching):
                 data.values()))
         LOG.info("%s, queues content:" % self._get_logprefix(branch))
         for p in pulls:
-            LOG.info("%s, sha: %s->%s)", p, p.g_pull.base.sha,
-                     p.g_pull.head.sha)
+            LOG.info("sha: %s->%s",
+                     p.g_pull.base.sha, p.g_pull.head.sha,
+                     pull_request=p)
         return pulls
 
     def _load_from_cache_and_complete(self, data, **context):
@@ -410,10 +412,10 @@ class Processor(Caching):
 
         p = self._get_next_pull_to_processed(branch, **context)
         if not p:
-            LOG.info("Nothing queued, skipping queues processing")
+            LOG.info("Nothing queued, skipping queue processing")
             return
 
-        LOG.info("%s selected", p)
+        LOG.info("selected", pull_request=p)
 
         if p.mergify_state == mergify_pull.MergifyState.READY:
             p.post_check_status(
@@ -422,9 +424,9 @@ class Processor(Caching):
 
             if p.merge(context["branch_rule"]):
                 # Wait for the closed event now
-                LOG.info("%s -> merged", p)
+                LOG.info("-> merged", pull_request=p)
             else:  # pragma: no cover
-                LOG.info("%s -> merge fail", p)
+                LOG.info("-> merge fail", pull_request=p)
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "Merge fail")
                 self._cache_save_pull(p)
@@ -434,14 +436,15 @@ class Processor(Caching):
             # rebase it and wait the next pull_request event
             # (synchronize)
             if not p.base_is_modifiable():  # pragma: no cover
-                LOG.info("%s -> branch not updatable, base not modifiable", p)
+                LOG.info("-> branch not updatable, base not modifiable",
+                         pull_request=p)
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "PR owner doesn't allow modification")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
 
             elif branch_updater.update(p, self._subscription["token"]):
-                LOG.info("%s -> branch updated", p)
+                LOG.info("-> branch updated", pull_request=p)
             else:  # pragma: no cover
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "contributor branch is not updatable, "
@@ -449,4 +452,6 @@ class Processor(Caching):
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
         else:
-            LOG.info("%s -> nothing to do (state: %s)", p, p.mergify_state)
+            LOG.info("-> nothing to do",
+                     pull_request=p,
+                     state=p.mergify_state)

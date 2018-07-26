@@ -14,15 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import logging
-
 import github
 
 from mergify_engine import config
 from mergify_engine import utils
-
-
-LOG = logging.getLogger(__name__)
 
 
 def create_jwt():
