@@ -298,8 +298,9 @@ class MergifyPull(object):
                 else:
                     # NOTE(sileht): assume it's the Github bug and the PR is
                     # ready, if it's not the merge button will just fail.
-                    LOG.error("%s: the mergeable_state is unexpected, trying "
-                              "to merge the self.g_pull request." % self)
+                    LOG.warning("%s: the mergeable_state is unexpected, "
+                                "trying to merge the self.g_pull request.",
+                                self)
                     mergify_state = MergifyState.READY
                     github_state = "success"
                     github_desc = "Will be merged soon"
