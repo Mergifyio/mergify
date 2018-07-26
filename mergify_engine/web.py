@@ -282,6 +282,9 @@ def event_handler():
         elif event_type == "status" and data["state"] == "pending":
             msg_action = "ignored (state pending)"
 
+        elif event_type == "status" and data["context"] == "mergify/pr":
+            msg_action = "ignored (mergify status)"
+
         elif (event_type == "pull_request" and data["action"] not in [
                 "opened", "reopened", "closed", "synchronize",
                 "labeled", "unlabeled"]):
