@@ -20,6 +20,7 @@ import logging
 
 import attr
 import github
+import tenacity
 
 from mergify_engine import backports
 from mergify_engine import branch_protection
@@ -405,6 +406,7 @@ class Processor(Caching):
             else:
                 return p
 
+    @tenacity.retry(retry=tenacity.retry_never)
     def proceed_queue(self, branch, **context):
 
         p = self._get_next_pull_to_processed(branch, **context)
@@ -422,32 +424,30 @@ class Processor(Caching):
             if p.merge(context["branch_rule"]):
                 # Wait for the closed event now
                 LOG.info("%s -> merged", p)
-            else:
+            else:  # pragma: no cover
                 LOG.info("%s -> merge fail", p)
-                p.post_check_status(
-                    self._redis, self.installation_id,
-                    "failure", "Merge fail")
+                p.set_and_post_error(self._redis, self.installation_id,
+                                     "Merge fail")
+                self._cache_save_pull(p)
+                raise tenacity.TryAgain
 
         elif p.mergify_state == mergify_pull.MergifyState.NEED_BRANCH_UPDATE:
             # rebase it and wait the next pull_request event
             # (synchronize)
-            if not self._subscription["token"]:  # pragma: no cover
-                p.post_check_status(
-                    self._redis, self.installation_id, "failure",
-                    "No user access_token setuped for rebasing")
-                LOG.info("%s -> branch not updatable, token missing",
-                         p)
-            elif not p.base_is_modifiable():  # pragma: no cover
-                p.post_check_status(
-                    self._redis, self.installation_id, "failure",
-                    "PR owner doesn't allow modification")
-                LOG.info("%s -> branch not updatable, base not modifiable",
-                         p)
+            if not p.base_is_modifiable():  # pragma: no cover
+                LOG.info("%s -> branch not updatable, base not modifiable", p)
+                p.set_and_post_error(self._redis, self.installation_id,
+                                     "PR owner doesn't allow modification")
+                self._cache_save_pull(p)
+                raise tenacity.TryAgain
 
             elif branch_updater.update(p, self._subscription["token"]):
                 LOG.info("%s -> branch updated", p)
-            else:
-                LOG.info("%s -> branch not updatable, "
-                         "manual intervention required", p)
+            else:  # pragma: no cover
+                p.set_and_post_error(self._redis, self.installation_id,
+                                     "contributor branch is not updatable, "
+                                     "manual update/rebase required.")
+                self._cache_save_pull(p)
+                raise tenacity.TryAgain
         else:
             LOG.info("%s -> nothing to do (state: %s)", p, p.mergify_state)
