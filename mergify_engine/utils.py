@@ -52,8 +52,9 @@ def prepare_service():  # pragma: no cover
     if config.SENTRY_URL:
         sentry_client = raven.Client(config.SENTRY_URL,
                                      transport=HTTPTransport)
-        logging.getLogger(None).addHandler(
-            raven_logging.SentryHandler(client=sentry_client))
+        handler = raven_logging.SentryHandler(client=sentry_client)
+        handler.setLevel(logging.ERROR)
+        logging.getLogger(None).addHandler(handler)
         return sentry_client
 
 
