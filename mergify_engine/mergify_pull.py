@@ -16,16 +16,14 @@ import copy
 import enum
 import fnmatch
 import functools
-import logging
 
 import attr
+import daiquiri
 import github
 from github import Consts
 import tenacity
 
 from mergify_engine import config
-
-LOG = logging.getLogger(__name__)
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
 # testing and and some info from other project:
@@ -86,6 +84,7 @@ class MergifyPull(object):
     _github_description = attr.ib(init=False, default=None)
 
     def __attrs_post_init__(self):
+        self.log = daiquiri.getLogger(__name__, pull_request=self)
         self._ensure_mergable_state()
 
     def _ensure_complete(self):
@@ -199,8 +198,8 @@ class MergifyPull(object):
             elif review.state == 'COMMENTED':
                 pass
             else:
-                LOG.error("%s FIXME review state unhandled: %s",
-                          self, review.state)
+                self.log.error("review state unhandled",
+                               state=review.state)
 
         protection = context["branch_rule"]["protection"]
         if protection["required_pull_request_reviews"]:
@@ -312,9 +311,8 @@ class MergifyPull(object):
                 else:
                     # NOTE(sileht): assume it's the Github bug and the PR is
                     # ready, if it's not the merge button will just fail.
-                    LOG.warning("%s: the mergeable_state is unexpected, "
-                                "trying to merge the self.g_pull request.",
-                                self)
+                    self.log.warning("mergeable_state is unexpected, "
+                                     "trying to merge the pull request")
                     mergify_state = MergifyState.READY
                     github_state = "success"
                     github_desc = "Will be merged soon"
@@ -372,7 +370,7 @@ class MergifyPull(object):
 
         # Github is currently processing this PR, we wait the completion
         # TODO(sileht): We should be able to do better that retry 15x
-        LOG.info("%s, refreshing...", self)
+        self.log.info("refreshing")
 
         # FIXME(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change...
@@ -396,6 +394,12 @@ class MergifyPull(object):
         return (self.g_pull.raw_data["maintainer_can_modify"] or
                 self.g_pull.head.repo.id == self.g_pull.base.repo.id)
 
+    def _merge_failed(self, e):
+        self.log.error("merge failed",
+                       status=e.status, message=e.data["message"],
+                       exc_info=True)
+        return False
+
     def merge(self, rule):
         try:
             self.g_pull.merge(sha=self.g_pull.head.sha,
@@ -403,27 +407,23 @@ class MergifyPull(object):
         except github.GithubException as e:   # pragma: no cover
             if (self.g_pull.is_merged() and
                     e.data["message"] == "Pull Request is not mergeable"):
-                # Not a big deal, we will received soon the pull_request/close
+                # Not a big deal, we will receive soon the pull_request close
                 # event
-                LOG.info("%s: was merged in the meantime", self)
+                self.log.info("merged in the meantime")
                 return True
 
             fallback = rule["merge_strategy"]["rebase_fallback"]
             if (e.data["message"] != "This branch can't be rebased" or
                     rule["merge_strategy"]["method"] != "rebase" or
                     fallback == "none"):
-                LOG.error("%s merge fail: %d, %s",
-                          self, e.status, e.data["message"], exc_info=True)
-                return False
+                return self._merge_failed(e)
 
             # If rebase fail retry with merge
             try:
                 self.g_pull.merge(sha=self.g_pull.head.sha,
                                   merge_method=fallback)
             except github.GithubException as e:
-                LOG.error("%s merge fail: %d, %s",
-                          self, e.status, e.data["message"], exc_info=True)
-                return False
+                return self._merge_failed(e)
 
         return True
 
@@ -443,7 +443,7 @@ class MergifyPull(object):
             description = msg
             target_url = None
 
-        LOG.info("%s set status to %s (%s)", self, state, description)
+        self.log.info("set status", state=state, description=description)
         # NOTE(sileht): We can't use commit.create_status() because
         # if use the head repo instead of the base repo
         try:
@@ -459,8 +459,8 @@ class MergifyPull(object):
                          'application/vnd.github.machine-man-preview+json'}
             )
         except github.GithubException as e:  # pragma: no cover
-            LOG.error("%s set status fail: %s",
-                      self, e.data["message"], exc_info=True)
+            self.log.error("set status failed",
+                           message=e.data["message"], exc_info=True)
 
     def set_and_post_error(self, redis, installation_id, github_description):
         self._mergify_state = MergifyState.NOT_READY

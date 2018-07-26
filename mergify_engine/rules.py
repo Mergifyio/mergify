@@ -16,14 +16,14 @@
 
 import collections
 import copy
-import logging
 import re
 
+import daiquiri
 import github
 import voluptuous
 import yaml
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 with open("default_rule.yml", "r") as f:
     DEFAULT_RULE = yaml.safe_load(f.read())
@@ -163,5 +163,5 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     if ".mergify.yml" not in rule["disabling_files"]:
         rule["disabling_files"].append(".mergify.yml")
 
-    LOG.info("Rule for %s branch: %s" % (branch, rule))
+    LOG.info("Fetched branch rule", branch=branch, rule=rule)
     return rule

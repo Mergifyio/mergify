@@ -12,14 +12,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import logging
 import yaml
 
+import daiquiri
 import github
 
 from mergify_engine import config
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 INITIAL_CONFIG_BRANCH = "mergify/initial-config"
 
@@ -97,7 +97,7 @@ See documentation: https://help.github.com/articles/checking-out-pull-requests-l
         base=repo.default_branch,
         head=INITIAL_CONFIG_BRANCH,
     )
-    LOG.info('Initial configuration created for repo %s', repo.full_name)
+    LOG.info('Initial configuration created', repository=repo.full_name)
 
 
 def create_pull_request_if_needed(installation_token, repo):
@@ -113,7 +113,7 @@ def create_pull_request_if_needed(installation_token, repo):
                 raise
             create_pull_request(installation_token, repo)
         else:
-            LOG.info("Initial configuration branch already exists for repo %s",
-                     repo.full_name)
+            LOG.info("Initial configuration branch already exists",
+                     repository=repo.full_name)
     else:
-        LOG.info("Mergify already configured for repo %s", repo.full_name)
+        LOG.info("Mergify already configured", repository=repo.full_name)

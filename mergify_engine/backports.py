@@ -13,15 +13,15 @@
 # under the License.
 
 import functools
-import logging
 import subprocess
 
+import daiquiri
 import github
 
 from mergify_engine import config
 from mergify_engine import utils
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 @functools.total_ordering
@@ -57,7 +57,7 @@ def _get_commits_to_cherrypick(pull, commit):
                           sorted(pull.g_pull.get_commits(),
                                  key=CommitOrderingKey)))
     if len(commit.parents) == 1:
-        LOG.info("%s: backport, was a rebased before merge", pull)
+        LOG.info("was rebased before being merged", pull_request=pull)
         # NOTE(sileht): Was rebased before merge
         # so we can't use the commit from the PR
         # the SHAs in the branch are not the same
@@ -70,18 +70,18 @@ def _get_commits_to_cherrypick(pull, commit):
                 commit = commit.parents[0]
             else:  # pragma: no cover
                 # NOTE(sileht): What is that? A merge here?
-                LOG.error("%s: backport, unhandled commit structure",
-                          pull)
+                LOG.error("unhandled commit structure",
+                          pull_request=pull)
                 return []
         return out_commits
 
     elif len(commit.parents) == 2:
-        LOG.info("%s: backport, was just merged", pull)
+        LOG.info("just merged", pull_request=pull)
         # NOTE(sileht): Was merged, we can take commit from the PR
         return commits
     else:  # pragma: no cover
-        # NOTE(sileht): What is that ?
-        LOG.error("%s: backport, unhandled commit structure", pull)
+        # NOTE(sileht): What is that?
+        LOG.error("unhandled commit structure", pull_request=pull)
         return []
 
 
@@ -91,11 +91,13 @@ def _backport(repo, pull, branch_name, installation_token):
     except github.GithubException as e:
         # NOTE(sileht): PyGitHub is buggy here it should
         # UnknownObjectException. but because the message is "Branch not
-        # found", instead of "Not found", we got the generic exception.
+        # found", instead of "Not found", we get the generic exception.
         if e.status != 404:  # pragma: no cover
             raise
 
-        LOG.info("%s doesn't exist for repo %s", branch_name, repo.full_name)
+        LOG.info("branch doesn't exist for repository",
+                 branch=branch_name,
+                 repository=repo.full_name)
         return
 
     bp_branch = "mergify/bp/%s/pr-%s" % (branch_name, pull.g_pull.number)
@@ -139,7 +141,7 @@ def _backport(repo, pull, branch_name, installation_token):
 
         git("push", "origin", bp_branch)
     except Exception:
-        LOG.error("%s: backport to branch %s fail", pull, branch.name,
+        LOG.error("backport failed", pull_request=pull, branch=branch.name,
                   exc_info=True)
         return
     finally:
