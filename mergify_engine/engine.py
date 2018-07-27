@@ -398,6 +398,9 @@ class Processor(Caching):
                 # the queue and resort it
                 queue.append(p)
                 queue.sort()
+            elif p.mergify_state == mergify_pull.MergifyState.NOT_READY:
+                # NOTE(sileht): Only NOT_READY pull remaining
+                return None
             else:
                 return p
 
@@ -407,46 +410,41 @@ class Processor(Caching):
         p = self._get_next_pull_to_processed(
             branch, branch_rule, collaborators)
         if not p:
-            LOG.info("Nothing queued, skipping queue processing")
+            LOG.info("nothing to do",
+                     repository=self.repository.fullname,
+                     branch=branch)
             return
 
-        LOG.info("selected", pull_request=p)
-
         if p.mergify_state == mergify_pull.MergifyState.READY:
-            p.post_check_status(
-                self._redis, self.installation_id,
-                "success", "Merged")
+            p.post_check_status(self._redis, self.installation_id,
+                                "success", "Merged")
 
             if p.merge(branch_rule):
                 # Wait for the closed event now
-                LOG.info("-> merged", pull_request=p)
+                LOG.info("merged", pull_request=p)
             else:  # pragma: no cover
-                LOG.info("-> merge fail", pull_request=p)
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "Merge fail")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
 
+        elif p.mergify_state == mergify_pull.MergifyState.ALMOST_READY:
+            LOG.info("waiting for final statuses completion", pull_request=p)
+
         elif p.mergify_state == mergify_pull.MergifyState.NEED_BRANCH_UPDATE:
-            # rebase it and wait the next pull_request event
-            # (synchronize)
             if not p.base_is_modifiable():  # pragma: no cover
-                LOG.info("-> branch not updatable, base not modifiable",
+                LOG.info("branch not updatable, base not modifiable",
                          pull_request=p)
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "PR owner doesn't allow modification")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
-
             elif branch_updater.update(p, self._subscription["token"]):
-                LOG.info("-> branch updated", pull_request=p)
+                # Wait for the synchronize event now
+                LOG.info("branch updated", pull_request=p)
             else:  # pragma: no cover
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "contributor branch is not updatable, "
                                      "manual update/rebase required.")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
-        else:
-            LOG.info("-> nothing to do",
-                     pull_request=p,
-                     state=p.mergify_state)
