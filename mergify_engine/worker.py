@@ -16,18 +16,20 @@
 
 
 import argparse
+import datetime
 import logging
 
 import github
 import redis
+import requests
 import rq
 from rq.contrib.sentry import register_sentry
 import rq.handlers
 import rq.worker
+import rq_scheduler
 
 from mergify_engine import config
 from mergify_engine import engine
-from mergify_engine import exceptions
 from mergify_engine import initial_configuration
 from mergify_engine import queue
 from mergify_engine import utils
@@ -53,14 +55,18 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         self.push_exc_handler(self._retry_handler)
 
     def _retry_handler(self, job, exc_type, exc_value, traceback):
-        if exc_type != exceptions.RetryJob:
+        if not ((exc_type == github.GithubException and
+                 exc_value.status >= 500)
+                or (exc_type == requests.exceptions.HTTPError and
+                    exc_value.response.status_code >= 500)):
             return True
 
+        max_retries = 10
         job.meta.setdefault('failures', 0)
         job.meta['failures'] += 1
 
         # Too many failures
-        if job.meta['failures'] >= exc_value.retries:
+        if job.meta['failures'] >= max_retries:
             LOG.warn('job %s: failed too many times times - moving to '
                      'failed queue' % job.id)
             job.save()
@@ -70,10 +76,15 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         LOG.warn('job %s: failed %d times - retrying' % (job.id,
                                                          job.meta['failures']))
 
+        # Exponential backoff
+        retry_in = (2 ** (job.meta['failures'] - 1) *
+                    datetime.timedelta(seconds=5))
+
         for q in self.queues:
             if q.name == job.origin:
-                q.enqueue_job(job, at_front=True)
-            return False
+                scheduler = rq_scheduler.Scheduler(queue=q)
+                scheduler.enqueue_in(retry_in, job)
+                return False
 
         # Can't find queue, which should basically never happen as we only work
         # jobs that match the given queue names and queues are transient in rq.
