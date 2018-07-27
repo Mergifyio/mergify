@@ -411,7 +411,7 @@ class Processor(Caching):
             branch, branch_rule, collaborators)
         if not p:
             LOG.info("nothing to do",
-                     repository=self.repository.fullname,
+                     repository=self.repository.full_name,
                      branch=branch)
             return
 
