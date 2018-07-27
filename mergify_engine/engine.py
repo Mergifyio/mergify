@@ -203,9 +203,8 @@ class MergifyEngine(Caching):
                 self.repository, incoming_branch, branch_rule)
         except github.GithubException as e:  # pragma: no cover
             if e.status == 404 and e.data["message"] == "Branch not found":
-                LOG.info("%s: branch no longer exists: %s",
-                         incoming_pull,
-                         e.message)
+                LOG.info("head branch no longer exists",
+                         pull_request=incoming_pull)
                 return
             raise
 
