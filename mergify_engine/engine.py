@@ -432,14 +432,7 @@ class Processor(Caching):
             LOG.info("waiting for final statuses completion", pull_request=p)
 
         elif p.mergify_state == mergify_pull.MergifyState.NEED_BRANCH_UPDATE:
-            if not p.base_is_modifiable():  # pragma: no cover
-                LOG.info("branch not updatable, base not modifiable",
-                         pull_request=p)
-                p.set_and_post_error(self._redis, self.installation_id,
-                                     "PR owner doesn't allow modification")
-                self._cache_save_pull(p)
-                raise tenacity.TryAgain
-            elif branch_updater.update(p, self._subscription["token"]):
+            if branch_updater.update(p, self._subscription["token"]):
                 # Wait for the synchronize event now
                 LOG.info("branch updated", pull_request=p)
             else:  # pragma: no cover
