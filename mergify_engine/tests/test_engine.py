@@ -281,7 +281,8 @@ class TestEngineScenario(testtools.TestCase):
                                            subscription, user, repo)
         self.processor = self.engine.get_processor()
 
-        self.rq_worker = rq.SimpleWorker(["localhost-000-high",
+        self.rq_worker = rq.SimpleWorker(["incoming-events",
+                                          "localhost-000-high",
                                           "localhost-001-high",
                                           "localhost-000-low",
                                           "localhost-001-low"],
