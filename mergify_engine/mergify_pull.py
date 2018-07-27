@@ -124,13 +124,14 @@ class MergifyPull(object):
         self._ensure_complete()
         return self._github_description
 
-    def complete(self, cache, **context):
+    def complete(self, cache, branch_rule, collaborators):
         need_to_be_saved = False
         if "mergify_engine_approvals" in cache:
             self._approvals = cache["mergify_engine_approvals"]
         else:
             need_to_be_saved = True
-            self._approvals = self._compute_approvals(**context)
+            self._approvals = self._compute_approvals(
+                branch_rule, collaborators)
 
         if "mergify_engine_required_statuses" in cache:
             self._required_statuses = StatusState(cache[
@@ -138,7 +139,7 @@ class MergifyPull(object):
         else:
             need_to_be_saved = True
             self._required_statuses = self._compute_required_statuses(
-                **context)
+                branch_rule)
 
         if "mergify_engine_status" in cache:
             s = cache["mergify_engine_status"]
@@ -148,14 +149,15 @@ class MergifyPull(object):
         else:
             need_to_be_saved = True
             (self._mergify_state, self._github_state,
-             self._github_description) = self._compute_status(**context)
+             self._github_description) = self._compute_status(
+                 branch_rule, collaborators)
 
         self._complete = True
         return need_to_be_saved
 
-    def refresh(self, **context):
+    def refresh(self, branch_rule, collaborators):
         self._ensure_mergable_state(force=True)
-        return self.complete({}, **context)
+        return self.complete({}, branch_rule, collaborators)
 
     def jsonify(self):
         raw = copy.copy(self.g_pull.raw_data)
@@ -168,9 +170,11 @@ class MergifyPull(object):
         }
         return raw
 
-    def _compute_approvals(self, **context):
+    def _compute_approvals(self, branch_rule, collaborators):
         """Compute approvals.
 
+        :param branch_rule: The rule for the considered branch.
+        :param collaborators: The list of collaborators.
         :return: A tuple (users_with_review_ok, users_with_review_ko,
                           number_of_review_required)
         """
@@ -179,7 +183,7 @@ class MergifyPull(object):
         reviews_ok = set()
         reviews_ko = set()
         for review in self.g_pull.get_reviews():
-            if review.user.id not in context["collaborators"]:
+            if review.user.id not in collaborators:
                 continue
 
             users_info[review.user.login] = review.user.raw_data
@@ -201,7 +205,7 @@ class MergifyPull(object):
                 self.log.error("review state unhandled",
                                state=review.state)
 
-        protection = context["branch_rule"]["protection"]
+        protection = branch_rule["protection"]
         if protection["required_pull_request_reviews"]:
             required = protection["required_pull_request_reviews"
                                   ]["required_approving_review_count"]
@@ -218,11 +222,11 @@ class MergifyPull(object):
             if status_check.context.startswith(c):
                 return c
 
-    def _compute_required_statuses(self, **context):
+    def _compute_required_statuses(self, branch_rule):
         # return True is CIs succeed, False is their fail, None
         # is we don't known yet.
         # FIXME(sileht): I don't use a Enum yet to not
-        protection = context["branch_rule"]["protection"]
+        protection = branch_rule["protection"]
         if not protection["required_status_checks"]:
             return StatusState.SUCCESS
 
@@ -247,26 +251,26 @@ class MergifyPull(object):
         else:
             return StatusState.SUCCESS
 
-    def _disabled_by_rules(self, **context):
+    def _disabled_by_rules(self, branch_rule):
         labels = [l.name for l in self.g_pull.labels]
 
-        enabling_label = context["branch_rule"]["enabling_label"]
+        enabling_label = branch_rule["enabling_label"]
         if enabling_label is not None and enabling_label not in labels:
             return "Disabled — enabling label missing"
 
-        if context["branch_rule"]["disabling_label"] in labels:
+        if branch_rule["disabling_label"] in labels:
             return "Disabled — disabling label present"
 
         self.g_pull_files = [f.filename for f in self.g_pull.get_files()]
-        for w in context["branch_rule"]["disabling_files"]:
+        for w in branch_rule["disabling_files"]:
             filtered = fnmatch.filter(self.g_pull_files, w)
             if filtered:
                 return ("Disabled — %s is modified"
                         % filtered[0])
         return None
 
-    def _compute_status(self, **context):
-        disabled = self._disabled_by_rules(**context)
+    def _compute_status(self, branch_rule, collaborators):
+        disabled = self._disabled_by_rules(branch_rule)
 
         reviews_ok, reviews_ko, reviews_required = self._approvals
 
@@ -300,7 +304,7 @@ class MergifyPull(object):
 
                 # We don't fully support require_code_owner_reviews, try so do
                 # some guessing.
-                protection = context["branch_rule"]["protection"]
+                protection = branch_rule["protection"]
                 if (protection["required_pull_request_reviews"]
                         and protection["required_pull_request_reviews"
                                        ]["require_code_owner_reviews"]
@@ -400,10 +404,11 @@ class MergifyPull(object):
                        exc_info=True)
         return False
 
-    def merge(self, rule):
+    def merge(self, branch_rule):
         try:
-            self.g_pull.merge(sha=self.g_pull.head.sha,
-                              merge_method=rule["merge_strategy"]["method"])
+            self.g_pull.merge(
+                sha=self.g_pull.head.sha,
+                merge_method=branch_rule["merge_strategy"]["method"])
         except github.GithubException as e:   # pragma: no cover
             if (self.g_pull.is_merged() and
                     e.data["message"] == "Pull Request is not mergeable"):
@@ -412,9 +417,9 @@ class MergifyPull(object):
                 self.log.info("merged in the meantime")
                 return True
 
-            fallback = rule["merge_strategy"]["rebase_fallback"]
+            fallback = branch_rule["merge_strategy"]["rebase_fallback"]
             if (e.data["message"] != "This branch can't be rebased" or
-                    rule["merge_strategy"]["method"] != "rebase" or
+                    branch_rule["merge_strategy"]["method"] != "rebase" or
                     fallback == "none"):
                 return self._merge_failed(e)
 

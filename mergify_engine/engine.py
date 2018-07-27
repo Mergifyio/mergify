@@ -214,13 +214,7 @@ class MergifyEngine(Caching):
 
         # PULL REQUEST UPDATER
 
-        context = {
-            # NOTE(sileht): Both are used by compute_approvals
-            "branch_rule": branch_rule,
-            "collaborators": [
-                u.id for u in self.repository.get_collaborators()
-            ],
-        }
+        collaborators = [u.id for u in self.repository.get_collaborators()]
 
         if incoming_state == "closed":
             self._cache_remove_pull(incoming_pull)
@@ -236,7 +230,7 @@ class MergifyEngine(Caching):
 
             if event_type == "pull_request" and data["action"] == "closed":
                 self.get_processor().proceed_queue(
-                    incoming_branch, **context)
+                    incoming_branch, branch_rule, collaborators)
 
                 if not incoming_pull.g_pull.merged:
                     incoming_pull.post_check_status(
@@ -276,13 +270,12 @@ class MergifyEngine(Caching):
                   data["action"] == "synchronize"):
                     cache.pop("mergify_engine_required_statuses", None)
 
-        changed = incoming_pull.complete(cache, **context)
+        changed = incoming_pull.complete(cache, branch_rule, collaborators)
         if changed:
             self._cache_save_pull(incoming_pull)
 
         if (event_type == "pull_request_review" and
-                data["review"]["user"]["id"] not in
-                context["collaborators"]):
+                data["review"]["user"]["id"] not in collaborators):
             LOG.info("Just update cache (pull_request_review non-collab)")
             return
 
@@ -296,7 +289,8 @@ class MergifyEngine(Caching):
                 incoming_pull.github_description,
             )
 
-        self.get_processor().proceed_queue(incoming_branch, **context)
+        self.get_processor().proceed_queue(
+            incoming_branch, branch_rule, collaborators)
 
     def get_processor(self):
         return Processor(subscription=self._subscription,
@@ -346,7 +340,7 @@ class Processor(Caching):
                                         redis=redis)
         self._subscription = subscription
 
-    def _build_queue(self, branch, **context):
+    def _build_queue(self, branch, branch_rule, collaborators):
         """Return the pull requests from redis cache ordered by sort status"""
 
         data = self._redis.hgetall(self._get_cache_key(branch))
@@ -354,7 +348,8 @@ class Processor(Caching):
         with futures.ThreadPoolExecutor(
                 max_workers=config.FETCH_WORKERS) as tpe:
             pulls = sorted(tpe.map(
-                lambda p: self._load_from_cache_and_complete(p, **context),
+                lambda p: self._load_from_cache_and_complete(
+                    p, branch_rule, collaborators),
                 data.values()))
         LOG.info("%s, queues content:" % self._get_logprefix(branch))
         for p in pulls:
@@ -363,23 +358,23 @@ class Processor(Caching):
                      pull_request=p)
         return pulls
 
-    def _load_from_cache_and_complete(self, data, **context):
+    def _load_from_cache_and_complete(self, data, branch_rule, collaborators):
         data = json.loads(data)
         pull = mergify_pull.MergifyPull(github.PullRequest.PullRequest(
             self.repository._requester, {}, data, completed=True))
-        changed = pull.complete(data, **context)
+        changed = pull.complete(data, branch_rule, collaborators)
         if changed:
             self._cache_save_pull(pull)
         return pull
 
-    def _get_next_pull_to_processed(self, branch, **context):
+    def _get_next_pull_to_processed(self, branch, branch_rule, collaborators):
         """Return the next pull request to proceed
 
         This take the pull request with the higher status that is not yet
         closed.
         """
 
-        queue = self._build_queue(branch, **context)
+        queue = self._build_queue(branch, branch_rule, collaborators)
         while queue:
             p = queue.pop(0)
 
@@ -392,7 +387,7 @@ class Processor(Caching):
             # FIXME(sileht): This will refresh the first pull request of the
             # queue on each event. To limit this almost useless refresh, we
             # should be smarted on when we call proceed_queue()
-            p.refresh(**context)
+            p.refresh(branch_rule, collaborators)
             self._cache_save_pull(p)
 
             if p.g_pull.state == "closed":
@@ -407,9 +402,10 @@ class Processor(Caching):
                 return p
 
     @tenacity.retry(retry=tenacity.retry_never)
-    def proceed_queue(self, branch, **context):
+    def proceed_queue(self, branch, branch_rule, collaborators):
 
-        p = self._get_next_pull_to_processed(branch, **context)
+        p = self._get_next_pull_to_processed(
+            branch, branch_rule, collaborators)
         if not p:
             LOG.info("Nothing queued, skipping queue processing")
             return
@@ -421,7 +417,7 @@ class Processor(Caching):
                 self._redis, self.installation_id,
                 "success", "Merged")
 
-            if p.merge(context["branch_rule"]):
+            if p.merge(branch_rule):
                 # Wait for the closed event now
                 LOG.info("-> merged", pull_request=p)
             else:  # pragma: no cover
