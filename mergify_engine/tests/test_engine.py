@@ -539,7 +539,7 @@ class TestEngineScenario(testtools.TestCase):
 
         self.create_pr("disabled")
         self.assertEqual([], self.engine.get_cached_branches())
-        self.assertEqual([], self.processor._build_queue("disabled"))
+        self.assertEqual([], self.processor._build_queue("disabled", {}, []))
 
         data = branch_protection.get_protection(self.r_main, "disabled")
         self.assertTrue(branch_protection.is_configured(
@@ -577,7 +577,7 @@ class TestEngineScenario(testtools.TestCase):
             self.r_main, "master", expected_rule, data))
 
         # Checks the content of the cache
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
         for p in pulls:
             self.assertEqual(0, p.mergify_state)
@@ -588,7 +588,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p2)
         self.create_review_and_push_event(p2, commits[0])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
         self.assertEqual(2, pulls[0].g_pull.number)
         self.assertEqual(30,
@@ -604,7 +604,7 @@ class TestEngineScenario(testtools.TestCase):
         # Check the merged pull request is gone
         self.push_events(MERGE_EVENTS)
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
 
     def test_refresh_pull(self):
@@ -613,7 +613,7 @@ class TestEngineScenario(testtools.TestCase):
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
         self.app.post("/refresh/%s/pull/%s" % (
@@ -628,12 +628,12 @@ class TestEngineScenario(testtools.TestCase):
 
         self.rq_worker.work(burst=True)
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
     def test_refresh_branch(self):
@@ -642,7 +642,7 @@ class TestEngineScenario(testtools.TestCase):
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
         self.app.post("/refresh/%s/branch/master" % (
@@ -651,12 +651,12 @@ class TestEngineScenario(testtools.TestCase):
 
         self.rq_worker.work(burst=True)
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
     def test_refresh_all(self):
@@ -665,7 +665,7 @@ class TestEngineScenario(testtools.TestCase):
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
         real_get_subscription = utils.get_subscription
@@ -689,12 +689,12 @@ class TestEngineScenario(testtools.TestCase):
 
         self.rq_worker.work(burst=True)
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
         self.redis.delete(self.engine._get_cache_key("master"))
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
     def test_disabling_files(self):
@@ -703,7 +703,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].g_pull.number)
         self.assertEqual(0, pulls[0].mergify_state)
@@ -716,7 +716,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        pulls = self.processor._build_queue("enabling_label")
+        pulls = self.processor._build_queue("enabling_label", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].g_pull.number)
         self.assertEqual(0, pulls[0].mergify_state)
@@ -732,7 +732,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].g_pull.number)
         self.assertEqual(0, pulls[0].mergify_state)
@@ -913,7 +913,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p1)
         self.create_status_and_push_event(p2)
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(2, len(pulls))
         self.assertTrue(pulls[0].required_statuses)
         self.assertTrue(pulls[1].required_statuses)
@@ -925,7 +925,7 @@ class TestEngineScenario(testtools.TestCase):
         self.push_events(MERGE_EVENTS)
 
         # First PR merged
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
 
         previous_master_sha = master_sha
@@ -955,7 +955,7 @@ class TestEngineScenario(testtools.TestCase):
         self.push_events(MERGE_EVENTS)
 
         # Second PR merged
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(0, len(pulls))
 
         previous_master_sha = master_sha
@@ -970,7 +970,7 @@ class TestEngineScenario(testtools.TestCase):
         config = yaml.dump(config)
         p1, commits1 = self.create_pr(files={".mergify.yml": config},
                                       state="failure")
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
 
         self.assertEqual(1, pulls[0].approvals[2])
@@ -1011,7 +1011,7 @@ class TestEngineScenario(testtools.TestCase):
         self.create_status_and_push_event(p1)
         self.create_status_and_push_event(p2)
 
-        pulls = self.processor._build_queue("nostrict")
+        pulls = self.processor._build_queue("nostrict", {}, [])
         self.assertEqual(2, len(pulls))
         self.assertTrue(pulls[0].required_statuses)
         self.assertTrue(pulls[1].required_statuses)
@@ -1021,7 +1021,7 @@ class TestEngineScenario(testtools.TestCase):
 
         self.create_review_and_push_event(p2, commits2[0])
         self.push_events(MERGE_EVENTS)
-        pulls = self.processor._build_queue("nostrict")
+        pulls = self.processor._build_queue("nostrict", {}, [])
         self.assertEqual(0, len(pulls))
 
         p2 = self.r_main.get_pull(p2.number)
@@ -1058,7 +1058,7 @@ class TestEngineScenario(testtools.TestCase):
                                               event="REQUEST_CHANGES")
         self.push_events([("status", {"state": "pending"})])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual([], pulls[0].approvals[0])
         self.assertEqual("mergify-test1", pulls[0].approvals[1][0]["login"])
@@ -1085,7 +1085,7 @@ class TestEngineScenario(testtools.TestCase):
             ("status", {"state": "pending"})
         ])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual([], pulls[0].approvals[0])
         self.assertEqual([], pulls[0].approvals[1])
@@ -1093,7 +1093,7 @@ class TestEngineScenario(testtools.TestCase):
 
         self.create_review_and_push_event(p, commits[0])
 
-        pulls = self.processor._build_queue("master")
+        pulls = self.processor._build_queue("master", {}, [])
         self.assertEqual(1, len(pulls))
         self.assertEqual("mergify-test1", pulls[0].approvals[0][0]["login"])
         self.assertEqual([], pulls[0].approvals[1])
