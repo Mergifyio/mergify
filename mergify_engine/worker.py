@@ -55,10 +55,17 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         self.push_exc_handler(self._retry_handler)
 
     def _retry_handler(self, job, exc_type, exc_value, traceback):
-        if not ((exc_type == github.GithubException and
-                 exc_value.status >= 500)
+        if ((exc_type == github.GithubException and exc_value.status >= 500)
                 or (exc_type == requests.exceptions.HTTPError and
                     exc_value.response.status_code >= 500)):
+            backoff = datetime.timedelta(seconds=5)
+
+        elif (exc_type == github.GithubException and exc_value.status == 403
+              and "You have triggered an abuse detection mechanism"
+              in exc_value.data["message"]):
+            backoff = datetime.timedelta(minutes=5)
+
+        else:
             return True
 
         max_retries = 10
@@ -77,9 +84,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                                                          job.meta['failures']))
 
         # Exponential backoff
-        retry_in = (2 ** (job.meta['failures'] - 1) *
-                    datetime.timedelta(seconds=5))
-
+        retry_in = 2 ** (job.meta['failures'] - 1) * backoff
         for q in self.queues:
             if q.name == job.origin:
                 scheduler = rq_scheduler.Scheduler(queue=q)
