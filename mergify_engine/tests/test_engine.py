@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import time
 import uuid
 import yaml
@@ -133,16 +134,38 @@ class GitterRecorder(utils.Gitter):
 
     def __call__(self, *args, **kwargs):
         if self.do_record:
-            out = super(GitterRecorder, self).__call__(*args, **kwargs)
-            self.records.append({"args": args,
-                                 "kwargs": self.prepare_kwargs(kwargs),
-                                 "out": out.decode('utf8')})
+            try:
+                out = super(GitterRecorder, self).__call__(*args, **kwargs)
+            except subprocess.CalledProcessError as e:
+                self.records.append({"args": self.prepare_args(args),
+                                     "kwargs": self.prepare_kwargs(kwargs),
+                                     "exc": {
+                                         "returncode": e.returncode,
+                                         "cmd": e.cmd,
+                                         "output": e.output.decode("utf8"),
+                                     }})
+                raise
+            else:
+                self.records.append({"args": self.prepare_args(args),
+                                     "kwargs": self.prepare_kwargs(kwargs),
+                                     "out": out.decode('utf8')})
             return out
         else:
             r = self.records.pop(0)
-            assert r['args'] == args
-            assert r['kwargs'] == self.prepare_kwargs(kwargs)
-            return r['out'].encode('utf8')
+            if "exc" in r:
+                raise subprocess.CalledProcessError(
+                    returncode=r['exc']['returncode'],
+                    cmd=r['exc']['cmd'],
+                    output=r['exc']['output'].encode('utf8')
+                )
+            else:
+                assert r['args'] == self.prepare_args(args)
+                assert r['kwargs'] == self.prepare_kwargs(kwargs)
+                return r['out'].encode('utf8')
+
+    def prepare_args(self, args):
+        return [arg.replace(self.tmp, "/tmp/mergify-gitter<random>")
+                for arg in args]
 
     @staticmethod
     def prepare_kwargs(kwargs):
