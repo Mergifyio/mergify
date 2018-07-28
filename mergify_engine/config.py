@@ -16,6 +16,7 @@
 
 
 import os
+import re
 
 import daiquiri
 
@@ -37,5 +38,7 @@ def log():
                      "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN"]
                 and value is not None):
             value = "*****"
+        if "URL" in name:
+            value = re.sub(r'://[^@]*@', "://*****@", value)
         LOG.info("* MERGIFYENGINE_%s: %s", name, value)
     LOG.info("##########################################################")
