@@ -134,20 +134,22 @@ class GitterRecorder(utils.Gitter):
     def __call__(self, *args, **kwargs):
         if self.do_record:
             out = super(GitterRecorder, self).__call__(*args, **kwargs)
-            self.records.append({"args": self.sanitize_uri(args),
-                                 "kwargs": kwargs,
+            self.records.append({"args": args,
+                                 "kwargs": self.prepare_kwargs(kwargs),
                                  "out": out.decode('utf8')})
             return out
         else:
             r = self.records.pop(0)
-            assert r['args'] == self.sanitize_uri(args)
-            assert r['kwargs'] == kwargs
+            assert r['args'] == args
+            assert r['kwargs'] == self.prepare_kwargs(kwargs)
             return r['out'].encode('utf8')
 
     @staticmethod
-    def sanitize_uri(args):
-        return [re.sub(r'://[^@]*@', "://<TOKEN>:@", arg)
-                for arg in args]
+    def prepare_kwargs(kwargs):
+        if "input" in kwargs:
+            kwargs["input"] = re.sub(r'://[^@]*@', "://<TOKEN>:@",
+                                     kwargs["input"].decode('utf8'))
+        return kwargs
 
     def cleanup(self):
         super(GitterRecorder, self).cleanup()
@@ -263,8 +265,9 @@ class TestEngineScenario(testtools.TestCase):
         assert self.u_fork.login == "mergify-test2"
 
         self.r_main = self.u_main.create_repo(self.name)
-        self.url_main = "https://%s:@github.com/%s" % (
-            config.MAIN_TOKEN, self.r_main.full_name)
+        self.url_main = "https://github.com/%s" % self.r_main.full_name
+        self.url_fork = "https://github.com/%s/%s" % (self.u_fork.login,
+                                                      self.r_main.name)
 
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
@@ -290,32 +293,34 @@ class TestEngineScenario(testtools.TestCase):
 
         if self._testMethodName != "test_creation_pull_of_initial_config":
             self.git("init")
+            self.git.configure()
+            self.git.add_cred(config.MAIN_TOKEN, "", self.r_main.full_name)
+            self.git.add_cred(config.FORK_TOKEN, "", "%s/%s" %
+                              (self.u_fork.login, self.r_main.name))
             self.git("config", "user.name", "%s-tester" % config.CONTEXT)
-            self.git("config", "user.email", "noreply@mergify.io")
             self.git("remote", "add", "main", self.url_main)
+            self.git("remote", "add", "fork", self.url_fork)
+
             with open(self.git.tmp + "/.mergify.yml", "w") as f:
                 f.write(CONFIG)
             self.git("add", ".mergify.yml")
             self.git("commit", "--no-edit", "-m", "initial commit")
-            self.git("push", "main", "master")
+            self.git("push", "--quiet", "main", "master")
 
-            self.git("checkout", "-b", "stable")
-            self.git("push", "main", "stable")
+            self.git("checkout", "-b", "stable", "--quiet")
+            self.git("push", "--quiet", "main", "stable")
 
-            self.git("checkout", "-b", "nostrict")
-            self.git("push", "main", "nostrict")
+            self.git("checkout", "-b", "nostrict", "--quiet")
+            self.git("push", "--quiet", "main", "nostrict")
 
-            self.git("checkout", "-b", "disabled")
-            self.git("push", "main", "disabled")
+            self.git("checkout", "-b", "disabled", "--quiet")
+            self.git("push", "--quiet", "main", "disabled")
 
-            self.git("checkout", "-b", "enabling_label")
-            self.git("push", "main", "enabling_label")
+            self.git("checkout", "-b", "enabling_label", "--quiet")
+            self.git("push", "--quiet", "main", "enabling_label")
 
             self.r_fork = self.u_fork.create_fork(self.r_main)
-            self.url_fork = "https://%s:@github.com/%s" % (
-                config.FORK_TOKEN, self.r_fork.full_name)
-            self.git("remote", "add", "fork", self.url_fork)
-            self.git("fetch", "fork")
+            self.git("fetch", "--quiet", "fork")
 
             # NOTE(sileht): Github looks buggy here:
             # We receive for the new repo the expected events:
@@ -446,7 +451,7 @@ class TestEngineScenario(testtools.TestCase):
         branch = "fork/pr%d" % self.pr_counter
         title = "Pull request n%d from fork" % self.pr_counter
 
-        self.git("checkout", "fork/%s" % base, "-b", branch)
+        self.git("checkout", "--quiet", "fork/%s" % base, "-b", branch)
         if files:
             for name, content in files.items():
                 with open(self.git.tmp + "/" + name, "w") as f:
@@ -460,7 +465,7 @@ class TestEngineScenario(testtools.TestCase):
             self.git("mv", "test%d" % self.pr_counter,
                      "test%d-moved" % self.pr_counter)
             self.git("commit", "--no-edit", "-m", "%s, moved" % title)
-        self.git("push", "fork", branch)
+        self.git("push", "--quiet", "fork", branch)
 
         p = self.r_fork.parent.create_pull(
             base=base,
@@ -1104,8 +1109,8 @@ class TestEngineScenario(testtools.TestCase):
         # FIXME(sileht): split setUp to not prepare useless resources
 
         self.git("init")
-        self.git("config", "user.name", "%s-tester" % config.CONTEXT)
-        self.git("config", "user.email", "noreply@mergify.io")
+        self.git.configure()
+        self.git.add_cred(config.MAIN_TOKEN, "", self.r_main.full_name)
         self.git("remote", "add", "main", self.url_main)
         with open(self.git.tmp + "/randomfile", "w") as f:
             f.write("foobar")

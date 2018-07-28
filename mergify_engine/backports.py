@@ -18,7 +18,6 @@ import subprocess
 import daiquiri
 import github
 
-from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -112,12 +111,17 @@ def _backport(repo, pull, branch_name, installation_token):
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
     try:
-        git("clone", "-b", branch_name,
-            "https://x-access-token:%s@github.com/%s/" %
-            (installation_token, repo.full_name), ".")
-        git("branch", "-M", bp_branch)
-        git("config", "user.name", "%s-bot" % config.CONTEXT)
-        git("config", "user.email", config.GIT_EMAIL)
+        git("init")
+        git.configure()
+        git.add_cred("x-access-token", installation_token, repo.full_name)
+        git("remote", "add", "origin",
+            "https://github.com/%s" % repo.full_name)
+
+        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.g_pull.number)
+        git("fetch", "--quiet", "origin", pull.g_pull.base.ref)
+        git("fetch", "--quiet", "origin", branch_name)
+        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
+
         merge_commit = repo.get_commit(pull.g_pull.merge_commit_sha)
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit

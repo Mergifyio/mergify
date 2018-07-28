@@ -201,4 +201,23 @@ class Gitter(object):
 
     def cleanup(self):
         LOG.info("cleaning: %s" % self.tmp)
+        try:
+            self("credential-cache",
+                 "--socket=%s/.git/creds/socket" % self.tmp,
+                 "exit")
+        except subprocess.CalledProcessError:
+            LOG.warning("git credential-cache exit fail")
         shutil.rmtree(self.tmp)
+
+    def configure(self):
+        self("config", "user.name", "%s-bot" % config.CONTEXT)
+        self("config", "user.email", config.GIT_EMAIL)
+        # Use one git cache daemon per Gitter
+        self("config", "credential.useHttpPath", "true")
+        self("config", "credential.helper",
+             "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp)
+
+    def add_cred(self, username, password, path):
+        self("credential", "approve",
+             input=("url=https://%s:%s@github.com/%s\n\n" %
+                    (username, password, path)).encode("utf8"))

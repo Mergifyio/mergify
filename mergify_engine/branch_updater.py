@@ -16,7 +16,6 @@
 
 import daiquiri
 
-from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -36,37 +35,39 @@ def update(pull, token, merge=True):
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
 
-    head_repo_slug = pull.g_pull.head.repo.full_name
-    base_repo_slug = pull.g_pull.base.repo.full_name
+    head_repo = pull.g_pull.head.repo.full_name
+    base_repo = pull.g_pull.base.repo.full_name
 
     head_branch = pull.g_pull.head.ref
     base_branch = pull.g_pull.base.ref
 
     git = utils.Gitter()
     try:
-        git("clone", "--depth=%d" % (int(pull.g_pull.commits) + 1),
-            "-b", pull.g_pull.head.ref,
-            "https://%s@github.com/%s/" % (token, head_repo_slug),
-            ".")
-        git("remote", "add", "upstream",
-            "https://%s@github.com/%s.git" % (token, base_repo_slug))
-        git("config", "user.name", "%s-bot" % config.CONTEXT)
-        git("config", "user.email", config.GIT_EMAIL)
+        git("init")
+        git.configure()
+        git.add_cred(token, "", head_repo)
+        git.add_cred(token, "", base_repo)
+        git("remote", "add", "origin", "https://github.com/%s" % head_repo)
+        git("remote", "add", "upstream", "https://github.com/%s" % base_repo)
+
+        depth = int(pull.g_pull.commits) + 1
+        git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
+        git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
         out = git("log", "--format=%cI")
         last_commit_date = [d for d in out.decode("utf8").split("\n")
                             if d.strip()][-1]
 
-        git("fetch", "upstream", pull.g_pull.base.ref,
+        git("fetch", "--quiet", "upstream", pull.g_pull.base.ref,
             "--shallow-since='%s'" % last_commit_date)
         if merge:
-            git("merge", "upstream/%s" % base_branch, "-m",
+            git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
                 "Merge branch '%s' into '%s'" % (base_branch, head_branch))
         else:  # pragma: no cover
             # TODO(sileht): This will removes approvals, we need to add them
             # back
-            git("rebase", "upstream/%s" % base_branch)
-        git("push", "origin", head_branch)
+            git("rebase", "--quiet", "upstream/%s" % base_branch)
+        git("push", "--quiet", "origin", head_branch)
     except Exception:  # pragma: no cover
         LOG.error("update branch fail", pull_request=pull, exc_info=True)
         return False
