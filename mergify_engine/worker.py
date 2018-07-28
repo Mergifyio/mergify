@@ -17,8 +17,8 @@
 
 import argparse
 import datetime
-import logging
 
+import daiquiri
 import github
 import redis
 import requests
@@ -34,7 +34,7 @@ from mergify_engine import initial_configuration
 from mergify_engine import queue
 from mergify_engine import utils
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 class MergifyWorker(rq.Worker):  # pragma: no cover
