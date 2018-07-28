@@ -144,6 +144,11 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         subscription = utils.get_subscription(utils.get_redis_for_cache(),
                                               installation_id)
 
+        if r.archived:  # pragma: no cover
+            LOG.warning("%s/%s/%s: repository archived" % (owner, repo,
+                                                           refresh_ref))
+            return
+
         if not subscription["token"]:  # pragma: no cover
             LOG.warning("%s/%s/%s: not public or subscribed" % (owner, repo,
                                                                 refresh_ref))
@@ -182,6 +187,8 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                 continue
 
             for r in i.get_repos():
+                if r.archived:  # pragma: no cover
+                    continue
                 if r.private and not subscription["subscribed"]:
                     continue
                 try:
@@ -259,7 +266,10 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
         elif event_type in ["pull_request", "pull_request_review", "status"]:
 
-            if (data["repository"]["private"] and not
+            if data["repository"]["archived"]:  # pragma: no cover
+                msg_action = "ignored (repository archived)"
+
+            elif (data["repository"]["private"] and not
                     subscription["subscribed"]):
                 msg_action = "ignored (not public or subscribe)"
 
@@ -363,6 +373,10 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                                    type(repositories))
 
             for repository in repositories:
+                # NOTE(sileht): the installations event doesn't have this
+                # attribute, so we keep it here.
+                if repository.archived:  # pragma: no cover
+                    continue
                 initial_configuration.create_pull_request_if_needed(
                     installation_token, repository)
 
