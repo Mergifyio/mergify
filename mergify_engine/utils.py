@@ -157,8 +157,8 @@ def get_installation_id(integration, owner):
 def get_subscription(r, installation_id):
     sub = r.get("subscription-cache-%s" % installation_id)
     if not sub:  # pragma: no cover
-        LOG.info("Subscription for %s not cached, retrieving it..." %
-                 installation_id)
+        LOG.debug("Subscription not cached, retrieving it...",
+                  install_id=installation_id)
         resp = requests.get(config.SUBSCRIPTION_URL %
                             installation_id,
                             auth=(config.OAUTH_CLIENT_ID,
@@ -180,12 +180,6 @@ def get_subscription(r, installation_id):
               ex=60*60)
     else:
         sub = json.loads(sub)
-
-    filtered_sub = sub.copy()
-    if filtered_sub["token"]:
-        filtered_sub["token"] = "*******"
-    LOG.info("Subscription for installation %s: %s", installation_id,
-             filtered_sub)
     return sub
 
 

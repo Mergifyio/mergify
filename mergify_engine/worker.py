@@ -297,9 +297,12 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         else:
             repo_name = data["installation"]["account"]["login"]
 
-        LOG.info('[%s/%s] received "%s" event "%s", %s',
-                 data["installation"]["id"], repo_name,
-                 event_type, event_id, msg_action)
+        LOG.info('event %s', msg_action,
+                 event_type=event_type,
+                 event_id=event_id,
+                 install_id=data["installation"]["id"],
+                 repository=repo_name,
+                 subscribed=subscription["subscribed"])
 
     @staticmethod
     def job_events(event_type, subscription, data):
