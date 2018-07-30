@@ -19,8 +19,11 @@ import copy
 import re
 
 import daiquiri
+
 import github
+
 import voluptuous
+
 import yaml
 
 LOG = daiquiri.getLogger(__name__)
@@ -97,8 +100,8 @@ def validate_merged_config(config):
 
 def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.Mapping)):
+        if (k in dct and isinstance(dct[k], dict) and
+           isinstance(merge_dct[k], collections.Mapping)):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
@@ -106,8 +109,8 @@ def dict_merge(dct, merge_dct):
 
 def build_branch_rule(rules, branch):
     for branch_re in sorted(rules.get("branches", {})):
-        if ((branch_re[0] == "^" and re.match(branch_re, branch))
-                or (branch_re[0] != "^" and branch_re == branch)):
+        if ((branch_re[0] == "^" and re.match(branch_re, branch)) or
+           (branch_re[0] != "^" and branch_re == branch)):
             if rules["branches"][branch_re] is None:
                 return None
             else:
@@ -143,8 +146,8 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
     except yaml.YAMLError as e:
         if hasattr(e, 'problem_mark'):
             raise InvalidRules(".mergify.yml is invalid at position: (%s:%s)" %
-                               (e.problem_mark.line+1,
-                                e.problem_mark.column+1))
+                               (e.problem_mark.line + 1,
+                                e.problem_mark.column + 1))
         else:  # pragma: no cover
             raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:

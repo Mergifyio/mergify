@@ -24,6 +24,7 @@ import json
 import logging
 
 import flask
+
 import rq_dashboard
 
 from mergify_engine import queue

@@ -13,6 +13,7 @@
 # under the License.
 
 import rq
+
 import uhashring
 
 from mergify_engine import config

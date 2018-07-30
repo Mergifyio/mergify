@@ -25,11 +25,15 @@ import subprocess
 import tempfile
 
 import daiquiri
+
 import github
+
 import raven
 from raven.handlers import logging as raven_logging
 from raven.transport.http import HTTPTransport
+
 import redis
+
 import requests
 
 from mergify_engine import config
@@ -119,11 +123,10 @@ def get_installations(integration):
     session = requests.Session()
     while True:
         response = session.get(url, headers={
-                "Authorization": token,
-                "Accept": "application/vnd.github.machine-man-preview+json",
-                "User-Agent": "PyGithub/Python"
-            },
-        )
+            "Authorization": token,
+            "Accept": "application/vnd.github.machine-man-preview+json",
+            "User-Agent": "PyGithub/Python"
+        })
         if response.status_code == 200:
             installs.extend(response.json())
             if "next" in response.links:
@@ -177,7 +180,7 @@ def get_subscription(r, installation_id):
             # NOTE(sileht): handle this better
             resp.raise_for_status()
         r.set("subscription-cache-%s" % installation_id, json.dumps(sub),
-              ex=60*60)
+              ex=3600)
     else:
         sub = json.loads(sub)
     return sub

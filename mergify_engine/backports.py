@@ -16,6 +16,7 @@ import functools
 import subprocess
 
 import daiquiri
+
 import github
 
 from mergify_engine import utils
