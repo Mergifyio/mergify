@@ -32,8 +32,6 @@ from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
 
-ENDING_STATES = ["failure", "error", "success"]
-
 
 @attr.s
 class Caching(object):
