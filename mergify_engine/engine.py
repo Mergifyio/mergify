@@ -14,12 +14,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from concurrent import futures
 import json
+from concurrent import futures
 
 import attr
+
 import daiquiri
+
 import github
+
 import tenacity
 
 from mergify_engine import backports
@@ -155,10 +158,9 @@ class MergifyEngine(Caching):
             return
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
-        if (event_type == "pull_request"
-                and data["action"] in ["opened", "synchronize"]
-                and self.repository.default_branch ==
-                incoming_branch):
+        if (event_type == "pull_request" and
+           data["action"] in ["opened", "synchronize"] and
+           self.repository.default_branch == incoming_branch):
             ref = None
             for f in incoming_pull.g_pull.get_files():
                 if f.filename == ".mergify.yml":
@@ -341,8 +343,7 @@ class Processor(Caching):
         self._subscription = subscription
 
     def _build_queue(self, branch, branch_rule, collaborators):
-        """Return the pull requests from redis cache ordered by sort status"""
-
+        """Return the pull requests from redis cache ordered by sort status."""
         data = self._redis.hgetall(self._get_cache_key(branch))
 
         with futures.ThreadPoolExecutor(
@@ -368,12 +369,11 @@ class Processor(Caching):
         return pull
 
     def _get_next_pull_to_processed(self, branch, branch_rule, collaborators):
-        """Return the next pull request to proceed
+        """Return the next pull request to proceed.
 
         This take the pull request with the higher status that is not yet
         closed.
         """
-
         queue = self._build_queue(branch, branch_rule, collaborators)
         while queue:
             p = queue.pop(0)
