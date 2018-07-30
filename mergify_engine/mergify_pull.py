@@ -70,9 +70,11 @@ class MergifyPull(object):
     # NOTE(sileht): Use from_cache/from_event not the constructor directly
     g_pull = attr.ib()
     _complete = attr.ib(init=False, default=False)
+    _reviews_required = attr.ib(init=False, default=None)
 
     # Cached attributes
-    _approvals = attr.ib(init=False, default=None)
+    _reviews_ok = attr.ib(init=False, default=None)
+    _reviews_ko = attr.ib(init=False, default=None)
     _required_statuses = attr.ib(
         init=False, default=None,
         validator=attr.validators.optional(
@@ -103,16 +105,6 @@ class MergifyPull(object):
                 "github_description": self.github_description}
 
     @property
-    def required_statuses(self):
-        self._ensure_complete()
-        return self._required_statuses
-
-    @property
-    def approvals(self):
-        self._ensure_complete()
-        return self._approvals
-
-    @property
     def mergify_state(self):
         self._ensure_complete()
         return self._mergify_state
@@ -129,11 +121,21 @@ class MergifyPull(object):
 
     def complete(self, cache, branch_rule, collaborators):
         need_to_be_saved = False
-        if "mergify_engine_approvals" in cache:
-            self._approvals = cache["mergify_engine_approvals"]
+
+        protection = branch_rule["protection"]
+        if protection["required_pull_request_reviews"]:
+            self._reviews_required = protection[
+                "required_pull_request_reviews"][
+                    "required_approving_review_count"]
+        else:
+            self._reviews_required = 0
+
+        if "mergify_engine_reviews_ok" in cache:
+            self._reviews_ok = cache["mergify_engine_reviews_ok"]
+            self._reviews_ko = cache["mergify_engine_reviews_ko"]
         else:
             need_to_be_saved = True
-            self._approvals = self._compute_approvals(
+            self._reviews_ok, self._reviews_ko = self._compute_approvals(
                 branch_rule, collaborators)
 
         if "mergify_engine_required_statuses" in cache:
@@ -164,7 +166,8 @@ class MergifyPull(object):
 
     def jsonify(self):
         raw = copy.copy(self.g_pull.raw_data)
-        raw["mergify_engine_approvals"] = self._approvals
+        raw["mergify_engine_reviews_ok"] = self._reviews_ok
+        raw["mergify_engine_reviews_ko"] = self._reviews_ko
         raw["mergify_engine_required_statuses"] = self._required_statuses.value
         raw["mergify_engine_status"] = {
             "mergify_state": self._mergify_state.value,
@@ -178,8 +181,7 @@ class MergifyPull(object):
 
         :param branch_rule: The rule for the considered branch.
         :param collaborators: The list of collaborators.
-        :return: A tuple (users_with_review_ok, users_with_review_ko,
-                          number_of_review_required)
+        :return: A tuple (users_with_review_ok, users_with_review_ko)
         """
         users_info = {}
         reviews_ok = set()
@@ -207,16 +209,8 @@ class MergifyPull(object):
                 self.log.error("review state unhandled",
                                state=review.state)
 
-        protection = branch_rule["protection"]
-        if protection["required_pull_request_reviews"]:
-            required = protection["required_pull_request_reviews"
-                                  ]["required_approving_review_count"]
-
-            return ([users_info[u] for u in reviews_ok],
-                    [users_info[u] for u in reviews_ko],
-                    required)
-        else:
-            return [], [], 0
+        return ([users_info[u] for u in reviews_ok],
+                [users_info[u] for u in reviews_ko])
 
     @staticmethod
     def _find_required_context(contexts, status_check):
@@ -274,8 +268,6 @@ class MergifyPull(object):
     def _compute_status(self, branch_rule, collaborators):
         disabled = self._disabled_by_rules(branch_rule)
 
-        reviews_ok, reviews_ko, reviews_required = self._approvals
-
         mergify_state = MergifyState.NOT_READY
         github_state = "pending"
         github_desc = None
@@ -284,13 +276,14 @@ class MergifyPull(object):
             github_state = "failure"
             github_desc = disabled
 
-        elif reviews_ko:
+        elif self._reviews_ko:
             github_desc = "Change requests need to be dismissed"
 
-        elif len(reviews_ok) < reviews_required:
+        elif (self._reviews_required and
+              len(self._reviews_ok) < self._reviews_required):
             github_desc = (
                 "%d/%d approvals required" %
-                (len(reviews_ok), reviews_required)
+                (len(self._reviews_ok), self._reviews_required)
             )
 
         elif self.g_pull.mergeable_state in ["clean", "unstable", "has_hooks"]:
@@ -489,11 +482,11 @@ class MergifyPull(object):
                     "pr_state": ("merged" if self.g_pull.merged else
                                  (self.g_pull.mergeable_state or "none")),
                     "statuses": str(self._required_statuses),
-                    "approvals": ("notset" if self._approvals is None
-                                  else len(self._approvals[0])),
+                    "approvals": ("notset" if self._reviews_ok is None
+                                  else len(self._reviews_ok)),
                     "required_approvals": ("notset"
-                                           if self._approvals is None
-                                           else self._approvals[2]),
+                                           if self._reviews_required is None
+                                           else self._reviews_required),
                     "mergify_state": str(self._mergify_state),
                     "github_state": ("notset"
                                      if self._github_state is None

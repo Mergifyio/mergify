@@ -252,7 +252,7 @@ class MergifyEngine(Caching):
             return
 
         # First, remove informations we don't want to get from cache, so their
-        # will be got/computed by PullRequest.fullify()
+        # will be recomputed by MergifyPull.complete()
         if event_type == "refresh":
             cache = {}
             old_status = None
@@ -265,7 +265,8 @@ class MergifyEngine(Caching):
             if event_type == "status":
                 cache.pop("mergify_engine_required_statuses", None)
             elif event_type == "pull_request_review":
-                cache.pop("mergify_engine_approvals", None)
+                cache.pop("mergify_engine_reviews_ok", None)
+                cache.pop("mergify_engine_reviews_ko", None)
             elif (event_type == "pull_request" and
                   data["action"] == "synchronize"):
                     cache.pop("mergify_engine_required_statuses", None)
