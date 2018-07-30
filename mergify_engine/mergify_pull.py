@@ -18,9 +18,12 @@ import fnmatch
 import functools
 
 import attr
+
 import daiquiri
+
 import github
 from github import Consts
+
 import tenacity
 
 from mergify_engine import config
@@ -178,7 +181,6 @@ class MergifyPull(object):
         :return: A tuple (users_with_review_ok, users_with_review_ko,
                           number_of_review_required)
         """
-
         users_info = {}
         reviews_ok = set()
         reviews_ko = set()
@@ -305,11 +307,11 @@ class MergifyPull(object):
                 # We don't fully support require_code_owner_reviews, try so do
                 # some guessing.
                 protection = branch_rule["protection"]
-                if (protection["required_pull_request_reviews"]
-                        and protection["required_pull_request_reviews"
-                                       ]["require_code_owner_reviews"]
-                        and (self.g_pull._rawData['requested_teams'] or
-                             self.g_pull._rawData['requested_reviewers'])):
+                if (protection["required_pull_request_reviews"] and
+                    protection["required_pull_request_reviews"]
+                    ["require_code_owner_reviews"] and
+                    (self.g_pull._rawData['requested_teams'] or
+                     self.g_pull._rawData['requested_reviewers'])):
                     github_desc = "Waiting for code owner review"
 
                 else:

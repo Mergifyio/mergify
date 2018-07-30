@@ -12,10 +12,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import yaml
-
 import daiquiri
+
 import github
+
+import yaml
 
 from mergify_engine import config
 

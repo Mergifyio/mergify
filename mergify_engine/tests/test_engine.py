@@ -22,15 +22,21 @@ import shutil
 import subprocess
 import time
 import uuid
-import yaml
 
 import fixtures
+
 import github
+
 import requests
 import requests.sessions
+
 import rq
+
 import testtools
+
 import vcr
+
+import yaml
 
 from mergify_engine import backports
 from mergify_engine import branch_protection
@@ -142,8 +148,7 @@ class GitterRecorder(utils.Gitter):
                                      "exc": {
                                          "returncode": e.returncode,
                                          "cmd": e.cmd,
-                                         "output": e.output.decode("utf8"),
-                                     }})
+                                         "output": e.output.decode("utf8")}})
                 raise
             else:
                 self.records.append({"args": self.prepare_args(args),
@@ -181,7 +186,7 @@ class GitterRecorder(utils.Gitter):
 
 
 class TestEngineScenario(testtools.TestCase):
-    """Pastamaker engine tests
+    """Pastamaker engine tests.
 
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
@@ -410,11 +415,11 @@ class TestEngineScenario(testtools.TestCase):
                 event = events.pop(0)
                 expected_type, expected_data = expected_events.pop(0)
                 pos = total - len(expected_events) - 1
-                if (expected_type is not None
-                        and expected_type != event["type"]):
+                if (expected_type is not None and
+                   expected_type != event["type"]):
                     raise Exception(
                         "[%d] Got %s event type instead of %s: %s" %
-                        (pos, event["type"],  expected_type,
+                        (pos, event["type"], expected_type,
                          self._event_payload_for_log(event["payload"])))
 
                 for key, expected in expected_data.items():
@@ -455,7 +460,7 @@ class TestEngineScenario(testtools.TestCase):
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()))
 
-    def _send_event(self, id, type, payload):
+    def _send_event(self, id, type, payload):  # noqa
         extra = payload.get("state", payload.get("action"))
         LOG.debug("> Processing event: %s %s/%s" % (id, type, extra))
         r = self.app.post('/event', headers={

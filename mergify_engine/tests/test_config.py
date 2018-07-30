@@ -17,7 +17,9 @@
 import copy
 
 import mock
+
 import pytest
+
 import yaml
 
 from mergify_engine import rules

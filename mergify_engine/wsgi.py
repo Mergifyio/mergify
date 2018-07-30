@@ -14,11 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import raven.contrib.flask
 
 from mergify_engine import utils
 from mergify_engine.web import app as application
-
-import raven.contrib.flask
 
 
 sentry_client = utils.prepare_service()

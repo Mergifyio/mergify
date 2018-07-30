@@ -35,8 +35,8 @@ def log():
     LOG.info("##################### CONFIGURATION ######################")
     for name, value in CONFIG.items():
         if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET", "OAUTH_CLIENT_ID",
-                     "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN"]
-                and value is not None):
+                     "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN"] and
+           value is not None):
             value = "*****"
         if "URL" in name and value is not None:
             value = re.sub(r'://[^@]*@', "://*****@", value)

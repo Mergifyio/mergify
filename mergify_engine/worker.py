@@ -19,13 +19,18 @@ import argparse
 import datetime
 
 import daiquiri
+
 import github
+
 import redis
+
 import requests
+
 import rq
-from rq.contrib.sentry import register_sentry
 import rq.handlers
 import rq.worker
+from rq.contrib.sentry import register_sentry
+
 import rq_scheduler
 
 from mergify_engine import config
@@ -38,7 +43,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class MergifyWorker(rq.Worker):  # pragma: no cover
-    """rq.Worker for Mergify"""
+    """rq.Worker for Mergify."""
 
     def __init__(self, fqdn, worker_id):
         basename = '%s-%003d' % (fqdn, worker_id)
@@ -55,14 +60,15 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         self.push_exc_handler(self._retry_handler)
 
     def _retry_handler(self, job, exc_type, exc_value, traceback):
-        if ((exc_type == github.GithubException and exc_value.status >= 500)
-                or (exc_type == requests.exceptions.HTTPError and
-                    exc_value.response.status_code >= 500)):
+        if ((exc_type == github.GithubException and exc_value.status >= 500) or
+            (exc_type == requests.exceptions.HTTPError and
+             exc_value.response.status_code >= 500)):
             backoff = datetime.timedelta(seconds=5)
 
-        elif (exc_type == github.GithubException and exc_value.status == 403
-              and "You have triggered an abuse detection mechanism"
-              in exc_value.data["message"]):
+        elif (exc_type == github.GithubException and
+              exc_value.status == 403 and
+              "You have triggered an abuse detection mechanism" in
+              exc_value.data["message"]):
             backoff = datetime.timedelta(minutes=5)
 
         else:
@@ -306,7 +312,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
     @staticmethod
     def job_events(event_type, subscription, data):
-        """Everything start here"""
+        """Everything starts here."""
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
         try:
@@ -338,8 +344,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
     @staticmethod
     def job_installations(installation_id, repositories):
-        """Create the initial configuration on an repository"""
-
+        """Create the initial configuration on an repository."""
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
         try:
