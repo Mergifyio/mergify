@@ -94,7 +94,10 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         for q in self.queues:
             if q.name == job.origin:
                 scheduler = rq_scheduler.Scheduler(queue=q)
-                scheduler.enqueue_in(retry_in, job)
+                scheduler.enqueue_in(retry_in, self._retry_now,
+                                     job.origin,
+                                     job.data,
+                                     job.meta['failures'])
                 return False
 
         # Can't find queue, which should basically never happen as we only work
@@ -102,6 +105,16 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         LOG.warn('job %s: cannot find queue %s - moving to failed queue' %
                  (job.id, job.origin))
         return True
+
+    @staticmethod
+    def _retry_now(self, job_origin, job_data, failure):
+        for q in self.queues:
+            if q.name == job_origin:
+                job = rq.Job()
+                job.data = job_data
+                job.meta['failure'] = failure
+                job.description = job.get_call_string()
+                q.enqueue_job(job, at_front=True)
 
     @staticmethod
     def job_refresh(owner, repo, refresh_ref):
