@@ -503,12 +503,13 @@ class TestEngineScenario(testtools.TestCase):
         expected_events = [("pull_request", {"action": "opened"})]
         if files and ".mergify.yml" in files:
             expected_events += [
-                ("status", {"state": "failure"}),
-                ("status", {"state": "success"})
+                ("status", {"state": "success"}),
+                ("status", {"state": "failure"})
             ]
         elif base != "disabled":
             expected_events += [("status", {"state": state})]
 
+        print(expected_events)
         self.push_events(expected_events)
 
         # NOTE(sileht): We return the same but owned by the main project
