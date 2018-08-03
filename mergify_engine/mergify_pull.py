@@ -395,7 +395,7 @@ class MergifyPull(object):
 
     def _merge_failed(self, e):
         self.log.error("merge failed",
-                       status=e.status, message=e.data["message"],
+                       status=e.status, error=e.data["message"],
                        exc_info=True)
         return False
 
@@ -460,7 +460,7 @@ class MergifyPull(object):
             )
         except github.GithubException as e:  # pragma: no cover
             self.log.error("set status failed",
-                           message=e.data["message"], exc_info=True)
+                           error=e.data["message"], exc_info=True)
 
     def set_and_post_error(self, redis, installation_id, github_description):
         self._mergify_state = MergifyState.NOT_READY
