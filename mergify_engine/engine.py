@@ -374,8 +374,12 @@ class Processor(Caching):
         closed.
         """
         queue = self._build_queue(branch, branch_rule, collaborators)
+
         while queue:
             p = queue.pop(0)
+
+            if p.mergify_state == mergify_pull.MergifyState.NOT_READY:
+                continue
 
             expected_state = p.mergify_state
 
@@ -397,9 +401,6 @@ class Processor(Caching):
                 # the queue and resort it
                 queue.append(p)
                 queue.sort()
-            elif p.mergify_state == mergify_pull.MergifyState.NOT_READY:
-                # NOTE(sileht): Only NOT_READY pull remaining
-                return None
             else:
                 return p
 
