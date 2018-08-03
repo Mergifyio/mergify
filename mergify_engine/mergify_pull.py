@@ -161,6 +161,9 @@ class MergifyPull(object):
         return need_to_be_saved
 
     def refresh(self, branch_rule, collaborators):
+        # NOTE(sileht): Redownload the PULL to ensure we don't have
+        # any etag floating around
+        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
         self._ensure_mergable_state(force=True)
         return self.complete({}, branch_rule, collaborators)
 
