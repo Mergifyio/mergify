@@ -104,10 +104,8 @@ class MergifyEngine(Caching):
         if pull:
             return pull
 
-        LOG.info("sha not in cache", sha=sha)
         issues = list(self._g.search_issues("is:pr %s" % sha))
         if not issues:
-            LOG.info("sha not attached to a pull request", sha=sha)
             return
         if len(issues) > 1:
             # NOTE(sileht): It's that technically possible, but really ?
@@ -144,6 +142,8 @@ class MergifyEngine(Caching):
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_sha = incoming_pull.g_pull.head.sha
         incoming_state = incoming_pull.g_pull.state
+
+        self.log_formated_event(event_type, incoming_pull, data)
 
         if (event_type == "status" and
                 incoming_sha != data["sha"]):  # pragma: no cover
@@ -301,36 +301,36 @@ class MergifyEngine(Caching):
                          redis=self._redis)
 
     def log_formated_event(self, event_type, incoming_pull, data):
-        p_info = incoming_pull
+        if not incoming_pull:
+            incoming_pull = self._get_logprefix()
+
         if event_type == "pull_request":
-            extra = ", action: %s" % data["action"]
+            detail = ", action: %s" % data["action"]
 
         elif event_type == "pull_request_review":
-            extra = ", action: %s, review-state: %s" % (
+            detail = ", action: %s, review-state: %s" % (
                 data["action"], data["review"]["state"])
 
         elif event_type == "pull_request_review_comment":
-            extra = ", action: %s, review-state: %s" % (
+            detail = ", action: %s, review-state: %s" % (
                 data["action"], data["comment"]["position"])
 
         elif event_type == "status":
-            if not p_info:
-                p_info = self._get_logprefix()
-            extra = ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
+            detail = ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
 
         elif event_type == "refresh":
-            extra = ""
+            detail = ""
         else:  # pragma: no cover
-            if not p_info:
-                p_info = self._get_logprefix()
-            extra = ", ignored"
+            detail = ", unknown"
 
         LOG.info("***********************************************************")
-        LOG.info("%s received event '%s'%s", p_info, event_type, extra)
+        LOG.info("received event '%s'%s", event_type, detail,
+                 pull_request=incoming_pull)
         if config.LOG_RATELIMIT:  # pragma: no cover
             rate = self._g.get_rate_limit().rate
-            LOG.info("%s ratelimit: %s/%s, reset at %s", p_info,
-                     rate.remaining, rate.limit, rate.reset)
+            LOG.info("ratelimit: %s/%s, reset at %s",
+                     rate.remaining, rate.limit, rate.reset,
+                     pull_request=incoming_pull)
 
 
 class Processor(Caching):
