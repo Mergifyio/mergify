@@ -113,8 +113,9 @@ class MergifyEngine(Caching):
         for i in issues:
             try:
                 pull = self.repository.get_pull(i.number)
-            except github.UnknownObjectException:  # pragma: no cover
-                pass
+            except github.GithubException as e:  # pragma: no cover
+                if e.status != 404:
+                    raise
             if pull and not pull.merged:
                 return pull
 
@@ -246,8 +247,9 @@ class MergifyEngine(Caching):
                         LOG.info("branch deleted",
                                  pull_request=incoming_pull,
                                  branch=head_branch)
-                    except github.UnknownObjectException:  # pragma: no cover
-                        pass
+                    except github.GithubException as e:  # pragma: no cover
+                        if e.status != 404:
+                            raise
 
             return
 
