@@ -106,7 +106,6 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                  (job.id, job.origin))
         return True
 
-    @staticmethod
     def _retry_now(self, job_origin, job_data, failure):
         for q in self.queues:
             if q.name == job_origin:
