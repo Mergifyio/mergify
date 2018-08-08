@@ -73,8 +73,13 @@ def create_pull_request(installation_token, repo):
         # PR in this case. For now just return to not raise backtrace
         return
 
+    try:
+        parents = [repo.get_git_commit(default_branch.commit.sha)]
+    except github.GithubException as e:
+        if e.status == 409 and e.data['message'] == 'Git Repository is empty.':
+            return
+        raise
     message = "Mergify initial configuration"
-    parents = [repo.get_git_commit(default_branch.commit.sha)]
     tree = repo.create_git_tree([
         github.InputGitTreeElement(".mergify.yml", "100644", "blob", content)
     ], base_tree=default_branch.commit.commit.tree)
