@@ -60,7 +60,8 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
         self.push_exc_handler(self._retry_handler)
 
     def _retry_handler(self, job, exc_type, exc_value, traceback):
-        if ((isinstance(exc_type, github.GithubException) and exc_value.status >= 500) or
+        if ((isinstance(exc_type, github.GithubException) and 
+             exc_value.status >= 500) or
             (isinstance(exc_type, requests.exceptions.HTTPError) and
              exc_value.response.status_code >= 500)):
             backoff = datetime.timedelta(seconds=5)
