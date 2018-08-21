@@ -362,6 +362,19 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                       data["installation"]["id"],
                       data["repository"]["full_name"])
 
+    @classmethod
+    def job_refresh_private_installations(cls, installation_id):
+        # New subscription, create initial configuration for private repo
+        # public repository have already been done during the installation
+        # event.
+        r = utils.get_redis_for_cache()
+        r.delete("subscription-cache-%s" % installation_id)
+
+        subscription = utils.get_subscription(r, installation_id)
+        if subscription["token"] and subscription["subscribed"]:
+            # FIXME(sileht): We should pass the slugs
+            cls.job_installations(installation_id, "private")
+
     @staticmethod
     @stats.INSTALLATIONS_TIME.time()
     def job_installations(installation_id, repositories):

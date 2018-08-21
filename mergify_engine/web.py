@@ -90,19 +90,7 @@ def refresh_all():
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
 def subscription_cache(installation_id):  # pragma: no cover
     authentification()
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation_id)
-
-    subscription = utils.get_subscription(
-        utils.get_redis_for_cache(), installation_id)
-
-    # New subscription, create initial configuration for private repo
-    # public repository have already been done during the installation
-    # event.
-    if subscription["token"] and subscription["subscribed"]:
-        # FIXME(sileht): We should pass the slugs
-        queue.push(installation_id, subscription, "installations",
-                   installation_id, "private")
+    queue.publish("refresh_private_installations", installation_id)
     return "Cache cleaned", 200
 
 
