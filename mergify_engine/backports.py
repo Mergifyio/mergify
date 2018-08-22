@@ -66,7 +66,7 @@ def _get_commits_to_cherrypick(pull, commit):
         out_commits = []
         for _ in range(len(commits)):
             if len(commit.parents) == 1:
-                out_commits.append(commit)
+                out_commits.insert(0, commit)
                 commit = commit.parents[0]
             else:  # pragma: no cover
                 # NOTE(sileht): What is that? A merge here?
