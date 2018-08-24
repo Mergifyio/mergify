@@ -509,7 +509,6 @@ class TestEngineScenario(testtools.TestCase):
         elif base != "disabled":
             expected_events += [("status", {"state": state})]
 
-        print(expected_events)
         self.push_events(expected_events)
 
         # NOTE(sileht): We return the same but owned by the main project
