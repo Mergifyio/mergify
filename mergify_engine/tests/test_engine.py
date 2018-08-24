@@ -333,19 +333,14 @@ class TestEngineScenario(testtools.TestCase):
                 f.write(CONFIG)
             self.git("add", ".mergify.yml")
             self.git("commit", "--no-edit", "-m", "initial commit")
-            self.git("push", "--quiet", "main", "master")
 
-            self.git("checkout", "-b", "stable", "--quiet")
-            self.git("push", "--quiet", "main", "stable")
+            test_branches = (
+                'stable', 'nostrict', 'disabled', 'enabling_label',
+            )
+            for test_branch in test_branches:
+                self.git("branch", test_branch, "master")
 
-            self.git("checkout", "-b", "nostrict", "--quiet")
-            self.git("push", "--quiet", "main", "nostrict")
-
-            self.git("checkout", "-b", "disabled", "--quiet")
-            self.git("push", "--quiet", "main", "disabled")
-
-            self.git("checkout", "-b", "enabling_label", "--quiet")
-            self.git("push", "--quiet", "main", "enabling_label")
+            self.git("push", "--quiet", "main", "master", *test_branches)
 
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.git("fetch", "--quiet", "fork")
