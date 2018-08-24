@@ -58,6 +58,7 @@ Protection = {
 Rule = {
     'protection': Protection,
     'enabling_label': voluptuous.Any(None, str),
+    'delete_branch': bool,
     'disabling_label': str,
     'disabling_files': [str],
     'merge_strategy': {
