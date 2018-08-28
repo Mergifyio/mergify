@@ -424,6 +424,10 @@ class Processor(Caching):
             if p.merge(branch_rule):
                 # Wait for the closed event now
                 LOG.info("merged", pull_request=p)
+                if branch_rule["delete_branch"]:
+                    p.delete_head_branch()
+                    LOG.info("deleted head branch")
+
             else:  # pragma: no cover
                 p.set_and_post_error(self._redis, self.installation_id,
                                      "Merge fail")

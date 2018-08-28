@@ -101,6 +101,11 @@ rules:
           required_approving_review_count: 1
         required_status_checks: null
     disabled: null
+    deletable:
+      protection:
+        required_pull_request_reviews:
+          required_approving_review_count: 1
+      delete_branch: True
 
 """
 
@@ -333,19 +338,15 @@ class TestEngineScenario(testtools.TestCase):
                 f.write(CONFIG)
             self.git("add", ".mergify.yml")
             self.git("commit", "--no-edit", "-m", "initial commit")
-            self.git("push", "--quiet", "main", "master")
 
-            self.git("checkout", "-b", "stable", "--quiet")
-            self.git("push", "--quiet", "main", "stable")
+            test_branches = (
+                'stable', 'nostrict', 'disabled', 'enabling_label',
+                'deletable',
+            )
+            for test_branch in test_branches:
+                self.git("branch", test_branch, "master")
 
-            self.git("checkout", "-b", "nostrict", "--quiet")
-            self.git("push", "--quiet", "main", "nostrict")
-
-            self.git("checkout", "-b", "disabled", "--quiet")
-            self.git("push", "--quiet", "main", "disabled")
-
-            self.git("checkout", "-b", "enabling_label", "--quiet")
-            self.git("push", "--quiet", "main", "enabling_label")
+            self.git("push", "--quiet", "main", "master", *test_branches)
 
             self.r_fork = self.u_fork.create_fork(self.r_main)
             self.git("fetch", "--quiet", "fork")
@@ -473,7 +474,17 @@ class TestEngineScenario(testtools.TestCase):
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
-                  state="pending"):
+                  state="pending", same_repo=False):
+        """Create a pull request.
+
+        :param base: The base branch.
+        :param files: The files to modify in the PR.
+        :param two_commits: Whether the pull request should contain 2 commits
+                            rather than just 1.
+        :param state: The state the CI should be after the PR is created.
+        :param same_repo: Whether to create the pull request from the same
+                          repository rather than a fork.
+        """
         self.pr_counter += 1
 
         branch = "fork/pr%d" % self.pr_counter
@@ -493,11 +504,13 @@ class TestEngineScenario(testtools.TestCase):
             self.git("mv", "test%d" % self.pr_counter,
                      "test%d-moved" % self.pr_counter)
             self.git("commit", "--no-edit", "-m", "%s, moved" % title)
-        self.git("push", "--quiet", "fork", branch)
+
+        self.git("push", "--quiet", "main" if same_repo else "fork", branch)
 
         p = self.r_fork.parent.create_pull(
             base=base,
-            head="%s:%s" % (self.r_fork.owner.login, branch),
+            head=(branch if same_repo
+                  else "%s:%s" % (self.r_fork.owner.login, branch)),
             title=title, body=title)
 
         expected_events = [("pull_request", {"action": "opened"})]
@@ -644,6 +657,36 @@ class TestEngineScenario(testtools.TestCase):
 
         pulls = self._get_queue("master")
         self.assertEqual(1, len(pulls))
+
+    def test_delete_head_branch_fork_from_other_user(self):
+        pr, commits = self.create_pr("deletable")
+
+        self.assertEqual(
+            "refs/heads/fork/pr1",
+            pr.head.repo.get_git_ref("heads/" + pr.head.ref).ref)
+
+        self.create_status_and_push_event(pr)
+        self.create_review_and_push_event(pr, commits[0])
+
+        # Since the PR is made from another user, it won't delete the branch
+        self.assertEqual(
+            "refs/heads/fork/pr1",
+            pr.head.repo.get_git_ref("heads/" + pr.head.ref).ref)
+
+    def test_delete_head_branch_fork_same_repo(self):
+        pr, commits = self.create_pr("deletable", same_repo=True)
+
+        self.assertEqual(
+            "refs/heads/fork/pr1",
+            pr.head.repo.get_git_ref("heads/" + pr.head.ref).ref)
+
+        self.create_status_and_push_event(pr)
+        self.create_review_and_push_event(pr, commits[0])
+
+        self.assertRaises(
+            github.UnknownObjectException,
+            pr.head.repo.get_git_ref,
+            "heads/" + pr.head.ref)
 
     def test_refresh_pull(self):
         p1, commits1 = self.create_pr()

@@ -402,6 +402,21 @@ class MergifyPull(object):
                        exc_info=True)
         return False
 
+    def delete_head_branch(self):
+        # Only delete the head branch if it comes from the same repository
+        if self.g_pull.head.repo == self.g_pull.base.repo:
+            # FIXME(jd): PyGithub don't want to delete a ref without doing a
+            # GET first. Let's do the request manually.
+            try:
+                self.g_pull.head.repo._requester.requestJsonAndCheck(
+                    "DELETE",
+                    self.g_pull.base.repo.url +
+                    "/git/refs/heads/" +
+                    self.g_pull.head.ref)
+            except github.GithubException as e:
+                self.log.error("Unable to delete head branch",
+                               error=e.data["message"], exc_info=True)
+
     def merge(self, branch_rule):
         try:
             self.g_pull.merge(

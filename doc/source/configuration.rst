@@ -60,6 +60,10 @@ A ``Rule`` is a dictionary with the following optional keys:
    * - ``merge_strategy``
      - :ref:`Merge Strategy`
      - The method to use to merge pull requests.
+   * - ``delete_branch``
+     - ``boolean``
+     - Whether to delete the head branch that created the pull request once the
+       pull request is merged.
    * - ``automated_backport_labels``
      - ``dict``
      - A dictionary where keys are `labels
