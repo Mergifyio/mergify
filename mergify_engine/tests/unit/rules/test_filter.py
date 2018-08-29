@@ -142,3 +142,12 @@ def test_str():
             ]},
         ],
     }))
+
+
+def test_parser():
+    for string in (
+            "head=foobar",
+            "-base=master",
+            "#files>3",
+    ):
+        assert string == str(filter.Filter.parse(string))
