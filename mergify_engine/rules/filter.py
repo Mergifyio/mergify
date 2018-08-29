@@ -18,6 +18,8 @@ import re
 
 import attr
 
+from mergify_engine.rules import parser
+
 
 class InvalidQuery(Exception):
     pass
@@ -91,6 +93,10 @@ class Filter:
 
     def __attrs_post_init__(self):
         self._eval = self.build_evaluator(self.tree)
+
+    @classmethod
+    def parse(cls, string):
+        return cls(parser.search.parseString(string, parseAll=True)[0])
 
     def __str__(self):
         return self._tree_to_str(self.tree)
