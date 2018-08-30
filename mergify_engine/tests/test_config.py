@@ -30,10 +30,7 @@ with open("default_rule.yml", "r") as f:
 
 
 def validate_with_get_branch_rule(config, branch="master"):
-    fake_repo = mock.Mock()
-    fake_repo.get_contents.return_value = mock.Mock(
-        decoded_content=yaml.dump(config))
-    return rules.get_branch_rule(fake_repo, branch)
+    return rules.get_branch_rule(config['rules'], branch)
 
 
 def test_config():
@@ -91,7 +88,7 @@ def test_invalid_yaml():
     fake_repo.get_contents.return_value = mock.Mock(
         decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
     with pytest.raises(rules.InvalidRules) as excinfo:
-        rules.get_branch_rule(fake_repo, "master")
+        rules.get_mergify_config(fake_repo, "master")
     assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
 
 
