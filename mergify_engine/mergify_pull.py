@@ -260,9 +260,9 @@ class MergifyPull(object):
         if branch_rule["disabling_label"] in labels:
             return "Disabled — disabling label present"
 
-        self.g_pull_files = [f.filename for f in self.g_pull.get_files()]
+        g_pull_files = [f.filename for f in self.g_pull.get_files()]
         for w in branch_rule["disabling_files"]:
-            filtered = fnmatch.filter(self.g_pull_files, w)
+            filtered = fnmatch.filter(g_pull_files, w)
             if filtered:
                 return ("Disabled — %s is modified"
                         % filtered[0])
