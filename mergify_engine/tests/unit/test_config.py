@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
 # Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+# Copyright © 2018 Julien Danjou <jd@mergify.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,9 +20,13 @@ from unittest import mock
 
 import pytest
 
+import voluptuous
+
 import yaml
 
+from mergify_engine import mergify_pull
 from mergify_engine import rules
+from mergify_engine.rules import filter
 
 
 with open(rules.default_rule, "r") as f:
@@ -333,3 +338,192 @@ def test_review_count_range():
     }
     with pytest.raises(rules.InvalidRules):
         validate_with_get_branch_rule(config)
+
+
+def test_pull_request_rule():
+    for valid in ({
+            "name": "hello",
+            "conditions": [
+                "head:master",
+            ],
+    }, {
+        "name": "hello",
+        "conditions": [
+            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
+        ],
+    }):
+        rules.PullRequestRules([valid])
+
+
+def test_pull_request_rule_schema_invalid():
+    for invalid, match in (
+            ({
+                "name": "hello",
+                "conditions": [
+                    "this is wrong"
+                ],
+            }, "Invalid condition "),
+            ({
+                "name": "hello",
+                "conditions": [
+                    "head|4"
+                ],
+            }, "Invalid condition "),
+            ({
+                "name": "hello",
+                "conditions": [
+                    {"foo": "bar"}
+                ]
+            }, "extra keys not allowed"),
+    ):
+        with pytest.raises(voluptuous.MultipleInvalid, match=match):
+            rules.PullRequestRules([invalid])
+
+
+def test_get_pull_request_rule():
+    g_pull = mock.Mock()
+    g_pull.assignees = []
+    g_pull.labels = []
+    g_pull.get_review_requests.return_value = ([], [])
+    g_pull.author = "jd"
+    g_pull.base.label = "master"
+    g_pull.head.label = "myfeature"
+    g_pull._rawData = {'locked': False}
+    g_pull.title = "My awesome job"
+    g_pull.body = "I rock"
+    file1 = mock.Mock()
+    file1.filename = "README.rst"
+    file2 = mock.Mock()
+    file2.filename = "setup.py"
+    g_pull.get_files.return_value = [file1, file2]
+
+    review = mock.Mock()
+    review.user.login = "sileht"
+    review.state = "APPROVED"
+    review._rawData = {"author_association": "MEMBER"}
+    g_pull.get_reviews.return_value = [review]
+
+    pull_request = mergify_pull.MergifyPull(g_pull=g_pull,
+                                            installation_id=123)
+    fake_ci = mock.Mock()
+    fake_ci.context = "continuous-integration/fake-ci"
+    fake_ci.state = "success"
+    pull_request._get_checks = mock.Mock()
+    pull_request._get_checks.return_value = [fake_ci]
+
+    # Empty conditions
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "default",
+        "conditions": [],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r in match.matching_rules] == ["default"]
+    assert match.rules == match.matching_rules
+    assert match.next_rules == []
+    assert match.rule == {}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "hello",
+        "conditions": [
+            "base:master",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["hello"]
+    assert [r['name'] for r in match.matching_rules] == ["hello"]
+    assert match.rules == match.matching_rules
+    assert match.next_rules == []
+    assert match.rule == {}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "hello",
+        "conditions": [
+            "base:master",
+        ],
+    }, {
+        "name": "backport",
+        "conditions": [
+            "base:master",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["hello", "backport"]
+    assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
+    assert match.rules == match.matching_rules
+    assert match.next_rules == []
+    assert match.rule == {}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "hello",
+        "conditions": [
+            "#files=3",
+        ],
+    }, {
+        "name": "backport",
+        "conditions": [
+            "base:master",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["hello", "backport"]
+    assert [r['name'] for r in match.matching_rules] == ["backport"]
+    assert match.next_rules[0][0]['name'] == "hello"
+    assert match.next_rules[0][1] == filter.Filter.parse("#files=3")
+    assert match.rule == {}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "hello",
+        "conditions": [
+            "#files=2",
+        ],
+    }, {
+        "name": "backport",
+        "conditions": [
+            "base:master",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["hello", "backport"]
+    assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
+    assert match.rules == match.matching_rules
+    assert match.next_rules == []
+    assert match.rule == {}
+
+    # No match
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "merge",
+        "conditions": [
+            "base=xyz",
+            "status-success=continuous-integration/fake-ci",
+            "#review-approved-by>=1",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["merge"]
+    assert [r['name'] for r in match.matching_rules] == []
+    assert match.next_rules[0][0]['name'] == "merge"
+    assert match.next_rules[0][1] == filter.Filter.parse("base=xyz")
+    assert match.rule == {}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "merge",
+        "conditions": [
+            "base=master",
+            "status-success=continuous-integration/fake-ci",
+            "#review-approved-by>=1",
+        ],
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["merge"]
+    assert [r['name'] for r in match.matching_rules] == ["merge"]
+    assert match.rules == match.matching_rules
+    assert match.next_rules == []
+    assert match.rule == {}
