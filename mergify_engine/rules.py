@@ -129,9 +129,10 @@ def build_branch_rule(rules, branch):
         return rule
 
 
-def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
+def get_mergify_config(repository, ref=github.GithubObject.NotSet):
     try:
-        content = g_repo.get_contents(".mergify.yml", ref=ref).decoded_content
+        content = repository.get_contents(
+            ".mergify.yml", ref=ref).decoded_content
     except github.GithubException as e:
         # NOTE(sileht): PyGithub is buggy here it should raise
         # UnknownObjectException. but depending of the error message
@@ -140,9 +141,8 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
         if e.status != 404:  # pragma: no cover
             raise
         raise NoRules(".mergify.yml is missing")
-
     try:
-        rules = validate_user_config(content)["rules"] or {}
+        return validate_user_config(content) or {}
     except yaml.YAMLError as e:
         if hasattr(e, 'problem_mark'):
             raise InvalidRules(".mergify.yml is invalid at position: (%s:%s)" %
@@ -152,6 +152,11 @@ def get_branch_rule(g_repo, branch, ref=github.GithubObject.NotSet):
             raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
     except voluptuous.MultipleInvalid as e:
         raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
+
+
+def get_branch_rule(rules, branch):
+    if rules is None:
+        return None
 
     rule = build_branch_rule(rules, branch)
     if rule is None:

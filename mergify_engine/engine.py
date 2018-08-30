@@ -167,9 +167,9 @@ class MergifyEngine(Caching):
 
             if ref is not None:
                 try:
-                    rules.get_branch_rule(
-                        self.repository, incoming_branch, ref
-                    )
+                    config = rules.get_mergify_config(
+                        self.repository, ref=ref)
+                    rules.get_branch_rule(config['rules'], incoming_branch)
                 except rules.InvalidRules as e:  # pragma: no cover
                     # Not configured, post status check with the error message
                     # FIXME()!!!!!!!!!!!
@@ -183,9 +183,9 @@ class MergifyEngine(Caching):
                         "future-config-checker")
 
         # BRANCH CONFIGURATION CHECKING
-        branch_rule = None
         try:
-            branch_rule = rules.get_branch_rule(self.repository,
+            config = rules.get_mergify_config(self.repository)
+            branch_rule = rules.get_branch_rule(config['rules'],
                                                 incoming_branch)
         except rules.NoRules as e:
             LOG.info("No need to proceed queue (.mergify.yml is missing)")

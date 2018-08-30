@@ -542,7 +542,8 @@ class TestEngineScenario(testtools.TestCase):
         self.push_events([("pull_request", {"action": "labeled"})])
 
     def _get_queue(self, branch):
-        branch_rule = rules.get_branch_rule(self.r_main, branch)
+        config = rules.get_mergify_config(self.r_main)
+        branch_rule = rules.get_branch_rule(config['rules'], branch)
         collaborators = [self.u_main.id]
         return self.processor._build_queue(branch, branch_rule, collaborators)
 
@@ -564,7 +565,8 @@ class TestEngineScenario(testtools.TestCase):
         }
         branch_protection.protect(self.r_main, "disabled", old_rule)
 
-        rule = rules.get_branch_rule(self.r_main, "disabled")
+        config = rules.get_mergify_config(self.r_main)
+        rule = rules.get_branch_rule(config['rules'], "disabled")
         self.assertEqual(None, rule)
         data = branch_protection.get_protection(self.r_main, "disabled")
         self.assertFalse(branch_protection.is_configured(
