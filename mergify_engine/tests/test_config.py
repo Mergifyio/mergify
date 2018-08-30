@@ -15,8 +15,7 @@
 # under the License.
 
 import copy
-
-import mock
+from unittest import mock
 
 import pytest
 
