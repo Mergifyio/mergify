@@ -17,14 +17,50 @@
 
 import github
 
+import prometheus_client
+
 from mergify_engine import config
 from mergify_engine import utils
 
+GITHUB_EVENTS = prometheus_client.Counter(
+    "github_events", "Number of Github events handled")
 
-def main():  # pragma: no cover
+INSTALLATIION_ADDED = prometheus_client.Counter(
+    "installation_added", "Number of installation added")
+
+INSTALLATIION_REMOVED = prometheus_client.Counter(
+    "installation_removed", "Number of installation removed")
+
+PULL_REQUESTS = prometheus_client.Counter(
+    "pull_requests", "Number of pull request handled")
+
+INSTALLATIONS_TIME = prometheus_client.Summary(
+    'job_installations_processing_seconds',
+    'Time spent processing job_installations')
+
+JOB_EVENTS_TIME = prometheus_client.Summary(
+    'job_events_processing_seconds',
+    'Time spent processing job_events')
+
+JOB_FILTER_AND_DISPATCH_TIME = prometheus_client.Summary(
+    'job_filter_and_dispatch_processing_seconds',
+    'Time spent processing job_filter_and_dispatch')
+
+
+def get_installations():
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installs = utils.get_installations(integration)
+    return utils.get_installations(integration)
+
+
+INSTALLATIONS = prometheus_client.Gauge(
+    "installations", "Number of installations")
+
+INSTALLATIONS.set_function(lambda: len(get_installations()))
+
+
+def main():  # pragma: no cover
+    installs = get_installations()
     r = utils.get_redis_for_cache()
     subscribed = 0
     for i in installs:

@@ -31,6 +31,7 @@ from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
+from mergify_engine import stats
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -145,6 +146,9 @@ class MergifyEngine(Caching):
         incoming_state = incoming_pull.g_pull.state
 
         self.log_formated_event(event_type, incoming_pull, data)
+
+        if event_type == "pull_request" and data["action"] == "open":
+            stats.PULL_REQUESTS.inc()
 
         if (event_type == "status" and
                 incoming_sha != data["sha"]):  # pragma: no cover
