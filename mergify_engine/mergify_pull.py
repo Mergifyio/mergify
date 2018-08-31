@@ -397,6 +397,10 @@ class MergifyPull(object):
                 self.g_pull.head.repo.id == self.g_pull.base.repo.id)
 
     def _merge_failed(self, e):
+        # Don't log some  common and valid error
+        if e.data["message"].startswith("Base branch was modified"):
+            return False
+
         self.log.error("merge failed",
                        status=e.status, error=e.data["message"],
                        exc_info=True)
