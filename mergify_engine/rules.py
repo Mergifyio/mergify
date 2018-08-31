@@ -76,11 +76,13 @@ UserConfigurationSchema = {
 
 
 class NoRules(Exception):
-    pass
+    def __init__(self):
+        super().__init__(".mergify.yml is missing")
 
 
 class InvalidRules(Exception):
-    pass
+    def __init__(self, detail):
+        super().__init__("Mergify configuration is invalid: %s" % detail)
 
 
 def validate_user_config(content):
@@ -140,18 +142,18 @@ def get_mergify_config(repository, ref=github.GithubObject.NotSet):
         # so always catch the generic
         if e.status != 404:  # pragma: no cover
             raise
-        raise NoRules(".mergify.yml is missing")
+        raise NoRules()
     try:
         return validate_user_config(content) or {}
     except yaml.YAMLError as e:
         if hasattr(e, 'problem_mark'):
-            raise InvalidRules(".mergify.yml is invalid at position: (%s:%s)" %
+            raise InvalidRules("position (%s:%s)" %
                                (e.problem_mark.line + 1,
                                 e.problem_mark.column + 1))
         else:  # pragma: no cover
-            raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
+            raise InvalidRules(str(e))
     except voluptuous.MultipleInvalid as e:
-        raise InvalidRules(".mergify.yml is invalid: %s" % str(e))
+        raise InvalidRules(str(e))
 
 
 def get_branch_rule(rules, branch):
@@ -165,7 +167,7 @@ def get_branch_rule(rules, branch):
     try:
         rule = validate_merged_config(rule)
     except voluptuous.MultipleInvalid as e:  # pragma: no cover
-        raise InvalidRules("mergify configuration invalid: %s" % str(e))
+        raise InvalidRules(str(e))
 
     # NOTE(sileht): Always disable Mergify if its configuration is changed
     if ".mergify.yml" not in rule["disabling_files"]:
