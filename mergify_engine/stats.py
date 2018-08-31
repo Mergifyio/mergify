@@ -75,22 +75,24 @@ def get_active_pull_requests():
         pulls += redis.hlen(key)
     return pulls
 
-
-INSTALLATIONS = prometheus_client.Gauge(
-    "installations", "number of installations")
-INSTALLATIONS.set_function(lambda: len(get_installations()))
-
-ACTIVE_INSTALLS = prometheus_client.Gauge(
-    "active_installations", "number of active installations")
-ACTIVE_INSTALLS.set_function(lambda: len(get_active_installations()))
-
-ACTIVE_SLUGS = prometheus_client.Gauge(
-    "active_slugs", "number of active slugs")
-ACTIVE_SLUGS.set_function(lambda: len(get_active_slugs()))
-
-ACTIVE_PULL_REQUESTS = prometheus_client.Gauge(
-    "pull_requests_active", "Number of active pull request")
-ACTIVE_PULL_REQUESTS.set_function(get_active_pull_requests)
+# FIXME(sileht): since rq spawn a new process for each event this gauge system
+# create a timeserie per pid. Disable them for now.
+#
+# INSTALLATIONS = prometheus_client.Gauge(
+#     "installations", "number of installations")
+# INSTALLATIONS.set_function(lambda: len(get_installations()))
+#
+# ACTIVE_INSTALLS = prometheus_client.Gauge(
+#     "active_installations", "number of active installations")
+# ACTIVE_INSTALLS.set_function(lambda: len(get_active_installations()))
+#
+# ACTIVE_SLUGS = prometheus_client.Gauge(
+#     "active_slugs", "number of active slugs")
+# ACTIVE_SLUGS.set_function(lambda: len(get_active_slugs()))
+#
+# ACTIVE_PULL_REQUESTS = prometheus_client.Gauge(
+#     "pull_requests_active", "Number of active pull request")
+# ACTIVE_PULL_REQUESTS.set_function(get_active_pull_requests)
 
 
 def main():  # pragma: no cover
