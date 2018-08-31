@@ -89,7 +89,8 @@ def test_invalid_yaml():
         decoded_content="  ,;  dkqjshdmlksj\nhkqlsjdh\n-\n  qsjkdlkq\n")
     with pytest.raises(rules.InvalidRules) as excinfo:
         rules.get_mergify_config(fake_repo, "master")
-    assert '.mergify.yml is invalid at position: (1:3)' in str(excinfo.value)
+    assert ('Mergify configuration is invalid: position (1:3)' in
+            str(excinfo.value))
 
 
 def test_disabling_files():
