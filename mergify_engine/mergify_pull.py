@@ -221,6 +221,15 @@ class MergifyPull(object):
             if status_check.context.startswith(c):
                 return c
 
+    def _get_combined_status(self):
+        headers, data = self.g_pull.head.repo._requester.requestJsonAndCheck(
+            "GET",
+            self.g_pull.base.repo.url + "/commits/" +
+            self.g_pull.head.sha + "/status",
+        )
+        return github.CommitCombinedStatus.CommitCombinedStatus(
+            self.g_pull.head.repo._requester, headers, data, completed=True)
+
     def _compute_required_statuses(self, branch_rule):
         # return True is CIs succeed, False is their fail, None
         # is we don't known yet.
@@ -229,8 +238,7 @@ class MergifyPull(object):
         if not protection["required_status_checks"]:
             return StatusState.SUCCESS
 
-        commit = self.g_pull.base.repo.get_commit(self.g_pull.head.sha)
-        status = commit.get_combined_status()
+        status = self._get_combined_status()
 
         contexts = set(protection["required_status_checks"]["contexts"])
         seen_contexts = set()
