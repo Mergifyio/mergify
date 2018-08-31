@@ -23,7 +23,7 @@ from mergify_engine import config
 from mergify_engine import utils
 
 GITHUB_EVENTS = prometheus_client.Counter(
-    "github_events", "Number of Github events handled")
+    "github_events", "Number of GitHub events handled")
 
 INSTALLATIION_ADDED = prometheus_client.Counter(
     "installation_added", "Number of installation added")
@@ -32,7 +32,7 @@ INSTALLATIION_REMOVED = prometheus_client.Counter(
     "installation_removed", "Number of installation removed")
 
 PULL_REQUESTS = prometheus_client.Counter(
-    "pull_requests", "Number of pull request handled")
+    "pull_requests", "Total number of pull request handled")
 
 INSTALLATIONS_TIME = prometheus_client.Summary(
     'job_installations_processing_seconds',
@@ -53,10 +53,44 @@ def get_installations():
     return utils.get_installations(integration)
 
 
-INSTALLATIONS = prometheus_client.Gauge(
-    "installations", "Number of installations")
+def get_active_installations():
+    installs = set()
+    for key in utils.get_redis_for_cache().keys("queues~*"):
+        installs.add(key.split("~")[2])
+    return installs
 
+
+def get_active_slugs():
+    active_slugs = set()
+    for key in utils.get_redis_for_cache().keys("queues~*"):
+        _, _, owner, repo, private, branch = key.split("~")
+        active_slugs.add("%s/%s" % (owner, repo))
+    return active_slugs
+
+
+def get_active_pull_requests():
+    redis = utils.get_redis_for_cache()
+    pulls = 0
+    for key in redis.keys("queues~*"):
+        pulls += redis.hlen(key)
+    return pulls
+
+
+INSTALLATIONS = prometheus_client.Gauge(
+    "installations", "number of installations")
 INSTALLATIONS.set_function(lambda: len(get_installations()))
+
+ACTIVE_INSTALLS = prometheus_client.Gauge(
+    "active_installations", "number of active installations")
+ACTIVE_INSTALLS.set_function(lambda: len(get_active_installations()))
+
+ACTIVE_SLUGS = prometheus_client.Gauge(
+    "active_slugs", "number of active slugs")
+ACTIVE_SLUGS.set_function(lambda: len(get_active_slugs()))
+
+ACTIVE_PULL_REQUESTS = prometheus_client.Gauge(
+    "pull_requests_active", "Number of active pull request")
+ACTIVE_PULL_REQUESTS.set_function(get_active_pull_requests)
 
 
 def main():  # pragma: no cover
@@ -67,12 +101,9 @@ def main():  # pragma: no cover
         if utils.get_subscription(r, i["id"])["subscribed"]:
             subscribed += 1
     print("installations: %d" % len(installs))
+    print("active_installations: %d" % len(get_active_installations()))
     print("subscriptions: %d" % subscribed)
 
-    active_slugs = set()
-    for key in utils.get_redis_for_cache().keys("queues~*"):
-        _, _, owner, repo, private, branch = key.split("~")
-        active_slugs.add("%s/%s" % (owner, repo))
-
+    active_slugs = get_active_slugs()
     print("repositories with pending PRs: %d" % len(active_slugs))
     print(" * %s" % "\n * ".join(sorted(active_slugs)))
