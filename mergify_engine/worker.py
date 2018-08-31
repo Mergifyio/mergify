@@ -37,6 +37,7 @@ from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import initial_configuration
 from mergify_engine import queue
+from mergify_engine import stats
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -233,7 +234,10 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                  "%s branches" % tuple(counts))
 
     @staticmethod
+    @stats.JOB_FILTER_AND_DISPATCH_TIME.time()
     def job_filter_and_dispatch(event_type, event_id, data):
+        stats.GITHUB_EVENTS.inc()
+
         subscription = utils.get_subscription(
             utils.get_redis_for_cache(), data["installation"]["id"])
 
@@ -241,6 +245,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
             msg_action = "ignored (no token)"
 
         elif event_type == "installation" and data["action"] == "created":
+            stats.INSTALLATIION_ADDED.inc()
             for repository in data["repositories"]:
                 if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                     continue
@@ -251,6 +256,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
             msg_action = "pushed to backend"
 
         elif event_type == "installation" and data["action"] == "deleted":
+            stats.INSTALLATIION_REMOVED.inc()
             key = "queues~%s~*~*~*~*" % data["installation"]["id"]
             utils.get_redis_for_cache().delete(key)
             msg_action = "handled, cache cleaned"
@@ -324,6 +330,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                  subscribed=subscription["subscribed"])
 
     @staticmethod
+    @stats.JOB_EVENTS_TIME.time()
     def job_events(event_type, subscription, data):
         """Everything starts here."""
         integration = github.GithubIntegration(config.INTEGRATION_ID,
@@ -356,6 +363,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                       data["repository"]["full_name"])
 
     @staticmethod
+    @stats.INSTALLATIONS_TIME.time()
     def job_installations(installation_id, repositories):
         """Create the initial configuration on an repository."""
         integration = github.GithubIntegration(config.INTEGRATION_ID,
