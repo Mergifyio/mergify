@@ -82,14 +82,14 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
         # Too many failures
         if job.meta['failures'] >= max_retries:
-            LOG.warn('job %s: failed too many times times - moving to '
-                     'failed queue' % job.id)
+            LOG.warning('job %s: failed too many times times - moving to '
+                        'failed queue', job.id)
             job.save()
             return True
 
         # Requeue job and stop it from being moved into the failed queue
-        LOG.warn('job %s: failed %d times - retrying' % (job.id,
-                                                         job.meta['failures']))
+        LOG.warning('job %s: failed %d times - retrying',
+                    job.id, job.meta['failures'])
 
         # Exponential backoff
         retry_in = 2 ** (job.meta['failures'] - 1) * backoff
@@ -104,8 +104,8 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
         # Can't find queue, which should basically never happen as we only work
         # jobs that match the given queue names and queues are transient in rq.
-        LOG.warn('job %s: cannot find queue %s - moving to failed queue' %
-                 (job.id, job.origin))
+        LOG.warning('job %s: cannot find queue %s - moving to failed queue',
+                    job.id, job.origin)
         return True
 
     def _retry_now(self, job_origin, job_data, failure):
@@ -119,14 +119,14 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
 
     @staticmethod
     def job_refresh(owner, repo, refresh_ref):
-        LOG.info("%s/%s/%s: refreshing" % (owner, repo, refresh_ref))
+        LOG.info("%s/%s/%s: refreshing", owner, repo, refresh_ref)
 
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
         installation_id = utils.get_installation_id(integration, owner)
         if not installation_id:  # pragma: no cover
-            LOG.warning("%s/%s/%s: mergify not installed" % (owner, repo,
-                                                             refresh_ref))
+            LOG.warning("%s/%s/%s: mergify not installed",
+                        owner, repo, refresh_ref)
             return
 
         token = integration.get_access_token(installation_id).token
@@ -136,8 +136,8 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
             r.get_contents(".mergify.yml")
         except github.GithubException as e:  # pragma: no cover
             if e.status == 404:
-                LOG.warning("%s/%s/%s: mergify not configured" % (owner, repo,
-                                                                  refresh_ref))
+                LOG.warning("%s/%s/%s: mergify not configured",
+                            owner, repo, refresh_ref)
                 return
             else:
                 raise
@@ -156,8 +156,7 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
             try:
                 pull_number = int(refresh_ref[5:])
             except ValueError:  # pragma: no cover
-                LOG.info("%s/%s/%s: Invalid PR ref" % (owner, repo,
-                                                       refresh_ref))
+                LOG.info("%s/%s/%s: Invalid PR ref", owner, repo, refresh_ref)
                 return
             pulls = [r.get_pull(pull_number)]
 
@@ -165,18 +164,18 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                                               installation_id)
 
         if r.archived:  # pragma: no cover
-            LOG.warning("%s/%s/%s: repository archived" % (owner, repo,
-                                                           refresh_ref))
+            LOG.warning("%s/%s/%s: repository archived",
+                        owner, repo, refresh_ref)
             return
 
         if not subscription["token"]:  # pragma: no cover
-            LOG.warning("%s/%s/%s: not public or subscribed" % (owner, repo,
-                                                                refresh_ref))
+            LOG.warning("%s/%s/%s: not public or subscribed",
+                        owner, repo, refresh_ref)
             return
 
         if r.private and not subscription["subscribed"]:  # pragma: no cover
-            LOG.warning("%s/%s/%s: mergify not installed" % (owner, repo,
-                                                             refresh_ref))
+            LOG.warning("%s/%s/%s: mergify not installed",
+                        owner, repo, refresh_ref)
             return
 
         for p in pulls:
@@ -230,8 +229,8 @@ class MergifyWorker(rq.Worker):  # pragma: no cover
                     queue.route(r.full_name, subscription, "events",
                                 "refresh", subscription, data)
 
-        LOG.info("Refreshing %s installations, %s repositories, "
-                 "%s branches" % tuple(counts))
+        LOG.info("Refreshing %d installations, %d repositories, "
+                 "%d branches", *counts)
 
     @staticmethod
     @stats.JOB_FILTER_AND_DISPATCH_TIME.time()

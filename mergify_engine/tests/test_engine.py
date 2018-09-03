@@ -457,7 +457,7 @@ class TestEngineScenario(testtools.TestCase):
 
     def _send_event(self, id, type, payload):  # noqa
         extra = payload.get("state", payload.get("action"))
-        LOG.debug("> Processing event: %s %s/%s" % (id, type, extra))
+        LOG.debug("> Processing event: %s %s/%s", id, type, extra)
         r = self.app.post('/event', headers={
             "X-GitHub-Event": type,
             "X-GitHub-Delivery": "123456789",
