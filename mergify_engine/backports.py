@@ -85,7 +85,15 @@ def _get_commits_to_cherrypick(pull, commit):
         return []
 
 
-def _backport(repo, pull, branch_name, installation_token):
+def backport(repo, pull, branch_name, installation_token):
+    """Backport a pull request.
+
+    :param repo: The repository.
+    :param pull: The pull request.
+    :type pull: py:class:mergify_engine.mergify_pull.MergifyPull
+    :param branch_name: The branch name to backport to.
+    :param installation_token: The installation token.
+    """
     try:
         branch = repo.get_branch(branch_name)
     except github.GithubException as e:
@@ -167,10 +175,10 @@ def _backport(repo, pull, branch_name, installation_token):
     )
 
 
-def backports(repo, pull, labels_branches, installation_token):
+def backport_from_labels(repo, pull, labels_branches, installation_token):
     if not labels_branches:
         return
 
     labels = (set(labels_branches) & set(l.name for l in pull.g_pull.labels))
     for l in labels:
-        _backport(repo, pull, labels_branches[l], installation_token)
+        backport(repo, pull, labels_branches[l], installation_token)
