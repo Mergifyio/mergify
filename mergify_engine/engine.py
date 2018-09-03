@@ -137,7 +137,7 @@ class MergifyEngine(Caching):
         if not event_pull:  # pragma: no cover
             self.log_formated_event(event_type, None, data)
             LOG.info("No pull request found in the event %s, "
-                     "ignoring" % event_type)
+                     "ignoring", event_type)
             return
 
         incoming_pull = mergify_pull.MergifyPull(event_pull)
@@ -357,7 +357,7 @@ class Processor(Caching):
                 lambda p: self._load_from_cache_and_complete(
                     p, branch_rule, collaborators),
                 data.values()))
-        LOG.info("%s, queues content:" % self._get_logprefix(branch))
+        LOG.info("%s, queues content:", self._get_logprefix(branch))
         for p in pulls:
             LOG.info("sha: %s->%s",
                      p.g_pull.base.sha, p.g_pull.head.sha,

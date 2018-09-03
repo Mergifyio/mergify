@@ -189,15 +189,15 @@ def get_subscription(r, installation_id):
 class Gitter(object):
     def __init__(self):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")
-        LOG.info("working in: %s" % self.tmp)
+        LOG.info("working in: %s", self.tmp)
 
     def __call__(self, *args, **kwargs):  # pragma: no cover
-        LOG.info("calling: %s" % " ".join(args))
+        LOG.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
         return subprocess.check_output(["git"] + list(args), **kwargs)
 
     def cleanup(self):
-        LOG.info("cleaning: %s" % self.tmp)
+        LOG.info("cleaning: %s", self.tmp)
         try:
             self("credential-cache",
                  "--socket=%s/.git/creds/socket" % self.tmp,
