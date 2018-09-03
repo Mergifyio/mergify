@@ -414,11 +414,11 @@ class MergifyPull(object):
                        exc_info=True)
         return False
 
-    def merge(self, branch_rule):
+    def merge(self, merge_method, rebase_fallback):
         try:
             self.g_pull.merge(
                 sha=self.g_pull.head.sha,
-                merge_method=branch_rule["merge_strategy"]["method"])
+                merge_method=merge_method)
         except github.GithubException as e:   # pragma: no cover
             if (self.g_pull.is_merged() and
                     e.data["message"] == "Pull Request is not mergeable"):
@@ -427,16 +427,15 @@ class MergifyPull(object):
                 self.log.info("merged in the meantime")
                 return True
 
-            fallback = branch_rule["merge_strategy"]["rebase_fallback"]
             if (e.data["message"] != "This branch can't be rebased" or
-                    branch_rule["merge_strategy"]["method"] != "rebase" or
-                    fallback == "none"):
+                    merge_method != "rebase" or
+                    rebase_fallback == "none"):
                 return self._merge_failed(e)
 
             # If rebase fail retry with merge
             try:
                 self.g_pull.merge(sha=self.g_pull.head.sha,
-                                  merge_method=fallback)
+                                  merge_method=rebase_fallback)
             except github.GithubException as e:
                 return self._merge_failed(e)
 

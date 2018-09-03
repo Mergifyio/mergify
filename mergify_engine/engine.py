@@ -425,7 +425,8 @@ class Processor(Caching):
             p.post_check_status(self._redis, self.installation_id,
                                 "success", "Merged")
 
-            if p.merge(branch_rule):
+            if p.merge(branch_rule["merge_strategy"]["method"],
+                       branch_rule["merge_strategy"]["rebase_fallback"]):
                 # Wait for the closed event now
                 LOG.info("merged", pull_request=p)
             else:  # pragma: no cover
