@@ -30,8 +30,6 @@ import github
 import requests
 import requests.sessions
 
-import rq
-
 import testtools
 
 import vcr
@@ -46,6 +44,8 @@ from mergify_engine import engine
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine import web
+from mergify_engine import worker
+
 
 LOG = logging.getLogger(__name__)
 
@@ -185,6 +185,12 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
+# NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
+# So all REST API calls will block and execute celery tasks directly
+worker.app.conf.task_always_eager = True
+worker.app.conf.task_eager_propagates = True
+
+
 class TestEngineScenario(testtools.TestCase):
     """Pastamaker engine tests.
 
@@ -312,13 +318,6 @@ class TestEngineScenario(testtools.TestCase):
                                            subscription, user, repo)
         self.processor = self.engine.get_processor()
 
-        self.rq_worker = rq.SimpleWorker(["incoming-events",
-                                          "localhost-000-high",
-                                          "localhost-001-high",
-                                          "localhost-000-low",
-                                          "localhost-001-low"],
-                                         connection=utils.get_redis_for_rq())
-
         if self._testMethodName != "test_creation_pull_of_initial_config":
             self.git("init")
             self.git.configure()
@@ -358,9 +357,6 @@ class TestEngineScenario(testtools.TestCase):
         # self.r_fork.delete()
         # self.r_main.delete()
 
-        failed_queue = rq.Queue("failed",
-                                connection=utils.get_redis_for_rq())
-        self.assertEqual(0, len(failed_queue))
         self.assertEqual([], self.remaining_events)
         super(TestEngineScenario, self).tearDown()
 
@@ -464,7 +460,6 @@ class TestEngineScenario(testtools.TestCase):
             "X-Hub-Signature": "sha1=whatever",
             "Content-type": "application/json",
         }, data=json.dumps(payload))
-        self.rq_worker.work(burst=True)
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
@@ -655,13 +650,9 @@ class TestEngineScenario(testtools.TestCase):
             p1.base.repo.full_name, p1.number),
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
 
-        self.rq_worker.work(burst=True)
-
         self.app.post("/refresh/%s/pull/%s" % (
             p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
-
-        self.rq_worker.work(burst=True)
 
         pulls = self._get_queue("master")
         self.assertEqual(2, len(pulls))
@@ -683,8 +674,6 @@ class TestEngineScenario(testtools.TestCase):
         self.app.post("/refresh/%s/branch/master" % (
             p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
-
-        self.rq_worker.work(burst=True)
 
         pulls = self._get_queue("master")
         self.assertEqual(2, len(pulls))
@@ -721,8 +710,6 @@ class TestEngineScenario(testtools.TestCase):
 
         self.app.post("/refresh",
                       headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
-
-        self.rq_worker.work(burst=True)
 
         pulls = self._get_queue("master")
         self.assertEqual(2, len(pulls))

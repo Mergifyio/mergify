@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 #
 # Copyright © 2017 Red Hat, Inc.
 #
@@ -22,9 +21,6 @@ import prometheus_client
 from mergify_engine import config
 from mergify_engine import utils
 
-GITHUB_EVENTS = prometheus_client.Counter(
-    "github_events", "Number of GitHub events handled")
-
 INSTALLATIION_ADDED = prometheus_client.Counter(
     "installation_added", "Number of installation added")
 
@@ -33,18 +29,6 @@ INSTALLATIION_REMOVED = prometheus_client.Counter(
 
 PULL_REQUESTS = prometheus_client.Counter(
     "pull_requests", "Total number of pull request handled")
-
-INSTALLATIONS_TIME = prometheus_client.Summary(
-    'job_installations_processing_seconds',
-    'Time spent processing job_installations')
-
-JOB_EVENTS_TIME = prometheus_client.Summary(
-    'job_events_processing_seconds',
-    'Time spent processing job_events')
-
-JOB_FILTER_AND_DISPATCH_TIME = prometheus_client.Summary(
-    'job_filter_and_dispatch_processing_seconds',
-    'Time spent processing job_filter_and_dispatch')
 
 
 def get_installations():

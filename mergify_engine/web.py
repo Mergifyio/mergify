@@ -25,20 +25,12 @@ import logging
 
 import flask
 
-import rq_dashboard
-
-from mergify_engine import queue
 from mergify_engine import utils
-
+from mergify_engine.tasks import github_events
 
 LOG = logging.getLogger(__name__)
 
 app = flask.Flask(__name__)
-
-app.config.from_object(rq_dashboard.default_settings)
-app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
-app.config["REDIS_URL"] = utils.get_redis_url()
-app.config["RQ_POLL_INTERVAL"] = 10000  # ms
 
 
 def authentification():  # pragma: no cover
@@ -75,14 +67,14 @@ def check_status_msg(key):
 @app.route("/refresh/<owner>/<repo>/<path:refresh_ref>", methods=["POST"])
 def refresh(owner, repo, refresh_ref):
     authentification()
-    queue.publish("refresh", owner, repo, refresh_ref)
+    github_events.job_refresh.delay(owner, repo, refresh_ref)
     return "Refresh queued", 202
 
 
 @app.route("/refresh", methods=["POST"])
 def refresh_all():
     authentification()
-    queue.publish("refresh_all")
+    github_events.job_refresh_all.delay()
     return "Refresh queued", 202
 
 
@@ -90,7 +82,7 @@ def refresh_all():
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
 def subscription_cache(installation_id):  # pragma: no cover
     authentification()
-    queue.publish("refresh_private_installations", installation_id)
+    github_events.job_refresh_private_installations.delay(installation_id)
     return "Cache cleaned", 200
 
 
@@ -102,7 +94,7 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    queue.publish("filter_and_dispatch", event_type, event_id, data)
+    github_events.job_filter_and_dispatch.delay(event_type, event_id, data)
     return "Event queued", 202
 
 

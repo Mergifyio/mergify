@@ -22,7 +22,10 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
+
+import celery.app.log
 
 import daiquiri
 
@@ -48,10 +51,7 @@ global REDIS_CONNECTION_CACHE
 REDIS_CONNECTION_CACHE = None
 
 
-def prepare_service():  # pragma: no cover
-    setup_logging()
-    config.log()
-
+def get_sentry_client():
     if config.SENTRY_URL:
         sentry_client = raven.Client(config.SENTRY_URL,
                                      transport=HTTPTransport)
@@ -59,6 +59,12 @@ def prepare_service():  # pragma: no cover
         handler.setLevel(logging.ERROR)
         logging.getLogger(None).addHandler(handler)
         return sentry_client
+
+
+def prepare_service():  # pragma: no cover
+    setup_logging()
+    config.log()
+    return get_sentry_client()
 
 
 def get_redis_url():
@@ -90,13 +96,29 @@ def get_redis_for_cache():
     return REDIS_CONNECTION_CACHE
 
 
+class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter,
+                      celery.app.log.TaskFormatter):
+    pass
+
+
+CELERY_EXTRAS_FORMAT = (
+    "%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s "
+    "[%(task_id)s] "
+    "%(name)s%(extras)s: %(message)s%(color_stop)s"
+)
+
+
 def setup_logging():
     daiquiri.setup(
-        outputs=[daiquiri.output.STDOUT],
+        outputs=[daiquiri.output.Stream(
+            sys.stdout, formatter=CustomFormatter(
+                fmt=CELERY_EXTRAS_FORMAT))
+        ],
         level=(logging.DEBUG if config.DEBUG else logging.INFO),
     )
     daiquiri.set_default_log_levels([
-        ("rq", "WARN"),
+        ("celery", "INFO"),
+        ("kombu", "WARN"),
         ("github.Requester", "WARN"),
         ("urllib3.connectionpool", "WARN"),
         ("vcr", "WARN"),

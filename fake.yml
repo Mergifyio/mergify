@@ -1,5 +1,7 @@
 ---
-TOPOLOGY:
+TOPOLOGY_FREE:
+  localhost: 1
+TOPOLOGY_SUBSCRIBED:
   localhost: 2
 
 FETCH_WORKERS: 5
@@ -15,7 +17,8 @@ INTEGRATION_ID: 00000
 BASE_URL: http://localhost:8802
 
 SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%s"
-REDISCLOUD_URL: "redis://localhost:6379"
+REDIS_URL: "redis://localhost:6379"
+CELERY_BROKER_URL: "redis://localhost:6379/1"
 
 PRIVATE_KEY: |
     -----BEGIN RSA PRIVATE KEY-----
