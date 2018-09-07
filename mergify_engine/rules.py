@@ -16,12 +16,13 @@
 
 import collections
 import copy
-import pkg_resources
 import re
 
 import daiquiri
 
 import github
+
+import pkg_resources
 
 import voluptuous
 
@@ -29,7 +30,8 @@ import yaml
 
 LOG = daiquiri.getLogger(__name__)
 
-default_rule = pkg_resources.resource_filename(__name__, "data/default_rule.yml")
+default_rule = pkg_resources.resource_filename(__name__,
+                                               "data/default_rule.yml")
 with open(default_rule, "r") as f:
     DEFAULT_RULE = yaml.safe_load(f.read())
 
