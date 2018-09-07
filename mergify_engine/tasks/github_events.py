@@ -260,6 +260,8 @@ def job_run_engine(event_type, data, subscription):
     # dedicated queue on exchange c.dq2
     ring = RINGS_PER_SUBSCRIPTION[subscription["subscribed"]]
     routing_key = ring.get_node(data["repository"]["full_name"])
+    LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
+             routing_key)
     _job_run_engine.s(event_type, data, subscription).apply_async(
         exchange='C.dq2', routing_key=routing_key)
 
