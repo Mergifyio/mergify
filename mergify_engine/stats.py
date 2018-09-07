@@ -13,10 +13,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import os
 
 import github
 
 import prometheus_client
+from prometheus_client import multiprocess
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -77,6 +79,11 @@ def get_active_pull_requests():
 # ACTIVE_PULL_REQUESTS = prometheus_client.Gauge(
 #     "pull_requests_active", "Number of active pull request")
 # ACTIVE_PULL_REQUESTS.set_function(get_active_pull_requests)
+
+
+def cleanup(pid):
+    if 'prometheus_multiproc_dir' in os.environ:
+        multiprocess.mark_process_dead(pid)
 
 
 def main():  # pragma: no cover

@@ -19,10 +19,10 @@ import daiquiri
 
 import github
 
-
 import requests
 
 from mergify_engine import config
+from mergify_engine import stats
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -42,6 +42,11 @@ app.conf.worker_send_task_events = True
 
 # Create an additional queue per worker
 app.conf.worker_direct = True
+
+
+@signals.worker_process_shutdown.connect
+def cleanup_stats(pid, exit_code, **kwargs):
+    stats.cleanup(pid)
 
 
 @signals.setup_logging.connect

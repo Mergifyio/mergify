@@ -30,6 +30,8 @@ if sentry_client:
 if 'prometheus_multiproc_dir' in os.environ:
     print("Enabling Prometheus support.")
 
+    import atexit
+
     # needed to load help string of metrics
     from mergify_engine import stats  # noqa
 
@@ -46,3 +48,5 @@ if 'prometheus_multiproc_dir' in os.environ:
     application = DispatcherMiddleware(
         application, {'/metrics': prometheus_app}
     )
+
+    atexit.register(lambda: stats.cleanup(os.getpid()))
