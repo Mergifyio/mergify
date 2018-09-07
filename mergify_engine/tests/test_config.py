@@ -23,7 +23,8 @@ import yaml
 
 from mergify_engine import rules
 
-with open("default_rule.yml", "r") as f:
+
+with open(rules.default_rule, "r") as f:
     print(f.read())
     f.seek(0)
     DEFAULT_CONFIG = yaml.safe_load(f.read())
