@@ -210,4 +210,4 @@ Default branch configuration
 
 The default configuration for all branches is the following:
 
-.. literalinclude:: ../../default_rule.yml
+.. literalinclude:: ../../mergify_engine/data/default_rule.yml
