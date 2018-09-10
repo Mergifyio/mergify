@@ -36,7 +36,7 @@ with open(default_rule, "r") as f:
     DEFAULT_RULE = yaml.safe_load(f.read())
 
 
-Protection = {
+ProtectionSchema = voluptuous.Schema({
     'required_status_checks': voluptuous.Any(
         None, {
             voluptuous.Required('strict', default=False): bool,
@@ -54,13 +54,13 @@ Protection = {
         voluptuous.Required('users', default=[]): [str],
     }),
     'enforce_admins': voluptuous.Any(None, bool),
-}
+})
 
 # TODO(sileht): We can add some otherthing like
 # automatic backport tag
 # option to disable mergify on a particular PR
 Rule = {
-    'protection': Protection,
+    'protection': ProtectionSchema,
     'enabling_label': voluptuous.Any(None, str),
     'disabling_label': str,
     'disabling_files': [str],
@@ -71,12 +71,12 @@ Rule = {
     'automated_backport_labels': voluptuous.Any({str: str}, None),
 }
 
-UserConfigurationSchema = {
+UserConfigurationSchema = voluptuous.Schema({
     voluptuous.Required('rules'): voluptuous.Any({
         'default': voluptuous.Any(Rule, None),
         'branches': {str: voluptuous.Any(Rule, None)},
     }, None)
-}
+})
 
 
 class NoRules(Exception):
@@ -93,7 +93,7 @@ def validate_user_config(content):
     # NOTE(sileht): This is just to check the syntax some attributes can be
     # missing, the important thing is that once merged with the default.
     # Everything need by Github is set
-    return voluptuous.Schema(UserConfigurationSchema)(yaml.safe_load(content))
+    return UserConfigurationSchema(yaml.safe_load(content))
 
 
 def validate_merged_config(config):
