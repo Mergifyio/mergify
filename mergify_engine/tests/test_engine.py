@@ -40,11 +40,11 @@ from mergify_engine import backports
 from mergify_engine import branch_protection
 from mergify_engine import branch_updater
 from mergify_engine import config
-from mergify_engine import engine
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
+from mergify_engine.tasks.engine import v1
 
 
 LOG = logging.getLogger(__name__)
@@ -313,10 +313,8 @@ class TestEngineScenario(testtools.TestCase):
         repo = user.get_repo(self.name)
 
         # Used to access the cache with its helper
-        self.engine = engine.MergifyEngine(g, config.INSTALLATION_ID,
-                                           access_token,
-                                           subscription, user, repo)
-        self.processor = self.engine.get_processor()
+        self.processor = v1.Processor(subscription, user, repo,
+                                      config.INSTALLATION_ID)
 
         if self._testMethodName != "test_creation_pull_of_initial_config":
             self.git("init")
@@ -568,7 +566,7 @@ class TestEngineScenario(testtools.TestCase):
             self.r_main, "disabled", rule, data))
 
         self.create_pr("disabled")
-        self.assertEqual([], self.engine.get_cached_branches())
+        self.assertEqual([], self.processor._get_cached_branches())
         self.assertEqual([], self._get_queue("disabled"))
 
         data = branch_protection.get_protection(self.r_main, "disabled")
@@ -582,8 +580,8 @@ class TestEngineScenario(testtools.TestCase):
         # Check we have only on branch registered
         self.assertEqual("queues~%s~mergify-test1~%s~False~master"
                          % (config.INSTALLATION_ID, self.name),
-                         self.engine._get_cache_key("master"))
-        self.assertEqual(["master"], self.engine.get_cached_branches())
+                         self.processor._get_cache_key("master"))
+        self.assertEqual(["master"], self.processor._get_cached_branches())
 
         # Check policy of that branch is the expected one
         expected_rule = {
@@ -642,7 +640,7 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits2 = self.create_pr()
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
@@ -658,7 +656,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
@@ -667,7 +665,7 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits2 = self.create_pr()
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
@@ -679,7 +677,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
@@ -688,7 +686,7 @@ class TestEngineScenario(testtools.TestCase):
         p2, commits2 = self.create_pr()
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
@@ -715,7 +713,7 @@ class TestEngineScenario(testtools.TestCase):
         self.assertEqual(2, len(pulls))
 
         # Erase the cache and check the engine is empty
-        self.redis.delete(self.engine._get_cache_key("master"))
+        self.redis.delete(self.processor._get_cache_key("master"))
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 

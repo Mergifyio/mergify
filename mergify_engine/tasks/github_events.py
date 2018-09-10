@@ -12,19 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import itertools
 
 import daiquiri
 
 import github
 
-import uhashring
 
 from mergify_engine import config
-from mergify_engine import engine
 from mergify_engine import initial_configuration
 from mergify_engine import stats
 from mergify_engine import utils
+from mergify_engine.tasks import engine
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -98,7 +96,7 @@ def job_refresh(owner, repo, refresh_ref):
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
         }
-        job_run_engine('refresh', data, subscription)
+        engine.run('refresh', data, subscription)
 
 
 @app.task
@@ -139,7 +137,7 @@ def job_refresh_all():
                     'installation': {'id': install["id"]},
                     'pull_request': p.raw_data,
                 }
-                job_run_engine('refresh', data, subscription)
+                engine.run('refresh', data, subscription)
 
     LOG.info("Refreshing %s installations, %s repositories, "
              "%s branches", *counts)
@@ -221,8 +219,26 @@ def job_filter_and_dispatch(event_type, event_id, data):
             msg_action = "ignored (action %s)" % data["action"]
 
         else:
-            job_run_engine(event_type, data, subscription)
+            if event_type == "pull_request" and data["action"] == "open":
+                stats.PULL_REQUESTS.inc()
+
+            engine.run(event_type, data, subscription)
             msg_action = "pushed to backend"
+
+            if event_type == "pull_request":
+                msg_action += ", action: %s" % data["action"]
+
+            elif event_type == "pull_request_review":
+                msg_action += ", action: %s, review-state: %s" % (
+                    data["action"], data["review"]["state"])
+
+            elif event_type == "pull_request_review_comment":
+                msg_action += ", action: %s, review-state: %s" % (
+                    data["action"], data["comment"]["position"])
+
+            elif event_type == "status":
+                msg_action += ", ci-status: %s, sha: %s" % (
+                    data["state"], data["sha"])
 
     else:
         msg_action = "ignored (unexpected event_type)"
@@ -238,70 +254,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
              install_id=data["installation"]["id"],
              repository=repo_name,
              subscribed=subscription["subscribed"])
-
-
-def get_ring(topology, kind):
-    return uhashring.HashRing(
-        nodes=list(itertools.chain.from_iterable(
-            map(lambda x: "worker-%s-%003d@%s" % (kind, x, fqdn), range(w))
-            for fqdn, w in sorted(topology.items())
-        )))
-
-
-RINGS_PER_SUBSCRIPTION = {
-    True: get_ring(config.TOPOLOGY_SUBSCRIBED, "sub"),
-    False: get_ring(config.TOPOLOGY_FREE, "free")
-}
-
-
-def job_run_engine(event_type, data, subscription):
-    # NOTE(sileht): Select the worker to use, only useful for engine v1. This
-    # work in coordination with app.conf.worker_direct = True that creates the
-    # dedicated queue on exchange c.dq2
-    ring = RINGS_PER_SUBSCRIPTION[subscription["subscribed"]]
-    routing_key = ring.get_node(data["repository"]["full_name"])
-    LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
-             routing_key)
-    _job_run_engine.s(event_type, data, subscription).apply_async(
-        exchange='C.dq2', routing_key=routing_key)
-
-
-@app.task
-def _job_run_engine(event_type, data, subscription):
-    """Everything starts here."""
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    try:
-        installation_token = integration.get_access_token(
-            data["installation"]["id"]).token
-    except github.UnknownObjectException:
-        LOG.error("token for install %d does not exists anymore (%s)",
-                  data["installation"]["id"],
-                  data["repository"]["full_name"])
-        return
-
-    g = github.Github(installation_token)
-    try:
-        user = g.get_user(data["repository"]["owner"]["login"])
-        repo = user.get_repo(data["repository"]["name"])
-
-        # TODO(sileht): We currently launch only engine v1 here.
-        # We must extract common from engine v1:
-        # * the code that extract pull request object from the event
-        #   or via github search when we only have sha
-        # * the code that extract mergify configuration from the repository
-        engine.MergifyEngine(g, data["installation"]["id"],
-                             installation_token,
-                             subscription,
-                             user, repo).handle(event_type, data)
-    except github.BadCredentialsException:  # pragma: no cover
-        LOG.error("token for install %d is no longuer valid (%s)",
-                  data["installation"]["id"],
-                  data["repository"]["full_name"])
-    except github.RateLimitExceededException:  # pragma: no cover
-        LOG.error("rate limit reached for install %d (%s)",
-                  data["installation"]["id"],
-                  data["repository"]["full_name"])
 
 
 @app.task

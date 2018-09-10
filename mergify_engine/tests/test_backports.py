@@ -16,6 +16,7 @@
 from unittest import mock
 
 from mergify_engine import backports
+from mergify_engine import config
 from mergify_engine import mergify_pull
 
 
@@ -34,7 +35,8 @@ def test_get_commits_to_cherry_pick_rebase():
         return [c1, c2]
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g_pull=g_pull)
+    pull = mergify_pull.MergifyPull(g_pull=g_pull,
+                                    installation_id=config.INSTALLATION_ID)
 
     base_branch = mock.Mock()
     base_branch.sha = "base_branch"
@@ -67,7 +69,8 @@ def test_get_commits_to_cherry_pick_merge():
         return [c1, c2]
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g_pull=g_pull)
+    pull = mergify_pull.MergifyPull(g_pull=g_pull,
+                                    installation_id=config.INSTALLATION_ID)
 
     base_branch = mock.Mock()
     base_branch.sha = "base_branch"
