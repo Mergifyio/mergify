@@ -31,7 +31,6 @@ from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
-from mergify_engine import stats
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -42,7 +41,7 @@ class Caching(object):
     user = attr.ib()
     repository = attr.ib()
     installation_id = attr.ib()
-    _redis = attr.ib()
+    _redis = attr.ib(factory=utils.get_redis_for_cache, init=False)
 
     def _get_logprefix(self, branch="<unknown>"):
         return (self.user.login + "/" + self.repository.name +
@@ -62,14 +61,36 @@ class Caching(object):
         key = self._get_cache_key(pull.g_pull.base.ref)
         self._redis.hdel(key, pull.g_pull.number)
 
+    def _get_cached_branches(self):
+        return [b.split('~')[5] for b in
+                self._redis.keys(self._get_cache_key("*"))]
+
+
+class ShaToPullRequest(Caching):
+    def get(self, sha):
+        for branch in self._get_cached_branches():
+            incoming_pull = self._get_cache_for_pull_sha(branch, sha)
+            if incoming_pull:
+                return github.PullRequest.PullRequest(
+                    self.repository._requester, {}, incoming_pull,
+                    completed=True)
+
+    def _get_cache_for_pull_sha(self, current_branch, sha):
+        key = self._get_cache_key(current_branch)
+        raw_pulls = self._redis.hgetall(key)
+        for pull in raw_pulls.values():
+            pull = json.loads(pull)
+            if pull["head"]["sha"] == sha:
+                return pull
+        return {}  # pragma: no cover
+
 
 class MergifyEngine(Caching):
-    def __init__(self, g, installation_id, installation_token, subscription,
-                 user, repo):
+    def __init__(self, g, installation_id, installation_token,
+                 subscription, user, repo):
         super(MergifyEngine, self).__init__(user=user,
                                             repository=repo,
-                                            installation_id=installation_id,
-                                            redis=utils.get_redis_for_cache())
+                                            installation_id=installation_id)
         self._g = g
         self._installation_token = installation_token
         self._subscription = subscription
@@ -79,127 +100,20 @@ class MergifyEngine(Caching):
         p = self._redis.hget(key, number)
         return {} if p is None else json.loads(p)
 
-    def get_cached_github_pull_for_pull_sha(self, sha):
-        for branch in self.get_cached_branches():
-            incoming_pull = self.get_cache_for_pull_sha(branch, sha)
-            if incoming_pull:
-                return github.PullRequest.PullRequest(
-                    self.repository._requester, {}, incoming_pull,
-                    completed=True)
-
-    def get_cached_branches(self):
-        return [b.split('~')[5] for b in
-                self._redis.keys(self._get_cache_key("*"))]
-
-    def get_cache_for_pull_sha(self, current_branch, sha):
-        key = self._get_cache_key(current_branch)
-        raw_pulls = self._redis.hgetall(key)
-        for pull in raw_pulls.values():
-            pull = json.loads(pull)
-            if pull["head"]["sha"] == sha:
-                return pull
-        return {}  # pragma: no cover
-
-    def get_github_pull_for_sha(self, sha):
-        pull = self.get_cached_github_pull_for_pull_sha(sha)
-        if pull:
-            return pull
-
-        issues = list(self._g.search_issues("is:pr %s" % sha))
-        if not issues:
-            return
-        if len(issues) > 1:
-            # NOTE(sileht): It's that technically possible, but really ?
-            LOG.warning("sha attached to multiple pull requests", sha=sha)
-        for i in issues:
-            try:
-                pull = self.repository.get_pull(i.number)
-            except github.GithubException as e:  # pragma: no cover
-                if e.status != 404:
-                    raise
-            if pull and not pull.merged:
-                return pull
-
-    def get_github_pull_from_event(self, event_type, data):
-        if "pull_request" in data:
-            return github.PullRequest.PullRequest(
-                self.repository._requester, {},
-                data["pull_request"], completed=True
-            )
-        elif event_type == "status":
-            return self.get_github_pull_for_sha(data["sha"])
-
-    def handle(self, event_type, data):
+    def handle(self, config, event_type, incoming_pull, data):
         # Everything start here
 
-        event_pull = self.get_github_pull_from_event(event_type, data)
-
-        if not event_pull:  # pragma: no cover
-            self.log_formated_event(event_type, None, data)
-            LOG.info("No pull request found in the event %s, "
-                     "ignoring", event_type)
-            return
-
-        incoming_pull = mergify_pull.MergifyPull(event_pull)
         incoming_branch = incoming_pull.g_pull.base.ref
-        incoming_sha = incoming_pull.g_pull.head.sha
         incoming_state = incoming_pull.g_pull.state
 
-        self.log_formated_event(event_type, incoming_pull, data)
-
-        if event_type == "pull_request" and data["action"] == "open":
-            stats.PULL_REQUESTS.inc()
-
-        if (event_type == "status" and
-                incoming_sha != data["sha"]):  # pragma: no cover
-            LOG.info("No need to proceed queue (got status of an old commit)")
-            return
-
-        elif event_type == "status" and incoming_pull.g_pull.merged:
-            LOG.info("No need to proceed queue (got status of a merged "
-                     "pull request)")
-            return
-
-        # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
-        if (event_type == "pull_request" and
-           data["action"] in ["opened", "synchronize"] and
-           self.repository.default_branch == incoming_branch):
-            ref = None
-            for f in incoming_pull.g_pull.get_files():
-                if f.filename == ".mergify.yml":
-                    ref = f.contents_url.split("?ref=")[1]
-
-            if ref is not None:
-                try:
-                    config = rules.get_mergify_config(
-                        self.repository, ref=ref)
-                    rules.get_branch_rule(config['rules'], incoming_branch)
-                except rules.InvalidRules as e:  # pragma: no cover
-                    # Not configured, post status check with the error message
-                    # FIXME()!!!!!!!!!!!
-                    incoming_pull.post_check_status(
-                        self._redis, self.installation_id,
-                        "failure", str(e), "future-config-checker")
-                else:
-                    incoming_pull.post_check_status(
-                        self._redis, self.installation_id,
-                        "success", "The new configuration is valid",
-                        "future-config-checker")
-
-        # BRANCH CONFIGURATION CHECKING
         try:
-            config = rules.get_mergify_config(self.repository)
             branch_rule = rules.get_branch_rule(config['rules'],
                                                 incoming_branch)
-        except rules.NoRules as e:
-            LOG.info("No need to proceed queue (.mergify.yml is missing)")
-            return
         except rules.InvalidRules as e:  # pragma: no cover
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
                     data["action"] in ["opened", "synchronize"]):
                 incoming_pull.post_check_status(
-                    self._redis, self.installation_id,
                     "failure", str(e))
             return
 
@@ -239,7 +153,6 @@ class MergifyEngine(Caching):
 
                 if not incoming_pull.g_pull.merged:
                     incoming_pull.post_check_status(
-                        self._redis, self.installation_id,
                         "success", "Pull request closed unmerged")
 
                 head_branch = incoming_pull.g_pull.head.ref
@@ -291,7 +204,6 @@ class MergifyEngine(Caching):
         # Get and refresh the queues
         if old_status != incoming_pull.status:
             incoming_pull.post_check_status(
-                self._redis, self.installation_id,
                 incoming_pull.github_state,
                 incoming_pull.github_description,
             )
@@ -303,48 +215,14 @@ class MergifyEngine(Caching):
         return Processor(subscription=self._subscription,
                          user=self.user,
                          repository=self.repository,
-                         installation_id=self.installation_id,
-                         redis=self._redis)
-
-    def log_formated_event(self, event_type, incoming_pull, data):
-        if not incoming_pull:
-            incoming_pull = self._get_logprefix()
-
-        if event_type == "pull_request":
-            detail = ", action: %s" % data["action"]
-
-        elif event_type == "pull_request_review":
-            detail = ", action: %s, review-state: %s" % (
-                data["action"], data["review"]["state"])
-
-        elif event_type == "pull_request_review_comment":
-            detail = ", action: %s, review-state: %s" % (
-                data["action"], data["comment"]["position"])
-
-        elif event_type == "status":
-            detail = ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
-
-        elif event_type == "refresh":
-            detail = ""
-        else:  # pragma: no cover
-            detail = ", unknown"
-
-        LOG.info("***********************************************************")
-        LOG.info("received event '%s'%s", event_type, detail,
-                 pull_request=incoming_pull)
-        if config.LOG_RATELIMIT:  # pragma: no cover
-            rate = self._g.get_rate_limit().rate
-            LOG.info("ratelimit: %s/%s, reset at %s",
-                     rate.remaining, rate.limit, rate.reset,
-                     pull_request=incoming_pull)
+                         installation_id=self.installation_id)
 
 
 class Processor(Caching):
-    def __init__(self, subscription, user, repository, installation_id, redis):
+    def __init__(self, subscription, user, repository, installation_id):
         super(Processor, self).__init__(user=user,
                                         repository=repository,
-                                        installation_id=installation_id,
-                                        redis=redis)
+                                        installation_id=installation_id)
         self._subscription = subscription
 
     def _build_queue(self, branch, branch_rule, collaborators):
@@ -366,8 +244,10 @@ class Processor(Caching):
 
     def _load_from_cache_and_complete(self, data, branch_rule, collaborators):
         data = json.loads(data)
-        pull = mergify_pull.MergifyPull(github.PullRequest.PullRequest(
-            self.repository._requester, {}, data, completed=True))
+        pull = mergify_pull.MergifyPull(
+            github.PullRequest.PullRequest(self.repository._requester, {},
+                                           data, completed=True),
+            self.installation_id)
         changed = pull.complete(data, branch_rule, collaborators)
         if changed:
             self._cache_save_pull(pull)
@@ -422,16 +302,14 @@ class Processor(Caching):
             return
 
         if p.mergify_state == mergify_pull.MergifyState.READY:
-            p.post_check_status(self._redis, self.installation_id,
-                                "success", "Merged")
+            p.post_check_status("success", "Merged")
 
             if p.merge(branch_rule["merge_strategy"]["method"],
                        branch_rule["merge_strategy"]["rebase_fallback"]):
                 # Wait for the closed event now
                 LOG.info("merged", pull_request=p)
             else:  # pragma: no cover
-                p.set_and_post_error(self._redis, self.installation_id,
-                                     "Merge fail")
+                p.set_and_post_error("Merge fail")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain
 
@@ -443,8 +321,7 @@ class Processor(Caching):
                 # Wait for the synchronize event now
                 LOG.info("branch updated", pull_request=p)
             else:  # pragma: no cover
-                p.set_and_post_error(self._redis, self.installation_id,
-                                     "contributor branch is not updatable, "
+                p.set_and_post_error("contributor branch is not updatable, "
                                      "manual update/rebase required.")
                 self._cache_save_pull(p)
                 raise tenacity.TryAgain

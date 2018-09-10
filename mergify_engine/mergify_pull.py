@@ -27,6 +27,7 @@ from github import Consts
 import tenacity
 
 from mergify_engine import config
+from mergify_engine import utils
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
 # testing and and some info from other project:
@@ -69,6 +70,7 @@ class StatusState(enum.Enum):
 class MergifyPull(object):
     # NOTE(sileht): Use from_cache/from_event not the constructor directly
     g_pull = attr.ib()
+    installation_id = attr.ib()
     _complete = attr.ib(init=False, default=False)
     _reviews_required = attr.ib(init=False, default=None)
 
@@ -441,11 +443,11 @@ class MergifyPull(object):
 
         return True
 
-    def post_check_status(self, redis, installation_id, state, msg,
-                          context=None):
+    def post_check_status(self, state, msg, context=None):
 
+        redis = utils.get_redis_for_cache()
         context = "pr" if context is None else context
-        msg_key = "%s/%s/%d/%s" % (installation_id,
+        msg_key = "%s/%s/%d/%s" % (self.installation_id,
                                    self.g_pull.base.repo.full_name,
                                    self.g_pull.number, context)
 
@@ -476,12 +478,11 @@ class MergifyPull(object):
             self.log.error("set status failed",
                            error=e.data["message"], exc_info=True)
 
-    def set_and_post_error(self, redis, installation_id, github_description):
+    def set_and_post_error(self, github_description):
         self._mergify_state = MergifyState.NOT_READY
         self._github_state = "failure"
         self._github_description = github_description
-        self.post_check_status(redis, installation_id,
-                               self.github_state,
+        self.post_check_status(self.github_state,
                                self.github_description)
 
     def __str__(self):
