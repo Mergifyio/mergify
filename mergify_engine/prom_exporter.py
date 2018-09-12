@@ -11,6 +11,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import itertools
+import operator
 import time
 
 import daiquiri
@@ -78,10 +80,14 @@ def main():  # pragma: no cover
 
             LOG.info("Get repos",
                      install=installation["account"]["login"])
-            repositories = list(g.get_installation(_id).get_repos())
 
-            c = REPOSITORY_PER_INSTALLATION.labels(**labels)
-            c.set(len(repositories))
+            repositories = sorted(g.get_installation(_id).get_repos(),
+                                  key=operator.attrgetter("private"))
+            for private, repos in itertools.groupby(
+                    repositories, key=operator.attrgetter("private")):
+                labels["private"] = private
+                c = REPOSITORY_PER_INSTALLATION.labels(**labels)
+                c.set(len(repos))
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)
