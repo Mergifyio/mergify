@@ -34,7 +34,7 @@ INSTALLATIONS = prometheus_client.Gauge(
 REPOSITORY_PER_INSTALLATION = prometheus_client.Gauge(
     "repositories_per_installation",
     "number of repositories per installation",
-    ["subscribed", "type", "account"])
+    ["subscribed", "type", "account", "private"])
 
 USERS_PER_INSTALLATION = prometheus_client.Gauge(
     "users_per_installation", "number of users per installation",
