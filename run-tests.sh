@@ -8,6 +8,7 @@ cleanup(){
     [ -n "$worker_beat_pid" ] && kill $worker_beat_pid || true
     [ -n "$bridge_pid" ] && kill -9 $bridge_pid || true
     [ -n "$wsgi_pid" ] && kill -9 $wsgi_pid || true
+    [ -n "$exporter_pid" ] && kill -9 $exporter_pid || true
 }
 trap "cleanup" exit
 
@@ -17,6 +18,9 @@ if [ "$MERGIFYENGINE_WEBHOOK_SECRET" == "X" ]; then
     echo "Error: environment variables are not setuped"
     exit 1
 fi
+
+mergify-exporter &
+exporter_pid="$!"
 
 celery worker -A mergify_engine.worker -n worker-sub-000@localhost &
 worker0_pid="$!"
@@ -30,6 +34,9 @@ worker2_pid="$!"
 # For scheduled task
 celery worker -A mergify_engine.worker -B &
 worker_beat_pid="$!"
+
+mergify-exporter &
+exporter_pid="$!"
 
 uwsgi --http 127.0.0.1:8802 --plugin python3 --master --enable-threads --die-on-term --processes 4 --threads 4 --lazy-apps --thunder-lock --wsgi-file mergify_engine/wsgi.py &
 wsgi_pid="$!"
