@@ -84,7 +84,16 @@ def create_pull_request(installation_token, repo):
         github.InputGitTreeElement(".mergify.yml", "100644", "blob", content)
     ], base_tree=default_branch.commit.commit.tree)
     commit = repo.create_git_commit(message, tree, parents)
-    repo.create_git_ref("refs/heads/%s" % INITIAL_CONFIG_BRANCH, commit.sha)
+    try:
+        repo.create_git_ref("refs/heads/%s" % INITIAL_CONFIG_BRANCH,
+                            commit.sha)
+    except github.GithubException as e:
+        if e.status == 422 and e.data['message'] == 'Reference already exists':
+            # NOTE(sileht): The initial PR have been created in the mean time.
+            # That can occurs when user change the repository list twice in a
+            # row.
+            return
+        raise
     repo.create_pull(
         title=message,
         body="""This is an initial configuration for Mergify.
