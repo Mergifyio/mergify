@@ -55,6 +55,52 @@ def test_config():
     validate_with_get_branch_rule(config, "stable/foo")
 
 
+def test_config_default_none():
+    config = {
+        'rules': {
+            'default': None,
+            'branches': {
+                'master': {
+                    'protection': {
+                        'required_pull_request_reviews': {
+                            'required_approving_review_count': 1,
+                            'dismiss_stale_reviews': False,
+                            'require_code_owner_reviews': False,
+                        },
+                        'required_status_checks': {
+                            'strict': True,
+                            'contexts': [
+                                'continuous-integration/travis-ci',
+                                'continuous-integration/appveyor/branch',
+                            ]
+                        },
+                        'enforce_admins': False,
+                    }
+                },
+                'beta': {
+                    'protection': {
+                        'required_pull_request_reviews': {
+                            'required_approving_review_count': 1,
+                            'dismiss_stale_reviews': False,
+                            'require_code_owner_reviews': False,
+                        },
+                        'required_status_checks': {
+                            'strict': True,
+                            'contexts': [
+                                'continuous-integration/travis-ci',
+                                'continuous-integration/appveyor/branch',
+                            ]
+                        },
+                        'enforce_admins': False,
+                    }
+                }
+            }
+        }
+    }
+    validate_with_get_branch_rule(config)
+    validate_with_get_branch_rule(config, "beta")
+
+
 def test_defaulpts_get_branch_rule():
     validate_with_get_branch_rule({"rules": None})
 
