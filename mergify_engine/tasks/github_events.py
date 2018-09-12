@@ -20,7 +20,6 @@ import github
 
 from mergify_engine import config
 from mergify_engine import initial_configuration
-from mergify_engine import stats
 from mergify_engine import utils
 from mergify_engine.tasks import engine
 from mergify_engine.worker import app
@@ -152,7 +151,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "ignored (no token)"
 
     elif event_type == "installation" and data["action"] == "created":
-        stats.INSTALLATIION_ADDED.inc()
         for repository in data["repositories"]:
             if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
                 continue
@@ -162,8 +160,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "pushed to backend"
 
     elif event_type == "installation" and data["action"] == "deleted":
-        stats.INSTALLATIION_REMOVED.inc()
-
         # TODO(sileht): move out this engine V1 related code
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
@@ -219,9 +215,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
             msg_action = "ignored (action %s)" % data["action"]
 
         else:
-            if event_type == "pull_request" and data["action"] == "open":
-                stats.PULL_REQUESTS.inc()
-
             engine.run(event_type, data, subscription)
             msg_action = "pushed to backend"
 

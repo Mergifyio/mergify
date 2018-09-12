@@ -90,6 +90,28 @@ def get_github_pull_from_event(g, user, repo, installation_id,
 
 
 @app.task
+def pull_request_open_count():
+    """Dumb method to record number of new PR for stats."""
+
+
+@app.task
+def pull_request_closed_by_mergify():
+    """Dumb method to record number of closed PR for stats."""
+
+
+def create_metrics(event_type, data):
+    # prometheus_client is a mess with multiprocessing, so we generate tasks
+    # that will be recorded by celery and exported with celery exporter
+    if event_type == "pull_request" and data["action"] == "open":
+        pull_request_open_count.apply_async()
+
+    elif (event_type == "pull_request" and data["action"] == "closed" and
+          data["pull_request"]["state"] == "merged" and
+          data["merged_by"]["login"] == "mergify[bot]"):
+        pull_request_closed_by_mergify.apply_async()
+
+
+@app.task
 def _job_run(event_type, data, subscription):
     """Everything starts here."""
     integration = github.GithubIntegration(config.INTEGRATION_ID,
@@ -174,6 +196,8 @@ def _job_run(event_type, data, subscription):
                 incoming_pull.post_check_status(
                     "failure", str(e))
             return
+
+        create_metrics(event_type, data)
 
         if "rules" in mergify_config:
             v1.MergifyEngine(
