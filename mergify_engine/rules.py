@@ -104,37 +104,13 @@ def validate_merged_config(config):
     return voluptuous.Schema(Rule, required=True)(config)
 
 
-def _dict_merge(dct, merge_dct):
-    """Recursively merge keys/values from merge_dct into dct.
-
-    :return: dct
-    """
+def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
         if (k in dct and isinstance(dct[k], dict) and
            isinstance(merge_dct[k], collections.Mapping)):
-            _dict_merge(dct[k], merge_dct[k])
+            dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
-    return dct
-
-
-def merge_branch_rule_with_default(rules):
-    return _dict_merge(copy.deepcopy(DEFAULT_RULE), rules)
-
-
-def get_merged_branch_rule(rules, branch=None):
-    if rules.get("default") is None:
-        default_rules = {}
-    else:
-        default_rules = merge_branch_rule_with_default(
-            rules.get("default", {}))
-    if branch:
-        if rules["branches"][branch] is None:
-            return None
-        return _dict_merge(default_rules, rules["branches"][branch])
-    elif "default" in rules and rules["default"] is None:
-        return None
-    return default_rules
 
 
 def build_branch_rule(rules, branch):
@@ -143,9 +119,20 @@ def build_branch_rule(rules, branch):
            (branch_re[0] != "^" and branch_re == branch)):
             if rules["branches"][branch_re] is None:
                 return None
-            return get_merged_branch_rule(rules, branch)
+            else:
+                rule = copy.deepcopy(DEFAULT_RULE)
+                if "default" in rules and rules["default"] is not None:
+                    dict_merge(rule, rules["default"])
+                dict_merge(rule, rules["branches"][branch_re])
+                return rule
 
-    return get_merged_branch_rule(rules)
+    # No match take the default
+    if "default" in rules and rules["default"] is None:
+        return None
+    else:
+        rule = copy.deepcopy(DEFAULT_RULE)
+        dict_merge(rule, rules.get("default", {}))
+        return rule
 
 
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
