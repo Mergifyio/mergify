@@ -90,12 +90,17 @@ def get_github_pull_from_event(g, user, repo, installation_id,
 
 
 @app.task
-def pull_request_open_count():
+def pull_request_opened():
     """Dumb method to record number of new PR for stats."""
 
 
 @app.task
-def pull_request_closed_by_mergify():
+def pull_request_merged():
+    """Dumb method to record number of closed PR for stats."""
+
+
+@app.task
+def pull_request_merged_by_mergify():
     """Dumb method to record number of closed PR for stats."""
 
 
@@ -103,12 +108,14 @@ def create_metrics(event_type, data):
     # prometheus_client is a mess with multiprocessing, so we generate tasks
     # that will be recorded by celery and exported with celery exporter
     if event_type == "pull_request" and data["action"] == "open":
-        pull_request_open_count.apply_async()
+        pull_request_opened.apply_async()
 
     elif (event_type == "pull_request" and data["action"] == "closed" and
-          data["pull_request"]["state"] == "merged" and
-          data["merged_by"]["login"] == "mergify[bot]"):
-        pull_request_closed_by_mergify.apply_async()
+          data["pull_request"]["state"] == "merged"):
+
+        pull_request_merged.apply_async()
+        if data["merged_by"]["login"] == "mergify[bot]":
+            pull_request_merged_by_mergify.apply_async()
 
 
 @app.task
