@@ -87,7 +87,7 @@ def main():  # pragma: no cover
                     repositories, key=operator.attrgetter("private")):
                 labels["private"] = private
                 c = REPOSITORY_PER_INSTALLATION.labels(**labels)
-                c.set(len(repos))
+                c.set(len(list(repos)))
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)
