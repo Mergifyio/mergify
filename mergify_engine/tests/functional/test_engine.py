@@ -23,6 +23,7 @@ import github
 import yaml
 
 from mergify_engine import branch_protection
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import rules
 from mergify_engine.tasks.engine import v1
@@ -86,6 +87,7 @@ MERGE_EVENTS = [
     ("status", {"state": "success"}),  # Will be merged soon
     ("status", {"state": "success"}),  # Merged
     ("pull_request", {"action": "closed"}),
+    ("check_suite", {"action": "requested"}),
 ]
 
 
@@ -100,7 +102,6 @@ class TestEngineScenario(base.FunctionalTestBase):
         super(TestEngineScenario, self).setUp()
 
         self.pr_counter = 0
-        self.remaining_events = []
 
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
@@ -109,10 +110,11 @@ class TestEngineScenario(base.FunctionalTestBase):
             config.INSTALLATION_ID).token
         g = github.Github(access_token)
         user = g.get_user("mergify-test1")
-        repo = user.get_repo(self.name)
+        self.repo_as_app = user.get_repo(self.name)
 
         # Used to access the cache with its helper
-        self.processor = v1.Processor(self.subscription, user, repo,
+        self.processor = v1.Processor(self.subscription, user,
+                                      self.repo_as_app,
                                       config.INSTALLATION_ID)
 
         if self._testMethodName != "test_creation_pull_of_initial_config":
@@ -146,88 +148,100 @@ class TestEngineScenario(base.FunctionalTestBase):
             # * installation_repositories
             # * integration_installation_repositories
             # but we receive them 6 times with the same sha1...
-            self.push_events([(None, {"action": "added"})] * 12)
+            self.push_events([(None, {"action": "added"})] * 14)
+            # NOTE(sileht): Since checks API have been enabled, we receive a
+            # check request for the master branch head commit
+            self.push_events([("check_suite", {"action": "requested"})])
 
     def tearDown(self):
-        self.assertEqual([], self.remaining_events)
         # self.r_fork.delete()
         super(TestEngineScenario, self).tearDown()
 
-    def push_events(self, expected_events):
+    def push_events(self, expected_events, ordered=True):
+        LOG.debug("============= push events start =============")
         expected_events = copy.deepcopy(expected_events)
         total = len(expected_events)
+        events = []
         loop = 0
-        events = self.remaining_events
-        while expected_events:
+
+        while len(events) < total:
             loop += 1
             if loop > 100:
-                raise RuntimeError(
-                    "Never got expected events, "
-                    "%d instead of %d" % (total - len(expected_events), total))
+                raise RuntimeError("Never got expected number of events, "
+                                   "got %d events instead of %d" %
+                                   (len(events), total))
 
             if base.RECORD_MODE in ["all", "once"]:
                 time.sleep(0.1)
 
-            if not events:
-                events = self._get_events()
-                if events:
-                    LOG.debug("==============================================")
-                    LOG.debug("Got events: %s",
-                              [(e["type"], e["payload"].get(
-                                  "action", e["payload"].get("state")))
-                               for e in events])
-                    LOG.debug("==============================================")
+            events += self._process_events(total - len(events))
 
-            while events:
-                event = events.pop(0)
-                expected_type, expected_data = expected_events.pop(0)
-                pos = total - len(expected_events) - 1
-                if (expected_type is not None and
-                        expected_type != event["type"]):
+        events = [(e["type"], e) for e in events]
+
+        if not ordered:
+            events = list(sorted(events))
+            expected_events = list(sorted(expected_events))
+
+        pos = 0
+        for (etype, event), (expected_etype, expected_data) in \
+                zip(events, expected_events):
+            pos += 1
+
+            if (expected_etype is not None and
+                    expected_etype != etype):
+                raise Exception(
+                    "[%d] Got %s event type instead of %s" %
+                    (pos, event["type"], expected_etype))
+
+            for key, expected in expected_data.items():
+                value = event["payload"].get(key)
+                if value != expected:
                     raise Exception(
-                        "[%d] Got %s event type instead of %s: %s" %
-                        (pos, event["type"], expected_type,
-                         self._event_payload_for_log(event["payload"])))
+                        "[%d] Got %s for %s instead of %s" %
+                        (pos, value, key, expected))
+        LOG.debug("============= push events end =============")
 
-                for key, expected in expected_data.items():
-                    value = event["payload"].get(key)
-                    if value != expected:
-                        raise Exception(
-                            "[%d] Got %s for %s instead of %s: %s" %
-                            (pos, value, key, expected,
-                             self._event_payload_for_log(event["payload"])))
+    @classmethod
+    def _remove_useless_links(cls, data):
+        data.pop("installation", None)
+        data.pop("sender", None)
+        data.pop("repository", None)
+        data.pop("base", None)
+        data.pop("head", None)
+        data.pop("id", None)
+        data.pop("node_id", None)
+        data.pop("tree_id", None)
+        data.pop("_links", None)
+        data.pop("user", None)
+        data.pop("body", None)
+        for key, value in list(data.items()):
+            if key.endswith("url"):
+                del data[key]
+            if isinstance(value, dict):
+                data[key] = cls._remove_useless_links(value)
+        return data
 
-                self._send_event(**event)
+    @classmethod
+    def _event_for_log(cls, event):
+        filtered_payload = copy.deepcopy(event)
+        return cls._remove_useless_links(filtered_payload)
 
-                if not expected_events:
-                    break
-
-        self.remaining_events = events
-
-    @staticmethod
-    def _event_payload_for_log(payload):
-        filtered_payload = copy.deepcopy(payload)
-        filtered_payload.pop("installation", None)
-        filtered_payload.pop("sender", None)
-        if "pull_request" in filtered_payload:
-            filtered_payload["pull_request"].pop("repository", None)
-            filtered_payload["pull_request"].pop("base", None)
-            filtered_payload["pull_request"].pop("head", None)
-            filtered_payload["pull_request"].pop("_links", None)
-            filtered_payload["pull_request"].pop("user", None)
-            filtered_payload["pull_request"].pop("body", None)
-        return filtered_payload
-
-    def _get_events(self):
+    def _process_events(self, number):
         # NOTE(sileht): Simulate push Github events, we use a counter
         # for have each cassette call unique
-        return list(reversed(self.session.get(
-            "https://gh.mergify.io/events-testing",
+        events = list(self.session.get(
+            "https://gh.mergify.io/events-testing?number=%d" % number,
             data=base.FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
-        ).json()))
+        ).json())
+        if events:
+            for e in events:
+                LOG.debug(">>> Proceed event: [%s] %s %s", e["id"], e["type"],
+                          self._event_for_log(e))
+                self._process_event(**e)
+        return events
 
-    def _send_event(self, id, type, payload):  # noqa
+    def _process_event(self, id, type, payload):  # noqa
         extra = payload.get("state", payload.get("action"))
         LOG.debug("> Processing event: %s %s/%s", id, type, extra)
         r = self.app.post('/event', headers={
@@ -274,7 +288,6 @@ class TestEngineScenario(base.FunctionalTestBase):
             ]
         elif base != "disabled":
             expected_events += [("status", {"state": state})]
-
         self.push_events(expected_events)
 
         # NOTE(sileht): We return the same but owned by the main project
@@ -288,6 +301,27 @@ class TestEngineScenario(base.FunctionalTestBase):
                                      state='success'):
         self.create_status(pr, context, state)
         self.push_events([("status", {"state": state})])
+
+    def create_check_run_and_push_event(self, pr, name, conclusion=None,
+                                        ignore_check_run_event=False,
+                                        ignore_check_suite_event=False):
+        if conclusion is None:
+            status = "in_progress"
+        else:
+            status = "completed"
+
+        pr_as_app = self.repo_as_app.get_pull(pr.number)
+        check_api.set_check_run(pr_as_app, name, status, conclusion)
+
+        expected_events = []
+        if not ignore_check_run_event:
+            expected_events.append(
+                ("check_run", {"action": "created", "conclusion": None}))
+        if not ignore_check_suite_event:
+            expected_events.append(
+                ("check_suite", {'action': 'completed'}))
+
+        self.push_events(expected_events, ordered=False)
 
     def create_status(self, pr, context='continuous-integration/fake-ci',
                       state='success'):
@@ -562,6 +596,7 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         self.push_events(MERGE_EVENTS)
         self.push_events([
+            ("check_suite", {"action": "requested"}),  # for backport branch
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "pending"}),
         ])
@@ -586,7 +621,10 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         self.push_events(MERGE_EVENTS)
         self.push_events([
+            ("check_suite", {"action": "requested"}),  # for backport branch
             ("pull_request", {"action": "opened"}),
+        ], ordered=False)
+        self.push_events([
             ("status", {"state": "pending"}),
         ])
 
@@ -627,7 +665,10 @@ class TestEngineScenario(base.FunctionalTestBase):
             ("pull_request", {"action": "labeled"}),
         ])
         self.push_events([
+            ("check_suite", {"action": "requested"}),  # for backport branch
             ("pull_request", {"action": "opened"}),
+        ], ordered=False)
+        self.push_events([
             ("status", {"state": "pending"}),
         ])
         pulls = list(self.r_main.get_pulls())
@@ -660,8 +701,12 @@ class TestEngineScenario(base.FunctionalTestBase):
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
 
-        self.push_events(MERGE_EVENTS + [
+        self.push_events(MERGE_EVENTS)
+        self.push_events([
+            ("check_suite", {"action": "requested"}),  # for backport branch
             ("pull_request", {"action": "opened"}),
+        ], ordered=False)
+        self.push_events([
             ("status", {"state": "pending"}),
         ])
 
@@ -909,9 +954,10 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         self.create_status(p)
 
-        self.push_events([("pull_request", {"action": "opened"})])
-        self.push_events([(None, {"action": "added"})] * 12)
+        self.push_events([(None, {"action": "added"})] * 14)
         self.push_events([
+            ("check_suite", {"action": "requested"}),
+            ("check_suite", {"action": "requested"}),
             ("pull_request", {"action": "opened"}),
             ("status", {"state": "success"})
         ])
@@ -940,3 +986,87 @@ class TestEngineScenario(base.FunctionalTestBase):
         self.assertEqual(expected_config, got_config)
 
         rules.validate_user_config(got_config)
+
+    def test_checks(self):
+        self.create_pr()
+        p2, commits = self.create_pr()
+
+        # Check we have only on branch registered
+        self.assertEqual("queues~%s~mergify-test1~%s~False~master"
+                         % (config.INSTALLATION_ID, self.name),
+                         self.processor._get_cache_key("master"))
+        self.assertEqual(["master"], self.processor._get_cached_branches())
+
+        # Check policy of that branch is the expected one
+        expected_rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                },
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+
+        data = branch_protection.get_protection(self.r_main, "master")
+        self.assertTrue(branch_protection.is_configured(
+            self.r_main, "master", expected_rule, data))
+
+        # Checks the content of the cache
+        pulls = self._get_queue("master")
+        self.assertEqual(2, len(pulls))
+        for p in pulls:
+            self.assertEqual(0, p.mergify_state)
+
+        self.create_check_run_and_push_event(p2, "The always broken check",
+                                             conclusion="failure")
+
+        # FIXME(sileht): Github looks buggy, if the conclusion of a checksuite
+        # doesn't change, no event are sent. I was expecting Github to send a
+        # new checksuite showing that now we have pending runs.
+        self.create_check_run_and_push_event(p2,
+                                             'continuous-integration/fake-ci',
+                                             conclusion=None,
+                                             ignore_check_suite_event=True)
+
+        # FIXME(sileht): Github looks buggy, I just update the previous
+        # check-run, and I don't get any check-run/check-suite events.
+        # That's problematique, because Mergify is not triggered here.
+        self.create_check_run_and_push_event(p2,
+                                             'continuous-integration/fake-ci',
+                                             conclusion="success",
+                                             ignore_check_run_event=True,
+                                             ignore_check_suite_event=True)
+
+        # NOTE(sileht): I create a another check that will trigger Mergify
+        # because of the previous bug...
+        self.create_check_run_and_push_event(p2, 'Another check',
+                                             conclusion="success",
+                                             ignore_check_suite_event=True)
+
+        self.create_review_and_push_event(p2, commits[0])
+
+        pulls = self._get_queue("master")
+        self.assertEqual(2, len(pulls))
+        self.assertEqual(2, pulls[0].g_pull.number)
+        self.assertEqual(30,
+                         pulls[0].mergify_state)
+        self.assertEqual("Will be merged soon",
+                         pulls[0].github_description)
+
+        self.assertEqual(1, pulls[1].g_pull.number)
+        self.assertEqual(0, pulls[1].mergify_state)
+        self.assertEqual("0/1 approvals required",
+                         pulls[1].github_description)
+
+        # Check the merged pull request is gone
+        self.push_events(MERGE_EVENTS)
+
+        pulls = self._get_queue("master")
+        self.assertEqual(1, len(pulls))

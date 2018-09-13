@@ -23,7 +23,6 @@ import attr
 import daiquiri
 
 import github
-from github import Consts
 
 import tenacity
 
@@ -170,7 +169,6 @@ class MergifyPull(object):
     def refresh(self, branch_rule, collaborators):
         # NOTE(sileht): Redownload the PULL to ensure we don't have
         # any etag floating around
-        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
         self._ensure_mergable_state(force=True)
         return self.complete({}, branch_rule, collaborators)
 
@@ -293,23 +291,22 @@ class MergifyPull(object):
             self.g_pull.head.repo._requester, headers, data, completed=True)
 
     def _get_checks(self):
+        generic_checks = set()
         try:
             # NOTE(sileht): conclusion can be one of success, failure, neutral,
             # cancelled, timed_out, or action_required, and  None for "pending"
-            generic_checks = set([GenericCheck(c.name, c.conclusion)
-                                  for c in check_api.get_checks(self.g_pull)])
+            generic_checks |= set([GenericCheck(c.name, c.conclusion)
+                                   for c in check_api.get_checks(self.g_pull)])
         except github.GithubException as e:
             if (e.status != 403 or e.data["message"] !=
-               "Resource not accessible by integration"):
+                    "Resource not accessible by integration"):
                 raise
-        else:
-            generic_checks = set()
 
-        return (generic_checks |
-                # NOTE(sileht): state can be one of error, failure, pending,
-                # or success.
-                set([GenericCheck(s.context, s.state)
-                     for s in self._get_combined_status().statuses]))
+        # NOTE(sileht): state can be one of error, failure, pending,
+        # or success.
+        generic_checks |= set([GenericCheck(s.context, s.state)
+                               for s in self._get_combined_status().statuses])
+        return generic_checks
 
     def _compute_required_statuses(self, branch_rule):
         # return True is CIs succeed, False is their fail, None
@@ -459,14 +456,12 @@ class MergifyPull(object):
             return
 
         # Github is currently processing this PR, we wait the completion
-        # TODO(sileht): We should be able to do better that retry 15x
         self.log.info("refreshing")
 
-        # FIXME(sileht): Well github doesn't always update etag/last_modified
-        # when mergeable_state change...
-        self.g_pull._headers.pop(Consts.RES_ETAG, None)
-        self.g_pull._headers.pop(Consts.RES_LAST_MODIFIED, None)
-        self.g_pull.update()
+        # NOTE(sileht): Well github doesn't always update etag/last_modified
+        # when mergeable_state change, so we get a fresh pull request instead
+        # of using update()
+        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
         if (self.g_pull.merged or
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
             return
