@@ -195,7 +195,7 @@ def _job_run(event_type, data, subscription):
                      "pull request)")
             return
         elif (event_type in ["check_suite", "check_run"]
-              and incoming_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
+              and incoming_pull.g_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
             LOG.info("No need to proceed queue (got %s of an old "
                      "commit)", event_type)
             return
