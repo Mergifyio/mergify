@@ -41,53 +41,55 @@ USERS_PER_INSTALLATION = prometheus_client.Gauge(
     ["subscribed", "type", "account"])
 
 
+def collect_metrics():
+    redis = utils.get_redis_for_cache()
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    INSTALLATIONS._metrics = {}
+
+    LOG.info("Get installations")
+    for installation in utils.get_installations(integration):
+        _id = installation["id"]
+        LOG.info("Get subscription",
+                 install=installation["account"]["login"])
+
+        labels = {
+            "subscribed": utils.get_subscription(redis, _id)["subscribed"],
+            "type": installation["target_type"],
+        }
+        INSTALLATIONS.labels(**labels).inc()
+
+        labels["account"] = installation["account"]["login"]
+
+        token = integration.get_access_token(_id).token
+        g = github.Github(token)
+
+        if installation["target_type"] == "Organization":
+            LOG.info("Get members",
+                     install=installation["account"]["login"])
+            org = g.get_organization(installation["account"]["login"])
+            c = USERS_PER_INSTALLATION.labels(**labels)
+            c.set(len(list(org.get_members())))
+
+        LOG.info("Get repos",
+                 install=installation["account"]["login"])
+
+        repositories = sorted(g.get_installation(_id).get_repos(),
+                              key=operator.attrgetter("private"))
+        for private, repos in itertools.groupby(
+                repositories, key=operator.attrgetter("private")):
+            labels["private"] = private
+            c = REPOSITORY_PER_INSTALLATION.labels(**labels)
+            c.set(len(list(repos)))
+
+
 def main():  # pragma: no cover
     utils.prepare_service()
     LOG.info("Starting")
     prometheus_client.start_http_server(8889)
     LOG.info("Started")
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
     while True:
-        r = utils.get_redis_for_cache()
-
-        INSTALLATIONS._metrics = {}
-
-        LOG.info("Get installations")
-        for installation in utils.get_installations(integration):
-            _id = installation["id"]
-            LOG.info("Get subscription",
-                     install=installation["account"]["login"])
-
-            labels = {
-                "subscribed": utils.get_subscription(r, _id)["subscribed"],
-                "type": installation["target_type"],
-            }
-            INSTALLATIONS.labels(**labels).inc()
-
-            labels["account"] = installation["account"]["login"]
-
-            token = integration.get_access_token(_id).token
-            g = github.Github(token)
-
-            if installation["target_type"] == "Organization":
-                LOG.info("Get members",
-                         install=installation["account"]["login"])
-                org = g.get_organization(installation["account"]["login"])
-                c = USERS_PER_INSTALLATION.labels(**labels)
-                c.set(len(list(org.get_members())))
-
-            LOG.info("Get repos",
-                     install=installation["account"]["login"])
-
-            repositories = sorted(g.get_installation(_id).get_repos(),
-                                  key=operator.attrgetter("private"))
-            for private, repos in itertools.groupby(
-                    repositories, key=operator.attrgetter("private")):
-                labels["private"] = private
-                c = REPOSITORY_PER_INSTALLATION.labels(**labels)
-                c.set(len(list(repos)))
-
+        collect_metrics()
         # Only generate metrics once per hour
         time.sleep(60 * 60)
