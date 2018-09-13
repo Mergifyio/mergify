@@ -54,6 +54,31 @@ def run(event_type, data, subscription):
         exchange='C.dq2', routing_key=routing_key)
 
 
+def get_github_pull_from_sha(g, user, repo, installation_id, sha):
+
+    # TODO(sileht): Replace this optimisation when we drop engine v1
+    pull = v1.Caching(user=user, repository=repo,
+                      installation_id=installation_id
+                      ).get_pr_for_sha(sha)
+    if pull:
+        return pull
+
+    issues = list(g.search_issues("is:pr %s" % sha))
+    if not issues:
+        return
+    if len(issues) > 1:
+        # NOTE(sileht): It's that technically possible, but really ?
+        LOG.warning("sha attached to multiple pull requests", sha=sha)
+    for i in issues:
+        try:
+            pull = repo.get_pull(i.number)
+        except github.GithubException as e:  # pragma: no cover
+            if e.status != 404:
+                raise
+        if pull and not pull.merged:
+            return pull
+
+
 def get_github_pull_from_event(g, user, repo, installation_id,
                                event_type, data):
     if "pull_request" in data:
@@ -62,42 +87,23 @@ def get_github_pull_from_event(g, user, repo, installation_id,
             data["pull_request"], completed=True
         )
     elif event_type == "status":
-
-        # TODO(sileht): Replace this optimisation when we drop engine v1
-
-        pull = v1.Caching(user=user, repository=repo,
-                          installation_id=installation_id
-                          ).get_pr_for_sha(data["sha"])
-        if pull:
-            return pull
-
-        issues = list(g.search_issues("is:pr %s" % data["sha"]))
-        if not issues:
-            return
-        if len(issues) > 1:
-            # NOTE(sileht): It's that technically possible, but really ?
-            LOG.warning("sha attached to multiple pull requests",
-                        sha=data["sha"])
-        for i in issues:
-            try:
-                pull = repo.get_pull(i.number)
-            except github.GithubException as e:  # pragma: no cover
-                if e.status != 404:
-                    raise
-            if pull and not pull.merged:
-                return pull
+        return get_github_pull_from_sha(g, user, repo, installation_id,
+                                        data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
             pulls = data["check_run"]["check_suite"]["pull_requests"]
+            sha = data["check_run"]["head_sha"]
         else:
             pulls = data["check_suite"]["pull_requests"]
-        if not pulls:  # pragma: no cover
-            LOG.warning("check_suite/check_run without pulls")
-            return
+            sha = data["check_suite"]["head_sha"]
+        if not pulls:
+            return get_github_pull_from_sha(g, user, repo,
+                                            installation_id, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning("check_suite/check_run attached on multiple pulls")
+
         for p in pulls:
 
             pull = v1.Caching(user=user, repository=repo,

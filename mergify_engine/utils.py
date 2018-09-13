@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import hashlib
 import hmac
 import json
@@ -30,6 +31,8 @@ import celery.app.log
 import daiquiri
 
 import github
+
+import iso8601
 
 import raven
 from raven.handlers import logging as raven_logging
@@ -94,6 +97,10 @@ def get_redis_for_cache():
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
             get_redis_url(), decode_responses=True)
     return REDIS_CONNECTION_CACHE
+
+
+def utcnow():
+    return datetime.datetime.now(tz=iso8601.iso8601.UTC)
 
 
 class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter,

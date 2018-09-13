@@ -16,6 +16,8 @@ import github.GithubObject
 
 import tenacity
 
+from mergify_engine import utils
+
 
 class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
     def __repr__(self):
@@ -24,6 +26,10 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
             "name": self._name.value,
             "conclusion": self._conclusion.value,
         })
+
+    @property  # noqa
+    def id(self):
+        return self._id.value
 
     @property
     def name(self):
@@ -40,7 +46,7 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
 
     def _useAttributes(self, attributes):
         if "id" in attributes:
-            self._id = self._makeStringAttribute(attributes["id"])
+            self._id = self._makeIntAttribute(attributes["id"])
         if "name" in attributes:
             self._name = self._makeStringAttribute(attributes["name"])
         if "conclusion" in attributes:
@@ -48,11 +54,11 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
                 attributes["conclusion"])
 
 
-def get_checks(pull):
+def get_checks(pull, parameters=None):
     return github.PaginatedList.PaginatedList(
         Check, pull._requester,
         "%s/commits/%s/check-runs" % (pull.base.repo.url, pull.head.sha),
-        None,
+        parameters,
         list_item='check_runs',
         headers={'Accept': 'application/vnd.github.antiope-preview+json'}
     )
@@ -64,6 +70,47 @@ def get_check_suite(g_repo, check_suite_id):
         headers={'Accept': 'application/vnd.github.antiope-preview+json'}
     )
     return data
+
+
+def set_check_run(pull, name, status, conclusion=None, output=None):
+    post_parameters = {
+        "name": name,
+        "head_sha": pull.head.sha,
+        "status": status,
+    }
+    if output:
+        post_parameters["output"] = output
+    if conclusion:
+        post_parameters["conclusion"] = conclusion
+
+    if status == "completed":
+        post_parameters["completed_at"] = utils.utcnow().isoformat()
+
+    # TODO(sileht): Add our app_id to be sure, we don't get checks of another
+    # GitHubApp
+    checks = list(get_checks(pull, {"check_name": name}))
+
+    if not checks:
+        headers, data = pull._requester.requestJsonAndCheck(
+            "POST",
+            "%s/check-runs" % (pull.base.repo.url),
+            input=post_parameters,
+            headers={'Accept':
+                     'application/vnd.github.antiope-preview+json'}
+        )
+    elif len(checks) == 1:
+        headers, data = pull._requester.requestJsonAndCheck(
+            "PATCH",
+            "%s/check-runs/%s" % (pull.base.repo.url, checks[0].id),
+            input=post_parameters,
+            headers={'Accept':
+                     'application/vnd.github.antiope-preview+json'}
+        )
+    else:  # pragma no cover
+        raise RuntimeError("Multiple mergify checks have been created, "
+                           "we have a bug. %s" % pull.url)
+
+    return Check(pull._requester, headers, data, completed=True)
 
 
 @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
