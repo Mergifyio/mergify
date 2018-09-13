@@ -181,6 +181,9 @@ def _job_run(event_type, data, subscription):
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_sha = incoming_pull.g_pull.head.sha
 
+        LOG.info("Pull request found in the event %s", event_type,
+                 pull_request=incoming_pull)
+
         if (event_type == "status" and
                 incoming_sha != data["sha"]):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)")
@@ -199,8 +202,8 @@ def _job_run(event_type, data, subscription):
 
         # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
         if (event_type == "pull_request" and
-           data["action"] in ["opened", "synchronize"] and
-           repo.default_branch == incoming_branch):
+            data["action"] in ["opened", "synchronize"] and
+                repo.default_branch == incoming_branch):
             ref = None
             for f in incoming_pull.g_pull.get_files():
                 if f.filename == ".mergify.yml":
