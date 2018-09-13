@@ -67,7 +67,7 @@ def get_github_pull_from_event(g, user, repo, installation_id,
 
         pull = v1.Caching(user=user, repository=repo,
                           installation_id=installation_id
-                          ).get_cache_for_sha(data["sha"])
+                          ).get_pr_for_sha(data["sha"])
         if pull:
             return pull
 
@@ -102,7 +102,7 @@ def get_github_pull_from_event(g, user, repo, installation_id,
 
             pull = v1.Caching(user=user, repository=repo,
                               installation_id=installation_id
-                              ).get_cache_for_pull_number(
+                              ).get_pr_for_pull_number(
                                   p["base"]["ref"],
                                   p["number"])
             if not pull:

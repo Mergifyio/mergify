@@ -71,7 +71,13 @@ class Caching(object):
         p = self._redis.hget(key, number)
         return {} if p is None else json.loads(p)
 
-    def get_cache_for_sha(self, sha):
+    def get_pr_for_pull_number(self, current_branch, number):
+        p = self.get_cache_for_pull_number(current_branch, number)
+        return github.PullRequest.PullRequest(
+            self.repository._requester, {}, p,
+            completed=True)
+
+    def get_pr_for_sha(self, sha):
         for branch in self._get_cached_branches():
             incoming_pull = self._get_cache_for_pull_sha(branch, sha)
             if incoming_pull:
