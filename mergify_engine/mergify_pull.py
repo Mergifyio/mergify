@@ -255,8 +255,14 @@ class MergifyPull(object):
         # Check API
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        generic_checks |= set([GenericCheck(c.name, c.conclusion)
-                              for c in check_api.get_checks(self.g_pull)])
+        try:
+            generic_checks |= set([GenericCheck(c.name, c.conclusion)
+                                   for c in check_api.get_checks(self.g_pull)])
+        except github.GithubException as e:
+            if (e.status == 403 and e.data["message"] ==
+                    "Resource not accessible by integration"):
+                pass
+            raise
 
         # NOTE(sileht): Due to the difference of both API we use only success
         # bellow.
