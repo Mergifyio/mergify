@@ -259,10 +259,9 @@ class MergifyPull(object):
             generic_checks |= set([GenericCheck(c.name, c.conclusion)
                                    for c in check_api.get_checks(self.g_pull)])
         except github.GithubException as e:
-            if (e.status == 403 and e.data["message"] ==
+            if (e.status != 403 or e.data["message"] !=
                     "Resource not accessible by integration"):
-                pass
-            raise
+                raise
 
         # NOTE(sileht): Due to the difference of both API we use only success
         # bellow.
