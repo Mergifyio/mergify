@@ -45,7 +45,7 @@ def collect_metrics():
     redis = utils.get_redis_for_cache()
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    INSTALLATIONS._metrics = {}
+    todo = []
 
     LOG.info("Get installations")
     for installation in utils.get_installations(integration):
@@ -57,7 +57,7 @@ def collect_metrics():
             "subscribed": utils.get_subscription(redis, _id)["subscribed"],
             "type": installation["target_type"],
         }
-        INSTALLATIONS.labels(**labels).inc()
+        todo.append((INSTALLATIONS.labels(**labels).inc, tuple()))
 
         labels["account"] = installation["account"]["login"]
 
@@ -69,7 +69,8 @@ def collect_metrics():
                      install=installation["account"]["login"])
             org = g.get_organization(installation["account"]["login"])
             c = USERS_PER_INSTALLATION.labels(**labels)
-            c.set(len(list(org.get_members())))
+            value = len(list(org.get_members()))
+            todo.append((c.set, (value,)))
 
         LOG.info("Get repos",
                  install=installation["account"]["login"])
@@ -80,7 +81,20 @@ def collect_metrics():
                 repositories, key=operator.attrgetter("private")):
             labels["private"] = private
             c = REPOSITORY_PER_INSTALLATION.labels(**labels)
-            c.set(len(list(repos)))
+            value = len(list(repos))
+            todo.append((c.set, (value, )))
+
+    # NOTE(sileht): Prometheus can scrape data during our loop. So make it fast
+    # to ensure we always have the good values.
+    # Also we can't known which labels we should delete from the Gauge,
+    # that's why we delete all of them to re-add them.
+    # And prometheus_client doesn't provide API to that, so we just
+    # override _metrics
+    INSTALLATIONS._metrics = {}
+    REPOSITORY_PER_INSTALLATION._metrics = {}
+    USERS_PER_INSTALLATION._metrics = {}
+    for method, args in todo:
+        method(*args)
 
 
 def main():  # pragma: no cover
