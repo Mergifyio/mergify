@@ -87,7 +87,7 @@ def convert_config(rules):
     new_rules = _convert_merge_rule(
         mrules.merge_branch_rule_with_default(rules["default"]))
 
-    for branch_name in rules['branches']:
+    for branch_name in sorted(rules['branches']):
         new_rules.extend(_convert_merge_rule(
             mrules.get_merged_branch_rule(rules, branch_name),
             branch_name=branch_name))
