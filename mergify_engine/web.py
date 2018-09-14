@@ -121,10 +121,11 @@ def event_testing_handler():  # pragma: no cover
         if number:
             for _ in range(int(number)):
                 p.lpop("events-testing")
+            values = p.execute()
         else:
             p.lrange("events-testing", 0, -1)
             p.delete("events-testing")
-        values = p.execute()[0]
+            values = p.execute()[0]
         data = [json.loads(i) for i in values]
         return flask.jsonify(data)
 
