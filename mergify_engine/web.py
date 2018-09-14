@@ -119,7 +119,7 @@ def event_testing_handler():  # pragma: no cover
         p = r.pipeline()
         number = flask.request.args.get('number')
         if number:
-            for _ in range(number):
+            for _ in range(int(number)):
                 p.lpop("events-testing")
         else:
             p.lrange("events-testing", 0, -1)
