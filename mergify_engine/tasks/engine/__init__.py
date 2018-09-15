@@ -139,14 +139,14 @@ def pull_request_merged_by_mergify():
 def create_metrics(event_type, data):
     # prometheus_client is a mess with multiprocessing, so we generate tasks
     # that will be recorded by celery and exported with celery exporter
-    if event_type == "pull_request" and data["action"] == "open":
+    if event_type == "pull_request" and data["action"] == "opened":
         pull_request_opened.apply_async()
 
     elif (event_type == "pull_request" and data["action"] == "closed" and
-          data["pull_request"]["state"] == "merged"):
+          data["pull_request"]["merged"]):
 
         pull_request_merged.apply_async()
-        if data["merged_by"]["login"] == "mergify[bot]":
+        if data["pull_request"]["merged_by"]["login"] == "mergify[bot]":
             pull_request_merged_by_mergify.apply_async()
 
 
