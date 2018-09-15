@@ -12,11 +12,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import daiquiri
+
 import github.GithubObject
 
 import tenacity
 
 from mergify_engine import utils
+
+LOG = daiquiri.getLogger(__name__)
 
 
 class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
@@ -116,7 +120,7 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
 @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                 stop=tenacity.stop_after_attempt(5),
                 retry=tenacity.retry_never)
-def workaround_for_unfinished_check_suite(g_repo, data):
+def workaround_for_unfinished_check_suite(g_repo, data):  # pragma: nocover
     """Workaround for broken Checks API events.
 
     The Checks API have two major flaws:
@@ -129,6 +133,7 @@ def workaround_for_unfinished_check_suite(g_repo, data):
     unsolved
     """
     check_suite = data["check_suite"]
+    LOG.info("unfinished_check_suite workaround used", check_suite=check_suite)
     check_suite = get_check_suite(g_repo, check_suite["id"])
     if check_suite["conclusion"]:
         # NOTE(sileht): even when we got the conclusion the status is
