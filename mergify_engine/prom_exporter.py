@@ -11,6 +11,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import collections
 import itertools
 import operator
 import time
@@ -31,7 +32,7 @@ INSTALLATIONS = prometheus_client.Gauge(
     "installations", "number of installations",
     ["subscribed", "type"])
 
-REPOSITORY_PER_INSTALLATION = prometheus_client.Gauge(
+REPOSITORIES_PER_INSTALLATION = prometheus_client.Gauge(
     "repositories_per_installation",
     "number of repositories per installation",
     ["subscribed", "type", "account", "private"])
@@ -41,25 +42,36 @@ USERS_PER_INSTALLATION = prometheus_client.Gauge(
     ["subscribed", "type", "account"])
 
 
+def set_gauge(metric, labels, value):
+    metric._metrics = {}
+    print(labels)
+    metric.labels(*labels).set(value)
+
+
+def set_gauges(metric, data):
+    list(map(lambda d: set_gauge(metric, *d), data.items()))
+
+
 def collect_metrics():
     redis = utils.get_redis_for_cache()
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    todo = []
+
+    installations = collections.defaultdict(int)
+    repositories_per_installation = collections.defaultdict(int)
+    users_per_installation = collections.defaultdict(int)
 
     LOG.info("Get installations")
     for installation in utils.get_installations(integration):
         _id = installation["id"]
-        LOG.info("Get subscription",
-                 install=installation["account"]["login"])
+        target_type = installation["target_type"]
+        account = installation["account"]["login"]
 
-        labels = {
-            "subscribed": utils.get_subscription(redis, _id)["subscribed"],
-            "type": installation["target_type"],
-        }
-        todo.append((INSTALLATIONS.labels(**labels).inc, tuple()))
+        LOG.info("Get subscription", account=account)
+        subscribed = utils.get_subscription(
+            redis, _id)["subscribed"]
 
-        labels["account"] = installation["account"]["login"]
+        installations[(subscribed, target_type)] += 1
 
         token = integration.get_access_token(_id).token
         g = github.Github(token)
@@ -68,21 +80,21 @@ def collect_metrics():
             LOG.info("Get members",
                      install=installation["account"]["login"])
             org = g.get_organization(installation["account"]["login"])
-            c = USERS_PER_INSTALLATION.labels(**labels)
             value = len(list(org.get_members()))
-            todo.append((c.set, (value,)))
 
-        LOG.info("Get repos",
-                 install=installation["account"]["login"])
+            users_per_installation[
+                (subscribed, target_type, account)] = value
+
+        LOG.info("Get repos", account=account)
 
         repositories = sorted(g.get_installation(_id).get_repos(),
                               key=operator.attrgetter("private"))
         for private, repos in itertools.groupby(
                 repositories, key=operator.attrgetter("private")):
-            labels["private"] = private
-            c = REPOSITORY_PER_INSTALLATION.labels(**labels)
+
             value = len(list(repos))
-            todo.append((c.set, (value, )))
+            repositories_per_installation[
+                (subscribed, target_type, account, private)] = value
 
     # NOTE(sileht): Prometheus can scrape data during our loop. So make it fast
     # to ensure we always have the good values.
@@ -90,11 +102,9 @@ def collect_metrics():
     # that's why we delete all of them to re-add them.
     # And prometheus_client doesn't provide API to that, so we just
     # override _metrics
-    INSTALLATIONS._metrics = {}
-    REPOSITORY_PER_INSTALLATION._metrics = {}
-    USERS_PER_INSTALLATION._metrics = {}
-    for method, args in todo:
-        method(*args)
+    set_gauges(INSTALLATIONS, installations)
+    set_gauges(USERS_PER_INSTALLATION, users_per_installation)
+    set_gauges(REPOSITORIES_PER_INSTALLATION, repositories_per_installation)
 
 
 def main():  # pragma: no cover
