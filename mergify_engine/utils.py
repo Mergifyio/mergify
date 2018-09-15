@@ -21,7 +21,6 @@ import json
 import logging
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
@@ -55,7 +54,7 @@ REDIS_CONNECTION_CACHE = None
 
 
 def get_sentry_client():
-    if config.SENTRY_URL:
+    if config.SENTRY_URL:  # pragma: nocover
         sentry_client = raven.Client(config.SENTRY_URL,
                                      transport=HTTPTransport)
         handler = raven_logging.SentryHandler(client=sentry_client)
@@ -81,14 +80,6 @@ def get_redis_url():
     if not redis_url:  # pragma: no cover
         raise RuntimeError("No redis url found in environments")
     return redis_url
-
-
-def get_redis_for_rq():
-    global REDIS_CONNECTION_RQ
-    if REDIS_CONNECTION_RQ is None:
-        REDIS_CONNECTION_RQ = redis.StrictRedis.from_url(
-            get_redis_url(), decode_responses=False)
-    return REDIS_CONNECTION_RQ
 
 
 def get_redis_for_cache():
@@ -130,11 +121,6 @@ def setup_logging():
         ("urllib3.connectionpool", "WARN"),
         ("vcr", "WARN"),
     ])
-
-
-def get_fqdn():
-    return socket.getaddrinfo(socket.gethostname(), 0, 0, 0, 0,
-                              socket.AI_CANONNAME)[0][3]
 
 
 def compute_hmac(data):

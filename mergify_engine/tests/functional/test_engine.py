@@ -493,6 +493,27 @@ class TestEngineScenario(base.FunctionalTestBase):
         pulls = self._get_queue("master")
         self.assertEqual(0, len(pulls))
 
+    def test_refresh_repo(self):
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.processor._get_cache_key("master"))
+        pulls = self._get_queue("master")
+        self.assertEqual(0, len(pulls))
+
+        self.app.post("/refresh/%s/full" % (
+            p1.base.repo.full_name),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+
+        pulls = self._get_queue("master")
+        self.assertEqual(2, len(pulls))
+
+        # Erase the cache and check the engine is empty
+        self.redis.delete(self.processor._get_cache_key("master"))
+        pulls = self._get_queue("master")
+        self.assertEqual(0, len(pulls))
+
     def test_refresh_all(self):
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()

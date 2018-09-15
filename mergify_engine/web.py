@@ -55,8 +55,9 @@ def authentification():  # pragma: no cover
         flask.abort(403)
 
 
+# FIXME(sileht): Drop me when statuses are replaced by checks
 @app.route("/check_status_msg/<path:key>")
-def check_status_msg(key):
+def check_status_msg(key):  # pragma: nocover
     msg = utils.get_redis_for_cache().hget("status", key)
     if msg:
         return flask.render_template("msg.html", msg=msg)

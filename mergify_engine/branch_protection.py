@@ -57,7 +57,7 @@ def is_configured(g_repo, branch, rule, data):
         rsc["contexts"] = sorted(rsc["contexts"])
 
     configured = rule['protection'] == data
-    if not configured:
+    if not configured:  # pragma: no cover
         LOG.warning("Misconfigured branch: %s != %s",
                     data, rule['protection'],
                     branch=branch, repository=g_repo.full_name)
@@ -108,7 +108,7 @@ def get_protection(g_repo, branch):
     except github.GithubException as e:
         if e.status == 404 and e.data["message"] == "Branch not protected":
             return None
-        else:
+        else:  # pragma: no cover
             raise
 
 
@@ -126,6 +126,6 @@ def configure_protection_if_needed(g_repo, branch, rule):
         else:
             data = get_protection(g_repo, branch)
 
-        if not is_configured(g_repo, branch, rule, data):
+        if not is_configured(g_repo, branch, rule, data):  # pragma: no cover
             raise RuntimeError("Branch %s of %s is still misconfigured, "
                                "abandoning" % (branch, g_repo.full_name))

@@ -159,7 +159,7 @@ def _job_run(event_type, data, subscription):
     try:
         installation_token = integration.get_access_token(
             installation_id).token
-    except github.UnknownObjectException:
+    except github.UnknownObjectException:  # pragma: nocover
         LOG.error("token for install %d does not exists anymore (%s)",
                   installation_id, data["repository"]["full_name"])
         return

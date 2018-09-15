@@ -76,14 +76,12 @@ def get_check_suite(g_repo, check_suite_id):
     return data
 
 
-def set_check_run(pull, name, status, conclusion=None, output=None):
+def set_check_run(pull, name, status, conclusion=None):
     post_parameters = {
         "name": name,
         "head_sha": pull.head.sha,
         "status": status,
     }
-    if output:
-        post_parameters["output"] = output
     if conclusion:
         post_parameters["conclusion"] = conclusion
 

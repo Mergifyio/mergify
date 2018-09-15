@@ -153,7 +153,7 @@ def backport(repo, pull, branch_name, installation_token):
                          % (commit.sha, status))
 
         git("push", "origin", bp_branch)
-    except Exception:
+    except Exception:  # pragma: no cover
         LOG.error("backport failed", pull_request=pull, branch=branch.name,
                   exc_info=True)
         return
