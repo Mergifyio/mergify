@@ -43,12 +43,11 @@ USERS_PER_INSTALLATION = prometheus_client.Gauge(
 
 
 def set_gauge(metric, labels, value):
-    metric._metrics = {}
-    print(labels)
     metric.labels(*labels).set(value)
 
 
 def set_gauges(metric, data):
+    metric._metrics = {}
     list(map(lambda d: set_gauge(metric, *d), data.items()))
 
 
