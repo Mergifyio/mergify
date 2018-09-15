@@ -66,8 +66,8 @@ def _convert_merge_rule(rule, branch_name=None):
         "merge": merge_params,
     }]
 
-    for bp_label, bp_branch_name in rule.get(
-            "automated_backport_labels", {}).items():
+    for bp_label, bp_branch_name in sorted(rule.get(
+            "automated_backport_labels", {}).items()):
         if branch_name is None:
             bp_suffix = ""
         else:

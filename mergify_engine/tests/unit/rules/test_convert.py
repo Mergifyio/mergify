@@ -61,19 +61,20 @@ def test_convert_simple():
             },
         },
         {
-            "name": "backport stable/3.1",
-            "conditions": ["label!=no-mergify",
-                           "label=backport-to-3.1",
-                           "merged"],
-            "backport": ["stable/3.1"],
-        },
-        {
             "name": "backport stable/3.0",
             "conditions": ["label!=no-mergify",
                            "label=backport-to-3.0",
                            "merged"],
             "backport": ["stable/3.0"],
         },
+        {
+            "name": "backport stable/3.1",
+            "conditions": ["label!=no-mergify",
+                           "label=backport-to-3.1",
+                           "merged"],
+            "backport": ["stable/3.1"],
+        },
+
         {
             "name": "^stable/.* branch",
             "conditions": ["base~=^stable/.*",
@@ -87,14 +88,6 @@ def test_convert_simple():
             }
         },
         {
-            "name": "backport stable/3.1 from ^stable/.*",
-            "conditions": ["base~=^stable/.*",
-                           "label!=no-mergify",
-                           "label=backport-to-3.1",
-                           "merged"],
-            "backport": ["stable/3.1"],
-        },
-        {
             "name": "backport stable/3.0 from ^stable/.*",
             "conditions": ["base~=^stable/.*",
                            "label!=no-mergify",
@@ -102,6 +95,15 @@ def test_convert_simple():
                            "merged"],
             "backport": ["stable/3.0"],
         },
+        {
+            "name": "backport stable/3.1 from ^stable/.*",
+            "conditions": ["base~=^stable/.*",
+                           "label!=no-mergify",
+                           "label=backport-to-3.1",
+                           "merged"],
+            "backport": ["stable/3.1"],
+        },
+
     ]
     # Validate generated conf with the schema
     rules.PullRequestRules(converted)
