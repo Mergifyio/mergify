@@ -99,7 +99,7 @@ class MergifyPull(object):
         self._ensure_mergable_state()
 
     def _ensure_complete(self):
-        if not self._complete:
+        if not self._complete:  # pragma: no cover
             raise RuntimeError("%s: used an incomplete MergifyPull")
 
     @property
@@ -434,10 +434,10 @@ class MergifyPull(object):
         elif self.g_pull.mergeable_state == "unknown":
             # Should not really occur, but who known
             github_desc = "Pull request state reported unknown by Github"
-        else:
+        else:  # pragma: no cover
             raise RuntimeError("%s: Unexpected mergify_state" % self)
 
-        if github_desc is None:
+        if github_desc is None:  # pragma: no cover
             # Seatbelt
             raise RuntimeError("%s: github_desc have not been set" % self)
 

@@ -54,7 +54,7 @@ REDIS_CONNECTION_CACHE = None
 
 
 def get_sentry_client():
-    if config.SENTRY_URL:  # pragma: nocover
+    if config.SENTRY_URL:  # pragma: no cover
         sentry_client = raven.Client(config.SENTRY_URL,
                                      transport=HTTPTransport)
         handler = raven_logging.SentryHandler(client=sentry_client)
@@ -73,7 +73,7 @@ def get_redis_url():
     for envvar in ["PIFPAF_URL", "REDIS_URL",
                    "REDISTOGO_URL", "REDISCLOUD_URL"]:
         redis_url = os.getenv(envvar)
-        if redis_url:
+        if redis_url:  # pragma: no cover
             break
     if not redis_url:  # pragma: no cover
         redis_url = config.REDIS_URL
@@ -129,8 +129,8 @@ def compute_hmac(data):
     return str(mac.hexdigest())
 
 
-def get_installations(integration):
-    # FIXME(sileht): Need to be in github libs
+def get_installations(integration):  # pragma: no cover
+    # FIXME(sileht): This is currently always mocked in tests
 
     installs = []
     url = "https://api.github.com/app/installations"
@@ -217,7 +217,7 @@ class Gitter(object):
             self("credential-cache",
                  "--socket=%s/.git/creds/socket" % self.tmp,
                  "exit")
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError:  # pragma: no cover
             LOG.warning("git credential-cache exit fail")
         shutil.rmtree(self.tmp)
 

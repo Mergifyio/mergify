@@ -44,7 +44,7 @@ app.conf.worker_direct = True
 
 
 @signals.setup_logging.connect
-def celery_logging(**kwargs):  # pragma: nocover
+def celery_logging(**kwargs):  # pragma: no cover
     utils.setup_logging()
     config.log()
 
@@ -54,7 +54,7 @@ MAX_RETRIES = 10
 
 @signals.task_failure.connect
 def retry_task_on_exception(sender, task_id, exception, args, kwargs,
-                            traceback, einfo, **other):  # pragma: nocover
+                            traceback, einfo, **other):  # pragma: no cover
     if ((isinstance(exception, github.GithubException) and
          exception.status >= 500) or
             (isinstance(exception, requests.exceptions.HTTPError) and
@@ -84,7 +84,7 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
 
 sentry_client = utils.get_sentry_client()
 
-if sentry_client:  # pragma: nocover
+if sentry_client:  # pragma: no cover
     from raven.contrib.celery import register_signal
     from raven.contrib.celery import register_logger_signal
     register_logger_signal(sentry_client)

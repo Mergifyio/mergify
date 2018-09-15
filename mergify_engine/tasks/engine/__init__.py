@@ -160,7 +160,7 @@ def _job_run(event_type, data, subscription):
     try:
         installation_token = integration.get_access_token(
             installation_id).token
-    except github.UnknownObjectException:  # pragma: nocover
+    except github.UnknownObjectException:  # pragma: no cover
         LOG.error("token for install %d does not exists anymore (%s)",
                   installation_id, data["repository"]["full_name"])
         return
@@ -253,7 +253,7 @@ def _job_run(event_type, data, subscription):
                 g, installation_id, installation_token,
                 subscription, user, repo
             ).handle(mergify_config, event_type, incoming_pull, data)
-        else:
+        else:  # pragma: no cover
             raise RuntimeError("Unexpected configuration version")
 
     except github.BadCredentialsException:  # pragma: no cover

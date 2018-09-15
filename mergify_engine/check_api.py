@@ -118,7 +118,7 @@ def set_check_run(pull, name, status, conclusion=None):
 @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                 stop=tenacity.stop_after_attempt(5),
                 retry=tenacity.retry_never)
-def workaround_for_unfinished_check_suite(g_repo, data):  # pragma: nocover
+def workaround_for_unfinished_check_suite(g_repo, data):  # pragma: no cover
     """Workaround for broken Checks API events.
 
     The Checks API have two major flaws:

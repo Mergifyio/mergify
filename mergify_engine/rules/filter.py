@@ -116,9 +116,9 @@ class Filter:
                 ")")
         raise RuntimeError(
             "Unable to convert tree to string: unknown operator: %s"
-            % operator)
+            % operator)  # pragma: no cover
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "%s(%s)" % (self.__class__.__name__, str(self))
 
     def __call__(self, **kwargs):
@@ -154,7 +154,7 @@ class Filter:
             raise ParseError(tree)
         try:
             operator, nodes = items[0]
-        except Exception:
+        except Exception:  # pragma: no cover
             raise ParseError(tree)
         try:
             op = self.unary_operators[operator]

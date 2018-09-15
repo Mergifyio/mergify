@@ -65,7 +65,7 @@ def create_pull_request(installation_token, repo):
 
     try:
         default_branch = repo.get_branch(repo.default_branch)
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         if e.status != 404:
             raise
         # TODO(sileht): When an empty repo is created we can't get the default
@@ -75,7 +75,7 @@ def create_pull_request(installation_token, repo):
 
     try:
         parents = [repo.get_git_commit(default_branch.commit.sha)]
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         if e.status == 409 and e.data['message'] == 'Git Repository is empty.':
             return
         raise
@@ -87,7 +87,7 @@ def create_pull_request(installation_token, repo):
     try:
         repo.create_git_ref("refs/heads/%s" % INITIAL_CONFIG_BRANCH,
                             commit.sha)
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         if e.status == 422 and e.data['message'] == 'Reference already exists':
             # NOTE(sileht): The initial PR have been created in the mean time.
             # That can occurs when user change the repository list twice in a
