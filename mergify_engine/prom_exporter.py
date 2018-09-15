@@ -35,7 +35,7 @@ INSTALLATIONS = prometheus_client.Gauge(
 REPOSITORIES_PER_INSTALLATION = prometheus_client.Gauge(
     "repositories_per_installation",
     "number of repositories per installation",
-    ["subscribed", "type", "account", "private"])
+    ["subscribed", "type", "account", "private", "configured"])
 
 USERS_PER_INSTALLATION = prometheus_client.Gauge(
     "users_per_installation", "number of users per installation",
@@ -91,9 +91,23 @@ def collect_metrics():
         for private, repos in itertools.groupby(
                 repositories, key=operator.attrgetter("private")):
 
-            value = len(list(repos))
+            configured_repos = 0
+            unconfigured_repos = 0
+            for repo in repos:
+                try:
+                    repo.get_contents(".mergify.yml")
+                    configured_repos += 1
+                except github.GithubException as e:
+                    if e.status != 404:
+                        raise
+                    unconfigured_repos += 1
+
             repositories_per_installation[
-                (subscribed, target_type, account, private)] = value
+                (subscribed, target_type, account, private, True)
+            ] = configured_repos
+            repositories_per_installation[
+                (subscribed, target_type, account, private, False)
+            ] = unconfigured_repos
 
     # NOTE(sileht): Prometheus can scrape data during our loop. So make it fast
     # to ensure we always have the good values.
@@ -113,6 +127,9 @@ def main():  # pragma: no cover
     LOG.info("Started")
 
     while True:
-        collect_metrics()
+        try:
+            collect_metrics()
+        except Exception:
+            LOG.error("fail to gather metrics", exc_info=True)
         # Only generate metrics once per hour
         time.sleep(60 * 60)
