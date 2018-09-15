@@ -62,7 +62,7 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
             isinstance(exception, requests.exceptions.ConnectionError)):
         backoff = 5
 
-    elif (exception == github.GithubException and
+    elif (isinstance(exception, github.GithubException) and
           exception.status == 403 and
           "You have triggered an abuse detection mechanism" in
           exception.data["message"]):
