@@ -46,6 +46,7 @@ def test_config():
             "branches": {
                 "stable/.*": DEFAULT_CONFIG,
                 "stable/3.1": DEFAULT_CONFIG,
+                "^features/.*": DEFAULT_CONFIG,
                 "stable/foo": {
                     "automated_backport_labels": {
                         'bp-3.1': 'stable/3.1',
@@ -57,7 +58,7 @@ def test_config():
     }
     validate_with_get_branch_rule(config)
     validate_with_get_branch_rule(config, "stable/3.1")
-    validate_with_get_branch_rule(config, "stable/foo")
+    validate_with_get_branch_rule(config, "features/foobar")
 
 
 def test_config_default_none():

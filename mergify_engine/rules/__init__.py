@@ -228,16 +228,16 @@ def merge_branch_rule_with_default(rules):
     return _dict_merge(copy.deepcopy(DEFAULT_RULE), rules)
 
 
-def get_merged_branch_rule(rules, branch=None):
+def get_merged_branch_rule(rules, branch_re=None):
     if rules.get("default") is None:
         default_rules = copy.deepcopy(DEFAULT_RULE)
     else:
         default_rules = merge_branch_rule_with_default(
             rules.get("default", {}))
-    if branch:
-        if rules["branches"][branch] is None:
+    if branch_re:
+        if rules["branches"][branch_re] is None:
             return None
-        return _dict_merge(default_rules, rules["branches"][branch])
+        return _dict_merge(default_rules, rules["branches"][branch_re])
     elif "default" in rules and rules["default"] is None:
         return None
     return default_rules
@@ -249,7 +249,7 @@ def build_branch_rule(rules, branch):
            (branch_re[0] != "^" and branch_re == branch)):
             if rules["branches"][branch_re] is None:
                 return None
-            return get_merged_branch_rule(rules, branch)
+            return get_merged_branch_rule(rules, branch_re)
 
     return get_merged_branch_rule(rules)
 
