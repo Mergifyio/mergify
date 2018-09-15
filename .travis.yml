@@ -9,7 +9,8 @@ matrix:
       sudo: true
 install: pip install tox-travis coveralls
 script: tox
-after_success: coveralls
+after_success:
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.5 ]]; then coveralls; fi
 
 deploy:
   - provider: pages
