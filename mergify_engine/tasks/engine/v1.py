@@ -28,7 +28,6 @@ import tenacity
 from mergify_engine import backports
 from mergify_engine import branch_protection
 from mergify_engine import branch_updater
-from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
@@ -108,11 +107,6 @@ class MergifyEngine(Caching):
 
     def handle(self, config, event_type, incoming_pull, data):
         # Everything start here
-        if (event_type == "check_suite" and data["action"] == "completed" and
-                not data["check_suite"]["conclusion"]):
-            data = check_api.workaround_for_unfinished_check_suite(
-                self.repository, data)
-
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_state = incoming_pull.g_pull.state
 
