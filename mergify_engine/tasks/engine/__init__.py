@@ -21,7 +21,6 @@ import uhashring
 
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine.tasks.engine import v1
 from mergify_engine.worker import app
@@ -152,6 +151,41 @@ def create_metrics(event_type, data):
             pull_request_merged_by_mergify.apply_async()
 
 
+def check_configuration_changes(event_type, data, event_pull):
+    if (event_type == "pull_request" and
+        data["action"] in ["opened", "synchronize"] and
+            event_pull.base.repo.default_branch == event_pull.base.ref):
+        ref = None
+        for f in event_pull.get_files():
+            if f.filename == ".mergify.yml":
+                ref = f.contents_url.split("?ref=")[1]
+
+        if ref is not None:
+            try:
+                mergify_config = rules.get_mergify_config(
+                    event_pull.base.repo, ref=ref)
+                if "rules" in mergify_config:
+                    rules.get_branch_rule(mergify_config['rules'],
+                                          event_pull.base.ref)
+            except rules.InvalidRules as e:  # pragma: no cover
+                # Not configured, post status check with the error message
+                # TODO(sileht): we can annotate the .mergify.yml file in Github
+                # UI with that API
+                check_api.set_check_run(
+                    event_pull, "future-config-checker", "completed",
+                    "failure", output={
+                        "title": "The new Mergify configuration is invalid",
+                        "summary": str(e)
+                    })
+            else:
+                check_api.set_check_run(
+                    event_pull, "future-config-checker", "completed",
+                    "success", output={
+                        "title": "The new Mergify configuration is valid",
+                        "summary": "No action are required",
+                    })
+
+
 @app.task
 def _job_run(event_type, data, subscription):
     """Everything starts here."""
@@ -192,53 +226,24 @@ def _job_run(event_type, data, subscription):
                      "ignoring", event_type)
             return
 
-        incoming_pull = mergify_pull.MergifyPull(event_pull, installation_id)
-        incoming_branch = incoming_pull.g_pull.base.ref
-        incoming_sha = incoming_pull.g_pull.head.sha
-
         LOG.info("Pull request found in the event %s", event_type,
-                 pull_request=incoming_pull)
+                 pull_request=event_pull)
 
-        if (event_type == "status" and
-                incoming_sha != data["sha"]):  # pragma: no cover
+        if (event_type == "status" and event_pull.head.sha != data["sha"]):  # noqa pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
-        elif (event_type in ["status", "check_suite", "check_run"]
-              and incoming_pull.g_pull.merged):  # noqa pragma: no cover
+        elif (event_type in ["status", "check_suite", "check_run"] and event_pull.merged):  # noqa pragma: no cover
             LOG.info("No need to proceed queue (got status of a merged "
                      "pull request)")
             return
         elif (event_type in ["check_suite", "check_run"]
-              and incoming_pull.g_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
+              and event_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
             LOG.info("No need to proceed queue (got %s of an old "
                      "commit)", event_type)
             return
 
-        # CHECK IF THE CONFIGURATION IS GOING TO CHANGE
-        if (event_type == "pull_request" and
-            data["action"] in ["opened", "synchronize"] and
-                repo.default_branch == incoming_branch):
-            ref = None
-            for f in incoming_pull.g_pull.get_files():
-                if f.filename == ".mergify.yml":
-                    ref = f.contents_url.split("?ref=")[1]
-
-            if ref is not None:
-                try:
-                    mergify_config = rules.get_mergify_config(
-                        repo, ref=ref)
-                    rules.get_branch_rule(mergify_config['rules'],
-                                          incoming_branch)
-                except rules.InvalidRules as e:  # pragma: no cover
-                    # Not configured, post status check with the error message
-                    # FIXME()!!!!!!!!!!!
-                    incoming_pull.post_check_status(
-                        "failure", str(e), "future-config-checker")
-                else:
-                    incoming_pull.post_check_status(
-                        "success", "The new configuration is valid",
-                        "future-config-checker")
+        check_configuration_changes(event_type, data, event_pull)
 
         # BRANCH CONFIGURATION CHECKING
         try:
@@ -250,8 +255,12 @@ def _job_run(event_type, data, subscription):
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
                     data["action"] in ["opened", "synchronize"]):
-                incoming_pull.post_check_status(
-                    "failure", str(e))
+                check_api.set_check_run(
+                    event_pull, "current-config-checker", "completed",
+                    "failure", output={
+                        "title": "The Mergify configuration is invalid",
+                        "summary": str(e)
+                    })
             return
 
         create_metrics(event_type, data)
@@ -260,7 +269,7 @@ def _job_run(event_type, data, subscription):
             v1.MergifyEngine(
                 g, installation_id, installation_token,
                 subscription, user, repo
-            ).handle(mergify_config, event_type, incoming_pull, data)
+            ).handle(mergify_config, event_type, event_pull, data)
         else:  # pragma: no cover
             raise RuntimeError("Unexpected configuration version")
 

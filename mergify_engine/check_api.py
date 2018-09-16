@@ -76,7 +76,7 @@ def get_check_suite(g_repo, check_suite_id):
     return data
 
 
-def set_check_run(pull, name, status, conclusion=None):
+def set_check_run(pull, name, status, conclusion=None, output=None):
     post_parameters = {
         "name": name,
         "head_sha": pull.head.sha,
@@ -84,6 +84,8 @@ def set_check_run(pull, name, status, conclusion=None):
     }
     if conclusion:
         post_parameters["conclusion"] = conclusion
+    if output:
+        post_parameters["output"] = output
 
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
