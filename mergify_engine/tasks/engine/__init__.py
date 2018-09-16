@@ -63,7 +63,8 @@ def get_github_pull_from_sha(g, user, repo, installation_id, sha):
     if pull:
         return pull
 
-    issues = list(g.search_issues("is:pr %s" % sha))
+    issues = list(g.search_issues("repo:%s is:pr is:open %s" %
+                                  (repo.full_name, sha)))
     if not issues:
         return
     if len(issues) > 1:
