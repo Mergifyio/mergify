@@ -109,11 +109,10 @@ class TestEngineScenario(base.FunctionalTestBase):
         access_token = integration.get_access_token(
             config.INSTALLATION_ID).token
         g = github.Github(access_token)
-        user = g.get_user("mergify-test1")
-        self.repo_as_app = user.get_repo(self.name)
+        self.repo_as_app = g.get_repo("mergify-test1/" + self.name)
 
         # Used to access the cache with its helper
-        self.processor = v1.Processor(self.subscription, user,
+        self.processor = v1.Processor(self.subscription,
                                       self.repo_as_app,
                                       config.INSTALLATION_ID)
 
@@ -156,6 +155,11 @@ class TestEngineScenario(base.FunctionalTestBase):
     def tearDown(self):
         # self.r_fork.delete()
         super(TestEngineScenario, self).tearDown()
+        # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
+        # also to avoid the "git clone fork" failure that Github returns when
+        # we create repo too quickly
+        if base.RECORD_MODE in ["all", "once"]:
+            time.sleep(0.5)
 
     def push_events(self, expected_events, ordered=True):
         LOG.debug("============= push events start =============")
