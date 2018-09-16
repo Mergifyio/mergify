@@ -156,7 +156,7 @@ class MergifyEngine(Caching):
                     data["action"] in ["closed", "labeled"] and
                     incoming_pull.g_pull.merged):
                 backports.backport_from_labels(
-                    self.repository, incoming_pull,
+                    incoming_pull,
                     branch_rule["automated_backport_labels"],
                     self._installation_token)
 

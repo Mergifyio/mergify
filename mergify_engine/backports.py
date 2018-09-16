@@ -85,7 +85,7 @@ def _get_commits_to_cherrypick(pull, commit):
         return []
 
 
-def backport(repo, pull, branch_name, installation_token):
+def backport(pull, branch_name, installation_token):
     """Backport a pull request.
 
     :param repo: The repository.
@@ -94,6 +94,8 @@ def backport(repo, pull, branch_name, installation_token):
     :param branch_name: The branch name to backport to.
     :param installation_token: The installation token.
     """
+    repo = pull.g_pull.base.repo
+
     try:
         branch = repo.get_branch(branch_name)
     except github.GithubException as e:
@@ -175,10 +177,10 @@ def backport(repo, pull, branch_name, installation_token):
     )
 
 
-def backport_from_labels(repo, pull, labels_branches, installation_token):
+def backport_from_labels(pull, labels_branches, installation_token):
     if not labels_branches:
         return
 
     labels = (set(labels_branches) & set(l.name for l in pull.g_pull.labels))
     for l in labels:
-        backport(repo, pull, labels_branches[l], installation_token)
+        backport(pull, labels_branches[l], installation_token)
