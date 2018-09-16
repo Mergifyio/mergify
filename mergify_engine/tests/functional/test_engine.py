@@ -193,13 +193,22 @@ class TestEngineScenario(base.FunctionalTestBase):
                     "[%d] Got %s event type instead of %s" %
                     (pos, event["type"], expected_etype))
 
-            for key, expected in expected_data.items():
-                value = event["payload"].get(key)
-                if value != expected:
-                    raise Exception(
-                        "[%d] Got %s for %s instead of %s" %
-                        (pos, value, key, expected))
+            self._validate_key(pos, event["payload"], expected_data)
         LOG.debug("============= push events end =============")
+
+    @classmethod
+    def _validate_key(cls, pos, data, expected_data):
+        if isinstance(expected_data, dict):
+            for key, expected in expected_data.items():
+                if key in data:
+                    cls._validate_key(pos, data[key], expected)
+                else:
+                    raise Exception("[%d] %s is missing" % (pos, key))
+        else:
+            if data != expected_data:
+                raise Exception(
+                    "[%d] Got %s instead of %s" %
+                    (pos, data, expected_data))
 
     @classmethod
     def _remove_useless_links(cls, data):
@@ -282,13 +291,16 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         expected_events = [("pull_request", {"action": "opened"})]
         if files and ".mergify.yml" in files:
+            # Yeah... we can receive opened after the check_run/suite ... it's
+            # just random
             expected_events += [
-                ("status", {"state": "success"}),
+                ("check_suite", {"check_suite": {"conclusion": "success"}}),
+                ("check_run", {"check_run": {"conclusion": "success"}}),
                 ("status", {"state": "failure"})
             ]
         elif base != "disabled":
             expected_events += [("status", {"state": state})]
-        self.push_events(expected_events)
+        self.push_events(expected_events, ordered=False)
 
         # NOTE(sileht): We return the same but owned by the main project
         p = self.r_main.get_pull(p.number)
@@ -316,7 +328,8 @@ class TestEngineScenario(base.FunctionalTestBase):
         expected_events = []
         if not ignore_check_run_event:
             expected_events.append(
-                ("check_run", {"action": "created", "conclusion": None}))
+                ("check_run", {"action": "created",
+                               "check_run": {"conclusion": conclusion}}))
         if not ignore_check_suite_event:
             expected_events.append(
                 ("check_suite", {'action': 'completed'}))
@@ -845,11 +858,10 @@ class TestEngineScenario(base.FunctionalTestBase):
                                                         expected_rule, data))
 
         p1 = self.r_main.get_pull(p1.number)
-        commit = p1.base.repo.get_commit(p1.head.sha)
-        ctxts = [s.raw_data["context"] for s in
-                 reversed(list(commit.get_statuses()))]
-
-        self.assertIn("mergify/future-config-checker", ctxts)
+        checks = list(check_api.get_checks(p1, {
+            "check_name": "future-config-checker"}))
+        assert len(checks) == 1
+        assert checks[0].name == "future-config-checker"
 
     def test_update_branch_disabled(self):
         p1, commits1 = self.create_pr("nostrict")

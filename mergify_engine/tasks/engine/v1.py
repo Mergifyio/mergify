@@ -28,6 +28,7 @@ import tenacity
 from mergify_engine import backports
 from mergify_engine import branch_protection
 from mergify_engine import branch_updater
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
@@ -105,8 +106,11 @@ class MergifyEngine(Caching):
         self._installation_token = installation_token
         self._subscription = subscription
 
-    def handle(self, config, event_type, incoming_pull, data):
+    def handle(self, config, event_type, event_pull, data):
         # Everything start here
+
+        incoming_pull = mergify_pull.MergifyPull(event_pull,
+                                                 self.installation_id)
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_state = incoming_pull.g_pull.state
 
@@ -117,8 +121,13 @@ class MergifyEngine(Caching):
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
                     data["action"] in ["opened", "synchronize"]):
-                incoming_pull.post_check_status(
-                    "failure", str(e))
+                check_api.set_check_run(
+                    incoming_pull.g_pull, "current-config-checker",
+                    "completed", "failure", output={
+                        "title": "The Mergify configuration is invalid",
+                        "summary": str(e)
+                    })
+
             return
 
         try:
