@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -14,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import itertools
 import json
 from concurrent import futures
 
@@ -25,6 +24,8 @@ import github
 
 import tenacity
 
+import uhashring
+
 from mergify_engine import backports
 from mergify_engine import branch_protection
 from mergify_engine import branch_updater
@@ -33,25 +34,67 @@ from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
+from mergify_engine.worker import app
+
 
 LOG = daiquiri.getLogger(__name__)
 
 
+def get_ring(topology, kind):
+    return uhashring.HashRing(
+        nodes=list(itertools.chain.from_iterable(
+            map(lambda x: "worker-%s-%003d@%s" % (kind, x, fqdn), range(w))
+            for fqdn, w in sorted(topology.items())
+        )))
+
+
+RINGS_PER_SUBSCRIPTION = {
+    True: get_ring(config.TOPOLOGY_SUBSCRIBED, "sub"),
+    False: get_ring(config.TOPOLOGY_FREE, "free")
+}
+
+
+@app.task
+def handle(installation_id, installation_token, subscription,
+           mergify_config, event_type, data, event_pull_raw):
+    # NOTE(sileht): The processor is not concurrency safe, so a repo is always
+    # sent to the same worker.
+    # This work in coordination with app.conf.worker_direct = True that creates
+    # a dedicated queue on exchange c.dq2 for each worker
+    ring = RINGS_PER_SUBSCRIPTION[subscription["subscribed"]]
+    routing_key = ring.get_node(data["repository"]["full_name"])
+    LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
+             routing_key)
+    _handle.s(installation_id, installation_token, subscription,
+              mergify_config, event_type, data, event_pull_raw
+              ).apply_async(exchange='C.dq2', routing_key=routing_key)
+
+
+@app.task
+def _handle(installation_id, installation_token, subscription,
+            mergify_config, event_type, data, event_pull_raw):
+    pull = mergify_pull.MergifyPull.from_raw(installation_id,
+                                             installation_token,
+                                             event_pull_raw)
+    MergifyEngine(installation_id, installation_token, subscription,
+                  pull.g_pull.base.repo).handle(
+                      mergify_config, event_type, data, pull)
+
+
 @attr.s
 class Caching(object):
-    user = attr.ib()
     repository = attr.ib()
     installation_id = attr.ib()
     _redis = attr.ib(factory=utils.get_redis_for_cache, init=False)
 
     def _get_logprefix(self, branch="<unknown>"):
-        return (self.user.login + "/" + self.repository.name +
+        return (self.repository.owner.login + "/" + self.repository.name +
                 "/pull/XXX@" + branch + " (-)")
 
     def _get_cache_key(self, branch):
         # Use only IDs, not name
         return "queues~%s~%s~%s~%s~%s" % (
-            self.installation_id, self.user.login.lower(),
+            self.installation_id, self.repository.owner.login.lower(),
             self.repository.name.lower(), self.repository.private, branch)
 
     def _cache_save_pull(self, pull):
@@ -97,20 +140,15 @@ class Caching(object):
 
 
 class MergifyEngine(Caching):
-    def __init__(self, g, installation_id, installation_token,
-                 subscription, user, repo):
-        super(MergifyEngine, self).__init__(user=user,
-                                            repository=repo,
+    def __init__(self, installation_id, installation_token,
+                 subscription, repo):
+        super(MergifyEngine, self).__init__(repository=repo,
                                             installation_id=installation_id)
-        self._g = g
         self._installation_token = installation_token
         self._subscription = subscription
 
-    def handle(self, config, event_type, event_pull, data):
+    def handle(self, config, event_type, data, incoming_pull):
         # Everything start here
-
-        incoming_pull = mergify_pull.MergifyPull(event_pull,
-                                                 self.installation_id)
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_state = incoming_pull.g_pull.state
 
@@ -226,15 +264,13 @@ class MergifyEngine(Caching):
 
     def get_processor(self):
         return Processor(subscription=self._subscription,
-                         user=self.user,
                          repository=self.repository,
                          installation_id=self.installation_id)
 
 
 class Processor(Caching):
-    def __init__(self, subscription, user, repository, installation_id):
-        super(Processor, self).__init__(user=user,
-                                        repository=repository,
+    def __init__(self, subscription, repository, installation_id):
+        super(Processor, self).__init__(repository=repository,
                                         installation_id=installation_id)
         self._subscription = subscription
 

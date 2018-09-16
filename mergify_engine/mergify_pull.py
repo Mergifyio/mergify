@@ -94,6 +94,13 @@ class MergifyPull(object):
     _github_state = attr.ib(init=False, default=None)
     _github_description = attr.ib(init=False, default=None)
 
+    @classmethod
+    def from_raw(cls, installation_id, installation_token, pull_raw):
+        g = github.Github(installation_token)
+        pull = github.PullRequest.PullRequest(g._Github__requester, {},
+                                              pull_raw, completed=True)
+        return cls(pull, installation_id)
+
     def __attrs_post_init__(self):
         self.log = daiquiri.getLogger(__name__, pull_request=self)
         self._ensure_mergable_state()

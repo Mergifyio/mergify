@@ -11,13 +11,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import itertools
-
 import daiquiri
 
 import github
-
-import uhashring
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -28,36 +24,10 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_ring(topology, kind):
-    return uhashring.HashRing(
-        nodes=list(itertools.chain.from_iterable(
-            map(lambda x: "worker-%s-%003d@%s" % (kind, x, fqdn), range(w))
-            for fqdn, w in sorted(topology.items())
-        )))
-
-
-RINGS_PER_SUBSCRIPTION = {
-    True: get_ring(config.TOPOLOGY_SUBSCRIBED, "sub"),
-    False: get_ring(config.TOPOLOGY_FREE, "free")
-}
-
-
-def run(event_type, data, subscription):
-    # NOTE(sileht): Select the worker to use, only useful for engine v1. This
-    # work in coordination with app.conf.worker_direct = True that creates the
-    # dedicated queue on exchange c.dq2
-    ring = RINGS_PER_SUBSCRIPTION[subscription["subscribed"]]
-    routing_key = ring.get_node(data["repository"]["full_name"])
-    LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
-             routing_key)
-    _job_run.s(event_type, data, subscription).apply_async(
-        exchange='C.dq2', routing_key=routing_key)
-
-
-def get_github_pull_from_sha(g, user, repo, installation_id, sha):
+def get_github_pull_from_sha(g, repo, installation_id, sha):
 
     # TODO(sileht): Replace this optimisation when we drop engine v1
-    pull = v1.Caching(user=user, repository=repo,
+    pull = v1.Caching(repository=repo,
                       installation_id=installation_id
                       ).get_pr_for_sha(sha)
     if pull:
@@ -80,16 +50,14 @@ def get_github_pull_from_sha(g, user, repo, installation_id, sha):
             return pull
 
 
-def get_github_pull_from_event(g, user, repo, installation_id,
+def get_github_pull_from_event(g, repo, installation_id,
                                event_type, data):
     if "pull_request" in data:
         return github.PullRequest.PullRequest(
-            repo._requester, {},
-            data["pull_request"], completed=True
+            repo._requester, {}, data["pull_request"], completed=True
         )
     elif event_type == "status":
-        return get_github_pull_from_sha(g, user, repo, installation_id,
-                                        data["sha"])
+        return get_github_pull_from_sha(g, repo, installation_id, data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
@@ -99,15 +67,14 @@ def get_github_pull_from_event(g, user, repo, installation_id,
             pulls = data["check_suite"]["pull_requests"]
             sha = data["check_suite"]["head_sha"]
         if not pulls:
-            return get_github_pull_from_sha(g, user, repo,
-                                            installation_id, sha)
+            return get_github_pull_from_sha(g, repo, installation_id, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning("check_suite/check_run attached on multiple pulls")
 
         for p in pulls:
 
-            pull = v1.Caching(user=user, repository=repo,
+            pull = v1.Caching(repository=repo,
                               installation_id=installation_id
                               ).get_pr_for_pull_number(
                                   p["base"]["ref"],
@@ -188,7 +155,7 @@ def check_configuration_changes(event_type, data, event_pull):
 
 
 @app.task
-def _job_run(event_type, data, subscription):
+def run(event_type, data, subscription):
     """Everything starts here."""
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
@@ -209,8 +176,8 @@ def _job_run(event_type, data, subscription):
                      rate.remaining, rate.limit, rate.reset,
                      repository=data["repository"]["name"])
 
-        user = g.get_user(data["repository"]["owner"]["login"])
-        repo = user.get_repo(data["repository"]["name"])
+        repo = g.get_repo(data["repository"]["owner"]["login"] + "/" +
+                          data["repository"]["name"])
 
         # NOTE(sileht): Workaround for when we receive check_suite completed
         # without conclusion
@@ -219,7 +186,7 @@ def _job_run(event_type, data, subscription):
             data = check_api.workaround_for_unfinished_check_suite(
                 repo, data)
 
-        event_pull = get_github_pull_from_event(g, user, repo, installation_id,
+        event_pull = get_github_pull_from_event(g, repo, installation_id,
                                                 event_type, data)
 
         if not event_pull:  # pragma: no cover
@@ -266,11 +233,14 @@ def _job_run(event_type, data, subscription):
 
         create_metrics(event_type, data)
 
+        # NOTE(sileht): At some point we may need to reget the
+        # installation_token within each next tasks, in case we reach the
+        # expiration
         if "rules" in mergify_config:
-            v1.MergifyEngine(
-                g, installation_id, installation_token,
-                subscription, user, repo
-            ).handle(mergify_config, event_type, event_pull, data)
+            v1.handle.s(installation_id, installation_token, subscription,
+                        mergify_config, event_type, data,
+                        event_pull.raw_data).apply_async()
+
         else:  # pragma: no cover
             raise RuntimeError("Unexpected configuration version")
 
