@@ -19,6 +19,7 @@ import github
 
 import uhashring
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
@@ -175,6 +176,13 @@ def _job_run(event_type, data, subscription):
 
         user = g.get_user(data["repository"]["owner"]["login"])
         repo = user.get_repo(data["repository"]["name"])
+
+        # NOTE(sileht): Workaround for when we receive check_suite completed
+        # without conclusion
+        if (event_type == "check_suite" and data["action"] == "completed" and
+                not data["check_suite"]["conclusion"]):
+            data = check_api.workaround_for_unfinished_check_suite(
+                repo, data)
 
         event_pull = get_github_pull_from_event(g, user, repo, installation_id,
                                                 event_type, data)
