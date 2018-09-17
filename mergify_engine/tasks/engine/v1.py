@@ -108,7 +108,6 @@ class MergifyEngine(Caching):
 
     def handle(self, config, event_type, event_pull, data):
         # Everything start here
-
         incoming_pull = mergify_pull.MergifyPull(event_pull,
                                                  self.installation_id)
         incoming_branch = incoming_pull.g_pull.base.ref
