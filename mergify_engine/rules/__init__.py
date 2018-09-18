@@ -63,7 +63,6 @@ Protection = {
 }
 
 MergeMethods = voluptuous.Any("rebase", "merge", "squash")
-RebaseFallback = voluptuous.Any("merge", "squash", "none")
 
 # TODO(sileht): We can add some otherthing like
 # automatic backport tag
@@ -75,7 +74,7 @@ Rule = {
     'disabling_files': [str],
     'merge_strategy': {
         "method": MergeMethods,
-        "rebase_fallback": RebaseFallback,
+        "rebase_fallback": voluptuous.Any("merge", "squash", "none"),
     },
     'automated_backport_labels': voluptuous.Any({str: str}, None),
 }
@@ -114,7 +113,8 @@ PullRequestRulesSchema = voluptuous.Schema([{
             voluptuous.Required("method",
                                 default="merge"): MergeMethods,
             voluptuous.Required("rebase_fallback",
-                                default="merge"): RebaseFallback,
+                                default="merge"): voluptuous.Any(
+                                    "merge", "squash", None),
             voluptuous.Required("strict", default=False): bool,
         },
     ),

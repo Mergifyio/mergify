@@ -150,7 +150,7 @@ def test_convert_rebase_fallback():
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
-                "rebase_fallback": "none",
+                "rebase_fallback": None,
                 "strict": True,
             },
         },
@@ -174,7 +174,7 @@ def test_convert_rebase_fallback():
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
-                "rebase_fallback": "none",
+                "rebase_fallback": None,
                 "strict": True,
             }
         },
