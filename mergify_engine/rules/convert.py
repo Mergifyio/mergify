@@ -66,30 +66,31 @@ def _convert_merge_rule(rule, branch_name=None):
         "merge": merge_params,
     }]
 
-    for bp_label, bp_branch_name in sorted(rule.get(
-            "automated_backport_labels", {}).items()):
-        if branch_name is None:
-            bp_suffix = ""
-        else:
-            bp_suffix = " from %s" % branch_name
-        rules.append({
-            "name": "backport %s%s" % (bp_branch_name, bp_suffix),
-            "conditions": (
-                default_conditions + ["label=%s" % bp_label, "merged"]
-            ),
-            "backport": [bp_branch_name],
-        })
+    automated_backport_labels = rule.get("automated_backport_labels")
+
+    if automated_backport_labels:
+        for bp_label, bp_branch_name in sorted(rule.get(
+                "automated_backport_labels", {}).items()):
+            if branch_name is None:
+                bp_suffix = ""
+            else:
+                bp_suffix = " from %s" % branch_name
+            rules.append({
+                "name": "backport %s%s" % (bp_branch_name, bp_suffix),
+                "conditions": (
+                    default_conditions + ["label=%s" % bp_label, "merged"]
+                ),
+                "backport": [bp_branch_name],
+            })
 
     return rules
 
 
 def convert_config(rules):
-    new_rules = _convert_merge_rule(
-        mrules.merge_branch_rule_with_default(rules["default"]))
-
-    for branch_name in sorted(rules['branches']):
-        new_rules.extend(_convert_merge_rule(
+    return (
+        _convert_merge_rule(mrules.get_merged_branch_rule(rules)) +
+        sum((_convert_merge_rule(
             mrules.get_merged_branch_rule(rules, branch_name),
-            branch_name=branch_name))
-
-    return new_rules
+            branch_name=branch_name)
+            for branch_name in sorted(rules['branches'])), [])
+    )
