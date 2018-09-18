@@ -35,6 +35,8 @@ def _convert_merge_rule(rule, branch_name=None):
     if default_merge_strategy_method:
         merge_params['method'] = default_merge_strategy_method
     if default_merge_rebase_fallback:
+        if default_merge_rebase_fallback == "none":
+            default_merge_rebase_fallback = None
         merge_params["rebase_fallback"] = default_merge_rebase_fallback
     if default_strict:
         merge_params["strict"] = default_strict

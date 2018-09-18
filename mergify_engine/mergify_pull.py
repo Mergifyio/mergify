@@ -511,7 +511,7 @@ class MergifyPull(object):
 
             if (e.data["message"] != "This branch can't be rebased" or
                     merge_method != "rebase" or
-                    rebase_fallback == "none"):
+                    (rebase_fallback == "none" or rebase_fallback is None)):
                 return self._merge_failed(e)
 
             # If rebase fail retry with merge
