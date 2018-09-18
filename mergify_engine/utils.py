@@ -31,8 +31,6 @@ import daiquiri
 
 import github
 
-import iso8601
-
 import raven
 from raven.handlers import logging as raven_logging
 from raven.transport.http import HTTPTransport
@@ -91,7 +89,7 @@ def get_redis_for_cache():
 
 
 def utcnow():
-    return datetime.datetime.now(tz=iso8601.iso8601.UTC)
+    return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
 class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter,
