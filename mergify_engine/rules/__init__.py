@@ -224,16 +224,10 @@ def _dict_merge(dct, merge_dct):
     return dct
 
 
-def merge_branch_rule_with_default(rules):
-    return _dict_merge(copy.deepcopy(DEFAULT_RULE), rules)
-
-
 def get_merged_branch_rule(rules, branch_re=None):
-    if rules.get("default") is None:
-        default_rules = copy.deepcopy(DEFAULT_RULE)
-    else:
-        default_rules = merge_branch_rule_with_default(
-            rules.get("default", {}))
+    default_rules = copy.deepcopy(DEFAULT_RULE)
+    if rules.get("default") is not None:
+        default_rules = _dict_merge(default_rules, rules["default"])
     if branch_re:
         if rules["branches"][branch_re] is None:
             return None

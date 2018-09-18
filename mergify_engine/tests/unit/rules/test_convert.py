@@ -107,3 +107,77 @@ def test_convert_simple():
     ]
     # Validate generated conf with the schema
     rules.PullRequestRules(converted)
+
+
+def test_convert_rebase_fallback():
+    old_rules = {
+        'rules': {
+            'default': {
+                'protection': {
+                    'required_pull_request_reviews': {
+                        'required_approving_review_count': 2
+                    },
+                    'required_status_checks': {
+                        'contexts': ['continuous-integration/travis-ci'],
+                        'strict': True
+                    }},
+                'merge_strategy': {
+                    'method': 'rebase',
+                    'rebase_fallback': "none",
+                }},
+            'branches': {
+                '^stable/.*': {
+                    'merge_strategy': {
+                        'method': 'rebase',
+                        'rebase_fallback': "merge",
+                    },
+                },
+                '^unstable/.*': {
+                    'merge_strategy': {
+                        'method': 'rebase',
+                        'rebase_fallback': "none",
+                    },
+                },
+            },
+        },
+    }
+    converted = convert.convert_config(old_rules["rules"])
+    assert converted == [
+        {
+            "name": "default",
+            "conditions": ["label!=no-mergify",
+                           "#review-approved-by>=2",
+                           "status-success=continuous-integration/travis-ci"],
+            "merge": {
+                "method": "rebase",
+                "rebase_fallback": "none",
+                "strict": True,
+            },
+        },
+        {
+            "name": "^stable/.* branch",
+            "conditions": ["base~=^stable/.*",
+                           "label!=no-mergify",
+                           "#review-approved-by>=2",
+                           "status-success=continuous-integration/travis-ci"],
+            "merge": {
+                "method": "rebase",
+                "rebase_fallback": "merge",
+                "strict": True,
+            }
+        },
+        {
+            "name": "^unstable/.* branch",
+            "conditions": ["base~=^unstable/.*",
+                           "label!=no-mergify",
+                           "#review-approved-by>=2",
+                           "status-success=continuous-integration/travis-ci"],
+            "merge": {
+                "method": "rebase",
+                "rebase_fallback": "none",
+                "strict": True,
+            }
+        },
+    ]
+    # Validate generated conf with the schema
+    rules.PullRequestRules(converted)
