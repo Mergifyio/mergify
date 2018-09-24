@@ -118,6 +118,18 @@ class PullRequestRules:
     class PullRequestRuleForPR:
         """A pull request rule that matches a pull request."""
 
+        # Fixed base attributes that are not considered when looking for the
+        # next matching rules.
+        BASE_ATTRIBUTES = (
+            "head",
+            "base",
+            "author",
+            "merged_by",
+            "body",
+            "title",
+            "files",
+        )
+
         # The list of pull request rules to match against.
         rules = attr.ib()
         # The pull request to test.
@@ -133,25 +145,28 @@ class PullRequestRules:
         def __attrs_post_init__(self):
             d = self.pull_request.to_dict()
             for rule in self.rules:
+                next_conditions_to_validate = []
                 for condition in rule['conditions']:
                     if not condition(**d):
-                        self.next_rules.append((rule, condition))
-                        break
+                        if condition.attribute_name in self.BASE_ATTRIBUTES:
+                            # Ignore this rule
+                            break
+                        else:
+                            next_conditions_to_validate.append(condition)
                 else:
-                    self.matching_rules.append(rule)
-                    self.rule.update(rule)
+                    if next_conditions_to_validate:
+                        self.next_rules.append(
+                            (rule, next_conditions_to_validate)
+                        )
+                    else:
+                        self.matching_rules.append(rule)
+                        self.rule.update(rule)
             try:
                 del self.rule['name']
                 del self.rule['conditions']
             except KeyError:
                 # Can happen if no match
                 pass
-
-        def next_conditions_for(self, feature):
-            """Conditions that must match for the feature to be enabled."""
-            return list(rule[1]
-                        for rule in self.next_rules
-                        if feature in rule)
 
     def get_pull_request_rule(self, pull_request):
         return self.PullRequestRuleForPR(self.rules, pull_request)
