@@ -83,6 +83,8 @@ class Filter:
     }
 
     tree = attr.ib()
+    # The name of the attribute that is going to be evaluated by this filter.
+    attribute_name = attr.ib(init=False)
 
     def __attrs_post_init__(self):
         self._eval = self.build_evaluator(self.tree)
@@ -121,20 +123,20 @@ class Filter:
 
     def _resolve_name(self, values, name):
         if name.startswith(self.LENGTH_OPERATOR):
-            actual_name = name[1:]
+            self.attribute_name = name[1:]
             op = len
         else:
-            actual_name = name
+            self.attribute_name = name
             op = self._identity
         try:
-            for subname in actual_name.split(self.ATTR_SEPARATOR):
+            for subname in self.attribute_name.split(self.ATTR_SEPARATOR):
                 values = values[subname]
             try:
                 return op(values)
             except TypeError:
                 raise InvalidOperator(name)
         except KeyError:
-            raise UnknownAttribute(actual_name)
+            raise UnknownAttribute(self.attribute_name)
 
     def build_evaluator(self, tree):
         items = list(tree.items())

@@ -26,7 +26,6 @@ import yaml
 
 from mergify_engine import mergify_pull
 from mergify_engine import rules
-from mergify_engine.rules import filter
 
 
 with open(rules.default_rule, "r") as f:
@@ -502,8 +501,7 @@ def test_get_pull_request_rule():
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["hello", "backport"]
     assert [r['name'] for r in match.matching_rules] == ["backport"]
-    assert match.next_rules[0][0]['name'] == "hello"
-    assert match.next_rules[0][1] == filter.Filter.parse("#files=3")
+    assert match.next_rules == []
     assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
@@ -538,8 +536,7 @@ def test_get_pull_request_rule():
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["merge"]
     assert [r['name'] for r in match.matching_rules] == []
-    assert match.next_rules[0][0]['name'] == "merge"
-    assert match.next_rules[0][1] == filter.Filter.parse("base=xyz")
+    assert match.next_rules == []
     assert match.rule == {}
 
     pull_request_rules = rules.PullRequestRules([{
@@ -557,3 +554,54 @@ def test_get_pull_request_rule():
     assert match.rules == match.matching_rules
     assert match.next_rules == []
     assert match.rule == {'backport': False, 'merge': False}
+
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "merge",
+        "conditions": [
+            "base=master",
+            "status-success=continuous-integration/fake-ci",
+            "#review-approved-by>=2",
+        ],
+    }, {
+        "name": "fast merge",
+        "conditions": [
+            "base=master",
+            "label=fast-track",
+            "status-success=continuous-integration/fake-ci",
+            "#review-approved-by>=1",
+        ],
+    }, {
+        "name": "fast merge with alternate ci",
+        "conditions": [
+            "base=master",
+            "label=fast-track",
+            "status-success=continuous-integration/fake-ci-bis",
+            "#review-approved-by>=1",
+        ],
+    }, {
+        "name": "fast merge from a bot",
+        "conditions": [
+            "base=master",
+            "author=mybot",
+            "status-success=continuous-integration/fake-ci",
+        ],
+    }])
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+
+    assert len(match.next_rules) == 3
+
+    assert match.next_rules[0][0]['name'] == "merge"
+    assert len(match.next_rules[0][1]) == 1
+    assert str(match.next_rules[0][1][0]) == "#review-approved-by>=2"
+
+    assert match.next_rules[1][0]['name'] == "fast merge"
+    assert len(match.next_rules[1][1]) == 1
+    assert str(match.next_rules[1][1][0]) == "label=fast-track"
+
+    assert match.next_rules[2][0]['name'] == "fast merge with alternate ci"
+    assert len(match.next_rules[2][1]) == 2
+    assert str(match.next_rules[2][1][0]) == "label=fast-track"
+    assert (
+        str(match.next_rules[2][1][1]) ==
+        "status-success=continuous-integration/fake-ci-bis"
+    )
