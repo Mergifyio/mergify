@@ -350,38 +350,8 @@ def test_pull_request_rule():
     }, {
         "name": "hello",
         "conditions": [
-            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
+            "base:foo", "base:baz",
         ],
-    }, {
-        "name": "hello",
-        "conditions": [
-            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
-        ],
-        "merge": False,
-    }, {
-        "name": "hello",
-        "conditions": [
-            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
-        ],
-        "merge": {
-            "method": "rebase",
-        },
-    }, {
-        "name": "hello",
-        "conditions": [
-            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
-        ],
-        "merge": {
-            "method": "rebase",
-            "strict": True,
-        },
-        "backport": ["foobar"],
-    }, {
-        "name": "hello",
-        "conditions": [
-            {"or": ["head:master", {"and": ["base:foo", "base:baz"]}]},
-        ],
-        "backport": [],
     }):
         rules.PullRequestRules([valid])
 
@@ -405,7 +375,7 @@ def test_pull_request_rule_schema_invalid():
                 "conditions": [
                     {"foo": "bar"}
                 ]
-            }, "extra keys not allowed"),
+            }, r"expected str @ data\[0\]\['conditions'\]\[0\]"),
             ({
                 "name": "hello",
                 "conditions": [

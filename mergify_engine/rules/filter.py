@@ -82,13 +82,6 @@ class Filter:
         "~=": lambda a, b: re.search(b, a),
     }
 
-    multiple_operators = {
-        "or": any,
-        "∨": any,
-        "and": all,
-        "∧": all,
-    }
-
     tree = attr.ib()
 
     def __attrs_post_init__(self):
@@ -109,11 +102,6 @@ class Filter:
             return operator + self._tree_to_str(nodes)
         if operator in self.binary_operators:
             return str(nodes[0]) + operator + str(nodes[1])
-        if operator in self.multiple_operators:
-            return (
-                "(" +
-                (" " + operator + " ").join(map(self._tree_to_str, nodes)) +
-                ")")
         raise RuntimeError(
             "Unable to convert tree to string: unknown operator: %s"
             % operator)  # pragma: no cover
@@ -160,28 +148,20 @@ class Filter:
             op = self.unary_operators[operator]
         except KeyError:
             try:
-                op = self.multiple_operators[operator]
+                op = self.binary_operators[operator]
             except KeyError:
-                try:
-                    op = self.binary_operators[operator]
-                except KeyError:
-                    raise UnknownOperator(operator)
-                if len(nodes) != 2:
-                    raise InvalidArguments(nodes)
+                raise UnknownOperator(operator)
+            if len(nodes) != 2:
+                raise InvalidArguments(nodes)
 
-                def _op(values):
-                    values = self._resolve_name(values, nodes[0])
-                    if isinstance(values, (list, tuple)) and op != len:
-                        for value in values:
-                            if op(value, nodes[1]):
-                                return True
-                        return False
-                    return op(values, nodes[1])
-                return _op
-            # Iterate over every item in the list of the value linked
-            # to the logical operator, and compile it down to its own
-            # evaluator.
-            elements = [self.build_evaluator(node) for node in nodes]
-            return lambda values: op((e(values) for e in elements))
+            def _op(values):
+                values = self._resolve_name(values, nodes[0])
+                if isinstance(values, (list, tuple)) and op != len:
+                    for value in values:
+                        if op(value, nodes[1]):
+                            return True
+                    return False
+                return op(values, nodes[1])
+            return _op
         element = self.build_evaluator(nodes)
         return lambda values: op(element(values))

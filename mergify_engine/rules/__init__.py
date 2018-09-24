@@ -81,8 +81,6 @@ Rule = {
 
 
 def PullRequestRuleCondition(value):
-    if not isinstance(value, str):
-        raise voluptuous.Invalid("Condition must be a string")
     try:
         return filter.Filter.parse(value)
     except filter.parser.pyparsing.ParseException as e:
@@ -91,22 +89,11 @@ def PullRequestRuleCondition(value):
             error_message=str(e))
 
 
-PullRequestRuleConditionsSchema = voluptuous.Schema([
-    voluptuous.Any(
-        PullRequestRuleCondition,
-        voluptuous.All(
-            {
-                voluptuous.Any("and", "or"): voluptuous.Self,
-            },
-            voluptuous.Length(min=1, max=1),
-        ),
-    ),
-])
-
-
 PullRequestRulesSchema = voluptuous.Schema([{
     voluptuous.Required('name'): str,
-    voluptuous.Required('conditions'): PullRequestRuleConditionsSchema,
+    voluptuous.Required('conditions'): [
+        voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+    ],
     voluptuous.Required("merge", default=False): voluptuous.Any(
         False,
         {
