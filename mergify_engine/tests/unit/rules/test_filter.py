@@ -101,8 +101,6 @@ def test_unknown_attribute():
 def test_parse_error():
     with pytest.raises(filter.ParseError):
         filter.Filter({})
-    with pytest.raises(filter.ParseError):
-        filter.Filter({"and": [], "or": []})
 
 
 def test_unknown_operator():
@@ -125,22 +123,6 @@ def test_str():
     }))
     assert "-foo=1" == str(filter.Filter({
         "-": {"=": ("foo", 1)},
-    }))
-    assert "(foo=1 and bar>2)" == str(filter.Filter({
-        "and": [
-            {"=": ("foo", 1)},
-            {">": ("bar", 2)},
-        ],
-    }))
-    assert "(foo=1 and bar>2 and (baz~=3 or xz<lol))" == str(filter.Filter({
-        "and": [
-            {"=": ("foo", 1)},
-            {">": ("bar", 2)},
-            {"or": [
-                {"~=": ("baz", 3)},
-                {"<": ("xz", "lol")},
-            ]},
-        ],
     }))
 
 
