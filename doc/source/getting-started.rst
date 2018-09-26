@@ -149,8 +149,5 @@ merge the pull request:
 .. image:: _static/mergify-merge.png
    :alt: merge
 
-You can follow the state of the Mergify merge queues by connecting to `your
-dashboard <https://mergify.io/dashboard>`_
-
 Now, that Mergify. is setup, you can go back on what matters for your project
 and let us babysit your pull requests!
