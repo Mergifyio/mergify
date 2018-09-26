@@ -1,10 +1,12 @@
+.. _strict merge:
+
 ===============
-Strict Workflow
+Strict Merge
 ===============
 
-The *strict* workflow is a workflow that prevents merging broken pull requests.
-That situation can arise when outdated pull requests are being merged in their
-base branch.
+The *strict* merge workflow is a workflow that prevents merging broken pull
+requests. That situation can arise when outdated pull requests are being merged
+in their base branch.
 
 Understanding the Problem
 =========================
@@ -70,29 +72,18 @@ Enabling the Strict Workflow
 ============================
 
 To enable the *strict* workflow, you need to set the value of ``strict`` to
-``true`` in the :ref:`required status checks` list.
+``true`` in the :ref:`merge action` action.
 
-To enable it on all your branches, you can write a ``mergify.yml`` like this:
-
-.. code-block:: yaml
-
-    rules:
-      default:
-        protection:
-          required_status_checks:
-            strict: true
-
-
-Of course, it makes even more sense to enable it with a continuous integration
-system required to pass. If you use `Travis CI <http://travis-ci.org>`_, your
-configuration would look like:
+To enable it on a pull request, you can write a ``mergify.yml`` like this:
 
 .. code-block:: yaml
 
-    rules:
-      default:
-        protection:
-          required_status_checks:
+    pull_request_rules:
+      - name: automatic merge with strict
+        conditions:
+          - "#approved-reviews-by>=2"
+          - status-success=continuous-integration/travis-ci
+        actions:
+          merge:
+            method: merge
             strict: true
-            contexts:
-              - continuous-integration/travis-ci

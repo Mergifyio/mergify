@@ -17,137 +17,100 @@ and enroll repositories where you want Mergify to be enabled.
 Configuration
 -------------
 
+Basics
+~~~~~~
+
 In order for Mergify to apply your rules to your pull requests, you need to
 create a configuration file. The configuration file should be created in the
-root directory of each enabled repository and named ``.mergify.yml``.
+root directory of each enabled repository and named ``.mergify.yml``. The
+configuration file format is entirely documented in :ref:`configuration file
+format`.
 
 Here's how to create a file with a minimal content to enable Mergify:
 
 .. code-block:: shell
 
     $ cd myrepository
-    $ echo "rules:" > .mergify.yml
+    $ echo "pull_request_rules:" > .mergify.yml
     $ git add .mergify.yml
     $ git commit -m "Enable mergify.io"
     $ git push
 
-Since this file does not contain any specific rules, the :ref:`default branch
-configuration <default>` will be used. By default, Mergify will merge any pull
-request that has one approval review.
+Since this file does not contain any specific rules, Mergify won't do anything.
+So let's create a rule to make it useful!
 
-A more realistic example of the ``.mergify.yml`` file would look like :
+Creating Rules
+~~~~~~~~~~~~~~
 
-.. code-block:: yaml
-
-    rules:
-      default:
-        protection:
-          required_status_checks:
-            contexts:
-              - continuous-integration/travis-ci
-          required_pull_request_reviews:
-            required_approving_review_count: 2
-
-The key ``default`` stores the default merging rules to use on all branches.
-The ``required_status_checks`` lists all checks that must pass before merging a
-pull request. The ``required_pull_request_reviews`` defines how many reviewer
-of the repository should approve the pull request before it gets merged.
-
-In this case, two reviewers must approve the pull request and the Travis CI
-must pass before Mergify merges the pull request.
-
-You can define a per branch rule using the ``branches`` settings. To match
-multiple branches at once, you can use a regular expression:
+A more realistic example of a ``.mergify.yml`` file would look like this:
 
 .. code-block:: yaml
 
-    rules:
-      default:
-        protection:
-          required_status_checks:
-            contexts:
-              - continuous-integration/travis-ci
-          required_pull_request_reviews:
-            required_approving_review_count: 2
-      branches:
-        protection:
-          stable/.*:
-            required_pull_request_reviews:
-              required_approving_review_count: 1
+    pull_request_rules:
+      - name: automatic merge on CI success and review
+        conditions:
+          - status-success=continuous-integration/travis-ci
+          - "#approved-reviews-by>=2"
+        actions:
+          merge:
+            method: merge
 
+The ``name`` of the rule is not used directly by Mergify, but is really useful
+when Mergify will report its status and for debugging rules. We advise setting
+an explicity name that makes sense to you.
 
-In this example, pull requests sent to a branch whose name matches ``stable/*``
-will only require one review approval and will still require Travis to pass.
+The key ``conditions`` defines the list of conditions that a pull request must
+match in order for the engine to execute the configured actions. In this
+example, there are 2 conditions to be met for the rule to be applied to a pull
+request:
 
-You can automatically merge a pull request as soon as all the required status
-checks pass:
+- ``status-success=continuous-integration/travis-ci``: the ``status-success``
+  variable contains all the check services that successfully run on this pull
+  request. In this case, it must contains ``continuous-integration/travis-ci``
+  for the rule to match: that would mean that the Travis CI reported a success
+  status check.
 
-.. code-block:: yaml
+- ``#approved-reviews-by>=2``: the ``approved-reviews-by`` variable contains
+  the list of collaborators that approved the pull request and, in this case,
+  it must contains at least 2 members (note the ``#`` length operator used
+  here).
 
-    rules:
-      protection:
-        required_status_checks:
-          contexts:
-            - continuous-integration/travis-ci
-        required_pull_request_reviews:
-          required_approving_review_count: 2
-      branches:
-        protection:
-          auto-deployment:
-            required_pull_request_reviews: null
+.. warning::
 
-With that configuration, pull requests sent to the branch auto-deployment
-require no approvals, while still requiring Travis continuous integration to
-succeed.
+   The ``#`` character is considered as the comment delimiter in YAML. ``#`` is
+   also the length operator in Mergify's conditions system, therefore don't
+   forget to use ``"`` around the condition.
 
-You can also disable Mergify on a particular branch:
+In this example, two reviewers must approve the pull request and the Travis CI
+must pass before Mergify executes the action: merging the pull request.
 
-.. code-block:: yaml
+The merge of the pull request is enabled by specifying the ``merge`` action
+with a ``method`` parameter containing the merge method to use.
 
-    rules:
-      protection:
-        required_status_checks:
-          contexts:
-            - continuous-integration/travis-ci
-        required_pull_request_reviews:
-          required_approving_review_count: 2
-      branches:
-        ^features/.*: null
+You can define any number of rules using any of the available conditions
+criterias; each rule that match will see its action executed.
 
-Here all branches starting by ``features/`` will not have Mergify enabled. All
-pull requests opened against thes branches will not be handled by Mergify, and
-GitHub branch protection will be disabled on them.
+Fore more details about the configuration file format, check
+:ref:`configuration file format`.
 
-You can read the :doc:`full list of configuration option <configuration>` for
-more information.
+Mergify is now ready, what happens next?
+----------------------------------------
 
-Mergify is now ready, what will happen next?
---------------------------------------------
+When a user sends a pull request to the repository, Mergify will post a status
+check about the state of the pull request according to the defined rules.
 
-When a contributor sends a pull request to the repository, Mergify will post a
-status check about the state of the pull request according to the defined
-rules.
-
-.. image:: _static/mergify-status-ko.png
+.. image:: _static/mergify-checks-status.png
    :alt: status check
 
 .. note::
 
-   When a pull request changes the configuration of Mergify, the ``mergify/pr``
-   status is built with the current configuration (without the pull request
-   change). To validate the Mergify configuration change an additional status is
-   posted named ``mergify/future-config-checker``.
+   When a pull request changes the configuration of Mergify, the status is
+   built with the current configuration (without the pull request change). To
+   validate the Mergify configuration change an additional status is posted
+   named ``Mergify — future config checker``.
 
-When all the criterias of the rules are satisfied, Mergify will merge the base
-branch into the pull request if the pull request is not up-to-date with the
-base branch. This is made to ensure that the pull request is tested one last
-time while being up-to-date with the base branch.
-
-Once the required services status are approved, Mergify will automatically
-merge the pull request:
-
-.. image:: _static/mergify-merge.png
-   :alt: merge
+When all the criterias of the rules are satisfied, Mergify will do the
+configure actions, such as merging the pull request.
 
 Now, that Mergify. is setup, you can go back on what matters for your project
 and let us babysit your pull requests!
