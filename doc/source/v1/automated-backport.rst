@@ -40,14 +40,14 @@ that are merged into any branch are backported to ``stable-3.0``::
 When the pull request is created and labeled with ``backport-to-stable-3.0``,
 Mergify waits for the pull request to be merged.
 
-.. image:: _static/backport-open.png
+.. image:: ../_static/backport-open.png
    :alt: Pull request is open
 
 As soon as the labeled pull request is merged, Mergify creates a new pull
 request targetting the ``stable-3.0`` branch that carries over the commits
 included in the original labeled pull request.
 
-.. image:: _static/backport-done.png
+.. image:: ../_static/backport-done.png
    :alt: Pull request is closed, backport is created
 
 This new pull request can be merged following your usual criteria for its
