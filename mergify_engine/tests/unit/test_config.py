@@ -529,7 +529,7 @@ def test_get_pull_request_rule():
         "conditions": [
             "base=xyz",
             "status-success=continuous-integration/fake-ci",
-            "#review-approved-by>=1",
+            "#approved-reviews-by>=1",
         ],
     }])
 
@@ -544,7 +544,7 @@ def test_get_pull_request_rule():
         "conditions": [
             "base=master",
             "status-success=continuous-integration/fake-ci",
-            "#review-approved-by>=1",
+            "#approved-reviews-by>=1",
         ],
     }])
 
@@ -560,7 +560,7 @@ def test_get_pull_request_rule():
         "conditions": [
             "base=master",
             "status-success=continuous-integration/fake-ci",
-            "#review-approved-by>=2",
+            "#approved-reviews-by>=2",
         ],
     }, {
         "name": "fast merge",
@@ -568,7 +568,7 @@ def test_get_pull_request_rule():
             "base=master",
             "label=fast-track",
             "status-success=continuous-integration/fake-ci",
-            "#review-approved-by>=1",
+            "#approved-reviews-by>=1",
         ],
     }, {
         "name": "fast merge with alternate ci",
@@ -576,7 +576,7 @@ def test_get_pull_request_rule():
             "base=master",
             "label=fast-track",
             "status-success=continuous-integration/fake-ci-bis",
-            "#review-approved-by>=1",
+            "#approved-reviews-by>=1",
         ],
     }, {
         "name": "fast merge from a bot",
@@ -592,7 +592,7 @@ def test_get_pull_request_rule():
 
     assert match.next_rules[0][0]['name'] == "merge"
     assert len(match.next_rules[0][1]) == 1
-    assert str(match.next_rules[0][1][0]) == "#review-approved-by>=2"
+    assert str(match.next_rules[0][1][0]) == "#approved-reviews-by>=2"
 
     assert match.next_rules[1][0]['name'] == "fast merge"
     assert len(match.next_rules[1][1]) == 1
