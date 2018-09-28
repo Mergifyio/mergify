@@ -223,14 +223,15 @@ class MergifyPull(object):
             "title": self.g_pull.title,
             "body": self.g_pull.body,
             "files": [f.filename for f in self.g_pull.get_files()],
-            "review-approved-by": [r.user.login for r in reviews
-                                   if r.state == "APPROVED"],
-            "review-dismissed-by": [r.user for r in reviews
-                                    if r.state == "DISMISSED"],
-            "review-changes-requested-by": [r.user for r in reviews
-                                            if r.state == "CHANGES_REQUESTED"],
-            "review-commented-by": [r.user for r in reviews
-                                    if r.state == "COMMENTED"],
+            "approved-reviews-by": [r.user.login for r in reviews
+                                    if r.state == "APPROVED"],
+            "dismissed-reviews-by": [r.user for r in reviews
+                                     if r.state == "DISMISSED"],
+            "changes-requested-reviews-by": [
+                r.user for r in reviews if r.state == "CHANGES_REQUESTED"
+            ],
+            "commented-reviews-by": [r.user for r in reviews
+                                     if r.state == "COMMENTED"],
             "status-success": [s.context for s in statuses
                                if s.state == "success"],
             # NOTE(jd) The Check API set conclusion to None for pending.

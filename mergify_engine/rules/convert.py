@@ -61,7 +61,7 @@ def _convert_merge_rule(rule, branch_name=None):
     rules = [{
         "name": rule_name,
         "conditions": default_conditions + [
-            "#review-approved-by>=%d" % default_required_reviews,
+            "#approved-reviews-by>=%d" % default_required_reviews,
         ] + [
             "status-success=%s" % context for context in default_contexts
         ],

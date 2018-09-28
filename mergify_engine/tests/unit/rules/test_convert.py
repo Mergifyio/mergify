@@ -52,7 +52,7 @@ def test_convert_simple():
         {
             "name": "default",
             "conditions": ["label!=no-mergify",
-                           "#review-approved-by>=2",
+                           "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
@@ -79,7 +79,7 @@ def test_convert_simple():
             "name": "^stable/.* branch",
             "conditions": ["base~=^stable/.*",
                            "label!=no-mergify",
-                           "#review-approved-by>=1",
+                           "#approved-reviews-by>=1",
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
@@ -146,7 +146,7 @@ def test_convert_rebase_fallback():
         {
             "name": "default",
             "conditions": ["label!=no-mergify",
-                           "#review-approved-by>=2",
+                           "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
@@ -158,7 +158,7 @@ def test_convert_rebase_fallback():
             "name": "^stable/.* branch",
             "conditions": ["base~=^stable/.*",
                            "label!=no-mergify",
-                           "#review-approved-by>=2",
+                           "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
@@ -170,7 +170,7 @@ def test_convert_rebase_fallback():
             "name": "^unstable/.* branch",
             "conditions": ["base~=^unstable/.*",
                            "label!=no-mergify",
-                           "#review-approved-by>=2",
+                           "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
             "merge": {
                 "method": "rebase",
