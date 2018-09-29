@@ -566,6 +566,14 @@ class MergifyPull(object):
         self.post_check_status(self.github_state,
                                self.github_description)
 
+    def is_behind(self):
+        branch = self.g_pull.base.repo.get_branch(self.g_pull.base.ref)
+        for commit in self.g_pull.get_commits():
+            for parent in commit.parents:
+                if parent.sha == branch.commit.sha:
+                    return False
+        return True
+
     def __str__(self):
         return ("%(login)s/%(repo)s/pull/%(number)d@%(branch)s "
                 "s:%(pr_state)s/%(statuses)s "
