@@ -13,10 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import copy
-import json
 import logging
-import time
 
 import github
 
@@ -92,7 +89,7 @@ MERGE_EVENTS = [
 
 
 class TestEngineScenario(base.FunctionalTestBase):
-    """Pastamaker engine tests.
+    """Mergify engine tests.
 
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
@@ -100,8 +97,6 @@ class TestEngineScenario(base.FunctionalTestBase):
 
     def setUp(self):
         super(TestEngineScenario, self).setUp()
-
-        self.pr_counter = 0
 
         integration = github.GithubIntegration(config.INTEGRATION_ID,
                                                config.PRIVATE_KEY)
@@ -117,251 +112,8 @@ class TestEngineScenario(base.FunctionalTestBase):
                                       config.INSTALLATION_ID)
 
         if self._testMethodName != "test_creation_pull_of_initial_config":
-            self.git("init")
-            self.git.configure()
-            self.git.add_cred(config.MAIN_TOKEN, "", self.r_main.full_name)
-            self.git.add_cred(config.FORK_TOKEN, "", "%s/%s" %
-                              (self.u_fork.login, self.r_main.name))
-            self.git("config", "user.name", "%s-tester" % config.CONTEXT)
-            self.git("remote", "add", "main", self.url_main)
-            self.git("remote", "add", "fork", self.url_fork)
-
-            with open(self.git.tmp + "/.mergify.yml", "w") as f:
-                f.write(CONFIG)
-            self.git("add", ".mergify.yml")
-            self.git("commit", "--no-edit", "-m", "initial commit")
-
-            test_branches = (
-                'stable', 'nostrict', 'disabled', 'enabling_label',
-            )
-            for test_branch in test_branches:
-                self.git("branch", test_branch, "master")
-
-            self.git("push", "--quiet", "main", "master", *test_branches)
-
-            self.r_fork = self.u_fork.create_fork(self.r_main)
-            self.git("fetch", "--quiet", "fork")
-
-            # NOTE(sileht): Github looks buggy here:
-            # We receive for the new repo the expected events:
-            # * installation_repositories
-            # * integration_installation_repositories
-            # but we receive them 6 times with the same sha1...
-            self.push_events([(None, {"action": "added"})] * 14)
-            # NOTE(sileht): Since checks API have been enabled, we receive a
-            # check request for the master branch head commit
-            self.push_events([("check_suite", {"action": "requested"})])
-
-    def tearDown(self):
-        # self.r_fork.delete()
-        super(TestEngineScenario, self).tearDown()
-        # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
-        # also to avoid the "git clone fork" failure that Github returns when
-        # we create repo too quickly
-        if base.RECORD_MODE in ["all", "once"]:
-            time.sleep(0.5)
-
-    def push_events(self, expected_events, ordered=True):
-        LOG.debug("============= push events start =============")
-        expected_events = copy.deepcopy(expected_events)
-        total = len(expected_events)
-        events = []
-        loop = 0
-
-        while len(events) < total:
-            loop += 1
-            if loop > 100:
-                raise RuntimeError("Never got expected number of events, "
-                                   "got %d events instead of %d" %
-                                   (len(events), total))
-
-            if base.RECORD_MODE in ["all", "once"]:
-                time.sleep(0.1)
-
-            events += self._process_events(total - len(events))
-
-        events = [(e["type"], e) for e in events]
-
-        if not ordered:
-            events = list(sorted(events))
-            expected_events = list(sorted(expected_events))
-
-        pos = 0
-        for (etype, event), (expected_etype, expected_data) in \
-                zip(events, expected_events):
-            pos += 1
-
-            if (expected_etype is not None and
-                    expected_etype != etype):
-                raise Exception(
-                    "[%d] Got %s event type instead of %s" %
-                    (pos, event["type"], expected_etype))
-
-            self._validate_key(pos, event["payload"], expected_data)
-        LOG.debug("============= push events end =============")
-
-    @classmethod
-    def _validate_key(cls, pos, data, expected_data):
-        if isinstance(expected_data, dict):
-            for key, expected in expected_data.items():
-                if key in data:
-                    cls._validate_key(pos, data[key], expected)
-                else:
-                    raise Exception("[%d] %s is missing" % (pos, key))
-        else:
-            if data != expected_data:
-                raise Exception(
-                    "[%d] Got %s instead of %s" %
-                    (pos, data, expected_data))
-
-    @classmethod
-    def _remove_useless_links(cls, data):
-        data.pop("installation", None)
-        data.pop("sender", None)
-        data.pop("repository", None)
-        data.pop("base", None)
-        data.pop("head", None)
-        data.pop("id", None)
-        data.pop("node_id", None)
-        data.pop("tree_id", None)
-        data.pop("_links", None)
-        data.pop("user", None)
-        data.pop("body", None)
-        for key, value in list(data.items()):
-            if key.endswith("url"):
-                del data[key]
-            if isinstance(value, dict):
-                data[key] = cls._remove_useless_links(value)
-        return data
-
-    @classmethod
-    def _event_for_log(cls, event):
-        filtered_payload = copy.deepcopy(event)
-        return cls._remove_useless_links(filtered_payload)
-
-    def _process_events(self, number):
-        # NOTE(sileht): Simulate push Github events, we use a counter
-        # for have each cassette call unique
-        events = list(self.session.get(
-            "https://gh.mergify.io/events-testing?number=%d" % number,
-            data=base.FAKE_DATA,
-            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
-        ).json())
-        if events:
-            for e in events:
-                LOG.debug(">>> Proceed event: [%s] %s %s", e["id"], e["type"],
-                          self._event_for_log(e))
-                self._process_event(**e)
-        return events
-
-    def _process_event(self, id, type, payload):  # noqa
-        extra = payload.get("state", payload.get("action"))
-        LOG.debug("> Processing event: %s %s/%s", id, type, extra)
-        r = self.app.post('/event', headers={
-            "X-GitHub-Event": type,
-            "X-GitHub-Delivery": "123456789",
-            "X-Hub-Signature": "sha1=whatever",
-            "Content-type": "application/json",
-        }, data=json.dumps(payload))
-        return r
-
-    def create_pr(self, base="master", files=None, two_commits=False,
-                  state="pending"):
-        self.pr_counter += 1
-
-        branch = "fork/pr%d" % self.pr_counter
-        title = "Pull request n%d from fork" % self.pr_counter
-
-        self.git("checkout", "--quiet", "fork/%s" % base, "-b", branch)
-        if files:
-            for name, content in files.items():
-                with open(self.git.tmp + "/" + name, "w") as f:
-                    f.write(content)
-                self.git("add", name)
-        else:
-            open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
-            self.git("add", "test%d" % self.pr_counter)
-        self.git("commit", "--no-edit", "-m", title)
-        if two_commits:
-            self.git("mv", "test%d" % self.pr_counter,
-                     "test%d-moved" % self.pr_counter)
-            self.git("commit", "--no-edit", "-m", "%s, moved" % title)
-        self.git("push", "--quiet", "fork", branch)
-
-        p = self.r_fork.parent.create_pull(
-            base=base,
-            head="%s:%s" % (self.r_fork.owner.login, branch),
-            title=title, body=title)
-
-        expected_events = [("pull_request", {"action": "opened"})]
-        if files and ".mergify.yml" in files:
-            # Yeah... we can receive opened after the check_run/suite ... it's
-            # just random
-            expected_events += [
-                ("check_suite", {"check_suite": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("status", {"state": "failure"})
-            ]
-        elif base != "disabled":
-            expected_events += [("status", {"state": state})]
-        self.push_events(expected_events, ordered=False)
-
-        # NOTE(sileht): We return the same but owned by the main project
-        p = self.r_main.get_pull(p.number)
-        commits = list(p.get_commits())
-
-        return p, commits
-
-    def create_status_and_push_event(self, pr,
-                                     context='continuous-integration/fake-ci',
-                                     state='success'):
-        self.create_status(pr, context, state)
-        self.push_events([("status", {"state": state})])
-
-    def create_check_run_and_push_event(self, pr, name, conclusion=None,
-                                        ignore_check_run_event=False,
-                                        ignore_check_suite_event=False):
-        if conclusion is None:
-            status = "in_progress"
-        else:
-            status = "completed"
-
-        pr_as_app = self.repo_as_app.get_pull(pr.number)
-        check_api.set_check_run(pr_as_app, name, status, conclusion)
-
-        expected_events = []
-        if not ignore_check_run_event:
-            expected_events.append(
-                ("check_run", {"action": "created",
-                               "check_run": {"conclusion": conclusion}}))
-        if not ignore_check_suite_event:
-            expected_events.append(
-                ("check_suite", {'action': 'completed'}))
-
-        self.push_events(expected_events, ordered=False)
-
-    def create_status(self, pr, context='continuous-integration/fake-ci',
-                      state='success'):
-        # TODO(sileht): monkey patch PR with this
-        self.r_main._requester.requestJsonAndCheck(
-            "POST",
-            pr.base.repo.url + "/statuses/" + pr.head.sha,
-            input={'state': state,
-                   'description': 'Your change works',
-                   'context': context},
-            headers={'Accept':
-                     'application/vnd.github.machine-man-preview+json'}
-        )
-
-    def create_review_and_push_event(self, pr, commit, event="APPROVE"):
-        r = pr.create_review(commit, "Perfect", event=event)
-        self.push_events([("pull_request_review", {"action": "submitted"})])
-        return r
-
-    def add_label_and_push_events(self, pr, label):
-        self.r_main.create_label(label, "000000")
-        pr.add_to_labels(label)
-        self.push_events([("pull_request", {"action": "labeled"})])
+            self.setup_repo(CONFIG, ['stable', 'nostrict', 'disabled',
+                                     'enabling_label'])
 
     def _get_queue(self, branch):
         config = rules.get_mergify_config(self.r_main)
@@ -552,7 +304,7 @@ class TestEngineScenario(base.FunctionalTestBase):
         self.assertEqual(0, len(pulls))
 
     def test_disabling_files(self):
-        p, commits = self.create_pr(files={"foobar": "what"}, state="failure")
+        p, commits = self.create_pr(files={"foobar": "what"}, status="failure")
 
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
@@ -565,7 +317,7 @@ class TestEngineScenario(base.FunctionalTestBase):
                          pulls[0].github_description)
 
     def test_enabling_label(self):
-        p, commits = self.create_pr("enabling_label", state="failure")
+        p, commits = self.create_pr("enabling_label", status="failure")
 
         self.create_status_and_push_event(p)
         self.create_review_and_push_event(p, commits[0])
@@ -834,7 +586,7 @@ class TestEngineScenario(base.FunctionalTestBase):
                 "required_approving_review_count"] = 6
         config = yaml.dump(config)
         p1, commits1 = self.create_pr(files={".mergify.yml": config},
-                                      state="failure")
+                                      status="failure")
         pulls = self._get_queue("master")
         self.assertEqual(1, len(pulls))
 
@@ -991,8 +743,9 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         self.create_status(p)
 
-        self.push_events([(None, {"action": "added"})] * 14)
         self.push_events([
+            (None, {"action": "added"}),
+            (None, {"action": "added"}),
             ("check_suite", {"action": "requested"}),
             ("check_suite", {"action": "requested"}),
             ("pull_request", {"action": "opened"}),

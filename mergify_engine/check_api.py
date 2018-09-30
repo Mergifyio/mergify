@@ -18,6 +18,7 @@ import github.GithubObject
 
 import tenacity
 
+from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -43,16 +44,31 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
     def conclusion(self):
         return self._conclusion.value
 
+    @property
+    def output(self):
+        return self._output.value
+
+    @property
+    def status(self):
+        return self._status.value
+
     def _initAttributes(self):
         self._id = github.GithubObject.NotSet
         self._name = github.GithubObject.NotSet
         self._conclusion = github.GithubObject.NotSet
+        self._status = github.GithubObject.NotSet
+        self._output = github.GithubObject.NotSet
+        self._status = github.GithubObject.NotSet
 
     def _useAttributes(self, attributes):
         if "id" in attributes:
             self._id = self._makeIntAttribute(attributes["id"])
         if "name" in attributes:
             self._name = self._makeStringAttribute(attributes["name"])
+        if "output" in attributes:
+            self._output = self._makeDictAttribute(attributes["output"])
+        if "status" in attributes:
+            self._status = self._makeStringAttribute(attributes["status"])
         if "conclusion" in attributes:
             self._conclusion = self._makeStringAttribute(
                 attributes["conclusion"])
@@ -90,9 +106,8 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
-    # TODO(sileht): Add our app_id to be sure, we don't get checks of another
-    # GitHubApp
-    checks = list(get_checks(pull, {"check_name": name}))
+    checks = list(c for c in get_checks(pull, {"check_name": name})
+                  if c._rawData['app']['id'] == config.INTEGRATION_ID)
 
     if not checks:
         headers, data = pull._requester.requestJsonAndCheck(
