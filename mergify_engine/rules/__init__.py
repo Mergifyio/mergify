@@ -62,7 +62,6 @@ Protection = {
     'enforce_admins': voluptuous.Any(None, bool),
 }
 
-MergeMethods = voluptuous.Any("rebase", "merge", "squash")
 
 # TODO(sileht): We can add some otherthing like
 # automatic backport tag
@@ -73,7 +72,7 @@ Rule = {
     'disabling_label': str,
     'disabling_files': [str],
     'merge_strategy': {
-        "method": MergeMethods,
+        "method": voluptuous.Any("rebase", "merge", "squash"),
         "rebase_fallback": voluptuous.Any("merge", "squash", "none"),
     },
     'automated_backport_labels': voluptuous.Any({str: str}, None),
@@ -92,21 +91,14 @@ def PullRequestRuleCondition(value):
 PullRequestRulesSchema = voluptuous.Schema([{
     voluptuous.Required('name'): str,
     voluptuous.Required('conditions'): [
-        voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+        voluptuous.All(str, voluptuous.Coerce(
+            PullRequestRuleCondition))
     ],
-    "actions": {
-        "merge": {
-            voluptuous.Required("method",
-                                default="merge"): MergeMethods,
-            voluptuous.Required("rebase_fallback",
-                                default="merge"): voluptuous.Any(
-                                    "merge", "squash", None),
-            voluptuous.Required("strict", default=False): bool,
-        },
-        "backport": {
-            "branches": [str],
-        },
-    },
+    voluptuous.Required("actions"): dict(
+        (ep.name, voluptuous.All(
+            ep.load().validator,
+            voluptuous.Coerce(ep.load())
+        )) for ep in pkg_resources.iter_entry_points("mergify_actions"))
 }])
 
 
@@ -137,8 +129,6 @@ class PullRequestRules:
 
         # The rules matching the pull request.
         matching_rules = attr.ib(init=False, default=attr.Factory(list))
-        # The rules that could match in some conditions is coming.
-        next_rules = attr.ib(init=False, default=attr.Factory(list))
 
         def __attrs_post_init__(self):
             d = self.pull_request.to_dict()
@@ -152,18 +142,14 @@ class PullRequestRules:
                         else:
                             next_conditions_to_validate.append(condition)
                 else:
-                    if next_conditions_to_validate:
-                        self.next_rules.append(
-                            (rule, next_conditions_to_validate)
-                        )
-                    else:
-                        self.matching_rules.append(rule)
+                    self.matching_rules.append(
+                        (rule, next_conditions_to_validate))
 
     def get_pull_request_rule(self, pull_request):
         return self.PullRequestRuleForPR(self.rules, pull_request)
 
 
-OldUserConfigurationSchema = {
+UserConfigurationSchemaV1 = {
     voluptuous.Required('rules'): voluptuous.Any({
         'default': voluptuous.Any(Rule, None),
         'branches': {str: voluptuous.Any(Rule, None)},
@@ -171,10 +157,16 @@ OldUserConfigurationSchema = {
 }
 
 
-NewUserConfigurationSchema = voluptuous.Schema({
+UserConfigurationSchemaV2 = voluptuous.Schema({
     voluptuous.Required("pull_request_rules"):
     voluptuous.Coerce(PullRequestRules),
 })
+
+UserConfigurationSchema = voluptuous.SomeOf(
+    min_valid=1, max_valid=1,
+    validators=(UserConfigurationSchemaV1,
+                UserConfigurationSchemaV2)
+)
 
 
 class NoRules(Exception):
@@ -191,7 +183,7 @@ def validate_user_config(content):
     # NOTE(sileht): This is just to check the syntax some attributes can be
     # missing, the important thing is that once merged with the default.
     # Everything need by Github is set
-    return voluptuous.Schema(OldUserConfigurationSchema)(
+    return voluptuous.Schema(UserConfigurationSchema)(
         yaml.safe_load(content))
 
 

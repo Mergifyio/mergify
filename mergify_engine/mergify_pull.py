@@ -217,8 +217,8 @@ class MergifyPull(object):
             "milestone": (
                 self.g_pull.milestone.title if self.g_pull.milestone else ""
             ),
-            "base": self.g_pull.base.label,
-            "head": self.g_pull.head.label,
+            "base": self.g_pull.base.ref,
+            "head": self.g_pull.head.ref,
             "locked": self.g_pull._rawData['locked'],
             "title": self.g_pull.title,
             "body": self.g_pull.body,
@@ -475,6 +475,29 @@ class MergifyPull(object):
             return
         raise tenacity.TryAgain
 
+    @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
+                    stop=tenacity.stop_after_attempt(5),
+                    retry=tenacity.retry_never)
+    def _wait_for_sha_change(self, old_sha):
+        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+            return
+
+        # Github is currently processing this PR, we wait the completion
+        self.log.info("refreshing")
+
+        # NOTE(sileht): Well github doesn't always update etag/last_modified
+        # when mergeable_state change, so we get a fresh pull request instead
+        # of using update()
+        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
+        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+            return
+        raise tenacity.TryAgain
+
+    def wait_for_sha_change(self):
+        old_sha = self.g_pull.head.sha
+        self._wait_for_sha_change(old_sha)
+        self._ensure_mergable_state()
+
     def __lt__(self, other):
         return ((self.mergify_state, self.g_pull.updated_at) >
                 (other.mergify_state, other.g_pull.updated_at))
@@ -521,7 +544,6 @@ class MergifyPull(object):
                                   merge_method=rebase_fallback)
             except github.GithubException as e:
                 return self._merge_failed(e)
-
         return True
 
     def post_check_status(self, state, msg, context=None):

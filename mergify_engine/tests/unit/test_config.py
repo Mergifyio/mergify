@@ -346,11 +346,13 @@ def test_pull_request_rule():
             "conditions": [
                 "head:master",
             ],
+            "actions": {},
     }, {
         "name": "hello",
         "conditions": [
             "base:foo", "base:baz",
         ],
+        "actions": {},
     }):
         rules.PullRequestRules([valid])
 
@@ -362,23 +364,27 @@ def test_pull_request_rule_schema_invalid():
                 "conditions": [
                     "this is wrong"
                 ],
+                "actions": {},
             }, "Invalid condition "),
             ({
                 "name": "hello",
                 "conditions": [
                     "head|4"
                 ],
+                "actions": {},
             }, "Invalid condition "),
             ({
                 "name": "hello",
                 "conditions": [
                     {"foo": "bar"}
-                ]
+                ],
+                "actions": {},
             }, r"expected str @ data\[0\]\['conditions'\]\[0\]"),
             ({
                 "name": "hello",
                 "conditions": [
                 ],
+                "actions": {},
                 "foobar": True,
             }, "extra keys not allowed"),
             ({
@@ -421,8 +427,8 @@ def test_get_pull_request_rule():
     g_pull.labels = []
     g_pull.get_review_requests.return_value = ([], [])
     g_pull.author = "jd"
-    g_pull.base.label = "master"
-    g_pull.head.label = "myfeature"
+    g_pull.base.ref = "master"
+    g_pull.head.ref = "myfeature"
     g_pull._rawData = {'locked': False}
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
@@ -450,79 +456,94 @@ def test_get_pull_request_rule():
     pull_request_rules = rules.PullRequestRules([{
         "name": "default",
         "conditions": [],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r in match.matching_rules] == ["default"]
-    assert match.rules == match.matching_rules
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert [(r, []) for r in match.rules] == match.matching_rules
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
         "conditions": [
             "base:master",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["hello"]
-    assert [r['name'] for r in match.matching_rules] == ["hello"]
-    assert match.rules == match.matching_rules
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["hello"]
+    assert [(r, []) for r in match.rules] == match.matching_rules
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
         "conditions": [
             "base:master",
         ],
+        "actions": {}
     }, {
         "name": "backport",
         "conditions": [
             "base:master",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
-    assert match.rules == match.matching_rules
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["hello",
+                                                            "backport"]
+    assert [(r, []) for r in match.rules] == match.matching_rules
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
         "conditions": [
             "#files=3",
         ],
+        "actions": {}
     }, {
         "name": "backport",
         "conditions": [
             "base:master",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r in match.matching_rules] == ["backport"]
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["backport"]
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
         "conditions": [
             "#files=2",
         ],
+        "actions": {}
     }, {
         "name": "backport",
         "conditions": [
             "base:master",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
-    assert match.rules == match.matching_rules
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["hello",
+                                                            "backport"]
+    assert [(r, []) for r in match.rules] == match.matching_rules
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     # No match
     pull_request_rules = rules.PullRequestRules([{
@@ -532,12 +553,12 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci",
             "#approved-reviews-by>=1",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["merge"]
-    assert [r['name'] for r in match.matching_rules] == []
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == []
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "merge",
@@ -546,13 +567,15 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci",
             "#approved-reviews-by>=1",
         ],
+        "actions": {}
     }])
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["merge"]
-    assert [r['name'] for r in match.matching_rules] == ["merge"]
-    assert match.rules == match.matching_rules
-    assert match.next_rules == []
+    assert [r['name'] for r, _ in match.matching_rules] == ["merge"]
+    assert [(r, []) for r in match.rules] == match.matching_rules
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "merge",
@@ -561,6 +584,7 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci",
             "#approved-reviews-by>=2",
         ],
+        "actions": {}
     }, {
         "name": "fast merge",
         "conditions": [
@@ -569,6 +593,7 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci",
             "#approved-reviews-by>=1",
         ],
+        "actions": {}
     }, {
         "name": "fast merge with alternate ci",
         "conditions": [
@@ -577,6 +602,7 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci-bis",
             "#approved-reviews-by>=1",
         ],
+        "actions": {}
     }, {
         "name": "fast merge from a bot",
         "conditions": [
@@ -584,23 +610,30 @@ def test_get_pull_request_rule():
             "author=mybot",
             "status-success=continuous-integration/fake-ci",
         ],
+        "actions": {}
     }])
     match = pull_request_rules.get_pull_request_rule(pull_request)
 
-    assert len(match.next_rules) == 3
+    assert [r['name'] for r in match.rules] == [
+        "merge", "fast merge", "fast merge with alternate ci",
+        "fast merge from a bot"]
+    assert [r['name'] for r, _ in match.matching_rules] == [
+        "merge", "fast merge", "fast merge with alternate ci"]
+    for rule in match.rules:
+        assert rule['actions'] == {}
 
-    assert match.next_rules[0][0]['name'] == "merge"
-    assert len(match.next_rules[0][1]) == 1
-    assert str(match.next_rules[0][1][0]) == "#approved-reviews-by>=2"
+    assert match.matching_rules[0][0]['name'] == "merge"
+    assert len(match.matching_rules[0][1]) == 1
+    assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
 
-    assert match.next_rules[1][0]['name'] == "fast merge"
-    assert len(match.next_rules[1][1]) == 1
-    assert str(match.next_rules[1][1][0]) == "label=fast-track"
+    assert match.matching_rules[1][0]['name'] == "fast merge"
+    assert len(match.matching_rules[1][1]) == 1
+    assert str(match.matching_rules[1][1][0]) == "label=fast-track"
 
-    assert match.next_rules[2][0]['name'] == "fast merge with alternate ci"
-    assert len(match.next_rules[2][1]) == 2
-    assert str(match.next_rules[2][1][0]) == "label=fast-track"
+    assert match.matching_rules[2][0]['name'] == "fast merge with alternate ci"
+    assert len(match.matching_rules[2][1]) == 2
+    assert str(match.matching_rules[2][1][0]) == "label=fast-track"
     assert (
-        str(match.next_rules[2][1][1]) ==
+        str(match.matching_rules[2][1][1]) ==
         "status-success=continuous-integration/fake-ci-bis"
     )

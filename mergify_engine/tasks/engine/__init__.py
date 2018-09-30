@@ -19,6 +19,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import rules
 from mergify_engine.tasks.engine import v1
+from mergify_engine.tasks.engine import v2
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -240,6 +241,12 @@ def run(event_type, data, subscription):
             v1.handle.s(installation_id, installation_token, subscription,
                         mergify_config, event_type, data,
                         event_pull.raw_data).apply_async()
+
+        elif "pull_request_rules" in mergify_config:
+            v2.handle.s(
+                installation_id, installation_token, subscription,
+                mergify_config, event_type, data, event_pull.raw_data
+            ).apply_async()
 
         else:  # pragma: no cover
             raise RuntimeError("Unexpected configuration version")

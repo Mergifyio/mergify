@@ -169,7 +169,7 @@ def backport(pull, branch_name, installation_token):
             "https://help.github.com/articles/"
             "checking-out-pull-requests-locally/")
 
-    repo.create_pull(
+    return repo.create_pull(
         title="Automatic backport of pull request #%d" % pull.g_pull.number,
         body=body,
         base=branch.name,
