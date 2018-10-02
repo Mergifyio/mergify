@@ -397,7 +397,7 @@ def test_pull_request_rule_schema_invalid():
                 "actions": {
                     "backport": True,
                 },
-            }, r"expected a list for dictionary value "
+            }, r"expected a dictionary for dictionary value "
                r"@ data\[0\]\['actions'\]\['backport'\]"),
             ({
                 "name": "hello",

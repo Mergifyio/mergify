@@ -103,7 +103,9 @@ PullRequestRulesSchema = voluptuous.Schema([{
                                     "merge", "squash", None),
             voluptuous.Required("strict", default=False): bool,
         },
-        "backport": [str],
+        "backport": {
+            "branches": [str],
+        },
     },
 }])
 

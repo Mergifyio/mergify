@@ -85,7 +85,9 @@ def _convert_merge_rule(rule, branch_name=None):
                     default_conditions + ["label=%s" % bp_label, "merged"]
                 ),
                 "actions": {
-                    "backport": [bp_branch_name],
+                    "backport": {
+                        "branches": [bp_branch_name],
+                    },
                 },
             })
 
