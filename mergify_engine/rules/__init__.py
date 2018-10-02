@@ -94,9 +94,8 @@ PullRequestRulesSchema = voluptuous.Schema([{
     voluptuous.Required('conditions'): [
         voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
     ],
-    voluptuous.Required("merge", default=False): voluptuous.Any(
-        False,
-        {
+    "actions": {
+        "merge": {
             voluptuous.Required("method",
                                 default="merge"): MergeMethods,
             voluptuous.Required("rebase_fallback",
@@ -104,9 +103,8 @@ PullRequestRulesSchema = voluptuous.Schema([{
                                     "merge", "squash", None),
             voluptuous.Required("strict", default=False): bool,
         },
-    ),
-    voluptuous.Required("backport", default=False):
-    voluptuous.Any(False, [str]),
+        "backport": [str],
+    },
 }])
 
 

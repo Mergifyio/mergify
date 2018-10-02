@@ -54,10 +54,12 @@ def test_convert_simple():
             "conditions": ["label!=no-mergify",
                            "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
-            "merge": {
-                "method": "rebase",
-                "rebase_fallback": "merge",
-                "strict": True,
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": "merge",
+                    "strict": True,
+                },
             },
         },
         {
@@ -65,14 +67,18 @@ def test_convert_simple():
             "conditions": ["label!=no-mergify",
                            "label=backport-to-3.0",
                            "merged"],
-            "backport": ["stable/3.0"],
+            "actions": {
+                "backport": ["stable/3.0"],
+            },
         },
         {
             "name": "backport stable/3.1",
             "conditions": ["label!=no-mergify",
                            "label=backport-to-3.1",
                            "merged"],
-            "backport": ["stable/3.1"],
+            "actions": {
+                "backport": ["stable/3.1"],
+            },
         },
 
         {
@@ -81,11 +87,13 @@ def test_convert_simple():
                            "label!=no-mergify",
                            "#approved-reviews-by>=1",
                            "status-success=continuous-integration/travis-ci"],
-            "merge": {
-                "method": "rebase",
-                "rebase_fallback": "merge",
-                "strict": True,
-            }
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": "merge",
+                    "strict": True,
+                },
+            },
         },
         {
             "name": "backport stable/3.0 from ^stable/.*",
@@ -93,7 +101,9 @@ def test_convert_simple():
                            "label!=no-mergify",
                            "label=backport-to-3.0",
                            "merged"],
-            "backport": ["stable/3.0"],
+            "actions": {
+                "backport": ["stable/3.0"],
+            }
         },
         {
             "name": "backport stable/3.1 from ^stable/.*",
@@ -101,7 +111,9 @@ def test_convert_simple():
                            "label!=no-mergify",
                            "label=backport-to-3.1",
                            "merged"],
-            "backport": ["stable/3.1"],
+            "actions": {
+                "backport": ["stable/3.1"],
+            },
         },
 
     ]
@@ -148,10 +160,12 @@ def test_convert_rebase_fallback():
             "conditions": ["label!=no-mergify",
                            "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
-            "merge": {
-                "method": "rebase",
-                "rebase_fallback": None,
-                "strict": True,
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": None,
+                    "strict": True,
+                },
             },
         },
         {
@@ -160,11 +174,13 @@ def test_convert_rebase_fallback():
                            "label!=no-mergify",
                            "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
-            "merge": {
-                "method": "rebase",
-                "rebase_fallback": "merge",
-                "strict": True,
-            }
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": "merge",
+                    "strict": True,
+                },
+            },
         },
         {
             "name": "^unstable/.* branch",
@@ -172,11 +188,13 @@ def test_convert_rebase_fallback():
                            "label!=no-mergify",
                            "#approved-reviews-by>=2",
                            "status-success=continuous-integration/travis-ci"],
-            "merge": {
-                "method": "rebase",
-                "rebase_fallback": None,
-                "strict": True,
-            }
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": None,
+                    "strict": True,
+                },
+            },
         },
     ]
     # Validate generated conf with the schema
