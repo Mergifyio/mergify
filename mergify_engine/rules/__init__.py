@@ -139,8 +139,6 @@ class PullRequestRules:
         matching_rules = attr.ib(init=False, default=attr.Factory(list))
         # The rules that could match in some conditions is coming.
         next_rules = attr.ib(init=False, default=attr.Factory(list))
-        # The final rule where all matching rules are merged
-        rule = attr.ib(init=False, default=attr.Factory(dict))
 
         def __attrs_post_init__(self):
             d = self.pull_request.to_dict()
@@ -160,13 +158,6 @@ class PullRequestRules:
                         )
                     else:
                         self.matching_rules.append(rule)
-                        self.rule.update(rule)
-            try:
-                del self.rule['name']
-                del self.rule['conditions']
-            except KeyError:
-                # Can happen if no match
-                pass
 
     def get_pull_request_rule(self, pull_request):
         return self.PullRequestRuleForPR(self.rules, pull_request)
