@@ -22,6 +22,7 @@ import attr
 @attr.s
 class Action(abc.ABC):
     config = attr.ib()
+    cancel_in_progress = True
 
     @property
     @staticmethod
