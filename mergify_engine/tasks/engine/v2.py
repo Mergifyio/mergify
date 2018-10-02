@@ -79,6 +79,17 @@ def run_actions(installation_id, installation_token, subscription,
             prev_check = checks.get(check_name)
 
             if missing_conditions:
+                # NOTE(sileht): The rule was matching before, but it doesn't
+                # anymore, since we can't remove checks, put them in cancelled
+                # state
+                cancel_in_progress = rule["actions"][action].cancel_in_progress
+                if (cancel_in_progress and prev_check and
+                        prev_check.status == "in_progress"):
+                    summary = ("The rule doesn't match anymore, this action "
+                               "has been cancelled")
+                    check_api.set_check_run(
+                        pull.g_pull, check_name, "completed", "cancelled",
+                        output={"title": title, "summary": summary})
                 continue
 
             # NOTE(sileht): actions already done

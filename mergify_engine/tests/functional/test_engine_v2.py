@@ -17,6 +17,7 @@ import logging
 
 import yaml
 
+from mergify_engine import check_api
 from mergify_engine.tests.functional import base
 
 
@@ -35,6 +36,38 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
     """
+
+    def test_backport_cancelled(self):
+        rules = {'pull_request_rules': [
+            {"name": "backport",
+             "conditions": [
+                 "base=master",
+                 "label=backport-3.1",
+             ], "actions": {
+                 "backport": {
+                     "branches": ['stable/3.1'],
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+
+        p, _ = self.create_pr(check="success")
+
+        self.add_label_and_push_events(p, "backport-3.1")
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+        p.remove_from_labels("backport-3.1")
+        self.push_events([
+            ("pull_request", {"action": "unlabeled"}),
+            # Stupid bug, we must query the API instead ...
+            # ("check_run", {"check_run": {"conclusion": "cancelled"}}),
+        ], ordered=False)
+
+        checks = list(check_api.get_checks(p, {
+            "check_name": "Rule: backport (backport)"}))
+        self.assertEqual("cancelled", checks[0].conclusion)
 
     def test_merge_backport(self):
         rules = {'pull_request_rules': [
