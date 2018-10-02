@@ -385,25 +385,31 @@ def test_pull_request_rule_schema_invalid():
                 "name": "hello",
                 "conditions": [
                 ],
-                "merge": True,
-            }, r"not a valid value for "
-               r"dictionary value @ data\[0\]\['merge'\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "backport": True,
-            }, r"not a valid value for "
-               r"dictionary value @ data\[0\]\['backport'\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "merge": {
-                    "strict": "yes",
+                "actions": {
+                    "merge": True,
                 },
-            }, r"expected bool for "
-               r"dictionary value @ data\[0\]\['merge'\]\['strict'\]"),
+            }, r"expected a dictionary for dictionary value "
+               r"@ data\[0\]\['actions'\]\['merge'\]"),
+            ({
+                "name": "hello",
+                "conditions": [
+                ],
+                "actions": {
+                    "backport": True,
+                },
+            }, r"expected a list for dictionary value "
+               r"@ data\[0\]\['actions'\]\['backport'\]"),
+            ({
+                "name": "hello",
+                "conditions": [
+                ],
+                "actions": {
+                    "merge": {
+                        "strict": "yes",
+                    },
+                },
+            }, r"expected bool for dictionary value @ "
+               r"data\[0\]\['actions'\]\['merge'\]\['strict'\]"),
     ):
         with pytest.raises(voluptuous.MultipleInvalid, match=match):
             rules.PullRequestRules([invalid])

@@ -65,7 +65,9 @@ def _convert_merge_rule(rule, branch_name=None):
         ] + [
             "status-success=%s" % context for context in default_contexts
         ],
-        "merge": merge_params,
+        "actions": {
+            "merge": merge_params,
+        },
     }]
 
     automated_backport_labels = rule.get("automated_backport_labels")
@@ -82,7 +84,9 @@ def _convert_merge_rule(rule, branch_name=None):
                 "conditions": (
                     default_conditions + ["label=%s" % bp_label, "merged"]
                 ),
-                "backport": [bp_branch_name],
+                "actions": {
+                    "backport": [bp_branch_name],
+                },
             })
 
     return rules
