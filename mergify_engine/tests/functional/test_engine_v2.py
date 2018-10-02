@@ -94,6 +94,78 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(sorted(["unstable", "foobar"]),
                          sorted([l.name for l in pulls[0].labels]))
 
+    def test_dismiss_reviews(self):
+        rules = {'pull_request_rules': [
+            {"name": "dismiss reviews",
+             "conditions": [
+                 "base=master",
+             ], "actions": {
+                 "dismiss_reviews": {
+                     "approved": True,
+                     "changes_requested": ["mergify-test1"],
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+        p, commits = self.create_pr(check="success")
+        branch = "fork/pr%d" % self.pr_counter
+        self.create_review_and_push_event(p, commits[-1], "APPROVE")
+
+        self.assertEqual(
+            [("APPROVED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()]
+        )
+
+        open(self.git.tmp + "/unwanted_changes", "wb").close()
+        self.git("add", self.git.tmp + "/unwanted_changes")
+        self.git("commit", "--no-edit", "-m", "unwanted_changes")
+        self.git("push", "--quiet", "fork", branch)
+
+        self.push_events([
+            ("pull_request", {"action": "synchronize"}),
+        ]),
+        self.push_events([
+            ("check_suite", {"action": "completed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("pull_request_review", {"action": "dismissed"}),
+        ], ordered=False)
+
+        self.assertEqual(
+            [("DISMISSED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()]
+        )
+
+        commits = list(p.get_commits())
+        self.create_review_and_push_event(p, commits[-1],
+                                          "REQUEST_CHANGES")
+
+        self.assertEqual(
+            [("DISMISSED", "mergify-test1"),
+             ("CHANGES_REQUESTED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()]
+        )
+
+        open(self.git.tmp + "/unwanted_changes2", "wb").close()
+        self.git("add", self.git.tmp + "/unwanted_changes2")
+        self.git("commit", "--no-edit", "-m", "unwanted_changes2")
+        self.git("push", "--quiet", "fork", branch)
+
+        self.push_events([
+            ("pull_request", {"action": "synchronize"}),
+        ]),
+        self.push_events([
+            ("check_suite", {"action": "completed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("pull_request_review", {"action": "dismissed"}),
+        ], ordered=False)
+
+        self.assertEqual(
+            [("DISMISSED", "mergify-test1"),
+             ("DISMISSED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()]
+        )
+
     def test_merge_backport(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",

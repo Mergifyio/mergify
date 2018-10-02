@@ -191,14 +191,16 @@ class MergifyPull(object):
         }
         return raw
 
-    def to_dict(self):
+    def _get_reviews(self):
         # Ignore reviews that are not from someone with write permissions
         # And only keep the last review for each user.
-        reviews = list(dict((review.user.login, review)
-                            for review in self.g_pull.get_reviews()
-                            if (review._rawData['author_association'] in
-                                ("COLLABORATOR", "MEMBER", "OWNER"))).values())
+        return list(dict((review.user.login, review)
+                         for review in self.g_pull.get_reviews()
+                         if (review._rawData['author_association'] in
+                             ("COLLABORATOR", "MEMBER", "OWNER"))).values())
 
+    def to_dict(self):
+        reviews = self._get_reviews()
         statuses = self._get_checks()
         # FIXME(jd) pygithub does 2 HTTP requests whereas 1 is enough!
         review_requested_users, review_requested_teams = (
