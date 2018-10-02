@@ -451,7 +451,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.matching_rules] == ["default"]
     assert match.rules == match.matching_rules
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
@@ -465,7 +464,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.matching_rules] == ["hello"]
     assert match.rules == match.matching_rules
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
@@ -484,7 +482,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
     assert match.rules == match.matching_rules
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
@@ -502,7 +499,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.rules] == ["hello", "backport"]
     assert [r['name'] for r in match.matching_rules] == ["backport"]
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "hello",
@@ -521,7 +517,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.matching_rules] == ["hello", "backport"]
     assert match.rules == match.matching_rules
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     # No match
     pull_request_rules = rules.PullRequestRules([{
@@ -537,7 +532,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.rules] == ["merge"]
     assert [r['name'] for r in match.matching_rules] == []
     assert match.next_rules == []
-    assert match.rule == {}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "merge",
@@ -553,7 +547,6 @@ def test_get_pull_request_rule():
     assert [r['name'] for r in match.matching_rules] == ["merge"]
     assert match.rules == match.matching_rules
     assert match.next_rules == []
-    assert match.rule == {'backport': False, 'merge': False}
 
     pull_request_rules = rules.PullRequestRules([{
         "name": "merge",
