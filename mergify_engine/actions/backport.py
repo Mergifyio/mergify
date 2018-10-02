@@ -27,6 +27,9 @@ class BackportAction(actions.Action):
                  event_type, data, pull):
         # TODO(sileht): some error should be report in Github UI
 
+        if not pull.g_pull.merged:
+            return None, "Waiting for the pull request to get merged"
+
         detail = "The following pull requests have been created: "
         for branch in self.config['branches']:
             new_pull = backports.backport(pull, branch, installation_token)
