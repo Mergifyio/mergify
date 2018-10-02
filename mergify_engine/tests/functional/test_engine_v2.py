@@ -50,7 +50,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
              "conditions": [
                  "base=master",
                  "label=backport-3.1",
-                 "merged",
              ], "actions": {
                  "backport": {
                      "branches": ['stable/3.1'],
@@ -63,18 +62,20 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.create_pr(check="success")
         p2, commits = self.create_pr(check="success")
 
+        self.add_label_and_push_events(p2, "backport-3.1")
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+
         self.create_status_and_push_event(p2,
                                           context="not required status check",
-                                          state="error")
+                                          state="failure")
         self.create_status_and_push_event(p2)
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events(MERGE_EVENTS, ordered=False)
 
-        self.add_label_and_push_events(p2, "backport-3.1")
-
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "opened"}),
             ("check_suite", {"action": "requested"}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
