@@ -186,6 +186,32 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(0, len(pulls))
 
+    def test_rebase(self):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+                 "#approved-reviews-by>=1",
+             ], "actions": {
+                 "merge": {"method": "rebase"}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p2, commits = self.create_pr(check="success")
+        self.create_status_and_push_event(p2)
+        self.create_review_and_push_event(p2, commits[0])
+
+        self.push_events(MERGE_EVENTS, ordered=False)
+
+        pulls = list(self.r_main.get_pulls(state="all"))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(True, pulls[0].merged)
+        self.assertEqual("closed", pulls[0].state)
+
     def test_merge_branch_protection_ci(self):
         rules = {'pull_request_rules': [
             {"name": "merge",
