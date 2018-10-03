@@ -67,7 +67,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ], ordered=False)
 
         checks = list(check_api.get_checks(p, {
-            "check_name": "Rule: backport (backport)"}))
+            "check_name": "Mergify — Rule: backport (backport)"}))
         self.assertEqual("cancelled", checks[0].conclusion)
 
     def test_merge_backport(self):
@@ -246,11 +246,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ])
 
         checks = list(check_api.get_checks(p, {
-            "check_name": "Rule: merge (merge)"}))
+            "check_name": "Mergify — Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
         self.assertIn("Branch protection settings are blocking "
                       "automatic merging",
-                      checks[0].output['summary'])
+                      checks[0].output['title'])
 
     def test_merge_branch_protection_strict(self):
         rules = {'pull_request_rules': [
@@ -292,11 +292,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.create_status_and_push_event(p2)
         self.push_events([
             ("check_run", {"check_run": {"conclusion": "failure"}}),
-        ])
+            ("check_suite", {"action": "completed"}),
+        ], ordered=False)
 
         checks = list(check_api.get_checks(p2, {
-            "check_name": "Rule: merge (merge)"}))
+            "check_name": "Mergify — Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
         self.assertIn("Branch protection setting 'strict' conflicts with "
                       "Mergify configuration",
-                      checks[0].output['summary'])
+                      checks[0].output['title'])

@@ -25,7 +25,7 @@ LOG = daiquiri.getLogger(__name__)
 
 def post_summary(pull, match, checks):
     # Set the summary
-    summary_name = "Mergify Summary"
+    summary_name = "Mergify — Summary"
     summary = "The following rules match this pull request:"
 
     completed_rules = 0
@@ -40,13 +40,24 @@ def post_summary(pull, match, checks):
         if not missing_conditions:
             completed_rules += 1
 
-    matching_rules_nb = len(match.matching_rules)
-    if matching_rules_nb > 1:
-        summary_title = "%d rules match" % matching_rules_nb
-    else:
-        summary_title = "%d rule matches" % matching_rules_nb
-    if completed_rules > 0:
-        summary_title += ", %s applied" % completed_rules
+    potential_rules = len(match.matching_rules) - completed_rules
+
+    summary_title = []
+    if completed_rules == 1:
+        summary_title.append("%d rule matches" % completed_rules)
+    elif completed_rules > 1:
+        summary_title.append("%d rules match" % completed_rules)
+
+    if potential_rules == 1:
+        summary_title.append("%s potential rule" % potential_rules)
+    elif potential_rules > 1:
+        summary_title.append("%s potential rules" % potential_rules)
+
+    if completed_rules == 0 and potential_rules == 0:
+        summary_title.append("no rules match, no planned actions")
+
+    summary_title = " and ".join(summary_title)
+
     summary_check = checks.get(summary_name)
     summary_changed = (not summary_check or
                        summary_check.output["title"] != summary_title or
@@ -78,7 +89,7 @@ def run_actions(installation_id, installation_token, subscription,
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action in rule['actions']:
-            check_name = "Rule: %s (%s)" % (rule['name'], action)
+            check_name = "Mergify — Rule: %s (%s)" % (rule['name'], action)
             prev_check = checks.get(check_name)
 
             if missing_conditions:
