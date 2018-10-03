@@ -16,6 +16,8 @@
 
 import daiquiri
 
+import github
+
 import voluptuous
 
 from mergify_engine import actions
@@ -37,13 +39,30 @@ class MergeAction(actions.Action):
 
     def __call__(self, installation_id, installation_token, subscription,
                  event_type, data, pull):
+        pull.log.debug("process merge", config=self.config)
 
-        # TODO(sileht): set correct error message if mergeable_state !=
-        # unstable/clean about conflict with the branch protection
-        # TODO(sileht): some error should be report in Github UI
-        # TODO(sileht): Don't blindly update all PRs, but just one by one.
+        # NOTE(sileht): Take care of all branch protection state
+        if pull.g_pull.mergeable_state == "dirty":
+            return None, "Merge conflict needs to be solved"
+        elif pull.g_pull.mergeable_state == "unknown":
+            return ("failure", "Pull request state reported as `unknown` by "
+                    "GitHub")
+        elif pull.g_pull.mergeable_state == "block":
+            return (None, "Branch protection settings are blocking automatic "
+                    "merging")
+        elif (pull.g_pull.mergeable_state == "behind" and
+              not self.config["strict"]):
+            # Strict mode has been enabled in branch protection but not in
+            # mergify
+            return ("failure", "Branch protection setting 'strict' conflicts "
+                    "with Mergify configuration")
+        # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
+        # are OK for us
 
         if self.config["strict"] and pull.is_behind():
+            # TODO(sileht): strict: Don't blindly update all PRs, but just one
+            # by one.
+
             updated = branch_updater.update(pull, subscription["token"])
             if not updated:
                 raise Exception("branch update of %s have failed" % pull)
@@ -58,12 +77,36 @@ class MergeAction(actions.Action):
                     "soon")
 
         else:
+            if self.config["method"] != "rebase" or not pull.g_pull.rebaseable:
+                return self._merge(pull, self.config["method"])
+            elif self.config["rebase_fallback"]:
+                return self._merge(pull, self.config["rebase_fallback"])
+            else:
+                return ("action_required", "Automatic rebasing is not "
+                        "possible, manual intervention required")
 
-            merged = pull.merge(self.config["method"],
-                                self.config["rebase_fallback"])
-            if not merged:
-                raise Exception("merge of %s have failed" % pull)
-            LOG.info("merged", pull_request=pull)
-            pull.g_pull.update()
-            return ("success", "The pull request have been automatically "
-                    "merged at *%s*" % pull.g_pull.merge_commit_sha)
+    @staticmethod
+    def _merge(pull, method):
+        try:
+            pull.g_pull.merge(sha=pull.g_pull.head.sha,
+                              merge_method=method)
+        except github.GithubException as e:   # pragma: no cover
+            if pull.g_pull.is_merged():
+                pull.log.info("merged in the meantime")
+
+            elif e.status == 405:
+                return (None, "Branch protection settings are blocking "
+                        "automatic merging")
+
+            elif 400 <= e.status < 500:
+                pull.log.error("merge fail", error=e.data["message"])
+                return ("failure",
+                        "Mergify fails to merge the pull request: %s" %
+                        e.data["message"])
+            else:
+                raise
+        else:
+            pull.log.info("merged")
+        pull.g_pull.update()
+        return ("success", "The pull request has been automatically "
+                "merged at *%s*" % pull.g_pull.merge_commit_sha)

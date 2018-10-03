@@ -60,8 +60,8 @@ def run_action(rule, action, check_name, prev_check, installation_id,
             installation_id, installation_token,
             subscription, event_type, data, pull)
     except Exception as e:
-        LOG.error("action failed", action=action, rule=rule,
-                  pull_request=pull, exc_info=True)
+        pull.log.error("action failed", action=action, rule=rule,
+                       exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
         return "failure", "action '%s' have failed" % action
