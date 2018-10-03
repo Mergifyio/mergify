@@ -106,6 +106,16 @@ PullRequestRulesSchema = voluptuous.Schema([{
 class PullRequestRules:
     rules = attr.ib(converter=PullRequestRulesSchema)
 
+    def as_dict(self):
+        return {'rules': [{
+            "name": rule["name"],
+            "conditions": list(map(str, rule["conditions"])),
+            "actions": dict(
+                (name, obj.config)
+                for name, obj in rule["actions"].items()
+            ),
+        } for rule in self.rules]}
+
     @attr.s
     class PullRequestRuleForPR:
         """A pull request rule that matches a pull request."""

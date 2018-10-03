@@ -56,7 +56,7 @@ RINGS_PER_SUBSCRIPTION = {
 
 @app.task
 def handle(installation_id, installation_token, subscription,
-           mergify_config, event_type, data, event_pull_raw):
+           branch_rules, event_type, data, event_pull_raw):
     # NOTE(sileht): The processor is not concurrency safe, so a repo is always
     # sent to the same worker.
     # This work in coordination with app.conf.worker_direct = True that creates
@@ -66,19 +66,19 @@ def handle(installation_id, installation_token, subscription,
     LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
              routing_key)
     _handle.s(installation_id, installation_token, subscription,
-              mergify_config, event_type, data, event_pull_raw
+              branch_rules, event_type, data, event_pull_raw
               ).apply_async(exchange='C.dq2', routing_key=routing_key)
 
 
 @app.task
 def _handle(installation_id, installation_token, subscription,
-            mergify_config, event_type, data, event_pull_raw):
+            branch_rules, event_type, data, event_pull_raw):
     pull = mergify_pull.MergifyPull.from_raw(installation_id,
                                              installation_token,
                                              event_pull_raw)
     MergifyEngine(installation_id, installation_token, subscription,
                   pull.g_pull.base.repo).handle(
-                      mergify_config, event_type, data, pull)
+                      branch_rules, event_type, data, pull)
 
 
 @attr.s
@@ -147,14 +147,13 @@ class MergifyEngine(Caching):
         self._installation_token = installation_token
         self._subscription = subscription
 
-    def handle(self, config, event_type, data, incoming_pull):
+    def handle(self, branch_rules, event_type, data, incoming_pull):
         # Everything start here
         incoming_branch = incoming_pull.g_pull.base.ref
         incoming_state = incoming_pull.g_pull.state
 
         try:
-            branch_rule = rules.get_branch_rule(config['rules'],
-                                                incoming_branch)
+            branch_rule = rules.get_branch_rule(branch_rules, incoming_branch)
         except rules.InvalidRules as e:  # pragma: no cover
             # Not configured, post status check with the error message
             if (event_type == "pull_request" and
