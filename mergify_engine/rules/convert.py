@@ -25,9 +25,10 @@ def _safe_getter(rule, path, default=None):
     return cur
 
 
-def _convert_merge_rule(rule, branch_name=None):
-    if rule is None and branch_name is None:
+def _convert_merge_rule(rule, branch_name=None, branches_with_rules=None):
+    if rule is None:
         return []
+
     default_merge_strategy_method = _safe_getter(rule, (
         'merge_strategy', 'method'))
     default_merge_rebase_fallback = _safe_getter(rule, (
@@ -51,7 +52,16 @@ def _convert_merge_rule(rule, branch_name=None):
         merge_params["strict"] = default_strict
 
     if branch_name is None:
-        default_conditions = []
+        if branches_with_rules:
+            default_conditions = []
+            for b in branches_with_rules:
+                if b.startswith("^"):
+                    operator = "~="
+                else:
+                    operator = "="
+                default_conditions.append("-base" + operator + b)
+        else:
+            default_conditions = []
         rule_name = "default"
     else:
         if branch_name.startswith("^"):
@@ -108,12 +118,14 @@ def _convert_merge_rule(rule, branch_name=None):
 
 
 def convert_config(rules):
+    branches_with_rules = list(sorted(rules.get('branches', [])))
     return (
-        _convert_merge_rule(mrules.get_merged_branch_rule(rules)) +
+        _convert_merge_rule(mrules.get_merged_branch_rule(rules),
+                            branches_with_rules=branches_with_rules) +
         sum((_convert_merge_rule(
             mrules.get_merged_branch_rule(rules, branch_name),
             branch_name=branch_name)
-            for branch_name in sorted(rules['branches'])), [])
+            for branch_name in branches_with_rules), [])
     )
 
 
