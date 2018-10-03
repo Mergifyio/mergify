@@ -151,7 +151,7 @@ def check_configuration_changes(event_type, data, event_pull):
                     event_pull, "future-config-checker", "completed",
                     "success", output={
                         "title": "The new Mergify configuration is valid",
-                        "summary": "No action are required",
+                        "summary": "No action required",
                     })
 
 
