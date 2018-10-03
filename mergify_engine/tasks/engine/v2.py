@@ -17,6 +17,7 @@ import daiquiri
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
+from mergify_engine import rules
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -114,12 +115,14 @@ def run_actions(installation_id, installation_token, subscription,
 
 @app.task
 def handle(installation_id, installation_token, subscription,
-           mergify_config, event_type, data, pull_raw):
+           pull_request_rules_raw, event_type, data, pull_raw):
+
+    pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
     pull = mergify_pull.MergifyPull.from_raw(
         installation_id,
         installation_token,
         pull_raw)
-    match = mergify_config['pull_request_rules'].get_pull_request_rule(pull)
+    match = pull_request_rules.get_pull_request_rule(pull)
     checks = dict((c.name, c) for c in check_api.get_checks(pull.g_pull)
                   if c._rawData['app']['id'] == config.INTEGRATION_ID)
 
