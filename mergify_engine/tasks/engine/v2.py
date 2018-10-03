@@ -94,8 +94,12 @@ def run_actions(installation_id, installation_token, subscription,
                 continue
 
             # NOTE(sileht): actions already done
-            if prev_check and prev_check.conclusion:
-                continue
+            if prev_check:
+                if prev_check.conclusion == "success":
+                    continue
+                elif (prev_check.conclusion and
+                      event_type != "refresh"):
+                    continue
 
             conclusion, summary = run_action(
                 rule, action, check_name, prev_check,

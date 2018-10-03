@@ -47,9 +47,9 @@ class MergeAction(actions.Action):
         elif pull.g_pull.mergeable_state == "unknown":
             return ("failure", "Pull request state reported as `unknown` by "
                     "GitHub")
-        elif pull.g_pull.mergeable_state == "block":
-            return (None, "Branch protection settings are blocking automatic "
-                    "merging")
+        elif pull.g_pull.mergeable_state == "blocked":
+            return ("failure", "Branch protection settings are blocking "
+                    "automatic merging")
         elif (pull.g_pull.mergeable_state == "behind" and
               not self.config["strict"]):
             # Strict mode has been enabled in branch protection but not in
@@ -77,7 +77,8 @@ class MergeAction(actions.Action):
                     "soon")
 
         else:
-            if self.config["method"] != "rebase" or not pull.g_pull.rebaseable:
+            if (self.config["method"] != "rebase" or not
+                    pull.g_pull.raw_data['rebaseable']):
                 return self._merge(pull, self.config["method"])
             elif self.config["rebase_fallback"]:
                 return self._merge(pull, self.config["rebase_fallback"])
@@ -95,8 +96,9 @@ class MergeAction(actions.Action):
                 pull.log.info("merged in the meantime")
 
             elif e.status == 405:
-                return (None, "Branch protection settings are blocking "
-                        "automatic merging")
+                pull.log.error("merge fail", error=e.data["message"])
+                return ("failure", "Repository settings are blocking "
+                        "automatic merging: %s" % e.data["message"])
 
             elif 400 <= e.status < 500:
                 pull.log.error("merge fail", error=e.data["message"])
