@@ -63,23 +63,23 @@ class Filter:
     }
 
     binary_operators = {
-        "=": operator.eq,
-        "==": operator.eq,
+        "=": (operator.eq, any),
+        "==": (operator.eq, any),
 
-        "<": operator.lt,
+        "<": (operator.lt, any),
 
-        ">": operator.gt,
+        ">": (operator.gt, any),
 
-        "<=": operator.le,
-        "≤": operator.le,
+        "<=": (operator.le, any),
+        "≤": (operator.le, any),
 
-        ">=": operator.ge,
-        "≥": operator.ge,
+        ">=": (operator.ge, any),
+        "≥": (operator.ge, any),
 
-        "!=": operator.ne,
-        "≠": operator.ne,
+        "!=": (operator.ne, all),
+        "≠": (operator.ne, all),
 
-        "~=": lambda a, b: re.search(b, a),
+        "~=": (lambda a, b: re.search(b, a), any),
     }
 
     tree = attr.ib()
@@ -150,7 +150,7 @@ class Filter:
             op = self.unary_operators[operator]
         except KeyError:
             try:
-                op = self.binary_operators[operator]
+                op, iterable_op = self.binary_operators[operator]
             except KeyError:
                 raise UnknownOperator(operator)
             if len(nodes) != 2:
@@ -159,10 +159,7 @@ class Filter:
             def _op(values):
                 values = self._resolve_name(values, nodes[0])
                 if isinstance(values, (list, tuple)) and op != len:
-                    for value in values:
-                        if op(value, nodes[1]):
-                            return True
-                    return False
+                    return iterable_op(map(lambda x: op(x, nodes[1]), values))
                 return op(values, nodes[1])
             return _op
         element = self.build_evaluator(nodes)
