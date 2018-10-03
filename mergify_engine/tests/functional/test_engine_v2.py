@@ -17,6 +17,7 @@ import logging
 
 import yaml
 
+from mergify_engine import branch_protection
 from mergify_engine import check_api
 from mergify_engine.tests.functional import base
 
@@ -184,3 +185,92 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(0, len(pulls))
+
+    def test_merge_branch_protection_ci(self):
+        rules = {'pull_request_rules': [
+            {"name": "merge",
+             "conditions": [
+                 "base=master",
+             ], "actions": {
+                 "merge": {}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        # Check policy of that branch is the expected one
+        rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": False,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": None,
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+
+        branch_protection.protect(self.r_main, "master", rule)
+
+        p, _ = self.create_pr(check="success")
+
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+
+        checks = list(check_api.get_checks(p, {
+            "check_name": "Rule: merge (merge)"}))
+        self.assertEqual(None, checks[0].conclusion)
+        self.assertIn("Branch protection settings are blocking automatic "
+                      "merging of Mergify",
+                      checks[0].output['summary'])
+
+    def test_merge_branch_protection_strict(self):
+        rules = {'pull_request_rules': [
+            {"name": "merge",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+             ], "actions": {
+                 "merge": {}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        # Check policy of that branch is the expected one
+        rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": None,
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+
+        branch_protection.protect(self.r_main, "master", rule)
+
+        p1, _ = self.create_pr(check="success")
+        p2, _ = self.create_pr(check="success")
+
+        p1.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ])
+
+        self.create_status_and_push_event(p2)
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "failure"}}),
+        ])
+
+        checks = list(check_api.get_checks(p2, {
+            "check_name": "Rule: merge (merge)"}))
+        self.assertEqual("failure", checks[0].conclusion)
+        self.assertIn("Branch protection setting 'strict' conflict with "
+                      "Mergify configuration",
+                      checks[0].output['summary'])
