@@ -115,3 +115,18 @@ def convert_config(rules):
             branch_name=branch_name)
             for branch_name in sorted(rules['branches'])), [])
     )
+
+
+def main():
+    import argparse
+
+    import yaml
+
+    parser = argparse.ArgumentParser(
+        description='Convert Mergify configuration from v1 to v2'
+    )
+    parser.add_argument("path", type=argparse.FileType(),
+                        help="Path of the .mergify.yml file")
+    args = parser.parse_args()
+    print(yaml.dump(convert_config(yaml.safe_load(args.path).get('rules', {})),
+                    default_flow_style=False))
