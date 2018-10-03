@@ -16,20 +16,29 @@
 from mergify_engine import rules as mrules
 
 
+def _safe_getter(rule, path, default=None):
+    cur = rule
+    for elem in path:
+        cur = cur.get(elem)
+        if cur is None:
+            return default
+    return cur
+
+
 def _convert_merge_rule(rule, branch_name=None):
-    default_merge_strategy_method = rule.get(
-        'merge_strategy', {}).get('method')
-    default_merge_rebase_fallback = rule.get(
-        'merge_strategy', {}).get('rebase_fallback')
-    default_required_reviews = (
-        rule['protection'][
-            'required_pull_request_reviews'][
-                'required_approving_review_count']
-    )
-    default_strict = rule.get(
-        'protection', {}).get('required_status_checks', {}).get('strict')
-    default_contexts = rule.get(
-        'protection', {}).get('required_status_checks', {}).get('contexts', [])
+    if rule is None and branch_name is None:
+        return []
+    default_merge_strategy_method = _safe_getter(rule, (
+        'merge_strategy', 'method'))
+    default_merge_rebase_fallback = _safe_getter(rule, (
+        'merge_strategy', 'rebase_fallback'))
+    default_required_reviews = _safe_getter(rule, (
+        "protection", "required_pull_request_reviews",
+        "required_approving_review_count"))
+    default_strict = _safe_getter(rule, (
+        "protection", "required_status_checks", "strict"))
+    default_contexts = _safe_getter(rule, (
+        "protection", "required_status_checks", "contexts"), [])
 
     merge_params = {}
     if default_merge_strategy_method:
@@ -58,13 +67,17 @@ def _convert_merge_rule(rule, branch_name=None):
     if rule.get('disabling_label'):
         default_conditions.append("label!=%s" % rule['disabling_label'])
 
+    conditions = []
+    if default_required_reviews:
+        conditions.append(
+            "#approved-reviews-by>=%d" % default_required_reviews
+        )
+    if default_contexts:
+        conditions.extend(("status-success=%s" % context
+                           for context in default_contexts))
     rules = [{
         "name": rule_name,
-        "conditions": default_conditions + [
-            "#approved-reviews-by>=%d" % default_required_reviews,
-        ] + [
-            "status-success=%s" % context for context in default_contexts
-        ],
+        "conditions": default_conditions + conditions,
         "actions": {
             "merge": merge_params,
         },
