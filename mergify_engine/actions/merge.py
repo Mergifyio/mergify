@@ -77,7 +77,8 @@ class MergeAction(actions.Action):
                     "soon")
 
         else:
-            if self.config["method"] != "rebase" or not pull.g_pull.rebaseable:
+            if (self.config["method"] != "rebase" or not
+                    pull.g_pull.raw_data['rebaseable']):
                 return self._merge(pull, self.config["method"])
             elif self.config["rebase_fallback"]:
                 return self._merge(pull, self.config["rebase_fallback"])
