@@ -239,13 +239,14 @@ def run(event_type, data, subscription):
         # expiration
         if "rules" in mergify_config:
             v1.handle.s(installation_id, installation_token, subscription,
-                        mergify_config, event_type, data,
+                        mergify_config["rules"], event_type, data,
                         event_pull.raw_data).apply_async()
 
         elif "pull_request_rules" in mergify_config:
             v2.handle.s(
                 installation_id, installation_token, subscription,
-                mergify_config, event_type, data, event_pull.raw_data
+                mergify_config["pull_request_rules"].as_dict(),
+                event_type, data, event_pull.raw_data
             ).apply_async()
 
         else:  # pragma: no cover
