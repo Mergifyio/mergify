@@ -206,3 +206,52 @@ def test_convert_rebase_fallback():
     ]
     # Validate generated conf with the schema
     rules.PullRequestRules(converted)
+
+
+def test_convert_with_some_none():
+    old_rules = {
+        'rules': {
+            'default': None,
+            'branches': {
+                '^stable/.*': {
+                    'protection': None,
+                    'merge_strategy': {
+                        'method': 'rebase',
+                        'rebase_fallback': "merge",
+                    },
+                },
+                '^unstable/.*': {
+                    'required_pull_request_reviews': None,
+                    'required_status_checks': None,
+                },
+            },
+        },
+    }
+    converted = convert.convert_config(old_rules["rules"])
+    assert converted == [
+        {
+            "name": "^stable/.* branch",
+            "conditions": ["base~=^stable/.*",
+                           "label!=no-mergify"],
+            "actions": {
+                "merge": {
+                    "method": "rebase",
+                    "rebase_fallback": "merge",
+                },
+            },
+        },
+        {
+            "name": "^unstable/.* branch",
+            "conditions": ["base~=^unstable/.*",
+                           "label!=no-mergify",
+                           '#approved-reviews-by>=1'],
+            "actions": {
+                "merge": {
+                    "method": "merge",
+                    "rebase_fallback": "merge",
+                },
+            }
+        }
+    ]
+    # Validate generated conf with the schema
+    rules.PullRequestRules(converted)
