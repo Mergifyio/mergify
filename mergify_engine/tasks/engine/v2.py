@@ -65,7 +65,7 @@ def run_action(rule, action, check_name, prev_check, installation_id,
                        exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
-        return "failure", "action '%s' have failed" % action
+        return "failure", "action '%s' have failed" % action, " "
 
 
 def run_actions(installation_id, installation_token, subscription,
@@ -75,8 +75,6 @@ def run_actions(installation_id, installation_token, subscription,
     for rule, missing_conditions in match.matching_rules:
         for action in rule['actions']:
             check_name = "Rule: %s (%s)" % (rule['name'], action)
-            title = "Result of action %s for rule '%s'" % (action,
-                                                           rule['name'])
             prev_check = checks.get(check_name)
 
             if missing_conditions:
@@ -86,11 +84,11 @@ def run_actions(installation_id, installation_token, subscription,
                 cancel_in_progress = rule["actions"][action].cancel_in_progress
                 if (cancel_in_progress and prev_check and
                         prev_check.status == "in_progress"):
-                    summary = ("The rule doesn't match anymore, this action "
-                               "has been cancelled")
+                    title = ("The rule doesn't match anymore, this action "
+                             "has been cancelled")
                     check_api.set_check_run(
                         pull.g_pull, check_name, "completed", "cancelled",
-                        output={"title": title, "summary": summary})
+                        output={"title": title, "summary": " "})
                 continue
 
             # NOTE(sileht): actions already done
@@ -101,7 +99,7 @@ def run_actions(installation_id, installation_token, subscription,
                       event_type != "refresh"):
                     continue
 
-            conclusion, summary = run_action(
+            conclusion, title, summary = run_action(
                 rule, action, check_name, prev_check,
                 installation_id, installation_token, subscription,
                 event_type, data, pull

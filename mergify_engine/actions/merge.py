@@ -43,19 +43,19 @@ class MergeAction(actions.Action):
 
         # NOTE(sileht): Take care of all branch protection state
         if pull.g_pull.mergeable_state == "dirty":
-            return None, "Merge conflict needs to be solved"
+            return None, "Merge conflict needs to be solved", " "
         elif pull.g_pull.mergeable_state == "unknown":
             return ("failure", "Pull request state reported as `unknown` by "
-                    "GitHub")
+                    "GitHub", " ")
         elif pull.g_pull.mergeable_state == "blocked":
             return ("failure", "Branch protection settings are blocking "
-                    "automatic merging")
+                    "automatic merging", " ")
         elif (pull.g_pull.mergeable_state == "behind" and
               not self.config["strict"]):
             # Strict mode has been enabled in branch protection but not in
             # mergify
             return ("failure", "Branch protection setting 'strict' conflicts "
-                    "with Mergify configuration")
+                    "with Mergify configuration", " ")
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
         # are OK for us
 
@@ -72,7 +72,9 @@ class MergeAction(actions.Action):
             # the checks will be lost the GitHub UI on the old sha.
             pull.wait_for_sha_change()
 
-            return (None, "The pull request has been automatically "
+            return (None,
+                    "Base branch updates done",
+                    "The pull request has been automatically "
                     "updated to follow its base branch and will be merged "
                     "soon")
 
@@ -84,7 +86,7 @@ class MergeAction(actions.Action):
                 return self._merge(pull, self.config["rebase_fallback"])
             else:
                 return ("action_required", "Automatic rebasing is not "
-                        "possible, manual intervention required")
+                        "possible, manual intervention required", " ")
 
     @staticmethod
     def _merge(pull, method):
@@ -97,18 +99,21 @@ class MergeAction(actions.Action):
 
             elif e.status == 405:
                 pull.log.error("merge fail", error=e.data["message"])
-                return ("failure", "Repository settings are blocking "
-                        "automatic merging: %s" % e.data["message"])
+                return ("failure",
+                        "Repository settings are blocking automatic merging",
+                        e.data["message"])
 
             elif 400 <= e.status < 500:
                 pull.log.error("merge fail", error=e.data["message"])
                 return ("failure",
-                        "Mergify fails to merge the pull request: %s" %
+                        "Mergify fails to merge the pull request",
                         e.data["message"])
             else:
                 raise
         else:
             pull.log.info("merged")
         pull.g_pull.update()
-        return ("success", "The pull request has been automatically "
+        return ("success",
+                "The pull request has been automatically merged",
+                "The pull request has been automatically "
                 "merged at *%s*" % pull.g_pull.merge_commit_sha)

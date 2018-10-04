@@ -28,7 +28,7 @@ class BackportAction(actions.Action):
         # TODO(sileht): some error should be report in Github UI
 
         if not pull.g_pull.merged:
-            return None, "Waiting for the pull request to get merged"
+            return None, "Waiting for the pull request to get merged", " "
 
         detail = "The following pull requests have been created: "
         for branch in self.config['branches']:
@@ -38,4 +38,4 @@ class BackportAction(actions.Action):
                                 (pull, branch))
             detail += "\n* [#%d %s](%s)" % (new_pull.number, new_pull.title,
                                             new_pull.html_url)
-        return "success", detail
+        return "success", "Backports have been created", detail
