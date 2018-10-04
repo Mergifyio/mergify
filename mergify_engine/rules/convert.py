@@ -128,5 +128,7 @@ def main():
     parser.add_argument("path", type=argparse.FileType(),
                         help="Path of the .mergify.yml file")
     args = parser.parse_args()
-    print(yaml.dump(convert_config(yaml.safe_load(args.path).get('rules', {})),
-                    default_flow_style=False))
+    print(yaml.dump({
+        "pull_request_rules":
+        convert_config(yaml.safe_load(args.path).get('rules', {}))
+    }, default_flow_style=False))
