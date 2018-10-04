@@ -44,3 +44,8 @@ def get_combined_status(path):
     p = get_pull(path)
     commit = p.base.repo.get_commit(p.head.sha)
     return commit.get_combined_status()
+
+
+def get_config(path):
+    r = github_for(path).get_repo(path)
+    return r.get_contents(".mergify.yml").decoded_content.decode()
