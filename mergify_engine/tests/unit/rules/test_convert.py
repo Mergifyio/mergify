@@ -65,8 +65,7 @@ def test_convert_simple():
         {
             "name": "backport stable/3.0",
             "conditions": ["label!=no-mergify",
-                           "label=backport-to-3.0",
-                           "merged"],
+                           "label=backport-to-3.0"],
             "actions": {
                 "backport": {
                     "branches": ["stable/3.0"],
@@ -76,8 +75,7 @@ def test_convert_simple():
         {
             "name": "backport stable/3.1",
             "conditions": ["label!=no-mergify",
-                           "label=backport-to-3.1",
-                           "merged"],
+                           "label=backport-to-3.1"],
             "actions": {
                 "backport": {
                     "branches": ["stable/3.1"],
@@ -102,8 +100,7 @@ def test_convert_simple():
             "name": "backport stable/3.0 from ^stable/.*",
             "conditions": ["base~=^stable/.*",
                            "label!=no-mergify",
-                           "label=backport-to-3.0",
-                           "merged"],
+                           "label=backport-to-3.0"],
             "actions": {
                 "backport": {
                     "branches": ["stable/3.0"],
@@ -114,8 +111,7 @@ def test_convert_simple():
             "name": "backport stable/3.1 from ^stable/.*",
             "conditions": ["base~=^stable/.*",
                            "label!=no-mergify",
-                           "label=backport-to-3.1",
-                           "merged"],
+                           "label=backport-to-3.1"],
             "actions": {
                 "backport": {
                     "branches": ["stable/3.1"],
