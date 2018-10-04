@@ -242,14 +242,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, _ = self.create_pr(check="success")
 
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": None}}),
+            ("check_run", {"check_run": {"conclusion": "failure"}}),
         ])
 
         checks = list(check_api.get_checks(p, {
             "check_name": "Rule: merge (merge)"}))
-        self.assertEqual(None, checks[0].conclusion)
-        self.assertIn("Branch protection settings are blocking automatic "
-                      "merging of Mergify",
+        self.assertEqual("failure", checks[0].conclusion)
+        self.assertIn("Branch protection settings are blocking "
+                      "automatic merging",
                       checks[0].output['summary'])
 
     def test_merge_branch_protection_strict(self):
@@ -297,6 +297,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         checks = list(check_api.get_checks(p2, {
             "check_name": "Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
-        self.assertIn("Branch protection setting 'strict' conflict with "
+        self.assertIn("Branch protection setting 'strict' conflicts with "
                       "Mergify configuration",
                       checks[0].output['summary'])
