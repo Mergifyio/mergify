@@ -25,7 +25,8 @@ names.
 
 When a pull request is merged and labeled with one of the keys, a new pull
 request is created on the branch associated to the key. The new pull request
-has all commits cherry-picked from the original pull request.
+has all commits cherry-picked from the original pull request. Pull requests
+can also be labeled after they are merged.
 
 For example, the following configuration creates new pull requests to backport
 merged pull requests. Pull requests labeled with ``backport-to-stable-3.0``
