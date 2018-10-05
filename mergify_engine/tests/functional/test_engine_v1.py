@@ -111,9 +111,8 @@ class TestEngineScenario(base.FunctionalTestBase):
                                       self.repo_as_app,
                                       config.INSTALLATION_ID)
 
-        if self._testMethodName != "test_creation_pull_of_initial_config":
-            self.setup_repo(CONFIG, ['stable', 'nostrict', 'disabled',
-                                     'enabling_label'])
+        self.setup_repo(CONFIG, ['stable', 'nostrict', 'disabled',
+                                 'enabling_label'])
 
     def _get_queue(self, branch):
         config = rules.get_mergify_config(self.r_main)
@@ -715,67 +714,6 @@ class TestEngineScenario(base.FunctionalTestBase):
         self.assertEqual([], pulls[0]._reviews_ko)
         self.assertEqual(1, pulls[0]._reviews_required)
         self.assertEqual(30, pulls[0].mergify_state)
-
-    def test_creation_pull_of_initial_config(self):
-        # FIXME(sileht): split setUp to not prepare useless resources
-
-        self.git("init")
-        self.git.configure()
-        self.git.add_cred(config.MAIN_TOKEN, "", self.r_main.full_name)
-        self.git("remote", "add", "main", self.url_main)
-        with open(self.git.tmp + "/randomfile", "w") as f:
-            f.write("foobar")
-        self.git("add", "randomfile")
-        self.git("commit", "--no-edit", "-m", "initial commit")
-        self.git("push", "main", "master")
-
-        self.git("branch", "-M", "otherbranch")
-        with open(self.git.tmp + "/secondfile", "w") as f:
-            f.write("foobar")
-        self.git("add", "secondfile")
-        self.git("commit", "--no-edit", "-m", "second commit")
-        self.git("push", "main", "otherbranch")
-
-        p = self.r_main.create_pull(
-            base="refs/heads/master",
-            head="refs/heads/otherbranch",
-            title="PR title", body="PR body")
-
-        self.create_status(p)
-
-        self.push_events([
-            (None, {"action": "added"}),
-            (None, {"action": "added"}),
-            ("check_suite", {"action": "requested"}),
-            ("check_suite", {"action": "requested"}),
-            ("pull_request", {"action": "opened"}),
-            ("status", {"state": "success"})
-        ])
-
-        pulls = list(self.r_main.get_pulls())
-
-        self.assertEqual(2, len(pulls))
-
-        files = list(pulls[0].get_files())
-
-        self.assertEqual("Mergify initial configuration", pulls[0].title)
-        self.assertEqual(1, len(files))
-        self.assertEqual(".mergify.yml", files[0].filename)
-
-        expected_config = """rules:
-  default:
-    protection:
-      required_pull_request_reviews:
-        required_approving_review_count: 1
-      required_status_checks:
-        contexts:
-        - continuous-integration/fake-ci
-"""
-        got_config = self.session.get(files[0].raw_url).text
-
-        self.assertEqual(expected_config, got_config)
-
-        rules.validate_user_config(got_config)
 
     def test_checks(self):
         self.create_pr()
