@@ -70,6 +70,30 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "check_name": "Mergify — Rule: backport (backport)"}))
         self.assertEqual("cancelled", checks[0].conclusion)
 
+    def test_label(self):
+        rules = {'pull_request_rules': [
+            {"name": "rename label",
+             "conditions": [
+                 "base=master",
+                 "label=stable",
+             ], "actions": {
+                 "label": {
+                     "add": ['unstable', 'foobar'],
+                     "remove": ['stable', 'what'],
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(check="success")
+        self.add_label_and_push_events(p, "stable")
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(sorted(["unstable", "foobar"]),
+                         sorted([l.name for l in pulls[0].labels]))
+
     def test_merge_backport(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
