@@ -24,6 +24,8 @@ class Action(abc.ABC):
     config = attr.ib()
     cancel_in_progress = True
 
+    dedicated_check = True
+
     @property
     @staticmethod
     @abc.abstractmethod

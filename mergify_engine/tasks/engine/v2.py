@@ -75,12 +75,15 @@ def run_action(rule, action, check_name, prev_check, installation_id,
         return rule['actions'][action](
             installation_id, installation_token,
             subscription, event_type, data, pull)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         pull.log.error("action failed", action=action, rule=rule,
                        exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
-        return "failure", "action '%s' have failed" % action, " "
+        if rule["actions"][action].dedicated_check:
+            return "failure", "action '%s' have failed" % action, " "
+        else:
+            return
 
 
 def run_actions(installation_id, installation_token, subscription,
@@ -114,11 +117,16 @@ def run_actions(installation_id, installation_token, subscription,
                       event_type != "refresh"):
                     continue
 
-            conclusion, title, summary = run_action(
+            report = run_action(
                 rule, action, check_name, prev_check,
                 installation_id, installation_token, subscription,
                 event_type, data, pull
             )
+
+            if not report:
+                continue
+
+            conclusion, title, summary = report
 
             if conclusion:
                 status = "completed"
