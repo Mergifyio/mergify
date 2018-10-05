@@ -40,7 +40,11 @@ def post_summary(pull, match, checks):
         if not missing_conditions:
             completed_rules += 1
 
-    summary_title = "%s rules matches" % len(match.matching_rules)
+    matching_rules_nb = len(match.matching_rules)
+    if matching_rules_nb > 1:
+        summary_title = "%d rules match" % matching_rules_nb
+    else:
+        summary_title = "%d rule matches" % matching_rules_nb
     if completed_rules > 0:
         summary_title += ", %s applied" % completed_rules
     summary_check = checks.get(summary_name)
