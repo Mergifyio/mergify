@@ -19,7 +19,6 @@ import github
 
 
 from mergify_engine import config
-from mergify_engine import initial_configuration
 from mergify_engine import utils
 from mergify_engine.tasks import engine
 from mergify_engine.worker import app
@@ -150,30 +149,11 @@ def job_filter_and_dispatch(event_type, event_id, data):
     if not subscription["token"]:
         msg_action = "ignored (no token)"
 
-    elif event_type == "installation" and data["action"] == "created":
-        for repository in data["repositories"]:
-            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
-                continue
-
-            job_installations.delay(data["installation"]["id"],
-                                    [repository])
-        msg_action = "pushed to backend"
-
     elif event_type == "installation" and data["action"] == "deleted":
         # TODO(sileht): move out this engine V1 related code
         key = "queues~%s~*~*~*~*" % data["installation"]["id"]
         utils.get_redis_for_cache().delete(key)
         msg_action = "handled, cache cleaned"
-
-    elif (event_type == "installation_repositories" and
-          data["action"] == "added"):
-        for repository in data["repositories_added"]:
-            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
-                continue
-
-            job_installations.delay(data["installation"]["id"], [repository])
-
-        msg_action = "pushed to backend"
 
     elif (event_type == "installation_repositories" and
           data["action"] == "removed"):
@@ -255,66 +235,3 @@ def job_filter_and_dispatch(event_type, event_id, data):
              install_id=data["installation"]["id"],
              repository=repo_name,
              subscribed=subscription["subscribed"])
-
-
-@app.task
-def job_refresh_private_installations(installation_id):
-    # New subscription, create initial configuration for private repo
-    # public repository have already been done during the installation
-    # event.
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation_id)
-
-    subscription = utils.get_subscription(r, installation_id)
-    if subscription["token"] and subscription["subscribed"]:
-        job_installations.delay(installation_id, "private")
-
-
-@app.task
-def job_installations(installation_id, repositories):
-    """Create the initial configuration on an repository."""
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-    try:
-        installation_token = integration.get_access_token(
-            installation_id).token
-    except github.UnknownObjectException:  # pragma: no cover
-        LOG.error("token for install %d does not exists anymore",
-                  installation_id)
-        return
-
-    g = github.Github(installation_token)
-    try:
-        if isinstance(repositories, str):
-            installation = g.get_installation(installation_id)
-            if repositories == "private":
-                repositories = [repo for repo in installation.get_repos()
-                                if repo.private]
-            elif repositories == "all":
-                repositories = [repo for repo in installation.get_repos()]
-            else:
-                raise RuntimeError("Unexpected 'repositories' format: %s",
-                                   type(repositories))
-        elif isinstance(repositories, list):
-            # Some events return incomplete repository structure (like
-            # installation event). Complete them in this case
-            new_repos = []
-            for repository in repositories:
-                user = g.get_user(repository["full_name"].split("/")[0])
-                repo = user.get_repo(repository["name"])
-                new_repos.append(repo)
-            repositories = new_repos
-        else:  # pragma: no cover
-            raise RuntimeError("Unexpected 'repositories' format: %s",
-                               type(repositories))
-
-        for repository in repositories:
-            # NOTE(sileht): the installations event doesn't have this
-            # attribute, so we keep it here.
-            if repository.archived:  # pragma: no cover
-                continue
-            initial_configuration.create_pull_request_if_needed(
-                installation_token, repository)
-
-    except github.RateLimitExceededException:  # pragma: no cover
-        LOG.error("rate limit reached for install %d", installation_id)

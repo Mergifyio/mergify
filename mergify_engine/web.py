@@ -79,11 +79,11 @@ def refresh_all():
     return "Refresh queued", 202
 
 
-# FIXME(sileht): rename this to new subscription something
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
 def subscription_cache(installation_id):  # pragma: no cover
     authentification()
-    github_events.job_refresh_private_installations.delay(installation_id)
+    r = utils.get_redis_for_cache()
+    r.delete("subscription-cache-%s" % installation_id)
     return "Cache cleaned", 200
 
 
