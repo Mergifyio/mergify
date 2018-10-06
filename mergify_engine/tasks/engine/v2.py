@@ -26,19 +26,18 @@ LOG = daiquiri.getLogger(__name__)
 def post_summary(pull, match, checks):
     # Set the summary
     summary_name = "Mergify — Summary"
-    summary = "The following rules match this pull request:"
+    summary = ""
 
     completed_rules = 0
     for rule, missing_conditions in match.matching_rules:
-        summary += "\n\n### %s" % rule['name']
-        summary += " (actions: %s)" % ", ".join(rule['actions'])
+        summary += "#### Rule: %s" % rule['name']
+        summary += " (%s)" % ", ".join(rule['actions'])
         for cond in rule['conditions']:
-            checked = (":heavy_minus_sign:"
-                       if cond in missing_conditions else
-                       ":heavy_check_mark:")
-            summary += "\n\n%s  %s" % (checked, cond)
+            checked = " " if cond in missing_conditions else "X"
+            summary += "\n- [%s] `%s`" % (checked, cond)
         if not missing_conditions:
             completed_rules += 1
+        summary += "\n\n"
 
     potential_rules = len(match.matching_rules) - completed_rules
 
