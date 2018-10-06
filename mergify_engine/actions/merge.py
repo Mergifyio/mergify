@@ -64,7 +64,7 @@ class MergeAction(actions.Action):
             # by one.
 
             updated = branch_updater.update(pull, subscription["token"])
-            if not updated:
+            if not updated:  # pragma: no cover
                 raise Exception("branch update of %s have failed" % pull)
 
             # NOTE(sileht): We update g_pull to have the new head.sha, so

@@ -27,10 +27,10 @@ class Action(abc.ABC):
     @property
     @staticmethod
     @abc.abstractmethod
-    def validator():
+    def validator():  # pragma: no cover
         pass
 
     @abc.abstractmethod
     def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
+                 event_type, data, pull):  # pragma: no cover
         pass

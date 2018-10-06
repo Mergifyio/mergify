@@ -75,7 +75,7 @@ def collect_metrics():
         token = integration.get_access_token(_id).token
         g = github.Github(token)
 
-        if installation["target_type"] == "Organization":
+        if installation["target_type"] == "Organization":  # pragma: no cover
             LOG.info("Get members",
                      install=installation["account"]["login"])
             org = g.get_organization(installation["account"]["login"])
@@ -98,7 +98,7 @@ def collect_metrics():
                     repo.get_contents(".mergify.yml")
                     configured_repos += 1
                 except github.GithubException as e:
-                    if e.status != 404:
+                    if e.status != 404:  # pragma: no cover
                         raise
                     unconfigured_repos += 1
 

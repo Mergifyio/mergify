@@ -38,7 +38,7 @@ def get_github_pull_from_sha(g, repo, installation_id, sha):
                                   (repo.full_name, sha)))
     if not issues:
         return
-    if len(issues) > 1:
+    if len(issues) > 1:  # pragma: no cover
         # NOTE(sileht): It's that technically possible, but really ?
         LOG.warning("sha attached to multiple pull requests", sha=sha)
     for i in issues:
@@ -183,7 +183,7 @@ def run(event_type, data, subscription):
         # NOTE(sileht): Workaround for when we receive check_suite completed
         # without conclusion
         if (event_type == "check_suite" and data["action"] == "completed" and
-                not data["check_suite"]["conclusion"]):
+                not data["check_suite"]["conclusion"]):  # pragma: no cover
             data = check_api.workaround_for_unfinished_check_suite(
                 repo, data)
 
@@ -198,16 +198,19 @@ def run(event_type, data, subscription):
         LOG.info("Pull request found in the event %s", event_type,
                  pull_request=event_pull)
 
-        if (event_type == "status" and event_pull.head.sha != data["sha"]):  # noqa pragma: no cover
+        if (event_type == "status" and
+                event_pull.head.sha != data["sha"]):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)")
             return
 
-        elif (event_type in ["status", "check_suite", "check_run"] and event_pull.merged):  # noqa pragma: no cover
+        elif (event_type in ["status", "check_suite", "check_run"] and
+              event_pull.merged):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of a merged "
                      "pull request)")
             return
-        elif (event_type in ["check_suite", "check_run"]
-              and event_pull.head.sha != data[event_type]["head_sha"]):  # noqa pragma: no cover
+        elif (event_type in ["check_suite", "check_run"] and
+              event_pull.head.sha != data[event_type]["head_sha"]
+              ):  # pragma: no cover
             LOG.info("No need to proceed queue (got %s of an old "
                      "commit)", event_type)
             return
@@ -217,7 +220,7 @@ def run(event_type, data, subscription):
         # BRANCH CONFIGURATION CHECKING
         try:
             mergify_config = rules.get_mergify_config(repo)
-        except rules.NoRules as e:
+        except rules.NoRules as e:  # pragma: no cover
             LOG.info("No need to proceed queue (.mergify.yml is missing)")
             return
         except rules.InvalidRules as e:  # pragma: no cover

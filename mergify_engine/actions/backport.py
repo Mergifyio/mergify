@@ -25,17 +25,19 @@ class BackportAction(actions.Action):
 
     def __call__(self, installation_id, installation_token, subscription,
                  event_type, data, pull):
-        # TODO(sileht): some error should be report in Github UI
-
         if not pull.g_pull.merged:
             return None, "Waiting for the pull request to get merged", " "
 
+        state = "success"
         detail = "The following pull requests have been created: "
         for branch in self.config['branches']:
             new_pull = backports.backport(pull, branch, installation_token)
-            if not new_pull:
-                raise Exception("backport of %s to %s have failed" %
-                                (pull, branch))
-            detail += "\n* [#%d %s](%s)" % (new_pull.number, new_pull.title,
-                                            new_pull.html_url)
-        return "success", "Backports have been created", detail
+            if new_pull:
+                detail += "\n* [#%d %s](%s)" % (new_pull.number,
+                                                new_pull.title,
+                                                new_pull.html_url)
+            else:  # pragma: no cover
+                state = "failure"
+                detail += "\n* backport to branch `%s` has failed" % (
+                    pull, branch)
+        return state, "Backports have been created", detail
