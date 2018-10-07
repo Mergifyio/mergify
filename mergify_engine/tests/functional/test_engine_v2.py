@@ -94,6 +94,26 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(sorted(["unstable", "foobar"]),
                          sorted([l.name for l in pulls[0].labels]))
 
+    def test_close(self):
+        rules = {'pull_request_rules': [
+            {"name": "rename label",
+             "conditions": [
+                 "base=master",
+             ], "actions": {
+                 "close": {
+                     "message": "WTF?"
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(check="success")
+
+        p.update()
+        self.assertEqual("closed", p.state)
+        self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
+
     def test_dismiss_reviews(self):
         rules = {'pull_request_rules': [
             {"name": "dismiss reviews",
