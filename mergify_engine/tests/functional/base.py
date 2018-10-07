@@ -434,13 +434,15 @@ class FunctionalTestBase(testtools.TestCase):
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
-                  status="pending", check=None):
+                  status="pending", check=None, base_repo="fork"):
         self.pr_counter += 1
 
-        branch = "fork/pr%d" % self.pr_counter
-        title = "Pull request n%d from fork" % self.pr_counter
+        branch = "%s/pr%d" % (base_repo, self.pr_counter)
+        title = "Pull request n%d from %s" % (self.pr_counter,
+                                              base_repo)
 
-        self.git("checkout", "--quiet", "fork/%s" % base, "-b", branch)
+        self.git("checkout", "--quiet", "%s/%s" % (base_repo, base),
+                 "-b", branch)
         if files:
             for name, content in files.items():
                 with open(self.git.tmp + "/" + name, "w") as f:
@@ -454,11 +456,18 @@ class FunctionalTestBase(testtools.TestCase):
             self.git("mv", "test%d" % self.pr_counter,
                      "test%d-moved" % self.pr_counter)
             self.git("commit", "--no-edit", "-m", "%s, moved" % title)
-        self.git("push", "--quiet", "fork", branch)
+        self.git("push", "--quiet", base_repo, branch)
 
-        p = self.r_fork.parent.create_pull(
+        if base_repo == "fork":
+            repo = self.r_fork.parent
+            login = self.r_fork.owner.login
+        else:
+            repo = self.r_main
+            login = self.r_main.owner.login
+
+        p = repo.create_pull(
             base=base,
-            head="%s:%s" % (self.r_fork.owner.login, branch),
+            head="%s:%s" % (login, branch),
             title=title, body=title)
 
         expected_events = [("pull_request", {"action": "opened"})]
@@ -471,6 +480,11 @@ class FunctionalTestBase(testtools.TestCase):
                 ("status", {"state": "failure"})
             ]
         elif check:
+            if base_repo == "main":
+                expected_events += [
+                    ("check_suite", {"check_suite": {"conclusion":
+                                                     None}}),
+                ]
             expected_events += [
                 ("check_suite", {"check_suite": {"conclusion": "success"}}),
                 ("check_run", {"check_run": {"conclusion": "success",

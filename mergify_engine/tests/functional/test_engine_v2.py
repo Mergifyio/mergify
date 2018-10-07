@@ -15,6 +15,8 @@
 # under the License.
 import logging
 
+import github
+
 import yaml
 
 from mergify_engine import branch_protection
@@ -69,6 +71,63 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         checks = list(check_api.get_checks(p, {
             "check_name": "Mergify — Rule: backport (backport)"}))
         self.assertEqual("cancelled", checks[0].conclusion)
+
+    def test_delete_branch(self):
+        rules = {'pull_request_rules': [
+            {"name": "delete on merge",
+             "conditions": [
+                 "base=master",
+                 "label=merge",
+             ], "actions": {
+                 "delete_head_branch": {}}
+             },
+            {"name": "delete on close",
+             "conditions": [
+                 "base=master",
+                 "label=close",
+             ], "actions": {
+                 "delete_head_branch": {
+                     "on": "close",
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr(check="success", base_repo="main")
+        p1.merge()
+        self.push_events([
+            ("check_suite", {"action": "requested"}),
+            ("pull_request", {"action": "closed"}),
+        ], ordered=False)
+
+        p2, _ = self.create_pr(check="success", base_repo="main")
+        p2.edit(state="close")
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+        ], ordered=False)
+
+        self.add_label_and_push_events(p1, "merge")
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
+        self.add_label_and_push_events(p2, "close")
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
+
+        pulls = list(self.r_main.get_pulls(state="all"))
+        self.assertEqual(2, len(pulls))
+
+        for b in ("main/pr1", "main/pr2"):
+            try:
+                self.r_main.get_branch(b)
+            except github.GithubException as e:
+                if e.status == 404:
+                    continue
+
+            self.assertTrue(False, "branch %s not deleted" % b)
 
     def test_label(self):
         rules = {'pull_request_rules': [
