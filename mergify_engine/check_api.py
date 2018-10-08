@@ -74,6 +74,14 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
                 attributes["conclusion"])
 
 
+def get_check(repo, check_id):
+    return github.PaginatedList.PaginatedList(
+        Check, repo._requester,
+        "GET", "%s/check-runs/%s" % (repo.url, check_id),
+        headers={'Accept': 'application/vnd.github.antiope-preview+json'}
+    )
+
+
 def get_checks(pull, parameters=None):
     return github.PaginatedList.PaginatedList(
         Check, pull._requester,

@@ -24,7 +24,7 @@ class DeleteHeadBranchAction(actions.Action):
 
     @staticmethod
     def run(installation_id, installation_token, subscription,
-            event_type, data, pull):
+            event_type, data, pull, missing_conditions):
         if pull.g_pull.head.repo != pull.g_pull.base.repo:
             return
         if pull.g_pull.state == "closed":
@@ -46,5 +46,5 @@ class DeleteHeadBranchAction(actions.Action):
                 pull.g_pull.head.ref, "")
 
     def cancel(self, installation_id, installation_token, subscription,
-               event_type, data, pull):  # pragma: no cover
+               event_type, data, pull, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report
