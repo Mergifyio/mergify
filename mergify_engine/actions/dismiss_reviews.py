@@ -29,10 +29,8 @@ class DismissReviewsAction(actions.Action):
         voluptuous.Any(True, False, [str])
     }
 
-    dedicated_check = False
-
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
+    def run(self, installation_id, installation_token, subscription,
+            event_type, data, pull):
         if event_type == "pull_request" and data["action"] == "synchronize":
             for review in pull._get_reviews():
                 conf = self.config.get(review.state.lower(), False)

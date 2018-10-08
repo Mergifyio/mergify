@@ -68,12 +68,14 @@ def post_summary(pull, match, checks):
             output={"title": summary_title, "summary": summary})
 
 
-def run_action(rule, action, check_name, prev_check, installation_id,
-               installation_token, subscription, event_type, data, pull):
+def exec_action(method_name, rule, action,
+                installation_id, installation_token, subscription,
+                event_type, data, pull):
     try:
-        return rule['actions'][action](
-            installation_id, installation_token,
-            subscription, event_type, data, pull)
+        method = getattr(rule['actions'][action], method_name)
+        return method(
+            installation_id, installation_token, subscription,
+            event_type, data, pull)
     except Exception as e:  # pragma: no cover
         pull.log.error("action failed", action=action, rule=rule,
                        exc_info=True)
@@ -95,46 +97,32 @@ def run_actions(installation_id, installation_token, subscription,
             prev_check = checks.get(check_name)
 
             if missing_conditions:
-                # NOTE(sileht): The rule was matching before, but it doesn't
-                # anymore, since we can't remove checks, put them in cancelled
-                # state
-                cancel_in_progress = rule["actions"][action].cancel_in_progress
-                if (cancel_in_progress and prev_check and
-                        prev_check.status == "in_progress"):
-                    title = ("The rule doesn't match anymore, this action "
-                             "has been cancelled")
-                    check_api.set_check_run(
-                        pull.g_pull, check_name, "completed", "cancelled",
-                        output={"title": title, "summary": " "})
+                if not prev_check:
+                    continue
+                method_name = "cancel"
+                expected_conclusion = ["cancelled"]
+            else:
+                method_name = "run"
+                expected_conclusion = ["success", "failure"]
+
+            already_run = (prev_check and prev_check.conclusion in
+                           expected_conclusion and
+                           event_type != "refresh")
+            if already_run:
                 continue
 
-            # NOTE(sileht): actions already done
-            if prev_check:
-                if prev_check.conclusion == "success":
-                    continue
-                elif (prev_check.conclusion and
-                      event_type != "refresh"):
-                    continue
-
-            report = run_action(
-                rule, action, check_name, prev_check,
+            report = exec_action(
+                method_name, rule, action,
                 installation_id, installation_token, subscription,
                 event_type, data, pull
             )
 
-            if not report:
-                continue
-
-            conclusion, title, summary = report
-
-            if conclusion:
-                status = "completed"
-            else:
-                status = "in_progress"
-
-            check_api.set_check_run(
-                pull.g_pull, check_name, status, conclusion,
-                output={"title": title, "summary": summary})
+            if report:
+                conclusion, title, summary = report
+                status = "completed" if conclusion else "in_progress"
+                check_api.set_check_run(
+                    pull.g_pull, check_name, status, conclusion,
+                    output={"title": title, "summary": summary})
 
 
 @app.task
