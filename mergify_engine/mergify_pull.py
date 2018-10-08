@@ -101,6 +101,14 @@ class MergifyPull(object):
                                               pull_raw, completed=True)
         return cls(pull, installation_id)
 
+    @classmethod
+    def from_number(cls, installation_id, installation_token, owner, reponame,
+                    pull_number):
+        g = github.Github(installation_token)
+        repo = g.get_repo(owner + "/" + reponame)
+        pull = repo.get_pull(pull_number)
+        return cls(pull, installation_id)
+
     def __attrs_post_init__(self):
         self.log = daiquiri.getLogger(__name__, pull_request=self)
         self._ensure_mergable_state()

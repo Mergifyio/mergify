@@ -24,7 +24,7 @@ class BackportAction(actions.Action):
     validator = {voluptuous.Required("branches", default=[]): [str]}
 
     def run(self, installation_id, installation_token, subscription,
-            event_type, data, pull):
+            event_type, data, pull, missing_conditions):
         if not pull.g_pull.merged:
             return None, "Waiting for the pull request to get merged", ""
 
@@ -44,5 +44,5 @@ class BackportAction(actions.Action):
         return state, "Backports have been created", detail
 
     def cancel(self, installation_id, installation_token, subscription,
-               event_type, data, pull):  # pragma: no cover
+               event_type, data, pull, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report

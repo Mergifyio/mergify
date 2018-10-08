@@ -249,10 +249,14 @@ class FunctionalTestBase(testtools.TestCase):
         real_get_subscription = utils.get_subscription
 
         def fake_subscription(r, install_id):
-            if install_id == config.INSTALLATION_ID:
+            if int(install_id) == config.INSTALLATION_ID:
                 return real_get_subscription(r, install_id)
             else:
                 return {"token": None, "subscribed": False}
+
+        self.useFixture(fixtures.MockPatch(
+            "mergify_engine.actions.merge.utils.get_subscription",
+            side_effect=fake_subscription))
 
         self.useFixture(fixtures.MockPatch(
             "mergify_engine.web.utils.get_subscription",

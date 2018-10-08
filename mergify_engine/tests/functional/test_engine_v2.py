@@ -21,6 +21,7 @@ import yaml
 
 from mergify_engine import branch_protection
 from mergify_engine import check_api
+from mergify_engine.actions import merge
 from mergify_engine.tasks.engine import v2
 from mergify_engine.tests.functional import base
 
@@ -317,7 +318,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
     def test_merge_strict(self):
         rules = {'pull_request_rules': [
-            {"name": "strict merge on master",
+            {"name": "smart strict merge on master",
              "conditions": [
                  "base=master",
                  "status-success=continuous-integration/fake-ci",
@@ -344,13 +345,78 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": None}}),
             ("pull_request", {"action": "synchronize"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": None}}),
             ("check_suite", {"action": "completed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
         p2 = self.r_main.get_pull(p2.number)
+        commits2 = list(p2.get_commits())
+
+        # Check master have been merged into the PR
+        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+                      commits2[-1].commit.message)
+
+        # Retry to merge pr2
+        self.create_status_and_push_event(p2)
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            # We didn't receive this event... Github bug...
+            # When a check_run is in_progress and move to completed
+            # we never received the completed event
+            # ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"}),
+        ], ordered=False)
+
+        master_sha = self.r_main.get_commits()[0].sha
+        self.assertNotEqual(previous_master_sha, master_sha)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_merge_smart_strict(self):
+        rules = {'pull_request_rules': [
+            {"name": "strict merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+                 "#approved-reviews-by>=1",
+             ], "actions": {
+                 "merge": {"strict": "smart"}},
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+
+        p, _ = self.create_pr(check="success")
+        p2, commits = self.create_pr(check="success")
+
+        p.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ])
+
+        previous_master_sha = self.r_main.get_commits()[0].sha
+
+        self.create_status_and_push_event(p2)
+        self.create_review_and_push_event(p2, commits[0])
+
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+
+        # We can run celery beat inside tests, so run the task manually
+        merge.smart_strict_workflow_periodic_task.apply_async()
+
+        self.push_events([
+            ("pull_request", {"action": "synchronize"}),
+            ("check_run", {"check_run": {"conclusion": None}}),
+            ("check_suite", {"action": "completed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
 
         p2 = self.r_main.get_pull(p2.number)
         commits2 = list(p2.get_commits())

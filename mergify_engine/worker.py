@@ -23,6 +23,7 @@ import requests
 
 from mergify_engine import config
 from mergify_engine import utils
+from mergify_engine.actions import merge
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -47,6 +48,13 @@ app.conf.worker_direct = True
 def celery_logging(**kwargs):  # pragma: no cover
     utils.setup_logging()
     config.log()
+
+
+@app.on_after_configure.connect
+def setup_periodic_tasks(sender, **kwargs):
+    sender.add_periodic_task(60.0,
+                             merge.smart_strict_workflow_periodic_task.s(),
+                             name='v2 smart strict workflow')
 
 
 MAX_RETRIES = 10

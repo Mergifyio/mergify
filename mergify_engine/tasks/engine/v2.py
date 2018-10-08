@@ -81,21 +81,18 @@ def post_summary(pull, match, checks):
 
 def exec_action(method_name, rule, action,
                 installation_id, installation_token, subscription,
-                event_type, data, pull):
+                event_type, data, pull, missing_conditions):
     try:
         method = getattr(rule['actions'][action], method_name)
         return method(
             installation_id, installation_token, subscription,
-            event_type, data, pull)
+            event_type, data, pull, missing_conditions)
     except Exception as e:  # pragma: no cover
         pull.log.error("action failed", action=action, rule=rule,
                        exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
-        if rule["actions"][action].dedicated_check:
-            return "failure", "action '%s' have failed" % action, " "
-        else:
-            return
+        return "failure", "action '%s' have failed" % action, " "
 
 
 def run_actions(installation_id, installation_token, subscription,
@@ -109,6 +106,10 @@ def run_actions(installation_id, installation_token, subscription,
 
             if missing_conditions:
                 if not prev_check:
+                    LOG.info("action evaluation: nothing to cancel",
+                             check_name=check_name,
+                             pull_request=pull,
+                             missing_conditions=missing_conditions)
                     continue
                 method_name = "cancel"
                 expected_conclusion = ["cancelled"]
@@ -120,12 +121,18 @@ def run_actions(installation_id, installation_token, subscription,
                            expected_conclusion and
                            event_type != "refresh")
             if already_run:
+                LOG.info("action evaluation: already in expected state",
+                         conclusion=(prev_check.conclusion if prev_check
+                                     else "no-previous-check"),
+                         check_name=check_name,
+                         pull_request=pull,
+                         missing_conditions=missing_conditions)
                 continue
 
             report = exec_action(
                 method_name, rule, action,
                 installation_id, installation_token, subscription,
-                event_type, data, pull
+                event_type, data, pull, missing_conditions
             )
 
             if report:
@@ -134,6 +141,12 @@ def run_actions(installation_id, installation_token, subscription,
                 check_api.set_check_run(
                     pull.g_pull, check_name, status, conclusion,
                     output={"title": title, "summary": summary})
+
+            LOG.info("action evaluation: done",
+                     report=report,
+                     check_name=check_name,
+                     pull_request=pull,
+                     missing_conditions=missing_conditions)
 
 
 @app.task

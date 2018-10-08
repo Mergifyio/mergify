@@ -30,7 +30,7 @@ class DismissReviewsAction(actions.Action):
     }
 
     def run(self, installation_id, installation_token, subscription,
-            event_type, data, pull):
+            event_type, data, pull, missing_conditions):
         if event_type == "pull_request" and data["action"] == "synchronize":
             for review in pull._get_reviews():
                 conf = self.config.get(review.state.lower(), False)
