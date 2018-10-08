@@ -22,9 +22,9 @@ import attr
 @attr.s
 class Action(abc.ABC):
     config = attr.ib()
-    cancel_in_progress = True
-
-    dedicated_check = True
+    cancelled_check_report = (
+        "cancelled", "The rule doesn't match anymore, this action "
+        "has been cancelled", "")
 
     @property
     @staticmethod
@@ -32,7 +32,12 @@ class Action(abc.ABC):
     def validator():  # pragma: no cover
         pass
 
-    @abc.abstractmethod
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):  # pragma: no cover
+    @staticmethod
+    def run(installation_id, installation_token, subscription,
+            event_type, data, pull):  # pragma: no cover
+        pass
+
+    @staticmethod
+    def cancel(installation_id, installation_token, subscription,
+               event_type, data, pull):  # pragma: no cover
         pass

@@ -27,11 +27,8 @@ class LabelAction(actions.Action):
     validator = {voluptuous.Required("add", default=[]): [str],
                  voluptuous.Required("remove", default=[]): [str]}
 
-    dedicated_check = False
-
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
-
+    def run(self, installation_id, installation_token, subscription,
+            event_type, data, pull):
         all_label = [l.name for l in pull.g_pull.base.repo.get_labels()]
         for label in self.config['add']:
             if label not in all_label:

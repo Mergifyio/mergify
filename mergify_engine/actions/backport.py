@@ -23,10 +23,10 @@ from mergify_engine import backports
 class BackportAction(actions.Action):
     validator = {voluptuous.Required("branches", default=[]): [str]}
 
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
+    def run(self, installation_id, installation_token, subscription,
+            event_type, data, pull):
         if not pull.g_pull.merged:
-            return None, "Waiting for the pull request to get merged", " "
+            return None, "Waiting for the pull request to get merged", ""
 
         state = "success"
         detail = "The following pull requests have been created: "
@@ -40,4 +40,9 @@ class BackportAction(actions.Action):
                 state = "failure"
                 detail += "\n* backport to branch `%s` has failed" % (
                     pull, branch)
+
         return state, "Backports have been created", detail
+
+    def cancel(self, installation_id, installation_token, subscription,
+               event_type, data, pull):  # pragma: no cover
+        return self.cancelled_check_report

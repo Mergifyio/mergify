@@ -29,10 +29,8 @@ class CloseAction(actions.Action):
         voluptuous.Required("message", default=MSG): str,
     }
 
-    dedicated_check = True
-
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
+    def run(self, installation_id, installation_token, subscription,
+            event_type, data, pull):
         if pull.g_pull.state == "close":
             return
 
@@ -52,3 +50,7 @@ class CloseAction(actions.Action):
 
         return ("success", "The pull request has been closed",
                 self.config["message"])
+
+    def cancel(self, installation_id, installation_token, subscription,
+               event_type, data, pull):  # pragma: no cover
+        return self.cancelled_check_report

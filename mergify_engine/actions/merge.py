@@ -27,8 +27,6 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class MergeAction(actions.Action):
-    cancel_in_progress = False
-
     validator = {
         voluptuous.Required("method", default="merge"):
         voluptuous.Any("rebase", "merge", "squash"),
@@ -37,25 +35,25 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict", default=False): bool,
     }
 
-    def __call__(self, installation_id, installation_token, subscription,
-                 event_type, data, pull):
+    def run(self, installation_id, installation_token, subscription,
+            event_type, data, pull):
         pull.log.debug("process merge", config=self.config)
 
         # NOTE(sileht): Take care of all branch protection state
         if pull.g_pull.mergeable_state == "dirty":
-            return None, "Merge conflict needs to be solved", " "
+            return None, "Merge conflict needs to be solved", ""
         elif pull.g_pull.mergeable_state == "unknown":
             return ("failure", "Pull request state reported as `unknown` by "
-                    "GitHub", " ")
+                    "GitHub", "")
         elif pull.g_pull.mergeable_state == "blocked":
             return ("failure", "Branch protection settings are blocking "
-                    "automatic merging", " ")
+                    "automatic merging", "")
         elif (pull.g_pull.mergeable_state == "behind" and
               not self.config["strict"]):
             # Strict mode has been enabled in branch protection but not in
             # mergify
             return ("failure", "Branch protection setting 'strict' conflicts "
-                    "with Mergify configuration", " ")
+                    "with Mergify configuration", "")
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
         # are OK for us
 
@@ -64,19 +62,18 @@ class MergeAction(actions.Action):
             # by one.
 
             updated = branch_updater.update(pull, subscription["token"])
-            if not updated:  # pragma: no cover
-                raise Exception("branch update of %s have failed" % pull)
+            if updated:
+                # NOTE(sileht): We update g_pull to have the new head.sha, so
+                # future created checks will be post on the new sha. Otherwise
+                # the checks will be lost the GitHub UI on the old sha.
+                pull.wait_for_sha_change()
 
-            # NOTE(sileht): We update g_pull to have the new head.sha, so
-            # future created checks will be post on the new sha. Otherwise
-            # the checks will be lost the GitHub UI on the old sha.
-            pull.wait_for_sha_change()
-
-            return (None,
-                    "Base branch updates done",
-                    "The pull request has been automatically "
-                    "updated to follow its base branch and will be merged "
-                    "soon")
+                return (None, "Base branch updates done",
+                        "The pull request has been automatically "
+                        "updated to follow its base branch and will be "
+                        "merged soon")
+            else:  # pragma: no cover
+                return ("failure", "Base branch update has failed", "")
 
         else:
             if (self.config["method"] != "rebase" or
@@ -86,7 +83,7 @@ class MergeAction(actions.Action):
                 return self._merge(pull, self.config["rebase_fallback"])
             else:
                 return ("action_required", "Automatic rebasing is not "
-                        "possible, manual intervention required", " ")
+                        "possible, manual intervention required", "")
 
     @staticmethod
     def _merge(pull, method):
