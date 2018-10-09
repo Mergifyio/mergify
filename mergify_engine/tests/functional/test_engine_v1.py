@@ -584,8 +584,7 @@ class TestEngineScenario(base.FunctionalTestBase):
             "required_pull_request_reviews"][
                 "required_approving_review_count"] = 6
         config = yaml.dump(config)
-        p1, commits1 = self.create_pr(files={".mergify.yml": config},
-                                      status="failure")
+        p1, commits1 = self.create_pr(files={".mergify.yml": config})
         pulls = self._get_queue("master")
         self.assertEqual(1, len(pulls))
 
@@ -613,10 +612,11 @@ class TestEngineScenario(base.FunctionalTestBase):
                                                         expected_rule, data))
 
         p1 = self.r_main.get_pull(p1.number)
-        checks = list(check_api.get_checks(p1, {
-            "check_name": "future-config-checker"}))
-        assert len(checks) == 1
-        assert checks[0].name == "future-config-checker"
+        checks = list(check_api.get_checks(p1))
+        assert len(checks) == 2
+        assert checks[0].name == ("Mergify — disabled due to configuration "
+                                  "change")
+        assert checks[1].name == "Mergify — future config checker"
 
     def test_update_branch_disabled(self):
         p1, commits1 = self.create_pr("nostrict")

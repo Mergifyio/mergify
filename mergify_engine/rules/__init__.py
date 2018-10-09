@@ -281,9 +281,5 @@ def get_branch_rule(rules, branch):
     except voluptuous.MultipleInvalid as e:  # pragma: no cover
         raise InvalidRules(str(e))
 
-    # NOTE(sileht): Always disable Mergify if its configuration is changed
-    if ".mergify.yml" not in rule["disabling_files"]:
-        rule["disabling_files"].append(".mergify.yml")
-
     LOG.info("Fetched branch rule", branch=branch, rule=rule)
     return rule
