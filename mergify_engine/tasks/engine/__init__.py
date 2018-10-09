@@ -141,18 +141,28 @@ def check_configuration_changes(event_type, data, event_pull):
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API
                 check_api.set_check_run(
-                    event_pull, "future-config-checker", "completed",
+                    event_pull, "Mergify — future config checker", "completed",
                     "failure", output={
                         "title": "The new Mergify configuration is invalid",
                         "summary": str(e)
                     })
             else:
                 check_api.set_check_run(
-                    event_pull, "future-config-checker", "completed",
+                    event_pull, "Mergify — future config checker", "completed",
                     "success", output={
                         "title": "The new Mergify configuration is valid",
                         "summary": "No action required",
                     })
+
+            check_api.set_check_run(
+                event_pull, "Mergify — disabled due to configuration change",
+                "completed", "failure", output={
+                    "title": "Mergify configuration has been modified",
+                    "summary": "The pull request needs to be merged manually",
+                })
+
+            return True
+    return False
 
 
 @app.task
@@ -215,7 +225,8 @@ def run(event_type, data, subscription):
                      "commit)", event_type)
             return
 
-        check_configuration_changes(event_type, data, event_pull)
+        if check_configuration_changes(event_type, data, event_pull):
+            return
 
         # BRANCH CONFIGURATION CHECKING
         try:

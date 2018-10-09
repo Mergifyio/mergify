@@ -156,9 +156,8 @@ def test_disabling_files():
 
     config["rules"]["default"]["disabling_files"] = ["foobar.json"]
     parsed = validate_with_get_branch_rule(config)
-    assert len(parsed["disabling_files"]) == 2
+    assert len(parsed["disabling_files"]) == 1
     assert "foobar.json" in parsed["disabling_files"]
-    assert ".mergify.yml" in parsed["disabling_files"]
 
     with pytest.raises(rules.InvalidRules):
         config["rules"]["default"]["disabling_files"] = None
