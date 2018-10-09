@@ -16,24 +16,19 @@
 
 import github
 
-import voluptuous
-
 from mergify_engine import actions
 
 
 class DeleteHeadBranchAction(actions.Action):
-    validator = {
-        voluptuous.Required("on", default="merge"):
-        voluptuous.Any("merge", "close"),
-    }
 
-    def __call__(self, installation_id, installation_token, subscription,
+    validator = {}
+
+    @staticmethod
+    def __call__(installation_id, installation_token, subscription,
                  event_type, data, pull):
         if pull.g_pull.head.repo != pull.g_pull.base.repo:
             return
-        if ((self.config["on"] == "merge" and pull.g_pull.merged) or
-                (self.config["on"] == "close" and
-                 pull.g_pull.state == "closed")):
+        if pull.g_pull.state == "closed":
             try:
                 pull.g_pull.head.repo._requester.requestJsonAndCheck(
                     "DELETE",
@@ -47,3 +42,6 @@ class DeleteHeadBranchAction(actions.Action):
                 return ("failure", "Unable to delete the head branch", " ")
             return ("success", "Branch `%s` have been deleted" %
                     pull.g_pull.head.ref, " ")
+        return ("pending",
+                "Branch `%s` will be deleted once the pull request is closed" %
+                pull.g_pull.head.ref, " ")
