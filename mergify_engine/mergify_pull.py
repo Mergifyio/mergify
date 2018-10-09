@@ -218,7 +218,7 @@ class MergifyPull(object):
                 self.g_pull.merged_by.login if self.g_pull.merged_by else ""
             ),
             "merged": self.g_pull.merged,
-            "state": self.g_pull.state,
+            "closed": self.g_pull.state == "closed",
             "milestone": (
                 self.g_pull.milestone.title if self.g_pull.milestone else ""
             ),
