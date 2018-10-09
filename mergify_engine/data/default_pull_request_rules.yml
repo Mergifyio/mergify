@@ -1,0 +1,9 @@
+rules:
+  - name: delete backport branch (Mergify rule)
+    conditions:
+      - author=mergify[bot]
+      - head~=^mergify/bp/
+      - closed
+    actions:
+      delete_head_branch: {}
+

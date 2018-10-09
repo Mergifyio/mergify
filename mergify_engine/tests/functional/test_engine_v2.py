@@ -21,6 +21,7 @@ import yaml
 
 from mergify_engine import branch_protection
 from mergify_engine import check_api
+from mergify_engine.tasks.engine import v2
 from mergify_engine.tests.functional import base
 
 
@@ -39,6 +40,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
     """
+
+    def setUp(self):
+        with open(v2.mergify_rule_path, "r") as f:
+            v2.MERGIFY_RULE = yaml.safe_load(f.read().replace(
+                "mergify[bot]", "mergify-test[bot]"))
+        super(TestEngineV2Scenario, self).setUp()
 
     def test_backport_cancelled(self):
         rules = {'pull_request_rules': [
@@ -263,7 +270,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                  "backport": {
                      "branches": ['stable/3.1'],
                  }}
-             }
+             },
+            {"name": "automerge backport",
+             "conditions": [
+                 "head~=^mergify/bp/",
+             ], "actions": {
+                 "merge": {}
+             }},
         ]}
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
@@ -298,6 +311,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(1, pulls[2].number)
         self.assertEqual(True, pulls[1].merged)
         self.assertEqual("closed", pulls[1].state)
+
+        self.assertEqual([], [b.name for b in self.r_main.get_branches()
+                              if b.name.startswith("mergify/bp")])
 
     def test_merge_strict(self):
         rules = {'pull_request_rules': [
