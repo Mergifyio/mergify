@@ -65,8 +65,8 @@ def _token_to_dict(s, loc, toks):
 head = "head" + _match_with_operator(git_branch)
 base = "base" + _match_with_operator(git_branch)
 author = "author" + _match_with_operator(github_login)
-state = "state" + _match_with_operator(text)
 merged = _match_boolean("merged")
+closed = _match_boolean("closed")
 merged_by = "merged-by" + _match_with_operator(github_login)
 body = "body" + _match_with_operator(text)
 assignee = "assignee" + _match_with_operator(github_login)
@@ -98,7 +98,7 @@ search = (
     ) +
     pyparsing.Optional("#", default="") +
     (head | base | author | merged_by | body | assignee | label | locked |
-     state | merged | title | files | review_requests |
+     closed | merged | title | files | review_requests |
      review_approved_by | review_dismissed_by |
      review_changes_requested_by | review_commented_by |
      status_success | status_failure)
