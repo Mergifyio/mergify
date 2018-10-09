@@ -12,7 +12,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import daiquiri
+
+import pkg_resources
+
+import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -21,6 +26,12 @@ from mergify_engine import rules
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
+
+mergify_rule_path = pkg_resources.resource_filename(
+    __name__, "../../data/default_pull_request_rules.yml")
+
+with open(mergify_rule_path, "r") as f:
+    MERGIFY_RULE = yaml.safe_load(f.read())
 
 
 def post_summary(pull, match, checks):
@@ -128,6 +139,9 @@ def run_actions(installation_id, installation_token, subscription,
 @app.task
 def handle(installation_id, installation_token, subscription,
            pull_request_rules_raw, event_type, data, pull_raw):
+
+    # Some mandatory rules
+    pull_request_rules_raw["rules"].extend(MERGIFY_RULE["rules"])
 
     pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
     pull = mergify_pull.MergifyPull.from_raw(
