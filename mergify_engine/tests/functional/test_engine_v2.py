@@ -78,6 +78,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
              "conditions": [
                  "base=master",
                  "label=merge",
+                 "merged",
              ], "actions": {
                  "delete_head_branch": {}}
              },
@@ -85,10 +86,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
              "conditions": [
                  "base=master",
                  "label=close",
+                 "closed",
              ], "actions": {
-                 "delete_head_branch": {
-                     "on": "close",
-                 }}
+                 "delete_head_branch": {}}
              }
         ]}
 
