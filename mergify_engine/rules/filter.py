@@ -99,14 +99,16 @@ class Filter:
     def _tree_to_str(self, tree):
         # We don't do any kind of validation here since build_evaluator does
         # that.
-        operator, nodes = list(tree.items())[0]
-        if operator in self.unary_operators:
-            return operator + self._tree_to_str(nodes)
-        if operator in self.binary_operators:
-            return str(nodes[0]) + operator + str(nodes[1])
-        raise RuntimeError(
-            "Unable to convert tree to string: unknown operator: %s"
-            % operator)  # pragma: no cover
+        op, nodes = list(tree.items())[0]
+        if op in self.unary_operators:
+            return op + self._tree_to_str(nodes)
+        if op in self.binary_operators:
+            if isinstance(nodes[1], bool):
+                if self.binary_operators[op][0] != operator.eq:
+                    raise InvalidOperator(op)
+                return ("" if nodes[1] else "-") + str(nodes[0])
+            return str(nodes[0]) + op + str(nodes[1])
+        raise InvalidOperator(op)  # pragma: no cover
 
     def __repr__(self):  # pragma: no cover
         return "%s(%s)" % (self.__class__.__name__, str(self))

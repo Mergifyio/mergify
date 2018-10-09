@@ -133,6 +133,10 @@ def test_str():
     assert "-foo=1" == str(filter.Filter({
         "-": {"=": ("foo", 1)},
     }))
+    assert "foo" == str(filter.Filter({"=": ("foo", True)}))
+    assert "-bar" == str(filter.Filter({"=": ("bar", False)}))
+    with pytest.raises(filter.InvalidOperator):
+        str(filter.Filter({">=": ("bar", False)}))
 
 
 def test_parser():
