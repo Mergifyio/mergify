@@ -23,7 +23,6 @@ import requests
 
 from mergify_engine import config
 from mergify_engine import utils
-from mergify_engine.actions import merge
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -100,3 +99,4 @@ if sentry_client:  # pragma: no cover
 
 # Register our tasks
 import mergify_engine.tasks.github_events  # noqa
+from mergify_engine.actions import merge  # noqa
