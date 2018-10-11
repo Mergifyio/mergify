@@ -121,9 +121,7 @@ def create_metrics(event_type, data):
 
 
 def check_configuration_changes(event_type, data, event_pull):
-    if (event_type == "pull_request" and
-        data["action"] in ["opened", "synchronize"] and
-            event_pull.base.repo.default_branch == event_pull.base.ref):
+    if event_pull.base.repo.default_branch == event_pull.base.ref:
         ref = None
         for f in event_pull.get_files():
             if f.filename == ".mergify.yml":
