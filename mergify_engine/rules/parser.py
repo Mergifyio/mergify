@@ -19,8 +19,7 @@ import pyparsing
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
 github_login = pyparsing.CharsNotIn(" /")
-text = pyparsing.dblQuotedString | pyparsing.CharsNotIn(" ")
-status_check = pyparsing.CharsNotIn(" ")
+text = pyparsing.CharsNotIn("")
 milestone = pyparsing.CharsNotIn(" ")
 
 regex_operators = pyparsing.Literal("~=")
@@ -86,8 +85,8 @@ review_changes_requested_by = (
 review_commented_by = (
     "commented-reviews-by" + _match_with_operator(github_login)
 )
-status_success = "status-success" + _match_with_operator(status_check)
-status_failure = "status-failure" + _match_with_operator(status_check)
+status_success = "status-success" + _match_with_operator(text)
+status_failure = "status-failure" + _match_with_operator(text)
 
 search = (
     pyparsing.Optional(
