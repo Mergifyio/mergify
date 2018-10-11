@@ -192,7 +192,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
         elif (event_type == "pull_request" and data["action"] not in [
                 "opened", "reopened", "closed", "synchronize",
-                "labeled", "unlabeled"]):
+                "labeled", "unlabeled", "edited"]):
             msg_action = "ignored (action %s)" % data["action"]
 
         else:
