@@ -7,7 +7,7 @@ pull_request_rules:
       - label!=work-in-progress
     actions:
       merge:
-        strict: true
+        strict: "smart"
         method: rebase
   - name: dismiss reviews
     conditions: []
