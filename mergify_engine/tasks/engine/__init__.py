@@ -210,29 +210,35 @@ def run(event_type, data, subscription):
 
         if (event_type == "status" and
                 event_pull.head.sha != data["sha"]):  # pragma: no cover
-            LOG.info("No need to proceed queue (got status of an old commit)")
+            LOG.info("No need to proceed queue (got status of an old commit)",
+                     pull_request=event_pull)
             return
 
         elif (event_type in ["status", "check_suite", "check_run"] and
               event_pull.merged):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of a merged "
-                     "pull request)")
+                     "pull request)",
+                     pull_request=event_pull)
             return
         elif (event_type in ["check_suite", "check_run"] and
               event_pull.head.sha != data[event_type]["head_sha"]
               ):  # pragma: no cover
             LOG.info("No need to proceed queue (got %s of an old "
-                     "commit)", event_type)
+                     "commit)", event_type,
+                     pull_request=event_pull)
             return
 
         if check_configuration_changes(event_type, data, event_pull):
+            LOG.info("Configuration changed, ignoring",
+                     pull_request=event_pull)
             return
 
         # BRANCH CONFIGURATION CHECKING
         try:
             mergify_config = rules.get_mergify_config(repo)
         except rules.NoRules as e:  # pragma: no cover
-            LOG.info("No need to proceed queue (.mergify.yml is missing)")
+            LOG.info("No need to proceed queue (.mergify.yml is missing)",
+                     pull_request=event_pull)
             return
         except rules.InvalidRules as e:  # pragma: no cover
             # Not configured, post status check with the error message
