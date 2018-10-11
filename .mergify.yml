@@ -19,9 +19,3 @@ pull_request_rules:
     actions:
       label:
         add: ["work-in-progress"]
-  - name: auto remove wip
-    conditions:
-      - "-title~=^(wip|WIP).*"
-    actions:
-      label:
-        remove: ["work-in-progress"]
