@@ -119,6 +119,8 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
     if output:
         post_parameters["output"] = output
 
+    post_parameters["started_at"] = utils.utcnow().isoformat()
+
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
