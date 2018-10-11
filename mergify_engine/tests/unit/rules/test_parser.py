@@ -34,6 +34,8 @@ def test_search():
             ("#assignee=3", {"=": ("#assignee", 3)}),
             ("#assignee>1", {">": ("#assignee", 1)}),
             ("#assignee>=2", {">=": ("#assignee", 2)}),
+            ("status-success=my ci has spaces", {"=": ("status-success",
+                                                       "my ci has spaces")}),
     ):
         assert result == tuple(parser.search.parseString(
             line, parseAll=True))[0]
