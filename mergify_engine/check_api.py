@@ -16,8 +16,6 @@ import daiquiri
 
 import github.GithubObject
 
-import tenacity
-
 from mergify_engine import config
 from mergify_engine import utils
 
