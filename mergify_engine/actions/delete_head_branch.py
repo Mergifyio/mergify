@@ -41,7 +41,7 @@ class DeleteHeadBranchAction(actions.Action):
                 return ("failure", "Unable to delete the head branch", "")
             return ("success", "Branch `%s` has been deleted" %
                     pull.g_pull.head.ref, "")
-        return ("pending",
+        return (None,
                 "Branch `%s` will be deleted once the pull request is closed" %
                 pull.g_pull.head.ref, "")
 
