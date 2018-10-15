@@ -44,6 +44,8 @@ def main():
         description='Force refresh of mergify_engine'
     )
     parser.add_argument(
+        "--all", action='store_true', help="Refresh *everything*")
+    parser.add_argument(
         "slug", nargs="*",
         help="<owner>/<repo>/branch/<branch> or <owner>/<repo>/pull/<pull#>")
 
@@ -52,8 +54,10 @@ def main():
     if args.slug:
         for slug in args.slug:
             refresh(slug)
-    else:
+    elif args.all:
         refresh()
+    else:
+        parser.print_help()
 
 
 if __name__ == '__main__':
