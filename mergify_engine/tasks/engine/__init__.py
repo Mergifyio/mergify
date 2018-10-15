@@ -188,13 +188,6 @@ def run(event_type, data, subscription):
         repo = g.get_repo(data["repository"]["owner"]["login"] + "/" +
                           data["repository"]["name"])
 
-        # NOTE(sileht): Workaround for when we receive check_suite completed
-        # without conclusion
-        if (event_type == "check_suite" and data["action"] == "completed" and
-                not data["check_suite"]["conclusion"]):  # pragma: no cover
-            data = check_api.workaround_for_unfinished_check_suite(
-                repo, data)
-
         event_pull = get_github_pull_from_event(g, repo, installation_id,
                                                 event_type, data)
 

@@ -157,30 +157,3 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
                            "we have a bug. %s" % pull.url)
 
     return Check(pull._requester, headers, data, completed=True)
-
-
-@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
-                stop=tenacity.stop_after_attempt(5),
-                retry=tenacity.retry_never)
-def workaround_for_unfinished_check_suite(g_repo, data):  # pragma: no cover
-    """Workaround for broken Checks API events.
-
-    The Checks API have two major flaws:
-    * We received check_suite/completed too early, some checks are still
-    pending
-    * Once it's completed, even if some check are rerun, we never got
-    a new event to notify us that it finish again.
-
-    This method workaround the first issue, but the second one is still
-    unsolved
-    """
-    check_suite = data["check_suite"]
-    LOG.info("unfinished_check_suite workaround used", check_suite=check_suite)
-    check_suite = get_check_suite(g_repo, check_suite["id"])
-    if check_suite["conclusion"]:
-        # NOTE(sileht): even when we got the conclusion the status is
-        # still pending... Well this API is clearly not ready for prime
-        # time
-        data["check_suite"] = check_suite
-        return data
-    raise tenacity.TryAgain

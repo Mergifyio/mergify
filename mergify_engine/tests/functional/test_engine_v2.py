@@ -67,13 +67,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.add_label_and_push_events(p, "backport-3.1")
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": None}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
+            ("check_run", {"check_run": {"conclusion": None}}),  # Backport
         ])
         p.remove_from_labels("backport-3.1")
         self.push_events([
             ("pull_request", {"action": "unlabeled"}),
-            # Stupid bug, we must query the API instead ...
-            # ("check_run", {"check_run": {"conclusion": "cancelled"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
+            # Backport
+            ("check_run", {"check_run": {"conclusion": "cancelled"}}),
         ], ordered=False)
 
         checks = list(check_api.get_checks(p, {
@@ -106,6 +108,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p1.merge()
         self.push_events([
             ("check_suite", {"action": "requested"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("pull_request", {"action": "closed"}),
         ], ordered=False)
 
@@ -113,16 +116,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2.edit(state="close")
 
         self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("pull_request", {"action": "closed"}),
         ], ordered=False)
 
         self.add_label_and_push_events(p1, "merge")
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
         ], ordered=False)
         self.add_label_and_push_events(p2, "close")
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
         ], ordered=False)
 
         pulls = list(self.r_main.get_pulls(state="all"))

@@ -492,6 +492,8 @@ class FunctionalTestBase(testtools.TestCase):
             expected_events += [
                 ("check_suite", {"check_suite": {"conclusion": "success"}}),
                 ("check_run", {"check_run": {"conclusion": "success",
+                                             "status": "completed"}}),
+                ("check_run", {"check_run": {"conclusion": "success",
                                              "status": "completed"}})
             ]
         elif base != "disabled" and status:
