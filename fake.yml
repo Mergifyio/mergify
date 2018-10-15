@@ -1,14 +1,11 @@
 ---
-TOPOLOGY_FREE:
+TOPOLOGY:
   localhost: 1
-TOPOLOGY_SUBSCRIBED:
-  localhost: 2
 
 FETCH_WORKERS: 5
 LOG_RATELIMIT: false
 DEBUG: true
 FLUSH_REDIS_ON_STARTUP: false
-INITIAL_PULLS_LOOKUP: 5
 
 CONTEXT: mergify
 GIT_EMAIL: noreply@mergify.io

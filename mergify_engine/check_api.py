@@ -29,6 +29,7 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
         return self.get__repr__({
             "id": self._id.value,
             "name": self._name.value,
+            "head_sha": self._head_sha.value,
             "conclusion": self._conclusion.value,
         })
 
@@ -39,6 +40,10 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
     @property
     def name(self):
         return self._name.value
+
+    @property
+    def head_sha(self):
+        return self._head_sha.value
 
     @property
     def conclusion(self):
@@ -55,6 +60,7 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
     def _initAttributes(self):
         self._id = github.GithubObject.NotSet
         self._name = github.GithubObject.NotSet
+        self._head_sha = github.GithubObject.NotSet
         self._conclusion = github.GithubObject.NotSet
         self._status = github.GithubObject.NotSet
         self._output = github.GithubObject.NotSet
@@ -65,6 +71,8 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
             self._id = self._makeIntAttribute(attributes["id"])
         if "name" in attributes:
             self._name = self._makeStringAttribute(attributes["name"])
+        if "head_sha" in attributes:
+            self._head_sha = self._makeStringAttribute(attributes["head_sha"])
         if "output" in attributes:
             self._output = self._makeDictAttribute(attributes["output"])
         if "status" in attributes:
@@ -111,6 +119,8 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
     if output:
         post_parameters["output"] = output
 
+    post_parameters["started_at"] = utils.utcnow().isoformat()
+
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
@@ -126,6 +136,15 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
                      'application/vnd.github.antiope-preview+json'}
         )
     elif len(checks) == 1:
+
+        # Don't do useless update
+        check = checks[0]
+        for param in ("name", "head_sha", "status", "output", "conclusion"):
+            if post_parameters.get(param) != getattr(check, param):
+                break
+        else:
+            return check
+
         headers, data = pull._requester.requestJsonAndCheck(
             "PATCH",
             "%s/check-runs/%s" % (pull.base.repo.url, checks[0].id),

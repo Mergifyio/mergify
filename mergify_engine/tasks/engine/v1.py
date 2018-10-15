@@ -40,18 +40,11 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_ring(topology, kind):
-    return uhashring.HashRing(
-        nodes=list(itertools.chain.from_iterable(
-            map(lambda x: "worker-%s-%003d@%s" % (kind, x, fqdn), range(w))
-            for fqdn, w in sorted(topology.items())
-        )))
-
-
-RINGS_PER_SUBSCRIPTION = {
-    True: get_ring(config.TOPOLOGY_SUBSCRIBED, "sub"),
-    False: get_ring(config.TOPOLOGY_FREE, "free")
-}
+RING = uhashring.HashRing(
+    nodes=list(itertools.chain.from_iterable(
+        map(lambda x: "worker-%003d@%s" % (x, fqdn), range(w))
+        for fqdn, w in sorted(config.TOPOLOGY.items())
+    )))
 
 
 @app.task
@@ -61,8 +54,7 @@ def handle(installation_id, installation_token, subscription,
     # sent to the same worker.
     # This work in coordination with app.conf.worker_direct = True that creates
     # a dedicated queue on exchange c.dq2 for each worker
-    ring = RINGS_PER_SUBSCRIPTION[subscription["subscribed"]]
-    routing_key = ring.get_node(data["repository"]["full_name"])
+    routing_key = RING.get_node(data["repository"]["full_name"])
     LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
              routing_key)
     _handle.s(installation_id, installation_token, subscription,

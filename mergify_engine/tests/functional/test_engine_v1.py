@@ -585,33 +585,6 @@ class TestEngineScenario(base.FunctionalTestBase):
                 "required_approving_review_count"] = 6
         config = yaml.dump(config)
         p1, commits1 = self.create_pr(files={".mergify.yml": config})
-        pulls = self._get_queue("master")
-        self.assertEqual(1, len(pulls))
-
-        self.assertEqual(1, pulls[0]._reviews_required)
-
-        # Check policy of that branch is the expected one
-        expected_rule = {
-            "protection": {
-                "required_status_checks": {
-                    "strict": True,
-                    "contexts": ["continuous-integration/fake-ci"],
-                },
-                "required_pull_request_reviews": {
-                    "dismiss_stale_reviews": True,
-                    "require_code_owner_reviews": False,
-                    "required_approving_review_count": 1,
-                },
-                "restrictions": None,
-                "enforce_admins": False,
-            }
-        }
-
-        data = branch_protection.get_protection(self.r_main, "master")
-        self.assertTrue(branch_protection.is_configured(self.r_main, "master",
-                                                        expected_rule, data))
-
-        p1 = self.r_main.get_pull(p1.number)
         checks = list(check_api.get_checks(p1))
         assert len(checks) == 2
         assert checks[0].name == ("Mergify — disabled due to configuration "
@@ -783,8 +756,7 @@ class TestEngineScenario(base.FunctionalTestBase):
         pulls = self._get_queue("master")
         self.assertEqual(2, len(pulls))
         self.assertEqual(2, pulls[0].g_pull.number)
-        self.assertEqual(30,
-                         pulls[0].mergify_state)
+        self.assertEqual(30, pulls[0].mergify_state)
         self.assertEqual("Will be merged soon",
                          pulls[0].github_description)
 
