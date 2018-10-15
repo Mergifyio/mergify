@@ -399,8 +399,17 @@ class FunctionalTestBase(testtools.TestCase):
         data.pop("_links", None)
         data.pop("user", None)
         data.pop("body", None)
+        data.pop("after", None)
+        data.pop("before", None)
+        data.pop("app", None)
+        data.pop("timestamp", None)
+        data.pop("external_id", None)
+        if "check_run" in data:
+            data["check_run"].pop("checks_suite", None)
         for key, value in list(data.items()):
             if key.endswith("url"):
+                del data[key]
+            if key.endswith("_at"):
                 del data[key]
             if isinstance(value, dict):
                 data[key] = cls._remove_useless_links(value)
@@ -421,16 +430,23 @@ class FunctionalTestBase(testtools.TestCase):
         ).json())
         if events:
             for e in events:
-                LOG.debug(">>> Proceed event: [%s] %s %s", e["id"], e["type"],
-                          self._event_for_log(e))
-                self._process_event(**e)
+                self._process_event(e["id"], e["type"], e["payload"])
         return events
 
-    def _process_event(self, id, type, payload):  # noqa
-        extra = payload.get("state", payload.get("action"))
-        LOG.debug("> Processing event: %s %s/%s", id, type, extra)
+    def _process_event(self, _id, _type, payload):  # noqa
+        action = payload.get("action")
+        if _type in ["check_run", "check_suite"]:
+            extra = "/%s/%s" % (payload[_type].get("status"),
+                                payload[_type].get("conclusion"))
+        elif _type == "status":
+            extra = "/%s" % payload.get("state")
+        else:
+            extra = ""
+        LOG.debug("* Proceed event: [%s] %s/%s%s: %s",
+                  _id, _type, action, extra,
+                  self._event_for_log(payload))
         r = self.app.post('/event', headers={
-            "X-GitHub-Event": type,
+            "X-GitHub-Event": _type,
             "X-GitHub-Delivery": "123456789",
             "X-Hub-Signature": "sha1=whatever",
             "Content-type": "application/json",
@@ -530,10 +546,12 @@ class FunctionalTestBase(testtools.TestCase):
         self.push_events([("pull_request_review", {"action": "submitted"})])
         return r
 
-    def add_label_and_push_events(self, pr, label):
+    def add_label_and_push_events(self, pr, label, additional_checks=[]):
         self.r_main.create_label(label, "000000")
         pr.add_to_labels(label)
-        self.push_events([("pull_request", {"action": "labeled"})])
+        events = [("pull_request", {"action": "labeled"})]
+        events.extend(additional_checks)
+        self.push_events(events, ordered=False)
 
     def create_check_run_and_push_event(self, pr, name, conclusion=None,
                                         ignore_check_run_event=False,

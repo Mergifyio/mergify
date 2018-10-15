@@ -31,6 +31,8 @@ LOG = logging.getLogger(__name__)
 MERGE_EVENTS = [
     ("pull_request", {"action": "closed"}),
     ("check_run", {"check_run": {"conclusion": "success"}}),
+    ("check_run", {"check_run": {"conclusion": "success"}}),
+    ("check_run", {"check_run": {"conclusion": "success"}}),
     ("check_suite", {"action": "requested"}),
 ]
 
@@ -116,11 +118,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2.edit(state="close")
 
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
         ], ordered=False)
 
-        self.add_label_and_push_events(p1, "merge")
+        self.add_label_and_push_events(
+            p1, "merge",
+            [("check_run", {"check_run": {"conclusion": "success"}})]
+        )
         self.push_events([
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
@@ -221,6 +226,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("check_suite", {"action": "completed"}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request_review", {"action": "dismissed"}),
         ], ordered=False)
 
@@ -249,6 +255,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ]),
         self.push_events([
             ("check_suite", {"action": "completed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request_review", {"action": "dismissed"}),
         ], ordered=False)
@@ -293,22 +300,34 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.add_label_and_push_events(p2, "backport-3.1")
         self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Backport
             ("check_run", {"check_run": {"conclusion": None}}),
-        ])
+        ], ordered=False)
 
         self.create_status_and_push_event(p2,
                                           context="not required status check",
                                           state="failure")
         self.create_status_and_push_event(p2)
+        self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events(MERGE_EVENTS, ordered=False)
 
         self.push_events([
-            ("pull_request", {"action": "opened"}),
             ("check_suite", {"action": "requested"}),
+            ("pull_request", {"action": "opened"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "completed"}),
+            ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
         pulls = list(self.r_main.get_pulls(state="all"))
@@ -348,12 +367,20 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         previous_master_sha = self.r_main.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "synchronize"}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
-            ("check_suite", {"action": "completed"}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
@@ -369,10 +396,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            # We didn't receive this event... Github bug...
-            # When a check_run is in_progress and move to completed
-            # we never received the completed event
-            # ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -408,9 +432,16 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         previous_master_sha = self.r_main.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
+        self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
@@ -419,8 +450,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "synchronize"}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
-            ("check_suite", {"action": "completed"}),
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
@@ -436,10 +470,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            # We didn't receive this event... Github bug...
-            # When a check_run is in_progress and move to completed
-            # we never received the completed event
-            # ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -465,6 +496,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p2, commits = self.create_pr(check="success")
         self.create_status_and_push_event(p2)
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events(MERGE_EVENTS, ordered=False)
@@ -553,7 +587,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ])
 
         self.create_status_and_push_event(p2)
+
         self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # FIXME(sileht): Why twice ??
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "failure"}}),
+            # Merge
             ("check_run", {"check_run": {"conclusion": "failure"}}),
             ("check_suite", {"action": "completed"}),
         ], ordered=False)
