@@ -204,11 +204,13 @@ def run(event_type, data, subscription):
             return
 
         LOG.info("Pull request found in the event %s", event_type,
+                 repo=repo.fullname,
                  pull_request=event_pull)
 
         if (event_type == "status" and
                 event_pull.head.sha != data["sha"]):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)",
+                     repo=repo.fullname,
                      pull_request=event_pull)
             return
 
@@ -216,6 +218,7 @@ def run(event_type, data, subscription):
               event_pull.merged):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of a merged "
                      "pull request)",
+                     repo=repo.fullname,
                      pull_request=event_pull)
             return
         elif (event_type in ["check_suite", "check_run"] and
@@ -223,11 +226,13 @@ def run(event_type, data, subscription):
               ):  # pragma: no cover
             LOG.info("No need to proceed queue (got %s of an old "
                      "commit)", event_type,
+                     repo=repo.fullname,
                      pull_request=event_pull)
             return
 
         if check_configuration_changes(event_type, data, event_pull):
             LOG.info("Configuration changed, ignoring",
+                     repo=repo.fullname,
                      pull_request=event_pull)
             return
 
@@ -236,6 +241,7 @@ def run(event_type, data, subscription):
             mergify_config = rules.get_mergify_config(repo)
         except rules.NoRules as e:  # pragma: no cover
             LOG.info("No need to proceed queue (.mergify.yml is missing)",
+                     repo=repo.fullname,
                      pull_request=event_pull)
             return
         except rules.InvalidRules as e:  # pragma: no cover
