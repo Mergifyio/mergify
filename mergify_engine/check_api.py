@@ -106,6 +106,13 @@ def get_check_suite(g_repo, check_suite_id):
     return data
 
 
+def compare_dict(d1, d2, keys):
+    for key in keys:
+        if d1.get(key) != d2.get(key):
+            return False
+    return True
+
+
 def set_check_run(pull, name, status, conclusion=None, output=None):
     post_parameters = {
         "name": name,
@@ -137,11 +144,13 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
 
         # Don't do useless update
         check = checks[0]
-        for param in ("name", "head_sha", "status", "output", "conclusion"):
-            if post_parameters.get(param) != getattr(check, param):
-                break
-        else:
-            return check
+        if compare_dict(post_parameters, check.raw_data,
+                        ("name", "head_sha", "status", "conclusion")):
+            if check.output == output:
+                return check
+            elif (check.output is not None and output is not None and
+                  compare_dict(output, check.output, ("title", "summary"))):
+                return check
 
         headers, data = pull._requester.requestJsonAndCheck(
             "PATCH",
