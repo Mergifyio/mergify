@@ -154,7 +154,7 @@ def check_configuration_changes(event_type, data, event_pull):
 
             check_api.set_check_run(
                 event_pull, "Mergify — disabled due to configuration change",
-                "completed", "failure", output={
+                "completed", "success", output={
                     "title": "Mergify configuration has been modified",
                     "summary": "The pull request needs to be merged manually",
                 })
