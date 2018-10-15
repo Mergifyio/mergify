@@ -25,7 +25,7 @@ class DeleteHeadBranchAction(actions.Action):
     @staticmethod
     def run(installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions):
-        if pull.g_pull.head.repo != pull.g_pull.base.repo:
+        if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
             return
         if pull.g_pull.state == "closed":
             try:
