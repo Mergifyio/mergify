@@ -75,4 +75,4 @@ def main():
     )
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
-    report.report(args.url)
+    report(args.url)
