@@ -14,9 +14,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import pprint
+
 import github
 
+from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import mergify_pull
 from mergify_engine import utils
 
 
@@ -26,26 +30,49 @@ def create_jwt():
     return integration.create_jwt()
 
 
-def github_for(repo):
+def report(url):
+    path = url.replace("https://github.com/", "")
+    owner, repo, _, pull_number = path.split("/")
+
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    install_id = utils.get_installation_id(integration, repo.split("/")[0])
+    install_id = utils.get_installation_id(integration, owner)
     installation_token = integration.get_access_token(install_id).token
-    return github.Github(installation_token)
 
+    g = github.Github(installation_token)
+    r = g.get_repo(owner + "/" + repo)
+    p = r.get_pull(int(pull_number))
 
-def get_pull(path):
-    owner, repo, _, pull = path.split("/")
-    g = github_for(owner + "/" + repo)
-    return g.get_repo(owner + "/" + repo).get_pull(int(pull))
+    print("* CONFIGURATION:")
+    print(r.get_contents(".mergify.yml").decoded_content.decode())
 
+    mp = mergify_pull.MergifyPull(p, installation_token)
+    print("* PULL REQUEST:")
+    pprint.pprint(mp.to_dict(), width=160)
+    print("is_behind: %s" % mp.is_behind())
 
-def get_combined_status(path):
-    p = get_pull(path)
+    print("* MERGIFY STATUSES:")
     commit = p.base.repo.get_commit(p.head.sha)
-    return commit.get_combined_status()
+    for s in commit.get_combined_status().statuses:
+        if s.context.startswith("mergify"):
+            print("[%s]: %s" % (s.context, s.state))
+
+    print("* MERGIFY CHECKS:")
+    checks = list(check_api.get_checks(p))
+    for c in checks:
+        if c.name.startswith("Mergify"):
+            print("[%s]: %s | %s" % (c.name, c.conclusion,
+                                     c.output.get("title")))
+            print("> " + "\n> ".join(c.output.get("summary").split("\n")))
+    return g, p
 
 
-def get_config(path):
-    r = github_for(path).get_repo(path)
-    return r.get_contents(".mergify.yml").decoded_content.decode()
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Debugger for mergify'
+    )
+    parser.add_argument("url", help="Pull request url")
+    args = parser.parse_args()
+    report.report(args.url)
