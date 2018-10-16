@@ -98,8 +98,10 @@ class GitterRecorder(utils.Gitter):
                     output=r['exc']['output'].encode('utf8')
                 )
             else:
-                assert r['args'] == self.prepare_args(args)
-                assert r['kwargs'] == self.prepare_kwargs(kwargs)
+                assert r['args'] == self.prepare_args(args), \
+                    "%s != %s" % (r['args'], self.prepare_args(args))
+                assert r['kwargs'] == self.prepare_kwargs(kwargs), \
+                    "%s != %s" % (r['kwargs'], self.prepare_kwargs(kwargs))
                 return r['out'].encode('utf8')
 
     def prepare_args(self, args):
