@@ -166,6 +166,12 @@ Operators List
        the ``#`` prefix.
 
 
+.. note::
+
+    For all `reviewers` related attributes, only users with `write` or `admin`
+    permission on the repository are used, others are ignored.
+
+
 Examples
 ~~~~~~~~
 

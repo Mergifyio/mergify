@@ -428,6 +428,7 @@ def test_get_pull_request_rule():
     g_pull.author = "jd"
     g_pull.base.ref = "master"
     g_pull.head.ref = "myfeature"
+    g_pull.base.repo.get_collaborator_permission.return_value = "write"
     g_pull._rawData = {'locked': False}
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
