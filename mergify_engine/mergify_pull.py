@@ -199,13 +199,16 @@ class MergifyPull(object):
         }
         return raw
 
+    def _get_perm(self, login):
+        return self.g_pull.base.repo.get_collaborator_permission(login)
+
     def _get_reviews(self):
-        # Ignore reviews that are not from someone with write permissions
+        # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        return list(dict((review.user.login, review)
-                         for review in self.g_pull.get_reviews()
-                         if (review._rawData['author_association'] in
-                             ("COLLABORATOR", "MEMBER", "OWNER"))).values())
+        reviews = dict((review.user.login, review)
+                       for review in self.g_pull.get_reviews())
+        return list(review for login, review in reviews.items()
+                    if self._get_perm(login) in ["admin", "write"])
 
     def to_dict(self):
         reviews = self._get_reviews()
