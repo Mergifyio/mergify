@@ -46,14 +46,15 @@ def main():
     parser.add_argument(
         "--all", action='store_true', help="Refresh *everything*")
     parser.add_argument(
-        "slug", nargs="*",
-        help="<owner>/<repo>/branch/<branch> or <owner>/<repo>/pull/<pull#>")
+        "urls", nargs="*",
+        help=("<owner>/<repo>/branch/<branch>, <owner>/<repo>/pull/<pull#> "
+              "or https://github.com/<owner>/<repo>/pull/<pull#>"))
 
     args = parser.parse_args()
 
-    if args.slug:
-        for slug in args.slug:
-            refresh(slug)
+    if args.url:
+        for url in args.urls:
+            refresh(url.replace("https://github.com/", ""))
     elif args.all:
         refresh()
     else:
