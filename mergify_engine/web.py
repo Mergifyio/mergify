@@ -25,7 +25,10 @@ import logging
 
 import flask
 
+import yaml
+
 from mergify_engine import utils
+from mergify_engine.rules import convert
 from mergify_engine.tasks import github_events
 
 LOG = logging.getLogger(__name__)
@@ -53,6 +56,22 @@ def authentification():  # pragma: no cover
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         flask.abort(403)
+
+
+@app.route("/convert", methods=["POST"])
+def config_converter():
+    try:
+        data = yaml.safe_load(flask.request.files['data'].stream)
+    except Exception as e:
+        flask.abort(400, str(e))
+
+    if "rules" not in data:
+        flask.abort(400, "file does not contains v1 configuration")
+
+    new_config = yaml.dump({
+        "pull_request_rules": convert.convert_config(data.get("rules", {}))
+    }, default_flow_style=False),
+    return flask.Response(new_config, mimetype="text/plain")
 
 
 # FIXME(sileht): Drop me when statuses are replaced by checks
