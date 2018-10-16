@@ -121,6 +121,14 @@ Here's the list of pull request attribute that rules can be matched against:
      - string
      - The title of the pull request.
 
+
+.. note::
+
+       For all `reviewers` related attributes, only user that have
+       `collaborator`, `member` and `owner` affiliation with the repository are
+       used. Other kind of user are ignored.
+
+
 Operators List
 ~~~~~~~~~~~~~~
 
