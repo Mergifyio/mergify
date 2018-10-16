@@ -113,10 +113,10 @@ class MergeAction(actions.Action):
         if pull.g_pull.state == "closed":
             return False
 
-        need_look_at_checks = False
+        need_look_at_checks = []
         for condition in missing_conditions:
             if condition.attribute_name.startswith("status-"):
-                need_look_at_checks = True
+                need_look_at_checks.append(condition)
             else:
                 # something else does not match anymore
                 return False
@@ -125,6 +125,13 @@ class MergeAction(actions.Action):
             checks = list(pull._get_checks())
             if not checks:
                 # No checks have been send yet
+                return True
+
+            # Take only checks we care about
+            checks = [s for s in checks
+                      for cond in need_look_at_checks
+                      if cond(**{cond.attribute_name: s.context})]
+            if not checks:
                 return True
 
             for s in checks:
