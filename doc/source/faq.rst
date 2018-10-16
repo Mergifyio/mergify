@@ -16,3 +16,28 @@ manually its branch to the target branch (via a ``git merge`` or a ``git
 rebase``) or to give permission for Mergify to do it as described in `the
 GitHub documentation
 <https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/>`_.
+
+.. _migration-v2:
+
+How do I migrate from engine v1 to engine v2?
+---------------------------------------------
+
+You just need to update your configuration file to the new format with the
+following command:
+
+.. code:: bash
+
+    $ cd <my_project>
+    $ curl -F 'data=@.mergify.yml' https://gh.mergify.io/convert
+
+
+Or by uploading the configuration file with this form:
+
+.. raw:: html
+
+    <form method=post enctype=multipart/form-data action=https://gh.mergify.io/convert target=_blank>
+      <input type=file name=data>
+      <input type=submit value=Convert>
+    </form>
+
+
