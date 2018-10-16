@@ -52,7 +52,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.url:
+    if args.urls:
         for url in args.urls:
             refresh(url.replace("https://github.com/", ""))
     elif args.all:
