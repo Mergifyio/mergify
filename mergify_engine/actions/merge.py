@@ -64,9 +64,11 @@ class MergeAction(actions.Action):
         # are OK for us
 
         if self.config["strict"] and pull.is_behind():
-            # TODO(sileht): strict: Don't blindly update all PRs, but just one
-            # by one.
-            if self.config["strict"] == "smart":
+            if not pull.base_is_modifiable():
+                return ("failure", "Pull request can't be updated with latest "
+                        "base branch changes, owner doesn't allow "
+                        "modification")
+            elif self.config["strict"] == "smart":
                 key = self._get_cache_key(pull)
                 redis = utils.get_redis_for_cache()
                 redis.sadd(key, pull.g_pull.number)
