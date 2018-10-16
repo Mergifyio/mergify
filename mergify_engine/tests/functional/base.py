@@ -44,7 +44,7 @@ from mergify_engine import web
 from mergify_engine import worker
 
 LOG = daiquiri.getLogger(__name__)
-RECORD_MODE = os.getenv("MERGIFYENGINE_RECORD_MODE", "none")
+RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 CASSETTE_LIBRARY_DIR_BASE = 'mergify_engine/tests/fixtures/cassettes'
 FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
@@ -55,12 +55,7 @@ class GitterRecorder(utils.Gitter):
         super(GitterRecorder, self).__init__()
         self.cassette_path = os.path.join(cassette_library_dir,
                                           "git-%s.json" % suffix)
-        self.do_record = (
-            RECORD_MODE == 'all' or
-            (RECORD_MODE == 'once' and not os.path.exists(self.cassette_path))
-        )
-
-        if self.do_record:
+        if RECORD:
             self.records = []
         else:
             self.load_records()
@@ -78,7 +73,7 @@ class GitterRecorder(utils.Gitter):
             f.write(data.encode('utf8'))
 
     def __call__(self, *args, **kwargs):
-        if self.do_record:
+        if RECORD:
             try:
                 out = super(GitterRecorder, self).__call__(*args, **kwargs)
             except subprocess.CalledProcessError as e:
@@ -120,7 +115,7 @@ class GitterRecorder(utils.Gitter):
 
     def cleanup(self):
         super(GitterRecorder, self).cleanup()
-        if self.do_record:
+        if RECORD:
             self.save_records()
 
 
@@ -139,14 +134,14 @@ class FunctionalTestBase(testtools.TestCase):
                                                  self._testMethodName)
 
         # Recording stuffs
-        if RECORD_MODE != "none":
+        if RECORD:
             if os.path.exists(self.cassette_library_dir):
                 shutil.rmtree(self.cassette_library_dir)
             os.makedirs(self.cassette_library_dir)
 
         self.recorder = vcr.VCR(
             cassette_library_dir=self.cassette_library_dir,
-            record_mode=RECORD_MODE,
+            record_mode="all" if RECORD else "none",
             match_on=['method', 'uri'],
             filter_headers=[
                 ('Authorization', '<TOKEN>'),
@@ -176,12 +171,7 @@ class FunctionalTestBase(testtools.TestCase):
 
         reponame_path = os.path.join(self.cassette_library_dir, "reponame")
 
-        gen_new_uuid = (
-            RECORD_MODE == 'all' or
-            (RECORD_MODE == 'once' and not os.path.exists(reponame_path))
-        )
-
-        if gen_new_uuid:
+        if RECORD:
             REPO_UUID = str(uuid.uuid4())
             with open(reponame_path, "w") as f:
                 f.write(REPO_UUID)
@@ -273,7 +263,7 @@ class FunctionalTestBase(testtools.TestCase):
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
         # also to avoid the "git clone fork" failure that Github returns when
         # we create repo too quickly
-        if RECORD_MODE in ["all", "once"]:
+        if RECORD:
             time.sleep(0.5)
 
     def setup_repo(self, mergify_config, test_branches=[]):
@@ -346,7 +336,7 @@ class FunctionalTestBase(testtools.TestCase):
                                    "got %d events instead of %d" %
                                    (len(events), total))
 
-            if RECORD_MODE in ["all", "once"]:
+            if RECORD:
                 time.sleep(0.1)
 
             events += self._process_events(total - len(events))
