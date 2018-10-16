@@ -51,7 +51,7 @@ FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
 
 class GitterRecorder(utils.Gitter):
-    def __init__(self, cassette_library_dir, suffix="main"):
+    def __init__(self, cassette_library_dir, suffix):
         super(GitterRecorder, self).__init__()
         self.cassette_path = os.path.join(cassette_library_dir,
                                           "git-%s.json" % suffix)
@@ -130,6 +130,7 @@ class FunctionalTestBase(testtools.TestCase):
     def setUp(self):
         super(FunctionalTestBase, self).setUp()
         self.pr_counter = 0
+        self.git_counter = 0
         self.cassette_library_dir = os.path.join(CASSETTE_LIBRARY_DIR_BASE,
                                                  self._testMethodName)
 
@@ -158,12 +159,10 @@ class FunctionalTestBase(testtools.TestCase):
         )
 
         self.useFixture(fixtures.MockPatchObject(
-            branch_updater.utils, 'Gitter',
-            lambda: GitterRecorder(self.cassette_library_dir)))
+            branch_updater.utils, 'Gitter', lambda: self.get_gitter()))
 
         self.useFixture(fixtures.MockPatchObject(
-            backports.utils, 'Gitter',
-            lambda: GitterRecorder(self.cassette_library_dir)))
+            backports.utils, 'Gitter', lambda: self.get_gitter()))
 
         # Web authentification always pass
         self.useFixture(fixtures.MockPatch('hmac.compare_digest',
@@ -184,7 +183,7 @@ class FunctionalTestBase(testtools.TestCase):
         utils.setup_logging()
         config.log()
 
-        self.git = GitterRecorder(self.cassette_library_dir, "tests")
+        self.git = self.get_gitter()
         self.addCleanup(self.git.cleanup)
 
         web.app.testing = True
@@ -265,6 +264,10 @@ class FunctionalTestBase(testtools.TestCase):
         # we create repo too quickly
         if RECORD:
             time.sleep(0.5)
+
+    def get_gitter(self):
+        self.git_counter += 1
+        return GitterRecorder(self.cassette_library_dir, self.git_counter)
 
     def setup_repo(self, mergify_config, test_branches=[]):
         self.git("init")
