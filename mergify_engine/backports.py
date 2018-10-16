@@ -149,7 +149,7 @@ def backport(pull, branch_name, installation_token):
                 cherry_pick_fail = True
                 status = git("status").decode("utf8")
                 git("add", "*")
-                git("commit", "-a", "--no-edit")
+                git("commit", "-a", "--no-edit", "--allow-empty")
 
                 body += ("\n\nCherry-pick of %s have failed:\n```\n%s```\n\n"
                          % (commit.sha, status))
