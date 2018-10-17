@@ -92,7 +92,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                  "label=merge",
                  "merged",
              ], "actions": {
-                 "delete_head_branch": {}}
+                 "delete_head_branch": None}
              },
             {"name": "delete on close",
              "conditions": [

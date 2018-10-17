@@ -16,11 +16,13 @@
 
 import github
 
+import voluptuous
+
 from mergify_engine import actions
 
 
 class DeleteHeadBranchAction(actions.Action):
-    validator = {}
+    validator = voluptuous.Any({}, None)
 
     @staticmethod
     def run(installation_id, installation_token, subscription,
