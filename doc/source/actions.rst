@@ -79,20 +79,9 @@ that is the branch which hosts the commits. This only works if the branch is
 stored in the same repository that the pull request target, i.e., if the pull
 request comes from the same repository and not form a fork.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 1 1 1 2
-
-   * - Key Name
-     - Value Type
-     - Default
-     - Value Description
-   * - ``on``
-     - ``merge`` or ``close``
-     - ``merge``
-     - When to delete the head branch: ``merge`` will only delete the branch
-       when the pull request is merged, whereas ``close`` will delete the
-       branch if the pull request is merged or closed.
+This action takes no configuration options. The action will happen when the
+pull request is closed or merged: you can decide what suits you best using
+:ref:`Conditions`.
 
 .. _dismiss_reviews action:
 
