@@ -120,6 +120,16 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``title``
      - string
      - The title of the pull request.
+   * - ``additions``
+     - int
+     - The number of lines added
+   * - ``deletions``
+     - int
+     - The number of lines deleted
+   * - ``commits``
+     - int
+     - The number of commits
+
 
 Operators List
 ~~~~~~~~~~~~~~

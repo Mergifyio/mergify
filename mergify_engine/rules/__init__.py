@@ -130,6 +130,9 @@ class PullRequestRules:
             "body",
             "title",
             "files",
+            "additions",
+            "deletions",
+            "commits",
         )
 
         # The list of pull request rules to match against.

@@ -20,6 +20,7 @@ git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
 github_login = pyparsing.CharsNotIn(" /")
 text = pyparsing.CharsNotIn("")
+integer = pyparsing.Word(pyparsing.nums).setParseAction(lambda x: int(x[0]))
 milestone = pyparsing.CharsNotIn(" ")
 
 regex_operators = pyparsing.Literal("~=")
@@ -87,6 +88,9 @@ review_commented_by = (
 )
 status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)
+additions = "additions" + simple_operators + integer
+deletions = "deletions" + simple_operators + integer
+commits = "commits" + simple_operators + integer
 
 search = (
     pyparsing.Optional(
@@ -100,5 +104,5 @@ search = (
      closed | merged | title | files | review_requests |
      review_approved_by | review_dismissed_by |
      review_changes_requested_by | review_commented_by |
-     status_success | status_failure)
+     status_success | status_failure | additions | deletions | commits)
 ).setParseAction(_token_to_dict)

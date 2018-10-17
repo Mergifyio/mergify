@@ -130,6 +130,9 @@ class MergifyPull(object):
             #                    if s.state in ("pending", None)],
             "status-failure": [s.context for s in statuses
                                if s.state == "failure"],
+            "deletions": self.g_pull.deletions,
+            "additions": self.g_pull.additions,
+            "commits": self.g_pull.commits,
         }
 
     def _get_combined_status(self):

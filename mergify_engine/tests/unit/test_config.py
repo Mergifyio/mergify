@@ -432,6 +432,9 @@ def test_get_pull_request_rule():
     g_pull._rawData = {'locked': False}
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
+    g_pull.additions = 5
+    g_pull.deletions = 2
+    g_pull.commits = 10
     file1 = mock.Mock()
     file1.filename = "README.rst"
     file2 = mock.Mock()
@@ -611,14 +614,24 @@ def test_get_pull_request_rule():
             "status-success=continuous-integration/fake-ci",
         ],
         "actions": {}
+    }, {
+        "name": "merge big changes",
+        "conditions": [
+            "base=master",
+            "commits>=1",
+            "deletions>=1",
+            "additions>=1",
+        ],
+        "actions": {}
     }])
     match = pull_request_rules.get_pull_request_rule(pull_request)
 
     assert [r['name'] for r in match.rules] == [
         "merge", "fast merge", "fast merge with alternate ci",
-        "fast merge from a bot"]
+        "fast merge from a bot", "merge big changes"]
     assert [r['name'] for r, _ in match.matching_rules] == [
-        "merge", "fast merge", "fast merge with alternate ci"]
+        "merge", "fast merge", "fast merge with alternate ci",
+        "merge big changes"]
     for rule in match.rules:
         assert rule['actions'] == {}
 
@@ -637,3 +650,6 @@ def test_get_pull_request_rule():
         str(match.matching_rules[2][1][1]) ==
         "status-success=continuous-integration/fake-ci-bis"
     )
+
+    assert match.matching_rules[3][0]['name'] == "merge big changes"
+    assert len(match.matching_rules[3][1]) == 0
