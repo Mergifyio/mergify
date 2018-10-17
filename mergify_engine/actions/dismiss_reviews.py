@@ -19,6 +19,7 @@ import github
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 
 
 class DismissReviewsAction(actions.Action):
@@ -31,7 +32,10 @@ class DismissReviewsAction(actions.Action):
 
     def run(self, installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions):
-        if event_type == "pull_request" and data["action"] == "synchronize":
+        if (event_type == "pull_request" and
+                data["action"] == "synchronize" and
+                data["sender"]["id"] != config.BOT_USER_ID):
+
             for review in pull._get_reviews():
                 conf = self.config.get(review.state.lower(), False)
                 if conf and (conf is True or review.user.login in conf):
