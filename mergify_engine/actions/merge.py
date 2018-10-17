@@ -197,11 +197,20 @@ def update_pull_base_branch(pull, subscription):
 
 
 def update_next_pull(installation_id, installation_token, subscription,
-                     owner, reponame, key, cur_key):
+                     owner, reponame, branch, key, cur_key):
     redis = utils.get_redis_for_cache()
     pull_number = redis.srandmember(key)
     if not pull_number:
+        LOG.debug("no more pull request to update",
+                  installation_id=installation_id,
+                  pull_number=pull_number,
+                  repo=owner + "/" + reponame, branch=branch)
         return
+
+    LOG.debug("next pull to rebase",
+              installation_id=installation_id,
+              pull_number=pull_number,
+              repo=owner + "/" + reponame, branch=branch)
 
     pull = mergify_pull.MergifyPull.from_number(
         installation_id, installation_token,
@@ -257,5 +266,5 @@ def smart_strict_workflow_periodic_task():
 
         # NOTE(sileht): Pick up the next pull request and rebase it
         update_next_pull(installation_id, installation_token, subscription,
-                         owner, reponame, key, cur_key)
+                         owner, reponame, branch, key, cur_key)
     LOG.debug("smart strict workflow loop end")

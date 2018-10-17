@@ -480,6 +480,113 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(0, len(pulls))
 
+    def test_merge_failure_smart_strict(self):
+        rules = {'pull_request_rules': [
+            {"name": "strict merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+             ], "actions": {
+                 "merge": {"strict": "smart"}},
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+
+        p, _ = self.create_pr(check="success")
+        p2, commits = self.create_pr(check="success")
+        p3, commits = self.create_pr(check="success")
+
+        p.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ])
+
+        previous_master_sha = self.r_main.get_commits()[0].sha
+
+        self.create_status(p2, "continuous-integration/fake-ci", "success")
+        self.push_events([
+            # fake-ci statuses
+            ("status", {"state": "success"}),
+            # Summaries
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+
+        # We can run celery beat inside tests, so run the task manually
+        merge.smart_strict_workflow_periodic_task.apply_async()
+
+        self.push_events([
+            ("pull_request", {"action": "synchronize"}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": None}}),
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
+
+        self.create_status(p3, "continuous-integration/fake-ci", "success")
+        self.push_events([
+            ("status", {"state": "success"}),
+            # Summaries
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": None}}),
+        ])
+
+        p2 = self.r_main.get_pull(p2.number)
+        commits2 = list(p2.get_commits())
+        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+                      commits2[-1].commit.message)
+
+        self.create_status(p2, "continuous-integration/fake-ci", "failure")
+        self.push_events([
+            ("status", {"state": "failure"}),
+        ])
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "cancelled"}}),
+            ("check_suite", {"check_suite": {"conclusion": "cancelled"}}),
+        ], ordered=False)
+
+        # Should got to the next PR
+        merge.smart_strict_workflow_periodic_task.apply_async()
+
+        self.push_events([
+            ("pull_request", {"action": "synchronize"}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": None}}),
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
+
+        p3 = self.r_main.get_pull(p3.number)
+        commits3 = list(p3.get_commits())
+        self.assertIn("Merge branch 'master' into 'fork/pr",
+                      commits3[-1].commit.message)
+
+        self.create_status(p3, "continuous-integration/fake-ci", "success")
+        self.push_events([
+            ("status", {"state": "success"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("pull_request", {"action": "closed"}),
+        ])
+        self.push_events([
+            ("check_suite", {"action": "requested"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "completed"}),
+        ], ordered=False)
+
+        master_sha = self.r_main.get_commits()[0].sha
+        self.assertNotEqual(previous_master_sha, master_sha)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(1, len(pulls))
+
     def test_rebase(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
