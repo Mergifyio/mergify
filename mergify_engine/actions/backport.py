@@ -38,8 +38,7 @@ class BackportAction(actions.Action):
                                                 new_pull.html_url)
             else:  # pragma: no cover
                 state = "failure"
-                detail += "\n* backport to branch `%s` has failed" % (
-                    pull, branch)
+                detail += "\n* backport to branch `%s` has failed" % branch
 
         return state, "Backports have been created", detail
 
