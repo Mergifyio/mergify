@@ -200,6 +200,15 @@ def run(event_type, data, subscription):
                  repo=repo.full_name,
                  pull_request=event_pull)
 
+        if ("base" not in event_pull.raw_data or
+                "repo" not in event_pull.raw_data["base"] or
+                len(list(event_pull.raw_data["base"]["repo"].keys())) < 70):
+            LOG.warning("the pull request payload looks suspicious",
+                        event_type=event_type,
+                        data=data,
+                        pull_request=event_pull.raw_data,
+                        repo=repo.fullname)
+
         if (event_type == "status" and
                 event_pull.head.sha != data["sha"]):  # pragma: no cover
             LOG.info("No need to proceed queue (got status of an old commit)",
