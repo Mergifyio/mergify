@@ -85,7 +85,7 @@ def _get_commits_to_cherrypick(pull, commit):
         return []
 
 
-def backport(pull, branch_name, installation_token):
+def backport(pull, branch, installation_token):
     """Backport a pull request.
 
     :param repo: The repository.
@@ -96,21 +96,7 @@ def backport(pull, branch_name, installation_token):
     """
     repo = pull.g_pull.base.repo
 
-    try:
-        branch = repo.get_branch(branch_name)
-    except github.GithubException as e:
-        # NOTE(sileht): PyGitHub is buggy here it should
-        # UnknownObjectException. but because the message is "Branch not
-        # found", instead of "Not found", we get the generic exception.
-        if e.status != 404:  # pragma: no cover
-            raise
-
-        LOG.info("branch doesn't exist for repository",
-                 branch=branch_name,
-                 repository=repo.full_name)
-        return
-
-    bp_branch = "mergify/bp/%s/pr-%s" % (branch_name, pull.g_pull.number)
+    bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
 
     cherry_pick_fail = False
     body = ("This is an automated backport of pull request #%d done "
@@ -130,8 +116,8 @@ def backport(pull, branch_name, installation_token):
 
         git("fetch", "--quiet", "origin", "pull/%s/head" % pull.g_pull.number)
         git("fetch", "--quiet", "origin", pull.g_pull.base.ref)
-        git("fetch", "--quiet", "origin", branch_name)
-        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
+        git("fetch", "--quiet", "origin", branch.name)
+        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch.name)
 
         merge_commit = repo.get_commit(pull.g_pull.merge_commit_sha)
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
@@ -183,4 +169,20 @@ def backport_from_labels(pull, labels_branches, installation_token):
 
     labels = (set(labels_branches) & set(l.name for l in pull.g_pull.labels))
     for l in labels:
-        backport(pull, labels_branches[l], installation_token)
+        branch_name = labels_branches[l]
+        try:
+            branch = pull.g_pull.base.repo.get_branch(branch_name)
+        except github.GithubException as e:
+            # NOTE(sileht): PyGitHub is buggy here it should
+            # UnknownObjectException. but because the message is "Branch not
+            # found", instead of "Not found", we get the generic exception.
+            if e.status != 404:  # pragma: no cover
+                raise
+
+            LOG.info("branch doesn't exist for repository:",
+                     branch=branch_name,
+                     repository=pull.g_pull.base.repo.full_name,
+                     error=e.data["message"])
+            continue
+
+        backport(pull, branch, installation_token)
