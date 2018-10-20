@@ -83,6 +83,9 @@ def collect_metrics():
 
             users_per_installation[
                 (subscribed, target_type, account)] = value
+        else:
+            users_per_installation[
+                (subscribed, target_type, account)] = 1
 
         LOG.info("Get repos", account=account)
 
