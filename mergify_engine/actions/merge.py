@@ -249,19 +249,23 @@ def smart_strict_workflow_periodic_task():
         redis = utils.get_redis_for_cache()
         pull_number = redis.get(cur_key)
         if pull_number and redis.sismember(key, pull_number):
-            # NOTE(sileht): Pull request has not been merged or cancelled yet
-            # wait next loop
-            LOG.debug("pull request checks are still in progress",
-                      installation_id=installation_id,
-                      pull_number=pull_number,
-                      repo=owner + "/" + reponame, branch=branch)
-
             pull = mergify_pull.MergifyPull.from_number(
                 installation_id, installation_token,
                 owner, reponame, int(pull_number))
-            # NOTE(sileht): Someone can have merged something manually in base
-            # branch in the meantime, so we have to update it again.
-            if not pull.is_behind():
+            if pull.is_behind():
+                # NOTE(sileht): Someone can have merged something manually in
+                # base branch in the meantime, so we have to update it again.
+                LOG.debug("pull request need to be updated again",
+                          installation_id=installation_id,
+                          pull_number=pull_number,
+                          repo=owner + "/" + reponame, branch=branch)
+            else:
+                # NOTE(sileht): Pull request has not been merged or cancelled
+                # yet wait next loop
+                LOG.debug("pull request checks are still in progress",
+                          installation_id=installation_id,
+                          pull_number=pull_number,
+                          repo=owner + "/" + reponame, branch=branch)
                 continue
 
         subscription = utils.get_subscription(redis, installation_id)
