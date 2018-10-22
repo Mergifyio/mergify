@@ -255,7 +255,14 @@ def smart_strict_workflow_periodic_task():
                       installation_id=installation_id,
                       pull_number=pull_number,
                       repo=owner + "/" + reponame, branch=branch)
-            continue
+
+            pull = mergify_pull.MergifyPull.from_number(
+                installation_id, installation_token,
+                owner, reponame, int(pull_number))
+            # NOTE(sileht): Someone can have merged something manually in base
+            # branch in the meantime, so we have to update it again.
+            if not pull.is_behind():
+                continue
 
         subscription = utils.get_subscription(redis, installation_id)
         if not subscription["token"]:  # pragma: no cover
