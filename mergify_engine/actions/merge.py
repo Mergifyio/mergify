@@ -69,7 +69,7 @@ class MergeAction(actions.Action):
                         "base branch changes, owner doesn't allow "
                         "modification")
             elif self.config["strict"] == "smart":
-                key = self._get_cache_key(pull)
+                key = _get_cache_key(pull)
                 redis = utils.get_redis_for_cache()
                 redis.sadd(key, pull.g_pull.number)
                 return (None, "Base branch will be updated soon",
@@ -81,7 +81,7 @@ class MergeAction(actions.Action):
 
             if self.config["strict"] == "smart":
                 redis = utils.get_redis_for_cache()
-                redis.srem(self._get_cache_key(pull), pull.g_pull.number)
+                redis.srem(_get_cache_key(pull), pull.g_pull.number)
 
             if (self.config["method"] != "rebase" or
                     pull.g_pull.raw_data['rebaseable']):
@@ -103,7 +103,7 @@ class MergeAction(actions.Action):
 
         if self.config["strict"] == "smart":
             redis = utils.get_redis_for_cache()
-            redis.srem(self._get_cache_key(pull), pull.g_pull.number)
+            redis.srem(_get_cache_key(pull), pull.g_pull.number)
 
         return self.cancelled_check_report
 
@@ -170,14 +170,14 @@ class MergeAction(actions.Action):
                 "The pull request has been automatically "
                 "merged at *%s*" % pull.g_pull.merge_commit_sha)
 
-    @staticmethod
-    def _get_cache_key(pull):
-        return "strict-merge-queues~%s~%s~%s~%s" % (
-            pull.installation_id,
-            pull.g_pull.base.repo.owner.login.lower(),
-            pull.g_pull.base.repo.name.lower(),
-            pull.g_pull.base.ref
-        )
+
+def _get_cache_key(pull):
+    return "strict-merge-queues~%s~%s~%s~%s" % (
+        pull.installation_id,
+        pull.g_pull.base.repo.owner.login.lower(),
+        pull.g_pull.base.repo.name.lower(),
+        pull.g_pull.base.ref
+    )
 
 
 def update_pull_base_branch(pull, subscription):
@@ -215,12 +215,26 @@ def update_next_pull(installation_id, installation_token, subscription,
     pull = mergify_pull.MergifyPull.from_number(
         installation_id, installation_token,
         owner, reponame, int(pull_number))
+
     old_checks = [c for c in check_api.get_checks(pull.g_pull)
                   if (c.name.endswith(" (merge)") and
                       c._rawData['app']['id'] == config.INTEGRATION_ID)]
 
-    conclusion, title, summary = update_pull_base_branch(pull, subscription)
-    redis.set(cur_key, pull_number)
+    if pull.g_pull.state == "closed":
+        redis.srem(_get_cache_key(pull), pull.g_pull.number)
+        if pull.g_pull.merged:
+            conclusion = "success"
+            title = "The pull request has been merged manually"
+            summary = ("The pull request has been merged manually "
+                       "at *%s*" % pull.g_pull.merge_commit_sha)
+        else:
+            conclusion = "cancelled"
+            title = "The pull request has been closed manually"
+            summary = ""
+    else:
+        conclusion, title, summary = update_pull_base_branch(pull,
+                                                             subscription)
+        redis.set(cur_key, pull_number)
 
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
@@ -252,10 +266,12 @@ def smart_strict_workflow_periodic_task():
             pull = mergify_pull.MergifyPull.from_number(
                 installation_id, installation_token,
                 owner, reponame, int(pull_number))
-            if pull.is_behind():
+
+            if pull.g_pull.state == "closed" or pull.is_behind():
                 # NOTE(sileht): Someone can have merged something manually in
                 # base branch in the meantime, so we have to update it again.
-                LOG.debug("pull request need to be updated again",
+                LOG.debug("pull request needs to be updated again or "
+                          "has been closed",
                           installation_id=installation_id,
                           pull_number=pull_number,
                           repo=owner + "/" + reponame, branch=branch)
