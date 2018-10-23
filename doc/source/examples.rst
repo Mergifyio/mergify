@@ -199,3 +199,25 @@ as the pull request gets updated with new commits.
           - base=master
         actions:
           dismiss_reviews:
+
+Require All Requested Reviews to Be Approved
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If all requested reviews have been approved, then the number of
+``review-requested``, ``changes-requested-reviews-by``, and
+``commented-reviews-by`` will all be 0.
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: remove outdated reviews
+        conditions:
+          - "#review-requested=0"
+          - "#changes-requested-reviews-by=0"
+          - "#commented-reviews-by=0"
+        actions:
+            merge:
+              method: merge
+
+Note that if a requested review is dismissed, then it doesn't count as a review
+that would prevent the merge.
