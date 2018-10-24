@@ -12,7 +12,7 @@ usually ``master``. The file format is `YAML <http://yaml.org/>`_.
 The file main entry is a dictionary whose key is named ``pull_request_rules``.
 The value of the ``pull_request_rules`` key must be a list of dictionary.
 
-Each dictionnary must have the following keys:
+Each dictionary must have the following keys:
 
 .. list-table::
    :header-rows: 1
@@ -31,7 +31,7 @@ Each dictionnary must have the following keys:
        request for the rule to be applied.
    * - ``actions``
      - dictionary of :ref:`Actions`
-     - A dictionnary made of :ref:`Actions` that will be executed on the
+     - A dictionary made of :ref:`Actions` that will be executed on the
        matching pull requests.
 
 The rules are evaluated in the order they are defined and, therefore, the
