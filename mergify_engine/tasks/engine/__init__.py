@@ -241,7 +241,7 @@ def run(event_type, data, subscription):
         # BRANCH CONFIGURATION CHECKING
         try:
             mergify_config = rules.get_mergify_config(repo)
-        except rules.NoRules as e:  # pragma: no cover
+        except rules.NoRules:  # pragma: no cover
             LOG.info("No need to proceed queue (.mergify.yml is missing)",
                      repo=repo.full_name,
                      pull_request=event_pull)
