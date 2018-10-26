@@ -132,14 +132,20 @@ class MergifyPull(object):
                                if s.state == "failure"],
         }
 
-    def _get_combined_status(self):
-        headers, data = self.g_pull.head.repo._requester.requestJsonAndCheck(
-            "GET",
-            self.g_pull.base.repo.url + "/commits/" +
-            self.g_pull.head.sha + "/status",
-        )
-        return github.CommitCombinedStatus.CommitCombinedStatus(
-            self.g_pull.head.repo._requester, headers, data, completed=True)
+    def _get_statuses(self):
+        already_seen = set()
+        statuses = []
+        for status in github.PaginatedList.PaginatedList(
+                github.CommitStatus.CommitStatus,
+                self.g_pull._requester,
+                self.g_pull.base.repo.url + "/commits/" +
+                self.g_pull.head.sha + "/statuses",
+                None
+        ):
+            if status.context not in already_seen:
+                already_seen.add(status.context)
+                statuses.append(status)
+        return statuses
 
     def _get_checks(self):
         generic_checks = set()
@@ -156,7 +162,7 @@ class MergifyPull(object):
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         generic_checks |= set([GenericCheck(s.context, s.state)
-                               for s in self._get_combined_status().statuses])
+                               for s in self._get_statuses()])
         return generic_checks
 
     UNUSABLE_STATES = ["unknown", None]

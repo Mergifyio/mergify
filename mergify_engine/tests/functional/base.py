@@ -549,8 +549,8 @@ class FunctionalTestBase(testtools.TestCase):
         self.push_events(events, ordered=False)
 
     def create_check_run_and_push_event(self, pr, name, conclusion=None,
-                                        ignore_check_run_event=False,
-                                        ignore_check_suite_event=False):
+                                        created=True,
+                                        check_suite=False):
         if conclusion is None:
             status = "in_progress"
         else:
@@ -560,12 +560,18 @@ class FunctionalTestBase(testtools.TestCase):
         check_api.set_check_run(pr_as_app, name, status, conclusion)
 
         expected_events = []
-        if not ignore_check_run_event:
+        if created:
             expected_events.append(
-                ("check_run", {"action": "created",
-                               "check_run": {"conclusion": conclusion}}))
-        if not ignore_check_suite_event:
+                # Created
+                ("check_run", {"check_run": {"conclusion": conclusion}}),
+            )
+        if conclusion:
             expected_events.append(
-                ("check_suite", {'action': 'completed'}))
-
+                # Completed
+                ("check_run", {"check_run": {"conclusion": conclusion}}),
+            )
+            if check_suite:
+                expected_events.append(
+                    ("check_suite", {'action': 'completed'}),
+                )
         self.push_events(expected_events, ordered=False)
