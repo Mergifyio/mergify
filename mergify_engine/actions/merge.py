@@ -31,6 +31,26 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
+def output_for_mergeable_state(pull, strict):
+    # NOTE(sileht): Take care of all branch protection state
+    if pull.g_pull.mergeable_state == "dirty":
+        return None, "Merge conflict needs to be solved", ""
+    elif pull.g_pull.mergeable_state == "unknown":
+        return ("failure", "Pull request state reported as `unknown` by "
+                "GitHub", "")
+    elif pull.g_pull.mergeable_state == "blocked":
+        return ("failure", "Branch protection settings are blocking "
+                "automatic merging", "")
+    elif (pull.g_pull.mergeable_state == "behind" and not strict):
+        # Strict mode has been enabled in branch protection but not in
+        # mergify
+        return ("failure", "Branch protection setting 'strict' conflicts "
+                "with Mergify configuration", "")
+        # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
+        # are OK for us
+    return
+
+
 class MergeAction(actions.Action):
     validator = {
         voluptuous.Required("method", default="merge"):
@@ -45,23 +65,9 @@ class MergeAction(actions.Action):
             event_type, data, pull, missing_conditions):
         pull.log.debug("process merge", config=self.config)
 
-        # NOTE(sileht): Take care of all branch protection state
-        if pull.g_pull.mergeable_state == "dirty":
-            return None, "Merge conflict needs to be solved", ""
-        elif pull.g_pull.mergeable_state == "unknown":
-            return ("failure", "Pull request state reported as `unknown` by "
-                    "GitHub", "")
-        elif pull.g_pull.mergeable_state == "blocked":
-            return ("failure", "Branch protection settings are blocking "
-                    "automatic merging", "")
-        elif (pull.g_pull.mergeable_state == "behind" and
-              not self.config["strict"]):
-            # Strict mode has been enabled in branch protection but not in
-            # mergify
-            return ("failure", "Branch protection setting 'strict' conflicts "
-                    "with Mergify configuration", "")
-        # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
-        # are OK for us
+        output = output_for_mergeable_state(pull, self.config["strict"])
+        if output:
+            return output
 
         if self.config["strict"] and pull.is_behind():
             if not pull.base_is_modifiable():
@@ -220,7 +226,11 @@ def update_next_pull(installation_id, installation_token, subscription,
                   if (c.name.endswith(" (merge)") and
                       c._rawData['app']['id'] == config.INTEGRATION_ID)]
 
-    if pull.g_pull.state == "closed":
+    output = output_for_mergeable_state(pull, True)
+    if output:
+        redis.srem(_get_cache_key(pull), pull.g_pull.number)
+        conclusion, title, summary = output
+    elif pull.g_pull.state == "closed":
         redis.srem(_get_cache_key(pull), pull.g_pull.number)
         if pull.g_pull.merged:
             conclusion = "success"
