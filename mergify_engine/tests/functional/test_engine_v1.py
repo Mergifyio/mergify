@@ -726,30 +726,20 @@ class TestEngineScenario(base.FunctionalTestBase):
             self.assertEqual(0, p.mergify_state)
 
         self.create_check_run_and_push_event(p2, "The always broken check",
-                                             conclusion="failure")
+                                             conclusion="failure",
+                                             check_suite=True)
 
-        # FIXME(sileht): Github looks buggy, if the conclusion of a checksuite
-        # doesn't change, no event are sent. I was expecting Github to send a
-        # new checksuite showing that now we have pending runs.
         self.create_check_run_and_push_event(p2,
                                              'continuous-integration/fake-ci',
-                                             conclusion=None,
-                                             ignore_check_suite_event=True)
+                                             conclusion=None)
 
-        # FIXME(sileht): Github looks buggy, I just update the previous
-        # check-run, and I don't get any check-run/check-suite events.
-        # That's problematique, because Mergify is not triggered here.
         self.create_check_run_and_push_event(p2,
                                              'continuous-integration/fake-ci',
                                              conclusion="success",
-                                             ignore_check_run_event=True,
-                                             ignore_check_suite_event=True)
+                                             created=False)
 
-        # NOTE(sileht): I create a another check that will trigger Mergify
-        # because of the previous bug...
         self.create_check_run_and_push_event(p2, 'Another check',
-                                             conclusion="success",
-                                             ignore_check_suite_event=True)
+                                             conclusion="success")
 
         self.create_review_and_push_event(p2, commits[0])
 
