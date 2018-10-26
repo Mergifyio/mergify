@@ -50,6 +50,7 @@ def report(url):
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
     print("is_behind: %s" % mp.is_behind())
+    print("mergeable_state: %s" % mp.g_pull.mergeable_state)
 
     print("* MERGIFY STATUSES:")
     commit = p.base.repo.get_commit(p.head.sha)
