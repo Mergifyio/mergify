@@ -205,13 +205,15 @@ Require All Requested Reviews to Be Approved
 
 If all requested reviews have been approved, then the number of
 ``review-requested``, ``changes-requested-reviews-by``, and
-``commented-reviews-by`` will all be 0.
+``commented-reviews-by`` will all be 0. You also want to make sure there's at
+least one positive review, obviously.
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: remove outdated reviews
+      - name: merge when all requested reviews are valid
         conditions:
+          - "#approved-reviews-by>=1"
           - "#review-requested=0"
           - "#changes-requested-reviews-by=0"
           - "#commented-reviews-by=0"
