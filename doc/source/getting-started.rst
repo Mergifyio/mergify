@@ -49,7 +49,7 @@ A more realistic example of a ``.mergify.yml`` file would look like this:
     pull_request_rules:
       - name: automatic merge on CI success and review
         conditions:
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
         actions:
           merge:
@@ -64,9 +64,9 @@ match in order for the engine to execute the configured actions. In this
 example, there are 2 conditions to be met for the rule to be applied to a pull
 request:
 
-- ``status-success=continuous-integration/travis-ci``: the ``status-success``
+- ``status-success=continuous-integration/travis-ci/pr``: the ``status-success``
   variable contains all the check services that successfully run on this pull
-  request. In this case, it must contains ``continuous-integration/travis-ci``
+  request. In this case, it must contains ``continuous-integration/travis-ci/pr``
   for the rule to match: that would mean that the Travis CI reported a success
   status check.
 

@@ -82,7 +82,7 @@ To enable it on a pull request, you can write a ``mergify.yml`` like this:
       - name: automatic merge with strict
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
         actions:
           merge:
             method: merge

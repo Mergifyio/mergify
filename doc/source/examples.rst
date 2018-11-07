@@ -22,7 +22,7 @@ it.
       - name: automatic merge when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - base=master
         actions:
           merge:
@@ -38,7 +38,7 @@ merged — even if's approved.
       - name: automatic merge when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - base=master
           - label!=work-in-progress
         actions:
@@ -100,7 +100,7 @@ Therefore, you could write a rule such as:
       - name: automatic merge for Dependabot pull requests on master
         conditions:
           - author=dependabot[bot]
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - base=master
         actions:
           merge:
@@ -124,7 +124,7 @@ To automate the merge in this case, you could write some rules along those:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
           - base=master
         actions:
@@ -132,7 +132,7 @@ To automate the merge in this case, you could write some rules along those:
             method: merge
       - name: automatic merge for stable branches
         conditions:
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=1"
           - base~=^stable/
         actions:
@@ -151,7 +151,7 @@ code. In that case, you can add a condition using a ``label``:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
           - base=master
           - label=ready-to-merge
@@ -172,7 +172,7 @@ labelled as ``work-in-progress`` should not be merged:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=continuous-integration/travis-ci
+          - status-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
           - base=master
           - label!=work-in-progress
