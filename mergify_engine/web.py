@@ -106,6 +106,12 @@ def subscription_cache(installation_id):  # pragma: no cover
     return "Cache cleaned", 200
 
 
+@app.route("/marketplace", methods=["POST"])
+def marketplace_handler():
+    authentification()
+    return "Event ignored", 202
+
+
 @app.route("/event", methods=["POST"])
 def event_handler():
     authentification()
