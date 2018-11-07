@@ -492,7 +492,7 @@ class FunctionalTestBase(testtools.TestCase):
             expected_events += [
                 ("check_suite", {"check_suite": {"conclusion": "success"}}),
                 ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "failure"}}),
+                ("check_run", {"check_run": {"conclusion": "success"}}),
             ]
         elif check:
             if base_repo == "main":
