@@ -18,6 +18,7 @@ import pprint
 
 import github
 
+from mergify_engine import branch_protection
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
@@ -45,6 +46,9 @@ def report(url):
 
     print("* CONFIGURATION:")
     print(r.get_contents(".mergify.yml").decoded_content.decode())
+
+    print("* BRANCH PROTECTION:")
+    pprint.pprint(branch_protection.get_protection(r, p.base.ref), width=160)
 
     mp = mergify_pull.MergifyPull(p, installation_token)
     print("* PULL REQUEST:")

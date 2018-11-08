@@ -38,9 +38,12 @@ def output_for_mergeable_state(pull, strict):
     elif pull.g_pull.mergeable_state == "unknown":
         return ("failure", "Pull request state reported as `unknown` by "
                 "GitHub", "")
-    elif pull.g_pull.mergeable_state == "blocked":
-        return ("failure", "Branch protection settings are blocking "
-                "automatic merging", "")
+    # FIXME(sileht): We disable this check as github wrongly report
+    # mergeable_state == blocked sometimes. The workaround is to try to merge
+    # it and if that fail we checks for blocking state.
+    # elif pull.g_pull.mergeable_state == "blocked":
+    #     return ("failure", "Branch protection settings are blocking "
+    #            "automatic merging", "")
     elif (pull.g_pull.mergeable_state == "behind" and not strict):
         # Strict mode has been enabled in branch protection but not in
         # mergify
@@ -157,9 +160,13 @@ class MergeAction(actions.Action):
 
             elif e.status == 405:
                 pull.log.error("merge fail", error=e.data["message"])
-                return ("failure",
-                        "Repository settings are blocking automatic merging",
-                        e.data["message"])
+                if pull.g_pull.mergeable_state == "blocked":
+                    return ("failure", "Branch protection settings are "
+                            "blocking automatic merging", e.data["message"])
+                else:
+                    return ("failure",
+                            "Repository settings are blocking automatic "
+                            "merging", e.data["message"])
 
             elif 400 <= e.status < 500:
                 pull.log.error("merge fail", error=e.data["message"])
