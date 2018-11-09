@@ -62,6 +62,9 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``approved-reviews-by``
      - array of string
      - The list of GitHub user or team login that approved the pull request.
+       Team logins are prefixed with the ``@`` character.
+       This will match only reviewers with ``admin`` or ``write`` permission
+       on the repository.
    * - ``author``
      - string
      - The GitHub login of the author of the pull request.
@@ -75,6 +78,9 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have requested changes in a
        review for the pull request.
+       Team logins are prefixed with the ``@`` character.
+       This will match only reviewers with ``admin`` or ``write`` permission
+       on the repository.
    * - ``closed``
      - Boolean
      - Whether the pull request is closed.
@@ -82,10 +88,16 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have commented in a review
        for the pull request.
+       Team logins are prefixed with the ``@`` character.
+       This will match only reviewers with ``admin`` or ``write`` permission
+       on the repository.
    * - ``dismissed-reviews-by``
      - array of string
      - The list of GitHub user or team login that have their review dismissed
        in the pull request.
+       Team logins are prefixed with the ``@`` character.
+       This will match only reviewers with ``admin`` or ``write`` permission
+       on the repository.
    * - ``files``
      - string
      - The files that are modified, deleted or added by the pull request.
@@ -111,6 +123,8 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that were requested to review the
        pull request. Team logins are prefixed with the ``@`` character.
+       This will match only reviewers with ``admin`` or ``write`` permission
+       on the repository.
    * - ``status-success``
      - array of string
      - The list of status checks that successfuly passed for the pull request.
