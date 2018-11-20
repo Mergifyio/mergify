@@ -19,7 +19,7 @@ import github
 import voluptuous
 
 from mergify_engine import actions
-from mergify_engine import utils
+from mergify_engine import config
 
 
 class DismissReviewsAction(actions.Action):
@@ -32,16 +32,9 @@ class DismissReviewsAction(actions.Action):
 
     def run(self, installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions):
-        if (event_type == "pull_request" and data["action"] == "synchronize"):
-            # FIXME(sileht): Currently sender id is not the bot by the admin
-            # user that enroll the repo in Mergify, because branch_updater uses
-            # his access_token instead of the Mergify installation token.
-            # As workaround we track in redis merge commit id
-            # if data["sender"]["id"] != config.BOT_USER_ID):
-            #     return
-            redis = utils.get_redis_for_cache()
-            if redis.get("branch-update-%s" % pull.g_pull.head.sha):
-                return
+        if (event_type == "pull_request" and
+                data["action"] == "synchronize" and
+                data["sender"]["id"] != config.BOT_USER_ID):
 
             for review in pull._get_reviews():
                 conf = self.config.get(review.state.lower(), False)
