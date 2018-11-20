@@ -196,6 +196,10 @@ def _get_cache_key(pull):
 def update_pull_base_branch(pull, subscription):
     updated = branch_updater.update(pull, subscription["token"])
     if updated:
+        redis = utils.get_redis_for_cache()
+        # NOTE(sileht): We store this for dismissal action
+        redis.setex("branch-update-%s" % updated, 60 * 60, updated)
+
         # NOTE(sileht): We update g_pull to have the new head.sha,
         # so future created checks will be posted on the new sha.
         # Otherwise the checks will be lost the GitHub UI on the
