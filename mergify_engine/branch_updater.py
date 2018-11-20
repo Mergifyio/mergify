@@ -21,7 +21,7 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
-def update(pull, token, merge=True):
+def update(pull, token):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -60,17 +60,12 @@ def update(pull, token, merge=True):
 
         git("fetch", "--quiet", "upstream", pull.g_pull.base.ref,
             "--shallow-since='%s'" % last_commit_date)
-        if merge:
-            git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
-                "Merge branch '%s' into '%s'" % (base_branch, head_branch))
-        else:  # pragma: no cover
-            # TODO(sileht): This will removes approvals, we need to add them
-            # back
-            git("rebase", "--quiet", "upstream/%s" % base_branch)
+        git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
+            "Merge branch '%s' into '%s'" % (base_branch, head_branch))
+        commit_id = git("log", "-1", "--format=%H").decode()
         git("push", "--quiet", "origin", head_branch)
+        return commit_id
     except Exception:  # pragma: no cover
         LOG.error("update branch fail", pull_request=pull, exc_info=True)
-        return False
     finally:
         git.cleanup()
-    return True
