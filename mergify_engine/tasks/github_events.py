@@ -39,7 +39,7 @@ def job_refresh(owner, repo, refresh_ref):
         return
 
     token = integration.get_access_token(installation_id).token
-    g = github.Github(token)
+    g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo("%s/%s" % (owner, repo))
     try:
         r.get_contents(".mergify.yml")
@@ -106,7 +106,8 @@ def job_refresh_all():
     for install in utils.get_installations(integration):
         counts[0] += 1
         token = integration.get_access_token(install["id"]).token
-        g = github.Github(token)
+        g = github.Github(token,
+                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
         i = g.get_installation(install["id"])
 
         subscription = utils.get_subscription(utils.get_redis_for_cache(),

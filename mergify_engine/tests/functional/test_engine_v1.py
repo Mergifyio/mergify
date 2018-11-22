@@ -103,7 +103,8 @@ class TestEngineScenario(base.FunctionalTestBase):
 
         access_token = integration.get_access_token(
             config.INSTALLATION_ID).token
-        g = github.Github(access_token)
+        g = github.Github(access_token,
+                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
         self.repo_as_app = g.get_repo("mergify-test1/" + self.name)
 
         # Used to access the cache with its helper

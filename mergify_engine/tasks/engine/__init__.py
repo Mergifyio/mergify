@@ -177,7 +177,8 @@ def run(event_type, data, subscription):
                   installation_id, data["repository"]["full_name"])
         return
 
-    g = github.Github(installation_token)
+    g = github.Github(installation_token,
+                      base_url="https://api.%s" % config.GITHUB_DOMAIN)
     try:
         if config.LOG_RATELIMIT:  # pragma: no cover
             rate = g.get_rate_limit().rate

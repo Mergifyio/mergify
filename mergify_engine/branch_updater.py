@@ -16,6 +16,7 @@
 
 import daiquiri
 
+from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -47,8 +48,10 @@ def update(pull, token):
         git.configure()
         git.add_cred(token, "", head_repo)
         git.add_cred(token, "", base_repo)
-        git("remote", "add", "origin", "https://github.com/%s" % head_repo)
-        git("remote", "add", "upstream", "https://github.com/%s" % base_repo)
+        git("remote", "add", "origin",
+            "https://%s/%s" % (config.GITHUB_DOMAIN, head_repo))
+        git("remote", "add", "upstream",
+            "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo))
 
         depth = int(pull.g_pull.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)

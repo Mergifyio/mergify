@@ -40,7 +40,8 @@ def report(url):
     install_id = utils.get_installation_id(integration, owner)
     installation_token = integration.get_access_token(install_id).token
 
-    g = github.Github(installation_token)
+    g = github.Github(installation_token,
+                      base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo(owner + "/" + repo)
     p = r.get_pull(int(pull_number))
 

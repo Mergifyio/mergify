@@ -23,6 +23,8 @@ import github
 import tenacity
 
 from mergify_engine import check_api
+from mergify_engine import config
+
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
 # testing and and some info from other project:
@@ -39,7 +41,6 @@ from mergify_engine import check_api
 # https://github.com/octokit/octokit.net/issues/1763
 # https://developer.github.com/v4/enum/mergestatestatus/
 
-
 GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 
 
@@ -51,7 +52,8 @@ class MergifyPull(object):
 
     @classmethod
     def from_raw(cls, installation_id, installation_token, pull_raw):
-        g = github.Github(installation_token)
+        g = github.Github(installation_token,
+                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
         pull = github.PullRequest.PullRequest(g._Github__requester, {},
                                               pull_raw, completed=True)
         return cls(pull, installation_id)
@@ -59,7 +61,8 @@ class MergifyPull(object):
     @classmethod
     def from_number(cls, installation_id, installation_token, owner, reponame,
                     pull_number):
-        g = github.Github(installation_token)
+        g = github.Github(installation_token,
+                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
         repo = g.get_repo(owner + "/" + reponame)
         pull = repo.get_pull(pull_number)
         return cls(pull, installation_id)
