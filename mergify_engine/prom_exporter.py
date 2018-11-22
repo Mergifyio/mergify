@@ -73,7 +73,8 @@ def collect_metrics():
         installations[(subscribed, target_type)] += 1
 
         token = integration.get_access_token(_id).token
-        g = github.Github(token)
+        g = github.Github(token, base_url="https://api.%s" %
+                          config.GITHUB_DOMAIN)
 
         if installation["target_type"] == "Organization":  # pragma: no cover
             LOG.info("Get members",

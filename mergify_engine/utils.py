@@ -131,7 +131,7 @@ def get_installations(integration):  # pragma: no cover
     # FIXME(sileht): This is currently always mocked in tests
 
     installs = []
-    url = "https://api.github.com/app/installations"
+    url = "https://api.%s/app/installations" % config.GITHUB_DOMAIN
     token = "Bearer {}".format(integration.create_jwt())
     session = requests.Session()
     while True:
@@ -228,6 +228,7 @@ class Gitter(object):
              "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp)
 
     def add_cred(self, username, password, path):
+        domain = config.GITHUB_DOMAIN
         self("credential", "approve",
-             input=("url=https://%s:%s@github.com/%s\n\n" %
-                    (username, password, path)).encode("utf8"))
+             input=("url=https://%s:%s@%s/%s\n\n" %
+                    (username, password, domain, path)).encode("utf8"))

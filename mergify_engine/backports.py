@@ -19,6 +19,7 @@ import daiquiri
 
 import github
 
+from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -111,8 +112,8 @@ def backport(pull, branch, installation_token):
         git("init")
         git.configure()
         git.add_cred("x-access-token", installation_token, repo.full_name)
-        git("remote", "add", "origin",
-            "https://github.com/%s" % repo.full_name)
+        git("remote", "add", "origin", "https://%s/%s" % (config.GITHUB_DOMAIN,
+                                                          repo.full_name))
 
         git("fetch", "--quiet", "origin", "pull/%s/head" % pull.g_pull.number)
         git("fetch", "--quiet", "origin", pull.g_pull.base.ref)

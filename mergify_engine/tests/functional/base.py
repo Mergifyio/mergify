@@ -213,8 +213,12 @@ class FunctionalTestBase(testtools.TestCase):
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
         r.raise_for_status()
 
-        self.g_main = github.Github(config.MAIN_TOKEN)
-        self.g_fork = github.Github(config.FORK_TOKEN)
+        self.g_main = github.Github(
+            config.MAIN_TOKEN,
+            base_url="https://api.%s" % config.GITHUB_DOMAIN)
+        self.g_fork = github.Github(
+            config.FORK_TOKEN,
+            base_url="https://api.%s" % config.GITHUB_DOMAIN)
 
         self.u_main = self.g_main.get_user()
         self.u_fork = self.g_fork.get_user()
@@ -222,9 +226,10 @@ class FunctionalTestBase(testtools.TestCase):
         assert self.u_fork.login == "mergify-test2"
 
         self.r_main = self.u_main.create_repo(self.name)
-        self.url_main = "https://github.com/%s" % self.r_main.full_name
-        self.url_fork = "https://github.com/%s/%s" % (self.u_fork.login,
-                                                      self.r_main.name)
+        self.url_main = "https://%s/%s" % (
+            config.GITHUB_DOMAIN, self.r_main.full_name)
+        self.url_fork = "https://%s/%s/%s" % (
+            config.GITHUB_DOMAIN, self.u_fork.login, self.r_main.name)
 
         # Limit installations/subscription API to the test account
         install = {

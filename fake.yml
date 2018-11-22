@@ -7,6 +7,7 @@ LOG_RATELIMIT: false
 DEBUG: true
 FLUSH_REDIS_ON_STARTUP: false
 
+GITHUB_DOMAIN: github.com
 CONTEXT: mergify
 GIT_EMAIL: noreply@mergify.io
 INTEGRATION_ID: 11221
