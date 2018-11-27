@@ -18,6 +18,7 @@ import github
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import rules
+from mergify_engine import utils
 from mergify_engine.tasks.engine import v1
 from mergify_engine.tasks.engine import v2
 from mergify_engine.worker import app
@@ -171,15 +172,9 @@ def check_configuration_changes(event_type, data, event_pull):
 @app.task
 def run(event_type, data, subscription):
     """Everything starts here."""
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
     installation_id = data["installation"]["id"]
-    try:
-        installation_token = integration.get_access_token(
-            installation_id).token
-    except github.UnknownObjectException:  # pragma: no cover
-        LOG.error("token for install %d does not exists anymore (%s)",
-                  installation_id, data["repository"]["full_name"])
+    installation_token = utils.get_installation_token(installation_id)
+    if not installation_token:
         return
 
     g = github.Github(installation_token,
@@ -271,13 +266,13 @@ def run(event_type, data, subscription):
         # installation_token within each next tasks, in case we reach the
         # expiration
         if "rules" in mergify_config:
-            v1.handle.s(installation_id, installation_token, subscription,
+            v1.handle.s(installation_id, subscription,
                         mergify_config["rules"], event_type, data,
                         event_pull.raw_data).apply_async()
 
         elif "pull_request_rules" in mergify_config:
             v2.handle.s(
-                installation_id, installation_token, subscription,
+                installation_id, subscription,
                 mergify_config["pull_request_rules"].as_dict(),
                 event_type, data, event_pull.raw_data
             ).apply_async()

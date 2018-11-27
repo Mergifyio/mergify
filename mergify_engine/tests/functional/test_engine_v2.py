@@ -612,10 +612,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("pull_request", {"action": "closed"}),
         ])
         self.push_events([
-            ("check_suite", {"action": "requested"}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "completed"}),
         ], ordered=False)
+        self.push_events([
+            ("check_suite", {"action": "requested"}),
+        ])
 
         master_sha = self.r_main.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)

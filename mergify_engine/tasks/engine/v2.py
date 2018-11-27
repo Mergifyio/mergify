@@ -23,6 +23,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
+from mergify_engine import utils
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -150,8 +151,12 @@ def run_actions(installation_id, installation_token, subscription,
 
 
 @app.task
-def handle(installation_id, installation_token, subscription,
+def handle(installation_id, subscription,
            pull_request_rules_raw, event_type, data, pull_raw):
+
+    installation_token = utils.get_installation_token(installation_id)
+    if not installation_token:
+        return
 
     # Some mandatory rules
     pull_request_rules_raw["rules"].extend(MERGIFY_RULE["rules"])

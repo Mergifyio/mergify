@@ -199,6 +199,17 @@ def get_subscription(r, installation_id):
     return sub
 
 
+def get_installation_token(installation_id):
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    try:
+        return integration.get_access_token(installation_id).token
+    except github.UnknownObjectException:  # pragma: no cover
+        LOG.error("token for install %d does not exists anymore",
+                  installation_id)
+        return
+
+
 class Gitter(object):
     def __init__(self):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")

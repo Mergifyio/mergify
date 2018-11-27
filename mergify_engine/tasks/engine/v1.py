@@ -52,7 +52,7 @@ RING = uhashring.HashRing(
 
 
 @app.task
-def handle(installation_id, installation_token, subscription,
+def handle(installation_id, subscription,
            branch_rules, event_type, data, event_pull_raw):
     # NOTE(sileht): The processor is not concurrency safe, so a repo is always
     # sent to the same worker.
@@ -61,14 +61,17 @@ def handle(installation_id, installation_token, subscription,
     routing_key = RING.get_node(data["repository"]["full_name"])
     LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
              routing_key)
-    _handle.s(installation_id, installation_token, subscription,
+    _handle.s(installation_id, subscription,
               branch_rules, event_type, data, event_pull_raw
               ).apply_async(exchange='C.dq2', routing_key=routing_key)
 
 
 @app.task
-def _handle(installation_id, installation_token, subscription,
+def _handle(installation_id, subscription,
             branch_rules, event_type, data, event_pull_raw):
+    installation_token = utils.get_installation_token(installation_id)
+    if not installation_token:
+        return
     pull = MergifyPullV1.from_raw(installation_id,
                                   installation_token,
                                   event_pull_raw)
