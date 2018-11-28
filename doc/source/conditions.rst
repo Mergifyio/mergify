@@ -128,9 +128,15 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``status-success``
      - array of string
      - The list of status checks that successfuly passed for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`.
    * - ``status-failure``
      - array of string
      - The list of status checks that failed for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`.
    * - ``title``
      - string
      - The title of the pull request.
