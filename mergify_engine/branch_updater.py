@@ -65,7 +65,7 @@ def update(pull, token):
             "--shallow-since='%s'" % last_commit_date)
         git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
             "Merge branch '%s' into '%s'" % (base_branch, head_branch))
-        commit_id = git("log", "-1", "--format=%H").decode()
+        commit_id = git("log", "-1", "--format=%H").decode().strip()
         git("push", "--quiet", "origin", head_branch)
         return commit_id
     except Exception:  # pragma: no cover
