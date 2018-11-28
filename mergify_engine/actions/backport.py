@@ -46,7 +46,18 @@ class BackportAction(actions.Action):
                     detail += ": the branch does not exists"
                 continue
 
-            new_pull = backports.backport(pull, branch, installation_token)
+            # NOTE(sileht) does the backport have already been done ?
+            new_pull = self.get_existing_backport_pull(pull, branch)
+
+            # No, then do it
+            if not new_pull:
+                new_pull = backports.backport(pull, branch, installation_token)
+
+                # NOTE(sileht): We relook again in case of concurrent backport
+                # are done because of two events received too closely
+                if not new_pull:
+                    new_pull = self.get_existing_backport_pull(pull, branch)
+
             if new_pull:
                 detail += "\n* [#%d %s](%s)" % (new_pull.number,
                                                 new_pull.title,
@@ -57,6 +68,13 @@ class BackportAction(actions.Action):
                            branch_name)
 
         return state, "Backports have been created", detail
+
+    def get_existing_backport_pull(pull, branch):
+        bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
+        pulls = pull.g_pull.base.repo.get_pulls(head=bp_branch,
+                                                sorted="created")
+        if pulls:
+            return pulls[-1]
 
     def cancel(self, installation_id, installation_token, subscription,
                event_type, data, pull, missing_conditions):  # pragma: no cover
