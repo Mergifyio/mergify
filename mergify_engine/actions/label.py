@@ -42,6 +42,6 @@ class LabelAction(actions.Action):
                 try:
                     pull.g_pull.remove_from_labels(label)
                 except github.GithubException as e:
-                    if e.status == 400:
+                    if 400 <= e.status < 500:
                         pass
                     raise
