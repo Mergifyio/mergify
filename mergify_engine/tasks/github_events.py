@@ -78,7 +78,7 @@ def job_refresh(owner, repo, refresh_ref):
         return
 
     if not subscription["token"]:  # pragma: no cover
-        LOG.warning("%s/%s/%s: not public or subscribed",
+        LOG.warning("%s/%s/%s: installation without token",
                     owner, repo, refresh_ref)
         return
 
