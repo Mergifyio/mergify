@@ -102,7 +102,7 @@ def collect_metrics():
                     repo.get_contents(".mergify.yml")
                     configured_repos += 1
                 except github.GithubException as e:
-                    if e.status != 404:  # pragma: no cover
+                    if e.status >= 500:  # pragma: no cover
                         raise
                     unconfigured_repos += 1
 
