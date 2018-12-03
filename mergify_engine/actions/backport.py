@@ -72,7 +72,7 @@ class BackportAction(actions.Action):
     @staticmethod
     def get_existing_backport_pull(pull, branch):
         bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
-        pulls = list(pull.g_pull.base.repo.get_pulls(head=bp_branch,
+        pulls = list(pull.g_pull.base.repo.get_pulls(base=bp_branch,
                                                      sort="created"))
         if pulls:
             return pulls[-1]
