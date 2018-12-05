@@ -421,6 +421,7 @@ def test_pull_request_rule_schema_invalid():
 
 
 def test_get_pull_request_rule():
+    g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.assignees = []
     g_pull.labels = []
@@ -444,7 +445,7 @@ def test_get_pull_request_rule():
     review._rawData = {"author_association": "MEMBER"}
     g_pull.get_reviews.return_value = [review]
 
-    pull_request = mergify_pull.MergifyPull(g_pull=g_pull,
+    pull_request = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
                                             installation_id=123)
     fake_ci = mock.Mock()
     fake_ci.context = "continuous-integration/fake-ci"

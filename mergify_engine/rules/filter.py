@@ -86,6 +86,9 @@ class Filter:
     # The name of the attribute that is going to be evaluated by this filter.
     attribute_name = attr.ib(init=False)
 
+    # A method to resolve name externaly
+    _value_expanders = attr.ib(init=False, factory=dict)
+
     def __attrs_post_init__(self):
         self._eval = self.build_evaluator(self.tree)
 
@@ -113,6 +116,9 @@ class Filter:
     def __repr__(self):  # pragma: no cover
         return "%s(%s)" % (self.__class__.__name__, str(self))
 
+    def set_value_expanders(self, name, resolver):
+        self._value_expanders[name] = resolver
+
     def __call__(self, **kwargs):
         return self._eval(kwargs)
 
@@ -122,6 +128,15 @@ class Filter:
     @staticmethod
     def _identity(value):
         return value
+
+    def _get_value_comparator(self, op, name, values):
+        if op != len and name in self._value_expanders:
+            return lambda x: any(map(
+                lambda y: op(x, y),
+                self._value_expanders[name](values)
+            ))
+        else:
+            return lambda x: op(x, values)
 
     def _resolve_name(self, values, name):
         if name.startswith(self.LENGTH_OPERATOR):
@@ -160,9 +175,11 @@ class Filter:
 
             def _op(values):
                 values = self._resolve_name(values, nodes[0])
+                cmp = self._get_value_comparator(op, nodes[0], nodes[1])
+
                 if isinstance(values, (list, tuple)) and op != len:
-                    return iterable_op(map(lambda x: op(x, nodes[1]), values))
-                return op(values, nodes[1])
+                    return iterable_op(map(cmp, values))
+                return cmp(values)
             return _op
         element = self.build_evaluator(nodes)
         return lambda values: op(element(values))

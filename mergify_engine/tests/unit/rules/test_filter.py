@@ -76,6 +76,15 @@ def test_regexp():
     assert not f(foo="x")
 
 
+def test_set_value_expanders():
+    f = filter.Filter({
+        "=": ("foo", "@bar"),
+    })
+    f.set_value_expanders("foo", lambda x: [x.replace("@", "foo")])
+    assert f(foo="foobar")
+    assert not f(foo="x")
+
+
 def test_does_not_contain():
     f = filter.Filter({
         "!=": ("foo", 1),

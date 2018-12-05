@@ -25,11 +25,13 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_github_pull_from_sha(g, repo, installation_id, sha):
+def get_github_pull_from_sha(g, repo, installation_id, installation_token,
+                             sha):
 
     # TODO(sileht): Replace this optimisation when we drop engine v1
     pull = v1.Caching(repository=repo,
-                      installation_id=installation_id
+                      installation_id=installation_id,
+                      installation_token=installation_token
                       ).get_pr_for_sha(sha)
     if pull:
         return pull
@@ -51,14 +53,15 @@ def get_github_pull_from_sha(g, repo, installation_id, sha):
             return pull
 
 
-def get_github_pull_from_event(g, repo, installation_id,
+def get_github_pull_from_event(g, repo, installation_id, installation_token,
                                event_type, data):
     if "pull_request" in data:
         return github.PullRequest.PullRequest(
             repo._requester, {}, data["pull_request"], completed=True
         )
     elif event_type == "status":
-        return get_github_pull_from_sha(g, repo, installation_id, data["sha"])
+        return get_github_pull_from_sha(g, repo, installation_id,
+                                        installation_token, data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
@@ -190,6 +193,7 @@ def run(event_type, data, subscription):
                           data["repository"]["name"])
 
         event_pull = get_github_pull_from_event(g, repo, installation_id,
+                                                installation_token,
                                                 event_type, data)
 
         if not event_pull:  # pragma: no cover

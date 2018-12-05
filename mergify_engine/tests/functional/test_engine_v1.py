@@ -97,20 +97,11 @@ class TestEngineScenario(base.FunctionalTestBase):
 
     def setUp(self):
         super(TestEngineScenario, self).setUp()
-
-        integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                               config.PRIVATE_KEY)
-
-        access_token = integration.get_access_token(
-            config.INSTALLATION_ID).token
-        g = github.Github(access_token,
-                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
-        self.repo_as_app = g.get_repo("mergify-test1/" + self.name)
-
         # Used to access the cache with its helper
         self.processor = v1.Processor(self.subscription,
-                                      self.repo_as_app,
-                                      config.INSTALLATION_ID)
+                                      self.r_main,
+                                      config.INSTALLATION_ID,
+                                      self.installation_token)
 
         self.setup_repo(CONFIG, ['stable', 'nostrict', 'disabled',
                                  'enabling_label'])
@@ -159,7 +150,7 @@ class TestEngineScenario(base.FunctionalTestBase):
         p2, commits = self.create_pr()
 
         # Check we have only on branch registered
-        self.assertEqual("queues~%s~mergify-test1~%s~False~master"
+        self.assertEqual("queues~%s~mergifyio-testing~%s~False~master"
                          % (config.INSTALLATION_ID, self.name),
                          self.processor._get_cache_key("master"))
         self.assertEqual(["master"], self.processor._get_cached_branches())
@@ -694,7 +685,7 @@ class TestEngineScenario(base.FunctionalTestBase):
         p2, commits = self.create_pr()
 
         # Check we have only on branch registered
-        self.assertEqual("queues~%s~mergify-test1~%s~False~master"
+        self.assertEqual("queues~%s~mergifyio-testing~%s~False~master"
                          % (config.INSTALLATION_ID, self.name),
                          self.processor._get_cache_key("master"))
         self.assertEqual(["master"], self.processor._get_cached_branches())
