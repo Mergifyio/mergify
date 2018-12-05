@@ -62,7 +62,6 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``approved-reviews-by``
      - array of string
      - The list of GitHub user or team login that approved the pull request.
-       Team logins are prefixed with the ``@`` character.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``author``
@@ -78,7 +77,6 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have requested changes in a
        review for the pull request.
-       Team logins are prefixed with the ``@`` character.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``closed``
@@ -88,14 +86,12 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have commented in a review
        for the pull request.
-       Team logins are prefixed with the ``@`` character.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``dismissed-reviews-by``
      - array of string
      - The list of GitHub user or team login that have their review dismissed
        in the pull request.
-       Team logins are prefixed with the ``@`` character.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``files``
