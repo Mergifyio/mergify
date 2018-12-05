@@ -18,7 +18,8 @@ import pyparsing
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
-github_login = pyparsing.CharsNotIn(" /")
+github_login = pyparsing.CharsNotIn(" @/")
+team_name = pyparsing.Combine("@" + pyparsing.CharsNotIn("@"))
 text = pyparsing.CharsNotIn("")
 milestone = pyparsing.CharsNotIn(" ")
 
@@ -74,7 +75,8 @@ locked = _match_boolean("locked")
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
-review_requests = "review-requested" + _match_with_operator(github_login)
+review_requests = "review-requested" + _match_with_operator(
+    github_login | team_name)
 review_approved_by = "approved-reviews-by" + _match_with_operator(github_login)
 review_dismissed_by = (
     "dismissed-reviews-by" + _match_with_operator(github_login)

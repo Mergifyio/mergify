@@ -34,6 +34,8 @@ def test_search():
             ("#assignee=3", {"=": ("#assignee", 3)}),
             ("#assignee>1", {">": ("#assignee", 1)}),
             ("#assignee>=2", {">=": ("#assignee", 2)}),
+            ("review-requested=@foo/bar",
+             {"=": ("review-requested", "@foo/bar")}),
             ("status-success=my ci has spaces", {"=": ("status-success",
                                                        "my ci has spaces")}),
     ):
