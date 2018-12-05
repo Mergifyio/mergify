@@ -463,6 +463,7 @@ class MergifyPullV1(mergify_pull.MergifyPull):
 class Caching(object):
     repository = attr.ib()
     installation_id = attr.ib()
+    installation_token = attr.ib()
     _redis = attr.ib(factory=utils.get_redis_for_cache, init=False)
 
     def _get_logprefix(self, branch="<unknown>"):
@@ -520,9 +521,9 @@ class Caching(object):
 class MergifyEngine(Caching):
     def __init__(self, installation_id, installation_token,
                  subscription, repo):
-        super(MergifyEngine, self).__init__(repository=repo,
-                                            installation_id=installation_id)
-        self._installation_token = installation_token
+        super(MergifyEngine, self).__init__(
+            repository=repo, installation_id=installation_id,
+            installation_token=installation_token)
         self._subscription = subscription
 
     def handle(self, branch_rules, event_type, data, incoming_pull):
@@ -573,7 +574,7 @@ class MergifyEngine(Caching):
                 backports.backport_from_labels(
                     incoming_pull,
                     branch_rule["automated_backport_labels"],
-                    self._installation_token)
+                    self.installation_token)
 
             if event_type == "pull_request" and data["action"] == "closed":
                 self.get_processor().proceed_queue(
@@ -642,13 +643,16 @@ class MergifyEngine(Caching):
     def get_processor(self):
         return Processor(subscription=self._subscription,
                          repository=self.repository,
-                         installation_id=self.installation_id)
+                         installation_id=self.installation_id,
+                         installation_token=self.installation_token)
 
 
 class Processor(Caching):
-    def __init__(self, subscription, repository, installation_id):
+    def __init__(self, subscription, repository, installation_id,
+                 installation_token):
         super(Processor, self).__init__(repository=repository,
-                                        installation_id=installation_id)
+                                        installation_id=installation_id,
+                                        installation_token=installation_token)
         self._subscription = subscription
 
     def _build_queue(self, branch, branch_rule, collaborators):
@@ -670,10 +674,9 @@ class Processor(Caching):
 
     def _load_from_cache_and_complete(self, data, branch_rule, collaborators):
         data = json.loads(data)
-        pull = MergifyPullV1(
-            github.PullRequest.PullRequest(self.repository._requester, {},
-                                           data, completed=True),
-            self.installation_id)
+        pull = MergifyPullV1.from_raw(self.installation_id,
+                                      self.installation_token,
+                                      data)
         changed = pull.complete(data, branch_rule, collaborators)
         if changed:
             self._cache_save_pull(pull)

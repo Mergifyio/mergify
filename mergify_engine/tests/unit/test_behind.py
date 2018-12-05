@@ -57,11 +57,12 @@ def commits_tree_generator(request):
 
 def test_pull_behind(commits_tree_generator):
     expected, commits = commits_tree_generator
+    g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.base.repo.get_branch.return_value = mock.Mock(
         commit=mock.Mock(sha="base"))
     g_pull.get_commits.return_value = commits
-    pull = mergify_pull.MergifyPull(g_pull=g_pull,
+    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
                                     installation_id=config.INSTALLATION_ID)
     behind = pull.is_behind()
     assert expected == behind

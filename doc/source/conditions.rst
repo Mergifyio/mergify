@@ -58,7 +58,8 @@ Here's the list of pull request attribute that rules can be matched against:
      - Value description
    * - ``assignee``
      - array of string
-     - The list of GitHub user login that are assigned to the pull request.
+     - The list of GitHub user or team login that are assigned to the pull request.
+       Team logins are prefixed with the ``@`` character.
    * - ``approved-reviews-by``
      - array of string
      - The list of GitHub user or team login that approved the pull request.
@@ -67,7 +68,8 @@ Here's the list of pull request attribute that rules can be matched against:
        on the repository.
    * - ``author``
      - string
-     - The GitHub login of the author of the pull request.
+     - The GitHub user or team login of the author of the pull request.
+       Team logins are prefixed with the ``@`` character.
    * - ``base``
      - string
      - The name of the branch the pull request should be pulled into.
@@ -115,7 +117,8 @@ Here's the list of pull request attribute that rules can be matched against:
      - Whether the pull request is merged.
    * - ``merged-by``
      - string
-     - The GitHub login of the user that merged the pull request.
+     - The GitHub user or team login that merged the pull request.
+       Team logins are prefixed with the ``@`` character.
    * - ``milestone``
      - string
      - The milestone title associated to the pull request.

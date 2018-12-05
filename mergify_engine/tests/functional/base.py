@@ -213,19 +213,28 @@ class FunctionalTestBase(testtools.TestCase):
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC})
         r.raise_for_status()
 
-        self.g_main = github.Github(
+        integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                               config.PRIVATE_KEY)
+        self.installation_token = integration.get_access_token(
+            config.INSTALLATION_ID).token
+
+        self.g_org = github.Github(
+            self.installation_token,
+            base_url="https://api.%s" % config.GITHUB_DOMAIN)
+        self.g_reviewer = github.Github(
             config.MAIN_TOKEN,
             base_url="https://api.%s" % config.GITHUB_DOMAIN)
         self.g_fork = github.Github(
             config.FORK_TOKEN,
             base_url="https://api.%s" % config.GITHUB_DOMAIN)
 
-        self.u_main = self.g_main.get_user()
+        self.u_main = self.g_org.get_organization(config.TESTING_ORGANIZATION)
         self.u_fork = self.g_fork.get_user()
-        assert self.u_main.login == "mergify-test1"
+        assert self.u_main.login == "mergifyio-testing"
         assert self.u_fork.login == "mergify-test2"
 
         self.r_main = self.u_main.create_repo(self.name)
+        self.r_reviewer = self.g_reviewer.get_repo(self.r_main.full_name)
         self.url_main = "https://%s/%s" % (
             config.GITHUB_DOMAIN, self.r_main.full_name)
         self.url_fork = "https://%s/%s/%s" % (
@@ -234,8 +243,8 @@ class FunctionalTestBase(testtools.TestCase):
         # Limit installations/subscription API to the test account
         install = {
             "id": config.INSTALLATION_ID,
-            "target_type": "User",
-            "account": {"login": "mergify-test1"}
+            "target_type": "Org",
+            "account": {"login": "mergifyio-testing"}
         }
 
         self.useFixture(fixtures.MockPatch(
@@ -542,7 +551,8 @@ class FunctionalTestBase(testtools.TestCase):
         )
 
     def create_review_and_push_event(self, pr, commit, event="APPROVE"):
-        r = pr.create_review(commit, "Perfect", event=event)
+        pr_review = self.r_reviewer.get_pull(pr.number)
+        r = pr_review.create_review(commit, "Perfect", event=event)
         self.push_events([("pull_request_review", {"action": "submitted"})])
         return r
 
@@ -561,8 +571,7 @@ class FunctionalTestBase(testtools.TestCase):
         else:
             status = "completed"
 
-        pr_as_app = self.repo_as_app.get_pull(pr.number)
-        check_api.set_check_run(pr_as_app, name, status, conclusion)
+        check_api.set_check_run(pr, name, status, conclusion)
 
         expected_events = []
         if created:

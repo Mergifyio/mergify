@@ -18,7 +18,9 @@ import pyparsing
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
-github_login = pyparsing.CharsNotIn(" /")
+github_login = pyparsing.CharsNotIn(" /@")
+github_team = pyparsing.Combine(pyparsing.Literal("@") + github_login +
+                                pyparsing.Literal("/") + github_login)
 text = pyparsing.CharsNotIn("")
 milestone = pyparsing.CharsNotIn(" ")
 
@@ -61,29 +63,33 @@ def _token_to_dict(s, loc, toks):
     return d
 
 
+_match_login_or_teams = (_match_with_operator(github_login) |
+                         (simple_operators + github_team))
+
+
 head = "head" + _match_with_operator(git_branch)
 base = "base" + _match_with_operator(git_branch)
-author = "author" + _match_with_operator(github_login)
+author = "author" + _match_login_or_teams
 merged = _match_boolean("merged")
 closed = _match_boolean("closed")
-merged_by = "merged-by" + _match_with_operator(github_login)
+merged_by = "merged-by" + _match_login_or_teams
 body = "body" + _match_with_operator(text)
-assignee = "assignee" + _match_with_operator(github_login)
+assignee = "assignee" + _match_login_or_teams
 label = "label" + _match_with_operator(text)
 locked = _match_boolean("locked")
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
-review_requests = "review-requested" + _match_with_operator(github_login)
-review_approved_by = "approved-reviews-by" + _match_with_operator(github_login)
+review_requests = "review-requested" + _match_login_or_teams
+review_approved_by = "approved-reviews-by" + _match_login_or_teams
 review_dismissed_by = (
-    "dismissed-reviews-by" + _match_with_operator(github_login)
+    "dismissed-reviews-by" + _match_login_or_teams
 )
 review_changes_requested_by = (
-    "changes-requested-reviews-by" + _match_with_operator(github_login)
+    "changes-requested-reviews-by" + _match_login_or_teams
 )
 review_commented_by = (
-    "commented-reviews-by" + _match_with_operator(github_login)
+    "commented-reviews-by" + _match_login_or_teams
 )
 status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)

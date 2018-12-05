@@ -21,6 +21,7 @@ from mergify_engine import mergify_pull
 
 
 def test_get_commits_to_cherry_pick_rebase():
+    g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.merged = True
 
@@ -35,7 +36,7 @@ def test_get_commits_to_cherry_pick_rebase():
         return [c1, c2]
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g_pull=g_pull,
+    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
                                     installation_id=config.INSTALLATION_ID)
 
     base_branch = mock.Mock()
@@ -55,6 +56,7 @@ def test_get_commits_to_cherry_pick_rebase():
 
 
 def test_get_commits_to_cherry_pick_merge():
+    g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.merged = True
 
@@ -69,7 +71,7 @@ def test_get_commits_to_cherry_pick_merge():
         return [c1, c2]
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g_pull=g_pull,
+    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
                                     installation_id=config.INSTALLATION_ID)
 
     base_branch = mock.Mock()

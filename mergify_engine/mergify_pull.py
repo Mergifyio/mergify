@@ -13,6 +13,7 @@
 # under the License.
 
 import collections
+import itertools
 
 import attr
 
@@ -47,6 +48,7 @@ GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 @attr.s()
 class MergifyPull(object):
     # NOTE(sileht): Use from_cache/from_event not the constructor directly
+    g = attr.ib()
     g_pull = attr.ib()
     installation_id = attr.ib()
 
@@ -56,7 +58,7 @@ class MergifyPull(object):
                           base_url="https://api.%s" % config.GITHUB_DOMAIN)
         pull = github.PullRequest.PullRequest(g._Github__requester, {},
                                               pull_raw, completed=True)
-        return cls(pull, installation_id)
+        return cls(g, pull, installation_id)
 
     @classmethod
     def from_number(cls, installation_id, installation_token, owner, reponame,
@@ -65,7 +67,7 @@ class MergifyPull(object):
                           base_url="https://api.%s" % config.GITHUB_DOMAIN)
         repo = g.get_repo(owner + "/" + reponame)
         pull = repo.get_pull(pull_number)
-        return cls(pull, installation_id)
+        return cls(g, pull, installation_id)
 
     def __attrs_post_init__(self):
         self.log = daiquiri.getLogger(__name__, pull_request=self)
@@ -167,6 +169,33 @@ class MergifyPull(object):
         generic_checks |= set([GenericCheck(s.context, s.state)
                                for s in self._get_statuses()])
         return generic_checks
+
+    def _resolve_login(self, name):
+        organization, _, team_slug = name.partition("/")
+        if organization[0] != "@" or not team_slug or '/' in team_slug:
+            # Not a team slug
+            return [name]
+
+        try:
+            g_organization = self.g.get_organization(organization[1:])
+            for team in g_organization.get_teams():
+                if team.slug == team_slug:
+                    return [m.login for m in team.get_members()]
+        except github.GithubException as e:
+            if e.status >= 500:
+                raise
+            self.log.warning("fail to get the organization, team or members",
+                             team=name, status=e.status,
+                             detail=e.data["message"])
+        return [name]
+
+    def resolve_teams(self, values):
+        if not values:
+            return []
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+        return list(itertools.chain.from_iterable((
+            self._resolve_login(value) for value in values)))
 
     UNUSABLE_STATES = ["unknown", None]
 

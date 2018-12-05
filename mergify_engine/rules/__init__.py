@@ -131,6 +131,14 @@ class PullRequestRules:
             "title",
             "files",
         )
+        TEAM_ATTRIBUTES = (
+            "author",
+            "merged_by",
+            "review-requested",
+            "approved-reviews-by",
+            "dismissed-reviews-by",
+            "commented-reviews-by",
+        )
 
         # The list of pull request rules to match against.
         rules = attr.ib()
@@ -145,6 +153,9 @@ class PullRequestRules:
             for rule in self.rules:
                 next_conditions_to_validate = []
                 for condition in rule['conditions']:
+                    for attrib in self.TEAM_ATTRIBUTES:
+                        condition.set_value_expanders(
+                            attrib, self.pull_request.resolve_teams)
                     if not condition(**d):
                         if condition.attribute_name in self.BASE_ATTRIBUTES:
                             # Ignore this rule

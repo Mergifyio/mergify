@@ -21,6 +21,8 @@ import yaml
 
 from mergify_engine import branch_protection
 from mergify_engine import check_api
+from mergify_engine import config
+from mergify_engine import mergify_pull
 from mergify_engine.actions import merge
 from mergify_engine.tasks.engine import v2
 from mergify_engine.tests.functional import base
@@ -587,6 +589,34 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_main.get_pulls())
         self.assertEqual(1, len(pulls))
 
+    def test_teams(self):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+                 "approved-reviews-by=@mergifyio-testing/testing",
+             ], "actions": {
+                 "merge": {"method": "rebase"}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, commits = self.create_pr(check="success")
+
+        pull = mergify_pull.MergifyPull.from_raw(config.INSTALLATION_ID,
+                                                 config.MAIN_TOKEN, p.raw_data)
+
+        logins = pull.resolve_teams(["user",
+                                     "@mergifyio-testing/testing",
+                                     "@unknown/team",
+                                     "@invalid/team/break-here"])
+
+        assert sorted(logins) == sorted(["user", "@unknown/team",
+                                         "@invalid/team/break-here",
+                                         "sileht", "mergify-test1"])
+
     def test_rebase(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
@@ -682,16 +712,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             }
         }
 
-        branch_protection.protect(self.r_main, "master", rule)
-
         p1, _ = self.create_pr(check="success")
         p2, _ = self.create_pr(check="success")
 
         p1.merge()
+
+        branch_protection.protect(self.r_main, "master", rule)
+
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-        ])
+        ], ordered=False)
 
         self.create_status_and_push_event(p2)
 
