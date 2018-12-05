@@ -75,7 +75,8 @@ class BackportAction(actions.Action):
         # NOTE(sileht): Github looks buggy here, head= doesn't work as expected
         pulls = list(
             p for p in pull.g_pull.base.repo.get_pulls(base=branch.name,
-                                                       sort="created")
+                                                       sort="created",
+                                                       state="all")
             if p.head.ref == bp_branch
         )
         if pulls:
