@@ -71,7 +71,8 @@ def get_github_pull_from_event(g, repo, installation_id, installation_token,
             pulls = data["check_suite"]["pull_requests"]
             sha = data["check_suite"]["head_sha"]
         if not pulls:
-            return get_github_pull_from_sha(g, repo, installation_id, sha)
+            return get_github_pull_from_sha(g, repo, installation_id,
+                                            installation_token, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning("check_suite/check_run attached on multiple pulls")
