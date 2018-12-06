@@ -79,7 +79,8 @@ def get_github_pull_from_event(g, repo, installation_id, installation_token,
         for p in pulls:
 
             pull = v1.Caching(repository=repo,
-                              installation_id=installation_id
+                              installation_id=installation_id,
+                              installation_token=installation_token
                               ).get_pr_for_pull_number(
                                   p["base"]["ref"],
                                   p["number"])
