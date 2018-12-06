@@ -174,6 +174,25 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(sorted(["unstable", "foobar"]),
                          sorted([l.name for l in pulls[0].labels]))
 
+    def test_comment(self):
+        rules = {'pull_request_rules': [
+            {"name": "comment",
+             "conditions": [
+                 "base=master",
+             ], "actions": {
+                 "comment": {
+                     "message": "WTF?"
+                 }}
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(check="success")
+
+        p.update()
+        self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
+
     def test_close(self):
         rules = {'pull_request_rules': [
             {"name": "rename label",

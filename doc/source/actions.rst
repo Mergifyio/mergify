@@ -48,6 +48,28 @@ parameter:
 Once the backporting pull request is closed or merged, Mergify will
 automatically delete the backport head branch that it created.
 
+.. _comment action:
+
+comment
+=======
+
+The ``comment`` action closes the pull request without merging it.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``message``
+     - string
+     - None
+     - The message to write as a comment.
+
+
+
 .. _close action:
 
 close
