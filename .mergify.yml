@@ -9,6 +9,16 @@ pull_request_rules:
       merge:
         strict: "smart"
         method: rebase
+  - name: automatic merge without review
+    conditions:
+      - base=master
+      - status-success=continuous-integration/travis-ci/pr
+      - label=no-review-needed
+      - label!=work-in-progress
+    actions:
+      merge:
+        strict: "smart"
+        method: rebase
   - name: dismiss reviews
     conditions: []
     actions:
