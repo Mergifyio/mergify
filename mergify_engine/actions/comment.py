@@ -33,9 +33,9 @@ class CommentAction(actions.Action):
         except github.GithubException as e:
             pull.log.error("fail to post comment on the pull request",
                            status=e.status, error=e.data["message"])
-            return ("failure", "the close message can't be created", "")
+            return ("failure", "the issue comment can't be created", "")
 
-        return ("success", "The following message have been posted",
+        return ("success", "The following message has been posted",
                 self.config["message"])
 
     def cancel(self, installation_id, installation_token, subscription,
