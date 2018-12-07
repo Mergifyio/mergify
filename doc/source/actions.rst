@@ -53,7 +53,7 @@ automatically delete the backport head branch that it created.
 comment
 =======
 
-The ``comment`` action closes the pull request without merging it.
+The ``comment`` action adds a comment to the pull request.
 
 .. list-table::
    :header-rows: 1
