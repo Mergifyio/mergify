@@ -190,8 +190,23 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr(check="success")
 
+        self.push_events([
+            ("issue_comment", {"action": "created"}),
+            ("check_run", {"action": "completed"}),
+            ("check_run", {"action": "created"}),
+        ])
+
         p.update()
-        self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
+        comments = list(p.get_issue_comments())
+        self.assertEqual("WTF?", comments[-1].body)
+
+        # Add a label to trigger mergify
+        self.add_label_and_push_events(p, "stable")
+
+        # Ensure nothing changed
+        new_comments = list(p.get_issue_comments())
+        self.assertEqual(len(comments), len(new_comments))
+        self.assertEqual("WTF?", new_comments[-1].body)
 
     def test_close(self):
         rules = {'pull_request_rules': [
