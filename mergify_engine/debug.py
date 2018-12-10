@@ -51,7 +51,7 @@ def report(url):
     print("* BRANCH PROTECTION:")
     pprint.pprint(branch_protection.get_protection(r, p.base.ref), width=160)
 
-    mp = mergify_pull.MergifyPull(p, installation_token)
+    mp = mergify_pull.MergifyPull(g, p, install_id)
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
     print("is_behind: %s" % mp.is_behind())
