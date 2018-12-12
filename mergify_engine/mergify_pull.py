@@ -27,6 +27,10 @@ from mergify_engine import check_api
 from mergify_engine import config
 
 
+class MergeableStateUnknown(Exception):
+    pass
+
+
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
 # testing and and some info from other project:
 #
@@ -199,9 +203,12 @@ class MergifyPull(object):
 
     UNUSABLE_STATES = ["unknown", None]
 
+    # NOTE(sileht): quickly retry, if we don't get the status on time
+    # the exception is recatch in worker.py, so celery will retry it later
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
-                    retry=tenacity.retry_never)
+                    retry=tenacity.retry_if_exception_type(
+                        MergeableStateUnknown))
     def _ensure_mergable_state(self, force=False):
         if self.g_pull.merged:
             return
@@ -219,7 +226,8 @@ class MergifyPull(object):
         if (self.g_pull.merged or
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
             return
-        raise tenacity.TryAgain
+
+        raise MergeableStateUnknown()
 
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
