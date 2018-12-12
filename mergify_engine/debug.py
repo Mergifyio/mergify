@@ -45,6 +45,7 @@ def report(url):
     r = g.get_repo(owner + "/" + repo)
     p = r.get_pull(int(pull_number))
 
+    print("* INSTALLATION ID: %s" % install_id)
     print("* CONFIGURATION:")
     print(r.get_contents(".mergify.yml").decoded_content.decode())
 

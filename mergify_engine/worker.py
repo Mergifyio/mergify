@@ -22,6 +22,7 @@ import github
 import requests
 
 from mergify_engine import config
+from mergify_engine import mergify_pull
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -62,11 +63,13 @@ MAX_RETRIES = 10
 @signals.task_failure.connect
 def retry_task_on_exception(sender, task_id, exception, args, kwargs,
                             traceback, einfo, **other):  # pragma: no cover
-    if ((isinstance(exception, github.GithubException) and
-         exception.status >= 500) or
-            (isinstance(exception, requests.exceptions.HTTPError) and
-             exception.response.status_code >= 500) or
-            isinstance(exception, requests.exceptions.ConnectionError)):
+    if isinstance(exception, mergify_pull.MergeableStateUnknown):
+        backoff = 5
+    elif ((isinstance(exception, github.GithubException) and
+           exception.status >= 500) or
+          (isinstance(exception, requests.exceptions.HTTPError) and
+           exception.response.status_code >= 500) or
+          isinstance(exception, requests.exceptions.ConnectionError)):
         backoff = 5
 
     elif (isinstance(exception, github.GithubException) and
