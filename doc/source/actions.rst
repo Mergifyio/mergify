@@ -201,3 +201,16 @@ The ``merge`` action merges the pull request into its base branch. The
        again. If you prefer to update one pull request at a time (for example,
        to save CI runtime), set ``strict`` to ``smart`` instead: Mergify will
        queue the mergeable pull requests and update them one at a time serially.
+   * - ``strict_method``
+     - string
+     - ``merge``
+     - Base branch update method when strict mode is enabled.
+       Possible values are ``merge`` or ``rebase``.
+       Note that ``rebase`` has many drawbacks due to the change of all commits
+       sha of the pull request. For example:
+
+       * Your contributor will need to "force push" its own branch if it adds new commits.
+       * GitHub branch protection of your repository may dismiss approved reviews.
+       * GitHub branch protection of the contributor repository may refuse Mergify to
+         force push the rebased pull request.
+       * GPG signed commits will lost their signatures.

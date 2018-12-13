@@ -22,7 +22,7 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
-def update(pull, token):
+def update(pull, token, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -63,11 +63,18 @@ def update(pull, token):
 
         git("fetch", "--quiet", "upstream", pull.g_pull.base.ref,
             "--shallow-since='%s'" % last_commit_date)
-        git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
-            "Merge branch '%s' into '%s'" % (base_branch, head_branch))
-        commit_id = git("log", "-1", "--format=%H").decode().strip()
-        git("push", "--quiet", "origin", head_branch)
-        return commit_id
+
+        if method == "merge":
+            git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
+                "Merge branch '%s' into '%s'" % (base_branch, head_branch))
+            git("push", "--quiet", "origin", head_branch)
+        elif method == "rebase":
+            git("rebase", "upstream/%s" % base_branch)
+            git("push", "--quiet", "origin", head_branch, "-f")
+        else:
+            raise RuntimeError("Invalid branch update method")
+
+        return git("log", "-1", "--format=%H").decode().strip()
     except Exception:  # pragma: no cover
         LOG.error("update branch fail", pull_request=pull, exc_info=True)
     finally:

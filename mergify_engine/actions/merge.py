@@ -61,7 +61,9 @@ class MergeAction(actions.Action):
         voluptuous.Required("rebase_fallback", default="merge"):
         voluptuous.Any("merge", "squash", None),
         voluptuous.Required("strict", default=False):
-        voluptuous.Any(bool, "smart")
+        voluptuous.Any(bool, "smart"),
+        voluptuous.Required("strict_method", default="merge"):
+        voluptuous.Any("rebase", "merge")
     }
 
     def run(self, installation_id, installation_token, subscription,
@@ -78,19 +80,23 @@ class MergeAction(actions.Action):
                         "base branch changes, owner doesn't allow "
                         "modification")
             elif self.config["strict"] == "smart":
-                key = _get_cache_key(pull)
+                key = _get_queue_cache_key(pull)
                 redis = utils.get_redis_for_cache()
                 redis.sadd(key, pull.g_pull.number)
+                redis.set(_get_update_method_cache_key(pull),
+                          self.config["strict_method"])
                 return (None, "Base branch will be updated soon",
                         "The pull request base branch will "
                         "be updated soon, and then merged.")
             else:
-                return update_pull_base_branch(pull, subscription)
+                return update_pull_base_branch(pull, subscription,
+                                               self.config["strict_method"])
         else:
 
             if self.config["strict"] == "smart":
                 redis = utils.get_redis_for_cache()
-                redis.srem(_get_cache_key(pull), pull.g_pull.number)
+                redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+                redis.delete(_get_update_method_cache_key(pull))
 
             if (self.config["method"] != "rebase" or
                     pull.g_pull.raw_data['rebaseable']):
@@ -112,7 +118,7 @@ class MergeAction(actions.Action):
 
         if self.config["strict"] == "smart":
             redis = utils.get_redis_for_cache()
-            redis.srem(_get_cache_key(pull), pull.g_pull.number)
+            redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
 
         return self.cancelled_check_report
 
@@ -184,7 +190,7 @@ class MergeAction(actions.Action):
                 "merged at *%s*" % pull.g_pull.merge_commit_sha)
 
 
-def _get_cache_key(pull):
+def _get_queue_cache_key(pull):
     return "strict-merge-queues~%s~%s~%s~%s" % (
         pull.installation_id,
         pull.g_pull.base.repo.owner.login.lower(),
@@ -193,8 +199,17 @@ def _get_cache_key(pull):
     )
 
 
-def update_pull_base_branch(pull, subscription):
-    updated = branch_updater.update(pull, subscription["token"])
+def _get_update_method_cache_key(pull):
+    return "strict-merge-method~%s~%s~%s~%s" % (
+        pull.installation_id,
+        pull.g_pull.base.repo.owner.login.lower(),
+        pull.g_pull.base.repo.name.lower(),
+        pull.g_pull.number,
+    )
+
+
+def update_pull_base_branch(pull, subscription, method):
+    updated = branch_updater.update(pull, subscription["token"], method)
     if updated:
         redis = utils.get_redis_for_cache()
         # NOTE(sileht): We store this for dismissal action
@@ -239,10 +254,10 @@ def update_next_pull(installation_id, installation_token, subscription,
 
     output = output_for_mergeable_state(pull, True)
     if output:
-        redis.srem(_get_cache_key(pull), pull.g_pull.number)
+        redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
         conclusion, title, summary = output
     elif pull.g_pull.state == "closed":
-        redis.srem(_get_cache_key(pull), pull.g_pull.number)
+        redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
         if pull.g_pull.merged:
             conclusion = "success"
             title = "The pull request has been merged manually"
@@ -253,8 +268,9 @@ def update_next_pull(installation_id, installation_token, subscription,
             title = "The pull request has been closed manually"
             summary = ""
     else:
-        conclusion, title, summary = update_pull_base_branch(pull,
-                                                             subscription)
+        method = redis.get(_get_update_method_cache_key(pull)) or "merge"
+        conclusion, title, summary = update_pull_base_branch(
+            pull, subscription, method)
         redis.set(cur_key, pull_number)
 
     status = "completed" if conclusion else "in_progress"
