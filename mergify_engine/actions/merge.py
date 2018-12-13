@@ -85,7 +85,8 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict", default=False):
         voluptuous.Any(bool, "smart"),
         voluptuous.Required("strict_method", default="merge"):
-        voluptuous.Any("rebase", "merge")
+        voluptuous.Any("rebase", "merge"),
+        voluptuous.Required("summary_status", default=False): bool
     }
 
     def run(self, installation_id, installation_token,

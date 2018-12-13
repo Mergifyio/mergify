@@ -40,6 +40,8 @@ def post_summary(pull, match, checks):
     summary_name = "Mergify — Summary"
     summary = ""
 
+    merge_status = None
+
     completed_rules = 0
     for rule, missing_conditions in match.matching_rules:
         summary += "#### Rule: %s" % rule['name']
@@ -50,6 +52,15 @@ def post_summary(pull, match, checks):
         if not missing_conditions:
             completed_rules += 1
         summary += "\n\n"
+
+        for action in rule['actions']:
+            if (action != "merge" or
+                    not rule['actions'][action].config['summary_status']):
+                continue
+            if not missing_conditions:
+                merge_status = "completed"
+            elif merge_status is None:
+                merge_status = "in_progress"
 
     potential_rules = len(match.matching_rules) - completed_rules
 
@@ -68,15 +79,18 @@ def post_summary(pull, match, checks):
         summary_title.append("no rules match, no planned actions")
 
     summary_title = " and ".join(summary_title)
+    summary_status = merge_status if merge_status else "completed"
+    summary_conclusion = "success" if summary_status == "completed" else None
 
     summary_check = checks.get(summary_name)
     summary_changed = (not summary_check or
                        summary_check.output["title"] != summary_title or
-                       summary_check.output["summary"] != summary)
+                       summary_check.output["summary"] != summary or
+                       summary_check.status != summary_status)
 
     if summary_changed:
         check_api.set_check_run(
-            pull.g_pull, summary_name, "completed", "success",
+            pull.g_pull, summary_name, summary_status, summary_conclusion,
             output={"title": summary_title, "summary": summary})
 
 

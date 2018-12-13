@@ -179,6 +179,12 @@ The ``merge`` action merges the pull request into its base branch. The
      - Value Type
      - Default
      - Value Description
+   * - ``summary_status``
+     - boolean
+     - ``False``
+     - If ``True``, this rule will be used to set the status of ``Mergify —
+       Summary``. This status must not be used in GitHub Branch Protection
+       as it can block Mergify to merge pull requests.
    * - ``method``
      - string
      - ``merge``

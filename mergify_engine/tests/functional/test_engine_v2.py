@@ -554,7 +554,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
-        # We can run celery beat inside tests, so run the task manually
+        # We can't run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
         self.push_events([
@@ -624,7 +624,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
-        # We can run celery beat inside tests, so run the task manually
+        # We can't run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
         self.push_events([
