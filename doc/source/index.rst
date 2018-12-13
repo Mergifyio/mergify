@@ -12,6 +12,7 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    actions
    strict-workflow
    examples
+   badge
    faq
    v1/index
 
