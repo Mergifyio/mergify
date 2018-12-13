@@ -60,6 +60,8 @@ def collect_metrics():
     repositories_per_installation = collections.defaultdict(int)
     users_per_installation = collections.defaultdict(int)
 
+    redis.delete("badges.tmp")
+
     LOG.info("Get installations")
     for installation in utils.get_installations(integration):
         _id = installation["id"]
@@ -101,6 +103,7 @@ def collect_metrics():
                 try:
                     repo.get_contents(".mergify.yml")
                     configured_repos += 1
+                    redis.sadd("badges.tmp", account + "/" + repo)
                 except github.GithubException as e:
                     if e.status >= 500:  # pragma: no cover
                         raise
@@ -122,6 +125,9 @@ def collect_metrics():
     set_gauges(INSTALLATIONS, installations)
     set_gauges(USERS_PER_INSTALLATION, users_per_installation)
     set_gauges(REPOSITORIES_PER_INSTALLATION, repositories_per_installation)
+
+    if redis.exists("badges.tmp"):
+        redis.rename("badges.tmp", "badges")
 
 
 def main():  # pragma: no cover
