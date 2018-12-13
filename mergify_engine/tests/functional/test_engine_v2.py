@@ -377,6 +377,73 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual([], [b.name for b in self.r_main.get_branches()
                               if b.name.startswith("mergify/bp")])
 
+    def test_merge_strict_rebase(self):
+        rules = {'pull_request_rules': [
+            {"name": "smart strict merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+                 "#approved-reviews-by>=1",
+             ], "actions": {
+                 "merge": {"strict": True,
+                           "strict_method": "rebase"}},
+             }
+        ]}
+
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+
+        p, _ = self.create_pr(check="success")
+        p2, commits = self.create_pr(check="success")
+
+        p.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ])
+
+        previous_master_sha = self.r_main.get_commits()[0].sha
+
+        self.create_status_and_push_event(p2)
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
+        self.create_review_and_push_event(p2, commits[0])
+
+        self.push_events([
+            # Summary
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("pull_request", {"action": "synchronize"}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": None}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            # Merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ], ordered=False)
+
+        p2 = self.r_main.get_pull(p2.number)
+        commits2 = list(p2.get_commits())
+
+        self.assertEquals(1, len(commits2))
+        self.assertNotEqual(commits[0].sha, commits2[0].sha)
+        self.assertEqual(commits[0].commit.message,
+                         commits2[0].commit.message)
+
+        # Retry to merge pr2
+        self.create_status_and_push_event(p2)
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"}),
+        ], ordered=False)
+
+        master_sha = self.r_main.get_commits()[0].sha
+        self.assertNotEqual(previous_master_sha, master_sha)
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
     def test_merge_strict(self):
         rules = {'pull_request_rules': [
             {"name": "smart strict merge on master",
