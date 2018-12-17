@@ -27,6 +27,7 @@ import flask
 
 import yaml
 
+from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.rules import convert
 from mergify_engine.tasks import github_events
@@ -72,6 +73,23 @@ def config_converter():
         "pull_request_rules": convert.convert_config(data.get("rules", {}))
     }, default_flow_style=False),
     return flask.Response(new_config, mimetype="text/plain")
+
+
+@app.route("/validate", methods=["POST"])
+def config_validator():
+    try:
+        rules.validate_user_config(flask.request.files['data'].stream)
+    except Exception as e:
+        status = 400
+        message = str(rules.InvalidRules(str(e)))
+        if hasattr(e, 'problem_mark'):
+            message += " (position %s:%s)" % (e.problem_mark.line + 1,
+                                              e.problem_mark.column + 1)
+    else:
+        status = 200
+        message = "The configuration is valid"
+
+    return flask.Response(message, status=status, mimetype="text/plain")
 
 
 # FIXME(sileht): Drop me when statuses are replaced by checks
