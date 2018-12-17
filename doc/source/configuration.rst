@@ -55,3 +55,29 @@ Here's a simple example of a configuration file:
             method: merge
 
 See :ref:`Examples` for more examples.
+
+Validation
+==========
+
+Usually ``.mergify.yml`` configuration change should be done via a pull
+request, in order for Mergify to validate it.
+
+However if you are creating the initial configuration or want to validate it
+locally before sending a pull request, you can use:
+
+.. code:: bash
+
+    $ cd <my_project>
+    $ curl -F 'data=@.mergify.yml' https://gh.mergify.io/validate
+
+
+Or by uploading the configuration file with this form:
+
+.. raw:: html
+
+    <form method=post enctype=multipart/form-data action=https://gh.mergify.io/validate target=_blank>
+      <input type=file name=data>
+      <input type=submit value=Validate>
+    </form>
+
+
