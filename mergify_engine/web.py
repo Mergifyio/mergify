@@ -34,7 +34,7 @@ from mergify_engine.tasks import github_events
 
 LOG = logging.getLogger(__name__)
 
-app = flask.Flask(__name__)
+app = flask.Flask(__name__, static_url_path='')
 
 
 def authentification():  # pragma: no cover
@@ -57,6 +57,16 @@ def authentification():  # pragma: no cover
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         flask.abort(403)
+
+
+@app.route("/badges/<owner>/<repo>.png")
+def badge(owner, repo):
+    redis = utils.get_redis_for_cache()
+    mode = ("enabled" if redis.sismember("badges", owner + "/" + repo)
+            else "disabled")
+    style = flask.request.args.get("style", "cut")
+    return flask.send_from_directory("../doc/source/_static",
+                                     "badge-%s-%s.png" % (mode, style))
 
 
 @app.route("/convert", methods=["POST"])

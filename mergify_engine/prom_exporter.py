@@ -60,7 +60,10 @@ def collect_metrics():
     repositories_per_installation = collections.defaultdict(int)
     users_per_installation = collections.defaultdict(int)
 
-    LOG.info("Get installations")
+    LOG.info("GitHub Polling started")
+
+    redis.delete("badges.tmp")
+
     for installation in utils.get_installations(integration):
         _id = installation["id"]
         target_type = installation["target_type"]
@@ -101,6 +104,7 @@ def collect_metrics():
                 try:
                     repo.get_contents(".mergify.yml")
                     configured_repos += 1
+                    redis.sadd("badges.tmp", repo.full_name)
                 except github.GithubException as e:
                     if e.status >= 500:  # pragma: no cover
                         raise
@@ -113,6 +117,8 @@ def collect_metrics():
                 (subscribed, target_type, account, private, False)
             ] = unconfigured_repos
 
+    LOG.info("GitHub Polling finished")
+
     # NOTE(sileht): Prometheus can scrape data during our loop. So make it fast
     # to ensure we always have the good values.
     # Also we can't known which labels we should delete from the Gauge,
@@ -122,6 +128,11 @@ def collect_metrics():
     set_gauges(INSTALLATIONS, installations)
     set_gauges(USERS_PER_INSTALLATION, users_per_installation)
     set_gauges(REPOSITORIES_PER_INSTALLATION, repositories_per_installation)
+
+    if redis.exists("badges.tmp"):
+        redis.rename("badges.tmp", "badges")
+
+    LOG.info("Gauges and badges cache updated")
 
 
 def main():  # pragma: no cover
@@ -133,7 +144,12 @@ def main():  # pragma: no cover
     while True:
         try:
             collect_metrics()
-        except Exception:
+        except Exception as e:
             LOG.error("fail to gather metrics", exc_info=True)
+            if ((hasattr(e, "status") and e.status >= 500) or
+                    (hasattr(e, "status_code") and e.status_code >= 500)):
+                time.sleep(10 * 60)
+                continue
+
         # Only generate metrics once per hour
         time.sleep(60 * 60)
