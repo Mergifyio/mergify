@@ -144,7 +144,12 @@ def main():  # pragma: no cover
     while True:
         try:
             collect_metrics()
-        except Exception:
+        except Exception as e:
             LOG.error("fail to gather metrics", exc_info=True)
+            if ((hasattr(e, "status") and e.status >= 500) or
+                    (hasattr(e, "status_code") and e.status_code >= 500)):
+                time.sleep(10 * 60)
+                continue
+
         # Only generate metrics once per hour
         time.sleep(60 * 60)
