@@ -103,7 +103,7 @@ def collect_metrics():
                 try:
                     repo.get_contents(".mergify.yml")
                     configured_repos += 1
-                    redis.sadd("badges.tmp", account + "/" + repo)
+                    redis.sadd("badges.tmp", repo.full_name)
                 except github.GithubException as e:
                     if e.status >= 500:  # pragma: no cover
                         raise
