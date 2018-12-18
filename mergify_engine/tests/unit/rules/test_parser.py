@@ -35,8 +35,12 @@ def test_search():
             ("#assignee>1", {">": ("#assignee", 1)}),
             ("#assignee>=2", {">=": ("#assignee", 2)}),
             ("assignee=@org/team", {"=": ("assignee", "@org/team")}),
-            ("status-success=my ci has spaces", {"=": ("status-success",
-                                                       "my ci has spaces")}),
+            ("status-success=my ci has spaces",
+             {"=": ("status-success", "my ci has spaces")}),
+            ("status-success='my quoted ci'",
+             {"=": ("status-success", "my quoted ci")}),
+            ("status-success=\"my double quoted ci\"",
+             {"=": ("status-success", "my double quoted ci")}),
     ):
         assert result == tuple(parser.search.parseString(
             line, parseAll=True))[0]
