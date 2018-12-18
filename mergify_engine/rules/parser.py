@@ -21,7 +21,9 @@ regexp = pyparsing.CharsNotIn("")
 github_login = pyparsing.CharsNotIn(" /@")
 github_team = pyparsing.Combine(pyparsing.Literal("@") + github_login +
                                 pyparsing.Literal("/") + github_login)
-text = pyparsing.CharsNotIn("")
+text = (pyparsing.QuotedString('"') |
+        pyparsing.QuotedString("'") |
+        pyparsing.CharsNotIn(""))
 milestone = pyparsing.CharsNotIn(" ")
 
 regex_operators = pyparsing.Literal("~=")
