@@ -48,7 +48,7 @@ Here's a simple example of a configuration file:
       - name: automatic merge when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=continuous-integration/travis-ci
+          - status-success=Travis CI - Pull Request
           - base=master
         actions:
           merge:
