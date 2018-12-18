@@ -60,9 +60,10 @@ def collect_metrics():
     repositories_per_installation = collections.defaultdict(int)
     users_per_installation = collections.defaultdict(int)
 
+    LOG.info("GitHub Polling started")
+
     redis.delete("badges.tmp")
 
-    LOG.info("Get installations")
     for installation in utils.get_installations(integration):
         _id = installation["id"]
         target_type = installation["target_type"]
@@ -116,6 +117,8 @@ def collect_metrics():
                 (subscribed, target_type, account, private, False)
             ] = unconfigured_repos
 
+    LOG.info("GitHub Polling finished")
+
     # NOTE(sileht): Prometheus can scrape data during our loop. So make it fast
     # to ensure we always have the good values.
     # Also we can't known which labels we should delete from the Gauge,
@@ -128,6 +131,8 @@ def collect_metrics():
 
     if redis.exists("badges.tmp"):
         redis.rename("badges.tmp", "badges")
+
+    LOG.info("Gauges and badges cache updated")
 
 
 def main():  # pragma: no cover
