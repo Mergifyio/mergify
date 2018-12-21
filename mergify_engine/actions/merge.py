@@ -54,6 +54,30 @@ def output_for_mergeable_state(pull, strict):
     return
 
 
+def merge_report(pull):
+    pull.g_pull.update()
+
+    if pull.g_pull.merged:
+        if pull.g_pull.merged_by == 'mergify[bot]':
+            mode = "automatically"
+        else:
+            mode = "manually"
+        conclusion = "success"
+        title = "The pull request has been merged %s" % mode
+        summary = ("The pull request has been merged %s at *%s*" %
+                   (mode, pull.g_pull.merge_commit_sha))
+    elif pull.g_pull.state == "closed":
+        conclusion = "cancelled"
+        title = "The pull request has been closed manually"
+        summary = ""
+    else:
+        conclusion = None
+        title = ""
+        summary = ""
+
+    return conclusion, title, summary
+
+
 class MergeAction(actions.Action):
     validator = {
         voluptuous.Required("method", default="merge"):
@@ -183,11 +207,8 @@ class MergeAction(actions.Action):
                 raise
         else:
             pull.log.info("merged")
-        pull.g_pull.update()
-        return ("success",
-                "The pull request has been automatically merged",
-                "The pull request has been automatically "
-                "merged at *%s*" % pull.g_pull.merge_commit_sha)
+
+        return merge_report(pull)
 
 
 def _get_queue_cache_key(pull):
@@ -224,8 +245,14 @@ def update_pull_base_branch(pull, subscription, method):
                 "The pull request has been automatically "
                 "updated to follow its base branch and will be "
                 "merged soon")
-    else:  # pragma: no cover
-        return ("failure", "Base branch update has failed", "")
+    else:
+        # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
+        # in the meantime. So double check that to not report a wrong status
+        conclusion, title, summary = merge_report(pull)
+        if conclusion:
+            return conclusion, title, summary
+        else:
+            return ("failure", "Base branch update has failed", "")
 
 
 def update_next_pull(installation_id, installation_token, subscription,
@@ -258,20 +285,15 @@ def update_next_pull(installation_id, installation_token, subscription,
         conclusion, title, summary = output
     elif pull.g_pull.state == "closed":
         redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
-        if pull.g_pull.merged:
-            conclusion = "success"
-            title = "The pull request has been merged manually"
-            summary = ("The pull request has been merged manually "
-                       "at *%s*" % pull.g_pull.merge_commit_sha)
-        else:
-            conclusion = "cancelled"
-            title = "The pull request has been closed manually"
-            summary = ""
+        conclusion, title, summary = merge_report(pull)
     else:
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
             pull, subscription, method)
-        redis.set(cur_key, pull_number)
+        if pull.g_pull.state == "closed":
+            redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+        else:
+            redis.set(cur_key, pull_number)
 
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
