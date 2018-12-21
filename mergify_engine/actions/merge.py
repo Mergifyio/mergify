@@ -31,6 +31,26 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
+def merge_report(pull):
+    if pull.g_pull.merged:
+        if pull.g_pull.merged_by == 'mergify[bot]':
+            mode = "automatically"
+        else:
+            mode = "manually"
+        conclusion = "success"
+        title = "The pull request has been merged %s" % mode
+        summary = ("The pull request has been merged %s at *%s*" %
+                   (mode, pull.g_pull.merge_commit_sha))
+    elif pull.g_pull.state == "closed":
+        conclusion = "cancelled"
+        title = "The pull request has been closed manually"
+        summary = ""
+    else:
+        return
+
+    return conclusion, title, summary
+
+
 def output_for_mergeable_state(pull, strict):
     # NOTE(sileht): Take care of all branch protection state
     if pull.g_pull.mergeable_state == "dirty":
@@ -54,30 +74,6 @@ def output_for_mergeable_state(pull, strict):
     return
 
 
-def merge_report(pull):
-    pull.g_pull.update()
-
-    if pull.g_pull.merged:
-        if pull.g_pull.merged_by == 'mergify[bot]':
-            mode = "automatically"
-        else:
-            mode = "manually"
-        conclusion = "success"
-        title = "The pull request has been merged %s" % mode
-        summary = ("The pull request has been merged %s at *%s*" %
-                   (mode, pull.g_pull.merge_commit_sha))
-    elif pull.g_pull.state == "closed":
-        conclusion = "cancelled"
-        title = "The pull request has been closed manually"
-        summary = ""
-    else:
-        conclusion = None
-        title = ""
-        summary = ""
-
-    return conclusion, title, summary
-
-
 class MergeAction(actions.Action):
     validator = {
         voluptuous.Required("method", default="merge"):
@@ -93,6 +89,10 @@ class MergeAction(actions.Action):
     def run(self, installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions):
         pull.log.debug("process merge", config=self.config)
+
+        output = merge_report(pull)
+        if output:
+            return output
 
         output = output_for_mergeable_state(pull, self.config["strict"])
         if output:
@@ -208,6 +208,7 @@ class MergeAction(actions.Action):
         else:
             pull.log.info("merged")
 
+        pull.g_pull.update()
         return merge_report(pull)
 
 
@@ -248,9 +249,10 @@ def update_pull_base_branch(pull, subscription, method):
     else:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status
-        conclusion, title, summary = merge_report(pull)
-        if conclusion:
-            return conclusion, title, summary
+        pull.g_pull.update()
+        output = merge_report(pull)
+        if output:
+            return output
         else:
             return ("failure", "Base branch update has failed", "")
 
@@ -279,13 +281,14 @@ def update_next_pull(installation_id, installation_token, subscription,
                   if (c.name.endswith(" (merge)") and
                       c._rawData['app']['id'] == config.INTEGRATION_ID)]
 
-    output = output_for_mergeable_state(pull, True)
-    if output:
+    merge_output = merge_report(pull)
+    mergeable_state_output = output_for_mergeable_state(pull, True)
+    if merge_output:
         redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
-        conclusion, title, summary = output
-    elif pull.g_pull.state == "closed":
+        conclusion, title, summary = merge_output
+    elif mergeable_state_output:
         redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
-        conclusion, title, summary = merge_report(pull)
+        conclusion, title, summary = mergeable_state_output
     else:
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
