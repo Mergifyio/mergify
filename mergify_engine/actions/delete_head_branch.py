@@ -36,11 +36,10 @@ class DeleteHeadBranchAction(actions.Action):
                     pull.g_pull.base.repo.url + "/git/refs/heads/" +
                     pull.g_pull.head.ref)
             except github.GithubException as e:
-                # if e.status == 404:
-                #     return
-                pull.log.error("Unable to delete head branch",
-                               status=e.status, error=e.data["message"])
-                return ("failure", "Unable to delete the head branch", "")
+                if e.status != 422:
+                    pull.log.error("Unable to delete head branch",
+                                   status=e.status, error=e.data["message"])
+                    return ("failure", "Unable to delete the head branch", "")
             return ("success", "Branch `%s` has been deleted" %
                     pull.g_pull.head.ref, "")
         return (None,
