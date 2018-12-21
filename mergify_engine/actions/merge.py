@@ -33,7 +33,7 @@ LOG = daiquiri.getLogger(__name__)
 
 def merge_report(pull):
     if pull.g_pull.merged:
-        if pull.g_pull.merged_by == 'mergify[bot]':
+        if pull.g_pull.merged_by.login == 'mergify[bot]':
             mode = "automatically"
         else:
             mode = "manually"
