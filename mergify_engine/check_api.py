@@ -80,14 +80,6 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
                 attributes["conclusion"])
 
 
-def get_check(repo, check_id):
-    return github.PaginatedList.PaginatedList(
-        Check, repo._requester,
-        "GET", "%s/check-runs/%s" % (repo.url, check_id),
-        headers={'Accept': 'application/vnd.github.antiope-preview+json'}
-    )
-
-
 def get_checks(pull, parameters=None):
     return github.PaginatedList.PaginatedList(
         Check, pull._requester,
@@ -137,20 +129,28 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
             "POST",
             "%s/check-runs" % (pull.base.repo.url),
             input=post_parameters,
-            headers={'Accept':
-                     'application/vnd.github.antiope-preview+json'}
+            headers={'Accept': 'application/vnd.github.antiope-preview+json'}
         )
-    elif len(checks) == 1:
+        return Check(pull._requester, headers, data, completed=True)
 
+    if len(checks) > 1:
+        LOG.warning("Multiple mergify checks have been created, "
+                    "we got the known race.", pull_request=pull)
+
+    # FIXME(sileht): We have no (simple) way to ensure we don't have multiple
+    # worker doing POST at the same time. It's unlike to happen, but it has
+    # happen once, so to ensure Mergify continue to work, we update all
+    # checks. User will see the check twice for a while, but it's better than
+    # having Mergify stuck
+    for check in checks:
         # Don't do useless update
-        check = checks[0]
         if compare_dict(post_parameters, check.raw_data,
                         ("name", "head_sha", "status", "conclusion")):
             if check.output == output:
-                return check
+                continue
             elif (check.output is not None and output is not None and
                   compare_dict(output, check.output, ("title", "summary"))):
-                return check
+                continue
 
         headers, data = pull._requester.requestJsonAndCheck(
             "PATCH",
@@ -159,8 +159,6 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
             headers={'Accept':
                      'application/vnd.github.antiope-preview+json'}
         )
-    else:  # pragma no cover
-        raise RuntimeError("Multiple mergify checks have been created, "
-                           "we have a bug. %s" % pull.url)
+        check = Check(pull._requester, headers, data, completed=True)
 
-    return Check(pull._requester, headers, data, completed=True)
+    return check
