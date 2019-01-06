@@ -102,7 +102,7 @@ class MergeAction(actions.Action):
             if not pull.base_is_modifiable():
                 return ("failure", "Pull request can't be updated with latest "
                         "base branch changes, owner doesn't allow "
-                        "modification")
+                        "modification", "")
             elif self.config["strict"] == "smart":
                 key = _get_queue_cache_key(pull)
                 redis = utils.get_redis_for_cache()
