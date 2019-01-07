@@ -422,6 +422,15 @@ def test_pull_request_rule_schema_invalid():
 
 def test_get_pull_request_rule():
     g = mock.Mock()
+
+    team = mock.Mock()
+    team.slug = "my-reviewers"
+    team.get_members.return_value = [mock.Mock(login="sileht"),
+                                     mock.Mock(login="jd")]
+    org = mock.Mock()
+    org.get_teams.return_value = [team]
+    g.get_organization.return_value = org
+
     g_pull = mock.Mock()
     g_pull.assignees = []
     g_pull.labels = []
@@ -638,3 +647,44 @@ def test_get_pull_request_rule():
         str(match.matching_rules[2][1][1]) ==
         "status-success=continuous-integration/fake-ci-bis"
     )
+
+    # Team conditions with one review missing
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "default",
+        "conditions": [
+            "approved-reviews-by=@orgs/my-reviewers",
+            "#approved-reviews-by>=2",
+        ],
+        "actions": {}
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 1
+    assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
+
+    review2 = mock.Mock()
+    review2.user.login = "jd"
+    review2.state = "APPROVED"
+    review2._rawData = {"author_association": "MEMBER"}
+    g_pull.get_reviews.return_value = [review, review2]
+
+    # Team conditions with no review missing
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "default",
+        "conditions": [
+            "approved-reviews-by=@orgs/my-reviewers",
+            "#approved-reviews-by>=2",
+        ],
+        "actions": {}
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 0
