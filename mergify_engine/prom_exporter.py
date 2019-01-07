@@ -65,57 +65,62 @@ def collect_metrics():
     redis.delete("badges.tmp")
 
     for installation in utils.get_installations(integration):
-        _id = installation["id"]
-        target_type = installation["target_type"]
-        account = installation["account"]["login"]
+        try:
+            _id = installation["id"]
+            target_type = installation["target_type"]
+            account = installation["account"]["login"]
 
-        LOG.info("Get subscription", account=account)
-        subscribed = utils.get_subscription(
-            redis, _id)["subscribed"]
+            LOG.info("Get subscription", account=account)
+            subscribed = utils.get_subscription(
+                redis, _id)["subscribed"]
 
-        installations[(subscribed, target_type)] += 1
+            installations[(subscribed, target_type)] += 1
 
-        token = integration.get_access_token(_id).token
-        g = github.Github(token, base_url="https://api.%s" %
-                          config.GITHUB_DOMAIN)
+            token = integration.get_access_token(_id).token
+            g = github.Github(token, base_url="https://api.%s" %
+                              config.GITHUB_DOMAIN)
 
-        if installation["target_type"] == "Organization":  # pragma: no cover
-            LOG.info("Get members",
-                     install=installation["account"]["login"])
-            org = g.get_organization(installation["account"]["login"])
-            value = len(list(org.get_members()))
+            if installation["target_type"] == "Organization":  # pragma: no cover
+                LOG.info("Get members",
+                         install=installation["account"]["login"])
+                org = g.get_organization(installation["account"]["login"])
+                value = len(list(org.get_members()))
 
-            users_per_installation[
-                (subscribed, target_type, account)] = value
-        else:
-            users_per_installation[
-                (subscribed, target_type, account)] = 1
+                users_per_installation[
+                    (subscribed, target_type, account)] = value
+            else:
+                users_per_installation[
+                    (subscribed, target_type, account)] = 1
 
-        LOG.info("Get repos", account=account)
+            LOG.info("Get repos", account=account)
 
-        repositories = sorted(g.get_installation(_id).get_repos(),
-                              key=operator.attrgetter("private"))
-        for private, repos in itertools.groupby(
-                repositories, key=operator.attrgetter("private")):
+            repositories = sorted(g.get_installation(_id).get_repos(),
+                                  key=operator.attrgetter("private"))
+            for private, repos in itertools.groupby(
+                    repositories, key=operator.attrgetter("private")):
 
-            configured_repos = 0
-            unconfigured_repos = 0
-            for repo in repos:
-                try:
-                    repo.get_contents(".mergify.yml")
-                    configured_repos += 1
-                    redis.sadd("badges.tmp", repo.full_name)
-                except github.GithubException as e:
-                    if e.status >= 500:  # pragma: no cover
-                        raise
-                    unconfigured_repos += 1
+                configured_repos = 0
+                unconfigured_repos = 0
+                for repo in repos:
+                    try:
+                        repo.get_contents(".mergify.yml")
+                        configured_repos += 1
+                        redis.sadd("badges.tmp", repo.full_name)
+                    except github.GithubException as e:
+                        if e.status >= 500:  # pragma: no cover
+                            raise
+                        unconfigured_repos += 1
 
-            repositories_per_installation[
-                (subscribed, target_type, account, private, True)
-            ] = configured_repos
-            repositories_per_installation[
-                (subscribed, target_type, account, private, False)
-            ] = unconfigured_repos
+                repositories_per_installation[
+                    (subscribed, target_type, account, private, True)
+                ] = configured_repos
+                repositories_per_installation[
+                    (subscribed, target_type, account, private, False)
+                ] = unconfigured_repos
+        except github.GithubException as e:
+            # Ignore rate limit/abuse
+            if e.status != 403:
+                raise
 
     LOG.info("GitHub Polling finished")
 

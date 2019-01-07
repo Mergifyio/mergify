@@ -64,20 +64,21 @@ MAX_RETRIES = 10
 def retry_task_on_exception(sender, task_id, exception, args, kwargs,
                             traceback, einfo, **other):  # pragma: no cover
     if isinstance(exception, mergify_pull.MergeableStateUnknown):
-        backoff = 5
+        backoff = 30
     elif ((isinstance(exception, github.GithubException) and
            exception.status >= 500) or
           (isinstance(exception, requests.exceptions.HTTPError) and
            exception.response.status_code >= 500) or
           isinstance(exception, requests.exceptions.ConnectionError)):
-        backoff = 5
+        backoff = 30
 
     elif (isinstance(exception, github.GithubException) and
           exception.status == 403 and
-          "You have triggered an abuse detection mechanism" in
-          exception.data["message"]):
-        backoff = 5
-
+          ("You have triggered an abuse detection mechanism" in
+           exception.data["message"] or
+           exception.data["message"].startswith("API rate limit exceeded"))
+          ):
+        backoff = 60 * 5
     else:
         return
 
