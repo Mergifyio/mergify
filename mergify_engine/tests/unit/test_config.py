@@ -688,3 +688,41 @@ def test_get_pull_request_rule():
 
     assert match.matching_rules[0][0]['name'] == "default"
     assert len(match.matching_rules[0][1]) == 0
+
+    # Forbidden labels, when no label set
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "default",
+        "conditions": [
+            "-label~=^(status/wip|status/blocked|review/need2)$"
+        ],
+        "actions": {}
+    }])
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 0
+
+    # Forbidden labels, when forbiden label set
+    label = mock.Mock()
+    label.name = "status/wip"
+    pull_request.g_pull.labels = [label]
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 1
+    assert str(match.matching_rules[0][1][0]) == "-label~=^(status/wip|status/blocked|review/need2)$"
+
+    # Forbidden labels, when other label set
+    label = mock.Mock()
+    label.name = "allowed"
+    pull_request.g_pull.labels = [label]
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 0

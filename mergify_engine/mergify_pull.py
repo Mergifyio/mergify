@@ -97,6 +97,9 @@ class MergifyPull(object):
         )
         return {
             "assignee": [a.login for a in self.g_pull.assignees],
+
+            # NOTE(sileht): We put an empty label to allow people to match
+            # no label set
             "label": [l.name for l in self.g_pull.labels],
             "review-requested": (
                 [u.login for u in review_requested_users] +
