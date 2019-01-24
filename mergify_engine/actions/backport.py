@@ -14,12 +14,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import daiquiri
+
 import github
 
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import backports
+
+LOG = daiquiri.getLogger(__name__)
 
 
 class BackportAction(actions.Action):
@@ -36,8 +40,9 @@ class BackportAction(actions.Action):
             try:
                 branch = pull.g_pull.base.repo.get_branch(branch_name)
             except github.GithubException as e:
-                pull.log.error("backport: fail to get branch",
-                               error=e.data["message"])
+                LOG.error("backport: fail to get branch",
+                          pull_request=pull,
+                          error=e.data["message"])
 
                 state = "failure"
                 detail += ("\n* backport to branch `%s` has failed" %

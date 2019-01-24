@@ -89,8 +89,8 @@ def exec_action(method_name, rule, action,
             installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions)
     except Exception:  # pragma: no cover
-        pull.log.error("action failed", action=action, rule=rule,
-                       exc_info=True)
+        LOG.error("action failed", action=action, rule=rule,
+                  pull_request=pull, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
         return "failure", "action '%s' have failed" % action, " "

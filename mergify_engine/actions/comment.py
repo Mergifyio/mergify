@@ -14,11 +14,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import daiquiri
+
 import github
 
 import voluptuous
 
 from mergify_engine import actions
+
+LOG = daiquiri.getLogger(__name__)
 
 
 class CommentAction(actions.Action):
@@ -31,8 +35,9 @@ class CommentAction(actions.Action):
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:
-            pull.log.error("fail to post comment on the pull request",
-                           status=e.status, error=e.data["message"])
+            LOG.error("fail to post comment on the pull request",
+                      status=e.status, error=e.data["message"],
+                      pull_request=pull)
             return ("failure", "the issue comment can't be created", "")
 
         return ("success", "The following message has been posted",

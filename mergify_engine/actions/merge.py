@@ -88,7 +88,7 @@ class MergeAction(actions.Action):
 
     def run(self, installation_id, installation_token, subscription,
             event_type, data, pull, missing_conditions):
-        pull.log.debug("process merge", config=self.config)
+        LOG.debug("process merge", config=self.config, pull_request=pull)
 
         output = merge_report(pull)
         if output:
@@ -186,10 +186,11 @@ class MergeAction(actions.Action):
                               merge_method=method)
         except github.GithubException as e:   # pragma: no cover
             if pull.g_pull.is_merged():
-                pull.log.info("merged in the meantime")
+                LOG.info("merged in the meantime", pull_request=pull)
 
             elif e.status == 405:
-                pull.log.error("merge fail", error=e.data["message"])
+                LOG.error("merge fail", error=e.data["message"],
+                          pull_request=pull)
                 if pull.g_pull.mergeable_state == "blocked":
                     return ("failure", "Branch protection settings are "
                             "blocking automatic merging", e.data["message"])
@@ -199,14 +200,15 @@ class MergeAction(actions.Action):
                             "merging", e.data["message"])
 
             elif 400 <= e.status < 500:
-                pull.log.error("merge fail", error=e.data["message"])
+                LOG.error("merge fail", error=e.data["message"],
+                          pull_request=pull)
                 return ("failure",
                         "Mergify fails to merge the pull request",
                         e.data["message"])
             else:
                 raise
         else:
-            pull.log.info("merged")
+            LOG.info("merged", pull_request=pull)
 
         pull.g_pull.update()
         return merge_report(pull)

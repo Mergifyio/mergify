@@ -80,7 +80,7 @@ def collect_metrics():
             g = github.Github(token, base_url="https://api.%s" %
                               config.GITHUB_DOMAIN)
 
-            if installation["target_type"] == "Organization":  # pragma: no cover
+            if installation["target_type"] == "Organization":
                 LOG.info("Get members",
                          install=installation["account"]["login"])
                 org = g.get_organization(installation["account"]["login"])

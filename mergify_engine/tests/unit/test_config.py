@@ -714,7 +714,8 @@ def test_get_pull_request_rule():
     assert [r['name'] for r, _ in match.matching_rules] == ["default"]
     assert match.matching_rules[0][0]['name'] == "default"
     assert len(match.matching_rules[0][1]) == 1
-    assert str(match.matching_rules[0][1][0]) == "-label~=^(status/wip|status/blocked|review/need2)$"
+    assert str(match.matching_rules[0][1][0]) == (
+        "-label~=^(status/wip|status/blocked|review/need2)$")
 
     # Forbidden labels, when other label set
     label = mock.Mock()

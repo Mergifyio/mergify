@@ -14,11 +14,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import daiquiri
+
 import github
 
 import voluptuous
 
 from mergify_engine import actions
+
+LOG = daiquiri.getLogger(__name__)
 
 
 class DeleteHeadBranchAction(actions.Action):
@@ -37,8 +41,9 @@ class DeleteHeadBranchAction(actions.Action):
                     pull.g_pull.head.ref)
             except github.GithubException as e:
                 if e.status not in [422, 404]:
-                    pull.log.error("Unable to delete head branch",
-                                   status=e.status, error=e.data["message"])
+                    LOG.error("Unable to delete head branch",
+                              status=e.status, error=e.data["message"],
+                              pull_request=pull)
                     return ("failure", "Unable to delete the head branch", "")
             return ("success", "Branch `%s` has been deleted" %
                     pull.g_pull.head.ref, "")

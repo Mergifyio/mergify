@@ -246,8 +246,8 @@ class MergifyPullV1(mergify_pull.MergifyPull):
             elif review.state == 'COMMENTED':
                 pass
             else:
-                self.log.error("review state unhandled",
-                               state=review.state)
+                LOG.error("review state unhandled",
+                          state=review.state, pull_request=self)
 
         return ([users_info[u] for u in reviews_ok],
                 [users_info[u] for u in reviews_ko])
@@ -348,8 +348,9 @@ class MergifyPullV1(mergify_pull.MergifyPull):
                 else:
                     # NOTE(sileht): assume it's the Github bug and the PR is
                     # ready, if it's not the merge button will just fail.
-                    self.log.warning("mergeable_state is unexpected, "
-                                     "trying to merge the pull request")
+                    LOG.warning("mergeable_state is unexpected, "
+                                "trying to merge the pull request",
+                                pull_request=self)
                     mergify_state = MergifyState.READY
                     github_state = "success"
                     github_desc = "Will be merged soon"
@@ -409,7 +410,8 @@ class MergifyPullV1(mergify_pull.MergifyPull):
             description = msg
             target_url = None
 
-        self.log.info("set status", state=state, description=description)
+        LOG.info("set status", state=state, description=description,
+                 pull_request=self)
         # NOTE(sileht): We can't use commit.create_status() because
         # if use the head repo instead of the base repo
         try:
@@ -425,8 +427,9 @@ class MergifyPullV1(mergify_pull.MergifyPull):
                          'application/vnd.github.machine-man-preview+json'}
             )
         except github.GithubException as e:  # pragma: no cover
-            self.log.error("set status failed",
-                           error=e.data["message"], exc_info=True)
+            LOG.error("set status failed",
+                      error=e.data["message"], pull_request=self,
+                      exc_info=True)
 
     def set_and_post_error(self, github_description):
         self._mergify_state = MergifyState.NOT_READY
