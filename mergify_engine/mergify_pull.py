@@ -26,8 +26,6 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 
-LOG = daiquiri.getLogger(__name__)
-
 
 class MergeableStateUnknown(Exception):
     pass
@@ -76,6 +74,7 @@ class MergifyPull(object):
         return cls(g, pull, installation_id)
 
     def __attrs_post_init__(self):
+        self.log = daiquiri.getLogger(__name__, pull_request=self)
         self._ensure_mergable_state()
 
     def _get_perm(self, login):
@@ -192,10 +191,9 @@ class MergifyPull(object):
         except github.GithubException as e:
             if e.status >= 500:
                 raise
-            LOG.warning("fail to get the organization, team or members",
-                        team=name, status=e.status,
-                        detail=e.data["message"],
-                        pull_request=self)
+            self.log.warning("fail to get the organization, team or members",
+                             team=name, status=e.status,
+                             detail=e.data["message"])
         return [name]
 
     def resolve_teams(self, values):
@@ -223,7 +221,7 @@ class MergifyPull(object):
             return
 
         # Github is currently processing this PR, we wait the completion
-        LOG.info("refreshing", pull_request=self)
+        self.log.info("refreshing")
 
         # NOTE(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change, so we get a fresh pull request instead
@@ -243,7 +241,7 @@ class MergifyPull(object):
             return
 
         # Github is currently processing this PR, we wait the completion
-        LOG.info("refreshing", pull_request=self)
+        self.log.info("refreshing")
 
         # NOTE(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change, so we get a fresh pull request instead
@@ -267,9 +265,9 @@ class MergifyPull(object):
         if e.data["message"].startswith("Base branch was modified"):
             return False
 
-        LOG.error("merge failed",
-                  status=e.status, error=e.data["message"],
-                  pull_request=self, exc_info=True)
+        self.log.error("merge failed",
+                       status=e.status, error=e.data["message"],
+                       exc_info=True)
         return False
 
     def merge(self, merge_method, rebase_fallback):
@@ -282,7 +280,7 @@ class MergifyPull(object):
                     e.data["message"] == "Pull Request is not mergeable"):
                 # Not a big deal, we will receive soon the pull_request close
                 # event
-                LOG.info("merged in the meantime", pull_request=self)
+                self.log.info("merged in the meantime")
                 return True
 
             if (e.data["message"] != "This branch can't be rebased" or
