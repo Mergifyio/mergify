@@ -14,16 +14,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import base64
 import distutils.util
 import os
 import re
 
 import daiquiri
 
+import dotenv
+
 import voluptuous
 
-import yaml
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -90,7 +91,8 @@ CONFIG = {}
 configuration_file = os.getenv("MERGIFYENGINE_SETTINGS")
 if configuration_file:
     with open(configuration_file) as f:
-        CONFIG.update(yaml.safe_load(f.read()))
+        CONFIG.update(dotenv.dotenv_values(stream=f))
+
 
 for key, value in Schema.schema.items():
     val = os.getenv("MERGIFYENGINE_%s" % key)
@@ -98,6 +100,12 @@ for key, value in Schema.schema.items():
         CONFIG[key] = val
 
 globals().update(Schema(CONFIG))
+
+# NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
+# it in base64 format
+if not CONFIG["PRIVATE_KEY"].startswith("----"):
+    CONFIG["PRIVATE_KEY"] = base64.b64decode(CONFIG["PRIVATE_KEY"])
+    PRIVATE_KEY = CONFIG["PRIVATE_KEY"]
 
 
 def log():
