@@ -73,12 +73,6 @@ Schema = voluptuous.Schema({
     voluptuous.Required('CONTEXT', default='mergify'): str,
     voluptuous.Required('GIT_EMAIL', default='noreply@mergify.io'): str,
 
-    # Mergify v1
-    voluptuous.Required('TOPOLOGY', default={"localhost": 1}): {
-        str: voluptuous.Coerce(int)
-    },
-    voluptuous.Required('FETCH_WORKERS', default=5): int,
-
     # For test suite only (eg: tox -erecord)
     voluptuous.Required("INSTALLATION_ID",
                         default=499592): voluptuous.Coerce(int),

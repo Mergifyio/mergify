@@ -16,7 +16,6 @@ import copy
 import enum
 import fnmatch
 import functools
-import itertools
 import json
 from concurrent import futures
 
@@ -27,8 +26,6 @@ import daiquiri
 import github
 
 import tenacity
-
-import uhashring
 
 from mergify_engine import backports
 from mergify_engine import branch_protection
@@ -44,13 +41,6 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-RING = uhashring.HashRing(
-    nodes=list(itertools.chain.from_iterable(
-        map(lambda x: "worker-%003d@%s" % (x, fqdn), range(w))
-        for fqdn, w in sorted(config.TOPOLOGY.items())
-    )))
-
-
 @app.task
 def handle(installation_id, subscription,
            branch_rules, event_type, data, event_pull_raw):
@@ -58,7 +48,10 @@ def handle(installation_id, subscription,
     # sent to the same worker.
     # This work in coordination with app.conf.worker_direct = True that creates
     # a dedicated queue on exchange c.dq2 for each worker
-    routing_key = RING.get_node(data["repository"]["full_name"])
+    # This was using a hashring to route the traffic, but since the v1 is
+    # deprecated, just use one worker to handle the traffic.
+
+    routing_key = "mergify-engine-v1"
     LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
              routing_key)
     _handle.s(installation_id, subscription,
@@ -665,8 +658,7 @@ class Processor(Caching):
         """Return the pull requests from redis cache ordered by sort status."""
         data = self._redis.hgetall(self._get_cache_key(branch))
 
-        with futures.ThreadPoolExecutor(
-                max_workers=config.FETCH_WORKERS) as tpe:
+        with futures.ThreadPoolExecutor(max_workers=5) as tpe:
             pulls = sorted(tpe.map(
                 lambda p: self._load_from_cache_and_complete(
                     p, branch_rule, collaborators),
