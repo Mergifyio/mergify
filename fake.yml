@@ -1,24 +1,6 @@
 ---
-TOPOLOGY:
-  localhost: 1
-
-FETCH_WORKERS: 5
-LOG_RATELIMIT: false
-DEBUG: true
-FLUSH_REDIS_ON_STARTUP: false
-
-GITHUB_DOMAIN: github.com
-CONTEXT: mergify
-GIT_EMAIL: noreply@mergify.io
 INTEGRATION_ID: 11221
 BOT_USER_ID: 38500045
-
-BASE_URL: http://localhost:8802
-
-SUBSCRIPTION_URL: "http://localhost:5000/engine/installation/%s"
-REDIS_URL: "redis://localhost:6379"
-CELERY_BROKER_URL: "redis://localhost:6379/1"
-
 PRIVATE_KEY: |
     -----BEGIN RSA PRIVATE KEY-----
     MIICWwIBAAKBgQCO2r+k3bzX8bPjmhqfiCJW4L+HvwgmT+o3KoHFgkDuni7sJH+i
@@ -38,13 +20,4 @@ PRIVATE_KEY: |
 
 OAUTH_CLIENT_ID: X
 OAUTH_CLIENT_SECRET: X
-SENTRY_URL: null
 WEBHOOK_SECRET: X
-
-# For tox -erecord
-INSTALLATION_ID: 499592
-TESTING_ORGANIZATION: "mergifyio-testing"
-MAIN_TOKEN: "<MAIN_TOKEN>"
-FORK_TOKEN: "<FORK_TOKEN>"
-
-SENTRY_URL: null

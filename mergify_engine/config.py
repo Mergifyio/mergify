@@ -15,28 +15,105 @@
 # under the License.
 
 
+import distutils.util
 import os
 import re
 
 import daiquiri
+
+import voluptuous
 
 import yaml
 
 LOG = daiquiri.getLogger(__name__)
 
 
-with open(os.getenv("MERGIFYENGINE_SETTINGS", "fake.yml")) as f:
-    CONFIG = yaml.safe_load(f.read())
+# NOTE(sileht) we coerce bool and int in case their are loaded from environment
+def CoercedBool(value):
+    return bool(distutils.util.strtobool(str(value)))
 
-globals().update(CONFIG)
+
+def ComaSeparatedInt(value):
+    return list(map(int, str(value).split(",")))
+
+
+Schema = voluptuous.Schema({
+    # Logging
+    voluptuous.Required('DEBUG', default=True): CoercedBool,
+    voluptuous.Required('LOG_RATELIMIT', default=False): CoercedBool,
+    voluptuous.Required('SENTRY_URL',
+                        default=None): voluptuous.Any(None, str),
+
+    # Github mandatory
+    voluptuous.Required('INTEGRATION_ID'): voluptuous.Coerce(int),
+    voluptuous.Required('PRIVATE_KEY'): str,
+    voluptuous.Required('BOT_USER_ID'): voluptuous.Coerce(int),
+    voluptuous.Required('OAUTH_CLIENT_ID'): str,
+    voluptuous.Required('OAUTH_CLIENT_SECRET'): str,
+    voluptuous.Required('WEBHOOK_SECRET'): str,
+
+    # Github optional
+    voluptuous.Required('GITHUB_DOMAIN', default="github.com"): str,
+    voluptuous.Required('MARKETPLACE_FREE_PLAN_IDS',
+                        default=[]): voluptuous.Any(
+                            [int], ComaSeparatedInt),
+
+    # Mergify website for subscription
+    voluptuous.Required(
+        'SUBSCRIPTION_URL',
+        default="http://localhost:5000/engine/installation/%s"): str,
+
+
+    # Mergify
+    voluptuous.Required('BASE_URL', default='http://localhost:8802'): str,
+    voluptuous.Required('STORAGE_URL',
+                        default="redis://localhost:6379?db=8"): str,
+    voluptuous.Required('CELERY_BROKER_URL',
+                        default="redis://localhost:6379/9"): str,
+    voluptuous.Required('CONTEXT', default='mergify'): str,
+    voluptuous.Required('GIT_EMAIL', default='noreply@mergify.io'): str,
+
+    # Mergify v1
+    voluptuous.Required('TOPOLOGY', default={"localhost": 1}): {
+        str: voluptuous.Coerce(int)
+    },
+    voluptuous.Required('FETCH_WORKERS', default=5): int,
+
+    # For test suite only (eg: tox -erecord)
+    voluptuous.Required("INSTALLATION_ID",
+                        default=499592): voluptuous.Coerce(int),
+    voluptuous.Required('TESTING_ORGANIZATION',
+                        default="mergifyio-testing"): str,
+    voluptuous.Required("MAIN_TOKEN", default="<MAIN_TOKEN>"): str,
+    voluptuous.Required("FORK_TOKEN", default="<FORK_TOKEN>"): str,
+    voluptuous.Required("MAIN_TOKEN_DELETE", default="<unused>"): str,
+    voluptuous.Required("FORK_TOKEN_DELETE", default="<unused>"): str,
+})
+
+# NOTE(sileht): Load configuration from fil, then override it from env
+CONFIG = {}
+
+configuration_file = os.getenv("MERGIFYENGINE_SETTINGS")
+if configuration_file:
+    with open(configuration_file) as f:
+        CONFIG.update(yaml.safe_load(f.read()))
+
+for key, value in Schema.schema.items():
+    val = os.getenv("MERGIFYENGINE_%s" % key)
+    if val is not None:
+        CONFIG[key] = val
+
+globals().update(Schema(CONFIG))
 
 
 def log():
     LOG.info("##################### CONFIGURATION ######################")
-    for name, value in CONFIG.items():
+    for key, value in CONFIG.items():
+        name = str(key)
         if (name in ["PRIVATE_KEY", "WEBHOOK_SECRET", "OAUTH_CLIENT_ID",
-                     "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN"] and
-           value is not None):
+                     "OAUTH_CLIENT_SECRET", "MAIN_TOKEN", "FORK_TOKEN",
+                     "MAIN_TOKEN_DELETE", "FORK_TOKEN_DELETE"] and
+                value is not None):
             value = "*****"
         if "URL" in name and value is not None:
             value = re.sub(r'://[^@]*@', "://*****@", value)

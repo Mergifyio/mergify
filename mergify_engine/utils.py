@@ -19,7 +19,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import shutil
 import subprocess
 import sys
@@ -67,24 +66,11 @@ def prepare_service():  # pragma: no cover
     return get_sentry_client()
 
 
-def get_redis_url():
-    for envvar in ["PIFPAF_URL", "REDIS_URL",
-                   "REDISTOGO_URL", "REDISCLOUD_URL"]:
-        redis_url = os.getenv(envvar)
-        if redis_url:  # pragma: no cover
-            break
-    if not redis_url:  # pragma: no cover
-        redis_url = config.REDIS_URL
-    if not redis_url:  # pragma: no cover
-        raise RuntimeError("No redis url found in environments")
-    return redis_url
-
-
 def get_redis_for_cache():
     global REDIS_CONNECTION_CACHE
     if REDIS_CONNECTION_CACHE is None:
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
-            get_redis_url(), decode_responses=True)
+            config.STORAGE_URL, decode_responses=True)
     return REDIS_CONNECTION_CACHE
 
 
