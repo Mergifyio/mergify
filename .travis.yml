@@ -32,10 +32,7 @@ deploy:
       branch: master
       python: 3.5
   - provider: script
-    script:
-      - docker tag mergify-engine-dev mergifyio/engine:latest
-      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-      - docker push mergifyio/engine:latest
+    script: bash tools/deploy.sh.new
     on:
       branch: master
       python: 3.7
