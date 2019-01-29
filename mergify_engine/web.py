@@ -76,7 +76,7 @@ def config_converter():
     except Exception as e:
         flask.abort(400, str(e))
 
-    if "rules" not in data:
+    if not data or "rules" not in data:
         flask.abort(400, "file does not contains v1 configuration")
 
     new_config = yaml.dump({
