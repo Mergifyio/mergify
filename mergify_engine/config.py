@@ -85,15 +85,12 @@ Schema = voluptuous.Schema({
     voluptuous.Required("FORK_TOKEN_DELETE", default="<unused>"): str,
 })
 
-# NOTE(sileht): Load configuration from fil, then override it from env
-CONFIG = {}
 
-configuration_file = os.getenv("MERGIFYENGINE_SETTINGS")
+configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
-    with open(configuration_file) as f:
-        CONFIG.update(dotenv.dotenv_values(stream=f))
+    dotenv.load_dotenv(stream=configuration_file, override=True)
 
-
+CONFIG = {}
 for key, value in Schema.schema.items():
     val = os.getenv("MERGIFYENGINE_%s" % key)
     if val is not None:
