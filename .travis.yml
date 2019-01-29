@@ -7,8 +7,12 @@ matrix:
     - python: 3.7
       dist: xenial
       sudo: true
+      services:
+        - docker
 install: pip install tox-travis coveralls
-script: tox
+script:
+  - tox
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then docker build -t mergify-engine-dev . ; fi
 after_success:
   - if [[ $TRAVIS_PYTHON_VERSION == 3.5 ]]; then coveralls; fi
 
@@ -27,3 +31,11 @@ deploy:
     on:
       branch: master
       python: 3.5
+  - provider: script
+    script:
+      - docker tag mergify-engine-dev mergifyio/engine:latest
+      - docker push mergifyio/engine:latest
+    on:
+      branch: master
+      python: 3.7
+

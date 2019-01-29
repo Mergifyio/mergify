@@ -1,0 +1,40 @@
+version: "3"
+
+services:
+  wsgi:
+    image: mergify-engine-dev
+    build:
+      context: .
+
+  engine:
+    image: mergify-engine-dev
+    build:
+      context: .
+
+  engine-beat:
+    image: mergify-engine-dev
+    build:
+      context: .
+
+  engine-exporter:
+    image: mergify-engine-dev
+    build:
+      context: .
+
+  engine-legacy:
+    image: mergify-engine-dev
+    build:
+      context: .
+
+  testing-brige:
+    env_file: ${ENV}.env
+    image: mergify-engine-dev
+    build:
+      context: .
+    depends_on:
+      - storage
+      - celery
+    command: python3 -u /app/mergify_engine/tests/bridge.py
+    environment:
+      - MERGIFYENGINE_STORAGE_URL=redis://storage:6379
+      - MERGIFYENGINE_CELERY_BROKER_URL=redis://celery:6379
