@@ -44,24 +44,6 @@ LOG = daiquiri.getLogger(__name__)
 @app.task
 def handle(installation_id, subscription,
            branch_rules, event_type, data, event_pull_raw):
-    # NOTE(sileht): The processor is not concurrency safe, so a repo is always
-    # sent to the same worker.
-    # This work in coordination with app.conf.worker_direct = True that creates
-    # a dedicated queue on exchange c.dq2 for each worker
-    # This was using a hashring to route the traffic, but since the v1 is
-    # deprecated, just use one worker to handle the traffic.
-
-    routing_key = "mergify-engine-v1"
-    LOG.info("Sending repo %s to %s", data["repository"]["full_name"],
-             routing_key)
-    _handle.s(installation_id, subscription,
-              branch_rules, event_type, data, event_pull_raw
-              ).apply_async(exchange='C.dq2', routing_key=routing_key)
-
-
-@app.task
-def _handle(installation_id, subscription,
-            branch_rules, event_type, data, event_pull_raw):
     installation_token = utils.get_installation_token(installation_id)
     if not installation_token:
         return
