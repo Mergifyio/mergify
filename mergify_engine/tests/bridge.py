@@ -32,6 +32,7 @@ LOG = logging.getLogger(__name__)
 def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--clean', action='store_true')
+    parser.add_argument('--dest', default="http://localhost:8802/event")
 
     args = parser.parse_args()
 
@@ -67,7 +68,7 @@ def run():
                              "state", event['payload'].get("action")))
                 data = json.dumps(event['payload'])
                 hmac = utils.compute_hmac(data.encode("utf8"))
-                session.post("http://localhost:8802/event", headers={
+                session.post(args.dest, headers={
                     "X-GitHub-Event": event['type'],
                     "X-GitHub-Delivery": event['id'],
                     "X-Hub-Signature": "sha1=%s" % hmac,
