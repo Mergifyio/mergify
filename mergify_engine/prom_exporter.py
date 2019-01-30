@@ -162,8 +162,8 @@ def main():  # pragma: no cover
             else:
                 LOG.warning("fail to gather metrics: %s", str(e))
         except Exception:
-                LOG.error("Unexpected error during metrics gathering",
-                          exc_info=True)
+            LOG.error("Unexpected error during metrics gathering",
+                      exc_info=True)
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)

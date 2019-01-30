@@ -598,7 +598,7 @@ class MergifyEngine(Caching):
                 cache.pop("mergify_engine_reviews_ko", None)
             elif (event_type == "pull_request" and
                   data["action"] == "synchronize"):
-                    cache.pop("mergify_engine_required_statuses", None)
+                cache.pop("mergify_engine_required_statuses", None)
 
         changed = incoming_pull.complete(cache, branch_rule, collaborators)
         if changed:
