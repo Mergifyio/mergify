@@ -73,7 +73,7 @@ def run():
                     "X-GitHub-Delivery": event['id'],
                     "X-Hub-Signature": "sha1=%s" % hmac,
                     "Content-type": "application/json",
-                }, data=data)
+                }, data=data, verify=False)
         except Exception:
             LOG.error("event handling failure", exc_info=True)
         time.sleep(1)
