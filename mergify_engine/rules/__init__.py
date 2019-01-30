@@ -17,7 +17,6 @@
 
 import collections
 import copy
-import re
 
 import attr
 
@@ -40,43 +39,6 @@ default_rule = pkg_resources.resource_filename(__name__,
                                                "../data/default_rule.yml")
 with open(default_rule, "r") as f:
     DEFAULT_RULE = yaml.safe_load(f.read())
-
-
-Protection = {
-    'required_status_checks': voluptuous.Any(
-        None, {
-            voluptuous.Required('strict', default=False): bool,
-            voluptuous.Required('contexts', default=[]): [str],
-        }),
-    'required_pull_request_reviews': voluptuous.Any(
-        None, {
-            'dismiss_stale_reviews': bool,
-            'require_code_owner_reviews': bool,
-            'required_approving_review_count': voluptuous.All(
-                int, voluptuous.Range(min=1, max=6)),
-        }),
-    'restrictions': voluptuous.Any(None, {
-        voluptuous.Required('teams', default=[]): [str],
-        voluptuous.Required('users', default=[]): [str],
-    }),
-    'enforce_admins': voluptuous.Any(None, bool),
-}
-
-
-# TODO(sileht): We can add some otherthing like
-# automatic backport tag
-# option to disable mergify on a particular PR
-Rule = {
-    'protection': Protection,
-    'enabling_label': voluptuous.Any(None, str),
-    'disabling_label': str,
-    'disabling_files': [str],
-    'merge_strategy': {
-        "method": voluptuous.Any("rebase", "merge", "squash"),
-        "rebase_fallback": voluptuous.Any("merge", "squash", "none"),
-    },
-    'automated_backport_labels': voluptuous.Any({str: str}, None),
-}
 
 
 def PullRequestRuleCondition(value):
@@ -170,24 +132,10 @@ class PullRequestRules:
         return self.PullRequestRuleForPR(self.rules, pull_request)
 
 
-UserConfigurationSchemaV1 = {
-    voluptuous.Required('rules'): voluptuous.Any({
-        'default': voluptuous.Any(Rule, None),
-        'branches': {str: voluptuous.Any(Rule, None)},
-    }, None)
-}
-
-
 UserConfigurationSchemaV2 = voluptuous.Schema({
     voluptuous.Required("pull_request_rules"):
     voluptuous.Coerce(PullRequestRules),
 })
-
-UserConfigurationSchema = voluptuous.SomeOf(
-    min_valid=1, max_valid=1,
-    validators=(UserConfigurationSchemaV1,
-                UserConfigurationSchemaV2)
-)
 
 
 class NoRules(Exception):
@@ -204,16 +152,18 @@ def validate_user_config(content):
     # NOTE(sileht): This is just to check the syntax some attributes can be
     # missing, the important thing is that once merged with the default.
     # Everything need by Github is set
-    return voluptuous.Schema(UserConfigurationSchema)(
-        yaml.safe_load(content))
-
-
-def validate_merged_config(config):
-    # NOTE(sileht): To be sure the POST request to protect branch works
-    # we must have all keys set, so we set required=True here.
-    # Optional key in Github API side have to be explicitly Optional with
-    # voluptuous
-    return voluptuous.Schema(Rule, required=True)(config)
+    try:
+        return voluptuous.Schema(UserConfigurationSchemaV2)(
+            yaml.safe_load(content))
+    except yaml.YAMLError as e:
+        if hasattr(e, 'problem_mark'):
+            raise InvalidRules("position (%s:%s)" %
+                               (e.problem_mark.line + 1,
+                                e.problem_mark.column + 1))
+        else:  # pragma: no cover
+            raise InvalidRules(str(e))
+    except voluptuous.MultipleInvalid as e:
+        raise InvalidRules(str(e))
 
 
 def _dict_merge(dct, merge_dct):
@@ -223,7 +173,7 @@ def _dict_merge(dct, merge_dct):
     """
     for k, v in merge_dct.items():
         if (k in dct and isinstance(dct[k], dict) and
-           isinstance(merge_dct[k], collections.Mapping)):
+                isinstance(merge_dct[k], collections.Mapping)):
             _dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
@@ -243,54 +193,17 @@ def get_merged_branch_rule(rules, branch_re=None):
     return default_rules
 
 
-def build_branch_rule(rules, branch):
-    for branch_re in sorted(rules.get("branches", {})):
-        if ((branch_re[0] == "^" and re.match(branch_re, branch)) or
-           (branch_re[0] != "^" and branch_re == branch)):
-            if rules["branches"][branch_re] is None:
-                return None
-            return get_merged_branch_rule(rules, branch_re)
-
-    return get_merged_branch_rule(rules)
-
-
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
     try:
         content = repository.get_contents(
             ".mergify.yml", ref=ref).decoded_content
-    except github.GithubException as e:
+    except github.GithubException as e:  # pragma: no cover
         # NOTE(sileht): PyGithub is buggy here it should raise
         # UnknownObjectException. but depending of the error message
         # the convertion is not done and the generic exception is raise
         # so always catch the generic
-        if e.status != 404:  # pragma: no cover
+        if e.status != 404:
             raise
         raise NoRules()
-    try:
-        return validate_user_config(content) or {}
-    except yaml.YAMLError as e:
-        if hasattr(e, 'problem_mark'):
-            raise InvalidRules("position (%s:%s)" %
-                               (e.problem_mark.line + 1,
-                                e.problem_mark.column + 1))
-        else:  # pragma: no cover
-            raise InvalidRules(str(e))
-    except voluptuous.MultipleInvalid as e:
-        raise InvalidRules(str(e))
 
-
-def get_branch_rule(rules, branch):
-    if rules is None:
-        return None
-
-    rule = build_branch_rule(rules, branch)
-    if rule is None:
-        return None
-
-    try:
-        rule = validate_merged_config(rule)
-    except voluptuous.MultipleInvalid as e:  # pragma: no cover
-        raise InvalidRules(str(e))
-
-    LOG.info("Fetched branch rule", branch=branch, rule=rule)
-    return rule
+    return validate_user_config(content) or {}
