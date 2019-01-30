@@ -14,6 +14,6 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    examples
    badge
    faq
-   v1/index
+   v1
 
 Any question? You can reach `the support <mailto:support@mergify.io>`_ out.

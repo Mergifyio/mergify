@@ -19,11 +19,9 @@ import github
 
 import yaml
 
-from mergify_engine import branch_protection
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
-from mergify_engine.actions import merge
 from mergify_engine.tasks.engine import v2
 from mergify_engine.tests.functional import base
 
@@ -37,6 +35,13 @@ MERGE_EVENTS = [
     ("check_run", {"check_run": {"conclusion": "success"}}),
     ("check_suite", {"action": "requested"}),
 ]
+
+
+def run_smart_strict_workflow_periodic_task():
+    # NOTE(sileht): actions must not be loaded manually before the celery
+    # worker. Otherwise we have circular import loop.
+    from mergify_engine.actions import merge
+    merge.smart_strict_workflow_periodic_task.apply_async()
 
 
 class TestEngineV2Scenario(base.FunctionalTestBase):
@@ -67,7 +72,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        p, _ = self.create_pr(check="success")
+        p, _ = self.create_pr()
 
         self.add_label_and_push_events(p, "backport-3.1")
         self.push_events([
@@ -108,7 +113,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p1, _ = self.create_pr(check="success", base_repo="main")
+        p1, _ = self.create_pr(base_repo="main")
         p1.merge()
         self.push_events([
             ("check_suite", {"action": "requested"}),
@@ -116,7 +121,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("pull_request", {"action": "closed"}),
         ], ordered=False)
 
-        p2, _ = self.create_pr(check="success", base_repo="main")
+        p2, _ = self.create_pr(base_repo="main")
         p2.edit(state="close")
 
         self.push_events([
@@ -166,7 +171,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr(check="success")
+        p, _ = self.create_pr()
         self.add_label_and_push_events(p, "stable")
 
         pulls = list(self.r_main.get_pulls())
@@ -188,7 +193,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr(check="success")
+        p, _ = self.create_pr()
 
         self.push_events([
             ("issue_comment", {"action": "created"}),
@@ -222,7 +227,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr(check="success")
+        p, _ = self.create_pr()
 
         p.update()
         self.assertEqual("closed", p.state)
@@ -242,7 +247,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ]}
 
         self.setup_repo(yaml.dump(rules))
-        p, commits = self.create_pr(check="success")
+        p, commits = self.create_pr()
         branch = "fork/pr%d" % self.pr_counter
         self.create_review_and_push_event(p, commits[-1], "APPROVE")
 
@@ -331,8 +336,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        self.create_pr(check="success")
-        p2, commits = self.create_pr(check="success")
+        self.create_pr()
+        p2, commits = self.create_pr()
 
         self.add_label_and_push_events(p2, "backport-3.1")
         self.push_events([
@@ -373,6 +378,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(1, pulls[2].number)
         self.assertEqual(True, pulls[1].merged)
         self.assertEqual("closed", pulls[1].state)
+        self.assertEqual(True, pulls[0].merged)
+        self.assertEqual("closed", pulls[0].state)
 
         self.assertEqual([], [b.name for b in self.r_main.get_branches()
                               if b.name.startswith("mergify/bp")])
@@ -392,8 +399,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        p, _ = self.create_pr(check="success")
-        p2, commits = self.create_pr(check="success")
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
 
         p.merge()
         self.push_events([
@@ -458,8 +465,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        p, _ = self.create_pr(check="success")
-        p2, commits = self.create_pr(check="success")
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
 
         p.merge()
         self.push_events([
@@ -523,8 +530,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        p, _ = self.create_pr(check="success")
-        p2, commits = self.create_pr(check="success")
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
 
         p.merge()
         self.push_events([
@@ -549,7 +556,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ])
 
         # We can run celery beat inside tests, so run the task manually
-        merge.smart_strict_workflow_periodic_task.apply_async()
+        run_smart_strict_workflow_periodic_task()
 
         self.push_events([
             ("pull_request", {"action": "synchronize"}),
@@ -596,9 +603,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
 
-        p, _ = self.create_pr(check="success")
-        p2, commits = self.create_pr(check="success")
-        p3, commits = self.create_pr(check="success")
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
+        p3, commits = self.create_pr()
 
         p.merge()
         self.push_events([
@@ -619,7 +626,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ])
 
         # We can run celery beat inside tests, so run the task manually
-        merge.smart_strict_workflow_periodic_task.apply_async()
+        run_smart_strict_workflow_periodic_task()
 
         self.push_events([
             ("pull_request", {"action": "synchronize"}),
@@ -655,7 +662,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ], ordered=False)
 
         # Should got to the next PR
-        merge.smart_strict_workflow_periodic_task.apply_async()
+        run_smart_strict_workflow_periodic_task()
 
         self.push_events([
             ("pull_request", {"action": "synchronize"}),
@@ -706,7 +713,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, commits = self.create_pr(check="success")
+        p, commits = self.create_pr()
 
         pull = mergify_pull.MergifyPull.from_raw(config.INSTALLATION_ID,
                                                  config.MAIN_TOKEN, p.raw_data)
@@ -734,7 +741,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p2, commits = self.create_pr(check="success")
+        p2, commits = self.create_pr()
         self.create_status_and_push_event(p2)
         self.push_events([
             ("check_run", {"check_run": {"conclusion": "success"}}),
@@ -774,9 +781,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             }
         }
 
-        branch_protection.protect(self.r_main, "master", rule)
+        self.branch_protection_protect("master", rule)
 
-        p, _ = self.create_pr(check="success")
+        p, _ = self.create_pr()
 
         self.push_events([
             ("check_run", {"check_run": {"conclusion": "failure"}}),
@@ -815,12 +822,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             }
         }
 
-        p1, _ = self.create_pr(check="success")
-        p2, _ = self.create_pr(check="success")
+        p1, _ = self.create_pr()
+        p2, _ = self.create_pr()
 
         p1.merge()
 
-        branch_protection.protect(self.r_main, "master", rule)
+        self.branch_protection_protect("master", rule)
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
@@ -846,3 +853,81 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertIn("Branch protection setting 'strict' conflicts with "
                       "Mergify configuration",
                       checks[0].output['title'])
+
+    def _init_test_refresh(self):
+        rules = {'pull_request_rules': []}
+        self.setup_repo(yaml.dump(rules))
+        p1, commits1 = self.create_pr()
+        p2, commits2 = self.create_pr()
+
+        rules = {'pull_request_rules': [
+            {"name": "automerge",
+             "conditions": ["label!=wip"],
+             "actions": {"merge": {}}},
+        ]}
+
+        self.git("checkout", "master")
+        with open(self.git.tmp + "/.mergify.yml", "w") as f:
+            f.write(yaml.dump(rules))
+        self.git("add", ".mergify.yml")
+        self.git("commit", "--no-edit", "-m", "automerge everything")
+        self.git("push", "--quiet", "main", "master")
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(2, len(pulls))
+        return p1, p2
+
+    def test_refresh_pull(self):
+        p1, p2 = self._init_test_refresh()
+
+        self.app.post("/refresh/%s/pull/%s" % (
+            p1.base.repo.full_name, p1.number),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+
+        self.app.post("/refresh/%s/pull/%s" % (
+            p2.base.repo.full_name, p2.number),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_refresh_branch(self):
+        p1, p2 = self._init_test_refresh()
+
+        self.app.post("/refresh/%s/branch/master" % (
+            p1.base.repo.full_name),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_refresh_repo(self):
+        p1, p2 = self._init_test_refresh()
+
+        self.app.post("/refresh/%s/full" % (
+            p1.base.repo.full_name),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_refresh_all(self):
+        p1, p2 = self._init_test_refresh()
+
+        self.app.post("/refresh",
+                      headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
+        pulls = list(self.r_main.get_pulls())
+        self.assertEqual(0, len(pulls))
+
+    def test_change_mergify_yml(self):
+        rules = {'pull_request_rules': []}
+        self.setup_repo(yaml.dump(rules))
+        rules["pull_request_rules"].append(
+            {"name": "foobar",
+             "conditions": ["label!=wip"],
+             "actions": {"merge": {}}}
+        )
+        p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        checks = list(check_api.get_checks(p1))
+        assert len(checks) == 2
+        assert checks[0].name == ("Mergify — disabled due to configuration "
+                                  "change")
+        assert checks[1].name == "Mergify — future config checker"

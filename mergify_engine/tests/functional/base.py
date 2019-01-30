@@ -463,7 +463,7 @@ class FunctionalTestBase(testtools.TestCase):
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
-                  status="pending", check=None, base_repo="fork"):
+                  base_repo="fork"):
         self.pr_counter += 1
 
         branch = "%s/pr%d" % (base_repo, self.pr_counter)
@@ -508,11 +508,10 @@ class FunctionalTestBase(testtools.TestCase):
                 ("check_run", {"check_run": {"conclusion": "success"}}),
                 ("check_run", {"check_run": {"conclusion": "success"}}),
             ]
-        elif check:
+        else:
             if base_repo == "main":
                 expected_events += [
-                    ("check_suite", {"check_suite": {"conclusion":
-                                                     None}}),
+                    ("check_suite", {"check_suite": {"conclusion": None}}),
                 ]
             expected_events += [
                 ("check_suite", {"check_suite": {"conclusion": "success"}}),
@@ -521,8 +520,6 @@ class FunctionalTestBase(testtools.TestCase):
                 ("check_run", {"check_run": {"conclusion": "success",
                                              "status": "completed"}})
             ]
-        elif base != "disabled" and status:
-            expected_events += [("status", {"state": status})]
         self.push_events(expected_events, ordered=False)
 
         # NOTE(sileht): We return the same but owned by the main project
@@ -589,3 +586,20 @@ class FunctionalTestBase(testtools.TestCase):
                     ("check_suite", {'action': 'completed'}),
                 )
         self.push_events(expected_events, ordered=False)
+
+    def branch_protection_protect(self, branch, rule):
+        if self.r_main.organization and rule['protection'][
+                'required_pull_request_reviews']:
+            rule = copy.deepcopy(rule)
+            rule['protection']['required_pull_request_reviews'][
+                'dismissal_restrictions'] = {}
+
+        # NOTE(sileht): Not yet part of the API
+        # maybe soon https://github.com/PyGithub/PyGithub/pull/527
+        return self.r_main._requester.requestJsonAndCheck(
+            'PUT',
+            "{base_url}/branches/{branch}/protection".format(
+                base_url=self.r_main.url, branch=branch),
+            input=rule['protection'],
+            headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
+        )

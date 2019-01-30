@@ -17,8 +17,6 @@ import subprocess
 
 import daiquiri
 
-import github
-
 from mergify_engine import config
 from mergify_engine import utils
 
@@ -162,28 +160,3 @@ def backport(pull, branch, installation_token):
         base=branch.name,
         head=bp_branch,
     )
-
-
-def backport_from_labels(pull, labels_branches, installation_token):
-    if not labels_branches:
-        return
-
-    labels = (set(labels_branches) & set(l.name for l in pull.g_pull.labels))
-    for l in labels:
-        branch_name = labels_branches[l]
-        try:
-            branch = pull.g_pull.base.repo.get_branch(branch_name)
-        except github.GithubException as e:
-            # NOTE(sileht): PyGitHub is buggy here it should
-            # UnknownObjectException. but because the message is "Branch not
-            # found", instead of "Not found", we get the generic exception.
-            if e.status != 404:  # pragma: no cover
-                raise
-
-            LOG.info("branch doesn't exist for repository:",
-                     branch=branch_name,
-                     repository=pull.g_pull.base.repo.full_name,
-                     error=e.data["message"])
-            continue
-
-        backport(pull, branch, installation_token)

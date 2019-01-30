@@ -19,24 +19,13 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import rules
 from mergify_engine import utils
-from mergify_engine.tasks.engine import v1
 from mergify_engine.tasks.engine import v2
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_github_pull_from_sha(g, repo, installation_id, installation_token,
-                             sha):
-
-    # TODO(sileht): Replace this optimisation when we drop engine v1
-    pull = v1.Caching(repository=repo,
-                      installation_id=installation_id,
-                      installation_token=installation_token
-                      ).get_pr_for_sha(sha)
-    if pull:
-        return pull
-
+def get_github_pull_from_sha(g, repo, sha):
     issues = list(g.search_issues("repo:%s is:pr is:open %s" %
                                   (repo.full_name, sha)))
     if not issues:
@@ -54,15 +43,13 @@ def get_github_pull_from_sha(g, repo, installation_id, installation_token,
             return pull
 
 
-def get_github_pull_from_event(g, repo, installation_id, installation_token,
-                               event_type, data):
+def get_github_pull_from_event(g, repo, event_type, data):
     if "pull_request" in data:
         return github.PullRequest.PullRequest(
             repo._requester, {}, data["pull_request"], completed=True
         )
     elif event_type == "status":
-        return get_github_pull_from_sha(g, repo, installation_id,
-                                        installation_token, data["sha"])
+        return get_github_pull_from_sha(g, repo, data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
@@ -72,25 +59,16 @@ def get_github_pull_from_event(g, repo, installation_id, installation_token,
             pulls = data["check_suite"]["pull_requests"]
             sha = data["check_suite"]["head_sha"]
         if not pulls:
-            return get_github_pull_from_sha(g, repo, installation_id,
-                                            installation_token, sha)
+            return get_github_pull_from_sha(g, repo, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning("check_suite/check_run attached on multiple pulls")
 
         for p in pulls:
-
-            pull = v1.Caching(repository=repo,
-                              installation_id=installation_id,
-                              installation_token=installation_token
-                              ).get_pr_for_pull_number(
-                                  p["base"]["ref"],
-                                  p["number"])
-            if not pull:
-                try:
-                    pull = repo.get_pull(p["number"])
-                except github.UnknownObjectException:  # pragma: no cover
-                    pass
+            try:
+                pull = repo.get_pull(p["number"])
+            except github.UnknownObjectException:  # pragma: no cover
+                pass
 
             if pull and not pull.merged:
                 return pull
@@ -126,7 +104,7 @@ def create_metrics(event_type, data):
             pull_request_merged_by_mergify.apply_async()
 
 
-def check_configuration_changes(event_type, data, event_pull):
+def check_configuration_changes(event_pull):
     if event_pull.base.repo.default_branch == event_pull.base.ref:
         ref = None
         for f in event_pull.get_files():
@@ -135,11 +113,7 @@ def check_configuration_changes(event_type, data, event_pull):
 
         if ref is not None:
             try:
-                mergify_config = rules.get_mergify_config(
-                    event_pull.base.repo, ref=ref)
-                if "rules" in mergify_config:
-                    rules.get_branch_rule(mergify_config['rules'],
-                                          event_pull.base.ref)
+                rules.get_mergify_config(event_pull.base.repo, ref=ref)
             except rules.InvalidRules as e:  # pragma: no cover
                 # Not configured, post status check with the error message
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
@@ -189,9 +163,7 @@ def run(event_type, data, subscription):
         repo = g.get_repo(data["repository"]["owner"]["login"] + "/" +
                           data["repository"]["name"])
 
-        event_pull = get_github_pull_from_event(g, repo, installation_id,
-                                                installation_token,
-                                                event_type, data)
+        event_pull = get_github_pull_from_event(g, repo, event_type, data)
 
         if not event_pull:  # pragma: no cover
             LOG.info("No pull request found in the event %s, "
@@ -234,7 +206,7 @@ def run(event_type, data, subscription):
                      pull_request=event_pull)
             return
 
-        if check_configuration_changes(event_type, data, event_pull):
+        if check_configuration_changes(event_pull):
             LOG.info("Configuration changed, ignoring",
                      repo=repo.full_name,
                      pull_request=event_pull)
@@ -262,24 +234,11 @@ def run(event_type, data, subscription):
 
         create_metrics(event_type, data)
 
-        # NOTE(sileht): At some point we may need to reget the
-        # installation_token within each next tasks, in case we reach the
-        # expiration
-        if "rules" in mergify_config:
-            v1.handle.s(installation_id, subscription,
-                        mergify_config["rules"], event_type, data,
-                        event_pull.raw_data).apply_async()
-
-        elif "pull_request_rules" in mergify_config:
-            v2.handle.s(
-                installation_id, subscription,
-                mergify_config["pull_request_rules"].as_dict(),
-                event_type, data, event_pull.raw_data
-            ).apply_async()
-
-        else:  # pragma: no cover
-            raise RuntimeError("Unexpected configuration version")
-
+        v2.handle.s(
+            installation_id, subscription,
+            mergify_config["pull_request_rules"].as_dict(),
+            event_type, data, event_pull.raw_data
+        ).apply_async()
     except github.BadCredentialsException:  # pragma: no cover
         LOG.error("token for install %d is no longuer valid (%s)",
                   data["installation"]["id"],
