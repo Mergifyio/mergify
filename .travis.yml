@@ -2,8 +2,6 @@ sudo: false
 language: python
 matrix:
   include:
-    - python: 3.5
-    - python: 3.6
     - python: 3.7
       dist: xenial
       sudo: true
@@ -12,9 +10,9 @@ matrix:
 install: pip install tox-travis coveralls
 script:
   - tox
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then docker build -t mergify-engine-dev . ; fi
+  - docker build -t mergify-engine-dev .
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.5 ]]; then coveralls; fi
+  - coveralls
 
 deploy:
   - provider: pages
@@ -25,14 +23,9 @@ deploy:
     fqdn: doc.mergify.io
     on:
       branch: master
-      python: 3.5
+      python: 3.7
   - provider: script
-    script: bash tools/deploy.sh production
-    on:
-      branch: master
-      python: 3.5
-  - provider: script
-    script: bash tools/deploy.sh.new
+    script: bash tools/deploy.sh
     on:
       branch: master
       python: 3.7
