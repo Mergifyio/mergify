@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 error() {
     echo "$1 unset, exiting"
     exit 1
@@ -21,7 +23,7 @@ docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 docker push mergifyio/engine:latest
 
 ssh $PRODUCTION_HOST -p $PRODUCTION_PORT bash -c "
-set -ex;
+set -euxo pipefail;
 cd mergify-engine-docker;
 ENV=prod docker-compose -f docker-compose.yaml pull engine;
 ENV=prod docker-compose -f docker-compose.yaml up -d;
