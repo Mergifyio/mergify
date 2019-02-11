@@ -68,7 +68,7 @@ def get_github_pull_from_event(g, repo, event_type, data):
             try:
                 pull = repo.get_pull(p["number"])
             except github.UnknownObjectException:  # pragma: no cover
-                pass
+                continue
 
             if pull and not pull.merged:
                 return pull
