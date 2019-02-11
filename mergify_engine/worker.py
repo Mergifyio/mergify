@@ -35,10 +35,6 @@ app.conf.broker_url = config.CELERY_BROKER_URL
 # Enable some monitoring stuffs
 app.conf.worker_send_task_events = True
 
-# NOTE(sileht) names the v1 engine queue, so we can run tasks into one
-# worker/one thread.
-app.conf.task_routes = {'tasks.engine.v1.*': {'queue': 'legacy-engine-v1'}}
-
 
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
