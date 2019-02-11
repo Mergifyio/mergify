@@ -35,6 +35,10 @@ app.conf.broker_url = config.CELERY_BROKER_URL
 # Enable some monitoring stuffs
 app.conf.worker_send_task_events = True
 
+app.conf.task_routes = ([
+    ('mergify_engine.tasks.*', {'queue': 'mergify'})
+],)
+
 
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
