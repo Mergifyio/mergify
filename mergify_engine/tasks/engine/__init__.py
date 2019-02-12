@@ -26,8 +26,13 @@ LOG = daiquiri.getLogger(__name__)
 
 
 def get_github_pull_from_sha(g, repo, sha):
-    issues = list(g.search_issues("repo:%s is:pr is:open %s" %
-                                  (repo.full_name, sha)))
+    try:
+        issues = list(g.search_issues("repo:%s is:pr is:open %s" %
+                                      (repo.full_name, sha)))
+    except github.GithubException:  # pragma: no cover
+        LOG.warning("search 'repo:%s is:pr is:open %s' failed with "
+                    "permissions issue", repo.full_name, sha)
+        raise
     if not issues:
         return
     if len(issues) > 1:  # pragma: no cover
