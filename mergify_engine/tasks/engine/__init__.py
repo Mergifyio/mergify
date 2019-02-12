@@ -25,36 +25,19 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_github_pull_from_sha(g, repo, sha):
-    try:
-        issues = list(g.search_issues("repo:%s is:pr is:open %s" %
-                                      (repo.full_name, sha)))
-    except github.GithubException:  # pragma: no cover
-        LOG.warning("search 'repo:%s is:pr is:open %s' failed with "
-                    "permissions issue", repo.full_name, sha)
-        raise
-    if not issues:
-        return
-    if len(issues) > 1:  # pragma: no cover
-        # NOTE(sileht): It's that technically possible, but really ?
-        LOG.warning("sha attached to multiple pull requests", sha=sha)
-    for i in issues:
-        try:
-            pull = repo.get_pull(i.number)
-        except github.GithubException as e:  # pragma: no cover
-            if e.status != 404:
-                raise
-        if pull and not pull.merged:
+def get_github_pull_from_sha(repo, sha):
+    for pull in repo.get_pulls():
+        if pull.head.sha == sha:
             return pull
 
 
-def get_github_pull_from_event(g, repo, event_type, data):
+def get_github_pull_from_event(repo, event_type, data):
     if "pull_request" in data:
         return github.PullRequest.PullRequest(
             repo._requester, {}, data["pull_request"], completed=True
         )
     elif event_type == "status":
-        return get_github_pull_from_sha(g, repo, data["sha"])
+        return get_github_pull_from_sha(repo, data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
@@ -64,7 +47,7 @@ def get_github_pull_from_event(g, repo, event_type, data):
             pulls = data["check_suite"]["pull_requests"]
             sha = data["check_suite"]["head_sha"]
         if not pulls:
-            return get_github_pull_from_sha(g, repo, sha)
+            return get_github_pull_from_sha(repo, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning("check_suite/check_run attached on multiple pulls")
@@ -168,7 +151,7 @@ def run(event_type, data, subscription):
         repo = g.get_repo(data["repository"]["owner"]["login"] + "/" +
                           data["repository"]["name"])
 
-        event_pull = get_github_pull_from_event(g, repo, event_type, data)
+        event_pull = get_github_pull_from_event(repo, event_type, data)
 
         if not event_pull:  # pragma: no cover
             LOG.info("No pull request found in the event %s, "
