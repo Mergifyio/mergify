@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -18,7 +16,6 @@ import pprint
 
 import github
 
-from mergify_engine import branch_protection
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
@@ -48,9 +45,6 @@ def report(url):
     print("* INSTALLATION ID: %s" % install_id)
     print("* CONFIGURATION:")
     print(r.get_contents(".mergify.yml").decoded_content.decode())
-
-    print("* BRANCH PROTECTION:")
-    pprint.pprint(branch_protection.get_protection(r, p.base.ref), width=160)
 
     mp = mergify_pull.MergifyPull(g, p, install_id)
     print("* PULL REQUEST:")
