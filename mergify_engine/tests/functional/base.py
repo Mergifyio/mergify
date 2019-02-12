@@ -218,27 +218,31 @@ class FunctionalTestBase(testtools.TestCase):
         self.installation_token = integration.get_access_token(
             config.INSTALLATION_ID).token
 
-        self.g_org = github.Github(
+        self.g_integration = github.Github(
             self.installation_token,
             base_url="https://api.%s" % config.GITHUB_DOMAIN)
-        self.g_reviewer = github.Github(
+        self.g_admin = github.Github(
             config.MAIN_TOKEN,
             base_url="https://api.%s" % config.GITHUB_DOMAIN)
         self.g_fork = github.Github(
             config.FORK_TOKEN,
             base_url="https://api.%s" % config.GITHUB_DOMAIN)
 
-        self.u_main = self.g_org.get_organization(config.TESTING_ORGANIZATION)
+        self.o_admin = self.g_admin.get_organization(
+            config.TESTING_ORGANIZATION)
+        self.o_integration = self.g_integration.get_organization(
+            config.TESTING_ORGANIZATION)
         self.u_fork = self.g_fork.get_user()
-        assert self.u_main.login == "mergifyio-testing"
+        assert self.o_admin.login == "mergifyio-testing"
+        assert self.o_integration.login == "mergifyio-testing"
         assert self.u_fork.login == "mergify-test2"
 
-        self.r_main = self.u_main.create_repo(self.name)
-        self.r_reviewer = self.g_reviewer.get_repo(self.r_main.full_name)
+        self.r_o_admin = self.o_admin.create_repo(self.name)
+        self.r_o_integration = self.o_integration.get_repo(self.name)
         self.url_main = "https://%s/%s" % (
-            config.GITHUB_DOMAIN, self.r_main.full_name)
+            config.GITHUB_DOMAIN, self.r_o_integration.full_name)
         self.url_fork = "https://%s/%s/%s" % (
-            config.GITHUB_DOMAIN, self.u_fork.login, self.r_main.name)
+            config.GITHUB_DOMAIN, self.u_fork.login, self.r_o_integration.name)
 
         # Limit installations/subscription API to the test account
         install = {
@@ -269,10 +273,10 @@ class FunctionalTestBase(testtools.TestCase):
 
         self.useFixture(fixtures.MockPatch(
             "github.MainClass.Installation.Installation.get_repos",
-            return_value=[self.r_main]))
+            return_value=[self.r_o_integration]))
 
     def tearDown(self):
-        # self.r_main.delete()
+        # self.r_o_admin.delete()
         super(FunctionalTestBase, self).tearDown()
 
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
@@ -288,9 +292,10 @@ class FunctionalTestBase(testtools.TestCase):
     def setup_repo(self, mergify_config, test_branches=[]):
         self.git("init")
         self.git.configure()
-        self.git.add_cred(config.MAIN_TOKEN, "", self.r_main.full_name)
+        self.git.add_cred(config.MAIN_TOKEN, "",
+                          self.r_o_integration.full_name)
         self.git.add_cred(config.FORK_TOKEN, "", "%s/%s" %
-                          (self.u_fork.login, self.r_main.name))
+                          (self.u_fork.login, self.r_o_integration.name))
         self.git("config", "user.name", "%s-tester" % config.CONTEXT)
         self.git("remote", "add", "main", self.url_main)
         self.git("remote", "add", "fork", self.url_fork)
@@ -305,7 +310,7 @@ class FunctionalTestBase(testtools.TestCase):
 
         self.git("push", "--quiet", "main", "master", *test_branches)
 
-        self.r_fork = self.u_fork.create_fork(self.r_main)
+        self.r_fork = self.u_fork.create_fork(self.r_o_integration)
         self.git("fetch", "--quiet", "fork")
 
         # NOTE(sileht): Github looks buggy here:
@@ -491,8 +496,8 @@ class FunctionalTestBase(testtools.TestCase):
             repo = self.r_fork.parent
             login = self.r_fork.owner.login
         else:
-            repo = self.r_main
-            login = self.r_main.owner.login
+            repo = self.r_o_admin
+            login = self.r_o_admin.owner.login
 
         p = repo.create_pull(
             base=base,
@@ -523,7 +528,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.push_events(expected_events, ordered=False)
 
         # NOTE(sileht): We return the same but owned by the main project
-        p = self.r_main.get_pull(p.number)
+        p = self.r_o_integration.get_pull(p.number)
         commits = list(p.get_commits())
 
         return p, commits
@@ -537,7 +542,7 @@ class FunctionalTestBase(testtools.TestCase):
     def create_status(self, pr, context='continuous-integration/fake-ci',
                       state='success'):
         # TODO(sileht): monkey patch PR with this
-        self.r_main._requester.requestJsonAndCheck(
+        self.r_o_admin._requester.requestJsonAndCheck(
             "POST",
             pr.base.repo.url + "/statuses/" + pr.head.sha,
             input={'state': state,
@@ -548,13 +553,13 @@ class FunctionalTestBase(testtools.TestCase):
         )
 
     def create_review_and_push_event(self, pr, commit, event="APPROVE"):
-        pr_review = self.r_reviewer.get_pull(pr.number)
+        pr_review = self.r_o_admin.get_pull(pr.number)
         r = pr_review.create_review(commit, "Perfect", event=event)
         self.push_events([("pull_request_review", {"action": "submitted"})])
         return r
 
     def add_label_and_push_events(self, pr, label, additional_checks=[]):
-        self.r_main.create_label(label, "000000")
+        self.r_o_admin.create_label(label, "000000")
         pr.add_to_labels(label)
         events = [("pull_request", {"action": "labeled"})]
         events.extend(additional_checks)
@@ -588,7 +593,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.push_events(expected_events, ordered=False)
 
     def branch_protection_protect(self, branch, rule):
-        if self.r_main.organization and rule['protection'][
+        if self.r_o_admin.organization and rule['protection'][
                 'required_pull_request_reviews']:
             rule = copy.deepcopy(rule)
             rule['protection']['required_pull_request_reviews'][
@@ -596,10 +601,10 @@ class FunctionalTestBase(testtools.TestCase):
 
         # NOTE(sileht): Not yet part of the API
         # maybe soon https://github.com/PyGithub/PyGithub/pull/527
-        return self.r_main._requester.requestJsonAndCheck(
+        return self.r_o_admin._requester.requestJsonAndCheck(
             'PUT',
             "{base_url}/branches/{branch}/protection".format(
-                base_url=self.r_main.url, branch=branch),
+                base_url=self.r_o_admin.url, branch=branch),
             input=rule['protection'],
             headers={'Accept': 'application/vnd.github.luke-cage-preview+json'}
         )

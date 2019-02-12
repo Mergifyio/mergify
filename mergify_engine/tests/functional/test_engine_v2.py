@@ -143,12 +143,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
         ], ordered=False)
 
-        pulls = list(self.r_main.get_pulls(state="all"))
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(2, len(pulls))
 
         for b in ("main/pr1", "main/pr2"):
             try:
-                self.r_main.get_branch(b)
+                self.r_o_admin.get_branch(b)
             except github.GithubException as e:
                 if e.status == 404:
                     continue
@@ -174,7 +174,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, _ = self.create_pr()
         self.add_label_and_push_events(p, "stable")
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual(sorted(["unstable", "foobar"]),
                          sorted([l.name for l in pulls[0].labels]))
@@ -196,7 +196,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, _ = self.create_pr()
 
         self.push_events([
-            ("issue_comment", {"action": "created"}),
             ("check_run", {"action": "completed"}),
             ("check_run", {"action": "created"}),
         ])
@@ -371,7 +370,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        pulls = list(self.r_main.get_pulls(state="all"))
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(3, len(pulls))
         self.assertEqual(3, pulls[0].number)
         self.assertEqual(2, pulls[1].number)
@@ -381,7 +380,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(True, pulls[0].merged)
         self.assertEqual("closed", pulls[0].state)
 
-        self.assertEqual([], [b.name for b in self.r_main.get_branches()
+        self.assertEqual([], [b.name for b in self.r_o_admin.get_branches()
                               if b.name.startswith("mergify/bp")])
 
     def test_merge_strict_rebase(self):
@@ -408,7 +407,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ])
 
-        previous_master_sha = self.r_main.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
         self.push_events([
@@ -428,7 +427,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
-        p2 = self.r_main.get_pull(p2.number)
+        p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
 
         self.assertEquals(1, len(commits2))
@@ -445,10 +444,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        master_sha = self.r_main.get_commits()[0].sha
+        master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_merge_strict(self):
@@ -474,7 +473,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ])
 
-        previous_master_sha = self.r_main.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
         self.push_events([
@@ -494,7 +493,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
-        p2 = self.r_main.get_pull(p2.number)
+        p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
 
         # Check master have been merged into the PR
@@ -510,10 +509,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        master_sha = self.r_main.get_commits()[0].sha
+        master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_merge_smart_strict(self):
@@ -539,7 +538,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ])
 
-        previous_master_sha = self.r_main.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
         self.push_events([
@@ -568,7 +567,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
-        p2 = self.r_main.get_pull(p2.number)
+        p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
 
         # Check master have been merged into the PR
@@ -584,10 +583,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        master_sha = self.r_main.get_commits()[0].sha
+        master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_merge_failure_smart_strict(self):
@@ -613,7 +612,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ])
 
-        previous_master_sha = self.r_main.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
         self.push_events([
@@ -647,7 +646,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
-        p2 = self.r_main.get_pull(p2.number)
+        p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
         self.assertIn("Merge branch 'master' into 'fork/pr2'",
                       commits2[-1].commit.message)
@@ -674,7 +673,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
-        p3 = self.r_main.get_pull(p3.number)
+        p3 = self.r_o_admin.get_pull(p3.number)
         commits3 = list(p3.get_commits())
         self.assertIn("Merge branch 'master' into 'fork/pr",
                       commits3[-1].commit.message)
@@ -693,10 +692,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_suite", {"action": "requested"}),
         ])
 
-        master_sha = self.r_main.get_commits()[0].sha
+        master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
 
     def test_teams(self):
@@ -750,7 +749,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events(MERGE_EVENTS, ordered=False)
 
-        pulls = list(self.r_main.get_pulls(state="all"))
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
         self.assertEqual(1, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
@@ -873,7 +872,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.git("commit", "--no-edit", "-m", "automerge everything")
         self.git("push", "--quiet", "main", "master")
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(2, len(pulls))
         return p1, p2
 
@@ -888,7 +887,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
 
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_refresh_branch(self):
@@ -897,7 +896,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.app.post("/refresh/%s/branch/master" % (
             p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_refresh_repo(self):
@@ -906,7 +905,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.app.post("/refresh/%s/full" % (
             p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_refresh_all(self):
@@ -914,7 +913,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.app.post("/refresh",
                       headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
-        pulls = list(self.r_main.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
     def test_change_mergify_yml(self):
