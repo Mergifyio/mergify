@@ -39,6 +39,7 @@ from mergify_engine import backports
 from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
@@ -196,7 +197,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.redis.flushall()
         self.subscription = {"token": config.MAIN_TOKEN, "subscribed": False}
         self.redis.set("subscription-cache-%s" % config.INSTALLATION_ID,
-                       json.dumps(self.subscription))
+                       sub_utils._encrypt(self.subscription))
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -255,7 +256,7 @@ class FunctionalTestBase(testtools.TestCase):
             'mergify_engine.utils.get_installations',
             lambda integration: [install]))
 
-        real_get_subscription = utils.get_subscription
+        real_get_subscription = sub_utils.get_subscription
 
         def fake_subscription(r, install_id):
             if int(install_id) == config.INSTALLATION_ID:
@@ -264,11 +265,11 @@ class FunctionalTestBase(testtools.TestCase):
                 return {"token": None, "subscribed": False}
 
         self.useFixture(fixtures.MockPatch(
-            "mergify_engine.actions.merge.utils.get_subscription",
+            "mergify_engine.actions.merge.sub_utils.get_subscription",
             side_effect=fake_subscription))
 
         self.useFixture(fixtures.MockPatch(
-            "mergify_engine.web.utils.get_subscription",
+            "mergify_engine.sub_utils.get_subscription",
             side_effect=fake_subscription))
 
         self.useFixture(fixtures.MockPatch(

@@ -17,7 +17,6 @@
 import datetime
 import hashlib
 import hmac
-import json
 import logging
 import shutil
 import subprocess
@@ -154,35 +153,6 @@ def get_installation_id(integration, owner):
     for install in installations:
         if install["account"]["login"].lower() == owner.lower():
             return install["id"]
-
-
-def get_subscription(r, installation_id):
-    sub = r.get("subscription-cache-%s" % installation_id)
-    if not sub:  # pragma: no cover
-        LOG.debug("Subscription not cached, retrieving it...",
-                  install_id=installation_id)
-        resp = requests.get(config.SUBSCRIPTION_URL %
-                            installation_id,
-                            auth=(config.OAUTH_CLIENT_ID,
-                                  config.OAUTH_CLIENT_SECRET))
-        if resp.status_code == 404:
-            sub = {
-                "token": None,
-                "subscribed": False
-            }
-        elif resp.status_code == 200:
-            sub = resp.json()
-            sub["subscribed"] = sub["subscription"] is not None
-            sub["token"] = sub["token"]["access_token"]
-            del sub["subscription"]
-        else:  # pragma: no cover
-            # NOTE(sileht): handle this better
-            resp.raise_for_status()
-        r.set("subscription-cache-%s" % installation_id, json.dumps(sub),
-              ex=3600)
-    else:
-        sub = json.loads(sub)
-    return sub
 
 
 def get_installation_token(installation_id):

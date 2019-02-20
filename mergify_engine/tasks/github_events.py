@@ -19,6 +19,7 @@ import github
 
 
 from mergify_engine import config
+from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks import engine
 from mergify_engine.worker import app
@@ -69,8 +70,8 @@ def job_refresh(owner, repo, refresh_ref):
             return
         pulls = [r.get_pull(pull_number)]
 
-    subscription = utils.get_subscription(utils.get_redis_for_cache(),
-                                          installation_id)
+    subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
+                                              installation_id)
 
     if r.archived:  # pragma: no cover
         LOG.warning("%s/%s/%s: repository archived",
@@ -110,8 +111,8 @@ def job_refresh_all():
                           base_url="https://api.%s" % config.GITHUB_DOMAIN)
         i = g.get_installation(install["id"])
 
-        subscription = utils.get_subscription(utils.get_redis_for_cache(),
-                                              install["id"])
+        subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
+                                                  install["id"])
         if not subscription["token"]:  # pragma: no cover
             continue
 
@@ -144,7 +145,7 @@ def job_refresh_all():
 
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
-    subscription = utils.get_subscription(
+    subscription = sub_utils.get_subscription(
         utils.get_redis_for_cache(), data["installation"]["id"])
 
     if not subscription["token"]:
