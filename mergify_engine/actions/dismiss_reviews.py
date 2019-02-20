@@ -34,7 +34,7 @@ class DismissReviewsAction(actions.Action):
         voluptuous.Any(True, False, [str])
     }
 
-    def run(self, installation_id, installation_token, subscription,
+    def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         if (event_type == "pull_request" and data["action"] == "synchronize"):
             # FIXME(sileht): Currently sender id is not the bot by the admin

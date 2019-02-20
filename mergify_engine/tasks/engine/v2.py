@@ -81,12 +81,12 @@ def post_summary(pull, match, checks):
 
 
 def exec_action(method_name, rule, action,
-                installation_id, installation_token, subscription,
+                installation_id, installation_token,
                 event_type, data, pull, missing_conditions):
     try:
         method = getattr(rule['actions'][action], method_name)
         return method(
-            installation_id, installation_token, subscription,
+            installation_id, installation_token,
             event_type, data, pull, missing_conditions)
     except Exception:  # pragma: no cover
         LOG.error("action failed", action=action, rule=rule,
@@ -96,7 +96,7 @@ def exec_action(method_name, rule, action,
         return "failure", "action '%s' have failed" % action, " "
 
 
-def run_actions(installation_id, installation_token, subscription,
+def run_actions(installation_id, installation_token,
                 event_type, data, pull, match, checks):
 
     # Run actions
@@ -132,7 +132,7 @@ def run_actions(installation_id, installation_token, subscription,
 
             report = exec_action(
                 method_name, rule, action,
-                installation_id, installation_token, subscription,
+                installation_id, installation_token,
                 event_type, data, pull, missing_conditions
             )
 
@@ -151,8 +151,8 @@ def run_actions(installation_id, installation_token, subscription,
 
 
 @app.task
-def handle(installation_id, subscription,
-           pull_request_rules_raw, event_type, data, pull_raw):
+def handle(installation_id, pull_request_rules_raw, event_type, data,
+           pull_raw):
 
     installation_token = utils.get_installation_token(installation_id)
     if not installation_token:
@@ -172,5 +172,5 @@ def handle(installation_id, subscription,
 
     post_summary(pull, match, checks)
 
-    run_actions(installation_id, installation_token, subscription,
+    run_actions(installation_id, installation_token,
                 event_type, data, pull, match, checks)

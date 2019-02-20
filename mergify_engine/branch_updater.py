@@ -17,12 +17,13 @@
 import daiquiri
 
 from mergify_engine import config
+from mergify_engine import sub_utils
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
 
 
-def update(pull, token, method="merge"):
+def update(pull, installation_id, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -36,12 +37,21 @@ def update(pull, token, method="merge"):
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
 
+    redis = utils.get_redis_for_cache()
+
+    subscription = sub_utils.get_subscription(redis, installation_id)
+
+    if not subscription:
+        LOG.error("subscription to update branch is missing")
+        return
+
+    token = subscription["token"]
+
     head_repo = pull.g_pull.head.repo.full_name
     base_repo = pull.g_pull.base.repo.full_name
 
     head_branch = pull.g_pull.head.ref
     base_branch = pull.g_pull.base.ref
-
     git = utils.Gitter()
     try:
         git("init")

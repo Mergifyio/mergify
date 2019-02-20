@@ -29,7 +29,7 @@ class DeleteHeadBranchAction(actions.Action):
     validator = voluptuous.Any({}, None)
 
     @staticmethod
-    def run(installation_id, installation_token, subscription,
+    def run(installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
             return
@@ -51,6 +51,6 @@ class DeleteHeadBranchAction(actions.Action):
                 "Branch `%s` will be deleted once the pull request is closed" %
                 pull.g_pull.head.ref, "")
 
-    def cancel(self, installation_id, installation_token, subscription,
+    def cancel(self, installation_id, installation_token,
                event_type, data, pull, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report

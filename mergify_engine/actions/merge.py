@@ -25,7 +25,6 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
-from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.worker import app
 
@@ -87,7 +86,7 @@ class MergeAction(actions.Action):
         voluptuous.Any("rebase", "merge")
     }
 
-    def run(self, installation_id, installation_token, subscription,
+    def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         LOG.debug("process merge", config=self.config, pull_request=pull)
 
@@ -114,8 +113,8 @@ class MergeAction(actions.Action):
                         "The pull request base branch will "
                         "be updated soon, and then merged.")
             else:
-                return update_pull_base_branch(pull, subscription,
-                                               self.config["strict_method"])
+                return update_pull_base_branch(
+                    pull, installation_id, self.config["strict_method"])
         else:
 
             if self.config["strict"] == "smart":
@@ -132,7 +131,7 @@ class MergeAction(actions.Action):
                 return ("action_required", "Automatic rebasing is not "
                         "possible, manual intervention required", "")
 
-    def cancel(self, installation_id, installation_token, subscription,
+    def cancel(self, installation_id, installation_token,
                event_type, data, pull, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
@@ -233,8 +232,8 @@ def _get_update_method_cache_key(pull):
     )
 
 
-def update_pull_base_branch(pull, subscription, method):
-    updated = branch_updater.update(pull, subscription["token"], method)
+def update_pull_base_branch(pull, installation_id, method):
+    updated = branch_updater.update(pull, installation_id, method)
     if updated:
         redis = utils.get_redis_for_cache()
         # NOTE(sileht): We store this for dismissal action
@@ -260,7 +259,7 @@ def update_pull_base_branch(pull, subscription, method):
             return ("failure", "Base branch update has failed", "")
 
 
-def update_next_pull(installation_id, installation_token, subscription,
+def update_next_pull(installation_id, installation_token,
                      owner, reponame, branch, key, cur_key):
     redis = utils.get_redis_for_cache()
     pull_number = redis.srandmember(key)
@@ -295,7 +294,7 @@ def update_next_pull(installation_id, installation_token, subscription,
     else:
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
-            pull, subscription, method)
+            pull, installation_id, method)
         if pull.g_pull.state == "closed":
             redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
         else:
@@ -349,14 +348,7 @@ def smart_strict_workflow_periodic_task():
                           repo=owner + "/" + reponame, branch=branch)
                 continue
 
-        sub = sub_utils.get_subscription(redis, installation_id)
-        if not sub["token"]:  # pragma: no cover
-            LOG.error("no subscription token for updating base branch",
-                      installation_id=installation_id,
-                      repo=owner + "/" + reponame, branch=branch)
-            continue
-
         # NOTE(sileht): Pick up the next pull request and rebase it
-        update_next_pull(installation_id, installation_token, sub,
+        update_next_pull(installation_id, installation_token,
                          owner, reponame, branch, key, cur_key)
     LOG.debug("smart strict workflow loop end")

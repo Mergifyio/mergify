@@ -33,11 +33,11 @@ class Action(abc.ABC):
         pass
 
     @staticmethod
-    def run(installation_id, installation_token, subscription,
+    def run(installation_id, installation_token,
             event_type, data, pull, missing_conditions):  # pragma: no cover
         pass
 
     @staticmethod
-    def cancel(installation_id, installation_token, subscription,
+    def cancel(installation_id, installation_token,
                event_type, data, pull, missing_conditions):  # pragma: no cover
         pass
