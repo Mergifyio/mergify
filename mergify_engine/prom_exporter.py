@@ -25,6 +25,7 @@ import prometheus_client
 import requests
 
 from mergify_engine import config
+from mergify_engine import sub_utils
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -73,7 +74,7 @@ def collect_metrics():
             account = installation["account"]["login"]
 
             LOG.info("Get subscription", account=account)
-            subscribed = utils.get_subscription(
+            subscribed = sub_utils.get_subscription(
                 redis, _id)["subscribed"]
 
             installations[(subscribed, target_type)] += 1

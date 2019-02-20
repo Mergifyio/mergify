@@ -25,6 +25,7 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
+from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.worker import app
 
@@ -348,14 +349,14 @@ def smart_strict_workflow_periodic_task():
                           repo=owner + "/" + reponame, branch=branch)
                 continue
 
-        subscription = utils.get_subscription(redis, installation_id)
-        if not subscription["token"]:  # pragma: no cover
+        sub = sub_utils.get_subscription(redis, installation_id)
+        if not sub["token"]:  # pragma: no cover
             LOG.error("no subscription token for updating base branch",
                       installation_id=installation_id,
                       repo=owner + "/" + reponame, branch=branch)
             continue
 
         # NOTE(sileht): Pick up the next pull request and rebase it
-        update_next_pull(installation_id, installation_token, subscription,
+        update_next_pull(installation_id, installation_token, sub,
                          owner, reponame, branch, key, cur_key)
     LOG.debug("smart strict workflow loop end")
