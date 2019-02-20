@@ -26,6 +26,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class DeleteHeadBranchAction(actions.Action):
+    only_once = True
     validator = voluptuous.Any({}, None)
 
     @staticmethod
