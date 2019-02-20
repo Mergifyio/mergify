@@ -30,7 +30,7 @@ class CommentAction(actions.Action):
         voluptuous.Required("message"): str,
     }
 
-    def run(self, installation_id, installation_token, subscription,
+    def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
@@ -43,6 +43,6 @@ class CommentAction(actions.Action):
         return ("success", "The following message has been posted",
                 self.config["message"])
 
-    def cancel(self, installation_id, installation_token, subscription,
+    def cancel(self, installation_id, installation_token,
                event_type, data, pull, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report

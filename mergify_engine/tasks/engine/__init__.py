@@ -132,7 +132,7 @@ def check_configuration_changes(event_pull):
 
 
 @app.task
-def run(event_type, data, subscription):
+def run(event_type, data):
     """Everything starts here."""
     installation_id = data["installation"]["id"]
     installation_token = utils.get_installation_token(installation_id)
@@ -223,7 +223,7 @@ def run(event_type, data, subscription):
         create_metrics(event_type, data)
 
         v2.handle.s(
-            installation_id, subscription,
+            installation_id,
             mergify_config["pull_request_rules"].as_dict(),
             event_type, data, event_pull.raw_data
         ).apply_async()

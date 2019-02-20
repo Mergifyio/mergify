@@ -265,7 +265,7 @@ class FunctionalTestBase(testtools.TestCase):
                 return {"token": None, "subscribed": False}
 
         self.useFixture(fixtures.MockPatch(
-            "mergify_engine.actions.merge.sub_utils.get_subscription",
+            "mergify_engine.branch_updater.sub_utils.get_subscription",
             side_effect=fake_subscription))
 
         self.useFixture(fixtures.MockPatch(

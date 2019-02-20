@@ -95,7 +95,7 @@ def job_refresh(owner, repo, refresh_ref):
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
         }
-        engine.run.s('refresh', data, subscription).apply_async()
+        engine.run.s('refresh', data).apply_async()
 
 
 @app.task
@@ -137,7 +137,7 @@ def job_refresh_all():
                     'installation': {'id': install["id"]},
                     'pull_request': p.raw_data,
                 }
-                engine.run.s('refresh', data, subscription).apply_async()
+                engine.run.s('refresh', data).apply_async()
 
     LOG.info("Refreshing %s installations, %s repositories, "
              "%s branches", *counts)
@@ -199,7 +199,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
             msg_action = "ignored (action %s)" % data["action"]
 
         else:
-            engine.run.s(event_type, data, subscription).apply_async()
+            engine.run.s(event_type, data).apply_async()
             msg_action = "pushed to backend"
 
             if event_type == "pull_request":
