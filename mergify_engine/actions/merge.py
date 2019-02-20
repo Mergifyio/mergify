@@ -75,6 +75,8 @@ def output_for_mergeable_state(pull, strict):
 
 
 class MergeAction(actions.Action):
+    only_once = True
+
     validator = {
         voluptuous.Required("method", default="merge"):
         voluptuous.Any("rebase", "merge", "squash"),

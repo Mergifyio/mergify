@@ -99,6 +99,7 @@ def exec_action(method_name, rule, action,
 def run_actions(installation_id, installation_token,
                 event_type, data, pull, match, checks):
 
+    actions_ran = []
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action in rule['actions']:
@@ -122,6 +123,8 @@ def run_actions(installation_id, installation_token,
                            expected_conclusion and
                            event_type != "refresh")
             if already_run:
+                if method_name == "run":
+                    actions_ran.append(action)
                 LOG.info("action evaluation: already in expected state",
                          conclusion=(prev_check.conclusion if prev_check
                                      else "no-previous-check"),
@@ -130,11 +133,22 @@ def run_actions(installation_id, installation_token,
                          missing_conditions=missing_conditions)
                 continue
 
-            report = exec_action(
-                method_name, rule, action,
-                installation_id, installation_token,
-                event_type, data, pull, missing_conditions
-            )
+            # NOTE(sileht) We can't run two action merge for example
+            if (rule['actions'][action].only_once and action in actions_ran):
+                LOG.info("action evaluation: skipped another action %s "
+                         "have already been run", action,
+                         check_name=check_name, pull_request=pull,
+                         missing_conditions=missing_conditions)
+                report = ("completed",
+                          "Another %s action have already been run",
+                          "")
+            else:
+                report = exec_action(
+                    method_name, rule, action,
+                    installation_id, installation_token,
+                    event_type, data, pull, missing_conditions
+                )
+                actions_ran.append(action)
 
             if report:
                 conclusion, title, summary = report

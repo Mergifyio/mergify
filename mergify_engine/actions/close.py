@@ -28,6 +28,7 @@ MSG = "This pull request has been automatically closed by Mergify."
 
 
 class CloseAction(actions.Action):
+    only_once = True
     validator = {
         voluptuous.Required("message", default=MSG): str,
     }
