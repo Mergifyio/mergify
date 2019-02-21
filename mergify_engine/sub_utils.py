@@ -118,13 +118,8 @@ def _retrieve_subscription_from_db(installation_id):
 
 def _retrieve_subscription_from_cache(r, installation_id):
     encrypted_sub = r.get("subscription-cache-%s" % installation_id)
-    if encrypted_sub:  # pragma: no cove
-        try:
-            # Old format
-            return json.loads(encrypted_sub)
-        except json.JSONDecodeError:
-            # New format
-            return _decrypt(encrypted_sub)
+    if encrypted_sub:
+        return _decrypt(encrypted_sub)
 
 
 def _save_subscription_to_cache(r, installation_id, sub):
