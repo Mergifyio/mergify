@@ -139,7 +139,7 @@ def run_actions(installation_id, installation_token,
                          "have already been run", action,
                          check_name=check_name, pull_request=pull,
                          missing_conditions=missing_conditions)
-                report = ("completed",
+                report = ("success",
                           "Another %s action have already been run",
                           "")
             else:
