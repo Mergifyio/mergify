@@ -136,7 +136,7 @@ def backport(pull, branch, installation_token):
                 git("add", "*")
                 git("commit", "-a", "--no-edit", "--allow-empty")
 
-                body += ("\n\nCherry-pick of %s have failed:\n```\n%s```\n\n"
+                body += ("\n\nCherry-pick of %s has failed:\n```\n%s```\n\n"
                          % (commit.sha, status))
 
         git("push", "origin", bp_branch)
