@@ -57,6 +57,7 @@ class MergifyPull(object):
     g = attr.ib()
     g_pull = attr.ib()
     installation_id = attr.ib()
+    _consolidated_data = attr.ib(init=False, default=None)
 
     @classmethod
     def from_raw(cls, installation_id, installation_token, pull_raw):
@@ -78,25 +79,45 @@ class MergifyPull(object):
     def __attrs_post_init__(self):
         self._ensure_mergable_state()
 
-    def _get_perm(self, login):
-        return self.g_pull.base.repo.get_collaborator_permission(login)
+    def _valid_perm(self, login):
+        return self.g_pull.base.repo.get_collaborator_permission(
+            login) in ["admin", "write"]
 
     def _get_reviews(self):
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        reviews = dict((review.user.login, review)
-                       for review in self.g_pull.get_reviews())
-        return list(review for login, review in reviews.items()
-                    if self._get_perm(login) in ["admin", "write"])
+        reviews = list(self.g_pull.get_reviews())
+        valid_users = list(filter(self._valid_perm,
+                                  set([r.user.login for r in reviews])))
+        comments = dict()
+        approvals = dict()
+        for review in reviews:
+            if review.user.login not in valid_users:
+                continue
+            # Only keep latest review of an user
+            if review.state == "COMMENTED":
+                comments[review.user.login] = review
+            else:
+                approvals[review.user.login] = review
+        return list(comments.values()), list(approvals.values())
 
     def to_dict(self):
-        reviews = self._get_reviews()
+        if self._consolidated_data is None:
+            self._consolidated_data = self._get_consolidated_data()
+        return self._consolidated_data
+
+    def _get_consolidated_data(self):
+        comments, approvals = self._get_reviews()
         statuses = self._get_checks()
         # FIXME(jd) pygithub does 2 HTTP requests whereas 1 is enough!
         review_requested_users, review_requested_teams = (
             self.g_pull.get_review_requests()
         )
         return {
+            # Only use internally attributes
+            "_approvals": approvals,
+
+            # Can be used by rules too
             "assignee": [a.login for a in self.g_pull.assignees],
 
             # NOTE(sileht): We put an empty label to allow people to match
@@ -121,14 +142,14 @@ class MergifyPull(object):
             "title": self.g_pull.title,
             "body": self.g_pull.body,
             "files": [f.filename for f in self.g_pull.get_files()],
-            "approved-reviews-by": [r.user.login for r in reviews
+            "approved-reviews-by": [r.user.login for r in approvals
                                     if r.state == "APPROVED"],
-            "dismissed-reviews-by": [r.user for r in reviews
+            "dismissed-reviews-by": [r.user for r in approvals
                                      if r.state == "DISMISSED"],
             "changes-requested-reviews-by": [
-                r.user for r in reviews if r.state == "CHANGES_REQUESTED"
+                r.user for r in approvals if r.state == "CHANGES_REQUESTED"
             ],
-            "commented-reviews-by": [r.user for r in reviews
+            "commented-reviews-by": [r.user for r in comments
                                      if r.state == "COMMENTED"],
             "status-success": [s.context for s in statuses
                                if s.state == "success"],
