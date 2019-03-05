@@ -165,6 +165,10 @@ def test_get_pull_request_rule():
 
     pull_request = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
                                             installation_id=123)
+
+    # Don't catch data in these tests
+    pull_request.to_dict = pull_request._get_consolidated_data
+
     fake_ci = mock.Mock()
     fake_ci.context = "continuous-integration/fake-ci"
     fake_ci.state = "success"

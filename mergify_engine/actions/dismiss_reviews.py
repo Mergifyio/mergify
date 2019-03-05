@@ -47,7 +47,7 @@ class DismissReviewsAction(actions.Action):
             if redis.get("branch-update-%s" % pull.g_pull.head.sha):
                 return
 
-            for review in pull._get_reviews():
+            for review in pull.to_dict()['_approvals']:
                 conf = self.config.get(review.state.lower(), False)
                 if conf and (conf is True or review.user.login in conf):
                     self._dismissal_review(pull, review)
