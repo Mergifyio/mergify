@@ -12,6 +12,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
+import itertools
+import operator
 import pprint
 
 import github
@@ -69,11 +72,50 @@ def report(url):
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser(
         description='Debugger for mergify'
     )
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
     report(args.url)
+
+
+def stargazer():
+    parser = argparse.ArgumentParser(
+        description='Stargazers counter for mergify'
+    )
+    parser.add_argument("-n", "--number",
+                        type=int, default=20,
+                        help="Number of repo to show")
+    args = parser.parse_args()
+
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+
+    stars = []
+    for installation in utils.get_installations(integration):
+        try:
+            _id = installation["id"]
+            token = integration.get_access_token(_id).token
+            g = github.Github(token, base_url="https://api.%s" %
+                              config.GITHUB_DOMAIN)
+
+            repositories = sorted(g.get_installation(_id).get_repos(),
+                                  key=operator.attrgetter("private"))
+            for private, repos in itertools.groupby(
+                    repositories, key=operator.attrgetter("private")):
+
+                for repo in repos:
+                    try:
+                        repo.get_contents(".mergify.yml")
+                        stars.append((repo.stargazers_count, repo.full_name))
+                    except github.GithubException as e:
+                        if e.status >= 500:  # pragma: no cover
+                            raise
+        except github.GithubException as e:
+            # Ignore rate limit/abuse
+            if e.status != 403:
+                raise
+
+    for stars_count, repo in sorted(stars, reverse=True)[:args.number]:
+        print("%s: %s", repo, stars_count)
