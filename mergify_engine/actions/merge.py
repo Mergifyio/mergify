@@ -310,47 +310,62 @@ def update_next_pull(installation_id, installation_token,
 
 
 @app.task
-def smart_strict_workflow_periodic_task():
+def handle_merge_queue(queue):
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
+    _, installation_id, owner, reponame, branch = queue.split("~")
+    try:
+        installation_token = integration.get_access_token(
+            installation_id).token
+    except github.UnknownObjectException:  # pragma: no cover
+        LOG.error("token for install %d does not exists anymore (%s/%s)",
+                  installation_id, owner, reponame)
+        return
+
+    cur_key = "current-%s" % queue
+    redis = utils.get_redis_for_cache()
+    pull_number = redis.get(cur_key)
+    if pull_number and redis.sismember(queue, pull_number):
+        pull = mergify_pull.MergifyPull.from_number(
+            installation_id, installation_token,
+            owner, reponame, int(pull_number))
+
+        if pull.g_pull.state == "closed" or pull.is_behind():
+            # NOTE(sileht): Someone can have merged something manually in
+            # base branch in the meantime, so we have to update it again.
+            LOG.debug("pull request needs to be updated again or "
+                      "has been closed",
+                      installation_id=installation_id,
+                      pull_number=pull_number,
+                      repo=owner + "/" + reponame, branch=branch)
+        else:
+            # NOTE(sileht): Pull request has not been merged or cancelled
+            # yet wait next loop
+            LOG.debug("pull request checks are still in progress",
+                      installation_id=installation_id,
+                      pull_number=pull_number,
+                      repo=owner + "/" + reponame, branch=branch)
+            return
+
+    # NOTE(sileht): Pick up the next pull request and rebase it
+    update_next_pull(installation_id, installation_token,
+                     owner, reponame, branch, queue, cur_key)
+
+
+@app.task
+def smart_strict_workflow_periodic_task():
     redis = utils.get_redis_for_cache()
     LOG.debug("smart strict workflow loop start")
-    for key in redis.keys("strict-merge-queues~*"):
-        _, installation_id, owner, reponame, branch = key.split("~")
+    for queue in redis.keys("strict-merge-queues~*"):
         try:
-            installation_token = integration.get_access_token(
-                installation_id).token
-        except github.UnknownObjectException:  # pragma: no cover
-            LOG.error("token for install %d does not exists anymore (%s/%s)",
-                      installation_id, owner, reponame)
-            continue
+            handle_merge_queue(queue)
+        except Exception:
+            # NOTE(sileht): Don't use the celery retry mechnism here, the
+            # periodic tasks already retries. This ensure a repo can't block
+            # another one.
+            # FIXME(sileht): This is not perfect because is a PR of a repo hit
+            # the "Invalid mergeable_state Github bug", this will still loop
+            # for even for this repo.
+            LOG.error("Fail to process merge queue: %s", queue, exc_info=True)
 
-        cur_key = "current-%s" % key
-        redis = utils.get_redis_for_cache()
-        pull_number = redis.get(cur_key)
-        if pull_number and redis.sismember(key, pull_number):
-            pull = mergify_pull.MergifyPull.from_number(
-                installation_id, installation_token,
-                owner, reponame, int(pull_number))
-
-            if pull.g_pull.state == "closed" or pull.is_behind():
-                # NOTE(sileht): Someone can have merged something manually in
-                # base branch in the meantime, so we have to update it again.
-                LOG.debug("pull request needs to be updated again or "
-                          "has been closed",
-                          installation_id=installation_id,
-                          pull_number=pull_number,
-                          repo=owner + "/" + reponame, branch=branch)
-            else:
-                # NOTE(sileht): Pull request has not been merged or cancelled
-                # yet wait next loop
-                LOG.debug("pull request checks are still in progress",
-                          installation_id=installation_id,
-                          pull_number=pull_number,
-                          repo=owner + "/" + reponame, branch=branch)
-                continue
-
-        # NOTE(sileht): Pick up the next pull request and rebase it
-        update_next_pull(installation_id, installation_token,
-                         owner, reponame, branch, key, cur_key)
     LOG.debug("smart strict workflow loop end")
