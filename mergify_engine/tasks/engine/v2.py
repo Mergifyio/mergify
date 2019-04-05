@@ -35,10 +35,63 @@ with open(mergify_rule_path, "r") as f:
     MERGIFY_RULE = yaml.safe_load(f.read())
 
 
-def post_summary(pull, match, checks):
+PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
+
+
+def find_embedded_pull(pull):
+    # NOTE(sileht): We are looking for a pull request that have been merged
+    # very recently and have commit sha in common with current pull request.
+    expected_commits = [c.sha for c in pull.g_pull.get_commits()]
+    pulls = pull.g_pull.base.repo.get_pulls(
+        state="closed",
+        base=pull.g_pull.base.ref
+    )[0:PULL_REQUEST_EMBEDDED_CHECK_BACKLOG]
+
+    for p_other in pulls:
+        if p_other.number == pull.g_pull.number:
+            continue
+        commits = [c.sha for c in p_other.get_commits()]
+        commits_not_found = [c for c in expected_commits if c not in commits]
+        if not commits_not_found:
+            return p_other
+
+
+def get_already_merged_summary(event_type, data, pull, match):
+    if (event_type != "pull_request" or
+            data["action"] != "closed" or
+            not pull.g_pull.merged):
+        return ""
+
+    action_merge_found = False
+    action_merge_found_in_active_rule = False
+
+    for rule, missing_conditions in match.matching_rules:
+        if 'merge' in rule['actions']:
+            action_merge_found = True
+            if not missing_conditions:
+                action_merge_found_in_active_rule = True
+
+    # We already have a fully detailled status in the rule associated with the
+    # action merge
+    if not action_merge_found or action_merge_found_in_active_rule:
+        return ""
+
+    other_pr = find_embedded_pull(pull)
+    if other_pr:
+        return ("⚠️ The pull request have been closed by Github"
+                "because its commits are also part of #%d\n\n"
+                % other_pr.number)
+    else:
+        return ("⚠️ The pull request have been merged manually by "
+                "@%s\n\n" % pull.g_pull.merged_by.login)
+
+
+def post_summary(event_type, data, pull, match, checks):
     # Set the summary
     summary_name = "Mergify — Summary"
     summary = ""
+
+    summary += get_already_merged_summary(event_type, data, pull, match)
 
     completed_rules = 0
     for rule, missing_conditions in match.matching_rules:
@@ -184,7 +237,7 @@ def handle(installation_id, pull_request_rules_raw, event_type, data,
     checks = dict((c.name, c) for c in check_api.get_checks(pull.g_pull)
                   if c._rawData['app']['id'] == config.INTEGRATION_ID)
 
-    post_summary(pull, match, checks)
+    post_summary(event_type, data, pull, match, checks)
 
     run_actions(installation_id, installation_token,
                 event_type, data, pull, match, checks)

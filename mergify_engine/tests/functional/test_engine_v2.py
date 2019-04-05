@@ -405,6 +405,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
+            # Summary update about manual merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -471,6 +473,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
+            # Summary update about manual merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -536,6 +540,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
+            # Summary update about manual merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -610,6 +616,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
+            # Summary update about manual merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -686,11 +694,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ])
         self.push_events([
             ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"}),
             ("check_suite", {"action": "completed"}),
         ], ordered=False)
-        self.push_events([
-            ("check_suite", {"action": "requested"}),
-        ])
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
@@ -831,6 +837,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
+            # Summary update about manual merge
+            ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
         self.create_status_and_push_event(p2)
