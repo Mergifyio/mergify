@@ -52,7 +52,11 @@ def report(url):
     mp = mergify_pull.MergifyPull(g, p, install_id)
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
-    print("is_behind: %s" % mp.is_behind())
+    try:
+        print("is_behind: %s" % mp.is_behind())
+    except github.GithubException as e:
+        print("Unable to know if pull request branch is behind: %s" % e)
+
     print("mergeable_state: %s" % mp.g_pull.mergeable_state)
 
     print("* MERGIFY STATUSES:")
