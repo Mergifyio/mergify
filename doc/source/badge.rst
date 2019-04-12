@@ -37,3 +37,6 @@ In a `README.rst`:
 .. |cut| image:: _static/badge-enabled-cut.png
 .. |small| image:: _static/badge-enabled-small.png
 .. |big| image:: _static/badge-enabled-big.png
+
+Note: `:owner` and `:repo` are placeholders which have to be adapted to the repo. 
+For example: `https://gh.mergify.io/badges/Mergifyio/mergify-engine.png?style=cut`
