@@ -25,11 +25,8 @@ import logging
 
 import flask
 
-import yaml
-
 from mergify_engine import rules
 from mergify_engine import utils
-from mergify_engine.rules import convert
 from mergify_engine.tasks import github_events
 
 LOG = logging.getLogger(__name__)
@@ -67,22 +64,6 @@ def badge(owner, repo):
     style = flask.request.args.get("style", "cut")
     return flask.send_from_directory("../doc/source/_static",
                                      "badge-%s-%s.png" % (mode, style))
-
-
-@app.route("/convert", methods=["POST"])
-def config_converter():
-    try:
-        data = yaml.safe_load(flask.request.files['data'].stream)
-    except Exception as e:
-        flask.abort(400, str(e))
-
-    if not data or "rules" not in data:
-        flask.abort(400, "file does not contains v1 configuration")
-
-    new_config = yaml.dump({
-        "pull_request_rules": convert.convert_config(data.get("rules", {}))
-    }, default_flow_style=False),
-    return flask.Response(new_config, mimetype="text/plain")
 
 
 @app.route("/validate", methods=["POST"])
