@@ -193,7 +193,7 @@ def run_actions(installation_id, installation_token,
                          check_name=check_name, pull_request=pull,
                          missing_conditions=missing_conditions)
                 report = ("success",
-                          "Another %s action have already been run",
+                          "Another %s action already ran" % action,
                           "")
             else:
                 report = exec_action(
