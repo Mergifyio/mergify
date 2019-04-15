@@ -122,7 +122,10 @@ def event_handler():
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    github_events.job_filter_and_dispatch.delay(event_type, event_id, data)
+    github_events.job_filter_and_dispatch.apply_async(
+        args=[event_type, event_id, data],
+        countdown=30
+    )
     return "Event queued", 202
 
 
