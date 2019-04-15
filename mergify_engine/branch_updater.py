@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import subprocess
+
 import daiquiri
 
 from mergify_engine import config
@@ -21,6 +23,18 @@ from mergify_engine import sub_utils
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
+
+
+def _do_update(git, method, base_branch, head_branch):
+    if method == "merge":
+        git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
+            "Merge branch '%s' into '%s'" % (base_branch, head_branch))
+        git("push", "--quiet", "origin", head_branch)
+    elif method == "rebase":
+        git("rebase", "upstream/%s" % base_branch)
+        git("push", "--quiet", "origin", head_branch, "-f")
+    else:
+        raise RuntimeError("Invalid branch update method")
 
 
 def update(pull, installation_id, method="merge"):
@@ -71,18 +85,23 @@ def update(pull, installation_id, method="merge"):
         last_commit_date = [d for d in out.decode("utf8").split("\n")
                             if d.strip()][-1]
 
-        git("fetch", "--quiet", "upstream", pull.g_pull.base.ref,
+        git("fetch", "--quiet", "upstream", base_branch,
             "--shallow-since='%s'" % last_commit_date)
 
-        if method == "merge":
-            git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
-                "Merge branch '%s' into '%s'" % (base_branch, head_branch))
-            git("push", "--quiet", "origin", head_branch)
-        elif method == "rebase":
-            git("rebase", "upstream/%s" % base_branch)
-            git("push", "--quiet", "origin", head_branch, "-f")
-        else:
-            raise RuntimeError("Invalid branch update method")
+        try:
+            _do_update(git, method, base_branch, head_branch)
+        except subprocess.CalledProcessError as e:
+            if "unrelated histories" in e.output:
+                LOG.debug("Complete history cloned", pull_request=pull)
+                # NOTE(sileht): We currently assume we have only one parent
+                # commit in common. Since Git is a graph, in some case this
+                # graph can be more complicated.
+                # So, retrying with the whole git history for now
+                git("fetch", "--quiet", "origin", head_branch)
+                git("fetch", "--quiet", "upstream", base_branch)
+                _do_update(git, method, base_branch, head_branch)
+            else:
+                raise
 
         return git("log", "-1", "--format=%H").decode().strip()
     except Exception:  # pragma: no cover
