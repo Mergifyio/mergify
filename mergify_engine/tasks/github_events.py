@@ -190,7 +190,8 @@ def job_filter_and_dispatch(event_type, event_id, data):
             msg_action = "ignored (state pending)"
 
         elif (event_type in ["check_run", "check_suite"] and
-              data[event_type]["app"]["id"] == config.INTEGRATION_ID):
+              data[event_type]["app"]["id"] == config.INTEGRATION_ID and
+              data["action"] != "rerequested"):
             msg_action = "ignored (mergify %s)" % event_type
 
         elif (event_type == "pull_request" and data["action"] not in [
