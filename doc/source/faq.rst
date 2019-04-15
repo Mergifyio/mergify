@@ -28,3 +28,17 @@ branch protection.
 
 You should disable this branch protection setting if you want to use Mergify
 merge action.
+
+
+Why did Mergify seem to have merged my pull request whereas all conditions were not true?
+-----------------------------------------------------------------------------------------
+
+The GitHub user interface might be misleading you in thinking that your pull
+request has been merged by Mergify, while it wasn't.
+If your pull request A has all its commits contained in another pull request B,
+and if B is merged by Mergify, then A will appeared to have been merged by
+Mergify too. GitHub detects that A's commits are a subset of B's commits and
+therefore decides to automatically marks pull request A as merged.
+
+Be sure that Mergify did nothing on the pull request A if it told you so in the
+Checks tab. This is GitHub UI magic.
