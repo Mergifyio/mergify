@@ -25,6 +25,8 @@ import logging
 
 import flask
 
+from flask_cors import cross_origin
+
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.tasks import github_events
@@ -67,6 +69,7 @@ def badge(owner, repo):
 
 
 @app.route("/validate", methods=["POST"])
+@cross_origin()
 def config_validator():
     try:
         rules.validate_user_config(flask.request.files['data'].stream)
