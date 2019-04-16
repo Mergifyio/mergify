@@ -105,9 +105,9 @@ check about the state of the pull request according to the defined rules.
 .. note::
 
    When a pull request changes the configuration of Mergify, the status is
-   built with the current configuration (without the pull request change). To
-   validate the Mergify configuration change an additional status is posted
-   named ``Mergify — future config checker``.
+   built with the current configuration (without the pull request change). The
+   Mergify configuration is validated and status is posted in the ``Summary``
+   check.
 
 When all the criterias of the rules are satisfied, Mergify will do the
 configure actions, such as merging the pull request.

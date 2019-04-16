@@ -108,25 +108,19 @@ def check_configuration_changes(event_pull):
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API
                 check_api.set_check_run(
-                    event_pull, "Mergify — future config checker", "completed",
+                    event_pull, "Summary", "completed",
                     "failure", output={
                         "title": "The new Mergify configuration is invalid",
                         "summary": str(e)
                     })
             else:
                 check_api.set_check_run(
-                    event_pull, "Mergify — future config checker", "completed",
+                    event_pull, "Summary", "completed",
                     "success", output={
                         "title": "The new Mergify configuration is valid",
-                        "summary": "No action required",
+                        "summary": "This pull request have to be merged "
+                        "manually because it modifies Mergify configuration",
                     })
-
-            check_api.set_check_run(
-                event_pull, "Mergify — disabled due to configuration change",
-                "completed", "success", output={
-                    "title": "Mergify configuration has been modified",
-                    "summary": "The pull request needs to be merged manually",
-                })
 
             return True
     return False
