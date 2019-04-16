@@ -82,13 +82,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.remove_from_labels("backport-3.1")
         self.push_events([
             ("pull_request", {"action": "unlabeled"}),
+            ("check_suite", {"check_suite": {"conclusion": "cancelled"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             # Backport
             ("check_run", {"check_run": {"conclusion": "cancelled"}}),
         ], ordered=False)
 
         checks = list(check_api.get_checks(p, {
-            "check_name": "Mergify — Rule: backport (backport)"}))
+            "check_name": "Rule: backport (backport)"}))
         self.assertEqual("cancelled", checks[0].conclusion)
 
     def test_delete_branch(self):
@@ -807,11 +808,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, _ = self.create_pr()
 
         self.push_events([
+            ("check_suite", {"check_suite": {"conclusion": "failure"}}),
             ("check_run", {"check_run": {"conclusion": "failure"}}),
         ])
 
         checks = list(check_api.get_checks(p, {
-            "check_name": "Mergify — Rule: merge (merge)"}))
+            "check_name": "Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
         self.assertIn("Branch protection settings are blocking "
                       "automatic merging",
@@ -871,7 +873,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ], ordered=False)
 
         checks = list(check_api.get_checks(p2, {
-            "check_name": "Mergify — Rule: merge (merge)"}))
+            "check_name": "Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
         self.assertIn("Branch protection setting 'strict' conflicts with "
                       "Mergify configuration",
@@ -950,7 +952,5 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         checks = list(check_api.get_checks(p1))
-        assert len(checks) == 2
-        assert checks[0].name == ("Mergify — disabled due to configuration "
-                                  "change")
-        assert checks[1].name == "Mergify — future config checker"
+        assert len(checks) == 1
+        assert checks[0].name == "Summary"

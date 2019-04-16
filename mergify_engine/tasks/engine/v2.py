@@ -88,7 +88,8 @@ def get_already_merged_summary(event_type, data, pull, match):
 
 def post_summary(event_type, data, pull, match, checks):
     # Set the summary
-    summary_name = "Mergify — Summary"
+    summary_name = "Summary"
+    deprecated_summary_name = "Mergify — " + summary_name
     summary = ""
 
     summary += get_already_merged_summary(event_type, data, pull, match)
@@ -122,7 +123,9 @@ def post_summary(event_type, data, pull, match, checks):
 
     summary_title = " and ".join(summary_title)
 
-    summary_check = checks.get(summary_name)
+    summary_check = (checks.get(deprecated_summary_name) or
+                     checks.get(summary_name))
+
     summary_changed = (not summary_check or
                        summary_check.output["title"] != summary_title or
                        summary_check.output["summary"] != summary)
@@ -156,8 +159,13 @@ def run_actions(installation_id, installation_token,
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action in rule['actions']:
-            check_name = "Mergify — Rule: %s (%s)" % (rule['name'], action)
-            prev_check = checks.get(check_name)
+            check_name = "Rule: %s (%s)" % (rule['name'], action)
+            deprecated_check_name = "Mergify — " + check_name
+            prev_check = checks.get(deprecated_check_name)
+            if prev_check:
+                check_name = deprecated_check_name
+            else:
+                prev_check = checks.get(check_name)
 
             if missing_conditions:
                 if not prev_check:
