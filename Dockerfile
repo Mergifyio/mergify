@@ -5,3 +5,7 @@ RUN apk update && apk upgrade && apk add --no-cache build-base python3 python3-d
 ADD . /app
 RUN python3 -mpip install -e /app
 USER app
+# NOTE(sileht): git doesn't reap its children processes correctly.
+# Before celery was PID 1 and inherit from this zombie process
+# Now we use dump-init to rip this zombie
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
