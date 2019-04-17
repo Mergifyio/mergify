@@ -91,7 +91,7 @@ def update(pull, installation_id, method="merge"):
         try:
             _do_update(git, method, base_branch, head_branch)
         except subprocess.CalledProcessError as e:
-            if "unrelated histories" in e.output:
+            if b"unrelated histories" in e.output:
                 LOG.debug("Complete history cloned", pull_request=pull)
                 # NOTE(sileht): We currently assume we have only one parent
                 # commit in common. Since Git is a graph, in some case this
