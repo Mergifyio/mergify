@@ -174,6 +174,7 @@ class Gitter(object):
     def __call__(self, *args, **kwargs):  # pragma: no cover
         LOG.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
+        kwargs["start_new_session"] = True
         return subprocess.check_output(["git"] + list(args), **kwargs)
 
     def cleanup(self):
