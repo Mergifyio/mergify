@@ -25,8 +25,8 @@ for idx, queue in ipairs(queues) do
 end
 EOF
 docker cp upgrade.lua mergify_celery_1:/tmp/
-docker exec -it mergify_celery_1 redis-cli -h storage --eval /tmp/upgrade.lua
-docker exec -it mergify_celery_1 rm -f /tmp/upgrade.lua
+docker exec mergify_celery_1 redis-cli -h storage --eval /tmp/upgrade.lua
+docker exec mergify_celery_1 rm -f /tmp/upgrade.lua
 rm -f upgrade.lua
 
 docker-compose -f docker-compose.yaml up -d
