@@ -71,7 +71,6 @@ def output_for_mergeable_state(pull, strict):
                 "with Mergify configuration", "")
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
         # are OK for us
-    return
 
 
 class MergeAction(actions.Action):
@@ -108,7 +107,8 @@ class MergeAction(actions.Action):
             elif self.config["strict"] == "smart":
                 key = _get_queue_cache_key(pull)
                 redis = utils.get_redis_for_cache()
-                redis.sadd(key, pull.g_pull.number)
+                score = utils.utcnow().timestamp()
+                redis.zadd(key, {pull.g_pull.number: score}, nx=True)
                 redis.set(_get_update_method_cache_key(pull),
                           self.config["strict_method"])
                 return (None, "Base branch will be updated soon",
@@ -121,7 +121,7 @@ class MergeAction(actions.Action):
 
             if self.config["strict"] == "smart":
                 redis = utils.get_redis_for_cache()
-                redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+                redis.zrem(_get_queue_cache_key(pull), pull.g_pull.number)
                 redis.delete(_get_update_method_cache_key(pull))
 
             if (self.config["method"] != "rebase" or
@@ -144,7 +144,8 @@ class MergeAction(actions.Action):
 
         if self.config["strict"] == "smart":
             redis = utils.get_redis_for_cache()
-            redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+            redis.zrem(_get_queue_cache_key(pull), pull.g_pull.number)
+            redis.delete(_get_update_method_cache_key(pull))
 
         return self.cancelled_check_report
 
@@ -262,9 +263,9 @@ def update_pull_base_branch(pull, installation_id, method):
 
 
 def update_next_pull(installation_id, installation_token,
-                     owner, reponame, branch, key, cur_key):
+                     owner, reponame, branch, queue, cur_key):
     redis = utils.get_redis_for_cache()
-    pull_number = redis.srandmember(key)
+    pull_number = redis.zpopmin(queue)[0][0]
     if not pull_number:
         LOG.debug("no more pull request to update",
                   installation_id=installation_id,
@@ -288,17 +289,20 @@ def update_next_pull(installation_id, installation_token,
     merge_output = merge_report(pull)
     mergeable_state_output = output_for_mergeable_state(pull, True)
     if merge_output:
-        redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+        redis.zrem(queue, pull.g_pull.number)
+        redis.delete(_get_update_method_cache_key(pull))
         conclusion, title, summary = merge_output
     elif mergeable_state_output:
-        redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+        redis.zrem(queue, pull.g_pull.number)
+        redis.delete(_get_update_method_cache_key(pull))
         conclusion, title, summary = mergeable_state_output
     else:
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
             pull, installation_id, method)
         if pull.g_pull.state == "closed":
-            redis.srem(_get_queue_cache_key(pull), pull.g_pull.number)
+            redis.zrem(queue, pull.g_pull.number)
+            redis.delete(_get_update_method_cache_key(pull))
         else:
             redis.set(cur_key, pull_number)
 
@@ -325,7 +329,7 @@ def handle_merge_queue(queue):
     cur_key = "current-%s" % queue
     redis = utils.get_redis_for_cache()
     pull_number = redis.get(cur_key)
-    if pull_number and redis.sismember(queue, pull_number):
+    if pull_number and redis.zrank(queue, pull_number) is not None:
         pull = mergify_pull.MergifyPull.from_number(
             installation_id, installation_token,
             owner, reponame, int(pull_number))
