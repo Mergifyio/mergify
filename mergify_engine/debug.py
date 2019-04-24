@@ -19,10 +19,48 @@ import pprint
 
 import github
 
+import requests
+
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
+from mergify_engine import sub_utils
 from mergify_engine import utils
+
+
+def get_repositories_setuped(token, install_id):  # pragma: no cover
+    repositories = []
+    url = ("https://api.%s/user/installations/%s/repositories" %
+           (config.GITHUB_DOMAIN, install_id))
+    token = "token {}".format(token)
+    session = requests.Session()
+    while True:
+        response = session.get(url, headers={
+            "Authorization": token,
+            "Accept": "application/vnd.github.machine-man-preview+json",
+            "User-Agent": "PyGithub/Python"
+        })
+        if response.status_code == 200:
+            repositories.extend(response.json()["repositories"])
+            if "next" in response.links:
+                url = response.links["next"]["url"]
+                continue
+            else:
+                return repositories
+        elif response.status_code == 403:
+            raise github.BadCredentialsException(
+                status=response.status_code,
+                data=response.text
+            )
+        elif response.status_code == 404:
+            raise github.UnknownObjectException(
+                status=response.status_code,
+                data=response.text
+            )
+        raise github.GithubException(
+            status=response.status_code,
+            data=response.text
+        )
 
 
 def create_jwt():
@@ -32,12 +70,30 @@ def create_jwt():
 
 
 def report(url):
+    redis = utils.get_redis_for_cache()
     path = url.replace("https://github.com/", "")
     owner, repo, _, pull_number = path.split("/")
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     install_id = utils.get_installation_id(integration, owner)
+
+    print("* INSTALLATION ID: %s" % install_id)
+
+    sub = sub_utils.get_subscription(redis, install_id)
+    print("* SUBSCRIBED: %s" % sub["subscribed"])
+
+    try:
+        repos = get_repositories_setuped(sub["token"], install_id)
+    except github.UnknownObjectException:
+        print("* MERGIFY SEEMS NOT INSTALLED")
+    else:
+        repos = [r for r in repos if r["full_name"] == owner + "/" + repo]
+        if repos:
+            print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
+        else:
+            print("* MERGIFY INSTALLED AND DISABLED ON THIS REPOSITORY !!!")
+
     installation_token = integration.get_access_token(install_id).token
 
     g = github.Github(installation_token,
@@ -45,7 +101,6 @@ def report(url):
     r = g.get_repo(owner + "/" + repo)
     p = r.get_pull(int(pull_number))
 
-    print("* INSTALLATION ID: %s" % install_id)
     print("* CONFIGURATION:")
     print(r.get_contents(".mergify.yml").decoded_content.decode())
 
