@@ -80,11 +80,14 @@ def report(url):
 
     print("* INSTALLATION ID: %s" % install_id)
 
-    sub = sub_utils.get_subscription(redis, install_id)
-    print("* SUBSCRIBED: %s" % sub["subscribed"])
+    cached_sub = sub_utils.get_subscription(redis, install_id)
+    db_sub = sub_utils._retrieve_subscription_from_db(install_id)
+    print("* SUBSCRIBED (cache/db): %s / %s" % (cached_sub["subscribed"],
+                                                db_sub["subscribed"]))
+    print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
 
     try:
-        repos = get_repositories_setuped(sub["token"], install_id)
+        repos = get_repositories_setuped(cached_sub["token"], install_id)
     except github.UnknownObjectException:
         print("* MERGIFY SEEMS NOT INSTALLED")
     else:
