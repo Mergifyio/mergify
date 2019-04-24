@@ -99,6 +99,7 @@ def report(url):
     g = github.Github(installation_token,
                       base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo(owner + "/" + repo)
+    print("* REPOSITORY IS %s" % "PRIVATE" if r.private else "PUBLIC")
     p = r.get_pull(int(pull_number))
 
     print("* CONFIGURATION:")
