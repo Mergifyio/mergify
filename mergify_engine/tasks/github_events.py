@@ -84,7 +84,7 @@ def job_refresh(owner, repo, refresh_ref):
         return
 
     if r.private and not subscription["subscribed"]:  # pragma: no cover
-        LOG.warning("%s/%s/%s: mergify not installed",
+        LOG.warning("%s/%s/%s: private repository not subscribed",
                     owner, repo, refresh_ref)
         return
 
