@@ -17,7 +17,6 @@
 
 import argparse
 import os
-import sys
 
 import requests
 
@@ -25,13 +24,10 @@ from mergify_engine import config
 from mergify_engine import utils
 
 
-def refresh(slug=None):
+def api_call(url):
     data = os.urandom(250)
     hmac = utils.compute_hmac(data)
 
-    url = config.BASE_URL + "/refresh"
-    if slug:
-        url = url + "/" + slug
     r = requests.post(url,
                       headers={"X-Hub-Signature": "sha1=" + hmac},
                       data=data)
@@ -39,7 +35,7 @@ def refresh(slug=None):
     print(r.text)
 
 
-def main():
+def refresher():
     parser = argparse.ArgumentParser(
         description='Force refresh of mergify_engine'
     )
@@ -54,12 +50,23 @@ def main():
 
     if args.urls:
         for url in args.urls:
-            refresh(url.replace("https://github.com/", ""))
+            api_call(config.BASE_URL + "/refresh/%s" +
+                     url.replace("https://github.com/", ""))
     elif args.all:
-        refresh()
+        api_call(config.BASE_URL + "/refresh")
     else:
         parser.print_help()
 
 
-if __name__ == '__main__':
-    sys.exit(main())
+def queues():
+    parser = argparse.ArgumentParser(
+        description='Show queue of mergify_engine'
+    )
+    parser.add_argument(
+        "url",
+        help=("<owner>/<repo>, <owner>/<repo>/pull/<pull#> "
+              "or https://github.com/<owner>/<repo>/pull/<pull#>"))
+
+    args = parser.parse_args()
+    parts = args.url.replace("https://github.com/", "").split()
+    api_call(config.BASE_URL + "/queues/%s/%s" % (parts[0], parts[1]))
