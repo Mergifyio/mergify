@@ -258,9 +258,10 @@ class FunctionalTestBase(testtools.TestCase):
 
         real_get_subscription = sub_utils.get_subscription
 
-        def fake_subscription(r, install_id):
+        def fake_subscription(r, install_id, validate_token=False):
             if int(install_id) == config.INSTALLATION_ID:
-                return real_get_subscription(r, install_id)
+                # NOTE(sileht): Never call the website
+                return real_get_subscription(r, install_id, False)
             else:
                 return {"token": None, "subscribed": False}
 
