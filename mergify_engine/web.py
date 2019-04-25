@@ -114,6 +114,20 @@ def marketplace_handler():
     return "Event ignored", 202
 
 
+@app.route("/queues/<owner>/<repo>", methods=["POST"])
+def queues(owner, repo):
+    authentification()
+
+    redis = utils.get_redis_for_cache()
+    queues = {}
+    filter_ = "strict-merge-queues~*~%s~%s~*" % (owner.lower(), repo.lower())
+    for queue in redis.keys(filter_):
+        _, _, _, _, branch = queue.split("~")
+        queues[branch] = [pull for pull, score in redis.zscan_iter(queue)]
+
+    return flask.jsonify(queues)
+
+
 @app.route("/event", methods=["POST"])
 def event_handler():
     authentification()
