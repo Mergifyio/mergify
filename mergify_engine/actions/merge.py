@@ -89,7 +89,7 @@ class MergeAction(actions.Action):
 
     def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
-        LOG.debug("process merge", config=self.config, pull_request=pull)
+        LOG.debug("process merge", config=self.config, pull=pull)
 
         output = merge_report(pull)
         if output:
@@ -108,6 +108,7 @@ class MergeAction(actions.Action):
                 key = _get_queue_cache_key(pull)
                 redis = utils.get_redis_for_cache()
                 score = utils.utcnow().timestamp()
+                LOG.debug("add pull request to merge queue", pull=pull)
                 redis.zadd(key, {pull.g_pull.number: score}, nx=True)
                 redis.set(_get_update_method_cache_key(pull),
                           self.config["strict_method"])
@@ -121,6 +122,7 @@ class MergeAction(actions.Action):
 
             if self.config["strict"] == "smart":
                 redis = utils.get_redis_for_cache()
+                LOG.debug("removing pull request from merge queue", pull=pull)
                 redis.zrem(_get_queue_cache_key(pull), pull.g_pull.number)
                 redis.delete(_get_update_method_cache_key(pull))
 
@@ -189,11 +191,11 @@ class MergeAction(actions.Action):
                               merge_method=method)
         except github.GithubException as e:   # pragma: no cover
             if pull.g_pull.is_merged():
-                LOG.info("merged in the meantime", pull_request=pull)
+                LOG.info("merged in the meantime", pull=pull)
 
             elif e.status == 405:
                 LOG.error("merge fail", error=e.data["message"],
-                          pull_request=pull)
+                          pull=pull)
                 if pull.g_pull.mergeable_state == "blocked":
                     return ("failure", "Branch protection settings are "
                             "blocking automatic merging", e.data["message"])
@@ -204,14 +206,14 @@ class MergeAction(actions.Action):
 
             elif 400 <= e.status < 500:
                 LOG.error("merge fail", error=e.data["message"],
-                          pull_request=pull)
+                          pull=pull)
                 return ("failure",
                         "Mergify fails to merge the pull request",
                         e.data["message"])
             else:
                 raise
         else:
-            LOG.info("merged", pull_request=pull)
+            LOG.info("merged", pull=pull)
 
         pull.g_pull.update()
         return merge_report(pull)
@@ -262,49 +264,29 @@ def update_pull_base_branch(pull, installation_id, method):
             return ("failure", "Base branch update has failed", "")
 
 
-def update_next_pull(installation_id, installation_token,
-                     owner, reponame, branch, queue, cur_key):
-    redis = utils.get_redis_for_cache()
-    pull_number = redis.zrange(queue, 0, 1)[0]
-    if not pull_number:
-        LOG.debug("no more pull request to update",
-                  installation_id=installation_id,
-                  pull_number=pull_number,
-                  repo=owner + "/" + reponame, branch=branch)
-        return
-
-    LOG.debug("next pull to rebase",
-              installation_id=installation_id,
-              pull_number=pull_number,
-              repo=owner + "/" + reponame, branch=branch)
-
-    pull = mergify_pull.MergifyPull.from_number(
-        installation_id, installation_token,
-        owner, reponame, int(pull_number))
-
+def handle_first_pull_in_queue(installation_id, owner, reponame, branch,
+                               pull, queue):
     old_checks = [c for c in check_api.get_checks(pull.g_pull)
                   if (c.name.endswith(" (merge)") and
                       c._rawData['app']['id'] == config.INTEGRATION_ID)]
 
+    redis = utils.get_redis_for_cache()
     merge_output = merge_report(pull)
     mergeable_state_output = output_for_mergeable_state(pull, True)
-    if merge_output:
+    if merge_output or mergeable_state_output:
+        LOG.debug("removing pull request from merge queue", pull=pull)
         redis.zrem(queue, pull.g_pull.number)
         redis.delete(_get_update_method_cache_key(pull))
-        conclusion, title, summary = merge_output
-    elif mergeable_state_output:
-        redis.zrem(queue, pull.g_pull.number)
-        redis.delete(_get_update_method_cache_key(pull))
-        conclusion, title, summary = mergeable_state_output
+        conclusion, title, summary = merge_output or mergeable_state_output
     else:
+        LOG.debug("updating base branch of pull request", pull=pull)
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
             pull, installation_id, method)
         if pull.g_pull.state == "closed":
+            LOG.debug("removing pull request from merge queue", pull=pull)
             redis.zrem(queue, pull.g_pull.number)
             redis.delete(_get_update_method_cache_key(pull))
-        else:
-            redis.set(cur_key, pull_number)
 
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
@@ -326,22 +308,26 @@ def handle_merge_queue(queue):
                   installation_id, owner, reponame)
         return
 
-    cur_key = "current-%s" % queue
     redis = utils.get_redis_for_cache()
-    pull_number = redis.get(cur_key)
-    if pull_number and redis.zrank(queue, pull_number) is not None:
+    pull_number = redis.zrange(queue, 0, 0)
+    pull_number = pull_number[0] if pull_number else None
+    if pull_number:
         pull = mergify_pull.MergifyPull.from_number(
             installation_id, installation_token,
             owner, reponame, int(pull_number))
 
         if pull.g_pull.state == "closed" or pull.is_behind():
-            # NOTE(sileht): Someone can have merged something manually in
-            # base branch in the meantime, so we have to update it again.
             LOG.debug("pull request needs to be updated again or "
                       "has been closed",
                       installation_id=installation_id,
                       pull_number=pull_number,
                       repo=owner + "/" + reponame, branch=branch)
+
+            # NOTE(sileht): Pick up this pull request and rebase it again or
+            # update its status and remove it from the queue
+            handle_first_pull_in_queue(installation_id, owner, reponame,
+                                       branch, pull, queue)
+
         else:
             # NOTE(sileht): Pull request has not been merged or cancelled
             # yet wait next loop
@@ -349,11 +335,6 @@ def handle_merge_queue(queue):
                       installation_id=installation_id,
                       pull_number=pull_number,
                       repo=owner + "/" + reponame, branch=branch)
-            return
-
-    # NOTE(sileht): Pick up the next pull request and rebase it
-    update_next_pull(installation_id, installation_token,
-                     owner, reponame, branch, queue, cur_key)
 
 
 @app.task
