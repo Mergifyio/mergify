@@ -105,6 +105,9 @@ def update(pull, installation_id, method="merge"):
                 raise
 
         return git("log", "-1", "--format=%H").decode().strip()
+    except subprocess.CalledProcessError as e:  # pragma: no cover
+        LOG.error("update branch fail: %s", e.output, pull_request=pull,
+                  exc_info=True)
     except Exception:  # pragma: no cover
         LOG.error("update branch fail", pull_request=pull, exc_info=True)
     finally:
