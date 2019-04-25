@@ -265,7 +265,7 @@ def update_pull_base_branch(pull, installation_id, method):
 def update_next_pull(installation_id, installation_token,
                      owner, reponame, branch, queue, cur_key):
     redis = utils.get_redis_for_cache()
-    pull_number = redis.zpopmin(queue)[0][0]
+    pull_number = redis.zrange(queue, 0, 1)[0]
     if not pull_number:
         LOG.debug("no more pull request to update",
                   installation_id=installation_id,
