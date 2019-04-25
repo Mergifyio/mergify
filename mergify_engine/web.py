@@ -123,7 +123,7 @@ def queues(owner, repo):
     filter_ = "strict-merge-queues~*~%s~%s~*" % (owner.lower(), repo.lower())
     for queue in redis.keys(filter_):
         _, _, _, _, branch = queue.split("~")
-        queues[branch] = [pull for pull, score in redis.zscan_iter(queue)]
+        queues[branch] = [int(pull) for pull, score in redis.zscan_iter(queue)]
 
     return flask.jsonify(queues)
 

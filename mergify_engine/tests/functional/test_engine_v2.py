@@ -566,7 +566,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
             })
-        self.assertEqual(r.json, {'master': ['2']})
+        self.assertEqual(r.json, {'master': [2]})
 
         # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
@@ -577,7 +577,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
             })
-        self.assertEqual(r.json, {'master': ['2']})
+        self.assertEqual(r.json, {'master': [2]})
 
         self.push_events([
             ("pull_request", {"action": "synchronize"}),
