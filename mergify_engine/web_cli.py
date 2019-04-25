@@ -68,5 +68,5 @@ def queues():
               "or https://github.com/<owner>/<repo>/pull/<pull#>"))
 
     args = parser.parse_args()
-    parts = args.url.replace("https://github.com/", "").split()
+    parts = args.url.replace("https://github.com/", "").split("/")
     api_call(config.BASE_URL + "/queues/%s/%s" % (parts[0], parts[1]))
