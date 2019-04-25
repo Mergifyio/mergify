@@ -283,10 +283,16 @@ def handle_first_pull_in_queue(installation_id, owner, reponame, branch,
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = update_pull_base_branch(
             pull, installation_id, method)
+
         if pull.g_pull.state == "closed":
             LOG.debug("removing pull request from merge queue", pull=pull)
             redis.zrem(queue, pull.g_pull.number)
             redis.delete(_get_update_method_cache_key(pull))
+        elif conclusion == "failure":
+            # NOTE(sileht): If we have a failure, try other PR first, put this
+            # one at the end of the queue
+            score = utils.utcnow().timestamp()
+            redis.zadd(queue, {pull.g_pull.number: score}, xx=True)
 
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
