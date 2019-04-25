@@ -53,7 +53,8 @@ def update(pull, installation_id, method="merge"):
 
     redis = utils.get_redis_for_cache()
 
-    subscription = sub_utils.get_subscription(redis, installation_id)
+    subscription = sub_utils.get_subscription(redis, installation_id,
+                                              validate_token=True)
 
     if not subscription:
         LOG.error("subscription to update branch is missing")

@@ -127,9 +127,18 @@ def _save_subscription_to_cache(r, installation_id, sub):
     r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
 
 
-def get_subscription(r, installation_id):
+def _is_token_valid(sub):
+    resp = requests.request(
+        "GET", "https://api.github.com/applications/%s/tokens/%s" %
+        (config.OAUTH_CLIENT_ID, sub["token"]),
+        auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+    )
+    return resp.ok
+
+
+def get_subscription(r, installation_id, validate_token=False):
     sub = _retrieve_subscription_from_cache(r, installation_id)
-    if not sub:
+    if (not sub or (validate_token and not _is_token_valid(sub))):
         sub = _retrieve_subscription_from_db(installation_id)
         _save_subscription_to_cache(r, installation_id, sub)
     return sub
