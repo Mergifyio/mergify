@@ -61,7 +61,7 @@ def refresher():
 
     if args.urls:
         for url in args.urls:
-            api_call(config.BASE_URL + "/refresh/%s" +
+            api_call(config.BASE_URL + "/refresh/" +
                      url.replace("https://github.com/", ""))
     elif args.all:
         api_call(config.BASE_URL + "/refresh")
