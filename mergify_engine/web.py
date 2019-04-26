@@ -114,7 +114,7 @@ def marketplace_handler():
     return "Event ignored", 202
 
 
-@app.route("/queues/<owner>/<repo>", methods=["POST"])
+@app.route("/queues/<owner>/<repo>", methods=["GET"])
 def queues(owner, repo):
     authentification()
 

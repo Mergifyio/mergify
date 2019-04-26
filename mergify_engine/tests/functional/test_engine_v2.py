@@ -560,7 +560,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
-        r = self.app.post(
+        r = self.app.get(
             '/queues/%s/%s' % (config.TESTING_ORGANIZATION, self.name),
             headers={
                 "X-Hub-Signature": "sha1=whatever",
@@ -571,7 +571,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
-        r = self.app.post(
+        r = self.app.get(
             '/queues/%s/%s' % (config.TESTING_ORGANIZATION, self.name),
             headers={
                 "X-Hub-Signature": "sha1=whatever",
