@@ -24,15 +24,26 @@ from mergify_engine import config
 from mergify_engine import utils
 
 
-def api_call(url):
+def api_call(url, method="post"):
     data = os.urandom(250)
     hmac = utils.compute_hmac(data)
 
-    r = requests.post(url,
-                      headers={"X-Hub-Signature": "sha1=" + hmac},
-                      data=data)
+    r = requests.request(method,
+                         url,
+                         headers={"X-Hub-Signature": "sha1=" + hmac},
+                         data=data)
     r.raise_for_status()
     print(r.text)
+
+
+def clear_token_cache():
+    parser = argparse.ArgumentParser(
+        description='Force refresh of installation token'
+    )
+    parser.add_argument("installation_id")
+    args = parser.parse_args()
+    api_call(config.BASE_URL + "/subscription-cache/%s" % args.installation_id,
+             method="delete")
 
 
 def refresher():
