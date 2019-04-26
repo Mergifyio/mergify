@@ -18,6 +18,7 @@ import github
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import rules
+from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks.engine import v2
 from mergify_engine.worker import app
@@ -162,6 +163,18 @@ def run(event_type, data):
                  repo=repo.full_name,
                  pull_request=event_pull)
 
+        subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
+                                                  installation_id)
+
+        if repo.private and not subscription["subscription_active"]:
+            check_api.set_check_run(
+                event_pull, "Summary",
+                "completed", "failure", output={
+                    "title": "Mergify is disabled",
+                    "summary": subscription["subscription_reason"],
+                })
+            return
+
         if ("base" not in event_pull.raw_data or
                 "repo" not in event_pull.raw_data["base"] or
                 len(list(event_pull.raw_data["base"]["repo"].keys())) < 70):
@@ -213,7 +226,7 @@ def run(event_type, data):
             if (event_type == "pull_request" and
                     data["action"] in ["opened", "synchronize"]):
                 check_api.set_check_run(
-                    event_pull, "current-config-checker", "completed",
+                    event_pull, "Summary", "completed",
                     "failure", output={
                         "title": "The Mergify configuration is invalid",
                         "summary": str(e)

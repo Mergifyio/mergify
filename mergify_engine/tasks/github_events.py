@@ -83,11 +83,6 @@ def job_refresh(owner, repo, refresh_ref):
                     owner, repo, refresh_ref)
         return
 
-    if r.private and not subscription["subscribed"]:  # pragma: no cover
-        LOG.warning("%s/%s/%s: private repository not subscribed",
-                    owner, repo, refresh_ref)
-        return
-
     for p in pulls:
         # Mimic the github event format
         data = {
@@ -111,15 +106,8 @@ def job_refresh_all():
                           base_url="https://api.%s" % config.GITHUB_DOMAIN)
         i = g.get_installation(install["id"])
 
-        subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
-                                                  install["id"])
-        if not subscription["token"]:  # pragma: no cover
-            continue
-
         for r in i.get_repos():
             if r.archived:  # pragma: no cover
-                continue
-            if r.private and not subscription["subscribed"]:
                 continue
             try:
                 r.get_contents(".mergify.yml")
@@ -160,9 +148,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
     elif (event_type == "installation_repositories" and
           data["action"] == "removed"):
         for repository in data["repositories_removed"]:
-            if repository["private"] and not subscription["subscribed"]:  # noqa pragma: no cover
-                continue
-
             # TODO(sileht): move out this engine V1 related code
             key = "queues~%s~%s~%s~*~*" % (
                 data["installation"]["id"],
@@ -181,10 +166,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
         if data["repository"]["archived"]:  # pragma: no cover
             msg_action = "ignored (repository archived)"
-
-        elif (data["repository"]["private"] and not
-                subscription["subscribed"]):
-            msg_action = "ignored (not public or subscribe)"
 
         elif event_type == "status" and data["state"] == "pending":
             msg_action = "ignored (state pending)"
@@ -239,4 +220,5 @@ def job_filter_and_dispatch(event_type, event_id, data):
              install_id=data["installation"]["id"],
              sender=data["sender"]["login"],
              repository=repo_name,
-             subscribed=subscription["subscribed"])
+             subscription=subscription["subscription"],
+             subscription_reason=subscription["subscription_reason"])
