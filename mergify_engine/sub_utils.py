@@ -103,13 +103,11 @@ def _retrieve_subscription_from_db(installation_id):
     if resp.status_code == 404:
         sub = {
             "token": None,
-            "subscribed": False,
             # FIXME we need to know if install is unknown or token is wrong
             "subscription_reason": "404 returned by engine",
         }
     elif resp.status_code == 200:
         sub = resp.json()
-        sub["subscribed"] = sub["subscription"] is not None
         sub["token"] = sub["token"]["access_token"]
         del sub["subscription"]
     else:  # pragma: no cover
