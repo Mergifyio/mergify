@@ -24,8 +24,17 @@ from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
 
+AUTHENTICATION_FAILURE_MESSAGES = (
+    b"Invalid username or password",
+    b"The requested URL returned error: 403",
+)
 
-def _do_update(git, method, base_branch, head_branch):
+
+class AuthentificationFailure(Exception):
+    pass
+
+
+def _do_update_branch(git, method, base_branch, head_branch):
     if method == "merge":
         git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
             "Merge branch '%s' into '%s'" % (base_branch, head_branch))
@@ -37,7 +46,7 @@ def _do_update(git, method, base_branch, head_branch):
         raise RuntimeError("Invalid branch update method")
 
 
-def update(pull, installation_id, method="merge"):
+def _do_update(pull, token, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -50,16 +59,6 @@ def update(pull, installation_id, method="merge"):
     # $ git fetch upstream master --shallow-since="Fri Mar 30 21:30:26 2018"
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
-
-    redis = utils.get_redis_for_cache()
-
-    subscription = sub_utils.get_subscription(redis, installation_id)
-
-    if not subscription:
-        LOG.error("subscription to update branch is missing")
-        return
-
-    token = subscription["token"]
 
     head_repo = pull.g_pull.head.repo.full_name
     base_repo = pull.g_pull.base.repo.full_name
@@ -89,7 +88,7 @@ def update(pull, installation_id, method="merge"):
             "--shallow-since='%s'" % last_commit_date)
 
         try:
-            _do_update(git, method, base_branch, head_branch)
+            _do_update_branch(git, method, base_branch, head_branch)
         except subprocess.CalledProcessError as e:
             if b"unrelated histories" in e.output:
                 LOG.debug("Complete history cloned", pull_request=pull)
@@ -99,15 +98,35 @@ def update(pull, installation_id, method="merge"):
                 # So, retrying with the whole git history for now
                 git("fetch", "--quiet", "origin", head_branch)
                 git("fetch", "--quiet", "upstream", base_branch)
-                _do_update(git, method, base_branch, head_branch)
+                _do_update_branch(git, method, base_branch, head_branch)
             else:
                 raise
 
         return git("log", "-1", "--format=%H").decode().strip()
     except subprocess.CalledProcessError as e:  # pragma: no cover
-        LOG.error("update branch fail: %s", e.output, pull_request=pull,
-                  exc_info=True)
+        for message in AUTHENTICATION_FAILURE_MESSAGES:
+            if message in e.output:
+                raise AuthentificationFailure(e.output)
+        else:
+            LOG.error("update branch failed: %s", e.output, pull_request=pull,
+                      exc_info=True)
     except Exception:  # pragma: no cover
-        LOG.error("update branch fail", pull_request=pull, exc_info=True)
+        LOG.error("update branch failed", pull_request=pull, exc_info=True)
     finally:
         git.cleanup()
+
+
+def update(pull, installation_id, method="merge"):
+    redis = utils.get_redis_for_cache()
+
+    subscription = sub_utils.get_subscription(redis, installation_id)
+
+    for login, token in subscription["tokens"].items():
+        try:
+            return _do_update(pull, token, method)
+        except AuthentificationFailure as e:
+            LOG.debug("authentification failure, will retry another token: %s",
+                      e, login=login, pull_request=pull)
+
+    LOG.error("unable to update branch: no tokens are valid",
+              pull_request=pull)

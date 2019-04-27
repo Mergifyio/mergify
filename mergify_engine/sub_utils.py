@@ -102,14 +102,15 @@ def _retrieve_subscription_from_db(installation_id):
                               config.OAUTH_CLIENT_SECRET))
     if resp.status_code == 404:
         sub = {
-            "token": None,
+            "tokens": {},
             # FIXME we need to know if install is unknown or token is wrong
             "subscription_active": False,
             "subscription_reason": "404 returned by engine",
         }
     elif resp.status_code == 200:
         sub = resp.json()
-        sub["token"] = sub["token"]["access_token"]
+        sub["tokens"] = {(login, token["access_token"])
+                         for login, token in sub["tokens"].items()}
         del sub["subscription"]
     else:  # pragma: no cover
         # NOTE(sileht): handle this better
@@ -130,7 +131,9 @@ def _save_subscription_to_cache(r, installation_id, sub):
 
 def get_subscription(r, installation_id):
     sub = _retrieve_subscription_from_cache(r, installation_id)
-    if not sub:
+    # TODO(sileht): We can remove the "tokens" check when we have flush
+    # the all tokens cache
+    if not sub or "tokens" not in sub:
         sub = _retrieve_subscription_from_db(installation_id)
         _save_subscription_to_cache(r, installation_id, sub)
     return sub
