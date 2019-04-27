@@ -78,7 +78,7 @@ def job_refresh(owner, repo, refresh_ref):
                     owner, repo, refresh_ref)
         return
 
-    if not subscription["token"]:  # pragma: no cover
+    if not subscription["tokens"]:  # pragma: no cover
         LOG.warning("%s/%s/%s: installation without token",
                     owner, repo, refresh_ref)
         return
@@ -113,7 +113,7 @@ def job_refresh_all():
 
         subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
                                                   install["id"])
-        if not subscription["token"]:  # pragma: no cover
+        if not subscription["tokens"]:  # pragma: no cover
             continue
 
         for r in i.get_repos():
@@ -148,7 +148,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
     subscription = sub_utils.get_subscription(
         utils.get_redis_for_cache(), data["installation"]["id"])
 
-    if not subscription["token"]:
+    if not subscription["tokens"]:
         msg_action = "ignored (no token)"
 
     elif event_type == "installation" and data["action"] == "deleted":

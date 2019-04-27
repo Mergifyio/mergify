@@ -195,7 +195,8 @@ class FunctionalTestBase(testtools.TestCase):
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
-        self.subscription = {"token": config.MAIN_TOKEN, "subscribed": False}
+        self.subscription = {"tokens": {"mergifyio-testing": config.MAIN_TOKEN},
+                             "subscribed": False}
         self.redis.set("subscription-cache-%s" % config.INSTALLATION_ID,
                        sub_utils._encrypt(self.subscription))
 
@@ -262,7 +263,7 @@ class FunctionalTestBase(testtools.TestCase):
             if int(install_id) == config.INSTALLATION_ID:
                 return real_get_subscription(r, install_id)
             else:
-                return {"token": None, "subscribed": False}
+                return {"tokens": {}, "subscribed": False}
 
         self.useFixture(fixtures.MockPatch(
             "mergify_engine.branch_updater.sub_utils.get_subscription",

@@ -87,7 +87,17 @@ def report(url):
     print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
 
     try:
-        repos = get_repositories_setuped(cached_sub["token"], install_id)
+        exception = None
+        for token in cached_sub["tokens"].items():
+            try:
+                repos = get_repositories_setuped(token, install_id)
+            except github.BadCredentialsException as e:
+                exception = e
+                continue
+            else:
+                break
+        if exception:
+            print("* MERGIFY DON'T HAVE VALID OAUTH TOKENS")
     except github.UnknownObjectException:
         print("* MERGIFY SEEMS NOT INSTALLED")
     else:
