@@ -109,8 +109,8 @@ def _retrieve_subscription_from_db(installation_id):
         }
     elif resp.status_code == 200:
         sub = resp.json()
-        sub["tokens"] = {(login, token["access_token"])
-                         for login, token in sub["tokens"].items()}
+        sub["tokens"] = dict((login, token["access_token"])
+                             for login, token in sub["tokens"].items())
         del sub["subscription"]
     else:  # pragma: no cover
         # NOTE(sileht): handle this better
