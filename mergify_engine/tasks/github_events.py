@@ -211,8 +211,10 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
     if "repository" in data:
         repo_name = data["repository"]["full_name"]
+        private = data["repository"]["private"]
     else:
         repo_name = data["installation"]["account"]["login"]
+        private = "Unknown yet"
 
     LOG.info('event %s', msg_action,
              event_type=event_type,
@@ -220,5 +222,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
              install_id=data["installation"]["id"],
              sender=data["sender"]["login"],
              repository=repo_name,
+             private=private,
              subscription_active=subscription["subscription_active"],
              subscription_reason=subscription["subscription_reason"])
