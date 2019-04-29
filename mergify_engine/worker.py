@@ -43,7 +43,6 @@ app.conf.task_routes = ([
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
     utils.setup_logging()
-    config.log()
 
 
 @app.on_after_configure.connect
@@ -88,14 +87,6 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
         retry_in = 2 ** sender.request.retries * backoff
         sender.retry(countdown=retry_in)
 
-
-sentry_client = utils.get_sentry_client()
-
-if sentry_client:  # pragma: no cover
-    from raven.contrib.celery import register_signal
-    from raven.contrib.celery import register_logger_signal
-    register_logger_signal(sentry_client)
-    register_signal(sentry_client)
 
 # Register our tasks
 import mergify_engine.tasks.github_events  # noqa
