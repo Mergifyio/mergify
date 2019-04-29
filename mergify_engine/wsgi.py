@@ -14,13 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import raven.contrib.flask
-
 from mergify_engine import utils
-from mergify_engine.web import app as application
+from mergify_engine.web import app as application  # noqa
 
-
-sentry_client = utils.prepare_service()
-if sentry_client:
-    raven.contrib.flask.Sentry(application, client=sentry_client).init_app(
-        application)
+utils.setup_logging()

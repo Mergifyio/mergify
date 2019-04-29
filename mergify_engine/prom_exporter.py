@@ -144,7 +144,7 @@ def collect_metrics():
 
 
 def main():  # pragma: no cover
-    utils.prepare_service()
+    utils.setup_logging()
     LOG.info("Starting")
     prometheus_client.start_http_server(8889)
     LOG.info("Started")
