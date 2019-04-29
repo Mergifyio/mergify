@@ -82,8 +82,8 @@ def report(url):
 
     cached_sub = sub_utils.get_subscription(redis, install_id)
     db_sub = sub_utils._retrieve_subscription_from_db(install_id)
-    print("* SUBSCRIBED (cache/db): %s / %s" % (cached_sub["subscription"],
-                                                db_sub["subscription"]))
+    print("* SUBSCRIBED (cache/db): %s / %s" % (
+        cached_sub["subscription_active"], db_sub["subscription_active"]))
     print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
 
     try:

@@ -220,5 +220,5 @@ def job_filter_and_dispatch(event_type, event_id, data):
              install_id=data["installation"]["id"],
              sender=data["sender"]["login"],
              repository=repo_name,
-             subscription=subscription["subscription"],
+             subscription_active=subscription["subscription_active"],
              subscription_reason=subscription["subscription_reason"])

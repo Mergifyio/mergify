@@ -196,7 +196,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
         self.subscription = {"token": config.MAIN_TOKEN,
-                             "subscription": False,
+                             "subscription_active": False,
                              "subscription_reason": "You're not nice"}
         self.redis.set("subscription-cache-%s" % config.INSTALLATION_ID,
                        sub_utils._encrypt(self.subscription))

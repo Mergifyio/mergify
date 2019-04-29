@@ -75,7 +75,7 @@ def collect_metrics():
 
             LOG.info("Get subscription", account=account)
             subscribed = sub_utils.get_subscription(
-                redis, _id)["subscription"]
+                redis, _id)["subscription_active"]
 
             installations[(subscribed, target_type)] += 1
 
