@@ -130,7 +130,8 @@ def backport(pull, branch, installation_token):
             #    "--shallow-since='%s'" % last_commit_date)
             try:
                 git("cherry-pick", "-x", commit.sha)
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
+                LOG.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
                 cherry_pick_fail = True
                 status = git("status").decode("utf8")
                 git("add", "*")
@@ -140,6 +141,11 @@ def backport(pull, branch, installation_token):
                          % (commit.sha, status))
 
         git("push", "origin", bp_branch)
+    except subprocess.CalledProcessError as e:  # pragma: no cover
+        LOG.error("backport failed: %s", e.output,
+                  pull_request=pull, branch=branch.name,
+                  exc_info=True)
+        return
     except Exception:  # pragma: no cover
         LOG.error("backport failed", pull_request=pull, branch=branch.name,
                   exc_info=True)
