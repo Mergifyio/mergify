@@ -96,7 +96,7 @@ def report(url):
             except github.BadCredentialsException as e:
                 exception = e
                 continue
-            except github.GithubException.GithubException as e:
+            except github.GithubException as e:
                 if e.status == 401:
                     exception = e
                 else:
