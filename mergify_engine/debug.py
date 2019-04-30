@@ -86,6 +86,8 @@ def report(url):
         cached_sub["subscription_active"], db_sub["subscription_active"]))
     print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
 
+    print("* NUMBER OF CACHED TOKENS: %d" % len(cached_sub["tokens"]))
+
     try:
         exception = None
         for token in cached_sub["tokens"].items():
@@ -94,10 +96,15 @@ def report(url):
             except github.BadCredentialsException as e:
                 exception = e
                 continue
+            except github.GithubException.GithubException as e:
+                if e.status == 401:
+                    exception = e
+                else:
+                    raise
             else:
                 break
         if exception:
-            print("* MERGIFY DON'T HAVE VALID OAUTH TOKENS")
+            print("* MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
     except github.UnknownObjectException:
         print("* MERGIFY SEEMS NOT INSTALLED")
     else:
