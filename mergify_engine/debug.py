@@ -89,31 +89,25 @@ def report(url):
     print("* NUMBER OF CACHED TOKENS: %d" % len(cached_sub["tokens"]))
 
     try:
-        repos = None
-        exception = None
         for token in cached_sub["tokens"].items():
             try:
                 repos = get_repositories_setuped(token, install_id)
-            except github.BadCredentialsException as e:
-                exception = e
+            except github.BadCredentialsException:
+                pass
             except github.GithubException as e:
-                if e.status == 401:
-                    exception = e
-                else:
+                if e.status != 401:
                     raise
             else:
+                if any((r["full_name"] == owner + "/" + repo) for r in repos):
+                    print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
+                else:
+                    print("* MERGIFY INSTALLED BUT DISABLED "
+                          "ON THIS REPOSITORY")
                 break
-        if exception:
+        else:
             print("* MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
     except github.UnknownObjectException:
         print("* MERGIFY SEEMS NOT INSTALLED")
-    else:
-        if repos:
-            repos = [r for r in repos if r["full_name"] == owner + "/" + repo]
-            if repos:
-                print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
-            else:
-                print("* MERGIFY INSTALLED AND DISABLED ON THIS REPOSITORY!!!")
 
     installation_token = integration.get_access_token(install_id).token
 
