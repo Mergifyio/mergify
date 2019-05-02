@@ -20,7 +20,7 @@ import daiquiri
 from sentry_sdk import capture_exception
 
 from mergify_engine import config
-from mergify_engine import exception
+from mergify_engine import exceptions
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -54,9 +54,9 @@ MAX_RETRIES = 10
 
 
 @signals.task_failure.connect
-def retry_task_on_exception(sender, task_id, exc, args, kwargs,
+def retry_task_on_exception(sender, task_id, exception, args, kwargs,
                             traceback, einfo, **other):  # pragma: no cover
-    backoff = exception.need_retry(exc)
+    backoff = exceptions.need_retry(exception)
 
     if backoff is None:
         return
@@ -66,8 +66,8 @@ def retry_task_on_exception(sender, task_id, exc, args, kwargs,
                     'failed queue', task_id)
         # NOTE(sileht): We inject this attribute so sentry event hook
         # known it can the exception to its backend.
-        exc.retries_done = True
-        capture_exception(exc)
+        exception.retries_done = True
+        capture_exception(exception)
 
     else:
         LOG.warning('job %s: failed %d times - retrying',

@@ -19,7 +19,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from mergify_engine import config
-from mergify_engine import exception
+from mergify_engine import exceptions
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def fixup_sentry_reporting(event, hint):
     is_exception = 'exc_info' in hint
     if is_exception and is_celery_task:
         exc_type, exc_value, tb = hint['exc_info']
-        backoff = exception.need_retry(exc_value)
+        backoff = exceptions.need_retry(exc_value)
         if backoff and not getattr(exc_value, "retries_done", False):
             return None
 

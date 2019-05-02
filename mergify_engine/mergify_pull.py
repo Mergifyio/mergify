@@ -25,7 +25,7 @@ import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import exception
+from mergify_engine import exceptions
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -231,7 +231,7 @@ class MergifyPull(object):
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
                     retry=tenacity.retry_if_exception_type(
-                        exception.MergeableStateUnknown),
+                        exceptions.MergeableStateUnknown),
                     reraise=True)
     def _ensure_mergable_state(self, force=False):
         if self.g_pull.merged:
@@ -251,7 +251,7 @@ class MergifyPull(object):
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
             return
 
-        raise exception.MergeableStateUnknown()
+        raise exceptions.MergeableStateUnknown()
 
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
