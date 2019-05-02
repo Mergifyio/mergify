@@ -17,8 +17,6 @@ from celery import signals
 
 import daiquiri
 
-from sentry_sdk import capture_exception
-
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import utils
