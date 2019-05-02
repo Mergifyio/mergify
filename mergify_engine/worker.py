@@ -50,9 +50,6 @@ def setup_periodic_tasks(sender, **kwargs):
                              name='v2 smart strict workflow')
 
 
-MAX_RETRIES = 10
-
-
 @signals.task_failure.connect
 def retry_task_on_exception(sender, task_id, exception, args, kwargs,
                             traceback, einfo, **other):  # pragma: no cover
@@ -61,20 +58,11 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
     if backoff is None:
         return
 
-    elif sender.request.retries >= MAX_RETRIES:
-        LOG.warning('task %s: failed too many times times - moving to '
-                    'failed queue', task_id)
-        # NOTE(sileht): We inject this attribute so sentry event hook
-        # known it can the exception to its backend.
-        exception.retries_done = True
-        capture_exception(exception)
-
-    else:
-        LOG.warning('job %s: failed %d times - retrying',
-                    task_id, sender.request.retries)
-        # Exponential backoff
-        retry_in = 2 ** sender.request.retries * backoff
-        sender.retry(countdown=retry_in)
+    LOG.warning('job %s: failed %d times - retrying',
+                task_id, sender.request.retries)
+    # Exponential backoff
+    retry_in = 2 ** sender.request.retries * backoff
+    sender.retry(countdown=retry_in)
 
 
 # Register our tasks
