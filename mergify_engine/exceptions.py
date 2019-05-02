@@ -31,6 +31,12 @@ def need_retry(exception):
           isinstance(exception, requests.exceptions.ConnectionError)):
         return 30
 
+    # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
+    # no idea, ask Github...
+    elif (isinstance(exception, github.GithubException) and
+            exception.status == 401):
+        return 10
+
     elif (isinstance(exception, github.GithubException) and
           exception.status == 403 and
           ("You have triggered an abuse detection mechanism" in
