@@ -156,12 +156,10 @@ def main():  # pragma: no cover
                 github.BadCredentialsException) as e:
             status_code = (getattr(e, "status", None) or
                            getattr(e, "status_code", None))
+            LOG.warning("fail to gather metrics: %s", str(e))
             if status_code and status_code >= 500:
-                LOG.error("fail to gather metrics", exc_info=True)
                 time.sleep(10 * 60)
                 continue
-            else:
-                LOG.warning("fail to gather metrics: %s", str(e))
         except Exception:
             LOG.error("Unexpected error during metrics gathering",
                       exc_info=True)
