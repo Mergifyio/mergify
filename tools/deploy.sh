@@ -2,6 +2,16 @@
 
 set -euxo pipefail
 
+STATUS="Failed"
+
+handle_exit() {
+    curl -X POST \
+        -H 'Content-type: application/json' \
+        --data '{"text": "Deployement '$STATUS' \"'${TRAVIS_BRANCH}'('${TRAVIS_COMMIT}')\""}' \
+        $SLACK_WEBHOOK_URL
+}
+trap handle_exit EXIT
+
 error() {
     echo "$1 unset, exiting"
     exit 1
@@ -23,3 +33,5 @@ docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 docker push mergifyio/engine:latest
 
 cat tools/mergify-update.sh | ssh -p $PRODUCTION_PORT $PRODUCTION_HOST bash
+
+STATUS="Succeed"
