@@ -133,10 +133,17 @@ def job_refresh_all():
 
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), data["installation"]["id"])
+    if "installation" not in data:
+        subscription = {"subscription_active": "Unknown",
+                        "subscription_reason": "No"}
+    else:
+        subscription = sub_utils.get_subscription(
+            utils.get_redis_for_cache(), data["installation"]["id"])
 
-    if not subscription["tokens"]:
+    if "installation" not in data:
+        msg_action = "ignored (no installation id)"
+
+    elif not subscription["tokens"]:
         msg_action = "ignored (no token)"
 
     elif event_type == "installation" and data["action"] == "deleted":
