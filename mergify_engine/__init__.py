@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import celery.exceptions
+
 import daiquiri
 
 import sentry_sdk
@@ -31,8 +33,9 @@ def fixup_sentry_reporting(event, hint):
     is_exception = 'exc_info' in hint
     if is_exception and is_celery_task:
         exc_type, exc_value, tb = hint['exc_info']
+
         backoff = exceptions.need_retry(exc_value)
-        if backoff:
+        if backoff or isinstance(exc_value, celery.exceptions.Retry):
             return None
 
     return event
