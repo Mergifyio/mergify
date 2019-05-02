@@ -12,10 +12,10 @@ handle_exit() {
         color="danger"
         title="Failure"
     fi
-    text="<http://github.com/Mergify/mergify-engine/commit/${TRAVIS_COMMIT}|Commit ${TRAVIS_COMMIT}>"
+    text="<http://github.com/Mergify/mergify-engine/commit/${TRAVIS_COMMIT}|${TRAVIS_COMMIT}>"
     curl -X POST \
         -H 'Content-type: application/json' \
-        --data '{"attachments": [{"title": "'$title'", "color": "'$color'", "text": "'$text'" }]}' \
+        --data '{"attachments":[{"title":"'$title'","color":"'$color'","text":"'$text'"}]}' \
         $SLACK_WEBHOOK_URL
 }
 trap handle_exit EXIT
