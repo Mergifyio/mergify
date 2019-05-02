@@ -15,11 +15,7 @@ handle_exit() {
     text="<http://github.com/Mergify/mergify-engine/commit/${TRAVIS_COMMIT}|Branch ${TRAVIS_BRANCH} (${TRAVIS_COMMIT})>"
     curl -X POST \
         -H 'Content-type: application/json' \
-        --data '{"attachments": [{
-                    "title": "'$title'",
-                    "color": "'$color'",
-                    "text": "'$text'"
-                }]}' \
+        --data '{"attachments": [{"title": "'$title'", "color": "'$color'", "text": "'$text'" }]}' \
         $SLACK_WEBHOOK_URL
 }
 trap handle_exit EXIT
