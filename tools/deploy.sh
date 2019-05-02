@@ -2,12 +2,24 @@
 
 set -euxo pipefail
 
-STATUS="Failed"
+SUCCEED=
 
 handle_exit() {
+    if [ "$SUCCEED" ]; then
+        color="good"
+        title="Success"
+    else
+        color="danger"
+        title="Failure"
+    fi
+    text="<http://github.com/Mergify/mergify-engine/commit/${TRAVIS_COMMIT}|Branch ${TRAVIS_BRANCH} (${TRAVIS_COMMIT})>"
     curl -X POST \
         -H 'Content-type: application/json' \
-        --data '{"text": "Deployement '$STATUS' \"'${TRAVIS_BRANCH}'('${TRAVIS_COMMIT}')\""}' \
+        --data '{"attachments": [{
+                    "title": "'$title'",
+                    "color": "'$color'",
+                    "text": "'$text'"
+                }]}' \
         $SLACK_WEBHOOK_URL
 }
 trap handle_exit EXIT
@@ -34,4 +46,4 @@ docker push mergifyio/engine:latest
 
 cat tools/mergify-update.sh | ssh -p $PRODUCTION_PORT $PRODUCTION_HOST bash
 
-STATUS="Succeed"
+SUCCEED=1
