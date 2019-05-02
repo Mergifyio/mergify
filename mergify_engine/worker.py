@@ -17,12 +17,10 @@ from celery import signals
 
 import daiquiri
 
-import github
-
-import requests
+from sentry_sdk import capture_exception
 
 from mergify_engine import config
-from mergify_engine import mergify_pull
+from mergify_engine import exception
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -56,30 +54,21 @@ MAX_RETRIES = 10
 
 
 @signals.task_failure.connect
-def retry_task_on_exception(sender, task_id, exception, args, kwargs,
+def retry_task_on_exception(sender, task_id, exc, args, kwargs,
                             traceback, einfo, **other):  # pragma: no cover
-    if isinstance(exception, mergify_pull.MergeableStateUnknown):
-        backoff = 30
-    elif ((isinstance(exception, github.GithubException) and
-           exception.status >= 500) or
-          (isinstance(exception, requests.exceptions.HTTPError) and
-           exception.response.status_code >= 500) or
-          isinstance(exception, requests.exceptions.ConnectionError)):
-        backoff = 30
+    backoff = exception.need_retry(exc)
 
-    elif (isinstance(exception, github.GithubException) and
-          exception.status == 403 and
-          ("You have triggered an abuse detection mechanism" in
-           exception.data["message"] or
-           exception.data["message"].startswith("API rate limit exceeded"))
-          ):
-        backoff = 60 * 5
-    else:
+    if backoff is None:
         return
 
-    if sender.request.retries >= MAX_RETRIES:
+    elif sender.request.retries >= MAX_RETRIES:
         LOG.warning('task %s: failed too many times times - moving to '
                     'failed queue', task_id)
+        # NOTE(sileht): We inject this attribute so sentry event hook
+        # known it can the exception to its backend.
+        exc.retries_done = True
+        capture_exception(exc)
+
     else:
         LOG.warning('job %s: failed %d times - retrying',
                     task_id, sender.request.retries)
