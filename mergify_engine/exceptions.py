@@ -44,3 +44,6 @@ def need_retry(exception):
            exception.data["message"].startswith("API rate limit exceeded"))
           ):
         return 60 * 5
+
+    elif isinstance(exception, github.RateLimitExceededException):
+        return 60 * 5
