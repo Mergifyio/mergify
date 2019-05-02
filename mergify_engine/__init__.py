@@ -32,7 +32,7 @@ def fixup_sentry_reporting(event, hint):
     if is_exception and is_celery_task:
         exc_type, exc_value, tb = hint['exc_info']
         backoff = exceptions.need_retry(exc_value)
-        if backoff and not getattr(exc_value, "retries_done", False):
+        if backoff:
             return None
 
     return event
