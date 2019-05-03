@@ -133,10 +133,17 @@ def job_refresh_all():
 
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), data["installation"]["id"])
+    if "installation" not in data:
+        subscription = {"subscription_active": "Unknown",
+                        "subscription_reason": "No"}
+    else:
+        subscription = sub_utils.get_subscription(
+            utils.get_redis_for_cache(), data["installation"]["id"])
 
-    if not subscription["tokens"]:
+    if "installation" not in data:
+        msg_action = "ignored (no installation id)"
+
+    elif not subscription["tokens"]:
         msg_action = "ignored (no token)"
 
     elif event_type == "installation" and data["action"] == "deleted":
@@ -210,16 +217,22 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "ignored (unexpected event_type)"
 
     if "repository" in data:
+        installation_id = data["installation"]["id"],
         repo_name = data["repository"]["full_name"]
         private = data["repository"]["private"]
-    else:
+    elif "installation" in data:
+        installation_id = data["installation"]["id"],
         repo_name = data["installation"]["account"]["login"]
         private = "Unknown yet"
+    else:
+        installation_id = "Unknown"
+        repo_name = "Unknown"
+        private = "Unknown"
 
     LOG.info('event %s', msg_action,
              event_type=event_type,
              event_id=event_id,
-             install_id=data["installation"]["id"],
+             install_id=installation_id,
              sender=data["sender"]["login"],
              repository=repo_name,
              private=private,

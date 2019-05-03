@@ -12,14 +12,37 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import celery.exceptions
+
+import daiquiri
+
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from mergify_engine import config
+from mergify_engine import exceptions
+
+LOG = daiquiri.getLogger(__name__)
+
+
+def fixup_sentry_reporting(event, hint):
+    # NOTE(sileht): Block exceptions that celery will retry until
+    # the retries handler manually send the event.
+    is_celery_task = "celery-job" in event.get("extra", {})
+    is_exception = 'exc_info' in hint
+    if is_exception and is_celery_task:
+        exc_type, exc_value, tb = hint['exc_info']
+
+        backoff = exceptions.need_retry(exc_value)
+        if backoff or isinstance(exc_value, celery.exceptions.Retry):
+            return None
+
+    return event
+
 
 if config.SENTRY_URL:
-    sentry_sdk.init(config.SENTRY_URL, integrations=[
-        CeleryIntegration(),
-        FlaskIntegration(),
-    ])
+    sentry_sdk.init(config.SENTRY_URL,
+                    before_send=fixup_sentry_reporting,
+                    integrations=[CeleryIntegration(),
+                                  FlaskIntegration()])

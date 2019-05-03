@@ -2,6 +2,24 @@
 
 set -euxo pipefail
 
+SUCCEED=
+
+handle_exit() {
+    if [ "$SUCCEED" ]; then
+        color="good"
+        title="Success"
+    else
+        color="danger"
+        title="Failure"
+    fi
+    text="<http://github.com/Mergifyio/mergify-engine/commit/${TRAVIS_COMMIT}|${TRAVIS_COMMIT}>"
+    curl -X POST \
+        -H 'Content-type: application/json' \
+        --data '{"attachments":[{"title":"'$title'","color":"'$color'","text":"'$text'"}]}' \
+        $SLACK_WEBHOOK_URL
+}
+trap handle_exit EXIT
+
 error() {
     echo "$1 unset, exiting"
     exit 1
@@ -23,3 +41,5 @@ docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 docker push mergifyio/engine:latest
 
 cat tools/mergify-update.sh | ssh -p $PRODUCTION_PORT $PRODUCTION_HOST bash
+
+SUCCEED=1

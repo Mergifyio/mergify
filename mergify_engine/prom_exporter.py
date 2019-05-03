@@ -22,9 +22,8 @@ import github
 
 import prometheus_client
 
-import requests
-
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import sub_utils
 from mergify_engine import utils
 
@@ -152,19 +151,14 @@ def main():  # pragma: no cover
     while True:
         try:
             collect_metrics()
-        except (requests.exceptions.HTTPError,
-                github.BadCredentialsException) as e:
-            status_code = (getattr(e, "status", None) or
-                           getattr(e, "status_code", None))
-            if status_code and status_code >= 500:
-                LOG.error("fail to gather metrics", exc_info=True)
+        except Exception as e:
+            if exceptions.need_retry(e):
+                LOG.warning("fail to gather metrics: %s", str(e))
                 time.sleep(10 * 60)
                 continue
             else:
-                LOG.warning("fail to gather metrics: %s", str(e))
-        except Exception:
-            LOG.error("Unexpected error during metrics gathering",
-                      exc_info=True)
+                LOG.error("Unexpected error during metrics gathering",
+                          exc_info=True)
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)
