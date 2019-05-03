@@ -28,7 +28,9 @@ def need_retry(exception):
            exception.status >= 500) or
           (isinstance(exception, requests.exceptions.HTTPError) and
            exception.response.status_code >= 500) or
-          isinstance(exception, requests.exceptions.RequestException)):
+          isinstance(exception, requests.exceptions.ConnectionError) or
+          isinstance(exception, requests.exceptions.Timeout) or
+          isinstance(exception, requests.exceptions.TooManyRedirects)):
         return 30
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
