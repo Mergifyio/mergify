@@ -22,8 +22,6 @@ import github
 
 import prometheus_client
 
-import requests
-
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import sub_utils
