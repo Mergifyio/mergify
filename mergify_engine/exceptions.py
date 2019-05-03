@@ -33,17 +33,8 @@ def need_retry(exception):
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
-    elif (isinstance(exception, github.GithubException) and
-            exception.status == 401):
-        return 10
-
-    elif (isinstance(exception, github.GithubException) and
-          exception.status == 403 and
-          ("You have triggered an abuse detection mechanism" in
-           exception.data["message"] or
-           exception.data["message"].startswith("API rate limit exceeded"))
-          ):
-        return 60 * 5
-
-    elif isinstance(exception, github.RateLimitExceededException):
-        return 60 * 5
+    elif isinstance(exception, github.GithubException):
+        if exception.status == 401:  # Bad creds or token expired, we can't
+            return 10                # really known
+        elif exception.status == 403:  # Rate limit or abuse detection
+            return 60 * 5              # mechanism
