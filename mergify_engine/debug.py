@@ -140,7 +140,7 @@ def report(url):
     print("* MERGIFY CHECKS:")
     checks = list(check_api.get_checks(p))
     for c in checks:
-        if c.name.startswith("Mergify"):
+        if c._rawData['app']['id'] == config.INTEGRATION_ID:
             print("[%s]: %s | %s" % (c.name, c.conclusion,
                                      c.output.get("title")))
             print("> " + "\n> ".join(c.output.get("summary").split("\n")))
