@@ -80,4 +80,5 @@ def queues():
 
     args = parser.parse_args()
     parts = args.url.replace("https://github.com/", "").split("/")
-    api_call(config.BASE_URL + "/queues/%s/%s" % (parts[0], parts[1]))
+    api_call(config.BASE_URL + "/queues/%s/%s" % (parts[0], parts[1]),
+             method="GET")
