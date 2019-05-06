@@ -89,14 +89,15 @@ def report(url):
     print("* NUMBER OF CACHED TOKENS: %d" % len(cached_sub["tokens"]))
 
     try:
-        for token in cached_sub["tokens"].items():
+        for login, token in cached_sub["tokens"].items():
             try:
                 repos = get_repositories_setuped(token, install_id)
             except github.BadCredentialsException:
-                pass
+                print("** token for %s invalid" % login)
             except github.GithubException as e:
                 if e.status != 401:
                     raise
+                print("** token for %s invalid" % login)
             else:
                 if any((r["full_name"] == owner + "/" + repo) for r in repos):
                     print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
