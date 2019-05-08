@@ -161,7 +161,7 @@ def backport(pull, branch, installation_token):
             "checking-out-pull-requests-locally/")
 
     return repo.create_pull(
-        title="[bp] %s" % pull.g_pull.title,
+        title="{} (bp #{})".format(pull.g_pull.title, pull.g_pull.number),
         body=body,
         base=branch.name,
         head=bp_branch,
