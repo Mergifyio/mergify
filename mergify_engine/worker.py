@@ -44,7 +44,7 @@ def celery_logging(**kwargs):  # pragma: no cover
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60.0,
-                             merge.smart_strict_workflow_periodic_task.s(),
+                             queue.smart_strict_workflow_periodic_task.s(),
                              name='v2 smart strict workflow')
 
 
@@ -65,4 +65,4 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
 
 # Register our tasks
 import mergify_engine.tasks.github_events  # noqa
-from mergify_engine.actions import merge  # noqa
+from mergify_engine.actions.merge import queue  # noqa

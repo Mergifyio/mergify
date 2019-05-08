@@ -40,8 +40,8 @@ MERGE_EVENTS = [
 def run_smart_strict_workflow_periodic_task():
     # NOTE(sileht): actions must not be loaded manually before the celery
     # worker. Otherwise we have circular import loop.
-    from mergify_engine.actions import merge
-    merge.smart_strict_workflow_periodic_task.apply_async()
+    from mergify_engine.actions.merge import queue
+    queue.smart_strict_workflow_periodic_task.apply_async()
 
 
 class TestEngineV2Scenario(base.FunctionalTestBase):
