@@ -26,7 +26,7 @@ from mergify_engine import exceptions
 LOG = daiquiri.getLogger(__name__)
 
 
-def fixup_sentry_reporting(event, hint):
+def fixup_sentry_reporting(event, hint):  # pragma: no cover
     # NOTE(sileht): Block exceptions that celery will retry until
     # the retries handler manually send the event.
     is_celery_task = "celery-job" in event.get("extra", {})
@@ -41,7 +41,7 @@ def fixup_sentry_reporting(event, hint):
     return event
 
 
-if config.SENTRY_URL:
+if config.SENTRY_URL:  # pragma: no cover
     sentry_sdk.init(config.SENTRY_URL,
                     before_send=fixup_sentry_reporting,
                     integrations=[CeleryIntegration(),

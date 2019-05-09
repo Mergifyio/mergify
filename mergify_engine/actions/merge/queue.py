@@ -59,10 +59,10 @@ def remove_pull(pull):
     queue = _get_queue_cache_key(pull)
     redis.zrem(queue, pull.g_pull.number)
     redis.delete(_get_update_method_cache_key(pull))
-    LOG.debug("pull request removd from merge queue", queue=queue, pull=pull)
+    LOG.debug("pull request removed from merge queue", queue=queue, pull=pull)
 
 
-def _move_pull_at_end(pull):
+def _move_pull_at_end(pull):  # pragma: no cover
     redis = utils.get_redis_for_cache()
     queue = _get_queue_cache_key(pull)
     score = utils.utcnow().timestamp()
@@ -150,11 +150,11 @@ def smart_strict_workflow_periodic_task():
                 LOG.debug("pull request checks are still in progress",
                           pull_request=pull)
 
-        except exceptions.MergeableStateUnknown as e:
+        except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             LOG.warning("pull request with mergeable_state unknown "
                         "retrying later", pull_request=e.pull)
             _move_pull_at_end(e.pull)
-        except Exception:
+        except Exception:  # pragma: no cover
             LOG.error("Fail to process merge queue", queue=queue,
                       pull_request=pull, exc_info=True)
             if pull:
