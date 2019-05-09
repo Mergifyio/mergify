@@ -59,7 +59,7 @@ def authentification():  # pragma: no cover
 
 
 @app.route("/badges/<owner>/<repo>.png")
-def badge(owner, repo):
+def badge(owner, repo):  # pragma: no cover
     redis = utils.get_redis_for_cache()
     mode = ("enabled" if redis.sismember("badges", owner + "/" + repo)
             else "disabled")
@@ -70,7 +70,7 @@ def badge(owner, repo):
 
 @app.route("/validate", methods=["POST"])
 @cross_origin()
-def config_validator():
+def config_validator():  # pragma: no cover
     try:
         rules.validate_user_config(flask.request.files['data'].stream)
     except Exception as e:
@@ -109,7 +109,7 @@ def subscription_cache(installation_id):  # pragma: no cover
 
 
 @app.route("/marketplace", methods=["POST"])
-def marketplace_handler():
+def marketplace_handler():   # pragma: no cover
     authentification()
     return "Event ignored", 202
 

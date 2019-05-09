@@ -34,10 +34,6 @@ def CoercedBool(value):
     return bool(distutils.util.strtobool(str(value)))
 
 
-def ComaSeparatedInt(value):
-    return list(map(int, str(value).split(",")))
-
-
 Schema = voluptuous.Schema({
     # Logging
     voluptuous.Required('DEBUG', default=True): CoercedBool,
@@ -55,9 +51,6 @@ Schema = voluptuous.Schema({
 
     # Github optional
     voluptuous.Required('GITHUB_DOMAIN', default="github.com"): str,
-    voluptuous.Required('MARKETPLACE_FREE_PLAN_IDS',
-                        default=[]): voluptuous.Any(
-                            [int], ComaSeparatedInt),
 
     # Mergify website for subscription
     voluptuous.Required(

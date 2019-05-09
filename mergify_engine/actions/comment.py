@@ -34,7 +34,7 @@ class CommentAction(actions.Action):
             event_type, data, pull, missing_conditions):
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
-        except github.GithubException as e:
+        except github.GithubException as e:  # pragma: no cover
             LOG.error("fail to post comment on the pull request",
                       status=e.status, error=e.data["message"],
                       pull_request=pull)
