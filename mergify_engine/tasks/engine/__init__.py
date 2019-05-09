@@ -88,8 +88,9 @@ def create_metrics(event_type, data):
           data["pull_request"]["merged"]):
 
         pull_request_merged.apply_async()
-        if data["pull_request"]["merged_by"]["login"] in ["mergify[bot]",
-                                                          "mergify-test[bot]"]:
+        if (data["pull_request"]["merged_by"] and
+                data["pull_request"]["merged_by"]["login"]
+                in ["mergify[bot]", "mergify-test[bot]"]):
             pull_request_merged_by_mergify.apply_async()
 
 
