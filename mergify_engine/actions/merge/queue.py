@@ -59,7 +59,7 @@ def remove_pull(pull):
     queue = _get_queue_cache_key(pull)
     redis.zrem(queue, pull.g_pull.number)
     redis.delete(_get_update_method_cache_key(pull))
-    LOG.debug("pull request removd from merge queue", queue=queue, pull=pull)
+    LOG.debug("pull request removed from merge queue", queue=queue, pull=pull)
 
 
 def _move_pull_at_end(pull):
