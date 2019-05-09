@@ -18,6 +18,7 @@ import github
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
@@ -123,10 +124,16 @@ def _handle_first_pull_in_queue(queue, pull):
 
 @app.task
 def smart_strict_workflow_periodic_task():
+    # NOTE(sileht): Don't use the celery retry mechnism here, the
+    # periodic tasks already retries. This ensure a repo can't block
+    # another one.
+
     redis = utils.get_redis_for_cache()
     LOG.debug("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):
         LOG.debug("handling queue: %s", queue)
+
+        pull = None
         try:
             pull = _get_next_pull_request(queue)
             if not pull:
@@ -143,13 +150,14 @@ def smart_strict_workflow_periodic_task():
                 LOG.debug("pull request checks are still in progress",
                           pull_request=pull)
 
+        except exceptions.MergeableStateUnknown as e:
+            LOG.warning("pull request with mergeable_state unknown "
+                        "retrying later", pull_request=e.pull)
+            _move_pull_at_end(e.pull)
         except Exception:
-            # NOTE(sileht): Don't use the celery retry mechnism here, the
-            # periodic tasks already retries. This ensure a repo can't block
-            # another one.
-            # FIXME(sileht): This is not perfect because is a PR of a repo hit
-            # the "Invalid mergeable_state Github bug", this will still loop
-            # for even for this repo.
-            LOG.error("Fail to process merge queue: %s", queue, exc_info=True)
+            LOG.error("Fail to process merge queue", queue=queue,
+                      pull_request=pull, exc_info=True)
+            if pull:
+                _move_pull_at_end(pull)
 
     LOG.debug("smart strict workflow loop end")
