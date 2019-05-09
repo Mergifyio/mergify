@@ -18,7 +18,8 @@ import requests
 
 
 class MergeableStateUnknown(Exception):
-    pass
+    def __init__(self, pull):
+        self.pull = pull
 
 
 def need_retry(exception):

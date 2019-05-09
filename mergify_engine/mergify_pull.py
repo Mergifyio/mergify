@@ -251,7 +251,7 @@ class MergifyPull(object):
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
             return
 
-        raise exceptions.MergeableStateUnknown()
+        raise exceptions.MergeableStateUnknown(self)
 
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
