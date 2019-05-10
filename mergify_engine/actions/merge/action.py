@@ -140,26 +140,22 @@ class MergeAction(actions.Action):
         except github.GithubException as e:   # pragma: no cover
             if pull.g_pull.is_merged():
                 LOG.info("merged in the meantime", pull=pull)
-
-            elif e.status == 405:
-                LOG.error("merge fail", error=e.data["message"],
-                          pull=pull)
-                if pull.g_pull.mergeable_state == "blocked":
-                    return ("failure", "Branch protection settings are "
-                            "blocking automatic merging", e.data["message"])
-                else:
-                    return ("failure",
-                            "Repository settings are blocking automatic "
-                            "merging", e.data["message"])
-
-            elif 400 <= e.status < 500:
-                LOG.error("merge fail", error=e.data["message"],
-                          pull=pull)
-                return ("failure",
-                        "Mergify fails to merge the pull request",
-                        e.data["message"])
             else:
-                raise
+                if e.status != 405:
+                    message = "Mergify fails to merge the pull request"
+                elif pull.g_pull.mergeable_state == "blocked":
+                    message = ("Branch protection settings are blocking "
+                               "automatic merging")
+                else:
+                    message = ("Repository settings are blocking automatic "
+                               "merging")
+
+                log_method = LOG.error if e.status >= 500 else LOG.info
+                log_method("merge fail", status=e.status, message=message,
+                           error=e.data["message"], pull=pull)
+
+                return ("failure", message, "Github error message: `%s`" %
+                        e.data["message"])
         else:
             LOG.info("merged", pull=pull)
 
