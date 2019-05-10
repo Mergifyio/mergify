@@ -76,6 +76,13 @@ def test_regexp():
     assert not f(foo="x")
 
 
+def test_regexp_invalid():
+    with pytest.raises(filter.InvalidArguments):
+        filter.Filter({
+            "~=": ("foo", "([^\s\w])(\s*\1+"),  # noqa
+        })
+
+
 def test_set_value_expanders():
     f = filter.Filter({
         "=": ("foo", "@bar"),

@@ -74,6 +74,18 @@ def test_pull_request_rule_schema_invalid():
                 ],
                 "actions": {},
             }, "Invalid condition "),
+            (
+                {
+                    "name": "invalid regexp",
+                    "conditions": [
+                        "head~=(lol"
+                    ],
+                    "actions": {},
+                },
+                r"Invalid condition 'head~=\(lol'. Invalid arguments: "
+                r"missing \), "
+                r"unterminated subpattern at position 0 @ ",
+            ),
             ({
                 "name": "hello",
                 "conditions": [
