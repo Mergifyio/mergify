@@ -257,7 +257,7 @@ class MergifyPull(object):
                     stop=tenacity.stop_after_attempt(5),
                     retry=tenacity.retry_never)
     def _wait_for_sha_change(self, old_sha):
-        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+        if (self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha):
             return
 
         # Github is currently processing this PR, we wait the completion
@@ -267,7 +267,7 @@ class MergifyPull(object):
         # when mergeable_state change, so we get a fresh pull request instead
         # of using update()
         self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
-        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+        if (self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha):
             return
         raise tenacity.TryAgain
 
