@@ -48,6 +48,10 @@ def PullRequestRuleCondition(value):
         raise voluptuous.Invalid(
             message="Invalid condition '%s'. %s" % (value, str(e)),
             error_message=str(e))
+    except filter.InvalidQuery as e:
+        raise voluptuous.Invalid(
+            message="Invalid condition '%s'. %s" % (value, str(e)),
+            error_message=str(e))
 
 
 PullRequestRulesSchema = voluptuous.Schema([{

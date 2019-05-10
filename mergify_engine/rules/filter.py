@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Julien Danjou <jd@mergify.io>
+# Copyright © 2018-2019 Julien Danjou <jd@mergify.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -55,6 +55,10 @@ class InvalidArguments(InvalidQuery, ValueError):
         self.arguments = arguments
 
 
+def _identity(value):
+    return value
+
+
 @attr.s(str=False, repr=False)
 class Filter:
     unary_operators = {
@@ -63,23 +67,23 @@ class Filter:
     }
 
     binary_operators = {
-        "=": (operator.eq, any),
-        "==": (operator.eq, any),
+        "=": (operator.eq, any, _identity),
+        "==": (operator.eq, any, _identity),
 
-        "<": (operator.lt, any),
+        "<": (operator.lt, any, _identity),
 
-        ">": (operator.gt, any),
+        ">": (operator.gt, any, _identity),
 
-        "<=": (operator.le, any),
-        "≤": (operator.le, any),
+        "<=": (operator.le, any, _identity),
+        "≤": (operator.le, any, _identity),
 
-        ">=": (operator.ge, any),
-        "≥": (operator.ge, any),
+        ">=": (operator.ge, any, _identity),
+        "≥": (operator.ge, any, _identity),
 
-        "!=": (operator.ne, all),
-        "≠": (operator.ne, all),
+        "!=": (operator.ne, all, _identity),
+        "≠": (operator.ne, all, _identity),
 
-        "~=": (lambda a, b: re.search(b, a), any),
+        "~=": (lambda a, b: b.search(a), any, re.compile),
     }
 
     tree = attr.ib()
@@ -125,10 +129,6 @@ class Filter:
     LENGTH_OPERATOR = "#"
     ATTR_SEPARATOR = "."
 
-    @staticmethod
-    def _identity(value):
-        return value
-
     def _get_value_comparator(self, op, name, values):
         if op != len and name in self._value_expanders:
             return lambda x: any(map(
@@ -144,7 +144,7 @@ class Filter:
             op = len
         else:
             self.attribute_name = name
-            op = self._identity
+            op = _identity
         try:
             for subname in self.attribute_name.split(self.ATTR_SEPARATOR):
                 values = values[subname]
@@ -167,11 +167,16 @@ class Filter:
             op = self.unary_operators[operator]
         except KeyError:
             try:
-                op, iterable_op = self.binary_operators[operator]
+                op, iterable_op, compile_fn = self.binary_operators[operator]
             except KeyError:
                 raise UnknownOperator(operator)
             if len(nodes) != 2:
                 raise InvalidArguments(nodes)
+
+            try:
+                nodes = (nodes[0], compile_fn(nodes[1]))
+            except Exception as e:
+                raise InvalidArguments(str(e))
 
             def _op(values):
                 values = self._resolve_name(values, nodes[0])
