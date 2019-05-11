@@ -155,7 +155,7 @@ class MergeAction(actions.Action):
                            mergify_message=message,
                            error_message=e.data["message"], pull=pull)
 
-                return ("failure", message, "Github error message: `%s`" %
+                return ("failure", message, "GitHub error message: `%s`" %
                         e.data["message"])
         else:
             LOG.info("merged", pull=pull)
