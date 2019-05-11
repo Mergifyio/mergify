@@ -64,8 +64,18 @@ def output_for_mergeable_state(pull, strict):
 
 
 def update_pull_base_branch(pull, installation_id, method):
-    updated = branch_updater.update(pull, installation_id, method)
-    if updated:
+    try:
+        updated = branch_updater.update(pull, installation_id, method)
+    except branch_updater.BranchUpdateFailure as e:
+        # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
+        # in the meantime. So double check that to not report a wrong status
+        pull.g_pull.update()
+        output = merge_report(pull)
+        if output:
+            return output
+        else:
+            return ("failure", "Base branch update has failed", e.message)
+    else:
         redis = utils.get_redis_for_cache()
         # NOTE(sileht): We store this for dismissal action
         redis.setex("branch-update-%s" % updated, 60 * 60, updated)
@@ -79,12 +89,3 @@ def update_pull_base_branch(pull, installation_id, method):
                 "The pull request has been automatically "
                 "updated to follow its base branch and will be "
                 "merged soon")
-    else:
-        # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
-        # in the meantime. So double check that to not report a wrong status
-        pull.g_pull.update()
-        output = merge_report(pull)
-        if output:
-            return output
-        else:
-            return ("failure", "Base branch update has failed", "")

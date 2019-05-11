@@ -197,6 +197,9 @@ class MergifyPull(object):
         return generic_checks
 
     def _resolve_login(self, name):
+        if not isinstance(name, str):
+            return [name]
+
         organization, _, team_slug = name.partition("/")
         if organization[0] != "@" or not team_slug or '/' in team_slug:
             # Not a team slug
