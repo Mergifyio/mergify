@@ -43,6 +43,10 @@ USERS_PER_INSTALLATION = prometheus_client.Gauge(
     "users_per_installation", "number of users per installation",
     ["subscribed", "type", "account"])
 
+COSTS = prometheus_client.Gauge(
+    "subscription_cost", "Subscription cost",
+    ["subscribed", "type", "account"])
+
 
 def set_gauge(metric, labels, value):
     metric.labels(*labels).set(value)
@@ -61,6 +65,7 @@ def collect_metrics():
     installations = collections.defaultdict(int)
     repositories_per_installation = collections.defaultdict(int)
     users_per_installation = collections.defaultdict(int)
+    costs = collections.defaultdict(int)
 
     LOG.info("GitHub Polling started")
 
@@ -73,8 +78,12 @@ def collect_metrics():
             account = installation["account"]["login"]
 
             LOG.info("Get subscription", account=account)
-            subscribed = sub_utils.get_subscription(
-                redis, _id)["subscription_active"]
+            subs = sub_utils.get_subscription(redis, _id)
+            subscribed = subs["subscription_active"]
+
+            costs[(subscribed, target_type, account)] = (
+                subs["subscription_cost"]
+            )
 
             installations[(subscribed, target_type)] += 1
 
@@ -135,6 +144,7 @@ def collect_metrics():
     set_gauges(INSTALLATIONS, installations)
     set_gauges(USERS_PER_INSTALLATION, users_per_installation)
     set_gauges(REPOSITORIES_PER_INSTALLATION, repositories_per_installation)
+    set_gauges(COSTS, costs)
 
     if redis.exists("badges.tmp"):
         redis.rename("badges.tmp", "badges")

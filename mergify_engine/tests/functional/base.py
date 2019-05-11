@@ -198,6 +198,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.subscription = {"tokens": {"mergifyio-testing":
                                         config.MAIN_TOKEN},
                              "subscription_active": False,
+                             "subscription_cost": 100,
                              "subscription_reason": "You're not nice"}
         self.redis.set("subscription-cache-%s" % config.INSTALLATION_ID,
                        sub_utils._encrypt(self.subscription))
