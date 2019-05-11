@@ -151,8 +151,9 @@ class MergeAction(actions.Action):
                                "merging")
 
                 log_method = LOG.error if e.status >= 500 else LOG.info
-                log_method("merge fail", status=e.status, message=message,
-                           error=e.data["message"], pull=pull)
+                log_method("merge fail", status=e.status,
+                           mergify_message=message,
+                           error_message=e.data["message"], pull=pull)
 
                 return ("failure", message, "Github error message: `%s`" %
                         e.data["message"])
