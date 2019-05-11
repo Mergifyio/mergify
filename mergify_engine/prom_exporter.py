@@ -119,7 +119,7 @@ def collect_metrics():
                 repositories_per_installation[
                     (subscribed, target_type, account, private, False)
                 ] = unconfigured_repos
-        except github.GithubException as e:
+        except github.GithubException as e:  # pragma: no cover
             # Ignore rate limit/abuse
             if e.status != 403:
                 raise
@@ -151,7 +151,7 @@ def main():  # pragma: no cover
     while True:
         try:
             collect_metrics()
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             if exceptions.need_retry(e):
                 LOG.warning("fail to gather metrics: %s", str(e))
                 time.sleep(10 * 60)

@@ -100,7 +100,7 @@ def _do_update(pull, token, method="merge"):
 
         try:
             _do_update_branch(git, method, base_branch, head_branch)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError as e:  # pragma: no cover
             if b"unrelated histories" in e.output:
                 LOG.debug("Complete history cloned", pull_request=pull)
                 # NOTE(sileht): We currently assume we have only one parent
@@ -138,7 +138,7 @@ def update(pull, installation_id, method="merge"):
     for login, token in subscription["tokens"].items():
         try:
             return _do_update(pull, token, method)
-        except AuthentificationFailure as e:
+        except AuthentificationFailure as e:  # pragma: no cover
             LOG.debug("authentification failure, will retry another token: %s",
                       e, login=login, pull_request=pull)
 

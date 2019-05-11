@@ -39,7 +39,7 @@ class BackportAction(actions.Action):
         for branch_name in self.config['branches']:
             try:
                 branch = pull.g_pull.base.repo.get_branch(branch_name)
-            except github.GithubException as e:
+            except github.GithubException as e:  # pragma: no cover
                 LOG.error("backport: fail to get branch",
                           pull_request=pull,
                           error=e.data["message"])

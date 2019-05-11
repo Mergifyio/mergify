@@ -130,7 +130,7 @@ def backport(pull, branch, installation_token):
             #    "--shallow-since='%s'" % last_commit_date)
             try:
                 git("cherry-pick", "-x", commit.sha)
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError as e:  # pragma: no cover
                 LOG.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
                 cherry_pick_fail = True
                 status = git("status").decode("utf8")
