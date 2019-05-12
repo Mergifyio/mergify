@@ -1,8 +1,7 @@
 pull_request_rules:
   - name: automatic merge
     conditions:
-      - base=master
-      - status-success=continuous-integration/travis-ci/pr
+      - status-success=Travis CI - Pull Request
       - "#approved-reviews-by>=1"
       - label!=work-in-progress
     actions:
@@ -11,8 +10,7 @@ pull_request_rules:
         method: rebase
   - name: automatic merge without review
     conditions:
-      - base=master
-      - status-success=continuous-integration/travis-ci/pr
+      - status-success=Travis CI - Pull Request
       - label=no-review-needed
       - label!=work-in-progress
     actions:
@@ -23,9 +21,3 @@ pull_request_rules:
     conditions: []
     actions:
       dismiss_reviews: {}
-  - name: auto add wip
-    conditions:
-      - title~=^(wip|WIP).*
-    actions:
-      label:
-        add: ["work-in-progress"]
