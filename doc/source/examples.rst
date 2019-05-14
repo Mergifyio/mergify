@@ -124,7 +124,7 @@ To automate the merge in this case, you could write some rules along those:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=ci/circleci: my_testing_job
+          - "status-success=ci/circleci: my_testing_job"
           - "#approved-reviews-by>=2"
           - base=master
         actions:
@@ -132,7 +132,7 @@ To automate the merge in this case, you could write some rules along those:
             method: merge
       - name: automatic merge for stable branches
         conditions:
-          - status-success=ci/circleci: my_testing_job
+          - "status-success=ci/circleci: my_testing_job"
           - "#approved-reviews-by>=1"
           - base~=^stable/
         actions:
