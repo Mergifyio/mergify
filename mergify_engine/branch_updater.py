@@ -124,6 +124,7 @@ def _do_update(pull, token, method="merge"):
                     # commit in common. Since Git is a graph, in some case this
                     # graph can be more complicated.
                     # So, retrying with the whole git history for now
+                    git("fetch", "--unshallow")
                     git("fetch", "--quiet", "origin", head_branch)
                     git("fetch", "--quiet", "upstream", base_branch)
                     _do_update_branch(git, method, base_branch, head_branch)
