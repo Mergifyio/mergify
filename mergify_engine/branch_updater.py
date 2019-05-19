@@ -14,7 +14,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import subprocess
+import uuid
 
 import daiquiri
 
@@ -24,14 +26,23 @@ from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
 
-AUTHENTICATION_FAILURE_MESSAGES = (
-    b"Invalid username or password",
-    b"The requested URL returned error: 403",
-)
+
+class BranchUpdateFailure(Exception):
+    def __init__(self, msg=""):
+        error_code = "err-code: %s" % uuid.uuid4().hex[-5:].upper()
+        self.message = msg + "\n" + error_code
+        super(BranchUpdateFailure, self).__init__(self.message)
 
 
 class AuthentificationFailure(Exception):
     pass
+
+
+GIT_MESSAGE_TO_EXCEPTION = {
+    b"Invalid username or password": AuthentificationFailure,
+    b"The requested URL returned error: 403": AuthentificationFailure,
+    b"Patch failed at": BranchUpdateFailure,
+}
 
 
 def _do_update_branch(git, method, base_branch, head_branch):
@@ -89,7 +100,7 @@ def _do_update(pull, token, method="merge"):
 
         try:
             _do_update_branch(git, method, base_branch, head_branch)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError as e:  # pragma: no cover
             if b"unrelated histories" in e.output:
                 LOG.debug("Complete history cloned", pull_request=pull)
                 # NOTE(sileht): We currently assume we have only one parent
@@ -103,15 +114,18 @@ def _do_update(pull, token, method="merge"):
                 raise
 
         return git("log", "-1", "--format=%H").decode().strip()
-    except subprocess.CalledProcessError as e:  # pragma: no cover
-        for message in AUTHENTICATION_FAILURE_MESSAGES:
-            if message in e.output:
-                raise AuthentificationFailure(e.output)
+    except subprocess.CalledProcessError as in_exception:  # pragma: no cover
+        for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
+            if message in in_exception.output:
+                raise out_exception(in_exception.output.decode())
         else:
-            LOG.error("update branch failed: %s", e.output, pull_request=pull,
-                      exc_info=True)
+            LOG.error("update branch failed: %s", in_exception.output.decode(),
+                      pull_request=pull, exc_info=True)
+            raise BranchUpdateFailure()
+
     except Exception:  # pragma: no cover
         LOG.error("update branch failed", pull_request=pull, exc_info=True)
+        raise BranchUpdateFailure()
     finally:
         git.cleanup()
 
@@ -124,9 +138,10 @@ def update(pull, installation_id, method="merge"):
     for login, token in subscription["tokens"].items():
         try:
             return _do_update(pull, token, method)
-        except AuthentificationFailure as e:
+        except AuthentificationFailure as e:  # pragma: no cover
             LOG.debug("authentification failure, will retry another token: %s",
                       e, login=login, pull_request=pull)
 
     LOG.error("unable to update branch: no tokens are valid",
               pull_request=pull)
+    raise BranchUpdateFailure("No oauth valid tokens")

@@ -106,6 +106,7 @@ def _retrieve_subscription_from_db(installation_id):
             # FIXME we need to know if install is unknown or token is wrong
             "subscription_active": False,
             "subscription_reason": "404 returned by engine",
+            "subscription_cost": 0,
         }
     elif resp.status_code == 200:
         sub = resp.json()

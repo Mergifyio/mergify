@@ -197,6 +197,9 @@ class MergifyPull(object):
         return generic_checks
 
     def _resolve_login(self, name):
+        if not isinstance(name, str):
+            return [name]
+
         organization, _, team_slug = name.partition("/")
         if organization[0] != "@" or not team_slug or '/' in team_slug:
             # Not a team slug
@@ -234,7 +237,7 @@ class MergifyPull(object):
                         exceptions.MergeableStateUnknown),
                     reraise=True)
     def _ensure_mergable_state(self, force=False):
-        if self.g_pull.merged:
+        if self.g_pull.state == "closed":
             return
         if (not force and
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
@@ -247,17 +250,17 @@ class MergifyPull(object):
         # when mergeable_state change, so we get a fresh pull request instead
         # of using update()
         self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
-        if (self.g_pull.merged or
+        if (self.g_pull.state == "closed" or
                 self.g_pull.mergeable_state not in self.UNUSABLE_STATES):
             return
 
-        raise exceptions.MergeableStateUnknown()
+        raise exceptions.MergeableStateUnknown(self)
 
     @tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
                     stop=tenacity.stop_after_attempt(5),
                     retry=tenacity.retry_never)
     def _wait_for_sha_change(self, old_sha):
-        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+        if (self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha):
             return
 
         # Github is currently processing this PR, we wait the completion
@@ -267,7 +270,7 @@ class MergifyPull(object):
         # when mergeable_state change, so we get a fresh pull request instead
         # of using update()
         self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
-        if (self.g_pull.merged or self.g_pull.head.sha != old_sha):
+        if (self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha):
             return
         raise tenacity.TryAgain
 

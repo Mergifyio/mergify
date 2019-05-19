@@ -74,6 +74,18 @@ def test_pull_request_rule_schema_invalid():
                 ],
                 "actions": {},
             }, "Invalid condition "),
+            (
+                {
+                    "name": "invalid regexp",
+                    "conditions": [
+                        "head~=(lol"
+                    ],
+                    "actions": {},
+                },
+                r"Invalid condition 'head~=\(lol'. Invalid arguments: "
+                r"missing \), "
+                r"unterminated subpattern at position 0 @ ",
+            ),
             ({
                 "name": "hello",
                 "conditions": [
@@ -151,6 +163,7 @@ def test_get_pull_request_rule():
     g_pull._rawData = {'locked': False}
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
+    g_pull.user.login = "another-jd"
     file1 = mock.Mock()
     file1.filename = "README.rst"
     file2 = mock.Mock()
@@ -435,6 +448,20 @@ def test_get_pull_request_rule():
     label.name = "allowed"
     pull_request.g_pull.labels = [label]
 
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+    assert [r['name'] for r in match.rules] == ["default"]
+    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]['name'] == "default"
+    assert len(match.matching_rules[0][1]) == 0
+
+    # Test team expander
+    pull_request_rules = rules.PullRequestRules([{
+        "name": "default",
+        "conditions": [
+            "author~=^(user1|user2|another-jd)$"
+        ],
+        "actions": {}
+    }])
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r['name'] for r in match.rules] == ["default"]
     assert [r['name'] for r, _ in match.matching_rules] == ["default"]

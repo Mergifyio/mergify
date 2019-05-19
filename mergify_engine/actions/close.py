@@ -40,7 +40,7 @@ class CloseAction(actions.Action):
 
         try:
             pull.g_pull.edit(state="close")
-        except github.GithubException as e:
+        except github.GithubException as e:  # pragma: no cover
             LOG.error("fail to close the pull request",
                       status=e.status, error=e.data["message"],
                       pull_request=pull)
@@ -48,7 +48,7 @@ class CloseAction(actions.Action):
 
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
-        except github.GithubException as e:
+        except github.GithubException as e:  # pragma: no cover
             LOG.error("fail to post comment on the pull request",
                       status=e.status, error=e.data["message"],
                       pull_request=pull)
