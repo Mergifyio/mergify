@@ -20,6 +20,8 @@ import uuid
 
 import daiquiri
 
+import tenacity
+
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -34,6 +36,10 @@ class BranchUpdateFailure(Exception):
         super(BranchUpdateFailure, self).__init__(self.message)
 
 
+class BranchUpdateNeedRetry(Exception):
+    pass
+
+
 class AuthentificationFailure(Exception):
     pass
 
@@ -42,7 +48,13 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"Invalid username or password": AuthentificationFailure,
     b"The requested URL returned error: 403": AuthentificationFailure,
     b"Patch failed at": BranchUpdateFailure,
+    b"remote contains work that you do": BranchUpdateNeedRetry,
 }
+
+GIT_MESSAGE_TO_UNSHALLOW = set([
+    b"shallow update not allowed",
+    b"unrelated histories",
+])
 
 
 def _do_update_branch(git, method, base_branch, head_branch):
@@ -57,6 +69,10 @@ def _do_update_branch(git, method, base_branch, head_branch):
         raise RuntimeError("Invalid branch update method")
 
 
+@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
+                stop=tenacity.stop_after_attempt(5),
+                retry=tenacity.retry_if_exception_type(
+                    BranchUpdateNeedRetry))
 def _do_update(pull, token, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
@@ -101,15 +117,18 @@ def _do_update(pull, token, method="merge"):
         try:
             _do_update_branch(git, method, base_branch, head_branch)
         except subprocess.CalledProcessError as e:  # pragma: no cover
-            if b"unrelated histories" in e.output:
-                LOG.debug("Complete history cloned", pull_request=pull)
-                # NOTE(sileht): We currently assume we have only one parent
-                # commit in common. Since Git is a graph, in some case this
-                # graph can be more complicated.
-                # So, retrying with the whole git history for now
-                git("fetch", "--quiet", "origin", head_branch)
-                git("fetch", "--quiet", "upstream", base_branch)
-                _do_update_branch(git, method, base_branch, head_branch)
+            for message in GIT_MESSAGE_TO_UNSHALLOW:
+                if message in e.output:
+                    LOG.debug("Complete history cloned", pull_request=pull)
+                    # NOTE(sileht): We currently assume we have only one parent
+                    # commit in common. Since Git is a graph, in some case this
+                    # graph can be more complicated.
+                    # So, retrying with the whole git history for now
+                    git("fetch", "--unshallow")
+                    git("fetch", "--quiet", "origin", head_branch)
+                    git("fetch", "--quiet", "upstream", base_branch)
+                    _do_update_branch(git, method, base_branch, head_branch)
+                    break
             else:
                 raise
 

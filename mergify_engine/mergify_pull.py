@@ -283,42 +283,6 @@ class MergifyPull(object):
         return (self.g_pull.raw_data["maintainer_can_modify"] or
                 self.g_pull.head.repo.id == self.g_pull.base.repo.id)
 
-    def _merge_failed(self, e):
-        # Don't log some  common and valid error
-        if e.data["message"].startswith("Base branch was modified"):
-            return False
-
-        LOG.error("merge failed",
-                  status=e.status, error=e.data["message"],
-                  pull_request=self, exc_info=True)
-        return False
-
-    def merge(self, merge_method, rebase_fallback):
-        try:
-            self.g_pull.merge(
-                sha=self.g_pull.head.sha,
-                merge_method=merge_method)
-        except github.GithubException as e:   # pragma: no cover
-            if (self.g_pull.is_merged() and
-                    e.data["message"] == "Pull Request is not mergeable"):
-                # Not a big deal, we will receive soon the pull_request close
-                # event
-                LOG.info("merged in the meantime", pull_request=self)
-                return True
-
-            if (e.data["message"] != "This branch can't be rebased" or
-                    merge_method != "rebase" or
-                    (rebase_fallback == "none" or rebase_fallback is None)):
-                return self._merge_failed(e)
-
-            # If rebase fail retry with merge
-            try:
-                self.g_pull.merge(sha=self.g_pull.head.sha,
-                                  merge_method=rebase_fallback)
-            except github.GithubException as e:
-                return self._merge_failed(e)
-        return True
-
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(self.g_pull.base.ref)
         for commit in self.g_pull.get_commits():

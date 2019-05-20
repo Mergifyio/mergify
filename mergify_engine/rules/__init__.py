@@ -15,9 +15,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import collections
-import copy
-
 import attr
 
 import daiquiri
@@ -168,33 +165,6 @@ def validate_user_config(content):
             raise InvalidRules(str(e))
     except voluptuous.MultipleInvalid as e:
         raise InvalidRules(str(e))
-
-
-def _dict_merge(dct, merge_dct):
-    """Recursively merge keys/values from merge_dct into dct.
-
-    :return: dct
-    """
-    for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict) and
-                isinstance(merge_dct[k], collections.Mapping)):
-            _dict_merge(dct[k], merge_dct[k])
-        else:
-            dct[k] = merge_dct[k]
-    return dct
-
-
-def get_merged_branch_rule(rules, branch_re=None):
-    default_rules = copy.deepcopy(DEFAULT_RULE)
-    if rules.get("default") is not None:
-        default_rules = _dict_merge(default_rules, rules["default"])
-    if branch_re:
-        if rules["branches"][branch_re] is None:
-            return None
-        return _dict_merge(default_rules, rules["branches"][branch_re])
-    elif "default" in rules and rules["default"] is None:
-        return None
-    return default_rules
 
 
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
