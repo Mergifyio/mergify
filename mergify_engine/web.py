@@ -19,6 +19,7 @@
 # import gevent.monkey
 # gevent.monkey.patch_all()
 
+import base64
 import hmac
 import json
 import logging
@@ -26,6 +27,8 @@ import logging
 import flask
 
 from flask_cors import cross_origin
+
+import pkg_resources
 
 from mergify_engine import rules
 from mergify_engine import utils
@@ -58,14 +61,53 @@ def authentification():  # pragma: no cover
         flask.abort(403)
 
 
-@app.route("/badges/<owner>/<repo>.png")
-def badge(owner, repo):  # pragma: no cover
+with open(pkg_resources.resource_filename(
+        __name__, "data/mergify-logo-32.png"), "rb") as logo:
+    _MERGIFY_LOGO_BASE64 = base64.b64encode(logo.read()).decode()
+
+
+def _badge_color_mode(owner, repo):
+    """Return badge (color, mode) for a repository."""
     redis = utils.get_redis_for_cache()
-    mode = ("enabled" if redis.sismember("badges", owner + "/" + repo)
-            else "disabled")
-    style = flask.request.args.get("style", "cut")
-    return flask.send_from_directory("../doc/source/_static",
-                                     "badge-%s-%s.png" % (mode, style))
+    if redis.sismember("badges", owner + "/" + repo):
+        return "success", "enabled"
+    return "critical", "disabled"
+
+
+def _get_badge_url(owner, repo, ext):
+    color, mode = _badge_color_mode(owner, repo)
+    style = flask.request.args.get("style", "flat")
+    return flask.redirect(
+        f"https://img.shields.io/badge/Mergify-{mode}-{color}.{ext}"
+        f"?style={style}&logo=data:image/png;base64,{_MERGIFY_LOGO_BASE64}"
+    )
+
+
+@app.route("/badges/<owner>/<repo>.png")
+def badge_png(owner, repo):  # pragma: no cover
+    return _get_badge_url(owner, repo, "png")
+
+
+@app.route("/badges/<owner>/<repo>.svg")
+def badge_svg(owner, repo):  # pragma: no cover
+    return _get_badge_url(owner, repo, "svg")
+
+
+with open(pkg_resources.resource_filename(
+        __name__, "data/mergify-logo.svg"), "r") as logo:
+    _MERGIFY_LOGO_SVG = logo.read()
+
+
+@app.route("/badges/<owner>/<repo>")
+def badge(owner, repo):
+    color, mode = _badge_color_mode(owner, repo)
+    return flask.jsonify({
+        "schemaVersion": 1,
+        "label": "Mergify",
+        "message": mode,
+        "logoColor": "#28ABE1",
+        "logoSvg": _MERGIFY_LOGO_SVG,
+    })
 
 
 @app.route("/validate", methods=["POST"])
