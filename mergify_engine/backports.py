@@ -23,6 +23,11 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
+ERRORS_TO_IGNORE = set([
+    "reference already exists",
+])
+
+
 @functools.total_ordering
 class CommitOrderingKey(object):
     def __init__(self, obj, *args):
@@ -142,7 +147,11 @@ def backport(pull, branch, installation_token):
 
         git("push", "origin", bp_branch)
     except subprocess.CalledProcessError as e:  # pragma: no cover
-        LOG.error("backport failed: %s", e.output.decode(),
+        output = e.output.decode()
+        for error in ERRORS_TO_IGNORE:
+            if error in output:
+                return
+        LOG.error("backport failed: %s", output,
                   pull_request=pull, branch=branch.name,
                   exc_info=True)
         return
