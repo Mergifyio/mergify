@@ -135,7 +135,13 @@ class MergeAction(actions.Action):
     @staticmethod
     def _merge(pull, method):
         try:
-            pull.g_pull.merge(sha=pull.g_pull.head.sha,
+            pull.g_pull.merge(commit_message=pull.g_pull.body,
+                              # TODO: trim the original title so the resulting
+                              # commit_title is not longer than 50 chars
+                              commit_title="{} (#{})".format(
+                                  pull.g_pull.title,
+                                  pull.g_pull.number),
+                              sha=pull.g_pull.head.sha,
                               merge_method=method)
         except github.GithubException as e:   # pragma: no cover
             if pull.g_pull.is_merged():
