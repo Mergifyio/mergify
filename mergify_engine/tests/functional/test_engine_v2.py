@@ -954,32 +954,3 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         checks = list(check_api.get_checks(p1))
         assert len(checks) == 1
         assert checks[0].name == "Summary"
-
-    def test_close_issue(self):
-        rules = {'pull_request_rules': [
-            {"name": "Merge on master",
-             "conditions": [
-                 "base=master",
-                 "status-success=continuous-integration/fake-ci",
-                 "#approved-reviews-by>=1",
-             ], "actions": {
-                 "merge": {"method": "rebase"}
-             }},
-        ]}
-
-        self.setup_repo(yaml.dump(rules))
-
-        p1, commits = self.create_pr()
-        self.create_status_and_push_event(p1)
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
-        self.create_review_and_push_event(p1, commits[0])
-
-        self.push_events(MERGE_EVENTS, ordered=False)
-
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(1, len(pulls))
-        self.assertEqual(1, pulls[0].number)
-        self.assertEqual(True, pulls[0].merged)
-        self.assertEqual("closed", pulls[0].state)
