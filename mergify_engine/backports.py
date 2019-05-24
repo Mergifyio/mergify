@@ -142,7 +142,7 @@ def backport(pull, branch, installation_token):
 
         git("push", "origin", bp_branch)
     except subprocess.CalledProcessError as e:  # pragma: no cover
-        LOG.error("backport failed: %s", e.output,
+        LOG.error("backport failed: %s", e.output.decode(),
                   pull_request=pull, branch=branch.name,
                   exc_info=True)
         return
