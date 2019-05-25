@@ -49,5 +49,4 @@ def test_badge_endpoint():
             "label": "Mergify",
             "message": "disabled",
             "logoSvg": web._MERGIFY_LOGO_SVG,
-            "logoColor": "28ABE1",
         }
