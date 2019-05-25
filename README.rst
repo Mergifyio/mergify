@@ -1,7 +1,7 @@
 mergify-engine
 ==============
 
-.. image:: https://gh.mergify.io/badges/Mergifyio/mergify-engine.png
+.. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/Mergifyio/mergify.io
    :target: https://mergify.io
    :alt: Mergify Status
 
