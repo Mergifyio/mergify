@@ -5,7 +5,7 @@ mergify-engine
    :target: https://mergify.io
    :alt: Mergify Status
 
-.. image:: https://travis-ci.org/Mergifyio/mergify-engine.png?branch=master
+.. image:: https://travis-ci.org/Mergifyio/mergify-engine.svg?branch=master
     :target: https://travis-ci.org/Mergifyio/mergify-engine
     :alt: Build Status
 
