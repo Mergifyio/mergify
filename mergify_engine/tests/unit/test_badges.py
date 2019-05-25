@@ -47,6 +47,7 @@ def test_badge_endpoint():
         assert reply.json == {
             "schemaVersion": 1,
             "label": "Mergify",
+            "color": "critical",
             "message": "disabled",
             "logoSvg": web._MERGIFY_LOGO_SVG,
         }

@@ -105,6 +105,7 @@ def badge(owner, repo):
         "schemaVersion": 1,
         "label": "Mergify",
         "message": mode,
+        "color": color,
         "logoSvg": _MERGIFY_LOGO_SVG,
     })
 
