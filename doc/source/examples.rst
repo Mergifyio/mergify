@@ -9,6 +9,10 @@ available: pull request author, base branch, labels, files, etc.
 
 Here's a few example that should help you getting started.
 
+.. contents::
+   :local:
+   :depth: 2
+
 Automatic Merge when CI works and approving reviews
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -83,31 +87,6 @@ Mergify allows to delete those branches once the pull request has been merged:
         actions:
           delete_head_branch: {}
 
-
-Automatic Merge for Automatic Pull Requests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Some pull request might be created automatically by other tools, such as
-`Dependabot <https://dependabot.com/>`_. You might decide that there's no need
-to manually review and approve those pull request as long as your continuous
-integration system validates them.
-
-Therefore, you could write a rule such as:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge for Dependabot pull requests on master
-        conditions:
-          - author=dependabot[bot]
-          - status-success=Travis CI - Pull Request
-          - base=master
-        actions:
-          merge:
-            method: merge
-
-That would automatically merge any pull request created by Dependabot for the
-``master`` branch where Travis CI passes.
 
 Less Strict Rules for Stable Branches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -223,3 +202,6 @@ least one positive review, obviously.
 
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
+
+
+.. include:: examples/bots.rst
