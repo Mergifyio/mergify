@@ -20,6 +20,8 @@ import uuid
 
 import daiquiri
 
+import github
+
 import tenacity
 
 from mergify_engine import config
@@ -134,7 +136,11 @@ def _do_update(pull, token, method="merge"):
             else:
                 raise
 
-        return git("log", "-1", "--format=%H").decode().strip()
+        expected_sha = git("log", "-1", "--format=%H").decode().strip()
+        # NOTE(sileht): We store this for dismissal action
+        redis = utils.get_redis_for_cache()
+        redis.setex("branch-update-%s" % expected_sha, 60 * 60,
+                    expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
@@ -151,7 +157,26 @@ def _do_update(pull, token, method="merge"):
         git.cleanup()
 
 
-def update(pull, installation_id, method="merge"):
+@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
+                stop=tenacity.stop_after_attempt(5),
+                retry=tenacity.retry_if_exception_type(
+                    BranchUpdateNeedRetry))
+def update_with_api(pull):
+    try:
+        pull.g_pull._requester.requestJsonAndCheck(
+            "PUT", pull.g_pull.url + "/update-branch",
+            input={"expected_head_sha": pull.g_pull.head.sha},
+            headers={"Accept": "application/vnd.github.lydian-preview+json"})
+    except github.GithubException as e:
+        LOG.debug("update branch failed", status=e.status,
+                  error=e.data["message"], pull_request=pull)
+        if e.status < 500:
+            raise BranchUpdateFailure(e.text)
+        else:
+            raise BranchUpdateNeedRetry()
+
+
+def update_with_git(pull, installation_id, method="merge"):
     redis = utils.get_redis_for_cache()
 
     subscription = sub_utils.get_subscription(redis, installation_id)
