@@ -21,6 +21,7 @@ import github
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -37,12 +38,14 @@ class DismissReviewsAction(actions.Action):
     def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         if (event_type == "pull_request" and data["action"] == "synchronize"):
+            # NOTE(sileht): mergify-bot have push the "Update Branch" button.
+            if data["sender"]["id"] != config.BOT_USER_ID:
+                return
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
             # his access_token instead of the Mergify installation token.
             # As workaround we track in redis merge commit id
-            # if data["sender"]["id"] != config.BOT_USER_ID):
-            #     return
+            # This is only true for method="rebase"
             redis = utils.get_redis_for_cache()
             if redis.get("branch-update-%s" % pull.g_pull.head.sha):
                 return

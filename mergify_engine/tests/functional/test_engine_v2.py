@@ -17,6 +17,8 @@ import logging
 
 import github
 
+import requests.exceptions
+
 import yaml
 
 from mergify_engine import check_api
@@ -406,21 +408,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-            # Summary update about manual merge
-            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "synchronize"}),
             # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
@@ -453,7 +448,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
-    def test_merge_strict(self):
+    def test_merge_strict_default(self):
         rules = {'pull_request_rules': [
             {"name": "smart strict merge on master",
              "conditions": [
@@ -474,21 +469,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-            # Summary update about manual merge
-            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "synchronize"}),
             # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
@@ -502,7 +490,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         commits2 = list(p2.get_commits())
 
         # Check master have been merged into the PR
-        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+        self.assertIn("Merge branch 'master' into fork/pr2",
                       commits2[-1].commit.message)
 
         # Retry to merge pr2
@@ -541,22 +529,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-            # Summary update about manual merge
-            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status_and_push_event(p2)
-        self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
         self.create_review_and_push_event(p2, commits[0])
 
         self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
@@ -594,7 +574,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         commits2 = list(p2.get_commits())
 
         # Check master have been merged into the PR
-        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+        self.assertIn("Merge branch 'master' into fork/pr2",
                       commits2[-1].commit.message)
 
         # Retry to merge pr2
@@ -633,18 +613,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-            # Summary update about manual merge
-            ("check_run", {"check_run": {"conclusion": "success"}}),
         ])
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        try:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        except requests.exceptions.ConnectionError:
+            # Please don't ask me why this call always fail..
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
         self.push_events([
             # fake-ci statuses
             ("status", {"state": "success"}),
-            # Summaries
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
@@ -665,15 +645,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.create_status(p3, "continuous-integration/fake-ci", "success")
         self.push_events([
             ("status", {"state": "success"}),
-            # Summaries
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             # Merge
             ("check_run", {"check_run": {"conclusion": None}}),
         ])
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
-        self.assertIn("Merge branch 'master' into 'fork/pr2'",
+        self.assertIn("Merge branch 'master' into fork/pr2",
                       commits2[-1].commit.message)
 
         self.create_status(p2, "continuous-integration/fake-ci", "failure")
@@ -681,8 +659,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("status", {"state": "failure"}),
         ])
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "cancelled"}}),
-            ("check_suite", {"check_suite": {"conclusion": "cancelled"}}),
+            ("check_run", {"check_run": {"conclusion": "neutral"}}),
+            ("check_suite", {"check_suite": {"conclusion": "success"}}),
         ], ordered=False)
 
         # Should got to the next PR
@@ -700,7 +678,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p3 = self.r_o_admin.get_pull(p3.number)
         commits3 = list(p3.get_commits())
-        self.assertIn("Merge branch 'master' into 'fork/pr",
+        self.assertIn("Merge branch 'master' into fork/pr",
                       commits3[-1].commit.message)
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
@@ -708,9 +686,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("status", {"state": "success"}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "closed"}),
-        ])
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
             ("check_suite", {"action": "completed"}),
         ], ordered=False)

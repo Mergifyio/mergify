@@ -129,9 +129,16 @@ def post_summary(event_type, data, pull, match, checks):
                        summary_check.output["summary"] != summary)
 
     if summary_changed:
+        LOG.debug("summary changed", summary={"title": summary_title,
+                                              "name": summary_name,
+                                              "summary": summary})
         check_api.set_check_run(
             pull.g_pull, summary_name, "completed", "success",
             output={"title": summary_title, "summary": summary})
+    else:
+        LOG.debug("summary unchanged", summary={"title": summary_title,
+                                                "name": summary_name,
+                                                "summary": summary})
 
 
 def exec_action(method_name, rule, action,

@@ -368,7 +368,7 @@ class FunctionalTestBase(testtools.TestCase):
                                    (len(events), total))
 
             if RECORD:
-                time.sleep(0.1)
+                time.sleep(0.2)
 
             events += self._process_events(total - len(events))
 

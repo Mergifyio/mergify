@@ -15,7 +15,6 @@
 import daiquiri
 
 from mergify_engine import branch_updater
-from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -65,7 +64,10 @@ def output_for_mergeable_state(pull, strict):
 
 def update_pull_base_branch(pull, installation_id, method):
     try:
-        updated = branch_updater.update(pull, installation_id, method)
+        if method == "merge":
+            branch_updater.update_with_api(pull)
+        else:
+            branch_updater.update_with_git(pull, installation_id, method)
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status
@@ -76,10 +78,6 @@ def update_pull_base_branch(pull, installation_id, method):
         else:
             return ("failure", "Base branch update has failed", e.message)
     else:
-        redis = utils.get_redis_for_cache()
-        # NOTE(sileht): We store this for dismissal action
-        redis.setex("branch-update-%s" % updated, 60 * 60, updated)
-
         # NOTE(sileht): We update g_pull to have the new head.sha,
         # so future created checks will be posted on the new sha.
         # Otherwise the checks will be lost the GitHub UI on the
