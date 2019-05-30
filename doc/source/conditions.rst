@@ -133,13 +133,15 @@ Here's the list of pull request attribute that rules can be matched against:
      - The list of status checks that successfuly passed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
-       `Travis CI - Pull Request`.
+       `Travis CI - Pull Request`. See `About status check name`_ for more
+       details.
    * - ``status-failure``
      - array of string
      - The list of status checks that failed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
-       `Travis CI - Pull Request`.
+       `Travis CI - Pull Request`. See `About status check name`_ for more
+       details.
    * - ``title``
      - string
      - The title of the pull request.
@@ -193,6 +195,28 @@ Operators List
 
     For all `reviewers` related attributes, only users with `write` or `admin`
     permission on the repository are used, others are ignored.
+
+
+About status check name
+~~~~~~~~~~~~~~~~~~~~~~~
+
+When using the ``status-success`` and ``status-failure`` conditions, you need
+to use the name of your check service.
+
+This can be find by opening an existing pull request and scrolling down near
+the ``Merge`` button.
+
+.. image:: _static/status-check-example.png
+   :alt: Status check example
+
+The name of the status check is writte in bold on the right side. In the
+example above, it should be ``Uno.UI - CI``. A condition that would make sure
+this checks succeed before doing any action should be written as:
+
+.. code-block:: yaml
+
+     conditions:
+       - status-check=Uno.UI - CI
 
 
 Examples
