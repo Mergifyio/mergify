@@ -119,7 +119,7 @@ def check_configuration_changes(event_pull):
                     event_pull, "Summary", "completed",
                     "success", output={
                         "title": "The new Mergify configuration is valid",
-                        "summary": "This pull request have to be merged "
+                        "summary": "This pull request must be merged "
                         "manually because it modifies Mergify configuration",
                     })
 
