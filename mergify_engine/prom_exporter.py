@@ -129,8 +129,9 @@ def collect_metrics():
                     (subscribed, target_type, account, private, False)
                 ] = unconfigured_repos
         except github.GithubException as e:  # pragma: no cover
-            # Ignore rate limit/abuse and GitHub malfunction
-            if e.status != 403 and e.status < 500:
+            # Ignore rate limit/abuse, authorization issues
+            # and GitHub malfunction
+            if e.status not in (403, 401) and e.status < 500:
                 raise
 
     LOG.info("GitHub Polling finished")
