@@ -209,7 +209,7 @@ the ``Merge`` button.
 .. image:: _static/status-check-example.png
    :alt: Status check example
 
-The name of the status check is writte in bold on the right side. In the
+The name of the status check is written in bold on the left side. In the
 example above, it should be ``Uno.UI - CI``. A condition that would make sure
 this checks succeed before doing any action should be written as:
 
