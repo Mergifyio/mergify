@@ -14,7 +14,9 @@
 import collections
 import itertools
 import operator
+import threading
 import time
+from concurrent import futures
 
 import daiquiri
 
@@ -28,7 +30,6 @@ from mergify_engine import sub_utils
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
-
 
 INSTALLATIONS = prometheus_client.Gauge(
     "installations", "number of installations",
@@ -62,6 +63,7 @@ def collect_metrics():
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
 
+    installations_lock = threading.Lock()
     installations = collections.defaultdict(int)
     repositories_per_installation = collections.defaultdict(int)
     users_per_installation = collections.defaultdict(int)
@@ -71,7 +73,7 @@ def collect_metrics():
 
     redis.delete("badges.tmp")
 
-    for installation in utils.get_installations(integration):
+    def handle_installation(installation):
         try:
             _id = installation["id"]
             target_type = installation["target_type"]
@@ -85,7 +87,8 @@ def collect_metrics():
                 subs["subscription_cost"]
             )
 
-            installations[(subscribed, target_type)] += 1
+            with installations_lock:
+                installations[(subscribed, target_type)] += 1
 
             token = integration.get_access_token(_id).token
             g = github.Github(token, base_url="https://api.%s" %
@@ -133,6 +136,11 @@ def collect_metrics():
             # and GitHub malfunction
             if e.status not in (403, 401) and e.status < 500:
                 raise
+
+    with futures.ThreadPoolExecutor() as executor:
+        list(executor.map(
+            handle_installation, utils.get_installations(integration)
+        ))
 
     LOG.info("GitHub Polling finished")
 
