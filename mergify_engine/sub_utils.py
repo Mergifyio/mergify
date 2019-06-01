@@ -112,7 +112,6 @@ def _retrieve_subscription_from_db(installation_id):
         sub = resp.json()
         sub["tokens"] = dict((login, token["access_token"])
                              for login, token in sub["tokens"].items())
-        del sub["subscription"]
     else:  # pragma: no cover
         # NOTE(sileht): handle this better
         resp.raise_for_status()

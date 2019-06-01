@@ -1,11 +1,11 @@
 mergify-engine
 ==============
 
-.. image:: https://gh.mergify.io/badges/Mergifyio/mergify-engine.png
+.. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/Mergifyio/mergify.io
    :target: https://mergify.io
    :alt: Mergify Status
 
-.. image:: https://travis-ci.org/Mergifyio/mergify-engine.png?branch=master
+.. image:: https://travis-ci.org/Mergifyio/mergify-engine.svg?branch=master
     :target: https://travis-ci.org/Mergifyio/mergify-engine
     :alt: Build Status
 

@@ -78,11 +78,11 @@ def get_already_merged_summary(event_type, data, pull, match):
 
     other_pr = find_embedded_pull(pull)
     if other_pr:
-        return ("⚠️ The pull request have been closed by Github"
+        return ("⚠️ The pull request has been closed by GitHub"
                 "because its commits are also part of #%d\n\n"
                 % other_pr.number)
     else:
-        return ("⚠️ The pull request have been merged manually by "
+        return ("⚠️ The pull request has been merged manually by "
                 "@%s\n\n" % pull.g_pull.merged_by.login)
 
 
@@ -147,7 +147,7 @@ def exec_action(method_name, rule, action,
                   pull_request=pull, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
-        return "failure", "action '%s' have failed" % action, " "
+        return "failure", "action '%s' failed" % action, " "
 
 
 def run_actions(installation_id, installation_token,
@@ -190,7 +190,7 @@ def run_actions(installation_id, installation_token,
             # NOTE(sileht) We can't run two action merge for example
             if (rule['actions'][action].only_once and action in actions_ran):
                 LOG.info("action evaluation: skipped another action %s "
-                         "have already been run", action,
+                         "has already been run", action,
                          check_name=check_name, pull_request=pull,
                          missing_conditions=missing_conditions)
                 report = ("success",
