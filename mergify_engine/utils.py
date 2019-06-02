@@ -147,6 +147,20 @@ def get_installation_token(installation_id):
         return
 
 
+def get_github_pulls_from_sha(repo, sha):
+    try:
+        return list(github.PaginatedList.PaginatedList(
+            github.PullRequest.PullRequest, repo._requester,
+            "%s/commits/%s/pulls" % (repo.url, sha),
+            None,
+            headers={'Accept': 'application/vnd.github.groot-preview+json'}
+        ))
+    except github.GithubException as e:
+        if e.status in [404, 422]:
+            return []
+        raise
+
+
 class Gitter(object):
     def __init__(self):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")

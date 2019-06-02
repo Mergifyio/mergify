@@ -26,19 +26,13 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_github_pull_from_sha(repo, sha):
-    for pull in repo.get_pulls():
-        if pull.head.sha == sha:
-            return pull
-
-
 def get_github_pulls_from_event(repo, event_type, data):
     if "pull_request" in data:
         return [github.PullRequest.PullRequest(
             repo._requester, {}, data["pull_request"], completed=True
         )]
     elif event_type == "status":
-        return [get_github_pull_from_sha(repo, data["sha"])]
+        return utils.get_github_pulls_from_sha(repo, data["sha"])
 
     elif event_type in ["check_suite", "check_run"]:
         if event_type == "check_run":
@@ -48,17 +42,14 @@ def get_github_pulls_from_event(repo, event_type, data):
             pulls = data["check_suite"]["pull_requests"]
             sha = data["check_suite"]["head_sha"]
         if not pulls:
-            return [get_github_pull_from_sha(repo, sha)]
+            return utils.get_github_pulls_from_sha(repo, sha)
 
         out_pulls = []
         for p in pulls:
             try:
-                pull = repo.get_pull(p["number"])
+                out_pulls.append(repo.get_pull(p["number"]))
             except github.UnknownObjectException:  # pragma: no cover
                 continue
-
-            if pull and not pull.merged:
-                out_pulls.append(pull)
         return out_pulls
 
 

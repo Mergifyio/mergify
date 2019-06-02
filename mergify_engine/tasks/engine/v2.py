@@ -40,20 +40,14 @@ PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
 
 def find_embedded_pull(pull):
     # NOTE(sileht): We are looking for a pull request that have been merged
-    # very recently and have commit sha in common with current pull request.
-    expected_commits = [c.sha for c in pull.g_pull.get_commits()]
-    pulls = pull.g_pull.base.repo.get_pulls(
-        state="closed",
-        base=pull.g_pull.base.ref
-    )[0:PULL_REQUEST_EMBEDDED_CHECK_BACKLOG]
-
-    for p_other in pulls:
-        if p_other.number == pull.g_pull.number:
-            continue
-        commits = [c.sha for c in p_other.get_commits()]
-        commits_not_found = [c for c in expected_commits if c not in commits]
-        if not commits_not_found:
-            return p_other
+    # very recently and have all commits sha in common with current pull
+    # request. It's enought to check only the head sha for that.
+    pulls = utils.get_github_pulls_from_sha(pull.g_pull.base.repo,
+                                            pull.g_pull.head.sha)
+    pulls = [p for p in pulls
+             if p.merged and p.number != pull.g_pull.number]
+    if pulls:
+        return pulls[0].number
 
 
 def get_already_merged_summary(event_type, data, pull, match):
@@ -76,11 +70,11 @@ def get_already_merged_summary(event_type, data, pull, match):
     if not action_merge_found or action_merge_found_in_active_rule:
         return ""
 
-    other_pr = find_embedded_pull(pull)
-    if other_pr:
+    other_pr_number = find_embedded_pull(pull)
+    if other_pr_number:
         return ("⚠️ The pull request has been closed by GitHub"
                 "because its commits are also part of #%d\n\n"
-                % other_pr.number)
+                % other_pr_number)
     else:
         return ("⚠️ The pull request has been merged manually by "
                 "@%s\n\n" % pull.g_pull.merged_by.login)
