@@ -46,7 +46,7 @@ from mergify_engine import worker
 
 LOG = daiquiri.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
-CASSETTE_LIBRARY_DIR_BASE = 'mergify_engine/tests/fixtures/cassettes'
+CASSETTE_LIBRARY_DIR_BASE = 'zfixtures/cassettes'
 FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
