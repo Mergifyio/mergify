@@ -171,7 +171,7 @@ def update_with_api(pull):
         LOG.debug("update branch failed", status=e.status,
                   error=e.data["message"], pull_request=pull)
         if e.status < 500:
-            raise BranchUpdateFailure(e.text)
+            raise BranchUpdateFailure(e.data["message"])
         else:
             raise BranchUpdateNeedRetry()
 
