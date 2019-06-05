@@ -24,6 +24,8 @@ import github
 
 import prometheus_client
 
+import tenacity
+
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import sub_utils
@@ -58,6 +60,17 @@ def set_gauges(metric, data):
     list(map(lambda d: set_gauge(metric, *d), data.items()))
 
 
+def _exception_need_retry(retry_state):
+    return (
+        retry_state.outcome.failed and
+        exceptions.need_retry(retry_state.outcome.exception()) is not None
+    )
+
+
+def _wait_time_for_exception(retry_state):
+    return exceptions.need_retry(retry_state.outcome.exception())
+
+
 def collect_metrics():
     redis = utils.get_redis_for_cache()
     integration = github.GithubIntegration(config.INTEGRATION_ID,
@@ -73,6 +86,11 @@ def collect_metrics():
 
     redis.delete("badges.tmp")
 
+    @tenacity.retry(
+        retry=_exception_need_retry,
+        wait=_wait_time_for_exception,
+        stop=tenacity.stop_after_attempt(3),
+    )
     def handle_installation(installation):
         try:
             _id = installation["id"]
@@ -170,14 +188,9 @@ def main():  # pragma: no cover
     while True:
         try:
             collect_metrics()
-        except Exception as e:  # pragma: no cover
-            if exceptions.need_retry(e):
-                LOG.warning("fail to gather metrics: %s", str(e))
-                time.sleep(10 * 60)
-                continue
-            else:
-                LOG.error("Unexpected error during metrics gathering",
-                          exc_info=True)
+        except Exception:  # pragma: no cover
+            LOG.error("Unexpected error during metrics gathering",
+                      exc_info=True)
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)
