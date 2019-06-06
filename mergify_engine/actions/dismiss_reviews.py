@@ -39,7 +39,7 @@ class DismissReviewsAction(actions.Action):
             event_type, data, pull, missing_conditions):
         if (event_type == "pull_request" and data["action"] == "synchronize"):
             # NOTE(sileht): mergify-bot have push the "Update Branch" button.
-            if data["sender"]["id"] != config.BOT_USER_ID:
+            if data["sender"]["id"] == config.BOT_USER_ID:
                 return
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
