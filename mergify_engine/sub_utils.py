@@ -101,11 +101,11 @@ def _retrieve_subscription_from_db(installation_id):
                         auth=(config.OAUTH_CLIENT_ID,
                               config.OAUTH_CLIENT_SECRET))
     if resp.status_code == 404:
+        reason = resp.json().get("message")
         sub = {
             "tokens": {},
-            # FIXME we need to know if install is unknown or token is wrong
             "subscription_active": False,
-            "subscription_reason": "404 returned by engine",
+            "subscription_reason": reason,
             "subscription_cost": 0,
         }
     elif resp.status_code == 200:
