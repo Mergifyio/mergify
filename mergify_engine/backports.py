@@ -51,38 +51,56 @@ class CommitOrderingKey(object):
         return self.order_commit(self.obj, other.obj) == 0
 
 
-def is_base_branch_merge_commit(commit):
-    return (commit.commit.message.startswith("Merge branch '") and
-            len(commit.parents) == 2)
+def is_base_branch_merge_commit(commit, base_branch):
+    return (
+        commit.commit.message.startswith(
+            "Merge branch '%s'" % base_branch
+        ) and len(commit.parents) == 2
+    )
 
 
-def _get_commits_to_cherrypick(pull, commit):
-    commits = list(filter(lambda c: not is_base_branch_merge_commit(c),
-                          sorted(pull.g_pull.get_commits(),
-                                 key=CommitOrderingKey)))
-    if len(commit.parents) == 1:
-        LOG.info("was rebased before being merged", pull_request=pull)
-        # NOTE(sileht): Was rebased before merge
-        # so we can't use the commit from the PR
-        # the SHAs in the branch are not the same
-        # So browse the branch to get the commit to
-        # cherry-pick
+def _get_commits_without_base_branch_merge(pull):
+    commits = pull.g_pull.get_commits()
+    base_branch = pull.g_pull.base.ref
+    return list(filter(
+        lambda c: not is_base_branch_merge_commit(c, base_branch),
+        sorted(commits, key=CommitOrderingKey)
+    ))
+
+
+def _get_commits_to_cherrypick(pull, merge_commit):
+    if len(merge_commit.parents) == 1:
+        # NOTE(sileht): We have a rebase+merge or squash+merge
+        # We pick all commits until a sha is not linked with our PR
+
         out_commits = []
-        for _ in range(len(commits)):
-            if len(commit.parents) == 1:
-                out_commits.insert(0, commit)
-                commit = commit.parents[0]
-            else:  # pragma: no cover
+        commit = merge_commit
+        while True:
+            if len(commit.parents) != 1:
                 # NOTE(sileht): What is that? A merge here?
                 LOG.error("unhandled commit structure",
                           pull_request=pull)
                 return []
-        return out_commits
 
-    elif len(commit.parents) == 2:
-        LOG.info("just merged", pull_request=pull)
-        # NOTE(sileht): Was merged, we can take commit from the PR
-        return commits
+            out_commits.insert(0, commit)
+            commit = commit.parents[0]
+            pulls = utils.get_github_pulls_from_sha(
+                pull.g_pull.base.repo, commit.sha)
+            pull_numbers = [p.number for p in pulls]
+
+            if pull.g_pull.number not in pull_numbers:
+                if len(out_commits) == 1:
+                    LOG.info("Pull requests merged with one commit rebased, "
+                             "or squashed", pull_request=pull)
+                else:
+                    LOG.info("Pull requests merged after rebase",
+                             pull_request=pull)
+                return out_commits
+
+    elif len(merge_commit.parents) == 2:
+        LOG.info("Pull request merged with merge commit", pull_request=pull)
+        return _get_commits_without_base_branch_merge(pull)
+
     else:  # pragma: no cover
         # NOTE(sileht): What is that?
         LOG.error("unhandled commit structure", pull_request=pull)
