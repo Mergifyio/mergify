@@ -214,3 +214,127 @@ The ``merge`` action merges the pull request into its base branch. The
        * GitHub branch protection of the contributor repository may refuse Mergify to
          force push the rebased pull request.
        * GPG signed commits will lost their signatures.
+
+Git merge workflow and Mergify equivalent configuration
+-------------------------------------------------------
+
+Examples without `strict: true` are obviously not recommended, more information
+here: :ref:`strict merge`.
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 2 2
+
+   * - Git merge workflow
+     - Mergify configuration
+
+   * - ::
+
+         $ git merge --no-ff
+
+     - ::
+
+         merge:
+           method: merge
+
+   * - ::
+
+         $ git merge --no-ff
+         # Wait for CI to go green
+         $ git merge --no-ff
+
+     - ::
+
+         merge:
+           strict: true
+           method: merge
+
+   * - ::
+
+         $ git rebase
+         $ git merge --ff
+
+     - ::
+
+         merge:
+           method: rebase
+
+   * - ::
+
+         $ git merge --no-ff
+         # Wait for CI to go green
+         $ git rebase + git merge --ff
+
+     - ::
+
+         merge:
+           strict: true
+           method: rebase
+
+   * - ::
+
+         $ git rebase
+         # Wait for CI to go green
+         $ git merge --no-ff
+
+     - ::
+
+         merge:
+           strict: true
+           strict_method: rebase
+           method: merge
+
+   * - ::
+
+        # squash all commits
+        $ git merge --ff
+
+     - ::
+
+         merge:
+           method: squash
+
+   * - ::
+
+         $ git merge --no-ff
+         # Wait for CI to go green
+         # squash all commits
+         git merge --ff
+
+     - ::
+
+         merge:
+           strict: true
+           method: squash
+
+   * - ::
+
+         $ git rebase
+         # Wait for CI to go green
+         # squash all commits
+         $ git merge --ff
+
+     - ::
+
+         merge:
+           strict: true
+           strict_method: rebase
+           method: squash
+
+   * - ::
+
+         $ git rebase
+         # squash all commits
+         # Mergify wait for CI
+         $ git merge --no-ff
+
+     - ::
+
+         merge:
+           strict: true
+           strict_method: squash
+           method: merge
+
+       `(not yet implemented)`
+
