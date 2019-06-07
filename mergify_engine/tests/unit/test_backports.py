@@ -20,10 +20,20 @@ from mergify_engine import config
 from mergify_engine import mergify_pull
 
 
-def test_get_commits_to_cherry_pick_rebase():
+def fake_get_github_pulls_from_sha(repo, sha):
+    if sha.startswith("rebased_c"):
+        return [mock.Mock(number=6)]
+    else:
+        return []
+
+
+@mock.patch("mergify_engine.backports.utils.get_github_pulls_from_sha",
+            side_effect=fake_get_github_pulls_from_sha)
+def test_get_commits_to_cherry_pick_rebase(_):
     g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.merged = True
+    g_pull.number = 6
 
     c1 = mock.Mock()
     c1.sha = "c1f"

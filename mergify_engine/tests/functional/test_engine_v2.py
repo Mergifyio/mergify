@@ -386,6 +386,61 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual([], [b.name for b in self.r_o_admin.get_branches()
                               if b.name.startswith("mergify/bp")])
 
+    def _do_test_backport(self, method):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "label=backport-3.1",
+             ], "actions": {
+                 "merge": {"method": method,
+                           "rebase_fallback": None}
+             }},
+            {"name": "Backport to stable/3.1",
+             "conditions": [
+                 "base=master",
+                 "label=backport-3.1",
+             ], "actions": {
+                 "backport": {
+                     "branches": ['stable/3.1'],
+                 }}
+             },
+        ]}
+
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+
+        p, commits = self.create_pr(two_commits=True)
+
+        self.add_label_and_push_events(p, "backport-3.1")
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+        ])
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        self.assertEqual(2, len(pulls))
+        self.assertEqual(2, pulls[0].number)
+        self.assertEqual(1, pulls[1].number)
+        self.assertEqual(True, pulls[1].merged)
+        self.assertEqual("closed", pulls[1].state)
+        self.assertEqual(False, pulls[0].merged)
+
+        self.assertEqual(["mergify/bp/stable/3.1/pr-1"],
+                         [b.name for b in self.r_o_admin.get_branches()
+                          if b.name.startswith("mergify/bp")])
+        return pulls[0]
+
+    def test_backport_merge_commit(self):
+        p = self._do_test_backport("merge")
+        self.assertEquals(2, p.commits)
+
+    def test_backport_squash_and_merge(self):
+        p = self._do_test_backport("squash")
+        self.assertEquals(1, p.commits)
+
+    def test_backport_rebase_and_merge(self):
+        p = self._do_test_backport("rebase")
+        self.assertEquals(2, p.commits)
+
     def test_merge_strict_rebase(self):
         rules = {'pull_request_rules': [
             {"name": "smart strict merge on master",
