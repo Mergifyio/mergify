@@ -43,7 +43,7 @@ jobs:
       - tox: {target: docs}
       - persist_to_workspace:
           root: doc/build
-          paths: html
+          paths: .
 
   docs-deploy:
     docker:
