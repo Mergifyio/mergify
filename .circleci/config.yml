@@ -61,7 +61,7 @@ jobs:
             gh-pages --dotfiles --message "[skip ci] Updates" --dist docs/build
 
   build-docker-image:
-    executor: docker-publish/machine
+    executor: docker/machine
     steps:
       - checkout
       - docker/check
