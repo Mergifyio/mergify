@@ -87,7 +87,7 @@ jobs:
       - run: |
           sudo pip install ansible
           GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
-          git clone --depth 1 https://github.com/Mergifyio/hosting
+          git clone --depth 1 git@github.com:Mergifyio/hosting.git
           ansible-playbook -i hosting/inventory/testing site.yml -t upgrade-only hosting/site.yml
       - slack/status:
           webhook: webhook
