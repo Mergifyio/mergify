@@ -40,7 +40,7 @@ jobs:
     steps:
       - tox: {target: docs}
       - persist_to_workspace:
-          root: docs/build
+          root: doc/build
           paths: html
 
   docs-deploy:
@@ -49,16 +49,16 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: docs/build
+          at: doc/build
       - add_ssh_keys:
           fingerprints: ["1d:55:ea:d7:d6:8f:5d:56:70:2e:d1:b7:87:01:a9:32"]
       - run:
           command: |
-            touch docs/build/.nojekyll
+            touch doc/build/.nojekyll
             npm install -g --silent gh-pages@2.0.1
             git config user.email "ci-build@mergify.io"
             git config user.name "ci-build"
-            gh-pages --dotfiles --message "[skip ci] Updates" --dist docs/build
+            gh-pages --dotfiles --message "[skip ci] Updates" --dist doc/build
 
   build-docker-image:
     executor: docker/machine
