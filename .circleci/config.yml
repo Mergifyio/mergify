@@ -32,6 +32,8 @@ jobs:
   py37:
     executor: python
     steps:
+      - run:
+          command: sudo apt install -y redis-server
       - tox: {target: cover}
       - run:
           command: coveralls
