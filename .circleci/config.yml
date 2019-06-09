@@ -61,7 +61,8 @@ jobs:
             sudo npm install -g gh-pages@2.0.1
             git config user.email "ci-build@mergify.io"
             git config user.name "ci-build"
-            GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint -oStrictHostKeyChecking=no'
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
             gh-pages --dotfiles --message "[skip ci] Updates" --dist doc/build
 
   build-docker-image:
