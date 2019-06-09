@@ -91,15 +91,14 @@ workflows:
 
   test_build_and_deploy:
     jobs:
-      - pep8:
-          filters: {branches: {ignore: master}}
-      - py37:
-          filters: {branches: {ignore: master}}
+      - pep8
+      - py37
       - docs
+      - build-docker-image:
+          requires: [py37, pep8, docs]
       - docs-deploy:
-          requires: [docs]
+          requires: [build-docker-image]
           filters: {branches: {only: master}}
-      - build-docker-image
       - deployement:
           requires: [build-docker-image]
           filters: {branches: {only: master}}
