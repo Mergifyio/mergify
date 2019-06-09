@@ -53,7 +53,7 @@ jobs:
       - attach_workspace:
           at: doc/build
       - add_ssh_keys:
-          fingerprints: ["1d:55:ea:d7:d6:8f:5d:56:70:2e:d1:b7:87:01:a9:32"]
+          fingerprints: ["21:0d:89:82:8c:a4:e6:1f:35:e3:c5:93:f7:aa:13:ec"]
       - run:
           command: |
             touch doc/build/.nojekyll
