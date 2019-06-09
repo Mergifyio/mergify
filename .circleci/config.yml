@@ -72,6 +72,7 @@ jobs:
       - checkout
       - docker/check
       - docker/build:
+          tag: latest
           image: mergifyio/engine
       - build-tools/run-filtered:
           only-branch: master
