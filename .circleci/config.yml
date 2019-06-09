@@ -70,7 +70,7 @@ jobs:
       - build-tools/run-filtered:
           only-branch: master
           steps:
-            - docker/publish:
+            - docker/push:
                 image: mergifyio/engine
 
   deployement:
