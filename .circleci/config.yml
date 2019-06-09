@@ -88,6 +88,7 @@ jobs:
           fingerprints: ["fb:d6:b2:a0:8a:11:ba:ee:aa:c7:34:df:d2:fb:f1:88"]
       - run: |
           sudo pip install ansible
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
           GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
           git clone --depth 1 git@github.com:Mergifyio/hosting.git
           ansible-playbook -i hosting/inventory/testing site.yml -t upgrade-only hosting/site.yml
