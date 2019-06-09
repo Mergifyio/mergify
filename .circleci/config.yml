@@ -93,7 +93,7 @@ workflows:
           filters: {branches: {ignore: master}}
       - py37:
           filters: {branches: {ignore: master}}
-      - docs:
+      - docs
       - docs-deploy:
           requires: [docs]
           filters: {branches: {only: master}}
