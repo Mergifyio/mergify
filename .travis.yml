@@ -14,19 +14,19 @@ script:
 after_success:
   - coveralls
 
-deploy:
-  - provider: pages
-    skip-cleanup: true
-    github-token: $GITHUB_TOKEN  # Set in travis-ci.org dashboard, marked secure
-    keep-history: true
-    local-dir: doc/build
-    fqdn: doc.mergify.io
-    on:
-      branch: master
-      python: 3.7
-  - provider: script
-    script: bash tools/deploy.sh
-    on:
-      branch: master
-      python: 3.7
+#deploy:
+#  - provider: pages
+#    skip-cleanup: true
+#    github-token: $GITHUB_TOKEN  # Set in travis-ci.org dashboard, marked secure
+#    keep-history: true
+#    local-dir: doc/build
+#    fqdn: doc.mergify.io
+#    on:
+#      branch: master
+#      python: 3.7
+#  - provider: script
+#    script: bash tools/deploy.sh
+#    on:
+#      branch: master
+#      python: 3.7
 
