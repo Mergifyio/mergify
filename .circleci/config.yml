@@ -1,0 +1,106 @@
+version: 2.1
+
+orbs:
+  build-tools: circleci/build-tools@2.3.1
+  docker: circleci/docker@0.5.0
+  slack: circleci/slack@3.2.0
+
+commands:
+  tox:
+    parameters:
+      target:
+        type: string
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install tox coveralls
+            tox -e << parameters.target >>
+
+executors:
+  python:
+    docker:
+      - image: circleci/python:3.7
+
+
+jobs:
+  pep8:
+    executor: python
+    steps:
+      - tox: {target: pep8}
+
+  py37:
+    executor: python
+    steps:
+      - tox: {target: cover}
+      - run:
+          command: coveralls
+  docs:
+    executor: python
+    steps:
+      - tox: {target: docs}
+      - persist_to_workspace:
+          root: docs/build
+          paths: html
+
+  docs-deploy:
+    docker:
+      - image: circleci/node:8
+    steps:
+      - checkout
+      - attach_workspace:
+          at: docs/build
+      - add_ssh_keys:
+          - "1d:55:ea:d7:d6:8f:5d:56:70:2e:d1:b7:87:01:a9:32"
+      - run:
+          command: |
+            touch docs/build/.nojekyll
+            npm install -g --silent gh-pages@2.0.1
+            git config user.email "ci-build@mergify.io"
+            git config user.name "ci-build"
+            gh-pages --dotfiles --message "[skip ci] Updates" --dist docs/build
+
+  build-docker-image:
+    executor: docker-publish/machine
+    steps:
+      - checkout
+      - docker/check
+      - docker/build:
+          image: mergifyio/engine
+      - build-tools/run-filtered:
+          only-branch: master
+          steps:
+            - docker/publish:
+                image: mergifyio/engine
+
+  deployement:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - add_ssh_keys:
+        - "fb:d6:b2:a0:8a:11:ba:ee:aa:c7:34:df:d2:fb:f1:88"
+      - run: |
+          sudo pip install ansible
+          git clone --depth 1 https://github.com/Mergifyio/hosting
+          ansible-playbook -i hosting/inventory/testing site.yml -t upgrade-only hosting/site.yml
+
+workflows:
+  version: 2
+
+  test_build_and_deploy:
+    jobs:
+      - pep8:
+          filters: {branches: {ignore: master}}
+      - py37:
+          filters: {branches: {ignore: master}}
+      - docs:
+      - docs-deploy:
+          requires: [docs]
+          filters: {branches: {only: master}}
+      - build-docker-image:
+      - deployement:
+          requires: [build-docker-image]
+          filters: {branches: {only: master}}
+      - slack/status:
+          requires: [deployement]
+          webhook: webhook
