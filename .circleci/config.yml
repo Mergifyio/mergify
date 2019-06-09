@@ -73,6 +73,7 @@ jobs:
           only-branch: master
           steps:
             - docker/push:
+                tag: latest
                 image: mergifyio/engine
 
   deployement:
