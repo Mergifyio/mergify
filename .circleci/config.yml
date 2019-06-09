@@ -83,6 +83,8 @@ jobs:
           sudo pip install ansible
           git clone --depth 1 https://github.com/Mergifyio/hosting
           ansible-playbook -i hosting/inventory/testing site.yml -t upgrade-only hosting/site.yml
+      - slack/status:
+          webhook: webhook
 
 workflows:
   version: 2
@@ -101,6 +103,3 @@ workflows:
       - deployement:
           requires: [build-docker-image]
           filters: {branches: {only: master}}
-      - slack/status:
-          requires: [deployement]
-          webhook: webhook
