@@ -14,7 +14,7 @@ commands:
       - checkout
       - run:
           command: |
-            sudo pip install tox coveralls
+            sudo pip install tox
             tox -e << parameters.target >>
 
 executors:
@@ -34,9 +34,8 @@ jobs:
     steps:
       - run:
           command: sudo apt install -y redis-server
-      - tox: {target: cover}
-      - run:
-          command: coveralls
+      - tox: {target: py37}
+
   docs:
     executor: python
     steps:
