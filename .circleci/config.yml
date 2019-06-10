@@ -82,13 +82,14 @@ jobs:
 
   deployement:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/buildpack-deps:curl
     steps:
-      - checkout
       - run: |
-          echo noop
-      - slack/status:
-          webhook: webhook
+          curl -X POST https://api.github.com/repos/Mergifyio/mergify-engine/deployments \
+               -H "Authorization: token ${GITHUB_DEPLOYMENT_TOKEN}" \
+               -H "Accept: application/vnd.github.machine-man-preview+json" \
+               -H "Content-Type: application/json" \
+               -d '{"ref": "master", "auto_merge": false}'
 
 workflows:
   version: 2
