@@ -103,6 +103,6 @@ workflows:
       - docs-deploy:
           requires: [build-docker-image, docs]
           filters: {branches: {only: master}}
-       - deployement:
+      - deployement:
           requires: [build-docker-image]
           filters: {branches: {only: master}}
