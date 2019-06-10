@@ -88,7 +88,7 @@ jobs:
                -H "Authorization: token ${GITHUB_DEPLOYMENT_TOKEN}" \
                -H "Accept: application/vnd.github.machine-man-preview+json" \
                -H "Content-Type: application/json" \
-               -d '{"ref": "master", "auto_merge": false}'
+               -d '{"ref": "master", "auto_merge": false, "required_contexts": []}'
 
 workflows:
   version: 2
