@@ -20,6 +20,7 @@
 # gevent.monkey.patch_all()
 
 import base64
+import collections
 import hmac
 import json
 import logging
@@ -156,16 +157,18 @@ def marketplace_handler():   # pragma: no cover
     return "Event ignored", 202
 
 
-@app.route("/queues/<owner>/<repo>", methods=["GET"])
-def queues(owner, repo):
+@app.route("/queues/<installation_id>", methods=["GET"])
+def queues(installation_id):
     authentification()
 
     redis = utils.get_redis_for_cache()
-    queues = {}
-    filter_ = "strict-merge-queues~*~%s~%s~*" % (owner.lower(), repo.lower())
+    queues = collections.defaultdict(dict)
+    filter_ = "strict-merge-queues~%s~*" % installation_id
     for queue in redis.keys(filter_):
-        _, _, _, _, branch = queue.split("~")
-        queues[branch] = [int(pull) for pull, score in redis.zscan_iter(queue)]
+        _, _, owner, repo, branch = queue.split("~")
+        queues[owner + "/" + repo][branch] = (
+            [int(pull) for pull, score in redis.zscan_iter(queue)]
+        )
 
     return flask.jsonify(queues)
 
