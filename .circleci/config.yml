@@ -93,7 +93,7 @@ jobs:
 workflows:
   version: 2
 
-  test_build_and_deploy:
+  test-build-and-deploy:
     jobs:
       - pep8
       - py37
