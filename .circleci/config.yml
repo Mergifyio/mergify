@@ -85,13 +85,8 @@ jobs:
       - image: circleci/python:3.7
     steps:
       - checkout
-      - add_ssh_keys:
-          fingerprints: ["fb:d6:b2:a0:8a:11:ba:ee:aa:c7:34:df:d2:fb:f1:88"]
       - run: |
-          sudo pip install ansible
-          GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
-          git clone --depth 1 git@github.com:Mergifyio/hosting.git
-          ansible-playbook -i hosting/inventory/testing -t upgrade-only hosting/site.yml
+          echo noop
       - slack/status:
           webhook: webhook
 
@@ -108,6 +103,6 @@ workflows:
       - docs-deploy:
           requires: [build-docker-image, docs]
           filters: {branches: {only: master}}
-      - deployement:
+       - deployement:
           requires: [build-docker-image]
           filters: {branches: {only: master}}
