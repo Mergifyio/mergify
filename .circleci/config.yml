@@ -100,10 +100,9 @@ workflows:
       - py37
       - docs
       - build-docker-image
-      #   requires: [py37, pep8, docs]
       - docs-deploy:
-          requires: [build-docker-image, docs]
+          requires: [build-docker-image, py37, pep8, docs]
           filters: {branches: {only: master}}
       - deployement:
-          requires: [build-docker-image]
+          requires: [build-docker-image, py37, pep8, docs]
           filters: {branches: {only: master}}
