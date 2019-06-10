@@ -80,7 +80,7 @@ jobs:
                 tag: latest
                 image: mergifyio/engine
 
-  deployement:
+  code-deploy:
     docker:
       - image: circleci/buildpack-deps:curl
     steps:
@@ -103,6 +103,6 @@ workflows:
       - docs-deploy:
           requires: [build-docker-image, py37, pep8, docs]
           filters: {branches: {only: master}}
-      - deployement:
+      - code-deploy:
           requires: [build-docker-image, py37, pep8, docs]
           filters: {branches: {only: master}}
