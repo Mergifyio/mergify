@@ -14,6 +14,7 @@
 
 import collections
 import itertools
+from urllib import parse
 
 import attr
 
@@ -284,7 +285,9 @@ class MergifyPull(object):
                 self.g_pull.head.repo.id == self.g_pull.base.repo.id)
 
     def is_behind(self):
-        branch = self.g_pull.base.repo.get_branch(self.g_pull.base.ref)
+        branch = self.g_pull.base.repo.get_branch(
+            parse.quote(self.g_pull.base.ref, safe="")
+        )
         for commit in self.g_pull.get_commits():
             for parent in commit.parents:
                 if parent.sha == branch.commit.sha:

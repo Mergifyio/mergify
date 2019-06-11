@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from urllib import parse
+
 import daiquiri
 
 import github
@@ -38,7 +40,9 @@ class BackportAction(actions.Action):
         detail = "The following pull requests have been created: "
         for branch_name in self.config['branches']:
             try:
-                branch = pull.g_pull.base.repo.get_branch(branch_name)
+                branch = pull.g_pull.base.repo.get_branch(
+                    parse.quote(branch_name, safe="")
+                )
             except github.GithubException as e:  # pragma: no cover
                 LOG.error("backport: fail to get branch",
                           pull_request=pull,

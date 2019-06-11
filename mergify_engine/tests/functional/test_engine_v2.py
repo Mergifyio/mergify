@@ -15,8 +15,6 @@
 # under the License.
 import logging
 
-import github
-
 import requests.exceptions
 
 import yaml
@@ -116,20 +114,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p1, _ = self.create_pr(base_repo="main")
+        p1, _ = self.create_pr(base_repo="main", branch="#1-first-pr")
         p1.merge()
         self.push_events([
             ("check_suite", {"action": "requested"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("pull_request", {"action": "closed"}),
         ], ordered=False)
 
-        p2, _ = self.create_pr(base_repo="main")
+        p2, _ = self.create_pr(base_repo="main", branch="#2-second-pr")
         p2.edit(state="close")
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
         ], ordered=False)
 
         self.add_label_and_push_events(
@@ -137,26 +133,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             [("check_run", {"check_run": {"conclusion": "success"}})]
         )
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
         ], ordered=False)
         self.add_label_and_push_events(p2, "close")
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
         ], ordered=False)
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(2, len(pulls))
 
-        for b in ("main/pr1", "main/pr2"):
-            try:
-                self.r_o_admin.get_branch(b)
-            except github.GithubException as e:
-                if e.status == 404:
-                    continue
-
-            self.assertTrue(False, "branch %s not deleted" % b)
+        branches = list(self.r_o_admin.get_branches())
+        self.assertEqual(1, len(branches))
+        self.assertEqual("master", branches[0].name)
 
     def test_label(self):
         rules = {'pull_request_rules': [
@@ -391,27 +380,27 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             {"name": "Merge on master",
              "conditions": [
                  "base=master",
-                 "label=backport-3.1",
+                 "label=backport-#3.1",
              ], "actions": {
                  "merge": {"method": method,
                            "rebase_fallback": None}
              }},
-            {"name": "Backport to stable/3.1",
+            {"name": "Backport to stable/#3.1",
              "conditions": [
                  "base=master",
-                 "label=backport-3.1",
+                 "label=backport-#3.1",
              ], "actions": {
                  "backport": {
-                     "branches": ['stable/3.1'],
+                     "branches": ['stable/#3.1'],
                  }}
              },
         ]}
 
-        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
+        self.setup_repo(yaml.dump(rules), test_branches=['stable/#3.1'])
 
         p, commits = self.create_pr(two_commits=True)
 
-        self.add_label_and_push_events(p, "backport-3.1")
+        self.add_label_and_push_events(p, "backport-#3.1")
         self.push_events([
             ("pull_request", {"action": "closed"}),
         ])
@@ -424,7 +413,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("closed", pulls[1].state)
         self.assertEqual(False, pulls[0].merged)
 
-        self.assertEqual(["mergify/bp/stable/3.1/pr-1"],
+        self.assertEqual(["mergify/bp/stable/#3.1/pr-1"],
                          [b.name for b in self.r_o_admin.get_branches()
                           if b.name.startswith("mergify/bp")])
         return pulls[0]
