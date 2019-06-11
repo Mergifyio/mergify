@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from urllib import parse
+
 import daiquiri
 
 import github
@@ -39,7 +41,7 @@ class DeleteHeadBranchAction(actions.Action):
                 pull.g_pull.head.repo._requester.requestJsonAndCheck(
                     "DELETE",
                     pull.g_pull.base.repo.url + "/git/refs/heads/" +
-                    pull.g_pull.head.ref)
+                    parse.quote(pull.g_pull.head.ref, safe=""))
             except github.GithubException as e:
                 if e.status not in [422, 404]:
                     LOG.error("Unable to delete head branch",
