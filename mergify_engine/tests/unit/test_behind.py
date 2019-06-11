@@ -59,6 +59,7 @@ def test_pull_behind(commits_tree_generator):
     expected, commits = commits_tree_generator
     g = mock.Mock()
     g_pull = mock.Mock()
+    g_pull.base.ref = "#foo"
     g_pull.base.repo.get_branch.return_value = mock.Mock(
         commit=mock.Mock(sha="base"))
     g_pull.get_commits.return_value = commits

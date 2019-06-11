@@ -475,10 +475,11 @@ class FunctionalTestBase(testtools.TestCase):
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
-                  base_repo="fork"):
+                  base_repo="fork", branch=None):
         self.pr_counter += 1
 
-        branch = "%s/pr%d" % (base_repo, self.pr_counter)
+        if not branch:
+            branch = "%s/pr%d" % (base_repo, self.pr_counter)
         title = "Pull request n%d from %s" % (self.pr_counter,
                                               base_repo)
 
