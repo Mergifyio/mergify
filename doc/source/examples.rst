@@ -203,5 +203,43 @@ least one positive review, obviously.
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
+Using Files to Narrow Down the Files to Merge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After the CI pass, to automate the merge only if the specified files are changed
+and no other files, then use ``files`` to specify the file and ``#files`` to
+limit the number of files.
+
+This tweak is useful when you want Mergify to merge only data files which can be 
+validated by the script, linter, etc.
+
+The below sample merges only if both or either one of ``data1.json`` and
+``data2.json`` file is changed and passes Circle CI's validation tests:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge on CircleCI success if data1.json is changed
+        conditions:
+          - "status-success=ci/circleci: validate"
+          - base=master
+          - files=data1.json
+          - "#files=1"
+        actions:
+          merge:
+            method: merge
+            strict: true
+
+      - name: automatic merge on CircleCI success if list2.json is changed
+        conditions:
+          - "status-success=ci/circleci: validate"
+          - base=master
+          - files=data2.json
+          - "#files=1"
+        actions:
+          merge:
+            method: merge
+            strict: true
+
 
 .. include:: examples/bots.rst
