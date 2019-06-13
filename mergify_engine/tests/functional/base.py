@@ -475,7 +475,7 @@ class FunctionalTestBase(testtools.TestCase):
         return r
 
     def create_pr(self, base="master", files=None, two_commits=False,
-                  base_repo="fork", branch=None):
+                  base_repo="fork", branch=None, message=None):
         self.pr_counter += 1
 
         if not branch:
@@ -510,7 +510,7 @@ class FunctionalTestBase(testtools.TestCase):
         p = repo.create_pull(
             base=base,
             head="%s:%s" % (login, branch),
-            title=title, body=title)
+            title=title, body=message or title)
 
         expected_events = [("pull_request", {"action": "opened"})]
         if files and ".mergify.yml" in files:

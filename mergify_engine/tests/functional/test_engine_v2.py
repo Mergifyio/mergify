@@ -772,6 +772,46 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                                          "@invalid/team/break-here",
                                          "sileht", "mergify-test1"])
 
+    def test_merge_and_closes_issues(self):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+             ], "actions": {
+                 "merge": {"method": "merge"}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        i = self.r_o_admin.create_issue(
+            title="Such a bug",
+            body="I can't explain, but don't work"
+        )
+        p, commits = self.create_pr(
+            message="It fixes it\n\nCloses #%s" % i.number
+        )
+        self.create_status_and_push_event(p)
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"})
+        ], ordered=False)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(2, pulls[0].number)
+        self.assertEqual(True, pulls[0].merged)
+        self.assertEqual("closed", pulls[0].state)
+
+        issues = list(self.r_o_admin.get_issues(state="all"))
+        self.assertEqual(2, len(issues))
+        self.assertEqual("closed", issues[0].state)
+        self.assertEqual("closed", issues[1].state)
+
     def test_rebase(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
