@@ -221,6 +221,9 @@ Git merge workflow and Mergify equivalent configuration
 Examples without `strict: true` are obviously not recommended, more information
 here: :ref:`strict merge`.
 
+`base branch` is usually "master" or "dev",
+`head branch` is the pull request branch.
+
 
 .. list-table::
    :header-rows: 1
@@ -231,7 +234,7 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git merge --no-ff
+         (on head branch) $ git merge --no-ff base
 
      - ::
 
@@ -240,9 +243,9 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git merge --no-ff
-         # Wait for CI to go green
-         $ git merge --no-ff
+         (on head branch) $ git merge --no-ff base
+         (on head branch) # Wait for CI to go green
+         (on base branch) $ git merge --no-ff head
 
      - ::
 
@@ -252,19 +255,20 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git rebase
-         $ git merge --ff
+         (on head branch) $ git rebase base
+         (on base branch) $ git merge --ff head
 
      - ::
 
          merge:
-           method: rebase
+           method: rehead
 
    * - ::
 
-         $ git merge --no-ff
-         # Wait for CI to go green
-         $ git rebase + git merge --ff
+         (on head branch) $ git merge --no-ff base
+         (on head branch) # Wait for CI to go green
+         (on head branch) $ git rebase base
+         (on base branch) $ git merge --ff head
 
      - ::
 
@@ -274,9 +278,9 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git rebase
-         # Wait for CI to go green
-         $ git merge --no-ff
+         (on head branch) $ git rebase base
+         (on head branch) # Wait for CI to go green
+         (on base branch) $ git merge --no-ff head
 
      - ::
 
@@ -287,8 +291,8 @@ here: :ref:`strict merge`.
 
    * - ::
 
-        # squash all commits
-        $ git merge --ff
+        (on head branch) # Squash all commits
+        (on base branch) $ git merge --ff head
 
      - ::
 
@@ -297,10 +301,10 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git merge --no-ff
-         # Wait for CI to go green
-         # squash all commits
-         git merge --ff
+         (on head branch) $ git merge --no-ff base
+         (on head branch) # Wait for CI to go green
+         (on head branch) # Squash all commits
+         (on base branch) $ git merge --ff head
 
      - ::
 
@@ -310,10 +314,10 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git rebase
-         # Wait for CI to go green
-         # squash all commits
-         $ git merge --ff
+         (on head branch) $ git rebase base
+         (on head branch) # Wait for CI to go green
+         (on head branch) # Squash all commits
+         (on base branch) $ git merge --ff head
 
      - ::
 
@@ -324,10 +328,10 @@ here: :ref:`strict merge`.
 
    * - ::
 
-         $ git rebase
-         # squash all commits
-         # Mergify wait for CI
-         $ git merge --no-ff
+         (on head branch) $ git rebase base
+         (on head branch) # Squash all commits
+         (on head branch) # Mergify wait for CI
+         (on head branch) $ git merge --no-ff head
 
      - ::
 
