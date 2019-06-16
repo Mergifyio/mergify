@@ -40,6 +40,7 @@ Schema = voluptuous.Schema({
     voluptuous.Required('LOG_RATELIMIT', default=False): CoercedBool,
     voluptuous.Required('SENTRY_URL',
                         default=None): voluptuous.Any(None, str),
+    voluptuous.Required('SENTRY_ENVIRONMENT', default="test"): str,
 
     # Github mandatory
     voluptuous.Required('INTEGRATION_ID'): voluptuous.Coerce(int),

@@ -43,6 +43,7 @@ def fixup_sentry_reporting(event, hint):  # pragma: no cover
 
 if config.SENTRY_URL:  # pragma: no cover
     sentry_sdk.init(config.SENTRY_URL,
+                    environment=config.SENTRY_ENVIRONMENT,
                     before_send=fixup_sentry_reporting,
                     integrations=[CeleryIntegration(),
                                   FlaskIntegration()])
