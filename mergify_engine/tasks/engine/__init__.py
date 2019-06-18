@@ -158,18 +158,6 @@ def run(event_type, data):
              repo=repo.full_name,
              pull_request=event_pull)
 
-    subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
-                                              installation_id)
-
-    if repo.private and not subscription["subscription_active"]:
-        check_api.set_check_run(
-            event_pull, "Summary",
-            "completed", "failure", output={
-                "title": "Mergify is disabled",
-                "summary": subscription["subscription_reason"],
-            })
-        return
-
     if ("base" not in event_pull.raw_data or
             "repo" not in event_pull.raw_data["base"] or
             len(list(event_pull.raw_data["base"]["repo"].keys())) < 70):
@@ -226,6 +214,18 @@ def run(event_type, data):
                     "title": "The Mergify configuration is invalid",
                     "summary": str(e)
                 })
+        return
+
+    subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
+                                              installation_id)
+
+    if repo.private and not subscription["subscription_active"]:
+        check_api.set_check_run(
+            event_pull, "Summary",
+            "completed", "failure", output={
+                "title": "Mergify is disabled",
+                "summary": subscription["subscription_reason"],
+            })
         return
 
     create_metrics(event_type, data)
