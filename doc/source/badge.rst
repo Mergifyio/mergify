@@ -56,7 +56,7 @@ In a ``README.rst``:
     My project name
     ===============
 
-    .. image:: https://gh.mergify.io/badges/<owner>/<repo>?style=flat
+    .. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>&style=flat
        :target: https://mergify.io
        :alt: Mergify Status
 
