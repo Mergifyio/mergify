@@ -81,13 +81,23 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
 
 
 def get_checks(pull, parameters=None):
-    return github.PaginatedList.PaginatedList(
+    checks = list(github.PaginatedList.PaginatedList(
         Check, pull._requester,
         "%s/commits/%s/check-runs" % (pull.base.repo.url, pull.head.sha),
         parameters,
         list_item='check_runs',
         headers={'Accept': 'application/vnd.github.antiope-preview+json'}
-    )
+    ))
+
+    # FIXME(sileht): We currently have some issue to set back
+    # conclusion to null, Maybe a GH bug or not.
+    # As we rely heavily on conclusion to known if we have something to
+    # evaluate or not, here a workaround:
+    for check in checks:
+        if check.status == "in_progress":
+            check._useAttributes({"conclusion": None})
+
+    return checks
 
 
 def get_check_suite(g_repo, check_suite_id):
