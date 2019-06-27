@@ -168,7 +168,12 @@ def update_with_api(pull):
             input={"expected_head_sha": pull.g_pull.head.sha},
             headers={"Accept": "application/vnd.github.lydian-preview+json"})
     except github.GithubException as e:
-        if e.status < 500:
+        if e.status == 422:
+            LOG.debug("branch updated in the meantime",
+                      status=e.status, error=e.data["message"],
+                      pull_request=pull)
+            return
+        elif e.status < 500:
             LOG.debug("update branch failed", status=e.status,
                       error=e.data["message"], pull_request=pull)
             raise BranchUpdateFailure(e.data["message"])
