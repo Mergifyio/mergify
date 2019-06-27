@@ -73,12 +73,8 @@ def queues():
     parser = argparse.ArgumentParser(
         description='Show queue of mergify_engine'
     )
-    parser.add_argument(
-        "url",
-        help=("<owner>/<repo>, <owner>/<repo>/pull/<pull#> "
-              "or https://github.com/<owner>/<repo>/pull/<pull#>"))
+    parser.add_argument("installation_id")
 
     args = parser.parse_args()
-    parts = args.url.replace("https://github.com/", "").split("/")
-    api_call(config.BASE_URL + "/queues/%s/%s" % (parts[0], parts[1]),
+    api_call(config.BASE_URL + "/queues/%s" % args.installation_id,
              method="GET")
