@@ -25,6 +25,11 @@ from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
 LOG = daiquiri.getLogger(__name__)
+BRANCH_PROTECTION_FAQ_URL = (
+    "https://doc.mergify.io/faq.html#"
+    "mergify-is-unable-to-merge-my-pull-request-due-to-"
+    "my-branch-protection-settings"
+)
 
 
 class MergeAction(actions.Action):
@@ -145,7 +150,8 @@ class MergeAction(actions.Action):
                     message = "Mergify fails to merge the pull request"
                 elif pull.g_pull.mergeable_state == "blocked":
                     message = ("Branch protection settings are blocking "
-                               "automatic merging")
+                               "automatic merging\nSee: %s" %
+                               BRANCH_PROTECTION_FAQ_URL)
                 else:
                     message = ("Repository settings are blocking automatic "
                                "merging")
