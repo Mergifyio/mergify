@@ -21,13 +21,13 @@ GitHub documentation
 Mergify is unable to merge my pull request due to my branch protection settings
 -------------------------------------------------------------------------------
 
-This happens usually if you limit the peopel that have the authorization to
+This happens usually if you limit the people that have the authorization to
 merge pull requests. GitHub does not offer any way to authorize GitHub
 Application (such as Mergify) to merge pull requests if you decide to set up
 branch protection.
 
-You should disable this branch protection setting if you want to use Mergify
-merge action.
+You should not use "Restrict who can push to matching branches" if you want to
+use Mergify merge action.
 
 
 Why did Mergify seem to have merged my pull request whereas all conditions were not true?
