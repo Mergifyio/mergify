@@ -101,8 +101,10 @@ def _handle_first_pull_in_queue(queue, pull):
     merge_output = helpers.merge_report(pull)
     mergeable_state_output = helpers.output_for_mergeable_state(pull, True)
     if merge_output or mergeable_state_output:
-        remove_pull(pull)
         conclusion, title, summary = merge_output or mergeable_state_output
+        LOG.debug("pull request closed in the meantime", pull=pull,
+                  conclusion=conclusion, title=title, summary=summary)
+        remove_pull(pull)
     else:
         LOG.debug("updating base branch of pull request", pull=pull)
         redis = utils.get_redis_for_cache()
@@ -111,8 +113,12 @@ def _handle_first_pull_in_queue(queue, pull):
             pull, installation_id, method)
 
         if pull.g_pull.state == "closed":
+            LOG.debug("pull request closed in the meantime", pull=pull,
+                      conclusion=conclusion, title=title, summary=summary)
             remove_pull(pull)
         elif conclusion == "failure":
+            LOG.debug("base branch update failed", pull=pull, title=title,
+                      summary=summary)
             _move_pull_at_end(pull)
 
     status = "completed" if conclusion else "in_progress"
