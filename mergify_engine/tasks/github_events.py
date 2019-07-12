@@ -217,7 +217,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "ignored (unexpected event_type)"
 
     if "repository" in data:
-        installation_id = data["installation"]["id"],
+        installation_id = data["installation"]["id"]
         repo_name = data["repository"]["full_name"]
         private = data["repository"]["private"]
     elif "installation" in data:
