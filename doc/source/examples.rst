@@ -177,7 +177,7 @@ as the pull request gets updated with new commits.
         conditions:
           - base=master
         actions:
-          dismiss_reviews:
+          dismiss_reviews: {}
 
 Require All Requested Reviews to Be Approved
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -210,7 +210,7 @@ After the CI pass, to automate the merge only if the specified files are changed
 and no other files, then use ``files`` to specify the file and ``#files`` to
 limit the number of files.
 
-This tweak is useful when you want Mergify to merge only data files which can be 
+This tweak is useful when you want Mergify to merge only data files which can be
 validated by the script, linter, etc.
 
 The below sample merges only if both or either one of ``data1.json`` and
