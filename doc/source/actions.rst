@@ -11,6 +11,27 @@ under the ``actions`` key in the ``pull_request_rules`` entry — see
 
 The list of available actions is listed below, with their parameters:
 
+.. _assign action:
+
+assign
+======
+
+The ``assign`` action assigns users to the pull request.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``users``
+     - array of string
+     - None
+     - The users to assign to the pull request
+
+
 .. _backport action:
 
 backport
@@ -341,4 +362,3 @@ here: :ref:`strict merge`.
            method: merge
 
        `(not yet implemented)`
-
