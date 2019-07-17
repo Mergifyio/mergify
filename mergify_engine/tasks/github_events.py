@@ -132,6 +132,29 @@ def job_refresh_all():
 
 
 @app.task
+def job_marketplace(event_type, event_id, data):
+
+    owner = data["marketplace_purchase"]["account"]["login"]
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, owner)
+
+    r = utils.get_redis_for_cache()
+    r.delete("subscription-cache-%s" % installation_id)
+
+    subscription = sub_utils.get_subscription(
+        utils.get_redis_for_cache(), installation_id)
+
+    LOG.info('Marketplace event',
+             event_type=event_type,
+             event_id=event_id,
+             install_id=installation_id,
+             sender=data["sender"]["login"],
+             subscription_active=subscription["subscription_active"],
+             subscription_reason=subscription["subscription_reason"])
+
+
+@app.task
 def job_filter_and_dispatch(event_type, event_id, data):
     if "installation" not in data:
         subscription = {"subscription_active": "Unknown",
@@ -229,7 +252,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         repo_name = "Unknown"
         private = "Unknown"
 
-    LOG.info('event %s', msg_action,
+    LOG.info('GithubApp event %s', msg_action,
              event_type=event_type,
              event_id=event_id,
              install_id=installation_id,
