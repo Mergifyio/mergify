@@ -229,6 +229,18 @@ def event_testing_handler():  # pragma: no cover
         return flask.jsonify(data)
 
 
+@app.route("/marketplace-testing", methods=["POST"])
+def marketplace_testng_handler():   # pragma: no cover
+    event_type = flask.request.headers.get("X-GitHub-Event")
+    event_id = flask.request.headers.get("X-GitHub-Delivery")
+    data = flask.request.get_json()
+    LOG.debug("received marketplace testing events",
+              event_type=event_type,
+              event_id=event_id,
+              data=data)
+    return "Event ignored", 202
+
+
 @app.route("/")
 def index():  # pragma: no cover
     return flask.redirect("https://mergify.io/")
