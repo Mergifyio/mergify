@@ -154,7 +154,15 @@ def subscription_cache(installation_id):  # pragma: no cover
 @app.route("/marketplace", methods=["POST"])
 def marketplace_handler():   # pragma: no cover
     authentification()
-    return "Event ignored", 202
+
+    event_type = flask.request.headers.get("X-GitHub-Event")
+    event_id = flask.request.headers.get("X-GitHub-Delivery")
+    data = flask.request.get_json()
+
+    github_events.job_markerplace.apply_async(
+        args=[event_type, event_id, data],
+    )
+    return "Event queued", 202
 
 
 @app.route("/queues/<installation_id>", methods=["GET"])
