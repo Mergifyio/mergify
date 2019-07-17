@@ -147,6 +147,26 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(1, len(branches))
         self.assertEqual("master", branches[0].name)
 
+    def test_assign(self):
+        rules = {'pull_request_rules': [
+            {"name": "assign",
+             "conditions": [
+                 "base=master",
+             ],
+             "actions": {
+                 "assign": {"users": ['mergify-test1']}
+             }}
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        pulls = list(self.r_o_admin.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(sorted(["mergify-test1"]),
+                         sorted([l.login for l in pulls[0].assignees]))
+
     def test_label(self):
         rules = {'pull_request_rules': [
             {"name": "rename label",
