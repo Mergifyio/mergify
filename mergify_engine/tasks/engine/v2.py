@@ -86,9 +86,8 @@ def get_already_merged_summary(event_type, data, pull, match):
                 "@%s\n\n" % pull.g_pull.merged_by.login)
 
 
-def post_summary(event_type, data, pull, match, checks):
+def gen_summary(event_type, data, pull, match):
     # Set the summary
-    summary_name = "Summary"
     summary = ""
 
     summary += get_already_merged_summary(event_type, data, pull, match)
@@ -122,6 +121,13 @@ def post_summary(event_type, data, pull, match, checks):
 
     summary_title = " and ".join(summary_title)
 
+    return summary_title, summary
+
+
+def post_summary(event_type, data, pull, match, checks):
+    summary_title, summary = gen_summary(event_type, data, pull, match)
+
+    summary_name = "Summary"
     summary_check = checks.get(summary_name)
 
     summary_changed = (not summary_check or

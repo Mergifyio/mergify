@@ -24,8 +24,10 @@ import requests
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import mergify_pull
+from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.tasks.engine import v2
 
 
 def get_repositories_setuped(token, install_id):  # pragma: no cover
@@ -119,7 +121,17 @@ def report(url):
     p = r.get_pull(int(pull_number))
 
     print("* CONFIGURATION:")
-    print(r.get_contents(".mergify.yml").decoded_content.decode())
+    try:
+        mergify_config = rules.get_mergify_config(r)
+    except rules.NoRules:  # pragma: no cover
+        print(".mergify.yml is missing")
+    except rules.InvalidRules as e:  # pragma: no cover
+        print("configuration is invalid %s" % str(e))
+    else:
+        print(r.get_contents(".mergify.yml").decoded_content.decode())
+        pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
+        pull_request_rules_raw["rules"].extend(v2.MERGIFY_RULE["rules"])
+        pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     mp = mergify_pull.MergifyPull(g, p, install_id)
     print("* PULL REQUEST:")
@@ -131,19 +143,20 @@ def report(url):
 
     print("mergeable_state: %s" % mp.g_pull.mergeable_state)
 
-    print("* MERGIFY STATUSES:")
-    commit = p.base.repo.get_commit(p.head.sha)
-    for s in commit.get_combined_status().statuses:
-        if s.context.startswith("mergify"):
-            print("[%s]: %s" % (s.context, s.state))
-
-    print("* MERGIFY CHECKS:")
+    print("* MERGIFY LAST CHECKS:")
     checks = list(check_api.get_checks(p))
     for c in checks:
         if c._rawData['app']['id'] == config.INTEGRATION_ID:
             print("[%s]: %s | %s" % (c.name, c.conclusion,
                                      c.output.get("title")))
             print("> " + "\n> ".join(c.output.get("summary").split("\n")))
+
+    print("* MERGIFY LIVE MATCHES:")
+    match = pull_request_rules.get_pull_request_rule(mp)
+    summary_title, summary = v2.gen_summary("refresh", {}, mp, match)
+    print("> %s", summary_title)
+    print(summary)
+
     return g, p
 
 
