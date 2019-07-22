@@ -154,7 +154,7 @@ def report(url):
     print("* MERGIFY LIVE MATCHES:")
     match = pull_request_rules.get_pull_request_rule(mp)
     summary_title, summary = v2.gen_summary("refresh", {}, mp, match)
-    print("> %s", summary_title)
+    print("> %s" % summary_title)
     print(summary)
 
     return g, p
