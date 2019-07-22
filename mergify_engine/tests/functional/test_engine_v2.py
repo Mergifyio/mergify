@@ -28,14 +28,6 @@ from mergify_engine.tests.functional import base
 
 LOG = logging.getLogger(__name__)
 
-MERGE_EVENTS = [
-    ("pull_request", {"action": "closed"}),
-    ("check_run", {"check_run": {"conclusion": "success"}}),
-    ("check_run", {"check_run": {"conclusion": "success"}}),
-    ("check_run", {"check_run": {"conclusion": "success"}}),
-    ("check_suite", {"action": "requested"}),
-]
-
 
 def run_smart_strict_workflow_periodic_task():
     # NOTE(sileht): actions must not be loaded manually before the celery
@@ -76,21 +68,25 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.add_label_and_push_events(p, "backport-3.1")
         self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
             ("check_run", {"check_run": {"conclusion": None}}),  # Backport
         ])
         p.remove_from_labels("backport-3.1")
+
+        title = ("The rule doesn't match anymore, "
+                 "this action has been cancelled")
+
         self.push_events([
             ("pull_request", {"action": "unlabeled"}),
-            ("check_suite", {"check_suite": {"conclusion": "cancelled"}}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Summary
-            # Backport
-            ("check_run", {"check_run": {"conclusion": "cancelled"}}),
+            ("check_run", {"check_run": {
+                "conclusion": "neutral",
+                "output": {"title": title}
+            }}),
         ], ordered=False)
 
         checks = list(check_api.get_checks(p, {
             "check_name": "Rule: backport (backport)"}))
-        self.assertEqual("cancelled", checks[0].conclusion)
+        self.assertEqual("neutral", checks[0].conclusion)
+        self.assertEqual(title, checks[0].output['title'])
 
     def test_delete_branch(self):
         rules = {'pull_request_rules': [
@@ -277,8 +273,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ]),
         self.push_events([
             ("check_suite", {"action": "completed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {
+                "conclusion": "success",
+                "output": {"title": "1 rule matches"}}}),
+            ("check_run", {"check_run": {
+                "conclusion": "success",
+                "output": {"title": "1 rule matches"}}}),
             ("pull_request_review", {"action": "dismissed"}),
         ], ordered=False)
 
@@ -307,8 +307,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ]),
         self.push_events([
             ("check_suite", {"action": "completed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {
+                "conclusion": "success",
+                "output": {"title": "1 rule matches"}}}),
+            ("check_run", {"check_run": {
+                "conclusion": "success",
+                "output": {"title": "1 rule matches"}}}),
             ("pull_request_review", {"action": "dismissed"}),
         ], ordered=False)
 
@@ -317,83 +321,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
              ("DISMISSED", "mergify-test1")],
             [(r.state, r.user.login) for r in p.get_reviews()]
         )
-
-    def test_merge_backport(self):
-        rules = {'pull_request_rules': [
-            {"name": "Merge on master",
-             "conditions": [
-                 "base=master",
-                 "status-success=continuous-integration/fake-ci",
-                 "#approved-reviews-by>=1",
-             ], "actions": {
-                 "merge": {}
-             }},
-            {"name": "Backport to stable/3.1",
-             "conditions": [
-                 "base=master",
-                 "label=backport-3.1",
-             ], "actions": {
-                 "backport": {
-                     "branches": ['stable/3.1'],
-                 }}
-             },
-            {"name": "automerge backport",
-             "conditions": [
-                 "head~=^mergify/bp/",
-             ], "actions": {
-                 "merge": {}
-             }},
-        ]}
-
-        self.setup_repo(yaml.dump(rules), test_branches=['stable/3.1'])
-
-        self.create_pr()
-        p2, commits = self.create_pr()
-
-        self.add_label_and_push_events(p2, "backport-3.1")
-        self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            # Backport
-            ("check_run", {"check_run": {"conclusion": None}}),
-        ], ordered=False)
-
-        self.create_status_and_push_event(p2,
-                                          context="not required status check",
-                                          state="failure")
-        self.create_status_and_push_event(p2)
-        self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
-        self.create_review_and_push_event(p2, commits[0])
-
-        self.push_events(MERGE_EVENTS, ordered=False)
-
-        self.push_events([
-            ("check_suite", {"action": "requested"}),
-            ("pull_request", {"action": "opened"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_suite", {"action": "completed"}),
-            ("pull_request", {"action": "closed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-            ("check_suite", {"action": "requested"}),
-        ], ordered=False)
-
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(3, len(pulls))
-        self.assertEqual(3, pulls[0].number)
-        self.assertEqual(2, pulls[1].number)
-        self.assertEqual(1, pulls[2].number)
-        self.assertEqual(True, pulls[1].merged)
-        self.assertEqual("closed", pulls[1].state)
-        self.assertEqual(True, pulls[0].merged)
-        self.assertEqual("closed", pulls[0].state)
-
-        self.assertEqual([], [b.name for b in self.r_o_admin.get_branches()
-                              if b.name.startswith("mergify/bp")])
 
     def _do_test_backport(self, method):
         rules = {'pull_request_rules': [
@@ -502,7 +429,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -562,7 +488,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -650,7 +575,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -848,12 +772,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p2, commits = self.create_pr()
         self.create_status_and_push_event(p2)
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),
-        ])
         self.create_review_and_push_event(p2, commits[0])
 
-        self.push_events(MERGE_EVENTS, ordered=False)
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"}),
+        ], ordered=False)
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
@@ -938,15 +864,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("pull_request", {"action": "closed"}),
             ("check_suite", {"action": "requested"}),
-            # Summary update about manual merge
-            ("check_run", {"check_run": {"conclusion": "success"}}),
         ], ordered=False)
 
         self.create_status_and_push_event(p2)
 
         self.push_events([
-            # Summary
-            ("check_run", {"check_run": {"conclusion": "success"}}),
             # FIXME(sileht): Why twice ??
             # Merge
             ("check_run", {"check_run": {"conclusion": "failure"}}),

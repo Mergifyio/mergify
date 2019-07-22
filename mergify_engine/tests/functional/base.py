@@ -387,8 +387,8 @@ class FunctionalTestBase(testtools.TestCase):
             if (expected_etype is not None and
                     expected_etype != etype):
                 raise Exception(
-                    "[%d] Got %s event type instead of %s" %
-                    (pos, event["type"], expected_etype))
+                    "[%d] Got %s event type instead of %s:\n%s\nintead of\n%s" %
+                    (pos, event["type"], expected_etype, event, expected_data))
 
             self._validate_key(pos, event["payload"], expected_data)
         LOG.debug("============= push events end =============")
