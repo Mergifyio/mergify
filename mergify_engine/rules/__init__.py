@@ -32,11 +32,6 @@ from mergify_engine.rules import filter
 
 LOG = daiquiri.getLogger(__name__)
 
-default_rule = pkg_resources.resource_filename(__name__,
-                                               "../data/default_rule.yml")
-with open(default_rule, "r") as f:
-    DEFAULT_RULE = yaml.safe_load(f.read())
-
 
 def PullRequestRuleCondition(value):
     try:
@@ -53,6 +48,7 @@ def PullRequestRuleCondition(value):
 
 PullRequestRulesSchema = voluptuous.Schema([{
     voluptuous.Required('name'): str,
+    voluptuous.Required('hidden', default=False): bool,
     voluptuous.Required('conditions'): [
         voluptuous.All(str, voluptuous.Coerce(
             PullRequestRuleCondition))
@@ -72,6 +68,7 @@ class PullRequestRules:
     def as_dict(self):
         return {'rules': [{
             "name": rule["name"],
+            "hidden": rule["hidden"],
             "conditions": list(map(str, rule["conditions"])),
             "actions": dict(
                 (name, obj.config)
@@ -111,20 +108,26 @@ class PullRequestRules:
         # The rules matching the pull request.
         matching_rules = attr.ib(init=False, default=attr.Factory(list))
 
+        # The rules not matching the pull request.
+        ignored_rules = attr.ib(init=False, default=attr.Factory(list))
+
         def __attrs_post_init__(self):
             d = self.pull_request.to_dict()
             for rule in self.rules:
+                ignore_rules = False
                 next_conditions_to_validate = []
                 for condition in rule['conditions']:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
                             attrib, self.pull_request.resolve_teams)
                     if not condition(**d):
+                        next_conditions_to_validate.append(condition)
                         if condition.attribute_name in self.BASE_ATTRIBUTES:
-                            # Ignore this rule
-                            break
-                        else:
-                            next_conditions_to_validate.append(condition)
+                            ignore_rules = True
+
+                if ignore_rules:
+                    self.ignored_rules.append(
+                        (rule, next_conditions_to_validate))
                 else:
                     self.matching_rules.append(
                         (rule, next_conditions_to_validate))

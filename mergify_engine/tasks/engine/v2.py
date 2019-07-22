@@ -37,6 +37,11 @@ with open(mergify_rule_path, "r") as f:
 
 PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
 
+NOT_APPLICABLE_TEMPLATE = """<details>
+<summary>Rules not applicable to this pull request:</summary>
+%s
+</details>"""
+
 
 def find_embedded_pull(pull):
     # NOTE(sileht): We are looking for a pull request that have been merged
@@ -86,23 +91,33 @@ def get_already_merged_summary(event_type, data, pull, match):
                 "@%s\n\n" % pull.g_pull.merged_by.login)
 
 
-def gen_summary(event_type, data, pull, match):
-    # Set the summary
+def gen_summary_rules(rules):
     summary = ""
-
-    summary += get_already_merged_summary(event_type, data, pull, match)
-
-    completed_rules = 0
-    for rule, missing_conditions in match.matching_rules:
+    for rule, missing_conditions in rules:
+        if rule["hidden"]:
+            continue
         summary += "#### Rule: %s" % rule['name']
         summary += " (%s)" % ", ".join(rule['actions'])
         for cond in rule['conditions']:
             checked = " " if cond in missing_conditions else "X"
             summary += "\n- [%s] `%s`" % (checked, cond)
-        if not missing_conditions:
-            completed_rules += 1
         summary += "\n\n"
+    return summary
 
+
+def gen_summary(event_type, data, pull, match):
+    summary = ""
+    summary += get_already_merged_summary(event_type, data, pull, match)
+    summary += gen_summary_rules(match.matching_rules)
+    if match.ignored_rules:
+        summary += "<hr /><details>\n"
+        summary += ("<summary>%d not applicable rules</summary>\n\n"
+                    % len(match.ignored_rules))
+        summary += gen_summary_rules(match.ignored_rules)
+        summary += "</details>"
+
+    completed_rules = len(list(filter(lambda x: not x[1],
+                                      match.matching_rules)))
     potential_rules = len(match.matching_rules) - completed_rules
 
     summary_title = []

@@ -21,16 +21,8 @@ import pytest
 
 import voluptuous
 
-import yaml
-
 from mergify_engine import mergify_pull
 from mergify_engine import rules
-
-
-with open(rules.default_rule, "r") as f:
-    print(f.read())
-    f.seek(0)
-    DEFAULT_CONFIG = yaml.safe_load(f.read())
 
 
 def test_pull_request_rule():
