@@ -110,9 +110,11 @@ def gen_summary(event_type, data, pull, match):
     summary += get_already_merged_summary(event_type, data, pull, match)
     summary += gen_summary_rules(match.matching_rules)
     if match.ignored_rules:
+        ignored_rules = len(list(filter(lambda x: not x[0]['hidden'],
+                                        match.ignored_rules)))
         summary += "<hr /><details>\n"
         summary += ("<summary>%d not applicable rules</summary>\n\n"
-                    % len(match.ignored_rules))
+                    % ignored_rules)
         summary += gen_summary_rules(match.ignored_rules)
         summary += "</details>"
 
