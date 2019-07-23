@@ -127,6 +127,7 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
         post_parameters["output"] = output
 
     post_parameters["started_at"] = utils.utcnow().isoformat()
+    post_parameters["details_url"] = "%s/checks" % pull.html_url
 
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
@@ -141,11 +142,13 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
             input=post_parameters,
             headers={'Accept': 'application/vnd.github.antiope-preview+json'}
         )
-        return Check(pull._requester, headers, data, completed=True)
+        checks = [Check(pull._requester, headers, data, completed=True)]
 
     if len(checks) > 1:
         LOG.warning("Multiple mergify checks have been created, "
                     "we got the known race.", pull_request=pull)
+
+    post_parameters["details_url"] += "?check_run_id=%s" % checks[0].id
 
     # FIXME(sileht): We have no (simple) way to ensure we don't have multiple
     # worker doing POST at the same time. It's unlike to happen, but it has
@@ -155,7 +158,8 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
     for check in checks:
         # Don't do useless update
         if compare_dict(post_parameters, check.raw_data,
-                        ("name", "head_sha", "status", "conclusion")):
+                        ("name", "head_sha", "status", "conclusion",
+                         "details_url")):
             if check.output == output:
                 continue
             elif (check.output is not None and output is not None and
@@ -164,7 +168,7 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
 
         headers, data = pull._requester.requestJsonAndCheck(
             "PATCH",
-            "%s/check-runs/%s" % (pull.base.repo.url, checks[0].id),
+            "%s/check-runs/%s" % (pull.base.repo.url, check.id),
             input=post_parameters,
             headers={'Accept':
                      'application/vnd.github.antiope-preview+json'}
