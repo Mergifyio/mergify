@@ -236,6 +236,27 @@ The ``merge`` action merges the pull request into its base branch. The
          force push the rebased pull request.
        * GPG signed commits will lost their signatures.
 
+.. _request_reviews action:
+
+request_reviews
+===============
+
+The ``request_reviews`` action requests reviews from users for the pull request.
+
+.. list-table::
+  :header-rows: 1
+  :widths: 1 1 1 2
+
+  * - Key Name
+    - Value Type
+    - Default
+    - Value Description
+  * - ``users``
+    - array of string
+    - None
+    - The users to request reviews from
+
+
 Git merge workflow and Mergify equivalent configuration
 -------------------------------------------------------
 
