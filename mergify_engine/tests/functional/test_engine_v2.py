@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import logging
+import unittest
 
 import requests.exceptions
 
@@ -162,6 +163,55 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(sorted(["mergify-test1"]),
                          sorted([l.login for l in pulls[0].assignees]))
+
+    def test_request_reviews_users(self):
+        rules = {'pull_request_rules': [
+            {"name": "request_reviews",
+             "conditions": [
+                 "base=master",
+             ],
+             "actions": {
+                 "request_reviews": {"users": ['mergify-test1']}
+             }}
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        pulls = list(self.r_o_admin.get_pulls())
+        self.assertEqual(1, len(pulls))
+        requests = pulls[0].get_review_requests()
+        self.assertEqual(
+            sorted(["mergify-test1"]),
+            sorted([l.login for l in requests[0]])
+        )
+
+    @unittest.skip("Github API doesn't behave as the doc say")
+    def test_request_reviews_teams(self):
+        rules = {'pull_request_rules': [
+            {"name": "request_reviews",
+             "conditions": [
+                 "base=master",
+             ],
+             "actions": {
+                 "request_reviews": {
+                     "teams": ['@mergifyio-testing/testing']
+                 }
+             }}
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        pulls = list(self.r_o_admin.get_pulls())
+        self.assertEqual(1, len(pulls))
+        requests = pulls[0].get_review_requests()
+        self.assertEqual(
+            sorted(["@mergifyio-testing/testing"]),
+            sorted([l.slug for l in requests[1]])
+        )
 
     def test_label(self):
         rules = {'pull_request_rules': [
