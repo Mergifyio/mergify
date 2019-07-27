@@ -113,8 +113,12 @@ def gen_summary(event_type, data, pull, match):
                                     match.ignored_rules)))
     if ignored_rules > 0:
         summary += "<hr /><details>\n"
-        summary += ("<summary>%d not applicable rules</summary>\n\n"
-                    % ignored_rules)
+        if ignored_rules == 1:
+            summary += ("<summary>%d not applicable rule</summary>\n\n"
+                        % ignored_rules)
+        else:
+            summary += ("<summary>%d not applicable rules</summary>\n\n"
+                        % ignored_rules)
         summary += gen_summary_rules(match.ignored_rules)
         summary += "</details>"
 
