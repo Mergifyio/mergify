@@ -15,6 +15,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import itertools
+import operator
+
 import attr
 
 import daiquiri
@@ -61,9 +64,25 @@ PullRequestRulesSchema = voluptuous.Schema([{
 }])
 
 
+def load_pull_request_rules_schema(rules):
+    rules = PullRequestRulesSchema(rules)
+
+    sorted_rules = sorted(rules, key=operator.itemgetter('name'))
+    grouped_rules = itertools.groupby(sorted_rules,
+                                      operator.itemgetter('name'))
+    for name, sub_rules in grouped_rules:
+        sub_rules = list(sub_rules)
+        if len(sub_rules) == 1:
+            continue
+        for n, rule in enumerate(sub_rules):
+            rule["name"] += " #%d" % (n + 1)
+
+    return rules
+
+
 @attr.s
 class PullRequestRules:
-    rules = attr.ib(converter=PullRequestRulesSchema)
+    rules = attr.ib(converter=load_pull_request_rules_schema)
 
     def as_dict(self):
         return {'rules': [{

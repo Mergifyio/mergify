@@ -39,7 +39,28 @@ def test_pull_request_rule():
         ],
         "actions": {},
     }):
-        rules.PullRequestRules([valid])
+        rules.load_pull_request_rules_schema([valid])
+
+
+def test_same_names():
+    pull_request_rules = rules.load_pull_request_rules_schema([{
+        "name": "hello",
+        "conditions": [],
+        "actions": {},
+    }, {
+        "name": "foobar",
+        "conditions": [],
+        "actions": {},
+    }, {
+        "name": "hello",
+        "conditions": [],
+        "actions": {},
+    }])
+    assert [rule["name"] for rule in pull_request_rules] == [
+        "hello #1",
+        "foobar",
+        "hello #2",
+    ]
 
 
 def test_validate_user_config():
