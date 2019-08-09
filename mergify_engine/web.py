@@ -24,16 +24,25 @@ import collections
 import hmac
 import json
 import logging
+from urllib.parse import urlsplit
 
 import flask
 
 from flask_cors import cross_origin
 
+import github
+
 import pkg_resources
 
+import voluptuous
+
+from mergify_engine import config
+from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.tasks import github_events
+from mergify_engine.tasks.engine import v2
+
 
 LOG = logging.getLogger(__name__)
 
@@ -146,6 +155,70 @@ def subscription_cache(installation_id):  # pragma: no cover
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
     return "Cache cleaned", 200
+
+
+class PullRequestUrlInvalid(voluptuous.Invalid):
+    pass
+
+
+@voluptuous.message('expected a Pull Request URL', cls=PullRequestUrlInvalid)
+def PullRequestUrl(v):
+    _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
+    pull_number = int(pull_number)
+
+    integration = github.GithubIntegration(config.INTEGRATION_ID,
+                                           config.PRIVATE_KEY)
+    installation_id = utils.get_installation_id(integration, owner)
+    if not installation_id:  # pragma: no cover
+        raise PullRequestUrlInvalid(
+            message="Mergify not installed on this repository"
+        )
+
+    token = integration.get_access_token(installation_id).token
+    try:
+        return mergify_pull.MergifyPull.from_number(
+            installation_id, token, owner, repo, pull_number
+        )
+    except github.UnknownObjectException:
+        raise PullRequestUrlInvalid(
+            message="Pull request not found"
+        )
+
+
+SimulatorSchema = voluptuous.Schema({
+    voluptuous.Required('pull_request'): PullRequestUrl(),
+    voluptuous.Required('mergify.yml'): rules.UserConfigurationSchema,
+})
+
+
+@app.errorhandler(voluptuous.Invalid)
+def voluptuous_error(error):
+    payload = flask.jsonify({
+        "message": str(error),
+        "type": error.__class__.__name__,
+        "error": error.msg,
+        "details": error.path,
+    })
+    return flask.make_response(payload, 400)
+
+
+@app.route("/simulator", methods=["POST"])
+def simulator():
+    authentification()
+
+    data = SimulatorSchema(flask.request.get_json(force=True))
+    pull_request = data["pull_request"]
+    pull_request_rules = data["mergify.yml"]["pull_request_rules"]
+
+    match = pull_request_rules.get_pull_request_rule(pull_request)
+
+    raw_event = {
+        'repository': pull_request.g_pull.base.repo.raw_data,
+        'installation': {'id': pull_request.installation_id},
+        'pull_request': pull_request.g_pull.raw_data
+    }
+    title, summary = v2.gen_summary("refresh", raw_event, pull_request, match)
+    return flask.jsonify({"title": title, "summary": summary}), 200
 
 
 @app.route("/marketplace", methods=["POST"])

@@ -1,0 +1,91 @@
+# -*- encoding: utf-8 -*-
+#
+# Copyright © 2019 Mehdi Abaakouk <sileht@sileht.net>
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+import yaml
+
+from mergify_engine.tests.functional import base
+
+
+class TestEngineV2Scenario(base.FunctionalTestBase):
+    """Mergify engine tests.
+
+    Tests user github resource and are slow, so we must reduce the number
+    of scenario as much as possible for now.
+    """
+
+    def test_simulator(self):
+        rules = {'pull_request_rules': [{
+            "name": "simulator",
+            "conditions": ["base=master"],
+            "actions": {"merge": {}}
+        }]}
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        mergify_yaml = """pull_request_rules:
+  - name: assign
+    conditions:
+      - base=master
+    actions:
+      assign:
+        users:
+          - mergify-test1
+"""
+        r = self.app.post(
+            '/simulator',
+            json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            }
+        )
+
+        assert r.json == {
+            "title": "1 rule matches",
+            "summary": "#### Rule: assign (assign)\n- [X] `base=master`\n\n",
+        }
+
+        r = self.app.post(
+            '/simulator',
+            json={"pull_request": p.html_url, "mergify.yml": "- no\n* way"},
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            }
+        )
+        assert r.status_code == 400
+        assert r.json == {
+            'type': 'MultipleInvalid',
+            'error': "Invalid yaml",
+            "details": ['mergify.yml', {"line": 2, "column": 2}],
+            'message': "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+        }
+
+        r = self.app.post(
+            '/simulator',
+            json={"invalid": "json"},
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            }
+        )
+        assert r.status_code == 400
+        assert r.json == {
+            'type': 'MultipleInvalid',
+            'error': "extra keys not allowed",
+            "details": ['invalid'],
+            'message': "extra keys not allowed @ data['invalid']",
+        }
