@@ -115,13 +115,10 @@ def badge(owner, repo):
 @cross_origin()
 def config_validator():  # pragma: no cover
     try:
-        rules.validate_user_config(flask.request.files['data'].stream)
+        rules.UserConfigurationSchema(flask.request.files['data'].stream)
     except Exception as e:
         status = 400
-        message = str(rules.InvalidRules(str(e)))
-        if hasattr(e, 'problem_mark'):
-            message += " (position %s:%s)" % (e.problem_mark.line + 1,
-                                              e.problem_mark.column + 1)
+        message = str(e)
     else:
         status = 200
         message = "The configuration is valid"
