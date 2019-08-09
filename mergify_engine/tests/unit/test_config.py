@@ -63,19 +63,30 @@ def test_same_names():
     ]
 
 
-def test_validate_user_config():
-    with pytest.raises(rules.InvalidRules):
-        rules.validate_user_config("""
-not a yaml file
-* just junk
-""")
+def test_user_configuration_schema():
+    with pytest.raises(rules.InvalidRules) as exc_info:
+        rules.UserConfigurationSchema("- no\n* way")
+    assert exc_info.value.__class__.__name__, "YamlInvalid"
+    assert str(exc_info.value.path) == "[at position 2:2]"
+    assert exc_info.value.path == [{
+        "line": 2,
+        "column": 2
+    }]
 
     with pytest.raises(rules.InvalidRules):
-        rules.validate_user_config("""
+        rules.UserConfigurationSchema("""
 pull_request_rules:
   - name: ahah
     key: not really what we expected
 """)
+
+    with pytest.raises(rules.InvalidRules):
+        rules.UserConfigurationSchema("""
+pull_request_rules:
+""")
+
+    with pytest.raises(rules.InvalidRules):
+        rules.UserConfigurationSchema("")
 
 
 def test_pull_request_rule_schema_invalid():

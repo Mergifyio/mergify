@@ -49,7 +49,7 @@ def PullRequestRuleCondition(value):
             error_message=str(e))
 
 
-PullRequestRulesSchema = voluptuous.Schema([{
+PullRequestRulesSchema = voluptuous.Schema(voluptuous.All([{
     voluptuous.Required('name'): str,
     voluptuous.Required('hidden', default=False): bool,
     voluptuous.Required('conditions'): [
@@ -61,7 +61,7 @@ PullRequestRulesSchema = voluptuous.Schema([{
             ep.load().validator,
             voluptuous.Coerce(ep.load())
         )) for ep in pkg_resources.iter_entry_points("mergify_actions"))
-}])
+}], voluptuous.Length(min=1)))
 
 
 def load_pull_request_rules_schema(rules):
@@ -155,10 +155,51 @@ class PullRequestRules:
         return self.PullRequestRuleForPR(self.rules, pull_request)
 
 
-UserConfigurationSchemaV2 = voluptuous.Schema({
+class YamlInvalid(voluptuous.Invalid):
+    pass
+
+
+class YamlInvalidPath(dict):
+    def __init__(self, mark):
+        super().__init__({
+            "line": mark.line + 1,
+            "column": mark.column + 1,
+        })
+
+    def __repr__(self):
+        return "at position {line}:{column}".format(**self)
+
+
+class Yaml:
+    def __init__(self, validator, **kwargs):
+        self.validator = validator
+        self._schema = voluptuous.Schema(validator, **kwargs)
+
+    def __call__(self, v):
+        try:
+            v = yaml.safe_load(v)
+        except yaml.YAMLError as e:
+            error_message = str(e)
+            path = None
+            if hasattr(e, 'problem_mark'):
+                path = [YamlInvalidPath(e.problem_mark)]
+                error_message += " (%s)" % path[0]
+            raise YamlInvalid(
+                message="Invalid yaml",
+                error_message=str(e),
+                path=path
+            )
+
+        return self._schema(v)
+
+    def __repr__(self):
+        return 'Yaml(%s)' % repr(self.validator)
+
+
+UserConfigurationSchema = voluptuous.Schema(Yaml({
     voluptuous.Required("pull_request_rules"):
     voluptuous.Coerce(PullRequestRules),
-})
+}))
 
 
 class NoRules(Exception):
@@ -166,27 +207,7 @@ class NoRules(Exception):
         super().__init__(".mergify.yml is missing")
 
 
-class InvalidRules(Exception):
-    def __init__(self, detail):
-        super().__init__("Mergify configuration is invalid: %s" % detail)
-
-
-def validate_user_config(content):
-    # NOTE(sileht): This is just to check the syntax some attributes can be
-    # missing, the important thing is that once merged with the default.
-    # Everything need by Github is set
-    try:
-        return voluptuous.Schema(UserConfigurationSchemaV2)(
-            yaml.safe_load(content))
-    except yaml.YAMLError as e:
-        if hasattr(e, 'problem_mark'):
-            raise InvalidRules("position (%s:%s)" %
-                               (e.problem_mark.line + 1,
-                                e.problem_mark.column + 1))
-        else:  # pragma: no cover
-            raise InvalidRules(str(e))
-    except voluptuous.MultipleInvalid as e:
-        raise InvalidRules(str(e))
+InvalidRules = voluptuous.Invalid
 
 
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
@@ -202,4 +223,4 @@ def get_mergify_config(repository, ref=github.GithubObject.NotSet):
             raise
         raise NoRules()
 
-    return validate_user_config(content) or {}
+    return UserConfigurationSchema(content)
