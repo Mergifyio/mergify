@@ -142,12 +142,13 @@ class MergifyPull(object):
             "files": [f.filename for f in self.g_pull.get_files()],
             "approved-reviews-by": [r.user.login for r in approvals
                                     if r.state == "APPROVED"],
-            "dismissed-reviews-by": [r.user for r in approvals
+            "dismissed-reviews-by": [r.user.login for r in approvals
                                      if r.state == "DISMISSED"],
             "changes-requested-reviews-by": [
-                r.user for r in approvals if r.state == "CHANGES_REQUESTED"
+                r.user.login for r in approvals
+                if r.state == "CHANGES_REQUESTED"
             ],
-            "commented-reviews-by": [r.user for r in comments
+            "commented-reviews-by": [r.user.login for r in comments
                                      if r.state == "COMMENTED"],
             "status-success": [s.context for s in statuses
                                if s.state == "success"],
