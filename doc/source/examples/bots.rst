@@ -76,3 +76,19 @@ dependencies.
         actions:
           merge:
             method: merge
+
+ImgBot
+------
+`ImgBot <https://github.com/marketplace/imgbot>`_ optimizes your images and
+saves you time.
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for PyUp pull requests
+        conditions:
+          - author=imgbot[bot]
+          - status-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
