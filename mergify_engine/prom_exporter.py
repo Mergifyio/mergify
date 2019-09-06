@@ -28,6 +28,7 @@ import tenacity
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 
@@ -135,12 +136,14 @@ def collect_metrics():
                 unconfigured_repos = 0
                 for repo in repos:
                     try:
-                        repo.get_contents(".mergify.yml")
+                        rules.get_mergify_config(repo)
                         configured_repos += 1
                         redis.sadd("badges.tmp", repo.full_name)
                     except github.GithubException as e:
                         if e.status >= 500:  # pragma: no cover
                             raise
+                        unconfigured_repos += 1
+                    except rules.NoRules:
                         unconfigured_repos += 1
 
                 repositories_per_installation[

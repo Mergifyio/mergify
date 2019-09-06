@@ -204,23 +204,28 @@ UserConfigurationSchema = voluptuous.Schema(Yaml({
 
 class NoRules(Exception):
     def __init__(self):
-        super().__init__(".mergify.yml is missing")
+        super().__init__("Mergify configuration file is missing")
 
 
 InvalidRules = voluptuous.Invalid
 
 
-def get_mergify_config(repository, ref=github.GithubObject.NotSet):
-    try:
-        content = repository.get_contents(
-            ".mergify.yml", ref=ref).decoded_content
-    except github.GithubException as e:  # pragma: no cover
-        # NOTE(sileht): PyGithub is buggy here it should raise
-        # UnknownObjectException. but depending of the error message
-        # the convertion is not done and the generic exception is raise
-        # so always catch the generic
-        if e.status != 404:
-            raise
-        raise NoRules()
+MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
 
-    return UserConfigurationSchema(content)
+
+def get_mergify_config_content(repository, ref=github.GithubObject.NotSet):
+    for filename in MERGIFY_CONFIG_FILENAMES:
+        try:
+            return repository.get_contents(filename, ref=ref).decoded_content
+        except github.GithubException as e:  # pragma: no cover
+            # NOTE(sileht): PyGithub is buggy here it should raise
+            # UnknownObjectException. but depending of the error message
+            # the convertion is not done and the generic exception is raise
+            # so always catch the generic
+            if e.status != 404:
+                raise
+    raise NoRules()
+
+
+def get_mergify_config(repository, ref=github.GithubObject.NotSet):
+    return UserConfigurationSchema(get_mergify_config_content(repository, ref))
