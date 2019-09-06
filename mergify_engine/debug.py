@@ -122,13 +122,17 @@ def report(url):
 
     print("* CONFIGURATION:")
     try:
-        mergify_config = rules.get_mergify_config(r)
+        mergify_config_content = rules.get_mergify_config_content(r)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
+
+    print(mergify_config_content)
+
+    try:
+        mergify_config = rules.UserConfigurationSchema(mergify_config_content)
     except rules.InvalidRules as e:  # pragma: no cover
         print("configuration is invalid %s" % str(e))
     else:
-        print(r.get_contents(".mergify.yml").decoded_content.decode())
         pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
         pull_request_rules_raw["rules"].extend(v2.MERGIFY_RULE["rules"])
         pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
@@ -196,11 +200,13 @@ def stargazer():
 
                 for repo in repos:
                     try:
-                        repo.get_contents(".mergify.yml")
+                        rules.get_mergify_config(repo)
                         stars.append((repo.stargazers_count, repo.full_name))
                     except github.GithubException as e:
                         if e.status >= 500:  # pragma: no cover
                             raise
+                    except rules.NoRules:
+                        pass
         except github.GithubException as e:
             # Ignore rate limit/abuse
             if e.status != 403:

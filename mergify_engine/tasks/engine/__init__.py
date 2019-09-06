@@ -98,7 +98,7 @@ def check_configuration_changes(event_pull):
     if event_pull.base.repo.default_branch == event_pull.base.ref:
         ref = None
         for f in event_pull.get_files():
-            if f.filename == ".mergify.yml":
+            if f.filename in rules.MERGIFY_CONFIG_FILENAMES:
                 ref = f.contents_url.split("?ref=")[1]
 
         if ref is not None:

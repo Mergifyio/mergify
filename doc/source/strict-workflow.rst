@@ -72,9 +72,7 @@ Enabling the Strict Workflow
 ============================
 
 To enable the *strict* workflow, you need to set the value of ``strict`` to
-``true`` in the :ref:`merge action` action.
-
-To enable it on a pull request, you can write a ``mergify.yml`` like this:
+``true`` in the :ref:`merge action` action. For example:
 
 .. code-block:: yaml
 
