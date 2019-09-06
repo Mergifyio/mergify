@@ -77,6 +77,7 @@ author = "author" + _match_login_or_teams
 merged = _match_boolean("merged")
 closed = _match_boolean("closed")
 conflict = _match_boolean("conflict")
+draft = _match_boolean("draft")
 merged_by = "merged-by" + _match_login_or_teams
 body = "body" + _match_with_operator(text)
 assignee = "assignee" + _match_login_or_teams
@@ -115,6 +116,7 @@ search = (
         | locked
         | closed
         | conflict
+        | draft
         | merged
         | title
         | files
