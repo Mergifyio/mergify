@@ -342,11 +342,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        self.push_events([
-            ("check_run", {"action": "completed"}),
-            ("check_run", {"action": "created"}),
-        ])
-
         p.update()
         comments = list(p.get_issue_comments())
         self.assertEqual("WTF?", comments[-1].body)
