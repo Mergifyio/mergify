@@ -139,9 +139,13 @@ class MergeAction(actions.Action):
 
     @staticmethod
     def _merge(pull, method):
+        kwargs = pull.get_merge_commit_message() or {}
         try:
-            pull.g_pull.merge(sha=pull.g_pull.head.sha,
-                              merge_method=method)
+            pull.g_pull.merge(
+                sha=pull.g_pull.head.sha,
+                merge_method=method,
+                **kwargs
+            )
         except github.GithubException as e:   # pragma: no cover
             if pull.g_pull.is_merged():
                 LOG.info("merged in the meantime", pull=pull)

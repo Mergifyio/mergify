@@ -111,6 +111,15 @@ def gen_summary(event_type, data, pull, match):
     summary += gen_summary_rules(match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x[0]['hidden'],
                                     match.ignored_rules)))
+
+    commit_message = pull.get_merge_commit_message()
+    if commit_message:
+        summary += "<hr />The merge or squash commit message will be:\n\n"
+        summary += "```\n"
+        summary += commit_message["commit_title"] + "\n\n"
+        summary += commit_message["commit_message"] + "\n"
+        summary += "```\n\n"
+
     if ignored_rules > 0:
         summary += "<hr /><details>\n"
         if ignored_rules == 1:

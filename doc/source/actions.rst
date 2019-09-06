@@ -254,6 +254,18 @@ The ``merge`` action merges the pull request into its base branch. The
        * GPG signed commits will lost their signatures.
        * Also see: :ref:`faq strict rebase`
 
+When a pull request is merged using the squash or merge method, Mergify uses
+the default commit message provided by GitHub. You can override the commit
+message by adding a section in the pull request body. The section must start
+with the Markdown title "Commit Message" and contain the actual commit message.
+For example::
+
+    ## Commit Message
+    My wanted commit title
+
+    The whole commit message finishes at the end of the pull request body or
+    before a new Markdown title.
+
 .. _request_reviews action:
 
 request_reviews

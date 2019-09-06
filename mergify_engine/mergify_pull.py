@@ -14,6 +14,7 @@
 
 import collections
 import itertools
+import re
 from urllib import parse
 
 import attr
@@ -29,6 +30,9 @@ from mergify_engine import config
 from mergify_engine import exceptions
 
 LOG = daiquiri.getLogger(__name__)
+
+MARKDOWN_TITLE_RE = re.compile(r'^#+ ', re.I)
+MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r'^#+ Commit Message ?:?$')
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
@@ -298,6 +302,24 @@ class MergifyPull(object):
                 if parent.sha == branch.commit.sha:
                     return False
         return True
+
+    def get_merge_commit_message(self):
+        found = False
+        message_lines = []
+
+        for line in self.g_pull.body.split("\n"):
+            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
+                found = True
+            elif found and MARKDOWN_TITLE_RE.match(line):
+                break
+            elif found:
+                message_lines.append(line)
+
+        if found and message_lines:
+            return {
+                'commit_title': message_lines[0],
+                'commit_message': "\n".join(message_lines[1:]).strip()
+            }
 
     def __str__(self):
         return ("%(login)s/%(repo)s/pull/%(number)d@%(branch)s "
