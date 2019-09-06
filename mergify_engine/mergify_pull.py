@@ -163,6 +163,10 @@ class MergifyPull(object):
             #                    if s.state in ("pending", None)],
             "status-failure": [s.context for s in statuses
                                if s.state == "failure"],
+            "status-neutral": [s.context for s in statuses
+                               if s.state == "neutral"],
+            # NOTE(sileht): Not handled for now
+            # cancelled, timed_out, or action_required
         }
 
     def _get_statuses(self):
