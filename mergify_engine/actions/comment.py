@@ -21,6 +21,7 @@ import github
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -32,17 +33,14 @@ class CommentAction(actions.Action):
 
     def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
+        for comment in pull.g_pull.get_issue_comments():
+            if (comment.user.id == config.BOT_USER_ID and
+                    comment.body == self.config["message"]):
+                return
+
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:  # pragma: no cover
             LOG.error("fail to post comment on the pull request",
                       status=e.status, error=e.data["message"],
                       pull_request=pull)
-            return ("failure", "the issue comment can't be created", "")
-
-        return ("success", "The following message has been posted",
-                self.config["message"])
-
-    def cancel(self, installation_id, installation_token,
-               event_type, data, pull, missing_conditions):  # pragma: no cover
-        return self.cancelled_check_report
