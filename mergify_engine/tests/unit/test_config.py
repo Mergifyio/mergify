@@ -175,6 +175,7 @@ def test_get_pull_request_rule():
             "merged_by": None,
             "merged_at": None,
             "merged": False,
+            "draft": False,
             "milestone": None,
             "mergeable_state": "unstable",
             "assignees": [],
