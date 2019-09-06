@@ -229,7 +229,7 @@ def marketplace_handler():   # pragma: no cover
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    github_events.job_markerplace.apply_async(
+    github_events.job_marketplace.apply_async(
         args=[event_type, event_id, data],
     )
     return "Event queued", 202

@@ -15,6 +15,7 @@
 # under the License.
 import logging
 import unittest
+from unittest import mock
 
 import requests.exceptions
 
@@ -1009,3 +1010,28 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         checks = list(check_api.get_checks(p1))
         assert len(checks) == 1
         assert checks[0].name == "Summary"
+
+    def test_marketplace_event(self):
+        with mock.patch(
+                "mergify_engine.branch_updater.sub_utils.get_subscription"
+        ) as get_sub:
+            get_sub.return_value = self.subscription
+            r = self.app.post(
+                '/marketplace',
+                headers={
+                    "X-Hub-Signature": "sha1=whatever",
+                    "Content-type": "application/json",
+                },
+                json={
+                    "sender": {
+                        "login": "jd",
+                    },
+                    "marketplace_purchase": {
+                        "account": {
+                            "login": "mergifyio-testing",
+                        },
+                    },
+                },
+            )
+        assert r.data == b'Event queued'
+        assert r.status_code == 202
