@@ -170,7 +170,11 @@ class Gitter(object):
         LOG.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
         kwargs["stderr"] = subprocess.STDOUT
-        return subprocess.check_output(["git"] + list(args), **kwargs)
+        try:
+            return subprocess.check_output(["git"] + list(args), **kwargs)
+        except subprocess.CalledProcessError as e:
+            LOG.info("output: %s", e.output)
+            raise
 
     def cleanup(self):
         LOG.info("cleaning: %s", self.tmp)
