@@ -135,6 +135,13 @@ Here's the list of pull request attribute that rules can be matched against:
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About status check name`_ for more
        details.
+   * - ``status-neutral``
+     - array of string
+     - The list of status checks that are neutral for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`. See `About status check name`_ for more
+       details.
    * - ``status-failure``
      - array of string
      - The list of status checks that failed for the pull request.
