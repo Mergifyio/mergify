@@ -4,10 +4,11 @@
  Configuration File Format
 ===========================
 
-The configuration file for Mergify should be named ``.mergify.yml`` and must be
-placed in the root directory of your GitHub repository. Mergify uses the
-default repository branch configured on GitHub to read the configuration file —
-usually ``master``. The file format is `YAML <http://yaml.org/>`_.
+The configuration file for Mergify should be named ``.mergify.yml`` or
+``.mergify/config.yml`` and must be placed in the root directory of your GitHub
+repository. Mergify uses the default repository branch configured on GitHub to
+read the configuration file — usually ``master``. The file format is `YAML
+<http://yaml.org/>`_.
 
 The file main entry is a dictionary whose key is named ``pull_request_rules``.
 The value of the ``pull_request_rules`` key must be a list of dictionary.
@@ -59,8 +60,8 @@ See :ref:`Examples` for more examples.
 Validation
 ==========
 
-Usually ``.mergify.yml`` configuration change should be done via a pull
-request, in order for Mergify to validate it.
+Usually, changes to the configuration file should be done via a pull request,
+in order for Mergify to validate it.
 
 However if you are creating the initial configuration or want to validate it
 locally before sending a pull request, you can use:

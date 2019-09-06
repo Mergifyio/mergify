@@ -19,6 +19,7 @@ import github
 
 
 from mergify_engine import config
+from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks import engine
@@ -43,7 +44,7 @@ def job_refresh(owner, repo, refresh_ref):
     g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo("%s/%s" % (owner, repo))
     try:
-        r.get_contents(".mergify.yml")
+        rules.get_mergify_config(r)
     except github.GithubException as e:  # pragma: no cover
         if e.status == 404:
             LOG.warning("%s/%s/%s: mergify not configured",
@@ -51,6 +52,10 @@ def job_refresh(owner, repo, refresh_ref):
             return
         else:
             raise
+    except rules.NoRules:
+        LOG.warning("%s/%s/%s: Mergify configuration is invalid/missing",
+                    owner, repo, refresh_ref)
+        return
 
     if refresh_ref == "full" or refresh_ref.startswith("branch/"):
         if refresh_ref.startswith("branch/"):
@@ -110,12 +115,14 @@ def job_refresh_all():
             if r.archived:  # pragma: no cover
                 continue
             try:
-                r.get_contents(".mergify.yml")
+                rules.get_mergify_config(r)
             except github.GithubException as e:  # pragma: no cover
                 if e.status == 404:
                     continue
                 else:
                     raise
+            except rules.NoRules:
+                pass
 
             counts[1] += 1
             for p in list(r.get_pulls()):
