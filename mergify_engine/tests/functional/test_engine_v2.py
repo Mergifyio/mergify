@@ -145,6 +145,94 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(1, len(branches))
         self.assertEqual("master", branches[0].name)
 
+    def test_delete_branch_with_dep_no_force(self):
+        rules = {'pull_request_rules': [
+            {"name": "delete on merge",
+             "conditions": [
+                 "base=master",
+                 "label=merge",
+                 "merged",
+             ], "actions": {
+                 "delete_head_branch": None}
+             },
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr(base_repo="main", branch="#1-first-pr")
+        p2, _ = self.create_pr(base_repo="main", branch="#2-second-pr",
+                               base="#1-first-pr")
+
+        p1.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ], ordered=False)
+
+        self.add_label_and_push_events(
+            p1, "merge",
+            [("check_run", {"check_run": {"conclusion": "success"}})]
+        )
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
+        ], ordered=False)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        assert 2 == len(pulls)
+
+        branches = list(self.r_o_admin.get_branches())
+        assert 3 == len(branches)
+        assert (
+            {"master", "#1-first-pr", "#2-second-pr"} ==
+            {b.name for b in branches}
+        )
+
+    def test_delete_branch_with_dep_force(self):
+        rules = {'pull_request_rules': [
+            {
+                "name": "delete on merge",
+                "conditions": [
+                    "base=master",
+                    "label=merge",
+                    "merged",
+                ], "actions": {
+                    "delete_head_branch": {
+                        "force": True,
+                    },
+                },
+            },
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr(base_repo="main", branch="#1-first-pr")
+        p2, _ = self.create_pr(base_repo="main", branch="#2-second-pr",
+                               base="#1-first-pr")
+
+        p1.merge()
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_suite", {"action": "requested"}),
+        ], ordered=False)
+
+        self.add_label_and_push_events(
+            p1, "merge",
+            [("check_run", {"check_run": {"conclusion": "success"}})]
+        )
+        self.push_events([
+            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
+        ], ordered=False)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        assert 2 == len(pulls)
+
+        branches = list(self.r_o_admin.get_branches())
+        assert 2 == len(branches)
+        assert (
+            {"master", "#2-second-pr"} ==
+            {b.name for b in branches}
+        )
+
     def test_assign(self):
         rules = {'pull_request_rules': [
             {"name": "assign",
