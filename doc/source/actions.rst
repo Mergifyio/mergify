@@ -126,6 +126,22 @@ This action takes no configuration options. The action will happen when the
 pull request is closed or merged: you can decide what suits you best using
 :ref:`Conditions`.
 
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``force``
+     - Boolean
+     - ``False``
+     - If set to ``True``, the branch will be deleted even if another pull
+       request depends on the head branch. GitHub will therefore close the
+       dependents pull requests.
+
+
 .. _dismiss_reviews action:
 
 dismiss_reviews
