@@ -149,8 +149,7 @@ def job_marketplace(event_type, event_id, data):
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
 
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), installation_id)
+    subscription = sub_utils.get_subscription(r, installation_id)
 
     LOG.info('Marketplace event',
              event_type=event_type,
