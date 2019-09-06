@@ -850,6 +850,45 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                                          "@invalid/team/break-here",
                                          "sileht", "mergify-test1"])
 
+    def test_merge_custom_msg(self):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+             ], "actions": {
+                 "merge": {"method": "squash"}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        msg = "This is the title\n\nAnd this is the message"
+        p, _ = self.create_pr(
+            message="It fixes it\n\n## Commit Message:\n%s" % msg
+        )
+        self.create_status_and_push_event(p)
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("check_suite", {"action": "requested"})
+        ], ordered=False)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(True, pulls[0].merged)
+
+        commit = self.r_o_admin.get_commits()[0].commit
+        self.assertEqual(msg, commit.message)
+
+        checks = list(check_api.get_checks(p))
+        assert len(checks) == 2
+        assert checks[1].name == "Summary"
+        assert msg in checks[1].output["summary"]
+
     def test_merge_and_closes_issues(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
