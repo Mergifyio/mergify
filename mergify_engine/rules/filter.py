@@ -83,7 +83,7 @@ class Filter:
         "!=": (operator.ne, all, _identity),
         "≠": (operator.ne, all, _identity),
 
-        "~=": (lambda a, b: b.search(a), any, re.compile),
+        "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
     tree = attr.ib()
