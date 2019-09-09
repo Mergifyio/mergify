@@ -17,19 +17,6 @@ rebase``) or to give permission for Mergify to do it as described in `the
 GitHub documentation
 <https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/>`_.
 
-
-Mergify is unable to merge my pull request due to my branch protection settings
--------------------------------------------------------------------------------
-
-This happens usually if you limit the people that have the authorization to
-merge pull requests. GitHub does not offer any way to authorize GitHub
-Application (such as Mergify) to merge pull requests if you decide to set up
-branch protection.
-
-You should not use "Restrict who can push to matching branches" if you want to
-use Mergify merge action.
-
-
 Why did Mergify seem to have merged my pull request whereas all conditions were not true?
 -----------------------------------------------------------------------------------------
 
