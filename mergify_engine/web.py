@@ -171,7 +171,7 @@ def PullRequestUrl(v):
     installation_id = utils.get_installation_id(integration, owner)
     if not installation_id:  # pragma: no cover
         raise PullRequestUrlInvalid(
-            message="Mergify not installed on this repository"
+            message="Mergify not installed on repository '%s'" % owner
         )
 
     token = integration.get_access_token(installation_id).token
@@ -181,7 +181,7 @@ def PullRequestUrl(v):
         )
     except github.UnknownObjectException:
         raise PullRequestUrlInvalid(
-            message="Pull request not found"
+            message=("Pull request '%s' not found" % v)
         )
 
 
