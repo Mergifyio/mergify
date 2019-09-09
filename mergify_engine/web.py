@@ -197,7 +197,7 @@ def voluptuous_error(error):
         "message": str(error),
         "type": error.__class__.__name__,
         "error": error.msg,
-        "details": error.path,
+        "details": list(map(str, error.path)),
     })
     return flask.make_response(payload, 400)
 
