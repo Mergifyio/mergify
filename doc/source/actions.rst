@@ -243,6 +243,7 @@ The ``merge`` action merges the pull request into its base branch. The
      - ``merge``
      - Base branch update method when strict mode is enabled.
        Possible values are ``merge`` or ``rebase``.
+
        Note that ``rebase`` has many drawbacks due to the change of all commits
        sha of the pull request. For example:
 
@@ -251,6 +252,7 @@ The ``merge`` action merges the pull request into its base branch. The
        * GitHub branch protection of the contributor repository may refuse Mergify to
          force push the rebased pull request.
        * GPG signed commits will lost their signatures.
+       * Also see: :ref:`faq strict rebase`
 
 .. _request_reviews action:
 
