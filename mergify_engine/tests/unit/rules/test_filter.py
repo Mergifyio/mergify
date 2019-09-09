@@ -74,6 +74,13 @@ def test_regexp():
     assert f(foo="foobar")
     assert f(foo="foobaz")
     assert not f(foo="x")
+    assert not f(foo=None)
+
+    f = filter.Filter({
+        "~=": ("foo", "^$"),
+    })
+    assert f(foo="")
+    assert not f(foo="x")
 
 
 def test_regexp_invalid():
