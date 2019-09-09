@@ -72,6 +72,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             'error': "Invalid yaml",
             "details": ['mergify.yml', {"line": 2, "column": 2}],
             'message': "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            'errors': [{
+                'type': 'YamlInvalid',
+                'error': "Invalid yaml",
+                "details": ['mergify.yml', {"line": 2, "column": 2}],
+                'message':
+                "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            }]
         }
 
         r = self.app.post(
@@ -86,6 +93,22 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert r.json == {
             'type': 'MultipleInvalid',
             'error': "extra keys not allowed",
-            "details": ['invalid'],
+            'details': ['invalid'],
             'message': "extra keys not allowed @ data['invalid']",
+            'errors': [{
+                'type': 'Invalid',
+                'error': "extra keys not allowed",
+                "details": ['invalid'],
+                'message': "extra keys not allowed @ data['invalid']",
+            }, {
+                'details': ['pull_request'],
+                'error': 'required key not provided',
+                'message': "required key not provided @ data['pull_request']",
+                'type': 'RequiredFieldInvalid'
+            }, {
+                'details': ['mergify.yml'],
+                'error': 'required key not provided',
+                'message': "required key not provided @ data['mergify.yml']",
+                'type': 'RequiredFieldInvalid'
+            }],
         }
