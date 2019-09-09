@@ -64,7 +64,7 @@ def test_same_names():
 
 
 def test_user_configuration_schema():
-    with pytest.raises(rules.InvalidRules) as exc_info:
+    with pytest.raises(voluptuous.Invalid) as exc_info:
         rules.UserConfigurationSchema("- no\n* way")
     assert exc_info.value.__class__.__name__, "YamlInvalid"
     assert str(exc_info.value.path) == "[at position 2:2]"
@@ -73,19 +73,19 @@ def test_user_configuration_schema():
         "column": 2
     }]
 
-    with pytest.raises(rules.InvalidRules):
+    with pytest.raises(voluptuous.Invalid):
         rules.UserConfigurationSchema("""
 pull_request_rules:
   - name: ahah
     key: not really what we expected
 """)
 
-    with pytest.raises(rules.InvalidRules):
+    with pytest.raises(voluptuous.Invalid):
         rules.UserConfigurationSchema("""
 pull_request_rules:
 """)
 
-    with pytest.raises(rules.InvalidRules):
+    with pytest.raises(voluptuous.Invalid):
         rules.UserConfigurationSchema("")
 
 
