@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import operator
+
 import yaml
 
 from mergify_engine.tests.functional import base
@@ -90,6 +92,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             }
         )
         assert r.status_code == 400
+        r.json["errors"] = sorted(r.json["errors"],
+                                  key=operator.itemgetter("message"))
         assert r.json == {
             'type': 'MultipleInvalid',
             'error': "extra keys not allowed",
@@ -98,17 +102,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             'errors': [{
                 'type': 'Invalid',
                 'error': "extra keys not allowed",
-                "details": ['invalid'],
                 'message': "extra keys not allowed @ data['invalid']",
+                "details": ['invalid'],
             }, {
-                'details': ['pull_request'],
-                'error': 'required key not provided',
-                'message': "required key not provided @ data['pull_request']",
-                'type': 'RequiredFieldInvalid'
-            }, {
-                'details': ['mergify.yml'],
+                'type': 'RequiredFieldInvalid',
                 'error': 'required key not provided',
                 'message': "required key not provided @ data['mergify.yml']",
-                'type': 'RequiredFieldInvalid'
+                'details': ['mergify.yml'],
+            }, {
+                'type': 'RequiredFieldInvalid',
+                'error': 'required key not provided',
+                'message': "required key not provided @ data['pull_request']",
+                'details': ['pull_request'],
             }],
         }
