@@ -29,14 +29,30 @@ LOG = daiquiri.getLogger(__name__)
 
 class DeleteHeadBranchAction(actions.Action):
     only_once = True
-    validator = voluptuous.Any({}, None)
+    validator = voluptuous.Any({
+        voluptuous.Optional("force", default=False): bool,
+    }, None)
 
-    @staticmethod
-    def run(installation_id, installation_token,
+    def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
             return
         if pull.g_pull.state == "closed":
+            if self.config is None or not self.config["force"]:
+                pulls_using_this_branch = list(
+                    pull.g_pull.base.repo.get_pulls(base=pull.g_pull.head.ref)
+                )
+                if pulls_using_this_branch:
+                    return (
+                        "success",
+                        "Branch `{}` was not deleted "
+                        "because it is used by {}".format(
+                            pull.g_pull.head.ref,
+                            " ".join("#%d" % p.number
+                                     for p in pulls_using_this_branch)),
+                        "",
+                    )
+
             try:
                 pull.g_pull.head.repo._requester.requestJsonAndCheck(
                     "DELETE",

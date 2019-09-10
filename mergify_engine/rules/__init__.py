@@ -207,7 +207,13 @@ class NoRules(Exception):
         super().__init__("Mergify configuration file is missing")
 
 
-InvalidRules = voluptuous.Invalid
+class InvalidRules(Exception):
+    def __init__(self, error):
+        if isinstance(error, voluptuous.MultipleInvalid):
+            message = "\n".join(map(str, error.errors))
+        else:
+            message = str(error)
+        super().__init__(self, message)
 
 
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
@@ -228,4 +234,9 @@ def get_mergify_config_content(repository, ref=github.GithubObject.NotSet):
 
 
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
-    return UserConfigurationSchema(get_mergify_config_content(repository, ref))
+    try:
+        return UserConfigurationSchema(
+            get_mergify_config_content(repository, ref)
+        )
+    except voluptuous.Invalid as e:
+        raise InvalidRules(e)

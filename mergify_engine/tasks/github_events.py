@@ -43,19 +43,6 @@ def job_refresh(owner, repo, refresh_ref):
     token = integration.get_access_token(installation_id).token
     g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo("%s/%s" % (owner, repo))
-    try:
-        rules.get_mergify_config(r)
-    except github.GithubException as e:  # pragma: no cover
-        if e.status == 404:
-            LOG.warning("%s/%s/%s: mergify not configured",
-                        owner, repo, refresh_ref)
-            return
-        else:
-            raise
-    except rules.NoRules:
-        LOG.warning("%s/%s/%s: Mergify configuration is invalid/missing",
-                    owner, repo, refresh_ref)
-        return
 
     if refresh_ref == "full" or refresh_ref.startswith("branch/"):
         if refresh_ref.startswith("branch/"):

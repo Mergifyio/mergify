@@ -171,7 +171,7 @@ def PullRequestUrl(v):
     installation_id = utils.get_installation_id(integration, owner)
     if not installation_id:  # pragma: no cover
         raise PullRequestUrlInvalid(
-            message="Mergify not installed on this repository"
+            message="Mergify not installed on repository '%s'" % owner
         )
 
     token = integration.get_access_token(installation_id).token
@@ -181,7 +181,7 @@ def PullRequestUrl(v):
         )
     except github.UnknownObjectException:
         raise PullRequestUrlInvalid(
-            message="Pull request not found"
+            message=("Pull request '%s' not found" % v)
         )
 
 
@@ -191,15 +191,32 @@ SimulatorSchema = voluptuous.Schema({
 })
 
 
-@app.errorhandler(voluptuous.Invalid)
+def ensure_no_voluptuous(value):
+    if isinstance(value, (dict, list, str)):
+        return value
+    else:
+        return str(value)
+
+
 def voluptuous_error(error):
-    payload = flask.jsonify({
-        "message": str(error),
+    return {
         "type": error.__class__.__name__,
+        "message": str(error),
         "error": error.msg,
-        "details": error.path,
-    })
-    return flask.make_response(payload, 400)
+        "details": list(map(ensure_no_voluptuous, error.path)),
+    }
+
+
+@app.errorhandler(voluptuous.Invalid)
+def voluptuous_errors(error):
+    # FIXME(sileht): remove error at payload root
+    payload = voluptuous_error(error)
+    payload["errors"] = []
+    if isinstance(error, voluptuous.MultipleInvalid):
+        payload["errors"].extend(map(voluptuous_error, error.errors))
+    else:
+        payload["errors"].extend(voluptuous_error(error))
+    return flask.make_response(flask.jsonify(payload), 400)
 
 
 @app.route("/simulator", methods=["POST"])

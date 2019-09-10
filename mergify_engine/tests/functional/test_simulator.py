@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import operator
+
 import yaml
 
 from mergify_engine.tests.functional import base
@@ -72,6 +74,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             'error': "Invalid yaml",
             "details": ['mergify.yml', {"line": 2, "column": 2}],
             'message': "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            'errors': [{
+                'type': 'YamlInvalid',
+                'error': "Invalid yaml",
+                "details": ['mergify.yml', {"line": 2, "column": 2}],
+                'message':
+                "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            }]
         }
 
         r = self.app.post(
@@ -83,9 +92,27 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             }
         )
         assert r.status_code == 400
+        r.json["errors"] = sorted(r.json["errors"],
+                                  key=operator.itemgetter("message"))
         assert r.json == {
             'type': 'MultipleInvalid',
             'error': "extra keys not allowed",
-            "details": ['invalid'],
+            'details': ['invalid'],
             'message': "extra keys not allowed @ data['invalid']",
+            'errors': [{
+                'type': 'Invalid',
+                'error': "extra keys not allowed",
+                'message': "extra keys not allowed @ data['invalid']",
+                "details": ['invalid'],
+            }, {
+                'type': 'RequiredFieldInvalid',
+                'error': 'required key not provided',
+                'message': "required key not provided @ data['mergify.yml']",
+                'details': ['mergify.yml'],
+            }, {
+                'type': 'RequiredFieldInvalid',
+                'error': 'required key not provided',
+                'message': "required key not provided @ data['pull_request']",
+                'details': ['pull_request'],
+            }],
         }
