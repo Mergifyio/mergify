@@ -34,10 +34,11 @@ def job_refresh(owner, repo, refresh_ref):
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, owner)
-    if not installation_id:  # pragma: no cover
+    try:
+        installation_id = utils.get_installation_id(integration, owner, repo)
+    except github.GithubException as e:
         LOG.warning("%s/%s/%s: mergify not installed",
-                    owner, repo, refresh_ref)
+                    owner, repo, refresh_ref, error=str(e))
         return
 
     token = integration.get_access_token(installation_id).token
@@ -129,14 +130,21 @@ def job_refresh_all():
 def job_marketplace(event_type, event_id, data):
 
     owner = data["marketplace_purchase"]["account"]["login"]
+    account_type = data["marketplace_purchase"]["account"]["type"]
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, owner)
-
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation_id)
-
-    subscription = sub_utils.get_subscription(r, installation_id)
+    try:
+        installation_id = utils.get_installation_id(
+            integration, owner, account_type=account_type
+        )
+    except github.GithubException as e:
+        LOG.warning("%s: mergify not installed", owner, error=str(e))
+        installation_id = None
+        subscription = "Unknown"
+    else:
+        r = utils.get_redis_for_cache()
+        r.delete("subscription-cache-%s" % installation_id)
+        subscription = sub_utils.get_subscription(r, installation_id)
 
     LOG.info('Marketplace event',
              event_type=event_type,

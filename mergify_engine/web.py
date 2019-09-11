@@ -168,8 +168,9 @@ def PullRequestUrl(v):
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
-    installation_id = utils.get_installation_id(integration, owner)
-    if not installation_id:  # pragma: no cover
+    try:
+        installation_id = utils.get_installation_id(integration, owner, repo)
+    except github.GithubException:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
         )
