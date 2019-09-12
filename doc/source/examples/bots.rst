@@ -85,7 +85,7 @@ saves you time.
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for PyUp pull requests
+      - name: automatic merge for ImgBot pull requests
         conditions:
           - author=imgbot[bot]
           - status-success=Travis CI - Pull Request
