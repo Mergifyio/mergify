@@ -1019,7 +1019,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                       checks[0].output['title'])
 
     def _init_test_refresh(self):
-        rules = {'pull_request_rules': []}
+        rules = {'pull_request_rules': [
+            {"name": "nothing",
+             "conditions": ["base!=master"],
+             "actions": {"merge": {}}}
+        ]}
         self.setup_repo(yaml.dump(rules))
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
@@ -1082,7 +1086,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(0, len(pulls))
 
     def test_change_mergify_yml(self):
-        rules = {'pull_request_rules': []}
+        rules = {'pull_request_rules': [
+            {"name": "nothing",
+             "conditions": ["base!=master"],
+             "actions": {"merge": {}}}
+        ]}
         self.setup_repo(yaml.dump(rules))
         rules["pull_request_rules"].append(
             {"name": "foobar",
@@ -1112,6 +1120,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                     "marketplace_purchase": {
                         "account": {
                             "login": "mergifyio-testing",
+                            "type": "Organization",
                         },
                     },
                 },

@@ -129,11 +129,43 @@ def get_installations(integration):  # pragma: no cover
         )
 
 
-def get_installation_id(integration, owner):
-    installations = get_installations(integration)
-    for install in installations:
-        if install["account"]["login"].lower() == owner.lower():
-            return install["id"]
+def get_installation_id(integration, owner, repo=None, account_type=None):
+    if not account_type and not repo:
+        raise RuntimeError("repo or account_type must be passed")
+    if repo:
+        url = "https://api.%s/repos/%s/%s/installation" % (
+            config.GITHUB_DOMAIN,
+            owner,
+            repo,
+        )
+    else:
+        url = "https://api.%s/%s/%s/installation" % (
+            config.GITHUB_DOMAIN,
+            "users" if account_type.lower() == "User" else "orgs",
+            owner,
+        )
+    token = "Bearer {}".format(integration.create_jwt())
+    response = requests.get(url, headers={
+        "Authorization": token,
+        "Accept": "application/vnd.github.machine-man-preview+json",
+        "User-Agent": "PyGithub/Python"
+    })
+    if response.status_code == 200:
+        return response.json()["id"]
+    elif response.status_code == 403:
+        raise github.BadCredentialsException(
+            status=response.status_code,
+            data=response.text
+        )
+    elif response.status_code == 404:
+        raise github.UnknownObjectException(
+            status=response.status_code,
+            data=response.text
+        )
+    raise github.GithubException(
+        status=response.status_code,
+        data=response.text
+    )
 
 
 def get_installation_token(installation_id):
