@@ -27,6 +27,7 @@ LOG = daiquiri.getLogger(__name__)
 
 ERRORS_TO_IGNORE = set([
     "reference already exists",
+    "You may want to first integrate the remote changes",
 ])
 
 
