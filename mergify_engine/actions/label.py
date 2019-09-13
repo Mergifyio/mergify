@@ -16,11 +16,10 @@
 
 import random
 
-import github
-
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import utils
 
 
 class LabelAction(actions.Action):
@@ -33,15 +32,13 @@ class LabelAction(actions.Action):
         for label in self.config['add']:
             if label not in all_label:
                 color = '%06x' % random.randrange(16**6)
-                pull.g_pull.base.repo.create_label(label, color)
+                with utils.ignore_client_side_error():
+                    pull.g_pull.base.repo.create_label(label, color)
+
         pull.g_pull.add_to_labels(*self.config['add'])
 
         pull_labels = [l.name for l in pull.g_pull.labels]
         for label in self.config['remove']:
             if label in pull_labels:
-                try:
+                with utils.ignore_client_side_error():
                     pull.g_pull.remove_from_labels(label)
-                except github.GithubException as e:
-                    if 400 <= e.status < 500:
-                        continue
-                    raise
