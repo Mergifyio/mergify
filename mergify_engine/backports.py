@@ -17,6 +17,8 @@ import subprocess
 
 import daiquiri
 
+import github
+
 from mergify_engine import config
 from mergify_engine import utils
 
@@ -187,9 +189,14 @@ def backport(pull, branch, installation_token):
             "https://help.github.com/articles/"
             "checking-out-pull-requests-locally/")
 
-    return repo.create_pull(
-        title="{} (bp #{})".format(pull.g_pull.title, pull.g_pull.number),
-        body=body,
-        base=branch.name,
-        head=bp_branch,
-    )
+    try:
+        return repo.create_pull(
+            title="{} (bp #{})".format(pull.g_pull.title, pull.g_pull.number),
+            body=body,
+            base=branch.name,
+            head=bp_branch,
+        )
+    except github.GithubException as e:
+        if e.status == 422 and "No commits between" in e.data["message"]:
+            return
+        raise
