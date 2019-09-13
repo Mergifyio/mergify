@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import datetime
 import hashlib
 import hmac
@@ -231,3 +232,13 @@ class Gitter(object):
         self("credential", "approve",
              input=("url=https://%s:%s@%s/%s\n\n" %
                     (username, password, domain, path)).encode("utf8"))
+
+
+@contextlib.contextmanager
+def ignore_client_side_error():
+    try:
+        yield
+    except github.GithubException as e:
+        if 400 <= e.status < 500:
+            return
+        raise
