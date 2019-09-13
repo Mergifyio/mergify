@@ -54,6 +54,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"the remote end hung up unexpectedly": BranchUpdateNeedRetry,
     b"cannot lock ref 'refs/heads/": BranchUpdateNeedRetry,
     b"Could not resolve host": BranchUpdateNeedRetry,
+    b"Operation timed out": BranchUpdateNeedRetry,
 }
 
 GIT_MESSAGE_TO_UNSHALLOW = set([
