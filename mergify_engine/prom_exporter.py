@@ -143,7 +143,7 @@ def collect_metrics():
                         if e.status >= 500:  # pragma: no cover
                             raise
                         unconfigured_repos += 1
-                    except rules.NoRules:
+                    except (rules.InvalidRules, rules.NoRules):
                         unconfigured_repos += 1
 
                 repositories_per_installation[
