@@ -456,7 +456,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             [(r.state, r.user.login) for r in p.get_reviews()]
         )
 
-    def _do_test_backport(self, method):
+    def _do_test_backport(self, method, config=None):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
              "conditions": [
@@ -471,7 +471,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                  "base=master",
                  "label=backport-#3.1",
              ], "actions": {
-                 "backport": {
+                 "backport": config or {
                      "branches": ['stable/#3.1'],
                  }}
              },
@@ -501,6 +501,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
     def test_backport_merge_commit(self):
         p = self._do_test_backport("merge")
+        self.assertEquals(2, p.commits)
+
+    def test_backport_merge_commit_regexes(self):
+        p = self._do_test_backport("merge", config={
+            "regexes": ["^stable/.*$"]
+        })
         self.assertEquals(2, p.commits)
 
     def test_backport_squash_and_merge(self):
