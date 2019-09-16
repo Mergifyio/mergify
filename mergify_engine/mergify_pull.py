@@ -304,6 +304,9 @@ class MergifyPull(object):
         return True
 
     def get_merge_commit_message(self):
+        if not self.g_pull.body:
+            return
+
         found = False
         message_lines = []
 
