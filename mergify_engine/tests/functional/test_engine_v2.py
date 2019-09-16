@@ -828,6 +828,34 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
 
+    def test_short_teams(self):
+        rules = {'pull_request_rules': [
+            {"name": "Merge on master",
+             "conditions": [
+                 "base=master",
+                 "status-success=continuous-integration/fake-ci",
+                 "approved-reviews-by=@testing",
+             ], "actions": {
+                 "merge": {"method": "rebase"}
+             }},
+        ]}
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, commits = self.create_pr()
+
+        pull = mergify_pull.MergifyPull.from_raw(config.INSTALLATION_ID,
+                                                 config.MAIN_TOKEN, p.raw_data)
+
+        logins = pull.resolve_teams(["user",
+                                     "@testing",
+                                     "@unknown/team",
+                                     "@invalid/team/break-here"])
+
+        assert sorted(logins) == sorted(["user", "@unknown/team",
+                                         "@invalid/team/break-here",
+                                         "sileht", "mergify-test1"])
+
     def test_teams(self):
         rules = {'pull_request_rules': [
             {"name": "Merge on master",
