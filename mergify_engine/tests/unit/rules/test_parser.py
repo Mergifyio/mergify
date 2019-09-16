@@ -28,6 +28,7 @@ def test_search():
             ("-base:foobar", {'-': {'=': ('base', 'foobar')}}),
             ("-author~=jd", {'-': {'~=': ('author', 'jd')}}),
             ("¬author~=jd", {'-': {'~=': ('author', 'jd')}}),
+            ("conflict", {'=': ('conflict', True)}),
             ("locked", {'=': ('locked', True)}),
             ("-locked", {'-': {'=': ('locked', True)}}),
             ("assignee:sileht", {"=": ("assignee", "sileht")}),

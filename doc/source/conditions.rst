@@ -86,6 +86,9 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``closed``
      - Boolean
      - Whether the pull request is closed.
+   * - ``conflict``
+     - Boolean
+     - Whether the pull request is conflicting with its base branch.
    * - ``commented-reviews-by``
      - array of string
      - The list of GitHub user or team login that have commented in a review
