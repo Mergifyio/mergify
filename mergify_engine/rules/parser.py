@@ -74,6 +74,7 @@ base = "base" + _match_with_operator(git_branch)
 author = "author" + _match_login_or_teams
 merged = _match_boolean("merged")
 closed = _match_boolean("closed")
+conflict = _match_boolean("conflict")
 merged_by = "merged-by" + _match_login_or_teams
 body = "body" + _match_with_operator(text)
 assignee = "assignee" + _match_login_or_teams
@@ -105,7 +106,7 @@ search = (
     ) +
     pyparsing.Optional("#", default="") +
     (head | base | author | merged_by | body | assignee | label | locked |
-     closed | merged | title | files | milestone | review_requests |
+     closed | conflict | merged | title | files | milestone | review_requests |
      review_approved_by | review_dismissed_by |
      review_changes_requested_by | review_commented_by |
      status_success | status_failure)
