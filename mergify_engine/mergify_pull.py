@@ -208,16 +208,25 @@ class MergifyPull(object):
         return generic_checks
 
     def _resolve_login(self, name):
-        if not isinstance(name, str):
+        if not name:
+            return []
+        elif not isinstance(name, str):
+            return [name]
+        elif name[0] != "@":
             return [name]
 
-        organization, _, team_slug = name.partition("/")
-        if organization[0] != "@" or not team_slug or '/' in team_slug:
-            # Not a team slug
-            return [name]
+        if "/" in name:
+            organization, _, team_slug = name.partition("/")
+            if not team_slug or '/' in team_slug:
+                # Not a team slug
+                return [name]
+            organization = organization[1:]
+        else:
+            organization = self.g_pull.base.repo.owner.login
+            team_slug = name[1:]
 
         try:
-            g_organization = self.g.get_organization(organization[1:])
+            g_organization = self.g.get_organization(organization)
             for team in g_organization.get_teams():
                 if team.slug == team_slug:
                     return [m.login for m in team.get_members()]

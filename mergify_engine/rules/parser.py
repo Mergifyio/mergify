@@ -19,8 +19,9 @@ import pyparsing
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
 github_login = pyparsing.CharsNotIn(" /@")
-github_team = pyparsing.Combine(pyparsing.Literal("@") + github_login +
-                                pyparsing.Literal("/") + github_login)
+github_team = (pyparsing.Combine(pyparsing.Literal("@") + github_login +
+                                 pyparsing.Literal("/") + github_login) |
+               pyparsing.Combine(pyparsing.Literal("@") + github_login))
 text = (pyparsing.QuotedString('"') |
         pyparsing.QuotedString("'") |
         pyparsing.CharsNotIn(""))
