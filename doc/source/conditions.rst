@@ -59,17 +59,20 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``assignee``
      - array of string
      - The list of GitHub user or team login that are assigned to the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
    * - ``approved-reviews-by``
      - array of string
      - The list of GitHub user or team login that approved the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``author``
      - string
      - The GitHub user or team login of the author of the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
    * - ``base``
      - string
      - The name of the branch the pull request should be pulled into.
@@ -80,7 +83,8 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have requested changes in a
        review for the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``closed``
@@ -93,16 +97,19 @@ Here's the list of pull request attribute that rules can be matched against:
      - array of string
      - The list of GitHub user or team login that have commented in a review
        for the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``dismissed-reviews-by``
      - array of string
      - The list of GitHub user or team login that have their review dismissed
        in the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
+       Only teams of the repository owner will works
    * - ``files``
      - string
      - The files that are modified, deleted or added by the pull request.
@@ -121,14 +128,17 @@ Here's the list of pull request attribute that rules can be matched against:
    * - ``merged-by``
      - string
      - The GitHub user or team login that merged the pull request.
-       Team logins are prefixed with the ``@`` character.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
    * - ``milestone``
      - string
      - The milestone title associated to the pull request.
    * - ``review-requested``
      - array of string
      - The list of GitHub user or team login that were requested to review the
-       pull request. Team logins are prefixed with the ``@`` character.
+       pull request.
+       Team logins are prefixed with the ``@`` character and must belong to the
+       repository organization.
        This will match only reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``status-success``
