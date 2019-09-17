@@ -226,7 +226,7 @@ this checks succeed before doing any action should be written as:
 .. code-block:: yaml
 
      conditions:
-       - status-check=Uno.UI - CI
+       - status-success=Uno.UI - CI
 
 
 Examples
