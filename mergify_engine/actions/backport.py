@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import re
 from urllib import parse
 
 import daiquiri
@@ -28,17 +29,37 @@ from mergify_engine import backports
 LOG = daiquiri.getLogger(__name__)
 
 
+def Regex(value):
+    try:
+        re.compile(value)
+    except re.error as e:
+        raise voluptuous.Invalid(str(e))
+    return value
+
+
 class BackportAction(actions.Action):
-    validator = {voluptuous.Required("branches", default=[]): [str]}
+    validator = {
+        voluptuous.Required("branches", default=[]): [str],
+        voluptuous.Required("regexes", default=[]): [Regex]
+    }
 
     def run(self, installation_id, installation_token,
             event_type, data, pull, missing_conditions):
         if not pull.g_pull.merged:
             return None, "Waiting for the pull request to get merged", ""
 
+        branches = self.config['branches']
+        if self.config['regexes']:
+            regexes = list(map(re.compile, self.config['regexes']))
+            branches.extend((
+                branch.name
+                for branch in pull.g_pull.base.repo.get_branches()
+                if any(map(lambda regex: regex.match(branch.name), regexes))
+            ))
+
         state = "success"
         detail = "The following pull requests have been created: "
-        for branch_name in self.config['branches']:
+        for branch_name in branches:
             try:
                 branch = pull.g_pull.base.repo.get_branch(
                     parse.quote(branch_name, safe="")

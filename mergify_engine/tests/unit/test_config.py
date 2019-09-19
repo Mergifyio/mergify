@@ -145,6 +145,15 @@ def test_pull_request_rule_schema_invalid():
                 "conditions": [
                 ],
                 "actions": {
+                    "backport": {"regexes": ["(azerty"]},
+                },
+            }, r"missing \), unterminated subpattern at position 0 "
+               r"@ data\[0\]\['actions'\]\['backport'\]\['regexes'\]\[0\]"),
+            ({
+                "name": "hello",
+                "conditions": [
+                ],
+                "actions": {
                     "backport": True,
                 },
             }, r"expected a dictionary for dictionary value "
@@ -162,6 +171,7 @@ def test_pull_request_rule_schema_invalid():
                r"data\[0\]\['actions'\]\['merge'\]\['strict'\]"),
     ):
         with pytest.raises(voluptuous.MultipleInvalid, match=match):
+            print(invalid)
             rules.PullRequestRules([invalid])
 
 

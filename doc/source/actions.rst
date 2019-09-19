@@ -65,6 +65,10 @@ parameter:
      - array of string
      - ``[]``
      - The list of branches the pull request should be copied to.
+   * - ``regexes``
+     - array of string
+     - ``[]``
+     - The list of regexes to find branches the pull request should be copied to.
 
 Once the backporting pull request is closed or merged, Mergify will
 automatically delete the backport head branch that it created.
