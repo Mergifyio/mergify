@@ -35,6 +35,12 @@ app.conf.task_routes = ([
     ('mergify_engine.tasks.*', {'queue': 'mergify'})
 ],)
 
+# User can put regexes in their configuration, since it possible to create
+# malicious regexes that take a lot of time to evaluate limit the time a task
+# can take
+app.conf.task_soft_time_limit = 1 * 60
+app.conf.task_time_limit = 2 * 60
+
 
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
