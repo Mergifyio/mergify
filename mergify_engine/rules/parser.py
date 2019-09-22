@@ -98,6 +98,7 @@ review_commented_by = (
 status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)
 status_neutral = "status-neutral" + _match_with_operator(text)
+status_neutral_or_success = "status-neutral-or-success" + _match_with_operator(text)
 
 search = (
     pyparsing.Optional(
@@ -111,5 +112,5 @@ search = (
      closed | conflict | merged | title | files | milestone | review_requests |
      review_approved_by | review_dismissed_by |
      review_changes_requested_by | review_commented_by |
-     status_success | status_neutral | status_failure)
+     status_success | status_neutral | status_neutral_or_success | status_failure)
 ).setParseAction(_token_to_dict)
