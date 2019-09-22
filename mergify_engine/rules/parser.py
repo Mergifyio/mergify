@@ -98,7 +98,9 @@ review_commented_by = (
 status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)
 status_neutral = "status-neutral" + _match_with_operator(text)
-status_neutral_or_success = "status-neutral-or-success" + _match_with_operator(text)
+status_neutral_or_success = (
+  "status-neutral-or-success" + _match_with_operator(text)
+)
 
 search = (
     pyparsing.Optional(
