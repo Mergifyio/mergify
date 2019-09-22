@@ -110,7 +110,7 @@ search = (
     pyparsing.Optional("#", default="") +
     (head | base | author | merged_by | body | assignee | label | locked |
      closed | conflict | merged | title | files | milestone | review_requests |
-     review_approved_by | review_dismissed_by |
-     review_changes_requested_by | review_commented_by |
-     status_success | status_neutral | status_neutral_or_success | status_failure)
+     review_approved_by | review_dismissed_by | review_changes_requested_by |
+     review_commented_by | status_success | status_neutral |
+     status_neutral_or_success | status_failure)
 ).setParseAction(_token_to_dict)
