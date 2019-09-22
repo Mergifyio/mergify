@@ -171,8 +171,8 @@ class MergifyPull(object):
             "status-neutral": [s.context for s in statuses
                                if s.state == "neutral"],
             "status-neutral-or-success": [s.context for s in statuses
-                                          if s.state == "neutral"
-                                          or s.state == "success"],
+                                          if s.state == "neutral" or
+                                             s.state == "success"],
             # NOTE(sileht): Not handled for now
             # cancelled, timed_out, or action_required
         }
