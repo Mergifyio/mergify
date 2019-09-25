@@ -138,7 +138,7 @@ class MergifyPull(object):
             "milestone": (
                 self.g_pull.milestone.title if self.g_pull.milestone else ""
             ),
-            "conflict": self.g_pull.mergeable_state == "conflict",
+            "conflict": self.g_pull.mergeable_state == "dirty",
             "base": self.g_pull.base.ref,
             "head": self.g_pull.head.ref,
             "locked": self.g_pull._rawData['locked'],

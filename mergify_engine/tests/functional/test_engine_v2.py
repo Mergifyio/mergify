@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import logging
+import time
 import unittest
 from unittest import mock
 
@@ -1192,3 +1193,30 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             )
         assert r.data == b'Event queued'
         assert r.status_code == 202
+
+    def test_refresh_on_conflict(self):
+        rules = {'pull_request_rules': [
+            {"name": "comment-on-conflict",
+             "conditions": [
+                 "conflict",
+             ],
+             "actions": {"comment": {"message": "It conflict!"}}}
+        ]}
+        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
+        p1, _ = self.create_pr(files={"TESTING": "p1"})
+        p2, _ = self.create_pr(files={"TESTING": "p2"})
+        p1.merge()
+
+        # Since we use celery eager system for testing, countdown= are ignored.
+        # Wait a bit than Github refresh the mergeable_state before running the
+        # engine
+        time.sleep(10)
+
+        self.push_events([
+            ("pull_request", {"action": "closed"}),
+            ("push", {}),
+            ("check_suite", {"action": "requested"}),
+            ("issue_comment", {"action": "created", "comment": {
+                'body': 'It conflict!'
+            }}),
+        ], ordered=False)

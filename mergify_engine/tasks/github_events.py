@@ -21,6 +21,7 @@ from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks import engine
+from mergify_engine.tasks import mergify_events
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -72,6 +73,18 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
     elif event_type in ["installation", "installation_repositories"]:
         msg_action = "ignored (action %s)" % data["action"]
+
+    elif event_type in ["push"]:
+        repo_name = data["repository"]["full_name"]
+        owner, _, repo = repo_name.partition("/")
+        if data["ref"].startswith("refs/heads/"):
+            branch = data["ref"][11:]
+            msg_action = "run refresh branch %s" % branch
+            mergify_events.job_refresh.s(
+                owner, repo, "branch", branch
+            ).apply_async(countdown=10)
+        else:
+            msg_action = "ignored (push on %s)" % branch
 
     elif event_type in ["pull_request", "pull_request_review", "status",
                         "check_suite", "check_run", "refresh"]:
