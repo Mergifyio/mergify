@@ -296,7 +296,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.git_counter += 1
         return GitterRecorder(self.cassette_library_dir, self.git_counter)
 
-    def setup_repo(self, mergify_config, test_branches=[]):
+    def setup_repo(self, mergify_config, test_branches=[], files=[]):
         self.git("init")
         self.git.configure()
         self.git.add_cred(config.MAIN_TOKEN, "",
@@ -310,6 +310,13 @@ class FunctionalTestBase(testtools.TestCase):
         with open(self.git.tmp + "/.mergify.yml", "w") as f:
             f.write(mergify_config)
         self.git("add", ".mergify.yml")
+
+        if files:
+            for name, content in files.items():
+                with open(self.git.tmp + "/" + name, "w") as f:
+                    f.write(content)
+                self.git("add", name)
+
         self.git("commit", "--no-edit", "-m", "initial commit")
 
         for test_branch in test_branches:
