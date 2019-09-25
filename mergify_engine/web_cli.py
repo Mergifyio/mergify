@@ -51,11 +51,10 @@ def refresher():
         description='Force refresh of mergify_engine'
     )
     parser.add_argument(
-        "--all", action='store_true', help="Refresh *everything*")
-    parser.add_argument(
         "urls", nargs="*",
-        help=("<owner>/<repo>/branch/<branch>, <owner>/<repo>/pull/<pull#> "
-              "or https://github.com/<owner>/<repo>/pull/<pull#>"))
+        help=("<owner>/<repo>, <owner>/<repo>/branch/<branch>, "
+              "<owner>/<repo>/pull/<pull#> or "
+              "https://github.com/<owner>/<repo>/pull/<pull#>"))
 
     args = parser.parse_args()
 
@@ -63,8 +62,6 @@ def refresher():
         for url in args.urls:
             api_call(config.BASE_URL + "/refresh/" +
                      url.replace("https://github.com/", ""))
-    elif args.all:
-        api_call(config.BASE_URL + "/refresh")
     else:
         parser.print_help()
 

@@ -1144,17 +1144,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     def test_refresh_repo(self):
         p1, p2 = self._init_test_refresh()
 
-        self.app.post("/refresh/%s/full" % (
+        self.app.post("/refresh/%s" % (
             p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
-        pulls = list(self.r_o_admin.get_pulls())
-        self.assertEqual(0, len(pulls))
-
-    def test_refresh_all(self):
-        p1, p2 = self._init_test_refresh()
-
-        self.app.post("/refresh",
-                      headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC})
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 

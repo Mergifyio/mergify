@@ -324,7 +324,8 @@ class FunctionalTestBase(testtools.TestCase):
         # We receive for the new repo the expected events:
         # * installation_repositories
         # * integration_installation_repositories
-        self.drop_events(2)
+        # * push
+        self.drop_events(3)
         # NOTE(sileht): Since checks API have been enabled, we receive a
         # check request for the master branch head commit
         self.push_events([("check_suite", {"action": "requested"})])
