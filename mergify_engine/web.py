@@ -41,6 +41,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.tasks import github_events
+from mergify_engine.tasks import mergify_events
 from mergify_engine.tasks.engine import v2
 
 
@@ -138,21 +139,21 @@ def config_validator():  # pragma: no cover
 @app.route("/refresh/<owner>/<repo>", methods=["POST"])
 def refresh_repo(owner, repo):
     authentification()
-    github_events.job_refresh.delay(owner, repo, "repo")
+    mergify_events.job_refresh.delay(owner, repo, "repo")
     return "Refresh queued", 202
 
 
 @app.route("/refresh/<owner>/<repo>/pull/<int:pull>", methods=["POST"])
 def refresh_pull(owner, repo, pull):
     authentification()
-    github_events.job_refresh.delay(owner, repo, "pull", pull)
+    mergify_events.job_refresh.delay(owner, repo, "pull", pull)
     return "Refresh queued", 202
 
 
 @app.route("/refresh/<owner>/<repo>/branch/<branch>", methods=["POST"])
 def refresh_branch(owner, repo, branch):
     authentification()
-    github_events.job_refresh.delay(owner, repo, "branch", branch)
+    mergify_events.job_refresh.delay(owner, repo, "branch", branch)
     return "Refresh queued", 202
 
 

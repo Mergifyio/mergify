@@ -74,4 +74,5 @@ def retry_task_on_exception(sender, task_id, exception, args, kwargs,
 
 # Register our tasks
 import mergify_engine.tasks.github_events  # noqa
+import mergify_engine.tasks.mergify_events  # noqa
 from mergify_engine.actions.merge import queue  # noqa
