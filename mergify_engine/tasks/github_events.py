@@ -52,9 +52,6 @@ def job_refresh(owner, repo, refresh_ref):
         else:
             branch = '*'
             pulls = r.get_pulls()
-        key = "queues~%s~%s~%s~%s~%s" % (installation_id, owner.lower(),
-                                         repo.lower(), r.private, branch)
-        utils.get_redis_for_cache().delete(key)
     else:
         try:
             pull_number = int(refresh_ref[5:])
@@ -169,25 +166,6 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
     elif not subscription["tokens"]:
         msg_action = "ignored (no token)"
-
-    elif event_type == "installation" and data["action"] == "deleted":
-        # TODO(sileht): move out this engine V1 related code
-        key = "queues~%s~*~*~*~*" % data["installation"]["id"]
-        utils.get_redis_for_cache().delete(key)
-        msg_action = "handled, cache cleaned"
-
-    elif (event_type == "installation_repositories" and
-          data["action"] == "removed"):
-        for repository in data["repositories_removed"]:
-            # TODO(sileht): move out this engine V1 related code
-            key = "queues~%s~%s~%s~*~*" % (
-                data["installation"]["id"],
-                data["installation"]["account"]["login"].lower(),
-                repository["name"].lower()
-            )
-            utils.get_redis_for_cache().delete(key)
-
-        msg_action = "handled, cache cleaned"
 
     elif event_type in ["installation", "installation_repositories"]:
         msg_action = "ignored (action %s)" % data["action"]
