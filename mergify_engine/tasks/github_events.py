@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import uuid
 
 import daiquiri
 
@@ -19,7 +20,6 @@ import github
 
 
 from mergify_engine import config
-from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks import engine
@@ -29,49 +29,30 @@ LOG = daiquiri.getLogger(__name__)
 
 
 @app.task
-def job_refresh(owner, repo, refresh_ref):
-    LOG.info("%s/%s/%s: refreshing", owner, repo, refresh_ref)
+def job_refresh(owner, repo, kind, ref=None):
+    LOG.info("%s/%s/%s/%s: refreshing", owner, repo, kind, ref)
 
     integration = github.GithubIntegration(config.INTEGRATION_ID,
                                            config.PRIVATE_KEY)
     try:
         installation_id = utils.get_installation_id(integration, owner, repo)
     except github.GithubException as e:
-        LOG.warning("%s/%s/%s: mergify not installed",
-                    owner, repo, refresh_ref, error=str(e))
+        LOG.warning("%s/%s/%s/%s: mergify not installed",
+                    owner, repo, kind, ref, error=str(e))
         return
 
     token = integration.get_access_token(installation_id).token
     g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
     r = g.get_repo("%s/%s" % (owner, repo))
 
-    if refresh_ref == "full" or refresh_ref.startswith("branch/"):
-        if refresh_ref.startswith("branch/"):
-            branch = refresh_ref[7:]
-            pulls = r.get_pulls(base=branch)
-        else:
-            branch = '*'
-            pulls = r.get_pulls()
+    if kind == "repo":
+        pulls = r.get_pulls()
+    elif kind == "branch":
+        pulls = r.get_pulls(base=ref)
+    elif kind == "pull":
+        pulls = [r.get_pull(ref)]
     else:
-        try:
-            pull_number = int(refresh_ref[5:])
-        except ValueError:  # pragma: no cover
-            LOG.info("%s/%s/%s: Invalid PR ref", owner, repo, refresh_ref)
-            return
-        pulls = [r.get_pull(pull_number)]
-
-    subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
-                                              installation_id)
-
-    if r.archived:  # pragma: no cover
-        LOG.warning("%s/%s/%s: repository archived",
-                    owner, repo, refresh_ref)
-        return
-
-    if not subscription["tokens"]:  # pragma: no cover
-        LOG.warning("%s/%s/%s: installation without token",
-                    owner, repo, refresh_ref)
-        return
+        raise RuntimeError("Invalid kind")
 
     for p in pulls:
         # Mimic the github event format
@@ -79,48 +60,13 @@ def job_refresh(owner, repo, refresh_ref):
             'repository': r.raw_data,
             'installation': {'id': installation_id},
             'pull_request': p.raw_data,
+            'sender': {
+                "login": "<internal>"
+            }
         }
-        engine.run.s('refresh', data).apply_async()
-
-
-@app.task
-def job_refresh_all():
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
-
-    counts = [0, 0, 0]
-    for install in utils.get_installations(integration):
-        counts[0] += 1
-        token = integration.get_access_token(install["id"]).token
-        g = github.Github(token,
-                          base_url="https://api.%s" % config.GITHUB_DOMAIN)
-        i = g.get_installation(install["id"])
-
-        for r in i.get_repos():
-            if r.archived:  # pragma: no cover
-                continue
-            try:
-                rules.get_mergify_config(r)
-            except github.GithubException as e:  # pragma: no cover
-                if e.status == 404:
-                    continue
-                else:
-                    raise
-            except rules.NoRules:
-                pass
-
-            counts[1] += 1
-            for p in list(r.get_pulls()):
-                # Mimic the github event format
-                data = {
-                    'repository': r.raw_data,
-                    'installation': {'id': install["id"]},
-                    'pull_request': p.raw_data,
-                }
-                engine.run.s('refresh', data).apply_async()
-
-    LOG.info("Refreshing %s installations, %s repositories, "
-             "%s branches", *counts)
+        job_filter_and_dispatch.s(
+            "refresh", str(uuid.uuid4()), data
+        ).apply_async()
 
 
 @app.task
@@ -171,7 +117,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "ignored (action %s)" % data["action"]
 
     elif event_type in ["pull_request", "pull_request_review", "status",
-                        "check_suite", "check_run"]:
+                        "check_suite", "check_run", "refresh"]:
 
         if data["repository"]["archived"]:  # pragma: no cover
             msg_action = "ignored (repository archived)"

@@ -135,17 +135,24 @@ def config_validator():  # pragma: no cover
     return flask.Response(message, status=status, mimetype="text/plain")
 
 
-@app.route("/refresh/<owner>/<repo>/<path:refresh_ref>", methods=["POST"])
-def refresh(owner, repo, refresh_ref):
+@app.route("/refresh/<owner>/<repo>", methods=["POST"])
+def refresh_repo(owner, repo):
     authentification()
-    github_events.job_refresh.delay(owner, repo, refresh_ref)
+    github_events.job_refresh.delay(owner, repo, "repo")
     return "Refresh queued", 202
 
 
-@app.route("/refresh", methods=["POST"])
-def refresh_all():
+@app.route("/refresh/<owner>/<repo>/pull/<int:pull>", methods=["POST"])
+def refresh_pull(owner, repo, pull):
     authentification()
-    github_events.job_refresh_all.delay()
+    github_events.job_refresh.delay(owner, repo, "pull", pull)
+    return "Refresh queued", 202
+
+
+@app.route("/refresh/<owner>/<repo>/branch/<branch>", methods=["POST"])
+def refresh_branch(owner, repo, branch):
+    authentification()
+    github_events.job_refresh.delay(owner, repo, "branch", branch)
     return "Refresh queued", 202
 
 
