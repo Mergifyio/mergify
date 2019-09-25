@@ -118,6 +118,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.push_events([
             ("check_suite", {"action": "requested"}),
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
         ], ordered=False)
 
         p2, _ = self.create_pr(base_repo="main", branch="#2-second-pr")
@@ -127,17 +128,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("pull_request", {"action": "closed"}),
         ], ordered=False)
 
-        self.add_label_and_push_events(
-            p1, "merge",
-            [("check_run", {"check_run": {"conclusion": "success"}})]
-        )
-        self.push_events([
+        self.add_label_and_push_events(p1, "merge", [
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("push", {}),
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-        ], ordered=False)
-        self.add_label_and_push_events(p2, "close")
-        self.push_events([
+        ])
+        self.add_label_and_push_events(p2, "close", [
+            ("push", {}),
             ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-        ], ordered=False)
+        ])
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(2, len(pulls))
@@ -167,16 +166,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p1.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        self.add_label_and_push_events(
-            p1, "merge",
-            [("check_run", {"check_run": {"conclusion": "success"}})]
-        )
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-        ], ordered=False)
+        self.add_label_and_push_events(p1, "merge", [
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+        ])
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         assert 2 == len(pulls)
@@ -213,16 +209,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p1.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
-        self.add_label_and_push_events(
-            p1, "merge",
-            [("check_run", {"check_run": {"conclusion": "success"}})]
-        )
-        self.push_events([
-            ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-        ], ordered=False)
+        self.add_label_and_push_events(p1, "merge", [
+            ("check_run", {"check_run": {"conclusion": "success"}}),
+            ("push", {}),
+            ("pull_request", {"action": "closed"}),
+        ])
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         assert 2 == len(pulls)
@@ -348,7 +343,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", comments[-1].body)
 
         # Add a label to trigger mergify
-        self.add_label_and_push_events(p, "stable")
+        self.add_label_and_push_events(p, "stable", [
+            ("issue_comment", {"action": "created"}),
+        ])
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
@@ -485,6 +482,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label_and_push_events(p, "backport-#3.1")
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
         ])
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
@@ -539,6 +537,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ])
 
@@ -570,6 +569,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -599,6 +599,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ])
 
@@ -629,6 +630,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -658,6 +660,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ])
 
@@ -716,6 +719,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
@@ -745,6 +749,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ])
 
@@ -819,6 +824,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ("status", {"state": "success"}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
             ("check_suite", {"action": "completed"}),
         ], ordered=False)
@@ -906,6 +912,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"})
@@ -948,6 +955,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"})
@@ -984,6 +992,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_run", {"check_run": {"conclusion": "success"}}),
             ("check_suite", {"action": "requested"}),
@@ -1071,6 +1080,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events([
             ("pull_request", {"action": "closed"}),
+            ("push", {}),
             ("check_suite", {"action": "requested"}),
         ], ordered=False)
 
