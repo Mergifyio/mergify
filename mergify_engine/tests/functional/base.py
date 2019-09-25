@@ -331,11 +331,9 @@ class FunctionalTestBase(testtools.TestCase):
         # We receive for the new repo the expected events:
         # * installation_repositories
         # * integration_installation_repositories
-        # * push
-        self.drop_events(3)
-        # NOTE(sileht): Since checks API have been enabled, we receive a
-        # check request for the master branch head commit
-        self.push_events([("check_suite", {"action": "requested"})])
+        # * 1 push per branches
+        # * check_suite/requested
+        self.drop_events(4 + len(test_branches))
 
     @staticmethod
     def response_filter(response):
@@ -397,7 +395,9 @@ class FunctionalTestBase(testtools.TestCase):
                 raise Exception(
                     "[%d] Got %s event type instead of %s:\n"
                     "%s\nintead of\n%s" %
-                    (pos, event["type"], expected_etype, event, expected_data))
+                    (pos, event["type"], expected_etype,
+                     self._event_for_log(event),
+                     expected_data))
 
             self._validate_key(pos, event["payload"], expected_data)
         LOG.debug("============= push events end =============")
@@ -434,6 +434,8 @@ class FunctionalTestBase(testtools.TestCase):
         data.pop("app", None)
         data.pop("timestamp", None)
         data.pop("external_id", None)
+        if "organization" in data:
+            data["organization"].pop("description", None)
         if "check_run" in data:
             data["check_run"].pop("checks_suite", None)
         for key, value in list(data.items()):
@@ -522,6 +524,8 @@ class FunctionalTestBase(testtools.TestCase):
             title=title, body=message or title)
 
         expected_events = [("pull_request", {"action": "opened"})]
+        if base_repo == "main":
+            expected_events += [("push", {})]
         if files and ".mergify.yml" in files:
             # Yeah... we can receive opened after the check_run/suite ... it's
             # just random
