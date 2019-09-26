@@ -53,7 +53,7 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60.0,
         queue.smart_strict_workflow_periodic_task.s(),
-        name="v2 smart strict workflow",
+        name="smart strict workflow",
     )
 
 

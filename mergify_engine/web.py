@@ -42,7 +42,7 @@ from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
-from mergify_engine.tasks.engine import v2
+from mergify_engine.tasks.engine import actions_runner
 
 
 LOG = logging.getLogger(__name__)
@@ -246,7 +246,9 @@ def simulator():
         "installation": {"id": pull_request.installation_id},
         "pull_request": pull_request.g_pull.raw_data,
     }
-    title, summary = v2.gen_summary("refresh", raw_event, pull_request, match)
+    title, summary = actions_runner.gen_summary(
+        "refresh", raw_event, pull_request, match
+    )
     return flask.jsonify({"title": title, "summary": summary}), 200
 
 
