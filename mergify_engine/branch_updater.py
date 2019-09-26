@@ -57,16 +57,18 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"Operation timed out": BranchUpdateNeedRetry,
 }
 
-GIT_MESSAGE_TO_UNSHALLOW = set([
-    b"shallow update not allowed",
-    b"unrelated histories",
-])
+GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
 
 
 def _do_update_branch(git, method, base_branch, head_branch):
     if method == "merge":
-        git("merge", "--quiet", "upstream/%s" % base_branch, "-m",
-            "Merge branch '%s' into '%s'" % (base_branch, head_branch))
+        git(
+            "merge",
+            "--quiet",
+            "upstream/%s" % base_branch,
+            "-m",
+            "Merge branch '%s' into '%s'" % (base_branch, head_branch),
+        )
         git("push", "--quiet", "origin", head_branch)
     elif method == "rebase":
         git("rebase", "upstream/%s" % base_branch)
@@ -75,10 +77,11 @@ def _do_update_branch(git, method, base_branch, head_branch):
         raise RuntimeError("Invalid branch update method")
 
 
-@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
-                stop=tenacity.stop_after_attempt(5),
-                retry=tenacity.retry_if_exception_type(
-                    BranchUpdateNeedRetry))
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
+)
 def _do_update(pull, token, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
@@ -104,21 +107,33 @@ def _do_update(pull, token, method="merge"):
         git.configure()
         git.add_cred(token, "", head_repo)
         git.add_cred(token, "", base_repo)
-        git("remote", "add", "origin",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, head_repo))
-        git("remote", "add", "upstream",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo))
+        git(
+            "remote",
+            "add",
+            "origin",
+            "https://%s/%s" % (config.GITHUB_DOMAIN, head_repo),
+        )
+        git(
+            "remote",
+            "add",
+            "upstream",
+            "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo),
+        )
 
         depth = int(pull.g_pull.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
         out = git("log", "--format=%cI")
-        last_commit_date = [d for d in out.decode("utf8").split("\n")
-                            if d.strip()][-1]
+        last_commit_date = [d for d in out.decode("utf8").split("\n") if d.strip()][-1]
 
-        git("fetch", "--quiet", "upstream", base_branch,
-            "--shallow-since='%s'" % last_commit_date)
+        git(
+            "fetch",
+            "--quiet",
+            "upstream",
+            base_branch,
+            "--shallow-since='%s'" % last_commit_date,
+        )
 
         try:
             _do_update_branch(git, method, base_branch, head_branch)
@@ -141,15 +156,18 @@ def _do_update(pull, token, method="merge"):
         expected_sha = git("log", "-1", "--format=%H").decode().strip()
         # NOTE(sileht): We store this for dismissal action
         redis = utils.get_redis_for_cache()
-        redis.setex("branch-update-%s" % expected_sha, 60 * 60,
-                    expected_sha)
+        redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
                 raise out_exception(in_exception.output.decode())
         else:
-            LOG.error("update branch failed: %s", in_exception.output.decode(),
-                      pull_request=pull, exc_info=True)
+            LOG.error(
+                "update branch failed: %s",
+                in_exception.output.decode(),
+                pull_request=pull,
+                exc_info=True,
+            )
             raise BranchUpdateFailure()
 
     except Exception:  # pragma: no cover
@@ -159,29 +177,40 @@ def _do_update(pull, token, method="merge"):
         git.cleanup()
 
 
-@tenacity.retry(wait=tenacity.wait_exponential(multiplier=0.2),
-                stop=tenacity.stop_after_attempt(5),
-                retry=tenacity.retry_if_exception_type(
-                    BranchUpdateNeedRetry))
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
+)
 def update_with_api(pull):
     try:
         pull.g_pull._requester.requestJsonAndCheck(
-            "PUT", pull.g_pull.url + "/update-branch",
+            "PUT",
+            pull.g_pull.url + "/update-branch",
             input={"expected_head_sha": pull.g_pull.head.sha},
-            headers={"Accept": "application/vnd.github.lydian-preview+json"})
+            headers={"Accept": "application/vnd.github.lydian-preview+json"},
+        )
     except github.GithubException as e:
         if e.status == 422:
-            LOG.debug("branch updated in the meantime",
-                      status=e.status, error=e.data["message"],
-                      pull_request=pull)
+            LOG.debug(
+                "branch updated in the meantime",
+                status=e.status,
+                error=e.data["message"],
+                pull_request=pull,
+            )
             return
         elif e.status < 500:
-            LOG.debug("update branch failed", status=e.status,
-                      error=e.data["message"], pull_request=pull)
+            LOG.debug(
+                "update branch failed",
+                status=e.status,
+                error=e.data["message"],
+                pull_request=pull,
+            )
             raise BranchUpdateFailure(e.data["message"])
         else:
-            LOG.debug("update branch failed", status=e.status,
-                      error=str(e), pull_request=pull)
+            LOG.debug(
+                "update branch failed", status=e.status, error=str(e), pull_request=pull
+            )
             raise BranchUpdateNeedRetry()
 
 
@@ -194,9 +223,12 @@ def update_with_git(pull, installation_id, method="merge"):
         try:
             return _do_update(pull, token, method)
         except AuthentificationFailure as e:  # pragma: no cover
-            LOG.debug("authentification failure, will retry another token: %s",
-                      e, login=login, pull_request=pull)
+            LOG.debug(
+                "authentification failure, will retry another token: %s",
+                e,
+                login=login,
+                pull_request=pull,
+            )
 
-    LOG.error("unable to update branch: no tokens are valid",
-              pull_request=pull)
+    LOG.error("unable to update branch: no tokens are valid", pull_request=pull)
     raise BranchUpdateFailure("No oauth valid tokens")

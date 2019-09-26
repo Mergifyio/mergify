@@ -22,39 +22,34 @@ from mergify_engine.rules import parser
 
 def test_search():
     for line, result in (
-            ("base:master", {'=': ('base', 'master')}),
-            ("base!=master", {'!=': ('base', 'master')}),
-            ("base~=^stable/", {'~=': ('base', '^stable/')}),
-            ("-base:foobar", {'-': {'=': ('base', 'foobar')}}),
-            ("-author~=jd", {'-': {'~=': ('author', 'jd')}}),
-            ("¬author~=jd", {'-': {'~=': ('author', 'jd')}}),
-            ("conflict", {'=': ('conflict', True)}),
-            ("locked", {'=': ('locked', True)}),
-            ("-locked", {'-': {'=': ('locked', True)}}),
-            ("assignee:sileht", {"=": ("assignee", "sileht")}),
-            ("#assignee=3", {"=": ("#assignee", 3)}),
-            ("#assignee>1", {">": ("#assignee", 1)}),
-            ("#assignee>=2", {">=": ("#assignee", 2)}),
-            ("assignee=@org/team", {"=": ("assignee", "@org/team")}),
-            ("status-success=my ci has spaces",
-             {"=": ("status-success", "my ci has spaces")}),
-            ("status-success='my quoted ci'",
-             {"=": ("status-success", "my quoted ci")}),
-            ("status-success=\"my double quoted ci\"",
-             {"=": ("status-success", "my double quoted ci")}),
+        ("base:master", {"=": ("base", "master")}),
+        ("base!=master", {"!=": ("base", "master")}),
+        ("base~=^stable/", {"~=": ("base", "^stable/")}),
+        ("-base:foobar", {"-": {"=": ("base", "foobar")}}),
+        ("-author~=jd", {"-": {"~=": ("author", "jd")}}),
+        ("¬author~=jd", {"-": {"~=": ("author", "jd")}}),
+        ("conflict", {"=": ("conflict", True)}),
+        ("locked", {"=": ("locked", True)}),
+        ("-locked", {"-": {"=": ("locked", True)}}),
+        ("assignee:sileht", {"=": ("assignee", "sileht")}),
+        ("#assignee=3", {"=": ("#assignee", 3)}),
+        ("#assignee>1", {">": ("#assignee", 1)}),
+        ("#assignee>=2", {">=": ("#assignee", 2)}),
+        ("assignee=@org/team", {"=": ("assignee", "@org/team")}),
+        (
+            "status-success=my ci has spaces",
+            {"=": ("status-success", "my ci has spaces")},
+        ),
+        ("status-success='my quoted ci'", {"=": ("status-success", "my quoted ci")}),
+        (
+            'status-success="my double quoted ci"',
+            {"=": ("status-success", "my double quoted ci")},
+        ),
     ):
-        assert result == tuple(parser.search.parseString(
-            line, parseAll=True))[0]
+        assert result == tuple(parser.search.parseString(line, parseAll=True))[0]
 
 
 def test_invalid():
-    for line in (
-            "arf",
-            "-heyo",
-            "locked=1",
-            "++head=master",
-            "foo=bar",
-            "#foo=bar",
-    ):
+    for line in ("arf", "-heyo", "locked=1", "++head=master", "foo=bar", "#foo=bar"):
         with pytest.raises(pyparsing.ParseException):
             parser.search.parseString(line, parseAll=True)

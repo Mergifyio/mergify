@@ -35,21 +35,24 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 INSTALLATIONS = prometheus_client.Gauge(
-    "installations", "number of installations",
-    ["subscribed", "type"])
+    "installations", "number of installations", ["subscribed", "type"]
+)
 
 REPOSITORIES_PER_INSTALLATION = prometheus_client.Gauge(
     "repositories_per_installation",
     "number of repositories per installation",
-    ["subscribed", "type", "account", "private", "configured"])
+    ["subscribed", "type", "account", "private", "configured"],
+)
 
 USERS_PER_INSTALLATION = prometheus_client.Gauge(
-    "users_per_installation", "number of users per installation",
-    ["subscribed", "type", "account"])
+    "users_per_installation",
+    "number of users per installation",
+    ["subscribed", "type", "account"],
+)
 
 COSTS = prometheus_client.Gauge(
-    "subscription_cost", "Subscription cost",
-    ["subscribed", "type", "account"])
+    "subscription_cost", "Subscription cost", ["subscribed", "type", "account"]
+)
 
 
 def set_gauge(metric, labels, value):
@@ -63,8 +66,8 @@ def set_gauges(metric, data):
 
 def _exception_need_retry(retry_state):
     return (
-        retry_state.outcome.failed and
-        exceptions.need_retry(retry_state.outcome.exception()) is not None
+        retry_state.outcome.failed
+        and exceptions.need_retry(retry_state.outcome.exception()) is not None
     )
 
 
@@ -74,8 +77,7 @@ def _wait_time_for_exception(retry_state):
 
 def collect_metrics():
     redis = utils.get_redis_for_cache()
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
 
     installations_lock = threading.Lock()
     installations = collections.defaultdict(int)
@@ -102,35 +104,31 @@ def collect_metrics():
             subs = sub_utils.get_subscription(redis, _id)
             subscribed = subs["subscription_active"]
 
-            costs[(subscribed, target_type, account)] = (
-                subs["subscription_cost"]
-            )
+            costs[(subscribed, target_type, account)] = subs["subscription_cost"]
 
             with installations_lock:
                 installations[(subscribed, target_type)] += 1
 
             token = integration.get_access_token(_id).token
-            g = github.Github(token, base_url="https://api.%s" %
-                              config.GITHUB_DOMAIN)
+            g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
 
             if installation["target_type"] == "Organization":
-                LOG.info("Get members",
-                         install=installation["account"]["login"])
+                LOG.info("Get members", install=installation["account"]["login"])
                 org = g.get_organization(installation["account"]["login"])
                 value = len(list(org.get_members()))
 
-                users_per_installation[
-                    (subscribed, target_type, account)] = value
+                users_per_installation[(subscribed, target_type, account)] = value
             else:
-                users_per_installation[
-                    (subscribed, target_type, account)] = 1
+                users_per_installation[(subscribed, target_type, account)] = 1
 
             LOG.info("Get repos", account=account)
 
-            repositories = sorted(g.get_installation(_id).get_repos(),
-                                  key=operator.attrgetter("private"))
+            repositories = sorted(
+                g.get_installation(_id).get_repos(), key=operator.attrgetter("private")
+            )
             for private, repos in itertools.groupby(
-                    repositories, key=operator.attrgetter("private")):
+                repositories, key=operator.attrgetter("private")
+            ):
 
                 configured_repos = 0
                 unconfigured_repos = 0
@@ -159,9 +157,7 @@ def collect_metrics():
                 raise
 
     with futures.ThreadPoolExecutor() as executor:
-        list(executor.map(
-            handle_installation, utils.get_installations(integration)
-        ))
+        list(executor.map(handle_installation, utils.get_installations(integration)))
 
     LOG.info("GitHub Polling finished")
 
@@ -192,8 +188,7 @@ def main():  # pragma: no cover
         try:
             collect_metrics()
         except Exception:  # pragma: no cover
-            LOG.error("Unexpected error during metrics gathering",
-                      exc_info=True)
+            LOG.error("Unexpected error during metrics gathering", exc_info=True)
 
         # Only generate metrics once per hour
         time.sleep(60 * 60)

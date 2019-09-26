@@ -31,8 +31,8 @@ LOG = logging.getLogger(__name__)
 
 def run():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--clean', action='store_true')
-    parser.add_argument('--dest', default="http://localhost:8802/event")
+    parser.add_argument("--clean", action="store_true")
+    parser.add_argument("--dest", default="http://localhost:8802/event")
 
     args = parser.parse_args()
 
@@ -49,7 +49,8 @@ def run():
         r = session.delete(
             "https://gh.mergify.io/events-testing",
             data=payload_data,
-            headers={"X-Hub-Signature": "sha1=" + payload_hmac})
+            headers={"X-Hub-Signature": "sha1=" + payload_hmac},
+        )
         r.raise_for_status()
 
     while True:
@@ -63,21 +64,29 @@ def run():
             for event in reversed(events):
                 LOG.info("")
                 LOG.info("==================================================")
-                LOG.info(">>> GOT EVENT: %s %s/%s", event['id'],
-                         event['type'], event['payload'].get(
-                             "state", event['payload'].get("action")))
-                data = json.dumps(event['payload'])
+                LOG.info(
+                    ">>> GOT EVENT: %s %s/%s",
+                    event["id"],
+                    event["type"],
+                    event["payload"].get("state", event["payload"].get("action")),
+                )
+                data = json.dumps(event["payload"])
                 hmac = utils.compute_hmac(data.encode("utf8"))
-                session.post(args.dest, headers={
-                    "X-GitHub-Event": event['type'],
-                    "X-GitHub-Delivery": event['id'],
-                    "X-Hub-Signature": "sha1=%s" % hmac,
-                    "Content-type": "application/json",
-                }, data=data, verify=False)
+                session.post(
+                    args.dest,
+                    headers={
+                        "X-GitHub-Event": event["type"],
+                        "X-GitHub-Delivery": event["id"],
+                        "X-Hub-Signature": "sha1=%s" % hmac,
+                        "Content-type": "application/json",
+                    },
+                    data=data,
+                    verify=False,
+                )
         except Exception:
             LOG.error("event handling failure", exc_info=True)
         time.sleep(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

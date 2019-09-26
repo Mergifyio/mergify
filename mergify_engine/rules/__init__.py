@@ -41,35 +41,44 @@ def PullRequestRuleCondition(value):
         return filter.Filter.parse(value)
     except filter.parser.pyparsing.ParseException as e:
         raise voluptuous.Invalid(
-            message="Invalid condition '%s'. %s" % (value, str(e)),
-            error_message=str(e))
+            message="Invalid condition '%s'. %s" % (value, str(e)), error_message=str(e)
+        )
     except filter.InvalidQuery as e:
         raise voluptuous.Invalid(
-            message="Invalid condition '%s'. %s" % (value, str(e)),
-            error_message=str(e))
+            message="Invalid condition '%s'. %s" % (value, str(e)), error_message=str(e)
+        )
 
 
-PullRequestRulesSchema = voluptuous.Schema(voluptuous.All([{
-    voluptuous.Required('name'): str,
-    voluptuous.Required('hidden', default=False): bool,
-    voluptuous.Required('conditions'): [
-        voluptuous.All(str, voluptuous.Coerce(
-            PullRequestRuleCondition))
-    ],
-    voluptuous.Required("actions"): dict(
-        (ep.name, voluptuous.All(
-            ep.load().validator,
-            voluptuous.Coerce(ep.load())
-        )) for ep in pkg_resources.iter_entry_points("mergify_actions"))
-}], voluptuous.Length(min=1)))
+PullRequestRulesSchema = voluptuous.Schema(
+    voluptuous.All(
+        [
+            {
+                voluptuous.Required("name"): str,
+                voluptuous.Required("hidden", default=False): bool,
+                voluptuous.Required("conditions"): [
+                    voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+                ],
+                voluptuous.Required("actions"): dict(
+                    (
+                        ep.name,
+                        voluptuous.All(
+                            ep.load().validator, voluptuous.Coerce(ep.load())
+                        ),
+                    )
+                    for ep in pkg_resources.iter_entry_points("mergify_actions")
+                ),
+            }
+        ],
+        voluptuous.Length(min=1),
+    )
+)
 
 
 def load_pull_request_rules_schema(rules):
     rules = PullRequestRulesSchema(rules)
 
-    sorted_rules = sorted(rules, key=operator.itemgetter('name'))
-    grouped_rules = itertools.groupby(sorted_rules,
-                                      operator.itemgetter('name'))
+    sorted_rules = sorted(rules, key=operator.itemgetter("name"))
+    grouped_rules = itertools.groupby(sorted_rules, operator.itemgetter("name"))
     for name, sub_rules in grouped_rules:
         sub_rules = list(sub_rules)
         if len(sub_rules) == 1:
@@ -85,15 +94,19 @@ class PullRequestRules:
     rules = attr.ib(converter=load_pull_request_rules_schema)
 
     def as_dict(self):
-        return {'rules': [{
-            "name": rule["name"],
-            "hidden": rule["hidden"],
-            "conditions": list(map(str, rule["conditions"])),
-            "actions": dict(
-                (name, obj.config)
-                for name, obj in rule["actions"].items()
-            ),
-        } for rule in self.rules]}
+        return {
+            "rules": [
+                {
+                    "name": rule["name"],
+                    "hidden": rule["hidden"],
+                    "conditions": list(map(str, rule["conditions"])),
+                    "actions": dict(
+                        (name, obj.config) for name, obj in rule["actions"].items()
+                    ),
+                }
+                for rule in self.rules
+            ]
+        }
 
     @attr.s
     class PullRequestRuleForPR:
@@ -135,21 +148,20 @@ class PullRequestRules:
             for rule in self.rules:
                 ignore_rules = False
                 next_conditions_to_validate = []
-                for condition in rule['conditions']:
+                for condition in rule["conditions"]:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
-                            attrib, self.pull_request.resolve_teams)
+                            attrib, self.pull_request.resolve_teams
+                        )
                     if not condition(**d):
                         next_conditions_to_validate.append(condition)
                         if condition.attribute_name in self.BASE_ATTRIBUTES:
                             ignore_rules = True
 
                 if ignore_rules:
-                    self.ignored_rules.append(
-                        (rule, next_conditions_to_validate))
+                    self.ignored_rules.append((rule, next_conditions_to_validate))
                 else:
-                    self.matching_rules.append(
-                        (rule, next_conditions_to_validate))
+                    self.matching_rules.append((rule, next_conditions_to_validate))
 
     def get_pull_request_rule(self, pull_request):
         return self.PullRequestRuleForPR(self.rules, pull_request)
@@ -161,10 +173,7 @@ class YamlInvalid(voluptuous.Invalid):
 
 class YamlInvalidPath(dict):
     def __init__(self, mark):
-        super().__init__({
-            "line": mark.line + 1,
-            "column": mark.column + 1,
-        })
+        super().__init__({"line": mark.line + 1, "column": mark.column + 1})
 
     def __repr__(self):
         return "at position {line}:{column}".format(**self)
@@ -181,25 +190,22 @@ class Yaml:
         except yaml.YAMLError as e:
             error_message = str(e)
             path = None
-            if hasattr(e, 'problem_mark'):
+            if hasattr(e, "problem_mark"):
                 path = [YamlInvalidPath(e.problem_mark)]
                 error_message += " (%s)" % path[0]
-            raise YamlInvalid(
-                message="Invalid yaml",
-                error_message=str(e),
-                path=path
-            )
+            raise YamlInvalid(message="Invalid yaml", error_message=str(e), path=path)
 
         return self._schema(v)
 
     def __repr__(self):
-        return 'Yaml(%s)' % repr(self.validator)
+        return "Yaml(%s)" % repr(self.validator)
 
 
-UserConfigurationSchema = voluptuous.Schema(Yaml({
-    voluptuous.Required("pull_request_rules"):
-    voluptuous.Coerce(PullRequestRules),
-}))
+UserConfigurationSchema = voluptuous.Schema(
+    Yaml(
+        {voluptuous.Required("pull_request_rules"): voluptuous.Coerce(PullRequestRules)}
+    )
+)
 
 
 class NoRules(Exception):
@@ -235,8 +241,6 @@ def get_mergify_config_content(repository, ref=github.GithubObject.NotSet):
 
 def get_mergify_config(repository, ref=github.GithubObject.NotSet):
     try:
-        return UserConfigurationSchema(
-            get_mergify_config_content(repository, ref)
-        )
+        return UserConfigurationSchema(get_mergify_config_content(repository, ref))
     except voluptuous.Invalid as e:
         raise InvalidRules(e)

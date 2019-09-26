@@ -40,22 +40,31 @@ def Regex(value):
 class BackportAction(actions.Action):
     validator = {
         voluptuous.Required("branches", default=[]): [str],
-        voluptuous.Required("regexes", default=[]): [Regex]
+        voluptuous.Required("regexes", default=[]): [Regex],
     }
 
-    def run(self, installation_id, installation_token,
-            event_type, data, pull, missing_conditions):
+    def run(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):
         if not pull.g_pull.merged:
             return None, "Waiting for the pull request to get merged", ""
 
-        branches = self.config['branches']
-        if self.config['regexes']:
-            regexes = list(map(re.compile, self.config['regexes']))
-            branches.extend((
-                branch.name
-                for branch in pull.g_pull.base.repo.get_branches()
-                if any(map(lambda regex: regex.match(branch.name), regexes))
-            ))
+        branches = self.config["branches"]
+        if self.config["regexes"]:
+            regexes = list(map(re.compile, self.config["regexes"]))
+            branches.extend(
+                (
+                    branch.name
+                    for branch in pull.g_pull.base.repo.get_branches()
+                    if any(map(lambda regex: regex.match(branch.name), regexes))
+                )
+            )
 
         state = "success"
         detail = "The following pull requests have been created: "
@@ -65,13 +74,14 @@ class BackportAction(actions.Action):
                     parse.quote(branch_name, safe="")
                 )
             except github.GithubException as e:  # pragma: no cover
-                LOG.error("backport: fail to get branch",
-                          pull_request=pull,
-                          error=e.data["message"])
+                LOG.error(
+                    "backport: fail to get branch",
+                    pull_request=pull,
+                    error=e.data["message"],
+                )
 
                 state = "failure"
-                detail += ("\n* backport to branch `%s` has failed" %
-                           branch_name)
+                detail += "\n* backport to branch `%s` has failed" % branch_name
                 if e.status == 404:
                     detail += ": the branch does not exists"
                 continue
@@ -89,13 +99,14 @@ class BackportAction(actions.Action):
                     new_pull = self.get_existing_backport_pull(pull, branch)
 
             if new_pull:
-                detail += "\n* [#%d %s](%s)" % (new_pull.number,
-                                                new_pull.title,
-                                                new_pull.html_url)
+                detail += "\n* [#%d %s](%s)" % (
+                    new_pull.number,
+                    new_pull.title,
+                    new_pull.html_url,
+                )
             else:  # pragma: no cover
                 state = "failure"
-                detail += ("\n* backport to branch `%s` has failed" %
-                           branch_name)
+                detail += "\n* backport to branch `%s` has failed" % branch_name
 
         return state, "Backports have been created", detail
 
@@ -104,14 +115,22 @@ class BackportAction(actions.Action):
         bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
         # NOTE(sileht): Github looks buggy here, head= doesn't work as expected
         pulls = list(
-            p for p in pull.g_pull.base.repo.get_pulls(base=branch.name,
-                                                       sort="created",
-                                                       state="all")
+            p
+            for p in pull.g_pull.base.repo.get_pulls(
+                base=branch.name, sort="created", state="all"
+            )
             if p.head.ref == bp_branch
         )
         if pulls:
             return pulls[-1]
 
-    def cancel(self, installation_id, installation_token,
-               event_type, data, pull, missing_conditions):  # pragma: no cover
+    def cancel(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):  # pragma: no cover
         return self.cancelled_check_report

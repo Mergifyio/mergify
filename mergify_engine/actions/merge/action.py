@@ -36,26 +36,34 @@ class MergeAction(actions.Action):
     only_once = True
 
     validator = {
-        voluptuous.Required("method", default="merge"):
-        voluptuous.Any("rebase", "merge", "squash"),
-        voluptuous.Required("rebase_fallback", default="merge"):
-        voluptuous.Any("merge", "squash", None),
-        voluptuous.Required("strict", default=False):
-        voluptuous.Any(bool, "smart"),
-        voluptuous.Required("strict_method", default="merge"):
-        voluptuous.Any("rebase", "merge")
+        voluptuous.Required("method", default="merge"): voluptuous.Any(
+            "rebase", "merge", "squash"
+        ),
+        voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
+            "merge", "squash", None
+        ),
+        voluptuous.Required("strict", default=False): voluptuous.Any(bool, "smart"),
+        voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
+            "rebase", "merge"
+        ),
     }
 
-    def run(self, installation_id, installation_token,
-            event_type, data, pull, missing_conditions):
+    def run(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):
         LOG.debug("process merge", config=self.config, pull=pull)
 
         output = helpers.merge_report(pull)
         if output:
             return output
 
-        output = helpers.output_for_mergeable_state(
-            pull, self.config["strict"])
+        output = helpers.output_for_mergeable_state(pull, self.config["strict"])
         if output:
             return output
 
@@ -63,17 +71,25 @@ class MergeAction(actions.Action):
             # NOTE(sileht): Almost ready, one last rebase/update
 
             if not pull.base_is_modifiable():
-                return ("failure", "Pull request can't be updated with latest "
-                        "base branch changes, owner doesn't allow "
-                        "modification", "")
+                return (
+                    "failure",
+                    "Pull request can't be updated with latest "
+                    "base branch changes, owner doesn't allow "
+                    "modification",
+                    "",
+                )
             elif self.config["strict"] == "smart":
                 queue.add_pull(pull, self.config["strict_method"])
-                return (None, "Base branch will be updated soon",
-                        "The pull request base branch will "
-                        "be updated soon, and then merged.")
+                return (
+                    None,
+                    "Base branch will be updated soon",
+                    "The pull request base branch will "
+                    "be updated soon, and then merged.",
+                )
             else:
                 return helpers.update_pull_base_branch(
-                    pull, installation_id, self.config["strict_method"])
+                    pull, installation_id, self.config["strict_method"]
+                )
         else:
 
             # NOTE(sileht): Ready to merge!
@@ -81,22 +97,33 @@ class MergeAction(actions.Action):
             if self.config["strict"] == "smart":
                 queue.remove_pull(pull)
 
-            if (self.config["method"] != "rebase" or
-                    pull.g_pull.raw_data['rebaseable']):
+            if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
                 return self._merge(pull, self.config["method"])
             elif self.config["rebase_fallback"]:
                 return self._merge(pull, self.config["rebase_fallback"])
             else:
-                return ("action_required", "Automatic rebasing is not "
-                        "possible, manual intervention required", "")
+                return (
+                    "action_required",
+                    "Automatic rebasing is not "
+                    "possible, manual intervention required",
+                    "",
+                )
 
-    def cancel(self, installation_id, installation_token,
-               event_type, data, pull, missing_conditions):
+    def cancel(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
         if self.config["strict"] and self._required_statuses_in_progress(
-                pull, missing_conditions):
+            pull, missing_conditions
+        ):
             return
 
         if self.config["strict"] == "smart":
@@ -125,9 +152,12 @@ class MergeAction(actions.Action):
                 return True
 
             # Take only checks we care about
-            checks = [s for s in checks
-                      for cond in need_look_at_checks
-                      if cond(**{cond.attribute_name: s.context})]
+            checks = [
+                s
+                for s in checks
+                for cond in need_look_at_checks
+                if cond(**{cond.attribute_name: s.context})
+            ]
             if not checks:
                 return True
 
@@ -141,32 +171,35 @@ class MergeAction(actions.Action):
     def _merge(pull, method):
         kwargs = pull.get_merge_commit_message() or {}
         try:
-            pull.g_pull.merge(
-                sha=pull.g_pull.head.sha,
-                merge_method=method,
-                **kwargs
-            )
-        except github.GithubException as e:   # pragma: no cover
+            pull.g_pull.merge(sha=pull.g_pull.head.sha, merge_method=method, **kwargs)
+        except github.GithubException as e:  # pragma: no cover
             if pull.g_pull.is_merged():
                 LOG.info("merged in the meantime", pull=pull)
             else:
                 if e.status != 405:
                     message = "Mergify fails to merge the pull request"
                 elif pull.g_pull.mergeable_state == "blocked":
-                    message = ("Branch protection settings are blocking "
-                               "automatic merging\nSee: %s" %
-                               BRANCH_PROTECTION_FAQ_URL)
+                    message = (
+                        "Branch protection settings are blocking "
+                        "automatic merging\nSee: %s" % BRANCH_PROTECTION_FAQ_URL
+                    )
                 else:
-                    message = ("Repository settings are blocking automatic "
-                               "merging")
+                    message = "Repository settings are blocking automatic " "merging"
 
                 log_method = LOG.error if e.status >= 500 else LOG.info
-                log_method("merge fail", status=e.status,
-                           mergify_message=message,
-                           error_message=e.data["message"], pull=pull)
+                log_method(
+                    "merge fail",
+                    status=e.status,
+                    mergify_message=message,
+                    error_message=e.data["message"],
+                    pull=pull,
+                )
 
-                return ("failure", message, "GitHub error message: `%s`" %
-                        e.data["message"])
+                return (
+                    "failure",
+                    message,
+                    "GitHub error message: `%s`" % e.data["message"],
+                )
         else:
             LOG.info("merged", pull=pull)
 

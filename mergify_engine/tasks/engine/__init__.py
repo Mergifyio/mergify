@@ -84,13 +84,16 @@ def create_metrics(event_type, data):
     if event_type == "pull_request" and data["action"] == "opened":
         pull_request_opened.apply_async()
 
-    elif (event_type == "pull_request" and data["action"] == "closed" and
-          data["pull_request"]["merged"]):
+    elif (
+        event_type == "pull_request"
+        and data["action"] == "closed"
+        and data["pull_request"]["merged"]
+    ):
 
         pull_request_merged.apply_async()
-        if (data["pull_request"]["merged_by"] and
-                data["pull_request"]["merged_by"]["login"]
-                in ["mergify[bot]", "mergify-test[bot]"]):
+        if data["pull_request"]["merged_by"] and data["pull_request"]["merged_by"][
+            "login"
+        ] in ["mergify[bot]", "mergify-test[bot]"]:
             pull_request_merged_by_mergify.apply_async()
 
 
@@ -109,19 +112,27 @@ def check_configuration_changes(event_pull):
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API
                 check_api.set_check_run(
-                    event_pull, "Summary", "completed",
-                    "failure", output={
+                    event_pull,
+                    "Summary",
+                    "completed",
+                    "failure",
+                    output={
                         "title": "The new Mergify configuration is invalid",
-                        "summary": str(e)
-                    })
+                        "summary": str(e),
+                    },
+                )
             else:
                 check_api.set_check_run(
-                    event_pull, "Summary", "completed",
-                    "success", output={
+                    event_pull,
+                    "Summary",
+                    "completed",
+                    "success",
+                    output={
                         "title": "The new Mergify configuration is valid",
                         "summary": "This pull request must be merged "
                         "manually because it modifies Mergify configuration",
-                    })
+                    },
+                )
 
             return True
     return False
@@ -135,97 +146,129 @@ def run(event_type, data):
     if not installation_token:
         return
 
-    g = github.Github(installation_token,
-                      base_url="https://api.%s" % config.GITHUB_DOMAIN)
+    g = github.Github(
+        installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
+    )
 
     if config.LOG_RATELIMIT:  # pragma: no cover
         rate = g.get_rate_limit().rate
-        LOG.info("ratelimit: %s/%s, reset at %s",
-                 rate.remaining, rate.limit, rate.reset,
-                 repository=data["repository"]["name"])
+        LOG.info(
+            "ratelimit: %s/%s, reset at %s",
+            rate.remaining,
+            rate.limit,
+            rate.reset,
+            repository=data["repository"]["name"],
+        )
 
-    repo = g.get_repo(data["repository"]["owner"]["login"] + "/" +
-                      data["repository"]["name"])
+    repo = g.get_repo(
+        data["repository"]["owner"]["login"] + "/" + data["repository"]["name"]
+    )
 
     event_pull = get_github_pull_from_event(repo, event_type, data)
 
     if not event_pull:  # pragma: no cover
-        LOG.info("No pull request found in the event %s, "
-                 "ignoring", event_type)
+        LOG.info("No pull request found in the event %s, " "ignoring", event_type)
         return
 
-    LOG.info("Pull request found in the event %s", event_type,
-             repo=repo.full_name,
-             pull_request=event_pull)
+    LOG.info(
+        "Pull request found in the event %s",
+        event_type,
+        repo=repo.full_name,
+        pull_request=event_pull,
+    )
 
-    if ("base" not in event_pull.raw_data or
-            "repo" not in event_pull.raw_data["base"] or
-            len(list(event_pull.raw_data["base"]["repo"].keys())) < 70):
-        LOG.warning("the pull request payload looks suspicious",
-                    event_type=event_type,
-                    data=data,
-                    pull_request=event_pull.raw_data,
-                    repo=repo.fullname)
+    if (
+        "base" not in event_pull.raw_data
+        or "repo" not in event_pull.raw_data["base"]
+        or len(list(event_pull.raw_data["base"]["repo"].keys())) < 70
+    ):
+        LOG.warning(
+            "the pull request payload looks suspicious",
+            event_type=event_type,
+            data=data,
+            pull_request=event_pull.raw_data,
+            repo=repo.fullname,
+        )
 
-    if (event_type == "status" and
-            event_pull.head.sha != data["sha"]):  # pragma: no cover
-        LOG.info("No need to proceed queue (got status of an old commit)",
-                 repo=repo.full_name,
-                 pull_request=event_pull)
+    if (
+        event_type == "status" and event_pull.head.sha != data["sha"]
+    ):  # pragma: no cover
+        LOG.info(
+            "No need to proceed queue (got status of an old commit)",
+            repo=repo.full_name,
+            pull_request=event_pull,
+        )
         return
 
-    elif (event_type in ["status", "check_suite", "check_run"] and
-          event_pull.merged):  # pragma: no cover
-        LOG.info("No need to proceed queue (got status of a merged "
-                 "pull request)",
-                 repo=repo.full_name,
-                 pull_request=event_pull)
+    elif (
+        event_type in ["status", "check_suite", "check_run"] and event_pull.merged
+    ):  # pragma: no cover
+        LOG.info(
+            "No need to proceed queue (got status of a merged " "pull request)",
+            repo=repo.full_name,
+            pull_request=event_pull,
+        )
         return
-    elif (event_type in ["check_suite", "check_run"] and
-          event_pull.head.sha != data[event_type]["head_sha"]
-          ):  # pragma: no cover
-        LOG.info("No need to proceed queue (got %s of an old "
-                 "commit)", event_type,
-                 repo=repo.full_name,
-                 pull_request=event_pull)
+    elif (
+        event_type in ["check_suite", "check_run"]
+        and event_pull.head.sha != data[event_type]["head_sha"]
+    ):  # pragma: no cover
+        LOG.info(
+            "No need to proceed queue (got %s of an old " "commit)",
+            event_type,
+            repo=repo.full_name,
+            pull_request=event_pull,
+        )
         return
 
     if check_configuration_changes(event_pull):
-        LOG.info("Configuration changed, ignoring",
-                 repo=repo.full_name,
-                 pull_request=event_pull)
+        LOG.info(
+            "Configuration changed, ignoring",
+            repo=repo.full_name,
+            pull_request=event_pull,
+        )
         return
 
     # BRANCH CONFIGURATION CHECKING
     try:
         mergify_config = rules.get_mergify_config(repo)
     except rules.NoRules:  # pragma: no cover
-        LOG.info("No need to proceed queue (.mergify.yml is missing)",
-                 repo=repo.full_name,
-                 pull_request=event_pull)
+        LOG.info(
+            "No need to proceed queue (.mergify.yml is missing)",
+            repo=repo.full_name,
+            pull_request=event_pull,
+        )
         return
     except rules.InvalidRules as e:  # pragma: no cover
         # Not configured, post status check with the error message
-        if (event_type == "pull_request" and
-                data["action"] in ["opened", "synchronize"]):
+        if event_type == "pull_request" and data["action"] in ["opened", "synchronize"]:
             check_api.set_check_run(
-                event_pull, "Summary", "completed",
-                "failure", output={
+                event_pull,
+                "Summary",
+                "completed",
+                "failure",
+                output={
                     "title": "The Mergify configuration is invalid",
-                    "summary": str(e)
-                })
+                    "summary": str(e),
+                },
+            )
         return
 
-    subscription = sub_utils.get_subscription(utils.get_redis_for_cache(),
-                                              installation_id)
+    subscription = sub_utils.get_subscription(
+        utils.get_redis_for_cache(), installation_id
+    )
 
     if repo.private and not subscription["subscription_active"]:
         check_api.set_check_run(
-            event_pull, "Summary",
-            "completed", "failure", output={
+            event_pull,
+            "Summary",
+            "completed",
+            "failure",
+            output={
                 "title": "Mergify is disabled",
                 "summary": subscription["subscription_reason"],
-            })
+            },
+        )
         return
 
     create_metrics(event_type, data)
@@ -233,5 +276,7 @@ def run(event_type, data):
     v2.handle.s(
         installation_id,
         mergify_config["pull_request_rules"].as_dict(),
-        event_type, data, event_pull.raw_data
+        event_type,
+        data,
+        event_pull.raw_data,
     ).apply_async()

@@ -29,15 +29,24 @@ LOG = daiquiri.getLogger(__name__)
 
 class DismissReviewsAction(actions.Action):
     validator = {
-        voluptuous.Required("approved", default=True):
-        voluptuous.Any(True, False, [str]),
-        voluptuous.Required("changes_requested", default=True):
-        voluptuous.Any(True, False, [str])
+        voluptuous.Required("approved", default=True): voluptuous.Any(
+            True, False, [str]
+        ),
+        voluptuous.Required("changes_requested", default=True): voluptuous.Any(
+            True, False, [str]
+        ),
     }
 
-    def run(self, installation_id, installation_token,
-            event_type, data, pull, missing_conditions):
-        if (event_type == "pull_request" and data["action"] == "synchronize"):
+    def run(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):
+        if event_type == "pull_request" and data["action"] == "synchronize":
             # NOTE(sileht): mergify-bot have push the "Update Branch" button.
             if data["sender"]["id"] == config.BOT_USER_ID:
                 return
@@ -50,7 +59,7 @@ class DismissReviewsAction(actions.Action):
             if redis.get("branch-update-%s" % pull.g_pull.head.sha):
                 return
 
-            for review in pull.to_dict()['_approvals']:
+            for review in pull.to_dict()["_approvals"]:
                 conf = self.config.get(review.state.lower(), False)
                 if conf and (conf is True or review.user.login in conf):
                     self._dismissal_review(pull, review)
@@ -60,12 +69,14 @@ class DismissReviewsAction(actions.Action):
         try:
             review._requester.requestJsonAndCheck(
                 "PUT",
-                "%s/reviews/%s/dismissals" % (review.pull_request_url,
-                                              review.id),
-                input={'message': "Pull request has been modified."},
-                headers={'Accept':
-                         'application/vnd.github.machine-man-preview+json'}
+                "%s/reviews/%s/dismissals" % (review.pull_request_url, review.id),
+                input={"message": "Pull request has been modified."},
+                headers={"Accept": "application/vnd.github.machine-man-preview+json"},
             )
         except github.GithubException as e:  # pragma: no cover
-            LOG.error("failed to dismiss review", status=e.status,
-                      error=e.data["message"], pull_request=pull)
+            LOG.error(
+                "failed to dismiss review",
+                status=e.status,
+                error=e.data["message"],
+                pull_request=pull,
+            )

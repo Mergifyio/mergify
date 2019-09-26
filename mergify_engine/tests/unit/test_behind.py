@@ -26,8 +26,7 @@ def create_commit(sha=None):
     return mock.Mock(sha=sha, parents=[], spec=["parents", "sha"])
 
 
-@pytest.fixture(params=["U-A-B-C", "O-A-B-C", "O-A-BO-C",
-                        "O-A-BU-C", "O-A-B-CU"])
+@pytest.fixture(params=["U-A-B-C", "O-A-B-C", "O-A-BO-C", "O-A-BU-C", "O-A-B-CU"])
 def commits_tree_generator(request):
     # NOTE(sileht):
     # tree direction: ->
@@ -60,10 +59,10 @@ def test_pull_behind(commits_tree_generator):
     g = mock.Mock()
     g_pull = mock.Mock()
     g_pull.base.ref = "#foo"
-    g_pull.base.repo.get_branch.return_value = mock.Mock(
-        commit=mock.Mock(sha="base"))
+    g_pull.base.repo.get_branch.return_value = mock.Mock(commit=mock.Mock(sha="base"))
     g_pull.get_commits.return_value = commits
-    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
-                                    installation_id=config.INSTALLATION_ID)
+    pull = mergify_pull.MergifyPull(
+        g=g, g_pull=g_pull, installation_id=config.INSTALLATION_ID
+    )
     behind = pull.is_behind()
     assert expected == behind

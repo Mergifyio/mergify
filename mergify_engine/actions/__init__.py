@@ -23,8 +23,10 @@ import attr
 class Action(abc.ABC):
     config = attr.ib()
     cancelled_check_report = (
-        "neutral", "The rule doesn't match anymore, this action "
-        "has been cancelled", "")
+        "neutral",
+        "The rule doesn't match anymore, this action " "has been cancelled",
+        "",
+    )
 
     # If an action can't be twice in a rule this must be set to true
     only_once = False
@@ -36,11 +38,13 @@ class Action(abc.ABC):
         pass
 
     @staticmethod
-    def run(installation_id, installation_token,
-            event_type, data, pull, missing_conditions):  # pragma: no cover
+    def run(
+        installation_id, installation_token, event_type, data, pull, missing_conditions
+    ):  # pragma: no cover
         pass
 
     @staticmethod
-    def cancel(installation_id, installation_token,
-               event_type, data, pull, missing_conditions):  # pragma: no cover
+    def cancel(
+        installation_id, installation_token, event_type, data, pull, missing_conditions
+    ):  # pragma: no cover
         pass

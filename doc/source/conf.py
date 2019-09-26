@@ -31,36 +31,34 @@ import pkg_resources
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.githubpages',
-]
+extensions = ["sphinx.ext.githubpages"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The encoding of source files.
 #
 # source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'Mergify.io'
-copyright = u'%s, Mergify.io' % datetime.date.today().year
+project = "Mergify.io"
+copyright = "%s, Mergify.io" % datetime.date.today().year
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution('mergify_engine').version
+version = pkg_resources.get_distribution("mergify_engine").version
 # The full version, including alpha/beta/rc tags.
 # release = u'1.0.0'
 
@@ -105,7 +103,7 @@ exclude_patterns = []
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -119,7 +117,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "alabaster"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -127,14 +125,16 @@ html_theme = 'alabaster'
 #
 # html_theme_options = {}
 html_theme_options = {
-    'logo': 'logo.png',
-    'logo_name': True,
-    'logo_text_align': 'center',
-    'fixed_sidebar': True,
-    'description': 'Stop merging your pull requests manually.',
-    'show_powered_by': False,
-    'extra_nav_links': {'Website': 'https://mergify.io',
-                        'Support': 'mailto:support@mergify.io'},
+    "logo": "logo.png",
+    "logo_name": True,
+    "logo_text_align": "center",
+    "fixed_sidebar": True,
+    "description": "Stop merging your pull requests manually.",
+    "show_powered_by": False,
+    "extra_nav_links": {
+        "Website": "https://mergify.io",
+        "Support": "mailto:support@mergify.io",
+    },
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -163,7 +163,7 @@ html_favicon = "_static/favicon.ico"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -184,12 +184,7 @@ html_static_path = ['_static']
 
 # Custom sidebar templates, maps document names to template names.
 html_sidebars = {
-    '**': [
-        'about.html',
-        'navigation.html',
-        'relations.html',
-        'searchbox.html',
-    ]
+    "**": ["about.html", "navigation.html", "relations.html", "searchbox.html"]
 }
 
 # Additional templates that should be rendered to pages, maps page names to
@@ -251,4 +246,4 @@ html_show_sphinx = False
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'mergifyiodoc'
+htmlhelp_basename = "mergifyiodoc"

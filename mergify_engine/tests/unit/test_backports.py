@@ -27,8 +27,10 @@ def fake_get_github_pulls_from_sha(repo, sha):
         return []
 
 
-@mock.patch("mergify_engine.backports.utils.get_github_pulls_from_sha",
-            side_effect=fake_get_github_pulls_from_sha)
+@mock.patch(
+    "mergify_engine.backports.utils.get_github_pulls_from_sha",
+    side_effect=fake_get_github_pulls_from_sha,
+)
 def test_get_commits_to_cherry_pick_rebase(_):
     g = mock.Mock()
     g_pull = mock.Mock()
@@ -44,10 +46,12 @@ def test_get_commits_to_cherry_pick_rebase(_):
 
     def _get_commits():
         return [c1, c2]
+
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
-                                    installation_id=config.INSTALLATION_ID)
+    pull = mergify_pull.MergifyPull(
+        g=g, g_pull=g_pull, installation_id=config.INSTALLATION_ID
+    )
 
     base_branch = mock.Mock()
     base_branch.sha = "base_branch"
@@ -59,10 +63,10 @@ def test_get_commits_to_cherry_pick_rebase(_):
     rebased_c2.sha = "rebased_c2"
     rebased_c2.parents = [rebased_c1]
 
-    assert (
-        backports._get_commits_to_cherrypick(pull, rebased_c2) ==
-        [rebased_c1, rebased_c2]
-    )
+    assert backports._get_commits_to_cherrypick(pull, rebased_c2) == [
+        rebased_c1,
+        rebased_c2,
+    ]
 
 
 def test_get_commits_to_cherry_pick_merge():
@@ -79,10 +83,12 @@ def test_get_commits_to_cherry_pick_merge():
 
     def _get_commits():
         return [c1, c2]
+
     g_pull.get_commits = _get_commits
 
-    pull = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
-                                    installation_id=config.INSTALLATION_ID)
+    pull = mergify_pull.MergifyPull(
+        g=g, g_pull=g_pull, installation_id=config.INSTALLATION_ID
+    )
 
     base_branch = mock.Mock()
     base_branch.sha = "base_branch"

@@ -19,33 +19,25 @@ from mergify_engine.rules import filter
 
 
 def test_binary():
-    f = filter.Filter({
-        "=": ("foo", 1),
-    })
+    f = filter.Filter({"=": ("foo", 1)})
     assert f(foo=1)
     assert not f(foo=2)
 
 
 def test_string():
-    f = filter.Filter({
-        "=": ("foo", "bar"),
-    })
+    f = filter.Filter({"=": ("foo", "bar")})
     assert f(foo="bar")
     assert not f(foo=2)
 
 
 def test_not():
-    f = filter.Filter({
-        "-": {"=": ("foo", 1)},
-    })
+    f = filter.Filter({"-": {"=": ("foo", 1)}})
     assert not f(foo=1)
     assert f(foo=2)
 
 
 def test_len():
-    f = filter.Filter({
-        "=": ("#foo", 3),
-    })
+    f = filter.Filter({"=": ("#foo", 3)})
     assert f(foo="bar")
     with pytest.raises(filter.InvalidOperator):
         f(foo=2)
@@ -54,9 +46,7 @@ def test_len():
     assert f(foo=[10, 20, 30])
     assert not f(foo=[10, 20])
     assert not f(foo=[10, 20, 40, 50])
-    f = filter.Filter({
-        ">": ("#foo", 3),
-    })
+    f = filter.Filter({">": ("#foo", 3)})
     assert f(foo="barz")
     with pytest.raises(filter.InvalidOperator):
         f(foo=2)
@@ -68,64 +58,48 @@ def test_len():
 
 
 def test_regexp():
-    f = filter.Filter({
-        "~=": ("foo", "^f"),
-    })
+    f = filter.Filter({"~=": ("foo", "^f")})
     assert f(foo="foobar")
     assert f(foo="foobaz")
     assert not f(foo="x")
     assert not f(foo=None)
 
-    f = filter.Filter({
-        "~=": ("foo", "^$"),
-    })
+    f = filter.Filter({"~=": ("foo", "^$")})
     assert f(foo="")
     assert not f(foo="x")
 
 
 def test_regexp_invalid():
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({
-            "~=": ("foo", "([^\s\w])(\s*\1+"),  # noqa
-        })
+        filter.Filter({"~=": ("foo", "([^\s\w])(\s*\1+")})  # noqa
 
 
 def test_set_value_expanders():
-    f = filter.Filter({
-        "=": ("foo", "@bar"),
-    })
+    f = filter.Filter({"=": ("foo", "@bar")})
     f.set_value_expanders("foo", lambda x: [x.replace("@", "foo")])
     assert f(foo="foobar")
     assert not f(foo="x")
 
 
 def test_does_not_contain():
-    f = filter.Filter({
-        "!=": ("foo", 1),
-    })
+    f = filter.Filter({"!=": ("foo", 1)})
     assert f(foo=[])
     assert f(foo=[2, 3])
     assert not f(foo=(1, 2))
 
 
 def test_contains():
-    f = filter.Filter({
-        "=": ("foo", 1),
-    })
+    f = filter.Filter({"=": ("foo", 1)})
     assert f(foo=[1, 2])
     assert not f(foo=[2, 3])
     assert f(foo=(1, 2))
-    f = filter.Filter({
-        ">": ("foo", 2),
-    })
+    f = filter.Filter({">": ("foo", 2)})
     assert not f(foo=[1, 2])
     assert f(foo=[2, 3])
 
 
 def test_unknown_attribute():
-    f = filter.Filter({
-        "=": ("foo", 1),
-    })
+    f = filter.Filter({"=": ("foo", 1)})
     with pytest.raises(filter.UnknownAttribute):
         f(bar=1)
 
@@ -137,25 +111,17 @@ def test_parse_error():
 
 def test_unknown_operator():
     with pytest.raises(filter.UnknownOperator):
-        filter.Filter({
-            "oops": (1, 2),
-        })
+        filter.Filter({"oops": (1, 2)})
 
 
 def test_invalid_arguments():
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({
-            "=": (1, 2, 3),
-        })
+        filter.Filter({"=": (1, 2, 3)})
 
 
 def test_str():
-    assert "foo~=^f" == str(filter.Filter({
-        "~=": ("foo", "^f"),
-    }))
-    assert "-foo=1" == str(filter.Filter({
-        "-": {"=": ("foo", 1)},
-    }))
+    assert "foo~=^f" == str(filter.Filter({"~=": ("foo", "^f")}))
+    assert "-foo=1" == str(filter.Filter({"-": {"=": ("foo", 1)}}))
     assert "foo" == str(filter.Filter({"=": ("foo", True)}))
     assert "-bar" == str(filter.Filter({"=": ("bar", False)}))
     with pytest.raises(filter.InvalidOperator):
@@ -163,9 +129,5 @@ def test_str():
 
 
 def test_parser():
-    for string in (
-            "head=foobar",
-            "-base=master",
-            "#files>3",
-    ):
+    for string in ("head=foobar", "-base=master", "#files>3"):
         assert string == str(filter.Filter.parse(string))

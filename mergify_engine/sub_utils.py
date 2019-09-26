@@ -46,7 +46,7 @@ def _encrypt(sub):
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv),
-        backend=default_backend()
+        backend=default_backend(),
     )
     encryptor = cipher.encryptor()
     encrypted = encryptor.update(value) + encryptor.finalize()
@@ -66,12 +66,12 @@ def _decrypt(value):
         return
 
     iv = decrypted[:IV_BYTES_NEEDED]
-    tag = decrypted[IV_BYTES_NEEDED: IV_BYTES_NEEDED + TAG_SIZE_BYTES]
-    decrypted = decrypted[IV_BYTES_NEEDED + TAG_SIZE_BYTES:]
+    tag = decrypted[IV_BYTES_NEEDED : IV_BYTES_NEEDED + TAG_SIZE_BYTES]
+    decrypted = decrypted[IV_BYTES_NEEDED + TAG_SIZE_BYTES :]
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv, tag),
-        backend=default_backend()
+        backend=default_backend(),
     )
     decryptor = cipher.decryptor()
     try:
@@ -94,12 +94,11 @@ def _decrypt(value):
 
 
 def _retrieve_subscription_from_db(installation_id):
-    LOG.debug("Subscription not cached, retrieving it...",
-              install_id=installation_id)
-    resp = requests.get(config.SUBSCRIPTION_URL %
-                        installation_id,
-                        auth=(config.OAUTH_CLIENT_ID,
-                              config.OAUTH_CLIENT_SECRET))
+    LOG.debug("Subscription not cached, retrieving it...", install_id=installation_id)
+    resp = requests.get(
+        config.SUBSCRIPTION_URL % installation_id,
+        auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+    )
     if resp.status_code == 404:
         reason = resp.json().get("message")
         sub = {
@@ -110,8 +109,9 @@ def _retrieve_subscription_from_db(installation_id):
         }
     elif resp.status_code == 200:
         sub = resp.json()
-        sub["tokens"] = dict((login, token["access_token"])
-                             for login, token in sub["tokens"].items())
+        sub["tokens"] = dict(
+            (login, token["access_token"]) for login, token in sub["tokens"].items()
+        )
     else:  # pragma: no cover
         # NOTE(sileht): handle this better
         resp.raise_for_status()

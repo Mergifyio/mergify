@@ -29,12 +29,19 @@ LOG = daiquiri.getLogger(__name__)
 
 class DeleteHeadBranchAction(actions.Action):
     only_once = True
-    validator = voluptuous.Any({
-        voluptuous.Optional("force", default=False): bool,
-    }, None)
+    validator = voluptuous.Any(
+        {voluptuous.Optional("force", default=False): bool}, None
+    )
 
-    def run(self, installation_id, installation_token,
-            event_type, data, pull, missing_conditions):
+    def run(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):
         if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
             return
         if pull.g_pull.state == "closed":
@@ -48,28 +55,46 @@ class DeleteHeadBranchAction(actions.Action):
                         "Branch `{}` was not deleted "
                         "because it is used by {}".format(
                             pull.g_pull.head.ref,
-                            " ".join("#%d" % p.number
-                                     for p in pulls_using_this_branch)),
+                            " ".join("#%d" % p.number for p in pulls_using_this_branch),
+                        ),
                         "",
                     )
 
             try:
                 pull.g_pull.head.repo._requester.requestJsonAndCheck(
                     "DELETE",
-                    pull.g_pull.base.repo.url + "/git/refs/heads/" +
-                    parse.quote(pull.g_pull.head.ref, safe=""))
+                    pull.g_pull.base.repo.url
+                    + "/git/refs/heads/"
+                    + parse.quote(pull.g_pull.head.ref, safe=""),
+                )
             except github.GithubException as e:
                 if e.status not in [422, 404]:
-                    LOG.error("Unable to delete head branch",
-                              status=e.status, error=e.data["message"],
-                              pull_request=pull)
+                    LOG.error(
+                        "Unable to delete head branch",
+                        status=e.status,
+                        error=e.data["message"],
+                        pull_request=pull,
+                    )
                     return ("failure", "Unable to delete the head branch", "")
-            return ("success", "Branch `%s` has been deleted" %
-                    pull.g_pull.head.ref, "")
-        return (None,
-                "Branch `%s` will be deleted once the pull request is closed" %
-                pull.g_pull.head.ref, "")
+            return (
+                "success",
+                "Branch `%s` has been deleted" % pull.g_pull.head.ref,
+                "",
+            )
+        return (
+            None,
+            "Branch `%s` will be deleted once the pull request is closed"
+            % pull.g_pull.head.ref,
+            "",
+        )
 
-    def cancel(self, installation_id, installation_token,
-               event_type, data, pull, missing_conditions):  # pragma: no cover
+    def cancel(
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
+    ):  # pragma: no cover
         return self.cancelled_check_report

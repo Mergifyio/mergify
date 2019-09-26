@@ -31,9 +31,7 @@ app.conf.broker_url = config.CELERY_BROKER_URL
 # Enable some monitoring stuffs
 app.conf.worker_send_task_events = True
 
-app.conf.task_routes = ([
-    ('mergify_engine.tasks.*', {'queue': 'mergify'})
-],)
+app.conf.task_routes = ([("mergify_engine.tasks.*", {"queue": "mergify"})],)
 
 # User can put regexes in their configuration, since it possible to create
 # malicious regexes that take a lot of time to evaluate limit the time a task
@@ -52,21 +50,23 @@ def celery_logging(**kwargs):  # pragma: no cover
 
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(60.0,
-                             queue.smart_strict_workflow_periodic_task.s(),
-                             name='v2 smart strict workflow')
+    sender.add_periodic_task(
+        60.0,
+        queue.smart_strict_workflow_periodic_task.s(),
+        name="v2 smart strict workflow",
+    )
 
 
 @signals.task_failure.connect
-def retry_task_on_exception(sender, task_id, exception, args, kwargs,
-                            traceback, einfo, **other):  # pragma: no cover
+def retry_task_on_exception(
+    sender, task_id, exception, args, kwargs, traceback, einfo, **other
+):  # pragma: no cover
     backoff = exceptions.need_retry(exception)
 
     if backoff is None:
         return
 
-    LOG.warning('job %s: failed %d times - retrying',
-                task_id, sender.request.retries)
+    LOG.warning("job %s: failed %d times - retrying", task_id, sender.request.retries)
     # Exponential backoff
     retry_in = 2 ** sender.request.retries * backoff
     sender.retry(countdown=retry_in)

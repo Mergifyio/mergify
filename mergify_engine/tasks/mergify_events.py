@@ -31,13 +31,13 @@ LOG = daiquiri.getLogger(__name__)
 def job_refresh(owner, repo, kind, ref=None):
     LOG.info("%s/%s/%s/%s: refreshing", owner, repo, kind, ref)
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
         installation_id = utils.get_installation_id(integration, owner, repo)
     except github.GithubException as e:
-        LOG.warning("%s/%s/%s/%s: mergify not installed",
-                    owner, repo, kind, ref, error=str(e))
+        LOG.warning(
+            "%s/%s/%s/%s: mergify not installed", owner, repo, kind, ref, error=str(e)
+        )
         return
 
     token = integration.get_access_token(installation_id).token
@@ -56,12 +56,10 @@ def job_refresh(owner, repo, kind, ref=None):
     for p in pulls:
         # Mimic the github event format
         data = {
-            'repository': r.raw_data,
-            'installation': {'id': installation_id},
-            'pull_request': p.raw_data,
-            'sender': {
-                "login": "<internal>"
-            }
+            "repository": r.raw_data,
+            "installation": {"id": installation_id},
+            "pull_request": p.raw_data,
+            "sender": {"login": "<internal>"},
         }
         github_events.job_filter_and_dispatch.s(
             "refresh", str(uuid.uuid4()), data

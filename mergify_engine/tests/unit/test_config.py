@@ -26,36 +26,21 @@ from mergify_engine import rules
 
 
 def test_pull_request_rule():
-    for valid in ({
-            "name": "hello",
-            "conditions": [
-                "head:master",
-            ],
-            "actions": {},
-    }, {
-        "name": "hello",
-        "conditions": [
-            "base:foo", "base:baz",
-        ],
-        "actions": {},
-    }):
+    for valid in (
+        {"name": "hello", "conditions": ["head:master"], "actions": {}},
+        {"name": "hello", "conditions": ["base:foo", "base:baz"], "actions": {}},
+    ):
         rules.load_pull_request_rules_schema([valid])
 
 
 def test_same_names():
-    pull_request_rules = rules.load_pull_request_rules_schema([{
-        "name": "hello",
-        "conditions": [],
-        "actions": {},
-    }, {
-        "name": "foobar",
-        "conditions": [],
-        "actions": {},
-    }, {
-        "name": "hello",
-        "conditions": [],
-        "actions": {},
-    }])
+    pull_request_rules = rules.load_pull_request_rules_schema(
+        [
+            {"name": "hello", "conditions": [], "actions": {}},
+            {"name": "foobar", "conditions": [], "actions": {}},
+            {"name": "hello", "conditions": [], "actions": {}},
+        ]
+    )
     assert [rule["name"] for rule in pull_request_rules] == [
         "hello #1",
         "foobar",
@@ -68,22 +53,23 @@ def test_user_configuration_schema():
         rules.UserConfigurationSchema("- no\n* way")
     assert exc_info.value.__class__.__name__, "YamlInvalid"
     assert str(exc_info.value.path) == "[at position 2:2]"
-    assert exc_info.value.path == [{
-        "line": 2,
-        "column": 2
-    }]
+    assert exc_info.value.path == [{"line": 2, "column": 2}]
 
     with pytest.raises(voluptuous.Invalid):
-        rules.UserConfigurationSchema("""
+        rules.UserConfigurationSchema(
+            """
 pull_request_rules:
   - name: ahah
     key: not really what we expected
-""")
+"""
+        )
 
     with pytest.raises(voluptuous.Invalid):
-        rules.UserConfigurationSchema("""
+        rules.UserConfigurationSchema(
+            """
 pull_request_rules:
-""")
+"""
+        )
 
     with pytest.raises(voluptuous.Invalid):
         rules.UserConfigurationSchema("")
@@ -91,84 +77,56 @@ pull_request_rules:
 
 def test_pull_request_rule_schema_invalid():
     for invalid, match in (
-            ({
+        (
+            {"name": "hello", "conditions": ["this is wrong"], "actions": {}},
+            "Invalid condition ",
+        ),
+        (
+            {"name": "invalid regexp", "conditions": ["head~=(lol"], "actions": {}},
+            r"Invalid condition 'head~=\(lol'. Invalid arguments: "
+            r"missing \), "
+            r"unterminated subpattern at position 0 @ ",
+        ),
+        (
+            {"name": "hello", "conditions": ["head|4"], "actions": {}},
+            "Invalid condition ",
+        ),
+        (
+            {"name": "hello", "conditions": [{"foo": "bar"}], "actions": {}},
+            r"expected str @ data\[0\]\['conditions'\]\[0\]",
+        ),
+        (
+            {"name": "hello", "conditions": [], "actions": {}, "foobar": True},
+            "extra keys not allowed",
+        ),
+        (
+            {"name": "hello", "conditions": [], "actions": {"merge": True}},
+            r"expected a dictionary for dictionary value "
+            r"@ data\[0\]\['actions'\]\['merge'\]",
+        ),
+        (
+            {
                 "name": "hello",
-                "conditions": [
-                    "this is wrong"
-                ],
-                "actions": {},
-            }, "Invalid condition "),
-            (
-                {
-                    "name": "invalid regexp",
-                    "conditions": [
-                        "head~=(lol"
-                    ],
-                    "actions": {},
-                },
-                r"Invalid condition 'head~=\(lol'. Invalid arguments: "
-                r"missing \), "
-                r"unterminated subpattern at position 0 @ ",
-            ),
-            ({
+                "conditions": [],
+                "actions": {"backport": {"regexes": ["(azerty"]}},
+            },
+            r"missing \), unterminated subpattern at position 0 "
+            r"@ data\[0\]\['actions'\]\['backport'\]\['regexes'\]\[0\]",
+        ),
+        (
+            {"name": "hello", "conditions": [], "actions": {"backport": True}},
+            r"expected a dictionary for dictionary value "
+            r"@ data\[0\]\['actions'\]\['backport'\]",
+        ),
+        (
+            {
                 "name": "hello",
-                "conditions": [
-                    "head|4"
-                ],
-                "actions": {},
-            }, "Invalid condition "),
-            ({
-                "name": "hello",
-                "conditions": [
-                    {"foo": "bar"}
-                ],
-                "actions": {},
-            }, r"expected str @ data\[0\]\['conditions'\]\[0\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "actions": {},
-                "foobar": True,
-            }, "extra keys not allowed"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "actions": {
-                    "merge": True,
-                },
-            }, r"expected a dictionary for dictionary value "
-               r"@ data\[0\]\['actions'\]\['merge'\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "actions": {
-                    "backport": {"regexes": ["(azerty"]},
-                },
-            }, r"missing \), unterminated subpattern at position 0 "
-               r"@ data\[0\]\['actions'\]\['backport'\]\['regexes'\]\[0\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "actions": {
-                    "backport": True,
-                },
-            }, r"expected a dictionary for dictionary value "
-               r"@ data\[0\]\['actions'\]\['backport'\]"),
-            ({
-                "name": "hello",
-                "conditions": [
-                ],
-                "actions": {
-                    "merge": {
-                        "strict": "yes",
-                    },
-                },
-            }, r"expected bool for dictionary value @ "
-               r"data\[0\]\['actions'\]\['merge'\]\['strict'\]"),
+                "conditions": [],
+                "actions": {"merge": {"strict": "yes"}},
+            },
+            r"expected bool for dictionary value @ "
+            r"data\[0\]\['actions'\]\['merge'\]\['strict'\]",
+        ),
     ):
         with pytest.raises(voluptuous.MultipleInvalid, match=match):
             print(invalid)
@@ -180,8 +138,7 @@ def test_get_pull_request_rule():
 
     team = mock.Mock()
     team.slug = "my-reviewers"
-    team.get_members.return_value = [mock.Mock(login="sileht"),
-                                     mock.Mock(login="jd")]
+    team.get_members.return_value = [mock.Mock(login="sileht"), mock.Mock(login="jd")]
     org = mock.Mock()
     org.get_teams.return_value = [team]
     g.get_organization.return_value = org
@@ -194,7 +151,7 @@ def test_get_pull_request_rule():
     g_pull.base.ref = "master"
     g_pull.head.ref = "myfeature"
     g_pull.base.repo.get_collaborator_permission.return_value = "write"
-    g_pull._rawData = {'locked': False}
+    g_pull._rawData = {"locked": False}
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
     g_pull.user.login = "another-jd"
@@ -210,8 +167,7 @@ def test_get_pull_request_rule():
     review._rawData = {"author_association": "MEMBER"}
     g_pull.get_reviews.return_value = [review]
 
-    pull_request = mergify_pull.MergifyPull(g=g, g_pull=g_pull,
-                                            installation_id=123)
+    pull_request = mergify_pull.MergifyPull(g=g, g_pull=g_pull, installation_id=123)
 
     # Don't catch data in these tests
     pull_request.to_dict = pull_request._get_consolidated_data
@@ -223,206 +179,202 @@ def test_get_pull_request_rule():
     pull_request._get_checks.return_value = [fake_ci]
 
     # Empty conditions
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "default",
-        "conditions": [],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [{"name": "default", "conditions": [], "actions": {}}]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
     assert [(r, []) for r in match.rules] == match.matching_rules
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "hello",
-        "conditions": [
-            "base:master",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [{"name": "hello", "conditions": ["base:master"], "actions": {}}]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["hello"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["hello"]
+    assert [r["name"] for r in match.rules] == ["hello"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["hello"]
     assert [(r, []) for r in match.rules] == match.matching_rules
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "hello",
-        "conditions": [
-            "base:master",
-        ],
-        "actions": {}
-    }, {
-        "name": "backport",
-        "conditions": [
-            "base:master",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {"name": "hello", "conditions": ["base:master"], "actions": {}},
+            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["hello",
-                                                            "backport"]
+    assert [r["name"] for r in match.rules] == ["hello", "backport"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["hello", "backport"]
     assert [(r, []) for r in match.rules] == match.matching_rules
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "hello",
-        "conditions": [
-            "#files=3",
-        ],
-        "actions": {}
-    }, {
-        "name": "backport",
-        "conditions": [
-            "base:master",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {"name": "hello", "conditions": ["#files=3"], "actions": {}},
+            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["backport"]
+    assert [r["name"] for r in match.rules] == ["hello", "backport"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["backport"]
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "hello",
-        "conditions": [
-            "#files=2",
-        ],
-        "actions": {}
-    }, {
-        "name": "backport",
-        "conditions": [
-            "base:master",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {"name": "hello", "conditions": ["#files=2"], "actions": {}},
+            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["hello", "backport"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["hello",
-                                                            "backport"]
+    assert [r["name"] for r in match.rules] == ["hello", "backport"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["hello", "backport"]
     assert [(r, []) for r in match.rules] == match.matching_rules
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
     # No match
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "merge",
-        "conditions": [
-            "base=xyz",
-            "status-success=continuous-integration/fake-ci",
-            "#approved-reviews-by>=1",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "merge",
+                "conditions": [
+                    "base=xyz",
+                    "status-success=continuous-integration/fake-ci",
+                    "#approved-reviews-by>=1",
+                ],
+                "actions": {},
+            }
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["merge"]
-    assert [r['name'] for r, _ in match.matching_rules] == []
+    assert [r["name"] for r in match.rules] == ["merge"]
+    assert [r["name"] for r, _ in match.matching_rules] == []
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "merge",
-        "conditions": [
-            "base=master",
-            "status-success=continuous-integration/fake-ci",
-            "#approved-reviews-by>=1",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "merge",
+                "conditions": [
+                    "base=master",
+                    "status-success=continuous-integration/fake-ci",
+                    "#approved-reviews-by>=1",
+                ],
+                "actions": {},
+            }
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["merge"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["merge"]
+    assert [r["name"] for r in match.rules] == ["merge"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["merge"]
     assert [(r, []) for r in match.rules] == match.matching_rules
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "merge",
-        "conditions": [
-            "base=master",
-            "status-success=continuous-integration/fake-ci",
-            "#approved-reviews-by>=2",
-        ],
-        "actions": {}
-    }, {
-        "name": "fast merge",
-        "conditions": [
-            "base=master",
-            "label=fast-track",
-            "status-success=continuous-integration/fake-ci",
-            "#approved-reviews-by>=1",
-        ],
-        "actions": {}
-    }, {
-        "name": "fast merge with alternate ci",
-        "conditions": [
-            "base=master",
-            "label=fast-track",
-            "status-success=continuous-integration/fake-ci-bis",
-            "#approved-reviews-by>=1",
-        ],
-        "actions": {}
-    }, {
-        "name": "fast merge from a bot",
-        "conditions": [
-            "base=master",
-            "author=mybot",
-            "status-success=continuous-integration/fake-ci",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "merge",
+                "conditions": [
+                    "base=master",
+                    "status-success=continuous-integration/fake-ci",
+                    "#approved-reviews-by>=2",
+                ],
+                "actions": {},
+            },
+            {
+                "name": "fast merge",
+                "conditions": [
+                    "base=master",
+                    "label=fast-track",
+                    "status-success=continuous-integration/fake-ci",
+                    "#approved-reviews-by>=1",
+                ],
+                "actions": {},
+            },
+            {
+                "name": "fast merge with alternate ci",
+                "conditions": [
+                    "base=master",
+                    "label=fast-track",
+                    "status-success=continuous-integration/fake-ci-bis",
+                    "#approved-reviews-by>=1",
+                ],
+                "actions": {},
+            },
+            {
+                "name": "fast merge from a bot",
+                "conditions": [
+                    "base=master",
+                    "author=mybot",
+                    "status-success=continuous-integration/fake-ci",
+                ],
+                "actions": {},
+            },
+        ]
+    )
     match = pull_request_rules.get_pull_request_rule(pull_request)
 
-    assert [r['name'] for r in match.rules] == [
-        "merge", "fast merge", "fast merge with alternate ci",
-        "fast merge from a bot"]
-    assert [r['name'] for r, _ in match.matching_rules] == [
-        "merge", "fast merge", "fast merge with alternate ci"]
+    assert [r["name"] for r in match.rules] == [
+        "merge",
+        "fast merge",
+        "fast merge with alternate ci",
+        "fast merge from a bot",
+    ]
+    assert [r["name"] for r, _ in match.matching_rules] == [
+        "merge",
+        "fast merge",
+        "fast merge with alternate ci",
+    ]
     for rule in match.rules:
-        assert rule['actions'] == {}
+        assert rule["actions"] == {}
 
-    assert match.matching_rules[0][0]['name'] == "merge"
+    assert match.matching_rules[0][0]["name"] == "merge"
     assert len(match.matching_rules[0][1]) == 1
     assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
 
-    assert match.matching_rules[1][0]['name'] == "fast merge"
+    assert match.matching_rules[1][0]["name"] == "fast merge"
     assert len(match.matching_rules[1][1]) == 1
     assert str(match.matching_rules[1][1][0]) == "label=fast-track"
 
-    assert match.matching_rules[2][0]['name'] == "fast merge with alternate ci"
+    assert match.matching_rules[2][0]["name"] == "fast merge with alternate ci"
     assert len(match.matching_rules[2][1]) == 2
     assert str(match.matching_rules[2][1][0]) == "label=fast-track"
     assert (
-        str(match.matching_rules[2][1][1]) ==
-        "status-success=continuous-integration/fake-ci-bis"
+        str(match.matching_rules[2][1][1])
+        == "status-success=continuous-integration/fake-ci-bis"
     )
 
     # Team conditions with one review missing
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "default",
-        "conditions": [
-            "approved-reviews-by=@orgs/my-reviewers",
-            "#approved-reviews-by>=2",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "default",
+                "conditions": [
+                    "approved-reviews-by=@orgs/my-reviewers",
+                    "#approved-reviews-by>=2",
+                ],
+                "actions": {},
+            }
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
 
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 1
     assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
 
@@ -433,35 +385,41 @@ def test_get_pull_request_rule():
     g_pull.get_reviews.return_value = [review, review2]
 
     # Team conditions with no review missing
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "default",
-        "conditions": [
-            "approved-reviews-by=@orgs/my-reviewers",
-            "#approved-reviews-by>=2",
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "default",
+                "conditions": [
+                    "approved-reviews-by=@orgs/my-reviewers",
+                    "#approved-reviews-by>=2",
+                ],
+                "actions": {},
+            }
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
 
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 0
 
     # Forbidden labels, when no label set
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "default",
-        "conditions": [
-            "-label~=^(status/wip|status/blocked|review/need2)$"
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "default",
+                "conditions": ["-label~=^(status/wip|status/blocked|review/need2)$"],
+                "actions": {},
+            }
+        ]
+    )
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 0
 
     # Forbidden labels, when forbiden label set
@@ -470,12 +428,13 @@ def test_get_pull_request_rule():
     pull_request.g_pull.labels = [label]
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 1
     assert str(match.matching_rules[0][1][0]) == (
-        "-label~=^(status/wip|status/blocked|review/need2)$")
+        "-label~=^(status/wip|status/blocked|review/need2)$"
+    )
 
     # Forbidden labels, when other label set
     label = mock.Mock()
@@ -483,21 +442,23 @@ def test_get_pull_request_rule():
     pull_request.g_pull.labels = [label]
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 0
 
     # Test team expander
-    pull_request_rules = rules.PullRequestRules([{
-        "name": "default",
-        "conditions": [
-            "author~=^(user1|user2|another-jd)$"
-        ],
-        "actions": {}
-    }])
+    pull_request_rules = rules.PullRequestRules(
+        [
+            {
+                "name": "default",
+                "conditions": ["author~=^(user1|user2|another-jd)$"],
+                "actions": {},
+            }
+        ]
+    )
     match = pull_request_rules.get_pull_request_rule(pull_request)
-    assert [r['name'] for r in match.rules] == ["default"]
-    assert [r['name'] for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0]['name'] == "default"
+    assert [r["name"] for r in match.rules] == ["default"]
+    assert [r["name"] for r, _ in match.matching_rules] == ["default"]
+    assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 0
