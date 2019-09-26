@@ -57,113 +57,124 @@ def job_marketplace(event_type, event_id, data):
     )
 
 
-@app.task
-def job_filter_and_dispatch(event_type, event_id, data):
-    if "installation" not in data:
-        subscription = {"subscription_active": "Unknown", "subscription_reason": "No"}
-    else:
-        subscription = sub_utils.get_subscription(
-            utils.get_redis_for_cache(), data["installation"]["id"]
+def get_extra_msg_from_event(event_type, data):
+    if event_type == "pull_request":
+        return ", action: %s" % data["action"]
+
+    elif event_type == "pull_request_review":
+        return ", action: %s, review-state: %s" % (
+            data["action"],
+            data["review"]["state"],
         )
 
+    elif event_type == "pull_request_review_comment":
+        return ", action: %s, review-state: %s" % (
+            data["action"],
+            data["comment"]["position"],
+        )
+
+    elif event_type == "status":
+        return ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
+
+    elif event_type in ["check_run", "check_suite"]:
+        return ", action: %s, status: %s, conclusion: %s, sha: %s" % (
+            data["action"],
+            data[event_type]["status"],
+            data[event_type]["conclusion"],
+            data[event_type]["head_sha"],
+        )
+    else:
+        return ""
+
+
+def get_ignore_reason(subscription, event_type, data):
     if "installation" not in data:
-        msg_action = "ignored (no installation id)"
+        return "ignored (no installation id)"
 
     elif not subscription["tokens"]:
-        msg_action = "ignored (no token)"
+        return "ignored (no token)"
 
     elif event_type in ["installation", "installation_repositories"]:
-        msg_action = "ignored (action %s)" % data["action"]
+        return "ignored (action %s)" % data["action"]
 
-    elif event_type in ["push"]:
-        repo_name = data["repository"]["full_name"]
-        owner, _, repo = repo_name.partition("/")
-        if data["ref"].startswith("refs/heads/"):
-            branch = data["ref"][11:]
-            msg_action = "run refresh branch %s" % branch
-            mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async(
-                countdown=10
-            )
-        else:
-            msg_action = "ignored (push on %s)" % branch
+    elif event_type in ["push"] and not data["ref"].startswith("refs/heads/"):
+        return "ignored (push on %s)" % data["ref"]
 
-    elif event_type in [
+    elif event_type == "status" and data["state"] == "pending":
+        return "ignored (state pending)"
+
+    elif (
+        event_type in ["check_run", "check_suite"]
+        and data[event_type]["app"]["id"] == config.INTEGRATION_ID
+        and data["action"] != "rerequested"
+    ):
+        return "ignored (mergify %s)" % event_type
+
+    elif event_type == "pull_request" and data["action"] not in [
+        "opened",
+        "reopened",
+        "closed",
+        "synchronize",
+        "labeled",
+        "unlabeled",
+        "edited",
+        "locked",
+        "unlocked",
+    ]:
+        return "ignored (action %s)" % data["action"]
+
+    if "repository" in data and data["repository"]["archived"]:  # pragma: no cover
+        return "ignored (repository archived)"
+
+    elif event_type not in [
         "pull_request",
         "pull_request_review",
+        "push",
         "status",
         "check_suite",
         "check_run",
         "refresh",
     ]:
+        return "ignored (unexpected event_type)"
 
-        if data["repository"]["archived"]:  # pragma: no cover
-            msg_action = "ignored (repository archived)"
 
-        elif event_type == "status" and data["state"] == "pending":
-            msg_action = "ignored (state pending)"
-
-        elif (
-            event_type in ["check_run", "check_suite"]
-            and data[event_type]["app"]["id"] == config.INTEGRATION_ID
-            and data["action"] != "rerequested"
-        ):
-            msg_action = "ignored (mergify %s)" % event_type
-
-        elif event_type == "pull_request" and data["action"] not in [
-            "opened",
-            "reopened",
-            "closed",
-            "synchronize",
-            "labeled",
-            "unlabeled",
-            "edited",
-            "locked",
-            "unlocked",
-        ]:
-            msg_action = "ignored (action %s)" % data["action"]
-
-        else:
-            engine.run.s(event_type, data).apply_async()
-            msg_action = "pushed to backend"
-
-            if event_type == "pull_request":
-                msg_action += ", action: %s" % data["action"]
-
-            elif event_type == "pull_request_review":
-                msg_action += ", action: %s, review-state: %s" % (
-                    data["action"],
-                    data["review"]["state"],
-                )
-
-            elif event_type == "pull_request_review_comment":
-                msg_action += ", action: %s, review-state: %s" % (
-                    data["action"],
-                    data["comment"]["position"],
-                )
-
-            elif event_type == "status":
-                msg_action += ", ci-status: %s, sha: %s" % (data["state"], data["sha"])
-
-            elif event_type in ["check_run", "check_suite"]:
-                msg_action += ", action: %s, status: %s, conclusion: %s, sha: %s" % (
-                    data["action"],
-                    data[event_type]["status"],
-                    data[event_type]["conclusion"],
-                    data[event_type]["head_sha"],
-                )
-    else:
-        msg_action = "ignored (unexpected event_type)"
-
-    if "repository" in data:
+@app.task
+def job_filter_and_dispatch(event_type, event_id, data):
+    if "installation" in data:
         installation_id = data["installation"]["id"]
-        repo_name = data["repository"]["full_name"]
-        private = data["repository"]["private"]
-    elif "installation" in data:
-        installation_id = (data["installation"]["id"],)
-        repo_name = data["installation"]["account"]["login"]
-        private = "Unknown yet"
+        installation_owner = data["installation"].get("account", {"login": "Unknown"})[
+            "login"
+        ]
+        subscription = sub_utils.get_subscription(
+            utils.get_redis_for_cache(), installation_id
+        )
     else:
         installation_id = "Unknown"
+        installation_owner = "Unknown"
+        subscription = {
+            "subscription_active": "Unknown",
+            "subscription_reason": "No",
+            "tokens": None,
+        }
+
+    reason = get_ignore_reason(subscription, event_type, data)
+    if reason:
+        msg_action = reason
+    elif event_type in ["push"]:
+        owner, _, repo = data["repository"]["full_name"].partition("/")
+        branch = data["ref"][11:]
+        msg_action = "run refresh branch %s" % branch
+        mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async(
+            countdown=10
+        )
+    else:
+        engine.run.s(event_type, data).apply_async()
+        msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
+
+    if "repository" not in data:
+        repo_name = data["repository"]["full_name"]
+        private = data["repository"]["private"]
+    else:
         repo_name = "Unknown"
         private = "Unknown"
 
@@ -173,6 +184,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         event_type=event_type,
         event_id=event_id,
         install_id=installation_id,
+        install_owner=installation_owner,
         sender=data["sender"]["login"],
         repository=repo_name,
         private=private,
