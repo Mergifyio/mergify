@@ -61,28 +61,19 @@ def _identity(value):
 
 @attr.s(str=False, repr=False)
 class Filter:
-    unary_operators = {
-        "-": operator.not_,
-        "¬": operator.not_,
-    }
+    unary_operators = {"-": operator.not_, "¬": operator.not_}
 
     binary_operators = {
         "=": (operator.eq, any, _identity),
         "==": (operator.eq, any, _identity),
-
         "<": (operator.lt, any, _identity),
-
         ">": (operator.gt, any, _identity),
-
         "<=": (operator.le, any, _identity),
         "≤": (operator.le, any, _identity),
-
         ">=": (operator.ge, any, _identity),
         "≥": (operator.ge, any, _identity),
-
         "!=": (operator.ne, all, _identity),
         "≠": (operator.ne, all, _identity),
-
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
@@ -131,10 +122,9 @@ class Filter:
 
     def _get_value_comparator(self, op, name, values):
         if op != len and name in self._value_expanders:
-            return lambda x: any(map(
-                lambda y: op(x, y),
-                self._value_expanders[name](values)
-            ))
+            return lambda x: any(
+                map(lambda y: op(x, y), self._value_expanders[name](values))
+            )
         else:
             return lambda x: op(x, values)
 
@@ -185,6 +175,7 @@ class Filter:
                 if isinstance(values, (list, tuple)) and op != len:
                     return iterable_op(map(cmp, values))
                 return cmp(values)
+
             return _op
         element = self.build_evaluator(nodes)
         return lambda values: op(element(values))

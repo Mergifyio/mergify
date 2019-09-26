@@ -25,10 +25,9 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
-ERRORS_TO_IGNORE = set([
-    "reference already exists",
-    "You may want to first integrate the remote changes",
-])
+ERRORS_TO_IGNORE = set(
+    ["reference already exists", "You may want to first integrate the remote changes"]
+)
 
 
 @functools.total_ordering
@@ -56,19 +55,20 @@ class CommitOrderingKey(object):
 
 def is_base_branch_merge_commit(commit, base_branch):
     return (
-        commit.commit.message.startswith(
-            "Merge branch '%s'" % base_branch
-        ) and len(commit.parents) == 2
+        commit.commit.message.startswith("Merge branch '%s'" % base_branch)
+        and len(commit.parents) == 2
     )
 
 
 def _get_commits_without_base_branch_merge(pull):
     commits = pull.g_pull.get_commits()
     base_branch = pull.g_pull.base.ref
-    return list(filter(
-        lambda c: not is_base_branch_merge_commit(c, base_branch),
-        sorted(commits, key=CommitOrderingKey)
-    ))
+    return list(
+        filter(
+            lambda c: not is_base_branch_merge_commit(c, base_branch),
+            sorted(commits, key=CommitOrderingKey),
+        )
+    )
 
 
 def _get_commits_to_cherrypick(pull, merge_commit):
@@ -81,23 +81,22 @@ def _get_commits_to_cherrypick(pull, merge_commit):
         while True:
             if len(commit.parents) != 1:
                 # NOTE(sileht): What is that? A merge here?
-                LOG.error("unhandled commit structure",
-                          pull_request=pull)
+                LOG.error("unhandled commit structure", pull_request=pull)
                 return []
 
             out_commits.insert(0, commit)
             commit = commit.parents[0]
-            pulls = utils.get_github_pulls_from_sha(
-                pull.g_pull.base.repo, commit.sha)
+            pulls = utils.get_github_pulls_from_sha(pull.g_pull.base.repo, commit.sha)
             pull_numbers = [p.number for p in pulls]
 
             if pull.g_pull.number not in pull_numbers:
                 if len(out_commits) == 1:
-                    LOG.info("Pull requests merged with one commit rebased, "
-                             "or squashed", pull_request=pull)
+                    LOG.info(
+                        "Pull requests merged with one commit rebased, " "or squashed",
+                        pull_request=pull,
+                    )
                 else:
-                    LOG.info("Pull requests merged after rebase",
-                             pull_request=pull)
+                    LOG.info("Pull requests merged after rebase", pull_request=pull)
                 return out_commits
 
     elif len(merge_commit.parents) == 2:
@@ -124,8 +123,10 @@ def backport(pull, branch, installation_token):
     bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
 
     cherry_pick_fail = False
-    body = ("This is an automated backport of pull request #%d done "
-            "by Mergify.io" % pull.g_pull.number)
+    body = (
+        "This is an automated backport of pull request #%d done "
+        "by Mergify.io" % pull.g_pull.number
+    )
 
     git = utils.Gitter()
 
@@ -136,8 +137,12 @@ def backport(pull, branch, installation_token):
         git("init")
         git.configure()
         git.add_cred("x-access-token", installation_token, repo.full_name)
-        git("remote", "add", "origin", "https://%s/%s" % (config.GITHUB_DOMAIN,
-                                                          repo.full_name))
+        git(
+            "remote",
+            "add",
+            "origin",
+            "https://%s/%s" % (config.GITHUB_DOMAIN, repo.full_name),
+        )
 
         git("fetch", "--quiet", "origin", "pull/%s/head" % pull.g_pull.number)
         git("fetch", "--quiet", "origin", pull.g_pull.base.ref)
@@ -163,8 +168,10 @@ def backport(pull, branch, installation_token):
                 git("add", "*")
                 git("commit", "-a", "--no-edit", "--allow-empty")
 
-                body += ("\n\nCherry-pick of %s has failed:\n```\n%s```\n\n"
-                         % (commit.sha, status))
+                body += "\n\nCherry-pick of %s has failed:\n```\n%s```\n\n" % (
+                    commit.sha,
+                    status,
+                )
 
         git("push", "origin", bp_branch)
     except subprocess.CalledProcessError as e:  # pragma: no cover
@@ -172,13 +179,18 @@ def backport(pull, branch, installation_token):
         for error in ERRORS_TO_IGNORE:
             if error in output:
                 return
-        LOG.error("backport failed: %s", output,
-                  pull_request=pull, branch=branch.name,
-                  exc_info=True)
+        LOG.error(
+            "backport failed: %s",
+            output,
+            pull_request=pull,
+            branch=branch.name,
+            exc_info=True,
+        )
         return
     except Exception:  # pragma: no cover
-        LOG.error("backport failed", pull_request=pull, branch=branch.name,
-                  exc_info=True)
+        LOG.error(
+            "backport failed", pull_request=pull, branch=branch.name, exc_info=True
+        )
         return
     finally:
         git.cleanup()
@@ -188,7 +200,8 @@ def backport(pull, branch, installation_token):
             "To fixup this pull request, you can check out it locally. "
             "See documentation: "
             "https://help.github.com/articles/"
-            "checking-out-pull-requests-locally/")
+            "checking-out-pull-requests-locally/"
+        )
 
     try:
         return repo.create_pull(

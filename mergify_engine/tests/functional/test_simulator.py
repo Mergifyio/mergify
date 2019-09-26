@@ -29,11 +29,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     """
 
     def test_simulator(self):
-        rules = {'pull_request_rules': [{
-            "name": "simulator",
-            "conditions": ["base=master"],
-            "actions": {"merge": {}}
-        }]}
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "simulator",
+                    "conditions": ["base=master"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
@@ -47,12 +51,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
           - mergify-test1
 """
         r = self.app.post(
-            '/simulator',
+            "/simulator",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
-            }
+            },
         )
 
         assert r.json == {
@@ -61,58 +65,62 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         }
 
         r = self.app.post(
-            '/simulator',
+            "/simulator",
             json={"pull_request": p.html_url, "mergify.yml": "- no\n* way"},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
-            }
+            },
         )
         assert r.status_code == 400
         assert r.json == {
-            'type': 'MultipleInvalid',
-            'error': "Invalid yaml",
-            "details": ['mergify.yml', {"line": 2, "column": 2}],
-            'message': "Invalid yaml @ data['mergify.yml'][at position 2:2]",
-            'errors': [{
-                'type': 'YamlInvalid',
-                'error': "Invalid yaml",
-                "details": ['mergify.yml', {"line": 2, "column": 2}],
-                'message':
-                "Invalid yaml @ data['mergify.yml'][at position 2:2]",
-            }]
+            "type": "MultipleInvalid",
+            "error": "Invalid yaml",
+            "details": ["mergify.yml", {"line": 2, "column": 2}],
+            "message": "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            "errors": [
+                {
+                    "type": "YamlInvalid",
+                    "error": "Invalid yaml",
+                    "details": ["mergify.yml", {"line": 2, "column": 2}],
+                    "message": "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+                }
+            ],
         }
 
         r = self.app.post(
-            '/simulator',
+            "/simulator",
             json={"invalid": "json"},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
-            }
+            },
         )
         assert r.status_code == 400
-        r.json["errors"] = sorted(r.json["errors"],
-                                  key=operator.itemgetter("message"))
+        r.json["errors"] = sorted(r.json["errors"], key=operator.itemgetter("message"))
         assert r.json == {
-            'type': 'MultipleInvalid',
-            'error': "extra keys not allowed",
-            'details': ['invalid'],
-            'message': "extra keys not allowed @ data['invalid']",
-            'errors': [{
-                'type': 'Invalid',
-                'error': "extra keys not allowed",
-                'message': "extra keys not allowed @ data['invalid']",
-                "details": ['invalid'],
-            }, {
-                'type': 'RequiredFieldInvalid',
-                'error': 'required key not provided',
-                'message': "required key not provided @ data['mergify.yml']",
-                'details': ['mergify.yml'],
-            }, {
-                'type': 'RequiredFieldInvalid',
-                'error': 'required key not provided',
-                'message': "required key not provided @ data['pull_request']",
-                'details': ['pull_request'],
-            }],
+            "type": "MultipleInvalid",
+            "error": "extra keys not allowed",
+            "details": ["invalid"],
+            "message": "extra keys not allowed @ data['invalid']",
+            "errors": [
+                {
+                    "type": "Invalid",
+                    "error": "extra keys not allowed",
+                    "message": "extra keys not allowed @ data['invalid']",
+                    "details": ["invalid"],
+                },
+                {
+                    "type": "RequiredFieldInvalid",
+                    "error": "required key not provided",
+                    "message": "required key not provided @ data['mergify.yml']",
+                    "details": ["mergify.yml"],
+                },
+                {
+                    "type": "RequiredFieldInvalid",
+                    "error": "required key not provided",
+                    "message": "required key not provided @ data['pull_request']",
+                    "details": ["pull_request"],
+                },
+            ],
         }

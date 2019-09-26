@@ -32,7 +32,7 @@ def _get_queue_cache_key(pull):
         pull.installation_id,
         pull.g_pull.base.repo.owner.login.lower(),
         pull.g_pull.base.repo.name.lower(),
-        pull.g_pull.base.ref
+        pull.g_pull.base.ref,
     )
 
 
@@ -67,65 +67,91 @@ def _move_pull_at_end(pull):  # pragma: no cover
     queue = _get_queue_cache_key(pull)
     score = utils.utcnow().timestamp()
     redis.zadd(queue, {pull.g_pull.number: score}, xx=True)
-    LOG.debug("pull request moved at the end of the merge queue",
-              queue=queue, pull_request=pull)
+    LOG.debug(
+        "pull request moved at the end of the merge queue",
+        queue=queue,
+        pull_request=pull,
+    )
 
 
 def _get_next_pull_request(queue):
     _, installation_id, owner, reponame, branch = queue.split("~")
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
-        installation_token = integration.get_access_token(
-            installation_id).token
+        installation_token = integration.get_access_token(installation_id).token
     except github.UnknownObjectException:  # pragma: no cover
-        LOG.error("token for install %d does not exists anymore (%s/%s)",
-                  installation_id, owner, reponame)
+        LOG.error(
+            "token for install %d does not exists anymore (%s/%s)",
+            installation_id,
+            owner,
+            reponame,
+        )
         return
 
     redis = utils.get_redis_for_cache()
     pull_numbers = redis.zrange(queue, 0, 0)
     if pull_numbers:
         return mergify_pull.MergifyPull.from_number(
-            installation_id, installation_token,
-            owner, reponame, int(pull_numbers[0]))
+            installation_id, installation_token, owner, reponame, int(pull_numbers[0])
+        )
 
 
 def _handle_first_pull_in_queue(queue, pull):
     _, installation_id, owner, reponame, branch = queue.split("~")
-    old_checks = [c for c in check_api.get_checks(pull.g_pull)
-                  if (c.name.endswith(" (merge)") and
-                      c._rawData['app']['id'] == config.INTEGRATION_ID)]
+    old_checks = [
+        c
+        for c in check_api.get_checks(pull.g_pull)
+        if (
+            c.name.endswith(" (merge)")
+            and c._rawData["app"]["id"] == config.INTEGRATION_ID
+        )
+    ]
 
     merge_output = helpers.merge_report(pull)
     mergeable_state_output = helpers.output_for_mergeable_state(pull, True)
     if merge_output or mergeable_state_output:
         conclusion, title, summary = merge_output or mergeable_state_output
-        LOG.debug("pull request closed in the meantime", pull=pull,
-                  conclusion=conclusion, title=title, summary=summary)
+        LOG.debug(
+            "pull request closed in the meantime",
+            pull=pull,
+            conclusion=conclusion,
+            title=title,
+            summary=summary,
+        )
         remove_pull(pull)
     else:
         LOG.debug("updating base branch of pull request", pull=pull)
         redis = utils.get_redis_for_cache()
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = helpers.update_pull_base_branch(
-            pull, installation_id, method)
+            pull, installation_id, method
+        )
 
         if pull.g_pull.state == "closed":
-            LOG.debug("pull request closed in the meantime", pull=pull,
-                      conclusion=conclusion, title=title, summary=summary)
+            LOG.debug(
+                "pull request closed in the meantime",
+                pull=pull,
+                conclusion=conclusion,
+                title=title,
+                summary=summary,
+            )
             remove_pull(pull)
         elif conclusion == "failure":
-            LOG.debug("base branch update failed", pull=pull, title=title,
-                      summary=summary)
+            LOG.debug(
+                "base branch update failed", pull=pull, title=title, summary=summary
+            )
             _move_pull_at_end(pull)
 
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
         check_api.set_check_run(
-            pull.g_pull, c.name, status, conclusion,
-            output={"title": title, "summary": summary})
+            pull.g_pull,
+            c.name,
+            status,
+            conclusion,
+            output={"title": title, "summary": summary},
+        )
 
 
 @app.task
@@ -147,22 +173,31 @@ def smart_strict_workflow_periodic_task():
             elif pull.g_pull.state == "closed" or pull.is_behind():
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
-                LOG.debug("pull request needs to be updated again or "
-                          "has been closed", pull_request=pull)
+                LOG.debug(
+                    "pull request needs to be updated again or " "has been closed",
+                    pull_request=pull,
+                )
                 _handle_first_pull_in_queue(queue, pull)
             else:
                 # NOTE(sileht): Pull request has not been merged or cancelled
                 # yet wait next loop
-                LOG.debug("pull request checks are still in progress",
-                          pull_request=pull)
+                LOG.debug(
+                    "pull request checks are still in progress", pull_request=pull
+                )
 
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
-            LOG.warning("pull request with mergeable_state unknown "
-                        "retrying later", pull_request=e.pull)
+            LOG.warning(
+                "pull request with mergeable_state unknown " "retrying later",
+                pull_request=e.pull,
+            )
             _move_pull_at_end(e.pull)
         except Exception:  # pragma: no cover
-            LOG.error("Fail to process merge queue", queue=queue,
-                      pull_request=pull, exc_info=True)
+            LOG.error(
+                "Fail to process merge queue",
+                queue=queue,
+                pull_request=pull,
+                exc_info=True,
+            )
             if pull:
                 _move_pull_at_end(pull)
 

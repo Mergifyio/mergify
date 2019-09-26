@@ -30,16 +30,21 @@ from mergify_engine.tasks.engine import v2
 
 def get_repositories_setuped(token, install_id):  # pragma: no cover
     repositories = []
-    url = ("https://api.%s/user/installations/%s/repositories" %
-           (config.GITHUB_DOMAIN, install_id))
+    url = "https://api.%s/user/installations/%s/repositories" % (
+        config.GITHUB_DOMAIN,
+        install_id,
+    )
     token = "token {}".format(token)
     session = requests.Session()
     while True:
-        response = session.get(url, headers={
-            "Authorization": token,
-            "Accept": "application/vnd.github.machine-man-preview+json",
-            "User-Agent": "PyGithub/Python"
-        })
+        response = session.get(
+            url,
+            headers={
+                "Authorization": token,
+                "Accept": "application/vnd.github.machine-man-preview+json",
+                "User-Agent": "PyGithub/Python",
+            },
+        )
         if response.status_code == 200:
             repositories.extend(response.json()["repositories"])
             if "next" in response.links:
@@ -49,23 +54,17 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
                 return repositories
         elif response.status_code == 403:
             raise github.BadCredentialsException(
-                status=response.status_code,
-                data=response.text
+                status=response.status_code, data=response.text
             )
         elif response.status_code == 404:
             raise github.UnknownObjectException(
-                status=response.status_code,
-                data=response.text
+                status=response.status_code, data=response.text
             )
-        raise github.GithubException(
-            status=response.status_code,
-            data=response.text
-        )
+        raise github.GithubException(status=response.status_code, data=response.text)
 
 
 def create_jwt():
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     return integration.create_jwt()
 
 
@@ -74,16 +73,17 @@ def report(url):
     path = url.replace("https://github.com/", "")
     owner, repo, _, pull_number = path.split("/")
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     install_id = utils.get_installation_id(integration, owner)
 
     print("* INSTALLATION ID: %s" % install_id)
 
     cached_sub = sub_utils.get_subscription(redis, install_id)
     db_sub = sub_utils._retrieve_subscription_from_db(install_id)
-    print("* SUBSCRIBED (cache/db): %s / %s" % (
-        cached_sub["subscription_active"], db_sub["subscription_active"]))
+    print(
+        "* SUBSCRIBED (cache/db): %s / %s"
+        % (cached_sub["subscription_active"], db_sub["subscription_active"])
+    )
     print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
 
     print("* NUMBER OF CACHED TOKENS: %d" % len(cached_sub["tokens"]))
@@ -102,8 +102,7 @@ def report(url):
                 if any((r["full_name"] == owner + "/" + repo) for r in repos):
                     print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
                 else:
-                    print("* MERGIFY INSTALLED BUT DISABLED "
-                          "ON THIS REPOSITORY")
+                    print("* MERGIFY INSTALLED BUT DISABLED " "ON THIS REPOSITORY")
                 break
         else:
             print("* MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
@@ -112,8 +111,9 @@ def report(url):
 
     installation_token = integration.get_access_token(install_id).token
 
-    g = github.Github(installation_token,
-                      base_url="https://api.%s" % config.GITHUB_DOMAIN)
+    g = github.Github(
+        installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
+    )
     r = g.get_repo(owner + "/" + repo)
     print("* REPOSITORY IS %s" % "PRIVATE" if r.private else "PUBLIC")
     p = r.get_pull(int(pull_number))
@@ -148,9 +148,8 @@ def report(url):
     print("* MERGIFY LAST CHECKS:")
     checks = list(check_api.get_checks(p))
     for c in checks:
-        if c._rawData['app']['id'] == config.INTEGRATION_ID:
-            print("[%s]: %s | %s" % (c.name, c.conclusion,
-                                     c.output.get("title")))
+        if c._rawData["app"]["id"] == config.INTEGRATION_ID:
+            print("[%s]: %s | %s" % (c.name, c.conclusion, c.output.get("title")))
             print("> " + "\n> ".join(c.output.get("summary").split("\n")))
 
     print("* MERGIFY LIVE MATCHES:")
@@ -163,9 +162,7 @@ def report(url):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Debugger for mergify'
-    )
+    parser = argparse.ArgumentParser(description="Debugger for mergify")
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
     report(args.url)

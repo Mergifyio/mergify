@@ -20,7 +20,7 @@ import flask
 
 LOG = logging.getLogger(__name__)
 
-app = flask.Flask(__name__, static_url_path='')
+app = flask.Flask(__name__, static_url_path="")
 
 
 @app.route("/engine/installation/<int:installation_id>")

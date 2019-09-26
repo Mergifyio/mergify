@@ -21,18 +21,19 @@ LOG = daiquiri.getLogger(__name__)
 
 def merge_report(pull):
     if pull.g_pull.merged:
-        if (pull.g_pull.merged_by and
-                pull.g_pull.merged_by.login in [
-                    'mergify[bot]',
-                    'mergify-test[bot]'
-                ]):
+        if pull.g_pull.merged_by and pull.g_pull.merged_by.login in [
+            "mergify[bot]",
+            "mergify-test[bot]",
+        ]:
             mode = "automatically"
         else:
             mode = "manually"
         conclusion = "success"
         title = "The pull request has been merged %s" % mode
-        summary = ("The pull request has been merged %s at *%s*" %
-                   (mode, pull.g_pull.merge_commit_sha))
+        summary = "The pull request has been merged %s at *%s*" % (
+            mode,
+            pull.g_pull.merge_commit_sha,
+        )
     elif pull.g_pull.state == "closed":
         conclusion = "cancelled"
         title = "The pull request has been closed manually"
@@ -48,19 +49,22 @@ def output_for_mergeable_state(pull, strict):
     if pull.g_pull.mergeable_state == "dirty":
         return None, "Merge conflict needs to be solved", ""
     elif pull.g_pull.mergeable_state == "unknown":
-        return ("failure", "Pull request state reported as `unknown` by "
-                "GitHub", "")
+        return ("failure", "Pull request state reported as `unknown` by " "GitHub", "")
     # FIXME(sileht): We disable this check as github wrongly report
     # mergeable_state == blocked sometimes. The workaround is to try to merge
     # it and if that fail we checks for blocking state.
     # elif pull.g_pull.mergeable_state == "blocked":
     #     return ("failure", "Branch protection settings are blocking "
     #            "automatic merging", "")
-    elif (pull.g_pull.mergeable_state == "behind" and not strict):
+    elif pull.g_pull.mergeable_state == "behind" and not strict:
         # Strict mode has been enabled in branch protection but not in
         # mergify
-        return ("failure", "Branch protection setting 'strict' conflicts "
-                "with Mergify configuration", "")
+        return (
+            "failure",
+            "Branch protection setting 'strict' conflicts "
+            "with Mergify configuration",
+            "",
+        )
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
         # are OK for us
 
@@ -86,7 +90,10 @@ def update_pull_base_branch(pull, installation_id, method):
         # Otherwise the checks will be lost the GitHub UI on the
         # old sha.
         pull.wait_for_sha_change()
-        return (None, "Base branch updates done",
-                "The pull request has been automatically "
-                "updated to follow its base branch and will be "
-                "merged soon")
+        return (
+            None,
+            "Base branch updates done",
+            "The pull request has been automatically "
+            "updated to follow its base branch and will be "
+            "merged soon",
+        )

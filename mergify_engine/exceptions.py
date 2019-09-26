@@ -25,19 +25,22 @@ class MergeableStateUnknown(Exception):
 def need_retry(exception):  # pragma: no cover
     if isinstance(exception, MergeableStateUnknown):
         return 30
-    elif ((isinstance(exception, github.GithubException) and
-           exception.status >= 500) or
-          (isinstance(exception, requests.exceptions.HTTPError) and
-           exception.response.status_code >= 500) or
-          isinstance(exception, requests.exceptions.ConnectionError) or
-          isinstance(exception, requests.exceptions.Timeout) or
-          isinstance(exception, requests.exceptions.TooManyRedirects)):
+    elif (
+        (isinstance(exception, github.GithubException) and exception.status >= 500)
+        or (
+            isinstance(exception, requests.exceptions.HTTPError)
+            and exception.response.status_code >= 500
+        )
+        or isinstance(exception, requests.exceptions.ConnectionError)
+        or isinstance(exception, requests.exceptions.Timeout)
+        or isinstance(exception, requests.exceptions.TooManyRedirects)
+    ):
         return 30
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
     elif isinstance(exception, github.GithubException):
         if exception.status == 401:  # Bad creds or token expired, we can't
-            return 10                # really known
+            return 10  # really known
         elif exception.status == 403:  # Rate limit or abuse detection
-            return 60 * 5              # mechanism
+            return 60 * 5  # mechanism

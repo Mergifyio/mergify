@@ -28,50 +28,49 @@ def api_call(url, method="post"):
     data = os.urandom(250)
     hmac = utils.compute_hmac(data)
 
-    r = requests.request(method,
-                         url,
-                         headers={"X-Hub-Signature": "sha1=" + hmac},
-                         data=data)
+    r = requests.request(
+        method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, data=data
+    )
     r.raise_for_status()
     print(r.text)
 
 
 def clear_token_cache():
-    parser = argparse.ArgumentParser(
-        description='Force refresh of installation token'
-    )
+    parser = argparse.ArgumentParser(description="Force refresh of installation token")
     parser.add_argument("installation_id")
     args = parser.parse_args()
-    api_call(config.BASE_URL + "/subscription-cache/%s" % args.installation_id,
-             method="delete")
+    api_call(
+        config.BASE_URL + "/subscription-cache/%s" % args.installation_id,
+        method="delete",
+    )
 
 
 def refresher():
-    parser = argparse.ArgumentParser(
-        description='Force refresh of mergify_engine'
-    )
+    parser = argparse.ArgumentParser(description="Force refresh of mergify_engine")
     parser.add_argument(
-        "urls", nargs="*",
-        help=("<owner>/<repo>, <owner>/<repo>/branch/<branch>, "
-              "<owner>/<repo>/pull/<pull#> or "
-              "https://github.com/<owner>/<repo>/pull/<pull#>"))
+        "urls",
+        nargs="*",
+        help=(
+            "<owner>/<repo>, <owner>/<repo>/branch/<branch>, "
+            "<owner>/<repo>/pull/<pull#> or "
+            "https://github.com/<owner>/<repo>/pull/<pull#>"
+        ),
+    )
 
     args = parser.parse_args()
 
     if args.urls:
         for url in args.urls:
-            api_call(config.BASE_URL + "/refresh/" +
-                     url.replace("https://github.com/", ""))
+            api_call(
+                config.BASE_URL + "/refresh/" + url.replace("https://github.com/", "")
+            )
     else:
         parser.print_help()
 
 
 def queues():
-    parser = argparse.ArgumentParser(
-        description='Show queue of mergify_engine'
-    )
+    parser = argparse.ArgumentParser(description="Show queue of mergify_engine")
     parser.add_argument("installation_id")
 
     args = parser.parse_args()
-    api_call(config.BASE_URL + "/queues/%s" % args.installation_id,
-             method="GET")
+    api_call(config.BASE_URL + "/queues/%s" % args.installation_id, method="GET")

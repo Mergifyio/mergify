@@ -50,7 +50,8 @@ def get_redis_for_cache():
     global REDIS_CONNECTION_CACHE
     if REDIS_CONNECTION_CACHE is None:
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
-            config.STORAGE_URL, decode_responses=True)
+            config.STORAGE_URL, decode_responses=True
+        )
     return REDIS_CONNECTION_CACHE
 
 
@@ -58,8 +59,9 @@ def utcnow():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
-class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter,
-                      celery.app.log.TaskFormatter):
+class CustomFormatter(
+    daiquiri.formatter.ColorExtrasFormatter, celery.app.log.TaskFormatter
+):
     pass
 
 
@@ -72,25 +74,29 @@ CELERY_EXTRAS_FORMAT = (
 
 def setup_logging():
     daiquiri.setup(
-        outputs=[daiquiri.output.Stream(
-            sys.stdout, formatter=CustomFormatter(
-                fmt=CELERY_EXTRAS_FORMAT))
+        outputs=[
+            daiquiri.output.Stream(
+                sys.stdout, formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT)
+            )
         ],
         level=(logging.DEBUG if config.DEBUG else logging.INFO),
     )
-    daiquiri.set_default_log_levels([
-        ("celery", "INFO"),
-        ("kombu", "WARN"),
-        ("github.Requester", "WARN"),
-        ("urllib3.connectionpool", "WARN"),
-        ("vcr", "WARN"),
-    ])
+    daiquiri.set_default_log_levels(
+        [
+            ("celery", "INFO"),
+            ("kombu", "WARN"),
+            ("github.Requester", "WARN"),
+            ("urllib3.connectionpool", "WARN"),
+            ("vcr", "WARN"),
+        ]
+    )
     config.log()
 
 
 def compute_hmac(data):
-    mac = hmac.new(config.WEBHOOK_SECRET.encode("utf8"),
-                   msg=data, digestmod=hashlib.sha1)
+    mac = hmac.new(
+        config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
+    )
     return str(mac.hexdigest())
 
 
@@ -102,11 +108,14 @@ def get_installations(integration):  # pragma: no cover
     token = "Bearer {}".format(integration.create_jwt())
     session = requests.Session()
     while True:
-        response = session.get(url, headers={
-            "Authorization": token,
-            "Accept": "application/vnd.github.machine-man-preview+json",
-            "User-Agent": "PyGithub/Python"
-        })
+        response = session.get(
+            url,
+            headers={
+                "Authorization": token,
+                "Accept": "application/vnd.github.machine-man-preview+json",
+                "User-Agent": "PyGithub/Python",
+            },
+        )
         if response.status_code == 200:
             installs.extend(response.json())
             if "next" in response.links:
@@ -116,18 +125,13 @@ def get_installations(integration):  # pragma: no cover
                 return installs
         elif response.status_code == 403:
             raise github.BadCredentialsException(
-                status=response.status_code,
-                data=response.text
+                status=response.status_code, data=response.text
             )
         elif response.status_code == 404:
             raise github.UnknownObjectException(
-                status=response.status_code,
-                data=response.text
+                status=response.status_code, data=response.text
             )
-        raise github.GithubException(
-            status=response.status_code,
-            data=response.text
-        )
+        raise github.GithubException(status=response.status_code, data=response.text)
 
 
 def get_installation_id(integration, owner, repo=None, account_type=None):
@@ -146,48 +150,47 @@ def get_installation_id(integration, owner, repo=None, account_type=None):
             owner,
         )
     token = "Bearer {}".format(integration.create_jwt())
-    response = requests.get(url, headers={
-        "Authorization": token,
-        "Accept": "application/vnd.github.machine-man-preview+json",
-        "User-Agent": "PyGithub/Python"
-    })
+    response = requests.get(
+        url,
+        headers={
+            "Authorization": token,
+            "Accept": "application/vnd.github.machine-man-preview+json",
+            "User-Agent": "PyGithub/Python",
+        },
+    )
     if response.status_code == 200:
         return response.json()["id"]
     elif response.status_code == 403:
         raise github.BadCredentialsException(
-            status=response.status_code,
-            data=response.text
+            status=response.status_code, data=response.text
         )
     elif response.status_code == 404:
         raise github.UnknownObjectException(
-            status=response.status_code,
-            data=response.text
+            status=response.status_code, data=response.text
         )
-    raise github.GithubException(
-        status=response.status_code,
-        data=response.text
-    )
+    raise github.GithubException(status=response.status_code, data=response.text)
 
 
 def get_installation_token(installation_id):
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
         return integration.get_access_token(installation_id).token
     except github.UnknownObjectException:  # pragma: no cover
-        LOG.error("token for install %d does not exists anymore",
-                  installation_id)
+        LOG.error("token for install %d does not exists anymore", installation_id)
         return
 
 
 def get_github_pulls_from_sha(repo, sha):
     try:
-        return list(github.PaginatedList.PaginatedList(
-            github.PullRequest.PullRequest, repo._requester,
-            "%s/commits/%s/pulls" % (repo.url, sha),
-            None,
-            headers={'Accept': 'application/vnd.github.groot-preview+json'}
-        ))
+        return list(
+            github.PaginatedList.PaginatedList(
+                github.PullRequest.PullRequest,
+                repo._requester,
+                "%s/commits/%s/pulls" % (repo.url, sha),
+                None,
+                headers={"Accept": "application/vnd.github.groot-preview+json"},
+            )
+        )
     except github.GithubException as e:
         if e.status in [404, 422]:
             return []
@@ -212,9 +215,7 @@ class Gitter(object):
     def cleanup(self):
         LOG.info("cleaning: %s", self.tmp)
         try:
-            self("credential-cache",
-                 "--socket=%s/.git/creds/socket" % self.tmp,
-                 "exit")
+            self("credential-cache", "--socket=%s/.git/creds/socket" % self.tmp, "exit")
         except subprocess.CalledProcessError:  # pragma: no cover
             LOG.warning("git credential-cache exit fail")
         shutil.rmtree(self.tmp)
@@ -224,14 +225,21 @@ class Gitter(object):
         self("config", "user.email", config.GIT_EMAIL)
         # Use one git cache daemon per Gitter
         self("config", "credential.useHttpPath", "true")
-        self("config", "credential.helper",
-             "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp)
+        self(
+            "config",
+            "credential.helper",
+            "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp,
+        )
 
     def add_cred(self, username, password, path):
         domain = config.GITHUB_DOMAIN
-        self("credential", "approve",
-             input=("url=https://%s:%s@%s/%s\n\n" %
-                    (username, password, domain, path)).encode("utf8"))
+        self(
+            "credential",
+            "approve",
+            input=(
+                "url=https://%s:%s@%s/%s\n\n" % (username, password, domain, path)
+            ).encode("utf8"),
+        )
 
 
 @contextlib.contextmanager

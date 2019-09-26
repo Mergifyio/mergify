@@ -30,9 +30,9 @@ def fixup_sentry_reporting(event, hint):  # pragma: no cover
     # NOTE(sileht): Block exceptions that celery will retry until
     # the retries handler manually send the event.
     is_celery_task = "celery-job" in event.get("extra", {})
-    is_exception = 'exc_info' in hint
+    is_exception = "exc_info" in hint
     if is_exception and is_celery_task:
-        exc_type, exc_value, tb = hint['exc_info']
+        exc_type, exc_value, tb = hint["exc_info"]
 
         backoff = exceptions.need_retry(exc_value)
         if backoff or isinstance(exc_value, celery.exceptions.Retry):
@@ -42,8 +42,9 @@ def fixup_sentry_reporting(event, hint):  # pragma: no cover
 
 
 if config.SENTRY_URL:  # pragma: no cover
-    sentry_sdk.init(config.SENTRY_URL,
-                    environment=config.SENTRY_ENVIRONMENT,
-                    before_send=fixup_sentry_reporting,
-                    integrations=[CeleryIntegration(),
-                                  FlaskIntegration()])
+    sentry_sdk.init(
+        config.SENTRY_URL,
+        environment=config.SENTRY_ENVIRONMENT,
+        before_send=fixup_sentry_reporting,
+        integrations=[CeleryIntegration(), FlaskIntegration()],
+    )

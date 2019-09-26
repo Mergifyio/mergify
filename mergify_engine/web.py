@@ -47,22 +47,22 @@ from mergify_engine.tasks.engine import v2
 
 LOG = logging.getLogger(__name__)
 
-app = flask.Flask(__name__, static_url_path='')
+app = flask.Flask(__name__, static_url_path="")
 
 
 def authentification():  # pragma: no cover
     # Only SHA1 is supported
-    header_signature = flask.request.headers.get('X-Hub-Signature')
+    header_signature = flask.request.headers.get("X-Hub-Signature")
     if header_signature is None:
         LOG.warning("Webhook without signature")
         flask.abort(403)
 
     try:
-        sha_name, signature = header_signature.split('=')
+        sha_name, signature = header_signature.split("=")
     except ValueError:
         sha_name = None
 
-    if sha_name != 'sha1':
+    if sha_name != "sha1":
         LOG.warning("Webhook signature malformed")
         flask.abort(403)
 
@@ -72,8 +72,9 @@ def authentification():  # pragma: no cover
         flask.abort(403)
 
 
-with open(pkg_resources.resource_filename(
-        __name__, "data/mergify-logo-32.png"), "rb") as logo:
+with open(
+    pkg_resources.resource_filename(__name__, "data/mergify-logo-32.png"), "rb"
+) as logo:
     _MERGIFY_LOGO_BASE64 = base64.b64encode(logo.read()).decode()
 
 
@@ -104,28 +105,31 @@ def badge_svg(owner, repo):  # pragma: no cover
     return _get_badge_url(owner, repo, "svg")
 
 
-with open(pkg_resources.resource_filename(
-        __name__, "data/mergify-logo.svg"), "r") as logo:
+with open(
+    pkg_resources.resource_filename(__name__, "data/mergify-logo.svg"), "r"
+) as logo:
     _MERGIFY_LOGO_SVG = logo.read()
 
 
 @app.route("/badges/<owner>/<repo>")
 def badge(owner, repo):
     color, mode = _badge_color_mode(owner, repo)
-    return flask.jsonify({
-        "schemaVersion": 1,
-        "label": "Mergify",
-        "message": mode,
-        "color": color,
-        "logoSvg": _MERGIFY_LOGO_SVG,
-    })
+    return flask.jsonify(
+        {
+            "schemaVersion": 1,
+            "label": "Mergify",
+            "message": mode,
+            "color": color,
+            "logoSvg": _MERGIFY_LOGO_SVG,
+        }
+    )
 
 
 @app.route("/validate", methods=["POST"])
 @cross_origin()
 def config_validator():  # pragma: no cover
     try:
-        rules.UserConfigurationSchema(flask.request.files['data'].stream)
+        rules.UserConfigurationSchema(flask.request.files["data"].stream)
     except Exception as e:
         status = 400
         message = str(e)
@@ -169,13 +173,12 @@ class PullRequestUrlInvalid(voluptuous.Invalid):
     pass
 
 
-@voluptuous.message('expected a Pull Request URL', cls=PullRequestUrlInvalid)
+@voluptuous.message("expected a Pull Request URL", cls=PullRequestUrlInvalid)
 def PullRequestUrl(v):
     _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
     pull_number = int(pull_number)
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID,
-                                           config.PRIVATE_KEY)
+    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
         installation_id = utils.get_installation_id(integration, owner, repo)
     except github.GithubException:
@@ -189,15 +192,15 @@ def PullRequestUrl(v):
             installation_id, token, owner, repo, pull_number
         )
     except github.UnknownObjectException:
-        raise PullRequestUrlInvalid(
-            message=("Pull request '%s' not found" % v)
-        )
+        raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
 
-SimulatorSchema = voluptuous.Schema({
-    voluptuous.Required('pull_request'): PullRequestUrl(),
-    voluptuous.Required('mergify.yml'): rules.UserConfigurationSchema,
-})
+SimulatorSchema = voluptuous.Schema(
+    {
+        voluptuous.Required("pull_request"): PullRequestUrl(),
+        voluptuous.Required("mergify.yml"): rules.UserConfigurationSchema,
+    }
+)
 
 
 def ensure_no_voluptuous(value):
@@ -239,25 +242,23 @@ def simulator():
     match = pull_request_rules.get_pull_request_rule(pull_request)
 
     raw_event = {
-        'repository': pull_request.g_pull.base.repo.raw_data,
-        'installation': {'id': pull_request.installation_id},
-        'pull_request': pull_request.g_pull.raw_data
+        "repository": pull_request.g_pull.base.repo.raw_data,
+        "installation": {"id": pull_request.installation_id},
+        "pull_request": pull_request.g_pull.raw_data,
     }
     title, summary = v2.gen_summary("refresh", raw_event, pull_request, match)
     return flask.jsonify({"title": title, "summary": summary}), 200
 
 
 @app.route("/marketplace", methods=["POST"])
-def marketplace_handler():   # pragma: no cover
+def marketplace_handler():  # pragma: no cover
     authentification()
 
     event_type = flask.request.headers.get("X-GitHub-Event")
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
 
-    github_events.job_marketplace.apply_async(
-        args=[event_type, event_id, data],
-    )
+    github_events.job_marketplace.apply_async(args=[event_type, event_id, data])
     return "Event queued", 202
 
 
@@ -270,9 +271,9 @@ def queues(installation_id):
     filter_ = "strict-merge-queues~%s~*" % installation_id
     for queue in redis.keys(filter_):
         _, _, owner, repo, branch = queue.split("~")
-        queues[owner + "/" + repo][branch] = (
-            [int(pull) for pull, score in redis.zscan_iter(queue)]
-        )
+        queues[owner + "/" + repo][branch] = [
+            int(pull) for pull, score in redis.zscan_iter(queue)
+        ]
 
     return flask.jsonify(queues)
 
@@ -286,8 +287,7 @@ def event_handler():
     data = flask.request.get_json()
 
     github_events.job_filter_and_dispatch.apply_async(
-        args=[event_type, event_id, data],
-        countdown=30
+        args=[event_type, event_id, data], countdown=30
     )
     return "Event queued", 202
 
@@ -305,13 +305,14 @@ def event_testing_handler():  # pragma: no cover
         event_type = flask.request.headers.get("X-GitHub-Event")
         event_id = flask.request.headers.get("X-GitHub-Delivery")
         data = flask.request.get_json()
-        r.rpush("events-testing", json.dumps(
-            {"id": event_id, "type": event_type, "payload": data}
-        ))
+        r.rpush(
+            "events-testing",
+            json.dumps({"id": event_id, "type": event_type, "payload": data}),
+        )
         return "", 202
     else:
         p = r.pipeline()
-        number = flask.request.args.get('number')
+        number = flask.request.args.get("number")
         if number:
             for _ in range(int(number)):
                 p.lpop("events-testing")
@@ -320,20 +321,21 @@ def event_testing_handler():  # pragma: no cover
             p.lrange("events-testing", 0, -1)
             p.delete("events-testing")
             values = p.execute()[0]
-        data = [json.loads(i) for i in values
-                if i is not None]
+        data = [json.loads(i) for i in values if i is not None]
         return flask.jsonify(data)
 
 
 @app.route("/marketplace-testing", methods=["POST"])
-def marketplace_testng_handler():   # pragma: no cover
+def marketplace_testng_handler():  # pragma: no cover
     event_type = flask.request.headers.get("X-GitHub-Event")
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
-    LOG.debug("received marketplace testing events",
-              event_type=event_type,
-              event_id=event_id,
-              data=data)
+    LOG.debug(
+        "received marketplace testing events",
+        event_type=event_type,
+        event_id=event_id,
+        data=data,
+    )
     return "Event ignored", 202
 
 
