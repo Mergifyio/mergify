@@ -25,7 +25,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
-from mergify_engine.tasks.engine import v2
+from mergify_engine.tasks.engine import actions_runner
 
 
 def get_repositories_setuped(token, install_id):  # pragma: no cover
@@ -132,7 +132,7 @@ def report(url):
         print("configuration is invalid %s" % str(e))
     else:
         pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
-        pull_request_rules_raw["rules"].extend(v2.MERGIFY_RULE["rules"])
+        pull_request_rules_raw["rules"].extend(actions_runner.MERGIFY_RULE["rules"])
         pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     mp = mergify_pull.MergifyPull(g, p, install_id)
@@ -154,7 +154,7 @@ def report(url):
 
     print("* MERGIFY LIVE MATCHES:")
     match = pull_request_rules.get_pull_request_rule(mp)
-    summary_title, summary = v2.gen_summary("refresh", {}, mp, match)
+    summary_title, summary = actions_runner.gen_summary("refresh", {}, mp, match)
     print("> %s" % summary_title)
     print(summary)
 

@@ -20,7 +20,7 @@ from mergify_engine import config
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
-from mergify_engine.tasks.engine import v2
+from mergify_engine.tasks.engine import actions_runner
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -273,7 +273,7 @@ def run(event_type, data):
 
     create_metrics(event_type, data)
 
-    v2.handle.s(
+    actions_runner.handle.s(
         installation_id,
         mergify_config["pull_request_rules"].as_dict(),
         event_type,
