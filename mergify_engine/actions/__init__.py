@@ -18,6 +18,8 @@ import abc
 
 import attr
 
+import voluptuous
+
 
 @attr.s
 class Action(abc.ABC):
@@ -36,6 +38,15 @@ class Action(abc.ABC):
     @abc.abstractmethod
     def validator():  # pragma: no cover
         pass
+
+    @classmethod
+    def get_schema(cls):
+        return voluptuous.All(cls.validator, voluptuous.Coerce(cls))
+
+    @staticmethod
+    def command_to_config(string):  # pragma: no cover
+        """Convert string to dict config"""
+        raise NotImplementedError
 
     @staticmethod
     def run(
