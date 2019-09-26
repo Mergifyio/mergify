@@ -21,6 +21,7 @@ from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks.engine import actions_runner
+from mergify_engine.tasks.engine import commands_runner
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
@@ -33,10 +34,17 @@ def get_github_pull_from_sha(repo, sha):
 
 
 def get_github_pull_from_event(repo, event_type, data):
-    if "pull_request" in data:
+    if "pull_request" in data and data["pull_request"]:
         return github.PullRequest.PullRequest(
             repo._requester, {}, data["pull_request"], completed=True
         )
+
+    elif event_type == "issue_comment":
+        try:
+            return repo.get_pull(data["issue"]["number"])
+        except github.UnknownObjectException:  # pragma: no cover
+            pass
+
     elif event_type == "status":
         return get_github_pull_from_sha(repo, data["sha"])
 
@@ -170,6 +178,9 @@ def run(event_type, data):
         LOG.info("No pull request found in the event %s, " "ignoring", event_type)
         return
 
+    # Override pull_request with the updated one
+    data["pull_request"] = event_pull.raw_data
+
     LOG.info(
         "Pull request found in the event %s",
         event_type,
@@ -273,10 +284,18 @@ def run(event_type, data):
 
     create_metrics(event_type, data)
 
-    actions_runner.handle.s(
-        installation_id,
-        mergify_config["pull_request_rules"].as_dict(),
-        event_type,
-        data,
-        event_pull.raw_data,
-    ).apply_async()
+    commands_runner.spawn_pending_commands_tasks(
+        installation_id, event_type, data, event_pull
+    )
+
+    if event_type == "issue_comment":
+        commands_runner.run_command.s(
+            installation_id, event_type, data, data["comment"]["body"]
+        ).apply_async()
+    else:
+        actions_runner.handle.s(
+            installation_id,
+            mergify_config["pull_request_rules"].as_dict(),
+            event_type,
+            data,
+        ).apply_async()
