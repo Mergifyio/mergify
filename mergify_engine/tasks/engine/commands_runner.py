@@ -82,33 +82,48 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
     pull = mergify_pull.MergifyPull.from_raw(
         installation_id, installation_token, data["pull_request"]
     )
-    action = load_action(comment)
-    if action:
-        command, method = action
 
-        report = method.run(
-            installation_id, installation_token, event_type, data, pull, []
+    # Run command only if this is a pending task or if user have permission to do it.
+    if (
+        rerun
+        or data["comment"]["user"]["id"] == config.BOT_USER_ID
+        or pull.g_pull.base.repo.get_collaborator_permission(
+            data["comment"]["user"]["login"]
         )
+        in ["admin", "write"]
+    ):
+        action = load_action(comment)
+        if action:
+            command, method = action
 
-        if report:
-            conclusion, title, summary = report
-            if conclusion is None:
-                if rerun:
-                    return
-                conclusion = "pending"
-            result = "**Command `{command}`: {conclusion}**\n> **{title}**\n{summary}\n".format(
-                command=command,
-                conclusion=conclusion,
-                title=title,
-                summary=("\n> ".join(summary.split("\n"))).strip(),
+            report = method.run(
+                installation_id, installation_token, event_type, data, pull, []
             )
-        else:
-            result = "**Command `{}`: success**".format(command)
-    else:
-        result = UNKNOWN_COMMAND_MESSAGE
 
-    if "@mergifyio" not in comment:  # @mergify have been used instead
-        result += "\n\n" + WRONG_ACCOUNT_MESSAGE
+            if report:
+                conclusion, title, summary = report
+                if conclusion is None:
+                    if rerun:
+                        return
+                    conclusion = "pending"
+                result = "**Command `{command}`: {conclusion}**\n> **{title}**\n{summary}\n".format(
+                    command=command,
+                    conclusion=conclusion,
+                    title=title,
+                    summary=("\n> ".join(summary.split("\n"))).strip(),
+                )
+            else:
+                result = "**Command `{}`: success**".format(command)
+        else:
+            result = UNKNOWN_COMMAND_MESSAGE
+
+        if "@mergifyio" not in comment:  # @mergify have been used instead
+            result += "\n\n" + WRONG_ACCOUNT_MESSAGE
+
+    else:
+        result = "@{} is not allowed to run commands".format(
+            data["comment"]["user"]["login"]
+        )
 
     try:
         pull.g_pull.create_issue_comment(result)
