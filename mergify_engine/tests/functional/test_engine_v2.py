@@ -577,7 +577,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 ("pull_request", {"action": "closed"}),
                 ("push", {}),
                 ("check_suite", {"action": "requested"}),
-            ]
+            ],
+            ordered=False,
         )
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha

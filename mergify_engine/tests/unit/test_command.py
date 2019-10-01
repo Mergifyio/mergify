@@ -34,9 +34,11 @@ def test_command_loader():
         "@mergifyio rebase foobar",
         "@mergifyio rebase foobar\nsecondline\n",
     ]:
-        action = load_action(message)
+        command, action = load_action(message)
+        assert command.startswith("rebase")
         assert isinstance(action, RebaseAction)
 
-    action = load_action("@mergifyio backport branch-3.1 branch-3.2\nfoobar\n")
+    command, action = load_action("@mergifyio backport branch-3.1 branch-3.2\nfoobar\n")
+    assert command == "backport branch-3.1 branch-3.2"
     assert isinstance(action, BackportAction)
     assert action.config == {"branches": ["branch-3.1", "branch-3.2"], "regexes": []}
