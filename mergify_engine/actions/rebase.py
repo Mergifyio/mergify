@@ -34,4 +34,4 @@ class RebaseAction(actions.Action):
         except branch_updater.BranchUpdateFailure as e:
             return "failure", "Branch rebase failed", str(e)
         else:
-            return "success", "Branch have been successfully rebased", ""
+            return "success", "Branch has been successfully rebased", ""
