@@ -313,6 +313,16 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - None
     - The users to request reviews from
 
+.. _rebase action:
+
+rebase
+======
+
+The ``rebase`` action will rebase the pull request against the base branch.
+
+Be aware, that rebasing means Mergify will git force-push the rebased branch to
+the head branch. Any change done to pull request while Mergify is rebasing the
+pull request can be lose.
 
 Git merge workflow and Mergify equivalent configuration
 -------------------------------------------------------
