@@ -93,7 +93,7 @@ class CopyAction(actions.Action):
             # No, then do it
             if not new_pull:
                 new_pull = duplicate_pull.duplicate(
-                    pull, branch, installation_token, self.kind
+                    pull, branch, installation_token, self.KIND
                 )
 
                 # NOTE(sileht): We relook again in case of concurrent duplicate
