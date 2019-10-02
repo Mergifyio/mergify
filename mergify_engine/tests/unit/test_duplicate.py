@@ -15,7 +15,7 @@
 # under the License.
 from unittest import mock
 
-from mergify_engine import backports
+from mergify_engine import duplicate_pull
 from mergify_engine import config
 from mergify_engine import mergify_pull
 
@@ -28,7 +28,7 @@ def fake_get_github_pulls_from_sha(repo, sha):
 
 
 @mock.patch(
-    "mergify_engine.backports.utils.get_github_pulls_from_sha",
+    "mergify_engine.duplicate_pull.utils.get_github_pulls_from_sha",
     side_effect=fake_get_github_pulls_from_sha,
 )
 def test_get_commits_to_cherry_pick_rebase(_):
@@ -63,7 +63,7 @@ def test_get_commits_to_cherry_pick_rebase(_):
     rebased_c2.sha = "rebased_c2"
     rebased_c2.parents = [rebased_c1]
 
-    assert backports._get_commits_to_cherrypick(pull, rebased_c2) == [
+    assert duplicate_pull._get_commits_to_cherrypick(pull, rebased_c2) == [
         rebased_c1,
         rebased_c2,
     ]
@@ -97,4 +97,4 @@ def test_get_commits_to_cherry_pick_merge():
     merge_commit.sha = "merge_commit"
     merge_commit.parents = [base_branch, c2]
 
-    assert backports._get_commits_to_cherrypick(pull, merge_commit) == [c1, c2]
+    assert duplicate_pull._get_commits_to_cherrypick(pull, merge_commit) == [c1, c2]

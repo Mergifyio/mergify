@@ -73,6 +73,29 @@ parameter:
 Once the backporting pull request is closed or merged, Mergify will
 automatically delete the backport head branch that it created.
 
+copy
+====
+
+The ``copy`` action creates a copy of the pull request targetting other branches.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``branches``
+     - array of string
+     - ``[]``
+     - The list of branches the pull request should be copied to.
+   * - ``regexes``
+     - array of string
+     - ``[]``
+     - The list of regexes to find branches the pull request should be copied to.
+
+
 .. _comment action:
 
 comment
