@@ -4,9 +4,9 @@
  Commands
 ==========
 
-Instead of waiting a list of :ref:`Conditions` to occur to run :ref:`Actions`,
-Mergify bot can run the action when a special comment is sent on a pull
-request.
+:ref:`Actions` can be run directly by commenting on a pull request. The syntax is::
+
+  @Mergifyio [parameters …]
 
 The list of available commands is listed below, with their parameters:
 
@@ -15,15 +15,29 @@ The list of available commands is listed below, with their parameters:
 rebase
 ======
 
-   Will run the :ref:`rebase action` action::
+   Will run the :ref:`rebase action` action.
 
-   @mergifyio rebase
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio rebase``
+  * - Example
+    - ``@Mergifyio rebase``
 
 .. _backport command:
 
 backport
 ========
 
-   Will run the :ref:`backport action` action::
+   Will run the :ref:`backport action` action.
 
-   @mergifyio backport branch-1 branch-2
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio backport <branch name> <branch name 2> …``
+  * - Example
+    - ``@Mergifyio backport stable/3.1 stable/4.0``
