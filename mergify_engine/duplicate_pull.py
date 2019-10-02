@@ -109,23 +109,38 @@ def _get_commits_to_cherrypick(pull, merge_commit):
         return []
 
 
-def backport(pull, branch, installation_token):
-    """Backport a pull request.
+BACKPORT = "backport"
+COPY = "copy"
+
+BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
+
+
+def get_destination_branch_name(pull, branch, kind):
+    return "mergify/%s/%s/pr-%s" % (
+        BRANCH_PREFIX_MAP[kind],
+        branch.name,
+        pull.g_pull.number,
+    )
+
+
+def duplicate(pull, branch, installation_token, kind=BACKPORT):
+    """Duplicate a pull request.
 
     :param repo: The repository.
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.mergify_pull.MergifyPull
-    :param branch_name: The branch name to backport to.
+    :param branch_name: The branch name to copy to.
     :param installation_token: The installation token.
+    :param kind: is a backport or a copy
     """
     repo = pull.g_pull.base.repo
 
-    bp_branch = "mergify/bp/%s/pr-%s" % (branch.name, pull.g_pull.number)
+    bp_branch = get_destination_branch_name(pull, branch, kind)
 
     cherry_pick_fail = False
-    body = (
-        "This is an automated backport of pull request #%d done "
-        "by Mergify.io" % pull.g_pull.number
+    body = "This is an automated %s of pull request #%d done " "by Mergify.io" % (
+        kind,
+        pull.g_pull.number,
     )
 
     git = utils.Gitter()
@@ -180,16 +195,21 @@ def backport(pull, branch, installation_token):
             if error in output:
                 return
         LOG.error(
-            "backport failed: %s",
+            "duplicate failed: %s",
             output,
             pull_request=pull,
             branch=branch.name,
+            kind=kind,
             exc_info=True,
         )
         return
     except Exception:  # pragma: no cover
         LOG.error(
-            "backport failed", pull_request=pull, branch=branch.name, exc_info=True
+            "duplicate failed",
+            pull_request=pull,
+            branch=branch.name,
+            kind=kind,
+            exc_info=True,
         )
         return
     finally:
@@ -205,7 +225,9 @@ def backport(pull, branch, installation_token):
 
     try:
         return repo.create_pull(
-            title="{} (bp #{})".format(pull.g_pull.title, pull.g_pull.number),
+            title="{} ({} #{})".format(
+                pull.g_pull.title, BRANCH_PREFIX_MAP[kind], pull.g_pull.number
+            ),
             body=body,
             base=branch.name,
             head=bp_branch,

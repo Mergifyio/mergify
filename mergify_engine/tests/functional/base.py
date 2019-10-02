@@ -35,10 +35,10 @@ import testtools
 
 import vcr
 
-from mergify_engine import backports
 from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import duplicate_pull
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
@@ -180,7 +180,7 @@ class FunctionalTestBase(testtools.TestCase):
 
         self.useFixture(
             fixtures.MockPatchObject(
-                backports.utils, "Gitter", lambda: self.get_gitter()
+                duplicate_pull.utils, "Gitter", lambda: self.get_gitter()
             )
         )
 
