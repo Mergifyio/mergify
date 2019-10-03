@@ -24,6 +24,7 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import debug
 from mergify_engine import mergify_pull
 from mergify_engine.tasks.engine import actions_runner
 from mergify_engine.tests.functional import base
@@ -337,6 +338,21 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(
             sorted(["unstable", "foobar"]), sorted([l.name for l in pulls[0].labels])
         )
+
+    def test_debugger(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment",
+                    "conditions": ["base=master"],
+                    "actions": {"comment": {"message": "WTF?"}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr()
+        debug.report(p.html_url)
 
     def test_comment(self):
         rules = {
