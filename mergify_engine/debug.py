@@ -116,7 +116,6 @@ def report(url):
     )
     r = g.get_repo(owner + "/" + repo)
     print("* REPOSITORY IS %s" % "PRIVATE" if r.private else "PUBLIC")
-    p = r.get_pull(int(pull_number))
 
     print("* CONFIGURATION:")
     try:
@@ -134,6 +133,12 @@ def report(url):
         pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
         pull_request_rules_raw["rules"].extend(actions_runner.MERGIFY_RULE["rules"])
         pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
+
+    try:
+        p = r.get_pull(int(pull_number))
+    except github.UnknownObjectException:
+        print("Wrong pull request number")
+        return g, None
 
     mp = mergify_pull.MergifyPull(g, p, install_id)
     print("* PULL REQUEST:")
