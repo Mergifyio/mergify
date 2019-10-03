@@ -24,12 +24,11 @@ import daiquiri
 
 import github
 
-import pkg_resources
-
 import voluptuous
 
 import yaml
 
+from mergify_engine import get_actions
 from mergify_engine.rules import filter
 
 
@@ -59,8 +58,7 @@ PullRequestRulesSchema = voluptuous.Schema(
                     voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
                 ],
                 voluptuous.Required("actions"): dict(
-                    (ep.name, ep.load().get_schema())
-                    for ep in pkg_resources.iter_entry_points("mergify_actions")
+                    (name, obj.get_schema()) for name, obj in get_actions().items()
                 ),
             }
         ],

@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import pkg_resources
 import re
 
 import daiquiri
@@ -21,16 +20,13 @@ import github
 
 import voluptuous
 
+from mergify_engine import get_actions
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import utils
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
-
-COMMAND_CLASSES = dict(
-    (ep.name, ep.load()) for ep in pkg_resources.iter_entry_points("mergify_actions")
-)
 
 COMMAND_MATCHER = re.compile(r"@mergify(?:|io) (\w*)(.*)")
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
@@ -40,9 +36,10 @@ WRONG_ACCOUNT_MESSAGE = "_Hey, we reacted but our real name is @mergifyio_"
 
 
 def load_action(message):
+    actions = get_actions()
     match = COMMAND_MATCHER.search(message)
-    if match and match[1] in COMMAND_CLASSES:
-        action_klass = COMMAND_CLASSES[match[1]]
+    if match and match[1] in actions:
+        action_klass = actions[match[1]]
         try:
             config = action_klass.command_to_config(match[2].strip())
         except NotImplementedError:
