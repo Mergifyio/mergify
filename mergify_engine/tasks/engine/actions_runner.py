@@ -307,7 +307,7 @@ def run_actions(
 
 
 @app.task
-def handle(installation_id, pull_request_rules_raw, event_type, data):
+def handle(installation_id, pull_request_rules_raw, event_type, data, pull_raw):
 
     installation_token = utils.get_installation_token(installation_id)
     if not installation_token:
@@ -318,7 +318,7 @@ def handle(installation_id, pull_request_rules_raw, event_type, data):
 
     pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
     pull = mergify_pull.MergifyPull.from_raw(
-        installation_id, installation_token, data["pull_request"]
+        installation_id, installation_token, pull_raw
     )
     match = pull_request_rules.get_pull_request_rule(pull)
     checks = dict(

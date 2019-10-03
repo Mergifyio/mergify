@@ -577,8 +577,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 ("pull_request", {"action": "closed"}),
                 ("push", {}),
                 ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
+            ]
         )
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -1385,82 +1384,3 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ],
             ordered=False,
         )
-
-    def test_command_rebase_ok(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-rebase-on-conflict",
-                    "conditions": ["conflict"],
-                    "actions": {"comment": {"message": "@mergifyio rebase it please"}},
-                }
-            ]
-        }
-        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = self.create_pr(files={"TESTING": "foobar\np1"})
-        p2, _ = self.create_pr(files={"TESTING": "p2\nfoobar"})
-        p1.merge()
-
-        # Since we use celery eager system for testing, countdown= are ignored.
-        # Wait a bit than Github refresh the mergeable_state before running the
-        # engine
-        time.sleep(10)
-
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-                ("issue_comment", {"action": "created"}),
-            ],
-            ordered=False,
-        )
-
-        time.sleep(1)
-        oldsha = p2.head.sha
-        p2.update()
-        assert oldsha != p2.head.sha
-        assert p2.raw_data["mergeable_state"] != "conflict"
-
-    def test_command_backport(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-backport",
-                    "conditions": ["base=master"],
-                    "actions": {
-                        "comment": {
-                            "message": "@mergifyio backport stable/#3.1 feature/one"
-                        }
-                    },
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1", "feature/one"])
-        p, _ = self.create_pr()
-
-        # Since we use celery eager system for testing, countdown= are ignored.
-        # Wait a bit than Github refresh the mergeable_state before running the
-        # engine
-        time.sleep(10)
-
-        self.push_events([("issue_comment", {"action": "created"})])
-
-        p.merge()
-        self.push_events(
-            [
-                ("push", {}),
-                ("pull_request", {"action": "closed"}),
-                ("check_suite", {"action": "requested"}),
-                ("issue_comment", {"action": "created"}),
-            ],
-            ordered=False,
-        )
-
-        try:
-            pulls = list(self.r_o_admin.get_pulls(state="all"))
-        except Exception:
-            # NOTE(sileht): Don't ask me, and thx Github
-            pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(3, len(pulls))

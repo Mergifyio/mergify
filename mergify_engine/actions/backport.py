@@ -21,10 +21,6 @@ class BackportAction(copy.CopyAction):
     KIND = "backport"
     SUCCESS_MESSAGE = "Backports have been created"
 
-    @staticmethod
-    def command_to_config(string):
-        return {"branches": string.split(" ")}
-
     def run(
         self,
         installation_id,

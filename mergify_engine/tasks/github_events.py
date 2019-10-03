@@ -110,16 +110,6 @@ def get_ignore_reason(subscription, event_type, data):
     ):
         return "ignored (mergify %s)" % event_type
 
-    elif event_type == "issue_comment" and data["action"] != "created":
-        return "ignored (comment have been %s)" % data["action"]
-
-    elif (
-        event_type == "issue_comment"
-        and "@mergify " not in data["comment"]["body"]
-        and "@mergifyio " not in data["comment"]["body"]
-    ):
-        return "ignored (comment is not for mergify)"
-
     elif event_type == "pull_request" and data["action"] not in [
         "opened",
         "reopened",
@@ -137,7 +127,6 @@ def get_ignore_reason(subscription, event_type, data):
         return "ignored (repository archived)"
 
     elif event_type not in [
-        "issue_comment",
         "pull_request",
         "pull_request_review",
         "push",

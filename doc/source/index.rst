@@ -10,7 +10,6 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    configuration
    conditions
    actions
-   commands
    strict-workflow
    examples
    badge

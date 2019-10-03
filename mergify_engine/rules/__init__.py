@@ -59,7 +59,12 @@ PullRequestRulesSchema = voluptuous.Schema(
                     voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
                 ],
                 voluptuous.Required("actions"): dict(
-                    (ep.name, ep.load().get_schema())
+                    (
+                        ep.name,
+                        voluptuous.All(
+                            ep.load().validator, voluptuous.Coerce(ep.load())
+                        ),
+                    )
                     for ep in pkg_resources.iter_entry_points("mergify_actions")
                 ),
             }
