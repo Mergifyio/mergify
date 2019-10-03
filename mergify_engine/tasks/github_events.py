@@ -182,7 +182,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         engine.run.s(event_type, data).apply_async()
         msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
 
-    if "repository" not in data:
+    if "repository" in data:
         repo_name = data["repository"]["full_name"]
         private = data["repository"]["private"]
     else:
