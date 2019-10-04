@@ -49,6 +49,19 @@ merged — even if's approved.
           merge:
             method: merge
 
+If you are already using the GitHub Branch Protection system. You can just
+use:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge when GitHub branch protection passes
+        conditions:
+          - base=master
+        actions:
+          merge:
+            method: merge
+
 
 Using Labels to Backport Pull-Requests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
