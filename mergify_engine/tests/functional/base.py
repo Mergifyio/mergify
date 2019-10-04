@@ -291,6 +291,16 @@ class FunctionalTestBase(testtools.TestCase):
 
         real_get_subscription = sub_utils.get_subscription
 
+        def fake_retrieve_subscription_from_db(install_id):
+            if int(install_id) == config.INSTALLATION_ID:
+                return self.subscription
+            else:
+                return {
+                    "tokens": {},
+                    "subscription_active": False,
+                    "subscription_reason": "We're just testing",
+                }
+
         def fake_subscription(r, install_id):
             if int(install_id) == config.INSTALLATION_ID:
                 return real_get_subscription(r, install_id)
@@ -305,6 +315,13 @@ class FunctionalTestBase(testtools.TestCase):
             fixtures.MockPatch(
                 "mergify_engine.branch_updater.sub_utils.get_subscription",
                 side_effect=fake_subscription,
+            )
+        )
+
+        self.useFixture(
+            fixtures.MockPatch(
+                "mergify_engine.branch_updater.sub_utils._retrieve_subscription_from_db",
+                side_effect=fake_retrieve_subscription_from_db,
             )
         )
 
