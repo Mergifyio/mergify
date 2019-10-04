@@ -181,10 +181,10 @@ class MergeAction(actions.Action):
                 elif pull.g_pull.mergeable_state == "blocked":
                     return (
                         None,
-                        "Waiting for the Branch Protection to go green",
-                        "The Branches Protections are enabled and are preventing Mergify "
-                        "to merge the pull request. Mergify will merge the pull request "
-                        "when they will go green.",
+                        "Waiting for the Branch Protection to be validated",
+                        "Branch Protection is enabled and is preventing Mergify "
+                        "to merge the pull request. Mergify will merge when "
+                        "branch protection settings validate the pull request.",
                     )
                 else:
                     message = "Repository settings are blocking automatic " "merging"
