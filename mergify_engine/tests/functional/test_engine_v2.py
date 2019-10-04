@@ -1176,17 +1176,36 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.push_events(
             [
-                ("check_suite", {"check_suite": {"conclusion": "failure"}}),
-                ("check_run", {"check_run": {"conclusion": "failure"}}),
+                (
+                    "check_run",
+                    {"check_run": {"conclusion": None, "status": "in_progress"}},
+                )
             ]
         )
 
         checks = list(check_api.get_checks(p, {"check_name": "Rule: merge (merge)"}))
-        self.assertEqual("failure", checks[0].conclusion)
+        self.assertEqual(None, checks[0].conclusion)
+        self.assertEqual("in_progress", checks[0].status)
         self.assertIn(
-            "Branch protection settings are blocking " "automatic merging",
-            checks[0].output["title"],
+            "Waiting for the Branch Protection to go green", checks[0].output["title"]
         )
+
+        self.create_status_and_push_event(p)
+
+        self.push_events(
+            [
+                ("pull_request", {"action": "closed"}),
+                ("push", {}),
+                ("check_run", {"check_run": {"conclusion": "success"}}),
+                ("check_suite", {"action": "requested"}),
+            ],
+            ordered=False,
+        )
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(True, pulls[0].merged)
 
     def test_merge_branch_protection_strict(self):
         rules = {
