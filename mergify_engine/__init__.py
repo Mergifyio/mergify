@@ -12,8 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import pkg_resources
-
 import celery.exceptions
 
 import daiquiri
@@ -26,19 +24,6 @@ from mergify_engine import config
 from mergify_engine import exceptions
 
 LOG = daiquiri.getLogger(__name__)
-
-global _ACTIONS_CLASSES
-_ACTIONS_CLASSES = None
-
-
-def get_actions():
-    global _ACTIONS_CLASSES
-    if _ACTIONS_CLASSES is None:
-        _ACTIONS_CLASSES = dict(
-            (ep.name, ep.load())
-            for ep in pkg_resources.iter_entry_points("mergify_actions")
-        )
-    return _ACTIONS_CLASSES
 
 
 def fixup_sentry_reporting(event, hint):  # pragma: no cover

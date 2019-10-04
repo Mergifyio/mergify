@@ -28,7 +28,7 @@ import voluptuous
 
 import yaml
 
-from mergify_engine import get_actions
+from mergify_engine import actions
 from mergify_engine.rules import filter
 
 
@@ -57,9 +57,7 @@ PullRequestRulesSchema = voluptuous.Schema(
                 voluptuous.Required("conditions"): [
                     voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
                 ],
-                voluptuous.Required("actions"): dict(
-                    (name, obj.get_schema()) for name, obj in get_actions().items()
-                ),
+                voluptuous.Required("actions"): actions.get_schemas(),
             }
         ],
         voluptuous.Length(min=1),

@@ -20,7 +20,7 @@ import github
 
 import voluptuous
 
-from mergify_engine import get_actions
+from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import utils
@@ -36,16 +36,16 @@ WRONG_ACCOUNT_MESSAGE = "_Hey, we reacted but our real name is @mergifyio_"
 
 
 def load_action(message):
-    actions = get_actions()
+    action_classes = actions.get_classes()
     match = COMMAND_MATCHER.search(message)
-    if match and match[1] in actions:
-        action_klass = actions[match[1]]
+    if match and match[1] in action_classes:
+        action_class = action_classes[match[1]]
         try:
-            config = action_klass.command_to_config(match[2].strip())
+            config = action_class.command_to_config(match[2].strip())
         except NotImplementedError:
             return
 
-        action = voluptuous.Schema(action_klass.get_schema())(config)
+        action = voluptuous.Schema(action_class.get_schema())(config)
         command = "%s%s" % (match[1], match[2])
         return command, action
 
