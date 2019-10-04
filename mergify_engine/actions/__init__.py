@@ -15,10 +15,29 @@
 # under the License.
 
 import abc
+import pkg_resources
 
 import attr
 
 import voluptuous
+
+
+global _ACTIONS_CLASSES
+_ACTIONS_CLASSES = None
+
+
+def get_classes():
+    global _ACTIONS_CLASSES
+    if _ACTIONS_CLASSES is None:
+        _ACTIONS_CLASSES = dict(
+            (ep.name, ep.load())
+            for ep in pkg_resources.iter_entry_points("mergify_actions")
+        )
+    return _ACTIONS_CLASSES
+
+
+def get_schemas():
+    return dict((name, obj.get_schema()) for name, obj in get_classes().items())
 
 
 @attr.s
