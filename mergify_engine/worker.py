@@ -73,6 +73,7 @@ def retry_task_on_exception(
 
 
 # Register our tasks
+import mergify_engine.tasks.forward_events  # noqa
 import mergify_engine.tasks.github_events  # noqa
 import mergify_engine.tasks.mergify_events  # noqa
 from mergify_engine.actions.merge import queue  # noqa

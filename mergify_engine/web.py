@@ -40,6 +40,7 @@ from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
+from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
 from mergify_engine.tasks.engine import actions_runner
@@ -261,6 +262,19 @@ def marketplace_handler():  # pragma: no cover
     data = flask.request.get_json()
 
     github_events.job_marketplace.apply_async(args=[event_type, event_id, data])
+
+    if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
+        forward_events.post.s(
+            config.WEBHOOK_MARKETPLACE_FORWARD_URL,
+            data=flask.request.get_data().decode(),
+            headers={
+                "X-GitHub-Event": event_type,
+                "X-GitHub-Delivery": event_id,
+                "X-Hub-Signature": flask.request.headers.get("X-Hub-Signature"),
+                "User-Agent": flask.request.headers.get("User-Agent"),
+            },
+        ).delay()
+
     return "Event queued", 202
 
 
@@ -291,6 +305,19 @@ def event_handler():
     github_events.job_filter_and_dispatch.apply_async(
         args=[event_type, event_id, data], countdown=30
     )
+
+    if config.WEBHOOK_APP_FORWARD_URL:
+        forward_events.post.s(
+            config.WEBHOOK_APP_FORWARD_URL,
+            data=flask.request.get_data().decode(),
+            headers={
+                "X-GitHub-Event": event_type,
+                "X-GitHub-Delivery": event_id,
+                "X-Hub-Signature": flask.request.headers.get("X-Hub-Signature"),
+                "User-Agent": flask.request.headers.get("User-Agent"),
+            },
+        ).delay()
+
     return "Event queued", 202
 
 
