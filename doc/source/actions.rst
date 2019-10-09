@@ -122,7 +122,7 @@ The ``comment`` action adds a comment to the pull request.
 review
 =======
 
-The ``review`` action review the pull request.
+The ``review`` action reviews the pull request.
 
 .. list-table::
    :header-rows: 1

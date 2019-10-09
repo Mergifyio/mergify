@@ -358,13 +358,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "comment",
-                    "conditions": ["base=master", "label!=wip"],
+                    "name": "approve",
+                    "conditions": ["base=master"],
                     "actions": {"review": {"type": "APPROVE"}},
                 },
                 {
-                    "name": "comment",
-                    "conditions": ["base=master", "label=wip"],
+                    "name": "requested",
+                    "conditions": ["base=master", "#approved-reviews-by>=1"],
                     "actions": {
                         "review": {"message": "WTF?", "type": "REQUEST_CHANGES"}
                     },
@@ -376,16 +376,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
+        self.push_events([("pull_request_review", {})]),
+
         p.update()
         comments = list(p.get_reviews())
-        self.assertEqual("APPROVED", comments[-1].state)
-
-        # Add a label to trigger mergify
-        self.add_label_and_push_events(p, "wip", [("pull_request_review", {})])
-
-        # Ensure change have been requested
-        comments = list(p.get_reviews())
         self.assertEqual(2, len(comments))
+        self.assertEqual("APPROVED", comments[-2].state)
         self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
         self.assertEqual("WTF?", comments[-1].body)
 
