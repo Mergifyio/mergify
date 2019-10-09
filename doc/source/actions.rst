@@ -117,6 +117,30 @@ The ``comment`` action adds a comment to the pull request.
      - The message to write as a comment.
 
 
+.. _review action:
+
+review
+=======
+
+The ``review`` action review the pull request.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``type``
+     - string
+     - ``APPROVE``
+     - The kind of review, can be ``APPROVE``, ``REQUEST_CHANGES``, ``COMMENT``
+   * - ``message``
+     - string
+     - None
+     - The message to write as a comment.
+
 
 .. _close action:
 
