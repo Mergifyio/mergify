@@ -70,7 +70,7 @@ class ReviewAction(actions.Action):
         )
         for review in reviews:
             if (
-                review.body == body
+                review.body == (body or "")
                 and review.state == EVENT_STATE_MAP[self.config["type"]]
             ):
                 # Already posted

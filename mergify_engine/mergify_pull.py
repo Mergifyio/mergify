@@ -85,8 +85,10 @@ class MergifyPull(object):
     def __attrs_post_init__(self):
         self._ensure_mergable_state()
 
-    def _valid_perm(self, login):
-        return self.g_pull.base.repo.get_collaborator_permission(login) in [
+    def _valid_perm(self, user):
+        if user.type == "Bot":
+            return True
+        return self.g_pull.base.repo.get_collaborator_permission(user.login) in [
             "admin",
             "write",
         ]
@@ -96,7 +98,10 @@ class MergifyPull(object):
         # And only keep the last review for each user.
         reviews = list(self.g_pull.get_reviews())
         valid_users = list(
-            filter(self._valid_perm, set([r.user.login for r in reviews]))
+            map(
+                lambda u: u.login,
+                filter(self._valid_perm, set([r.user for r in reviews])),
+            )
         )
         comments = dict()
         approvals = dict()
