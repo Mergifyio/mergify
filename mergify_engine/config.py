@@ -54,6 +54,12 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "SUBSCRIPTION_URL", default="http://localhost:5000/engine/installation/%s"
         ): str,
+        voluptuous.Required("WEBHOOK_APP_FORWARD_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required(
+            "WEBHOOK_MARKETPLACE_FORWARD_URL", default=None
+        ): voluptuous.Any(None, str),
         # Mergify
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
