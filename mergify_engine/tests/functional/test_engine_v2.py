@@ -1018,7 +1018,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ]
         )
 
-    def test_merge_custom_msg(self):
+    def _test_merge_custom_msg(self, header):
         rules = {
             "pull_request_rules": [
                 {
@@ -1035,7 +1035,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         msg = "This is the title\n\nAnd this is the message"
-        p, _ = self.create_pr(message="It fixes it\n\n## Commit Message:\n%s" % msg)
+        p, _ = self.create_pr(message=f"It fixes it\n\n## {header}:\n{msg}")
         self.create_status_and_push_event(p)
 
         self.push_events(
@@ -1061,6 +1061,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert len(checks) == 2
         assert checks[1].name == "Summary"
         assert msg in checks[1].output["summary"]
+
+    def test_merge_custom_msg(self):
+        return self._test_merge_custom_msg("Commit Message")
+
+    def test_merge_custom_msg_case(self):
+        return self._test_merge_custom_msg("Commit message")
 
     def test_merge_and_closes_issues(self):
         rules = {
