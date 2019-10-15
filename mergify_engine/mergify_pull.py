@@ -32,7 +32,7 @@ from mergify_engine import exceptions
 LOG = daiquiri.getLogger(__name__)
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
-MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?$")
+MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?$", re.I)
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
