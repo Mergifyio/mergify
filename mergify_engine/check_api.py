@@ -125,6 +125,11 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
     if conclusion:
         post_parameters["conclusion"] = conclusion
     if output:
+        # Maximum output/summary length for Check API is 65535
+        summary = output.get("summary")
+        if summary and len(summary) > 65535:
+            output["summary"] = utils.unicode_truncate(summary, 65532)
+            output["summary"] += "…"  # this is 3 bytes long
         post_parameters["output"] = output
 
     post_parameters["started_at"] = utils.utcnow().isoformat()

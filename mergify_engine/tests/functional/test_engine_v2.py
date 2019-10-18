@@ -1536,3 +1536,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             # NOTE(sileht): Don't ask me, and thx Github
             pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(3, len(pulls))
+
+    def test_truncated_check_output(self):
+        # not used anyhow
+        rules = {
+            "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
+        }
+        self.setup_repo(yaml.dump(rules))
+        pr, commits = self.create_pr()
+        check = check_api.set_check_run(
+            pr, "Test", "completed", "success", {"summary": "a" * 70000, "title": "bla"}
+        )
+        assert check.output["summary"] == ("a" * 65532 + "…")

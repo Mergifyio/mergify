@@ -59,6 +59,14 @@ def utcnow():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
+def unicode_truncate(s, length, encoding="utf-8"):
+    """Truncate a string to length in bytes.
+
+    :param s: The string to truncate.
+    :param length: The length in number of bytes — not characters."""
+    return s.encode(encoding)[:length].decode(encoding, errors="ignore")
+
+
 class CustomFormatter(
     daiquiri.formatter.ColorExtrasFormatter, celery.app.log.TaskFormatter
 ):
