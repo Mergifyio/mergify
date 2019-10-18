@@ -36,7 +36,6 @@ import testtools
 import vcr
 
 from mergify_engine import branch_updater
-from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import duplicate_pull
 from mergify_engine import sub_utils
@@ -703,31 +702,6 @@ class FunctionalTestBase(testtools.TestCase):
         events = [("pull_request", {"action": "labeled"})]
         events.extend(additional_checks)
         self.push_events(events, ordered=False)
-
-    def create_check_run_and_push_event(
-        self, pr, name, conclusion=None, created=True, check_suite=False
-    ):
-        if conclusion is None:
-            status = "in_progress"
-        else:
-            status = "completed"
-
-        check_api.set_check_run(pr, name, status, conclusion)
-
-        expected_events = []
-        if created:
-            expected_events.append(
-                # Created
-                ("check_run", {"check_run": {"conclusion": conclusion}})
-            )
-        if conclusion:
-            expected_events.append(
-                # Completed
-                ("check_run", {"check_run": {"conclusion": conclusion}})
-            )
-            if check_suite:
-                expected_events.append(("check_suite", {"action": "completed"}))
-        self.push_events(expected_events, ordered=False)
 
     def branch_protection_protect(self, branch, rule):
         if (
