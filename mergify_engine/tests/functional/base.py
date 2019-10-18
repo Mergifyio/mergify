@@ -384,7 +384,23 @@ class FunctionalTestBase(testtools.TestCase):
         self.git("push", "--quiet", "main", "master", *test_branches)
 
         self.r_fork = self.u_fork.create_fork(self.r_o_integration)
-        self.git("fetch", "--quiet", "fork")
+
+        for _ in range(10):
+            try:
+                self.git("fetch", "--quiet", "fork")
+            except subprocess.CalledProcessError as e:
+                if (
+                    b"fatal: remote error: access denied "
+                    b"or repository not exported" in e.output
+                ):
+                    # Forks can take some time, retry
+                    time.sleep(0.2)
+                else:
+                    raise
+            else:
+                break
+        else:
+            raise RuntimeError("Unable to fetch from the forked repository")
 
         # NOTE(sileht): Github looks buggy here:
         # We receive for the new repo the expected events:
