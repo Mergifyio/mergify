@@ -68,46 +68,9 @@ class MergeAction(actions.Action):
             return output
 
         if self.config["strict"] and pull.is_behind():
-            # NOTE(sileht): Almost ready, one last rebase/update
-
-            if not pull.base_is_modifiable():
-                return (
-                    "failure",
-                    "Pull request can't be updated with latest "
-                    "base branch changes, owner doesn't allow "
-                    "modification",
-                    "",
-                )
-            elif self.config["strict"] == "smart":
-                queue.add_pull(pull, self.config["strict_method"])
-                return (
-                    None,
-                    "Base branch will be updated soon",
-                    "The pull request base branch will "
-                    "be updated soon, and then merged.",
-                )
-            else:
-                return helpers.update_pull_base_branch(
-                    pull, installation_id, self.config["strict_method"]
-                )
+            return self._sync_with_base_branch(pull, installation_id)
         else:
-
-            # NOTE(sileht): Ready to merge!
-
-            if self.config["strict"] == "smart":
-                queue.remove_pull(pull)
-
-            if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
-                return self._merge(pull, self.config["method"])
-            elif self.config["rebase_fallback"]:
-                return self._merge(pull, self.config["rebase_fallback"])
-            else:
-                return (
-                    "action_required",
-                    "Automatic rebasing is not "
-                    "possible, manual intervention required",
-                    "",
-                )
+            return self._merge(pull, installation_id)
 
     def cancel(
         self,
@@ -167,8 +130,43 @@ class MergeAction(actions.Action):
 
         return False
 
-    @staticmethod
-    def _merge(pull, method):
+    def _sync_with_base_branch(self, pull, installation_id):
+        if not pull.base_is_modifiable():
+            return (
+                "failure",
+                "Pull request can't be updated with latest "
+                "base branch changes, owner doesn't allow "
+                "modification",
+                "",
+            )
+        elif self.config["strict"] == "smart":
+            queue.add_pull(pull, self.config["strict_method"])
+            return (
+                None,
+                "Base branch will be updated soon",
+                "The pull request base branch will "
+                "be updated soon, and then merged.",
+            )
+        else:
+            return helpers.update_pull_base_branch(
+                pull, installation_id, self.config["strict_method"]
+            )
+
+    def _merge(self, pull, installation_id):
+        if self.config["strict"] == "smart":
+            queue.remove_pull(pull)
+
+        if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
+            method = self.config["method"]
+        elif self.config["rebase_fallback"]:
+            method = self.config["rebase_fallback"]
+        else:
+            return (
+                "action_required",
+                "Automatic rebasing is not possible, manual intervention required",
+                "",
+            )
+
         kwargs = pull.get_merge_commit_message() or {}
         try:
             pull.g_pull.merge(sha=pull.g_pull.head.sha, merge_method=method, **kwargs)
@@ -176,35 +174,34 @@ class MergeAction(actions.Action):
             if pull.g_pull.is_merged():
                 LOG.info("merged in the meantime", pull=pull)
             else:
-                if e.status != 405:
-                    message = "Mergify fails to merge the pull request"
-                elif pull.g_pull.mergeable_state == "blocked":
-                    return (
-                        None,
-                        "Waiting for the Branch Protection to be validated",
-                        "Branch Protection is enabled and is preventing Mergify "
-                        "to merge the pull request. Mergify will merge when "
-                        "branch protection settings validate the pull request.",
-                    )
-                else:
-                    message = "Repository settings are blocking automatic " "merging"
-
-                log_method = LOG.error if e.status >= 500 else LOG.info
-                log_method(
-                    "merge fail",
-                    status=e.status,
-                    mergify_message=message,
-                    error_message=e.data["message"],
-                    pull=pull,
-                )
-
-                return (
-                    "failure",
-                    message,
-                    "GitHub error message: `%s`" % e.data["message"],
-                )
+                return self._handle_merge_error(e, pull, installation_id)
         else:
             LOG.info("merged", pull=pull)
 
         pull.g_pull.update()
         return helpers.merge_report(pull)
+
+    def _handle_merge_error(self, e, pull, installation_id):
+        if e.status != 405:
+            message = "Mergify fails to merge the pull request"
+        elif pull.g_pull.mergeable_state == "blocked":
+            return (
+                None,
+                "Waiting for the Branch Protection to be validated",
+                "Branch Protection is enabled and is preventing Mergify "
+                "to merge the pull request. Mergify will merge when "
+                "branch protection settings validate the pull request.",
+            )
+        else:
+            message = "Repository settings are blocking automatic merging"
+
+        log_method = LOG.error if e.status >= 500 else LOG.info
+        log_method(
+            "merge fail",
+            status=e.status,
+            mergify_message=message,
+            error_message=e.data["message"],
+            pull=pull,
+        )
+
+        return ("failure", message, "GitHub error message: `%s`" % e.data["message"])
