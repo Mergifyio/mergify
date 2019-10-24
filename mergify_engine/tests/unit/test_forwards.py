@@ -34,8 +34,12 @@ worker.app.conf.task_eager_propagates = True
     "mergify_engine.config.WEBHOOK_APP_FORWARD_URL",
     new_callable=mock.PropertyMock(return_value="https://foobar/engine/app"),
 )
+@mock.patch(
+    "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
+    new_callable=mock.PropertyMock(return_value=["push"]),
+)
 @mock.patch("mergify_engine.tasks.forward_events.requests.post")
-def test_app_event_forward(mocked_requests_post, _, __):
+def test_app_event_forward(mocked_requests_post, _, __, ___):
 
     with open(os.path.dirname(__file__) + "/push_event.json", "rb") as f:
         data = f.read()
@@ -59,8 +63,12 @@ def test_app_event_forward(mocked_requests_post, _, __):
     "mergify_engine.config.WEBHOOK_MARKETPLACE_FORWARD_URL",
     new_callable=mock.PropertyMock(return_value="https://foobar/engine/market"),
 )
+@mock.patch(
+    "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
+    new_callable=mock.PropertyMock(return_value=["purchased"]),
+)
 @mock.patch("mergify_engine.tasks.forward_events.requests.post")
-def test_market_event_forward(mocked_requests_post, _, __):
+def test_market_event_forward(mocked_requests_post, _, __, ___):
 
     with open(os.path.dirname(__file__) + "/market_event.json", "rb") as f:
         data = f.read()
