@@ -306,7 +306,11 @@ def event_handler():
         args=[event_type, event_id, data], countdown=30
     )
 
-    if config.WEBHOOK_APP_FORWARD_URL:
+    if (
+        config.WEBHOOK_APP_FORWARD_URL
+        and config.WEBHOOK_FORWARD_EVENT_TYPES is not None
+        and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
+    ):
         forward_events.post.s(
             config.WEBHOOK_APP_FORWARD_URL,
             data=flask.request.get_data().decode(),

@@ -34,6 +34,10 @@ def CoercedBool(value):
     return bool(distutils.util.strtobool(str(value)))
 
 
+def CommaSeparatedStringList(value):
+    return value.split(",")
+
+
 Schema = voluptuous.Schema(
     {
         # Logging
@@ -60,6 +64,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "WEBHOOK_MARKETPLACE_FORWARD_URL", default=None
         ): voluptuous.Any(None, str),
+        voluptuous.Required(
+            "WEBHOOK_FORWARD_EVENT_TYPES", default=None
+        ): voluptuous.Any(None, CommaSeparatedStringList),
         # Mergify
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
