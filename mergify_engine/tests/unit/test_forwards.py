@@ -49,6 +49,7 @@ def test_app_event_forward(mocked_requests_post, _, __, ___):
         "X-GitHub-Event": "push",
         "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
         "User-Agent": "GitHub-Hookshot/044aadd",
+        "Content-Type": "application/json",
     }
     with web.app.test_client() as client:
         client.post("/event", data=data, headers=headers)
