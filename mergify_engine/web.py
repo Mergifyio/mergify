@@ -319,6 +319,7 @@ def event_handler():
                 "X-GitHub-Delivery": event_id,
                 "X-Hub-Signature": flask.request.headers.get("X-Hub-Signature"),
                 "User-Agent": flask.request.headers.get("User-Agent"),
+                "Content-Type": flask.request.headers.get("Content-Type"),
             },
         ).delay()
 
