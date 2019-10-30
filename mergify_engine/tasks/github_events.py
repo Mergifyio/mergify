@@ -115,8 +115,8 @@ def get_ignore_reason(subscription, event_type, data):
 
     elif (
         event_type == "issue_comment"
-        and "@mergify " not in data["comment"]["body"]
-        and "@mergifyio " not in data["comment"]["body"]
+        and "@mergify " not in data["comment"]["body"].lower()
+        and "@mergifyio " not in data["comment"]["body"].lower()
     ):
         return "ignored (comment is not for mergify)"
 
