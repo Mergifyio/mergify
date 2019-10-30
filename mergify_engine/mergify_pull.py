@@ -124,9 +124,10 @@ class MergifyPull(object):
         comments, approvals = self._get_reviews()
         statuses = self._get_checks()
         # FIXME(jd) pygithub does 2 HTTP requests whereas 1 is enough!
-        review_requested_users, review_requested_teams = (
-            self.g_pull.get_review_requests()
-        )
+        (
+            review_requested_users,
+            review_requested_teams,
+        ) = self.g_pull.get_review_requests()
         return {
             # Only use internally attributes
             "_approvals": approvals,
