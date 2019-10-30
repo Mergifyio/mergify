@@ -27,9 +27,13 @@ def test_command_loader():
     action = load_action("@mergifyio comment foobar\n")
     assert action is None
 
+    action = load_action("@Mergifyio comment foobar\n")
+    assert action is None
+
     for message in [
         "@mergify rebase",
         "@mergifyio rebase",
+        "@Mergifyio rebase",
         "@mergifyio rebase\n",
         "@mergifyio rebase foobar",
         "@mergifyio rebase foobar\nsecondline\n",

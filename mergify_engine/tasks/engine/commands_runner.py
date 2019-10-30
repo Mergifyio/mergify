@@ -28,11 +28,11 @@ from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
 
-COMMAND_MATCHER = re.compile(r"@mergify(?:|io) (\w*)(.*)")
+COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
 
 UNKNOWN_COMMAND_MESSAGE = "Sorry but we didn't understand the command."
-WRONG_ACCOUNT_MESSAGE = "_Hey, we reacted but our real name is @mergifyio_"
+WRONG_ACCOUNT_MESSAGE = "_Hey, we reacted but our real name is @Mergifyio_"
 
 
 def load_action(message):
