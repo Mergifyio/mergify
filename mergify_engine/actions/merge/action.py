@@ -70,7 +70,11 @@ class MergeAction(actions.Action):
         if self.config["strict"] and pull.is_behind():
             return self._sync_with_base_branch(pull, installation_id)
         else:
-            return self._merge(pull, installation_id)
+            try:
+                return self._merge(pull, installation_id)
+            finally:
+                if self.config["strict"] == "smart":
+                    queue.remove_pull(pull)
 
     def cancel(
         self,
@@ -153,9 +157,6 @@ class MergeAction(actions.Action):
             )
 
     def _merge(self, pull, installation_id):
-        if self.config["strict"] == "smart":
-            queue.remove_pull(pull)
-
         if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:

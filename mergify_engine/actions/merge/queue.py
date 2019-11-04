@@ -174,7 +174,7 @@ def smart_strict_workflow_periodic_task():
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
                 LOG.debug(
-                    "pull request needs to be updated again or " "has been closed",
+                    "pull request needs to be updated again or has been closed",
                     pull_request=pull,
                 )
                 _handle_first_pull_in_queue(queue, pull)
