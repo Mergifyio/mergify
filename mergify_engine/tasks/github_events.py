@@ -40,7 +40,11 @@ def job_marketplace(event_type, event_id, data):
     except github.GithubException as e:
         LOG.warning("%s: mergify not installed", owner, error=str(e))
         installation_id = None
-        subscription = "Unknown"
+        subscription = {
+            "subscription_active": "Unknown",
+            "subscription_reason": "No",
+            "tokens": None,
+        }
     else:
         r = utils.get_redis_for_cache()
         r.delete("subscription-cache-%s" % installation_id)
