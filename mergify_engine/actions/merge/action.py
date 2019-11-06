@@ -183,36 +183,45 @@ class MergeAction(actions.Action):
         return helpers.merge_report(pull)
 
     def _handle_merge_error(self, e, pull, installation_id):
-        if "Base branch was modified" in e.data["message"]:
-            # NOTE(sileht): The base branch was modified between pull.is_behind() call and
-            # here, usually by something not merged by mergify. So we need sync it again
-            # with the base branch.
-            LOG.info("Base branch was modified in the meantime, retrying", pull=pull)
-            pull.g_pull.update()
-            return self._sync_with_base_branch(pull, installation_id)
-
-        elif e.status != 405:
-            message = "Mergify fails to merge the pull request"
-
-        elif pull.g_pull.mergeable_state == "blocked":
-            return (
-                None,
-                "Waiting for the Branch Protection to be validated",
-                "Branch Protection is enabled and is preventing Mergify "
-                "to merge the pull request. Mergify will merge when "
-                "branch protection settings validate the pull request.",
-            )
-
+        if e.status >= 500:
+            message = "GitHub failed to merge the pull request"
+            # There's no data in that case
+            server_message = "Server Error"
         else:
-            message = "Repository settings are blocking automatic merging"
+            server_message = e.data["message"]
+
+            if "Base branch was modified" in e.data["message"]:
+                # NOTE(sileht): The base branch was modified between pull.is_behind() call and
+                # here, usually by something not merged by mergify. So we need sync it again
+                # with the base branch.
+                LOG.info(
+                    "Base branch was modified in the meantime, retrying", pull=pull
+                )
+                pull.g_pull.update()
+                return self._sync_with_base_branch(pull, installation_id)
+
+            elif e.status != 405:
+                message = "Mergify failed to merge the pull request"
+
+            elif pull.g_pull.mergeable_state == "blocked":
+                return (
+                    None,
+                    "Waiting for the Branch Protection to be validated",
+                    "Branch Protection is enabled and is preventing Mergify "
+                    "to merge the pull request. Mergify will merge when "
+                    "branch protection settings validate the pull request.",
+                )
+
+            else:
+                message = "Repository settings are blocking automatic merging"
 
         log_method = LOG.error if e.status >= 500 else LOG.info
         log_method(
             "merge fail",
             status=e.status,
             mergify_message=message,
-            error_message=e.data["message"],
+            error_message=server_message,
             pull=pull,
         )
 
-        return ("failure", message, "GitHub error message: `%s`" % e.data["message"])
+        return ("failure", message, f"GitHub error message: `{server_message}`")
