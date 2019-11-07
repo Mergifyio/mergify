@@ -339,7 +339,11 @@ The ``request_reviews`` action requests reviews from users for the pull request.
   * - ``users``
     - array of string
     - None
-    - The users to request reviews from
+    - The username to request reviews from.
+  * - ``teams``
+    - array of string
+    - None
+    - The team name to request reviews from.
 
 .. _rebase action:
 

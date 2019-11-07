@@ -8,9 +8,7 @@ from mergify_engine import actions
 class RequestReviewsAction(actions.Action):
     validator = {
         voluptuous.Required("users", default=[]): [str],
-        # TODO(sileht): Tests show that github accept this input but nobody is
-        # added to review requested... so don't allow it for now
-        # voluptuous.Required("teams", default=[]): [str],
+        voluptuous.Required("teams", default=[]): [str],
     }
 
     def run(
@@ -32,5 +30,10 @@ class RequestReviewsAction(actions.Action):
             "commented-reviews-by",
         )
         existing_reviews = set(itertools.chain(*[data[key] for key in reviews_keys]))
-        reviews_to_request = set(self.config["users"]).difference(existing_reviews)
-        pull.g_pull.create_review_request(list(reviews_to_request))
+        user_reviews_to_request = set(self.config["users"]).difference(existing_reviews)
+        team_reviews_to_request = set(self.config["teams"]).difference(existing_reviews)
+        if user_reviews_to_request or team_reviews_to_request:
+            pull.g_pull.create_review_request(
+                reviewers=list(user_reviews_to_request),
+                team_reviewers=list(team_reviews_to_request),
+            )
