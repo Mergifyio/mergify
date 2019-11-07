@@ -79,6 +79,7 @@ def test_market_event_forward(mocked_requests_post, _, __, ___):
         "X-GitHub-Event": "purchased",
         "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
         "User-Agent": "GitHub-Hookshot/044aadd",
+        "Content-Type": "application/json",
     }
     with web.app.test_client() as client:
         client.post("/marketplace", data=data, headers=headers)
