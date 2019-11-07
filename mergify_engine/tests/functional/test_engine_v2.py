@@ -15,7 +15,6 @@
 # under the License.
 import logging
 import time
-import unittest
 from unittest import mock
 
 import requests.exceptions
@@ -286,16 +285,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             sorted(["mergify-test1"]), sorted([l.login for l in requests[0]])
         )
 
-    @unittest.skip("Github API doesn't behave as the doc say")
     def test_request_reviews_teams(self):
+        # Add a team to the repo with write permissions  so it can review
+        team = list(self.o_admin.get_teams())[0]
+        team.set_repo_permission(self.r_o_admin, "push")
+
         rules = {
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
                     "conditions": ["base=master"],
-                    "actions": {
-                        "request_reviews": {"teams": ["@mergifyio-testing/testing"]}
-                    },
+                    "actions": {"request_reviews": {"teams": [team.slug]}},
                 }
             ]
         }
@@ -307,10 +307,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
         requests = pulls[0].get_review_requests()
-        self.assertEqual(
-            sorted(["@mergifyio-testing/testing"]),
-            sorted([l.slug for l in requests[1]]),
-        )
+        self.assertEqual(sorted([team.slug]), sorted([l.slug for l in requests[1]]))
 
     def test_label(self):
         rules = {
