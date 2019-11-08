@@ -1,0 +1,26 @@
+<nav class="navbar navbar-expand-lg sticky-top navbar-light bg-light flex-wrap">
+  <button class="navbar-toggler ml-auto py-2" type="button" data-toggle="collapse" data-target="#exCollapsingNavbar2">
+    &#9776;
+  </button>
+  <div class="navbar-collapse collapse" id="exCollapsingNavbar2">
+    <a class="navbar-brand py-1" href="{{ pathto(master_doc) }}">
+      <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="{{ project }}"/>
+    </a>
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io">Mergify.io</a>
+      </li>
+      <li>
+        <a class="nav-link" href="https://dashboard.mergify.io">Dashboard</a>
+      </li>
+    </ul>
+    <div class="dropdown-divider d-block d-sm-none mb-4"></div>
+    <form class="form-inline" action="{{ pathto('search') }}" method="get">
+      <input type="text" name="q" class="form-control mr-sm-2" placeholder="Search" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+      <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+    </form>
+  </div>
+</nav>
+</div>

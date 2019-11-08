@@ -101,6 +101,7 @@ check about the state of the pull request according to the defined rules.
 
 .. image:: _static/mergify-checks-status.png
    :alt: status check
+   :align: center
 
 .. note::
 
