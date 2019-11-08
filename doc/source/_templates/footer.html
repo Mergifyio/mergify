@@ -1,0 +1,14 @@
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+    {%- if show_copyright %}
+      {%- if hasdoc('copyright') %}
+        <div>{% trans path=pathto('copyright'), copyright=copyright|e %}&copy; <a href="{{ path }}">Copyright</a> {{ copyright }}{% endtrans %}</div>
+      {%- else %}
+        <div>{% trans copyright=copyright|e %}&copy; Copyright {{ copyright }}{% endtrans %}</div>
+      {%- endif %}
+    {%- endif %}
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
