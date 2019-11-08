@@ -67,8 +67,8 @@ def retry_task_on_exception(
         return
 
     LOG.warning("job %s: failed %d times - retrying", task_id, sender.request.retries)
-    # Exponential backoff
-    retry_in = 2 ** sender.request.retries * backoff
+    # Exponential ^3 backoff
+    retry_in = 3 ** sender.request.retries * backoff
     sender.retry(countdown=retry_in)
 
 

@@ -22,9 +22,12 @@ class MergeableStateUnknown(Exception):
         self.pull = pull
 
 
+BASE_RETRY_TIMEOUT = 60
+
+
 def need_retry(exception):  # pragma: no cover
     if isinstance(exception, MergeableStateUnknown):
-        return 30
+        return BASE_RETRY_TIMEOUT
     elif (
         (isinstance(exception, github.GithubException) and exception.status >= 500)
         or (
@@ -35,12 +38,14 @@ def need_retry(exception):  # pragma: no cover
         or isinstance(exception, requests.exceptions.Timeout)
         or isinstance(exception, requests.exceptions.TooManyRedirects)
     ):
-        return 30
+        return BASE_RETRY_TIMEOUT
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
     elif isinstance(exception, github.GithubException):
-        if exception.status == 401:  # Bad creds or token expired, we can't
-            return 10  # really known
-        elif exception.status == 403:  # Rate limit or abuse detection
-            return 60 * 5  # mechanism
+        # Bad creds or token expired, we can't really known
+        if exception.status == 401:
+            return BASE_RETRY_TIMEOUT
+        # Rate limit or abuse detection mechanism
+        elif exception.status == 403:
+            return BASE_RETRY_TIMEOUT * 5

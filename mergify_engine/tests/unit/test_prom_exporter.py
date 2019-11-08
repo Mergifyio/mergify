@@ -20,4 +20,4 @@ def test_exception_wait_time():
     retry_state.outcome.exception.return_value = e = requests.exceptions.HTTPError()
     e.response = mock.Mock()
     e.response.status_code = 500
-    assert prom_exporter._wait_time_for_exception(retry_state) == 30
+    assert prom_exporter._wait_time_for_exception(retry_state) == 60
