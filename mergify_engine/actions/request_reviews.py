@@ -28,10 +28,14 @@ class RequestReviewsAction(actions.Action):
             "dismissed-reviews-by",
             "changes-requested-reviews-by",
             "commented-reviews-by",
+            "review-requested",
         )
         existing_reviews = set(itertools.chain(*[data[key] for key in reviews_keys]))
         user_reviews_to_request = set(self.config["users"]).difference(existing_reviews)
-        team_reviews_to_request = set(self.config["teams"]).difference(existing_reviews)
+        team_reviews_to_request = set(self.config["teams"]).difference(
+            # Team starts with @
+            {e[1:] for e in existing_reviews if e.startswith("@")}
+        )
         if user_reviews_to_request or team_reviews_to_request:
             pull.g_pull.create_review_request(
                 reviewers=list(user_reviews_to_request),
