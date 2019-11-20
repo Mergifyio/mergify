@@ -44,6 +44,13 @@ div.highlight > pre {
     height: 37px;
 }
 
+/* Fix headers for scrolling */
+
+h1, h2, h3, h4, h5, h6 {
+    padding-top: 80px;
+    margin-top: -80px;
+}
+
 /* Sidebar styles */
 
 div.sphinxsidebar ul ul {
