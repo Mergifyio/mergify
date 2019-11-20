@@ -30,7 +30,7 @@ $(function() {
     .filter(".warning").removeClass("warning").addClass("alert-warning").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
 
   // images
-  $("img").addClass("img-fluid");
+  $(".documentwrapper img").addClass("img-fluid");
 
 });
 
