@@ -65,13 +65,12 @@ div.sphinxsidebar {
 }
 
 /* Sticky menu on big screens only */
-@media (min-width: 768px) {
+@media (min-width: 992px) {
     div.sphinxsidebar {
         position: sticky;
         /* header of the fixed topbar + breadcrumbs */
         top: 5rem;
-        /* 2rem = header of the footer */
-        height: calc(100vh - 2rem);
+        height: 100%;
         margin: initial;
     }
 }
