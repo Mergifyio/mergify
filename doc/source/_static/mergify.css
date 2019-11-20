@@ -64,14 +64,28 @@ div.sphinxsidebar {
     margin: auto;
 }
 
+div.document {
+    padding-top: 1em;
+}
+
 /* Sticky menu on big screens only */
 @media (min-width: 992px) {
     div.sphinxsidebar {
         position: sticky;
-        /* header of the fixed topbar + breadcrumbs */
-        top: 5rem;
-        height: 100%;
+        top: 0;
         margin: initial;
+        margin-top: -1em;
+        padding-top: 2em;
+        height: 100vh;
+        border-right: 1px solid rgb(236, 238, 239);
+        overflow: scroll;
+    }
+}
+
+@media (max-width: 992px) {
+    div.sphinxsidebar {
+        border-bottom: 1px dotted rgb(236, 238, 239);
+        padding-bottom: 1em;
     }
 }
 
@@ -89,7 +103,6 @@ ul.nav ul {
     border-top: 1px solid rgb(236, 238, 239);
     color: rgb(85, 89, 92);
     padding: 10px 18px;
-    margin-top: 20px;
 }
 
 .copyright {
