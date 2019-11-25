@@ -20,6 +20,7 @@ import daiquiri
 import github
 
 from mergify_engine import config
+from mergify_engine import doc
 from mergify_engine import utils
 
 LOG = daiquiri.getLogger(__name__)
@@ -228,7 +229,7 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
             title="{} ({} #{})".format(
                 pull.g_pull.title, BRANCH_PREFIX_MAP[kind], pull.g_pull.number
             ),
-            body=body,
+            body=body + doc.MERGIFY_PULL_REQUEST_SEP + doc.MERGIFY_PULL_REQUEST_DOC,
             base=branch.name,
             head=bp_branch,
         )
