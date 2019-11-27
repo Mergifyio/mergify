@@ -11,7 +11,7 @@ https://mergify.io/dashboard. On first login, you will be asked to give
 some permissions on your behalf for Mergify to work.
 
 Once this is done, you need to enable the Mergify GitHub Application on the
-repositories you want. Go to https://github.com/apps/mergify/installations/new
+repositories you want. Go to https://github.com/marketplace/mergify
 and enroll repositories where you want Mergify to be enabled.
 
 Configuration
