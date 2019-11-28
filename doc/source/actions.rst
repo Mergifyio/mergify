@@ -201,7 +201,7 @@ dismiss_reviews
 The ``dismiss_reviews`` action removes reviews done by collaborators when the
 pull request is updated. This is especially useful to make sure that a review
 does not stay when the branch is updated (e.g., new commits are added or the
-branch is rebeased).
+branch is rebased).
 
 .. list-table::
    :header-rows: 1
