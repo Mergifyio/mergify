@@ -171,7 +171,7 @@ delete_head_branch
 The ``delete_head_branch`` action deletes the head branch of the pull request,
 that is the branch which hosts the commits. This only works if the branch is
 stored in the same repository that the pull request target, i.e., if the pull
-request comes from the same repository and not form a fork.
+request comes from the same repository and not from a fork.
 
 This action takes no configuration options. The action will happen when the
 pull request is closed or merged: you can decide what suits you best using
