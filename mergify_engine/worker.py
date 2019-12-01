@@ -16,6 +16,7 @@ import celery
 from celery import signals
 
 import daiquiri
+from datadog import statsd
 
 from mergify_engine import config
 from mergify_engine import exceptions
@@ -70,6 +71,41 @@ def retry_task_on_exception(
     # Exponential ^3 backoff
     retry_in = 3 ** sender.request.retries * backoff
     sender.retry(countdown=retry_in)
+
+
+@celery.signals.after_task_publish.connect
+def statsd_after_task_publish(sender, **kwargs):
+    statsd.increment("engine.queue", tags=[f"task_name:{sender}"])
+
+
+@celery.signals.task_postrun.connect
+def statsd_task_postrun(sender, **kwargs):
+    statsd.increment("engine.task_run", tags=[f"task_name:{sender.name}"])
+
+
+@celery.signals.task_failure.connect
+def statsd_task_failure(sender, **kwargs):
+    statsd.increment("engine.task_failure", tags=[f"task_name:{sender.name}"])
+
+
+@celery.signals.task_success.connect
+def statsd_task_success(sender, **kwargs):
+    statsd.increment("engine.task_success", tags=[f"task_name:{sender.name}"])
+
+
+@celery.signals.task_retry.connect
+def statsd_task_retry(sender, **kwargs):
+    statsd.increment("engine.task_retry", tags=[f"task_name:{sender.name}"])
+
+
+@celery.signals.task_unknown.connect
+def statsd_task_unknown(sender, **kwargs):
+    statsd.increment("engine.task_unknown")
+
+
+@celery.signals.task_rejected.connect
+def statsd_task_rejected(sender, **kwargs):
+    statsd.increment("engine.task_rejected")
 
 
 # Register our tasks
