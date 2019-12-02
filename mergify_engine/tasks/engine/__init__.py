@@ -13,6 +13,7 @@
 
 import daiquiri
 
+from datadog import statsd
 import github
 
 from mergify_engine import check_api
@@ -91,6 +92,7 @@ def create_metrics(event_type, data):
     # that will be recorded by celery and exported with celery exporter
     if event_type == "pull_request" and data["action"] == "opened":
         pull_request_opened.apply_async()
+        statsd.increment("engine.pull-request.opened")
 
     elif (
         event_type == "pull_request"
@@ -99,10 +101,12 @@ def create_metrics(event_type, data):
     ):
 
         pull_request_merged.apply_async()
+        statsd.increment("engine.pull-request.merged")
         if data["pull_request"]["merged_by"] and data["pull_request"]["merged_by"][
             "login"
         ] in ["mergify[bot]", "mergify-test[bot]"]:
             pull_request_merged_by_mergify.apply_async()
+            statsd.increment("engine.pull-request.merged-by-mergify")
 
 
 def check_configuration_changes(event_pull):
