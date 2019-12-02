@@ -229,7 +229,7 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
             title="{} ({} #{})".format(
                 pull.g_pull.title, BRANCH_PREFIX_MAP[kind], pull.g_pull.number
             ),
-            body=body + doc.MERGIFY_PULL_REQUEST_SEP + doc.MERGIFY_PULL_REQUEST_DOC,
+            body=body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
             base=branch.name,
             head=bp_branch,
         )

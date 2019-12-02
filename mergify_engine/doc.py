@@ -12,11 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-MERGIFY_PULL_REQUEST_SEP = """
----
-
-"""
-
 MERGIFY_PULL_REQUEST_DOC = """
 <details>
 <summary>Mergify commands and options</summary>
