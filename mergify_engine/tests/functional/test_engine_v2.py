@@ -75,11 +75,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         p.remove_from_labels("backport-3.1")
 
-        title = "The rule doesn't match anymore, " "this action has been cancelled"
+        title = "The rule doesn't match anymore, this action has been cancelled"
 
         self.push_events(
             [
                 ("pull_request", {"action": "unlabeled"}),
+                ("check_suite", {"action": "completed"}),
                 (
                     "check_run",
                     {
@@ -1224,7 +1225,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(None, checks[0].conclusion)
         self.assertEqual("in_progress", checks[0].status)
         self.assertIn(
-            "Waiting for the Branch Protection to go green", checks[0].output["title"]
+            "Waiting for the Branch Protection to be validated",
+            checks[0].output["title"],
         )
 
         self.create_status_and_push_event(p)
@@ -1235,6 +1237,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 ("push", {}),
                 ("check_run", {"check_run": {"conclusion": "success"}}),
                 ("check_suite", {"action": "requested"}),
+                ("check_suite", {"action": "completed"}),
             ],
             ordered=False,
         )
