@@ -81,6 +81,9 @@ def statsd_after_task_publish(sender, **kwargs):
 @celery.signals.task_postrun.connect
 def statsd_task_postrun(sender, **kwargs):
     statsd.increment("engine.task_run", tags=[f"task_name:{sender.name}"])
+    statsd.timing(
+        "engine.task_runtime", sender.task.runtime, tags=[f"task_name:{sender.name}"]
+    )
 
 
 @celery.signals.task_failure.connect
