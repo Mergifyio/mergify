@@ -21,6 +21,7 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import doc
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
@@ -124,14 +125,18 @@ def gen_summary(event_type, data, pull, match):
         summary += commit_message["commit_message"] + "\n"
         summary += "```\n\n"
 
+    summary += "<hr />\n"
+
     if ignored_rules > 0:
-        summary += "<hr /><details>\n"
+        summary += "<details>\n"
         if ignored_rules == 1:
             summary += "<summary>%d not applicable rule</summary>\n\n" % ignored_rules
         else:
             summary += "<summary>%d not applicable rules</summary>\n\n" % ignored_rules
         summary += gen_summary_rules(match.ignored_rules)
-        summary += "</details>"
+        summary += "</details>\n"
+
+    summary += doc.MERGIFY_PULL_REQUEST_DOC
 
     completed_rules = len(list(filter(lambda x: not x[1], match.matching_rules)))
     potential_rules = len(match.matching_rules) - completed_rules
