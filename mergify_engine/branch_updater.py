@@ -31,6 +31,9 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
+UNRECOVERABLE_ERROR = ["head repository does not exist"]
+
+
 class BranchUpdateFailure(Exception):
     def __init__(self, msg=""):
         error_code = "err-code: %s" % uuid.uuid4().hex[-5:].upper()
@@ -192,7 +195,7 @@ def update_with_api(pull):
             headers={"Accept": "application/vnd.github.lydian-preview+json"},
         )
     except github.GithubException as e:
-        if e.status == 422:
+        if e.status == 422 and e.data["message"] not in UNRECOVERABLE_ERROR:
             LOG.debug(
                 "branch updated in the meantime",
                 status=e.status,
