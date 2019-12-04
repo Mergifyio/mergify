@@ -48,6 +48,7 @@ class AuthentificationFailure(Exception):
 
 GIT_MESSAGE_TO_EXCEPTION = {
     b"Invalid username or password": AuthentificationFailure,
+    b"Repository not found": AuthentificationFailure,
     b"The requested URL returned error: 403": AuthentificationFailure,
     b"Patch failed at": BranchUpdateFailure,
     b"remote contains work that you do": BranchUpdateNeedRetry,
