@@ -7,7 +7,7 @@ Installation
 
 In order to work, Mergify needs access to your account and to be enabled. To do
 so, start by logging in using your GitHub account at
-https://mergify.io/dashboard. On first login, you will be asked to give
+https://dashboard.mergify.io/. On first login, you will be asked to give
 some permissions on your behalf for Mergify to work.
 
 Once this is done, you need to enable the Mergify GitHub Application on the
