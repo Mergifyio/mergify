@@ -7,12 +7,20 @@ Installation
 
 In order to work, Mergify needs access to your account and to be enabled. To do
 so, start by logging in using your GitHub account at
-https://dashboard.mergify.io/. On first login, you will be asked to give
+|https://dashboard.mergify.io/|. On first login, you will be asked to give
 some permissions on your behalf for Mergify to work.
 
 Once this is done, you need to enable the Mergify GitHub Application on the
-repositories you want. Go to https://github.com/marketplace/mergify
+repositories you want. Go to |https://github.com/marketplace/mergify|
 and enroll repositories where you want Mergify to be enabled.
+
+.. |https://dashboard.mergify.io/| raw:: html
+
+   <a href="https://dashboard.mergify.io/" target="_blank">https://dashboard.mergify.io/</a>
+
+.. |https://github.com/marketplace/mergify| raw:: html
+
+   <a href="https://github.com/marketplace/mergify" target="_blank">https://github.com/marketplace/mergify/</a>
 
 Configuration
 -------------
