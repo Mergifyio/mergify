@@ -57,7 +57,7 @@ PullRequestRulesSchema = voluptuous.Schema(
                 voluptuous.Required("conditions"): [
                     voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
                 ],
-                voluptuous.Required("actions"): actions.get_schemas(),
+                voluptuous.Required("actions"): actions.get_action_schemas(),
             }
         ],
         voluptuous.Length(min=1),

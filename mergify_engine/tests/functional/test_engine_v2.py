@@ -1365,6 +1365,47 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
+    def test_command_refresh(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "nothing",
+                    "conditions": ["base!=master"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, commits = self.create_pr()
+
+        check_api.set_check_run(
+            p,
+            "Summary",
+            "completed",
+            "success",
+            output={"title": "whatever", "summary": "erased"},
+        )
+
+        checks = list(check_api.get_checks(p))
+        assert len(checks) == 1
+        assert checks[0].name == "Summary"
+        completed_at = checks[0].completed_at
+
+        p.create_issue_comment("@mergifyio refresh")
+
+        self.push_events(
+            [("issue_comment", {"action": "created"})], ordered=False,
+        )
+
+        checks = list(check_api.get_checks(p))
+        assert len(checks) == 1
+        assert checks[0].name == "Summary"
+        assert completed_at != checks[0].completed_at
+
+        p.update()
+        comments = list(p.get_issue_comments())
+        self.assertEqual("**Command `refresh`: success**", comments[-1].body)
+
     def test_refresh_branch(self):
         p1, p2 = self._init_test_refresh()
 
