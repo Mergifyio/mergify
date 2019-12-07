@@ -57,11 +57,16 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
     def status(self):
         return self._status.value
 
+    @property
+    def completed_at(self):
+        return self._completed_at.value
+
     def _initAttributes(self):
         self._id = github.GithubObject.NotSet
         self._name = github.GithubObject.NotSet
         self._head_sha = github.GithubObject.NotSet
         self._conclusion = github.GithubObject.NotSet
+        self._completed_at = github.GithubObject.NotSet
         self._status = github.GithubObject.NotSet
         self._output = github.GithubObject.NotSet
         self._status = github.GithubObject.NotSet
@@ -79,6 +84,8 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
             self._status = self._makeStringAttribute(attributes["status"])
         if "conclusion" in attributes:
             self._conclusion = self._makeStringAttribute(attributes["conclusion"])
+        if "completed_at" in attributes:
+            self._completed_at = self._makeStringAttribute(attributes["completed_at"])
 
 
 def get_checks(pull, parameters=None):

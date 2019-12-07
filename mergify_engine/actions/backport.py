@@ -18,6 +18,8 @@ from mergify_engine.actions import copy
 
 
 class BackportAction(copy.CopyAction):
+    is_command = True
+
     KIND = "backport"
     SUCCESS_MESSAGE = "Backports have been created"
 
