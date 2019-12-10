@@ -103,6 +103,7 @@ workflows:
       - pep8
       - py37
       - docs
+      - requirements
       - build-docker-image
       - docs-deploy:
           requires: [build-docker-image, py37, pep8, docs]
