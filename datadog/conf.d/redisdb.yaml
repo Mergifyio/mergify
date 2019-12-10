@@ -1,0 +1,18 @@
+init_config:
+
+instances:
+ - host: <CACHE HOST>
+   port: <CACHE PORT>
+   password: <CACHE PASSWORD>
+   tags:
+     - service:cache
+
+ - host: <CELERY HOST>
+   port: <CELERY PORT>
+   password: <CELERY PASSWORD>
+   keys:
+     - celery
+     - schedule
+     - mergify
+   tags:
+     - service:celery

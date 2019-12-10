@@ -24,6 +24,11 @@ executors:
 
 
 jobs:
+  requirements:
+    executor: python
+    steps:
+      - tox: {target: requirements}
+
   pep8:
     executor: python
     steps:
