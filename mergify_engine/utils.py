@@ -39,9 +39,6 @@ from mergify_engine import config
 LOG = daiquiri.getLogger(__name__)
 
 
-global REDIS_CONNECTION_RQ
-REDIS_CONNECTION_RQ = None
-
 global REDIS_CONNECTION_CACHE
 REDIS_CONNECTION_CACHE = None
 
