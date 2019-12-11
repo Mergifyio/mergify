@@ -47,7 +47,7 @@ def get_redis_for_cache():
     global REDIS_CONNECTION_CACHE
     if REDIS_CONNECTION_CACHE is None:
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
-            config.STORAGE_URL, decode_responses=True
+            config.STORAGE_URL, decode_responses=True, max_connections=1,
         )
     return REDIS_CONNECTION_CACHE
 
