@@ -172,9 +172,13 @@ def run(event_type, data):
             repository=data["repository"]["name"],
         )
 
-    repo = g.get_repo(
-        data["repository"]["owner"]["login"] + "/" + data["repository"]["name"]
-    )
+    try:
+        repo = g.get_repo(
+            data["repository"]["owner"]["login"] + "/" + data["repository"]["name"]
+        )
+    except github.UnknownObjectException:  # pragma: no cover
+        LOG.info("Repository not found in the event %s, ignoring", event_type)
+        return
 
     event_pull = get_github_pull_from_event(repo, event_type, data)
 
