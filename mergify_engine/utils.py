@@ -31,6 +31,7 @@ import daiquiri
 import github
 
 import redis
+from billiard import current_process
 
 import requests
 
@@ -49,6 +50,8 @@ def get_redis_for_cache():
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
             config.STORAGE_URL, decode_responses=True, max_connections=1,
         )
+        p = current_process()
+        REDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
     return REDIS_CONNECTION_CACHE
 
 
