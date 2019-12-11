@@ -29,6 +29,9 @@ app = celery.Celery()
 
 app.conf.broker_url = config.CELERY_BROKER_URL
 
+# Limit the connection to Redis to 1 per worker
+app.conf.broker_pool_limit = 1
+
 # Enable some monitoring stuffs
 app.conf.worker_send_task_events = True
 
