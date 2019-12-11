@@ -24,6 +24,17 @@ executors:
 
 
 jobs:
+  datadog:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run:
+          command: |
+            bash -n datadog/prerun.sh
+            sudo pip install pyyaml
+            python datadog/validate.py
+
   requirements:
     executor: python
     steps:
@@ -103,6 +114,7 @@ workflows:
       - pep8
       - py37
       - docs
+      - datadog
       - requirements
       - build-docker-image
       - docs-deploy:

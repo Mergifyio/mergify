@@ -1,20 +1,4 @@
 init_config:
 
 instances:
-  - name: celery-main
-    # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
-    search_string: ['\[celeryd: .+:MainProcess\]']
-    exact_match: false
-  - name: celery-worker
-    # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:ForkPoolWorker-2]
-    search_string: ['\[celeryd: .+:ForkPoolWorker']
-    exact_match: false
-  - name: celery-beat
-    # celery-beat
-    search_string: ['[celery beat]']
-  - name: gunicorn-worker
-    search_string: ['^gunicorn: worker']
-    exact_match: false
-  - name: gunicorn-master
-    search_string: ['^gunicorn: master']
-    exact_match: false
+  # Filled by prerun.sh
