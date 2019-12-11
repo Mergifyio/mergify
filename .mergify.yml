@@ -3,6 +3,7 @@ pull_request_rules:
     conditions:
       - base=master
       - "status-success=ci/circleci: requirements"
+      - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: docs"
@@ -18,6 +19,7 @@ pull_request_rules:
     conditions:
       - base=master
       - "status-success=ci/circleci: requirements"
+      - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: docs"
@@ -35,6 +37,7 @@ pull_request_rules:
       - label!=work-in-progress
       - label!=manual merge
       - "status-success=ci/circleci: requirements"
+      - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: docs"
