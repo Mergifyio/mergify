@@ -36,12 +36,21 @@ def get_classes():
     return _ACTIONS_CLASSES
 
 
-def get_schemas():
-    return dict((name, obj.get_schema()) for name, obj in get_classes().items())
+def get_action_schemas():
+    return dict(
+        (name, obj.get_schema()) for name, obj in get_classes().items() if obj.is_action
+    )
+
+
+def get_commands():
+    return dict((name, obj) for name, obj in get_classes().items() if obj.is_command)
 
 
 @attr.s
 class Action(abc.ABC):
+    is_action = True
+    is_command = False
+
     config = attr.ib()
     cancelled_check_report = (
         "neutral",
@@ -65,7 +74,7 @@ class Action(abc.ABC):
     @staticmethod
     def command_to_config(string):  # pragma: no cover
         """Convert string to dict config"""
-        raise NotImplementedError
+        return {}
 
     @staticmethod
     def run(

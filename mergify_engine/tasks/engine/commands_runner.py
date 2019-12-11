@@ -36,15 +36,11 @@ WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 
 
 def load_action(message):
-    action_classes = actions.get_classes()
+    action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(message)
     if match and match[1] in action_classes:
         action_class = action_classes[match[1]]
-        try:
-            config = action_class.command_to_config(match[2].strip())
-        except NotImplementedError:
-            return
-
+        config = action_class.command_to_config(match[2].strip())
         action = voluptuous.Schema(action_class.get_schema())(config)
         command = "%s%s" % (match[1], match[2])
         return command, action

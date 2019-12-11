@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2019 Mehdi Abaakouk <sileht@sileht.net>
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -14,22 +12,32 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import uuid
+
 from mergify_engine import actions
-from mergify_engine import branch_updater
+from mergify_engine.tasks import github_events
 
 
-class RebaseAction(actions.Action):
+class RefreshAction(actions.Action):
     is_command = True
-
+    is_action = False
     validator = {}
 
-    @staticmethod
     def run(
-        installation_id, installation_token, event_type, data, pull, missing_conditions
+        self,
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        missing_conditions,
     ):
-        try:
-            branch_updater.update_with_git(pull, installation_id, "rebase")
-        except branch_updater.BranchUpdateFailure as e:
-            return "failure", "Branch rebase failed", str(e)
-        else:
-            return "success", "Branch has been successfully rebased", ""
+        data = {
+            "repository": pull.g_pull.base.repo.raw_data,
+            "installation": {"id": installation_id},
+            "pull_request": pull.g_pull.raw_data,
+            "sender": {"login": "<internal>"},
+        }
+        github_events.job_filter_and_dispatch.s(
+            "refresh", str(uuid.uuid4()), data
+        ).apply_async()

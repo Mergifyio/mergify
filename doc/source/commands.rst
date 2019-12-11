@@ -41,3 +41,17 @@ backport
     - ``@Mergifyio backport <branch name> <branch name 2> …``
   * - Example
     - ``@Mergifyio backport stable/3.1 stable/4.0``
+
+refresh
+========
+
+   Will re-evalute your Mergify rules on this pull request
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio refresh``
+  * - Example
+    - ``@Mergifyio refresh``
