@@ -3,7 +3,7 @@ attrs==19.3.0
 backcall==0.1.0
 billiard==3.6.1.0
 blinker==1.4
-celery==4.3.0
+celery[redis]==4.3.0
 certifi==2019.11.28
 cffi==1.13.2
 chardet==3.0.4
