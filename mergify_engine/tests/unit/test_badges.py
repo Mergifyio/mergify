@@ -21,29 +21,22 @@ def test_badge_redirect():
     with web.app.test_request_context("/"):
         reply = web._get_badge_url("mergifyio", "mergify-engine", "png")
         assert reply.status_code == 302
-        assert reply.headers["Location"].startswith(
-            "https://img.shields.io/badge/Mergify-disabled-critical.png?"
-            "style=flat&logo=data:image/png;base64,iVBORw0KGgoAAA"
+        assert reply.headers["Location"] == (
+            "https://img.shields.io/endpoint.png"
+            "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
         )
-        assert len(reply.headers["Location"]) == 2933
 
         reply = web._get_badge_url("mergifyio", "mergify-engine", "svg")
         assert reply.status_code == 302
-        assert reply.headers["Location"].startswith(
-            "https://img.shields.io/badge/Mergify-disabled-critical.svg?"
-            "style=flat&logo=data:image/png;base64,iVBORw0KGgoAAA"
+        assert reply.headers["Location"] == (
+            "https://img.shields.io/endpoint.svg"
+            "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
         )
-        assert len(reply.headers["Location"]) == 2933
 
 
 def test_badge_endpoint():
     with web.app.test_request_context("/"):
         reply = web.badge("mergifyio", "mergify-engine")
-        assert reply.status_code == 200
-        assert reply.json == {
-            "schemaVersion": 1,
-            "label": "Mergify",
-            "color": "critical",
-            "message": "disabled",
-            "logoSvg": web._MERGIFY_LOGO_SVG,
-        }
+        assert reply.headers["Location"] == (
+            "https://dashboard.mergify.io/badges/mergifyio/mergify-engine"
+        )

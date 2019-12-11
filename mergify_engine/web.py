@@ -73,7 +73,7 @@ def authentification():  # pragma: no cover
 def _get_badge_url(owner, repo, ext):
     style = flask.request.args.get("style", "flat")
     return flask.redirect(
-        f"https://dashboard.mergify.io/badges/{owner}/{repo}.{ext}?style={style}"
+        f"https://img.shields.io/endpoint.{ext}?url=https://dashboard.mergify.io/badges/{owner}/{repo}&style={style}"
     )
 
 
