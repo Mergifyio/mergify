@@ -19,7 +19,6 @@
 # import gevent.monkey
 # gevent.monkey.patch_all()
 
-import base64
 import collections
 import hmac
 import json
@@ -31,8 +30,6 @@ import flask
 from flask_cors import cross_origin
 
 import github
-
-import pkg_resources
 
 import voluptuous
 
@@ -73,26 +70,10 @@ def authentification():  # pragma: no cover
         flask.abort(403)
 
 
-with open(
-    pkg_resources.resource_filename(__name__, "data/mergify-logo-32.png"), "rb"
-) as logo:
-    _MERGIFY_LOGO_BASE64 = base64.b64encode(logo.read()).decode()
-
-
-def _badge_color_mode(owner, repo):
-    """Return badge (color, mode) for a repository."""
-    redis = utils.get_redis_for_cache()
-    if redis.sismember("badges", owner + "/" + repo):
-        return "success", "enabled"
-    return "critical", "disabled"
-
-
 def _get_badge_url(owner, repo, ext):
-    color, mode = _badge_color_mode(owner, repo)
     style = flask.request.args.get("style", "flat")
     return flask.redirect(
-        f"https://img.shields.io/badge/Mergify-{mode}-{color}.{ext}"
-        f"?style={style}&logo=data:image/png;base64,{_MERGIFY_LOGO_BASE64}"
+        f"https://dashboard.mergify.io/badges/{owner}/{repo}.{ext}?style={style}"
     )
 
 
@@ -106,24 +87,9 @@ def badge_svg(owner, repo):  # pragma: no cover
     return _get_badge_url(owner, repo, "svg")
 
 
-with open(
-    pkg_resources.resource_filename(__name__, "data/mergify-logo.svg"), "r"
-) as logo:
-    _MERGIFY_LOGO_SVG = logo.read()
-
-
 @app.route("/badges/<owner>/<repo>")
 def badge(owner, repo):
-    color, mode = _badge_color_mode(owner, repo)
-    return flask.jsonify(
-        {
-            "schemaVersion": 1,
-            "label": "Mergify",
-            "message": mode,
-            "color": color,
-            "logoSvg": _MERGIFY_LOGO_SVG,
-        }
-    )
+    return flask.redirect(f"https://dashboard.mergify.io/badges/{owner}/{repo}")
 
 
 @app.route("/validate", methods=["POST"])
