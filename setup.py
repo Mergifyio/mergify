@@ -16,6 +16,4 @@
 
 import setuptools
 
-setuptools.setup(
-    setup_requires=["setuptools>=30.3.0", "setuptools_scm"], use_scm_version=True
-)
+setuptools.setup(setup_requires=["setuptools>=30.3.0"],)
