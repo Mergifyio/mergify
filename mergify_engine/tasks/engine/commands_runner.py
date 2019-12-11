@@ -31,8 +31,8 @@ LOG = daiquiri.getLogger(__name__)
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
 
-UNKNOWN_COMMAND_MESSAGE = "Sorry but we didn't understand the command."
-WRONG_ACCOUNT_MESSAGE = "_Hey, we reacted but our real name is @Mergifyio_"
+UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command."
+WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 
 
 def load_action(message):
