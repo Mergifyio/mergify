@@ -2,12 +2,14 @@ pull_request_rules:
   - name: automatic merge
     conditions:
       - base=master
+      - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: docs"
       - "status-success=ci/circleci: build-docker-image"
       - "#approved-reviews-by>=1"
       - label!=work-in-progress
+      - label!=manual merge
     actions:
       merge:
         strict: "smart"
@@ -15,12 +17,28 @@ pull_request_rules:
   - name: automatic merge without review
     conditions:
       - base=master
+      - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: docs"
       - "status-success=ci/circleci: build-docker-image"
       - label=no-review-needed
       - label!=work-in-progress
+      - label!=manual merge
+    actions:
+      merge:
+        strict: "smart"
+        method: rebase
+  - name: automatic merge from dependabot
+    conditions:
+      - author~=^dependabot(|-preview)\[bot\]$
+      - label!=work-in-progress
+      - label!=manual merge
+      - "status-success=ci/circleci: requirements"
+      - "status-success=ci/circleci: pep8"
+      - "status-success=ci/circleci: py37"
+      - "status-success=ci/circleci: docs"
+      - "status-success=ci/circleci: build-docker-image"
     actions:
       merge:
         strict: "smart"
@@ -35,3 +53,17 @@ pull_request_rules:
     actions:
       label:
         add: ["work-in-progress"]
+  - name: request review
+    conditions:
+      - -author~=^dependabot(|-preview)\[bot\]$
+      - label!=work-in-progress
+    actions:
+      request_reviews:
+        teams:
+          - devs
+  - name: warn on conflicts
+    conditions:
+      - conflict
+    actions:
+      comment:
+        message: This pull request is now in conflict :(
