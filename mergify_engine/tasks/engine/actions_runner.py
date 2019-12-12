@@ -242,7 +242,7 @@ def run_actions(
                     )
                     continue
                 method_name = "cancel"
-                expected_conclusion = ["cancelled"]
+                expected_conclusion = ["cancelled", "neutral"]
             else:
                 method_name = "run"
                 expected_conclusion = ["success", "failure"]
