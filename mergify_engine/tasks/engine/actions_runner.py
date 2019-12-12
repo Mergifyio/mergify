@@ -235,7 +235,8 @@ def run_actions(
             if missing_conditions:
                 if not prev_check:
                     LOG.info(
-                        "action evaluation: nothing to cancel",
+                        "action evaluation: ignored, missing condition and never ran",
+                        report=("no-previous-check", "", ""),
                         check_name=check_name,
                         pull_request=pull,
                         missing_conditions=missing_conditions,
@@ -256,9 +257,12 @@ def run_actions(
                 if method_name == "run":
                     actions_ran.append(action)
                 LOG.info(
-                    "action evaluation: already in expected state",
-                    conclusion=(
-                        prev_check.conclusion if prev_check else "no-previous-check"
+                    "action evaluation: ignored, already '%s'",
+                    method_name,
+                    report=(
+                        prev_check.conclusion,
+                        prev_check.output["title"],
+                        prev_check.output["summary"],
                     ),
                     check_name=check_name,
                     pull_request=pull,
@@ -268,15 +272,16 @@ def run_actions(
 
             # NOTE(sileht) We can't run two action merge for example
             if rule["actions"][action].only_once and action in actions_ran:
+                report = ("success", "Another %s action already ran" % action, "")
                 LOG.info(
-                    "action evaluation: skipped another action %s "
+                    "action evaluation: ignored, another action %s "
                     "has already been run",
                     action,
+                    report=report,
                     check_name=check_name,
                     pull_request=pull,
                     missing_conditions=missing_conditions,
                 )
-                report = ("success", "Another %s action already ran" % action, "")
             else:
                 report = exec_action(
                     method_name,
@@ -290,6 +295,14 @@ def run_actions(
                     missing_conditions,
                 )
                 actions_ran.append(action)
+                LOG.info(
+                    "action evaluation: %s",
+                    method_name,
+                    report=report,
+                    check_name=check_name,
+                    pull_request=pull,
+                    missing_conditions=missing_conditions,
+                )
 
             if report:
                 conclusion, title, summary = report
@@ -301,14 +314,6 @@ def run_actions(
                     conclusion,
                     output={"title": title, "summary": summary},
                 )
-
-            LOG.info(
-                "action evaluation: done",
-                report=report,
-                check_name=check_name,
-                pull_request=pull,
-                missing_conditions=missing_conditions,
-            )
 
 
 @app.task
