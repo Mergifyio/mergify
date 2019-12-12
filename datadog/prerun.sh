@@ -20,13 +20,19 @@ EOF
     # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
     search_string: ['\[celeryd: .+:MainProcess\]']
     exact_match: false
+    tags:
+      - service:celery
   - name: celery-worker
     # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:ForkPoolWorker-2]
     search_string: ['\[celeryd: .+:ForkPoolWorker']
     exact_match: false
+    tags:
+      - service:celery
   - name: celery-beat
     # celery-beat
     search_string: ['[celery beat]']
+    tags:
+      - service:celery
 EOF
         ;;
 esac
