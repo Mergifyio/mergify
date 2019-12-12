@@ -20,7 +20,7 @@ commands:
 executors:
   python:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
 
 
 jobs:
@@ -45,12 +45,12 @@ jobs:
     steps:
       - tox: {target: pep8}
 
-  py37:
+  py38:
     executor: python
     steps:
       - run:
           command: sudo apt install -y redis-server
-      - tox: {target: py37}
+      - tox: {target: py38}
 
   docs:
     executor: python
@@ -112,14 +112,14 @@ workflows:
   test-build-and-deploy:
     jobs:
       - pep8
-      - py37
+      - py38
       - docs
       - datadog
       - requirements
       - build-docker-image
       - docs-deploy:
-          requires: [build-docker-image, py37, pep8, docs]
+          requires: [build-docker-image, py38, pep8, docs]
           filters: {branches: {only: master}}
       - code-deploy:
-          requires: [build-docker-image, py37, pep8, docs]
+          requires: [build-docker-image, py38, pep8, docs]
           filters: {branches: {only: master}}
