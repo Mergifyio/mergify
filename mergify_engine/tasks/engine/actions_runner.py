@@ -294,7 +294,8 @@ def run_actions(
                     pull,
                     missing_conditions,
                 )
-                actions_ran.append(action)
+                if method_name == "run":
+                    actions_ran.append(action)
                 LOG.info(
                     "action evaluation: %s",
                     method_name,
