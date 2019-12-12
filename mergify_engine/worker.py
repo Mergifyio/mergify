@@ -78,32 +78,40 @@ def retry_task_on_exception(
 
 @celery.signals.after_task_publish.connect
 def statsd_after_task_publish(sender, **kwargs):
-    statsd.increment("engine.queue", tags=[f"task_name:{sender}"])
+    statsd.increment("celery.queue", tags=[f"task_name:{sender}", "service:celery"])
 
 
 @celery.signals.task_postrun.connect
 def statsd_task_postrun(sender, **kwargs):
-    statsd.increment("engine.task_run", tags=[f"task_name:{sender.name}"])
+    statsd.increment(
+        "celery.task_run", tags=[f"task_name:{sender.name}", "service:celery"]
+    )
 
 
 @celery.signals.task_failure.connect
 def statsd_task_failure(sender, **kwargs):
-    statsd.increment("engine.task_failure", tags=[f"task_name:{sender.name}"])
+    statsd.increment(
+        "celery.task_failure", tags=[f"task_name:{sender.name}", "service:celery"]
+    )
 
 
 @celery.signals.task_success.connect
 def statsd_task_success(sender, **kwargs):
-    statsd.increment("engine.task_success", tags=[f"task_name:{sender.name}"])
+    statsd.increment(
+        "celery.task_success", tags=[f"task_name:{sender.name}", "service:celery"]
+    )
 
 
 @celery.signals.task_retry.connect
 def statsd_task_retry(sender, **kwargs):
-    statsd.increment("engine.task_retry", tags=[f"task_name:{sender.name}"])
+    statsd.increment(
+        "celery.task_retry", tags=[f"task_name:{sender.name}", "service:celery"]
+    )
 
 
 @celery.signals.task_unknown.connect
 def statsd_task_unknown(sender, **kwargs):
-    statsd.increment("engine.task_unknown")
+    statsd.increment("celery.task_unknown", tags=["service:celery"])
 
 
 @celery.signals.task_rejected.connect
