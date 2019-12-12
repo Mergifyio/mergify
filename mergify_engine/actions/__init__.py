@@ -54,7 +54,7 @@ class Action(abc.ABC):
     config = attr.ib()
     cancelled_check_report = (
         "neutral",
-        "The rule doesn't match anymore, this action " "has been cancelled",
+        "The rule doesn't match anymore, this action has been cancelled",
         "",
     )
 
