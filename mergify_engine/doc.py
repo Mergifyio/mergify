@@ -21,6 +21,7 @@ More conditions and actions can be found in the [documention](https://doc.mergif
 <br />
 You can also trigger Mergify actions by commenting on this pull request:
 
+- `@Mergifyio refresh` will re-evaluate the rules
 - `@Mergifyio rebase` will rebase this PR
 - `@Mergifyio backports <destination>` will backport this PR on `<destination>` branch
 
