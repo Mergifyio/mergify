@@ -5,16 +5,22 @@ case $DYNOTYPE in
         DISABLE_DATADOG_AGENT="true"
         ;;
     web)
+        export DD_TAGS="$DD_TAGS service:web"
         cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
   - name: gunicorn-worker
     search_string: ['^gunicorn: worker']
     exact_match: false
+    tags:
+      - service:web
   - name: gunicorn-master
     search_string: ['^gunicorn: master']
     exact_match: false
+    tags:
+      - service:web
 EOF
         ;;
     engine)
+        export DD_TAGS="$DD_TAGS service:celery"
         cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
   - name: celery-main
     # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
