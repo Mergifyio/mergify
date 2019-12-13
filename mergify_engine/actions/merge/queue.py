@@ -108,10 +108,9 @@ def _handle_first_pull_in_queue(queue, pull):
         )
     ]
 
-    merge_output = helpers.merge_report(pull)
-    mergeable_state_output = helpers.output_for_mergeable_state(pull, True)
-    if merge_output or mergeable_state_output:
-        conclusion, title, summary = merge_output or mergeable_state_output
+    output = helpers.merge_report(pull, True)
+    if output:
+        conclusion, title, summary = output
         LOG.debug(
             "pull request closed in the meantime",
             pull=pull,
