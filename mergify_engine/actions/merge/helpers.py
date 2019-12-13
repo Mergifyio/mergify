@@ -19,7 +19,7 @@ from mergify_engine import branch_updater
 LOG = daiquiri.getLogger(__name__)
 
 
-def merge_report(pull):
+def merge_report(pull, strict):
     if pull.g_pull.merged:
         if pull.g_pull.merged_by and pull.g_pull.merged_by.login in [
             "mergify[bot]",
@@ -38,35 +38,38 @@ def merge_report(pull):
         conclusion = "cancelled"
         title = "The pull request has been closed manually"
         summary = ""
-    else:
-        return
 
-    return conclusion, title, summary
-
-
-def output_for_mergeable_state(pull, strict):
     # NOTE(sileht): Take care of all branch protection state
-    if pull.g_pull.mergeable_state == "dirty":
-        return None, "Merge conflict needs to be solved", ""
+    elif pull.g_pull.mergeable_state == "dirty":
+        conclusion = None
+        title = "Merge conflict needs to be solved"
+        summary = ""
     elif pull.g_pull.mergeable_state == "unknown":
-        return ("failure", "Pull request state reported as `unknown` by " "GitHub", "")
+        conclusion = "failure"
+        title = "Pull request state reported as `unknown` by GitHub"
+        summary = ""
     # FIXME(sileht): We disable this check as github wrongly report
     # mergeable_state == blocked sometimes. The workaround is to try to merge
     # it and if that fail we checks for blocking state.
     # elif pull.g_pull.mergeable_state == "blocked":
-    #     return ("failure", "Branch protection settings are blocking "
-    #            "automatic merging", "")
+    #     conclusion = "failure"
+    #     title = "Branch protection settings are blocking automatic merging"
+    #     summary = ""
     elif pull.g_pull.mergeable_state == "behind" and not strict:
         # Strict mode has been enabled in branch protection but not in
         # mergify
-        return (
-            "failure",
-            "Branch protection setting 'strict' conflicts "
-            "with Mergify configuration",
-            "",
+        conclusion = "failure"
+        title = (
+            "Branch protection setting 'strict' conflicts with Mergify configuration"
         )
-        # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks"
-        # are OK for us
+        summary = ""
+
+    # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
+    # are OK for us
+    else:
+        return
+
+    return conclusion, title, summary
 
 
 def update_pull_base_branch(pull, installation_id, method):
@@ -79,7 +82,7 @@ def update_pull_base_branch(pull, installation_id, method):
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status
         pull.g_pull.update()
-        output = merge_report(pull)
+        output = merge_report(pull, True)
         if output:
             return output
         else:
