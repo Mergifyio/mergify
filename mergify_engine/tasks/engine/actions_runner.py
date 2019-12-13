@@ -14,6 +14,7 @@
 
 
 import daiquiri
+from datadog import statsd
 
 import pkg_resources
 
@@ -295,6 +296,7 @@ def run_actions(
                     missing_conditions,
                 )
                 if method_name == "run":
+                    statsd.increment("engine.actions.count", tags=["name:%s" % action])
                     actions_ran.append(action)
                 LOG.info(
                     "action evaluation: %s",

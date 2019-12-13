@@ -15,6 +15,7 @@
 import re
 
 import daiquiri
+from datadog import statsd
 
 import github
 
@@ -89,6 +90,8 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
         if action:
             command, method = action
 
+            statsd.increment("engine.commands.count", tags=["name:%s" % command])
+
             report = method.run(
                 installation_id, installation_token, event_type, data, pull, []
             )
@@ -112,7 +115,6 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
 
         if "@mergifyio" not in comment:  # @mergify have been used instead
             result += "\n\n" + WRONG_ACCOUNT_MESSAGE
-
     else:
         result = "@{} is not allowed to run commands".format(
             data["comment"]["user"]["login"]
