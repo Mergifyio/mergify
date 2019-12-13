@@ -5,6 +5,14 @@ case $DYNOTYPE in
         DISABLE_DATADOG_AGENT="true"
         ;;
     web)
+        cat > "$DATADOG_CONF" <<EOF
+tags:
+  - dyno:$DYNO
+  - dynotype:$DYNOTYPE
+  - buildpackversion:$BUILDPACKVERSION
+  - appname:$HEROKU_APP_NAME
+  - service:web
+EOF
         cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
   - name: gunicorn-worker
     search_string: ['^gunicorn: worker']
@@ -19,6 +27,14 @@ case $DYNOTYPE in
 EOF
         ;;
     engine)
+        cat > "$DATADOG_CONF" <<EOF
+tags:
+  - dyno:$DYNO
+  - dynotype:$DYNOTYPE
+  - buildpackversion:$BUILDPACKVERSION
+  - appname:$HEROKU_APP_NAME
+  - service:celery
+EOF
         cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
   - name: celery-main
     # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
