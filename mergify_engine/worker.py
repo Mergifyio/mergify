@@ -11,6 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
 import celery
 from celery import signals
@@ -31,6 +32,9 @@ app.conf.broker_url = config.CELERY_BROKER_URL
 
 # Limit the connection to Redis to 1 per worker
 app.conf.broker_pool_limit = 1
+
+# Configure number of worker via env var
+app.conf.worker_concurrency = int(os.environ.get("CELERYD_CONCURRENCY", 1))
 
 # Enable some monitoring stuffs
 app.conf.worker_send_task_events = True
