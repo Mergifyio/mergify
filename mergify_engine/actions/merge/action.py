@@ -61,6 +61,8 @@ class MergeAction(actions.Action):
 
         output = helpers.merge_report(pull, self.config["strict"])
         if output:
+            if self.config["strict"] == "smart":
+                queue.remove_pull(pull)
             return output
 
         if self.config["strict"] and pull.is_behind():
