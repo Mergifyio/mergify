@@ -6,6 +6,8 @@ case $DYNOTYPE in
         ;;
     web)
         cat > "$DATADOG_CONF" <<EOF
+confd_path: $DD_CONF_DIR/conf.d
+additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
   - dynotype:$DYNOTYPE
@@ -28,6 +30,8 @@ EOF
         ;;
     engine)
         cat > "$DATADOG_CONF" <<EOF
+confd_path: $DD_CONF_DIR/conf.d
+additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
   - dynotype:$DYNOTYPE
@@ -57,22 +61,29 @@ EOF
         ;;
 esac
 
+# If we are in ps:exec do nothing plz
+# see https://github.com/DataDog/heroku-buildpack-datadog/issues/155
+if [ -n "$DYNO" ]; then
+    # Workaround for https://github.com/DataDog/heroku-buildpack-datadog/issues/155
+    # When datadog.sh is called it will copy the example and overwrite our conf
+    cp "$DATADOG_CONF" "$DATADOG_CONF.example"
 
-REDIS_REGEX='^redis://([^:]+):([^@]+)@([^:]+):([^/]+)$'
+    REDIS_REGEX='^redis://([^:]+):([^@]+)@([^:]+):([^/]+)$'
 
-if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
-    if [[ $MERGIFYENGINE_STORAGE_URL =~ $REDIS_REGEX ]]; then
-    sed -i "s/<CACHE HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-    sed -i "s/<CACHE PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-    sed -i "s/<CACHE PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+    if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
+        if [[ $MERGIFYENGINE_STORAGE_URL =~ $REDIS_REGEX ]]; then
+            sed -i "s/<CACHE HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+            sed -i "s/<CACHE PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+            sed -i "s/<CACHE PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        fi
     fi
-fi
 
 
-if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
-    if [[ $MERGIFYENGINE_CELERY_BROKER_URL =~ $REDIS_REGEX ]]; then
-        sed -i "s/<CELERY HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+    if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
+        if [[ $MERGIFYENGINE_CELERY_BROKER_URL =~ $REDIS_REGEX ]]; then
+            sed -i "s/<CELERY HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+            sed -i "s/<CELERY PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+            sed -i "s/<CELERY PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        fi
     fi
 fi
