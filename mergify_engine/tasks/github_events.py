@@ -14,6 +14,8 @@
 
 import daiquiri
 
+from datadog import statsd
+
 import github
 
 
@@ -153,8 +155,29 @@ def get_ignore_reason(subscription, event_type, data):
         return "ignored (unexpected event_type)"
 
 
+def meter_event(event_type, data):
+    tags = []
+
+    if "action" in data:
+        tags.append(f"action:data['action']")
+
+    if (
+        event_type == "pull_request"
+        and data["action"] == "closed"
+        and data["pull_request"]["merged"]
+    ):
+        if data["pull_request"]["merged_by"] and data["pull_request"]["merged_by"][
+            "login"
+        ] in ["mergify[bot]", "mergify-test[bot]"]:
+            tags.append("by_mergify")
+
+    statsd.increment("engine.github.events.f{event_type}", tags=tags)
+
+
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
+    meter_event(event_type, data)
+
     if "installation" in data:
         installation_id = data["installation"]["id"]
         installation_owner = data["installation"].get("account", {"login": "Unknown"})[
