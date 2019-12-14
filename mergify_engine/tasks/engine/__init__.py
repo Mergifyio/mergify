@@ -13,7 +13,6 @@
 
 import daiquiri
 
-from datadog import statsd
 import github
 
 from mergify_engine import check_api
@@ -70,23 +69,6 @@ def get_github_pull_from_event(repo, event_type, data):
 
             if pull and not pull.merged:
                 return pull
-
-
-def create_metrics(event_type, data):
-    if event_type == "pull_request" and data["action"] == "opened":
-        statsd.increment("engine.pull-request.opened")
-
-    elif (
-        event_type == "pull_request"
-        and data["action"] == "closed"
-        and data["pull_request"]["merged"]
-    ):
-
-        statsd.increment("engine.pull-request.merged")
-        if data["pull_request"]["merged_by"] and data["pull_request"]["merged_by"][
-            "login"
-        ] in ["mergify[bot]", "mergify-test[bot]"]:
-            statsd.increment("engine.pull-request.merged-by-mergify")
 
 
 def check_configuration_changes(event_pull):
@@ -269,8 +251,6 @@ def run(event_type, data):
             },
         )
         return
-
-    create_metrics(event_type, data)
 
     commands_runner.spawn_pending_commands_tasks(
         installation_id, event_type, data, event_pull
