@@ -159,7 +159,7 @@ def meter_event(event_type, data):
     tags = []
 
     if "action" in data:
-        tags.append(f"action:data['action']")
+        tags.append(f"action:{data['action']}")
 
     if (
         event_type == "pull_request"
@@ -171,7 +171,7 @@ def meter_event(event_type, data):
         ] in ["mergify[bot]", "mergify-test[bot]"]:
             tags.append("by_mergify")
 
-    statsd.increment("engine.github.events.f{event_type}", tags=tags)
+    statsd.increment(f"engine.github.events.{event_type}", tags=tags)
 
 
 @app.task
