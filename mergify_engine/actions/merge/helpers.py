@@ -72,6 +72,13 @@ def merge_report(pull, strict):
     return conclusion, title, summary
 
 
+WAIT_FOR_CI_REPORT = (
+    None,
+    "Base branch updates done",
+    "The pull request has been automatically updated to follow its base branch and will be merged soon",
+)
+
+
 def update_pull_base_branch(pull, installation_id, method):
     try:
         if method == "merge":
@@ -93,10 +100,4 @@ def update_pull_base_branch(pull, installation_id, method):
         # Otherwise the checks will be lost the GitHub UI on the
         # old sha.
         pull.wait_for_sha_change()
-        return (
-            None,
-            "Base branch updates done",
-            "The pull request has been automatically "
-            "updated to follow its base branch and will be "
-            "merged soon",
-        )
+        return WAIT_FOR_CI_REPORT

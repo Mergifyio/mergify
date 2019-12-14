@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import base64
 
 import daiquiri
 from datadog import statsd
@@ -39,6 +40,8 @@ with open(mergify_rule_path, "r") as f:
 
 
 PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
+
+SUMMARY_NAME = "Summary"
 
 NOT_APPLICABLE_TEMPLATE = """<details>
 <summary>Rules not applicable to this pull request:</summary>
@@ -137,8 +140,6 @@ def gen_summary(event_type, data, pull, match):
         summary += gen_summary_rules(match.ignored_rules)
         summary += "</details>\n"
 
-    summary += doc.MERGIFY_PULL_REQUEST_DOC
-
     completed_rules = len(list(filter(lambda x: not x[1], match.matching_rules)))
     potential_rules = len(match.matching_rules) - completed_rules
 
@@ -161,11 +162,11 @@ def gen_summary(event_type, data, pull, match):
     return summary_title, summary
 
 
-def post_summary(event_type, data, pull, match, checks):
+def post_summary(event_type, data, pull, match, summary_check, conclusions):
     summary_title, summary = gen_summary(event_type, data, pull, match)
 
-    summary_name = "Summary"
-    summary_check = checks.get(summary_name)
+    summary += doc.MERGIFY_PULL_REQUEST_DOC
+    summary += serialize_conclusions(conclusions)
 
     summary_changed = (
         not summary_check
@@ -176,11 +177,11 @@ def post_summary(event_type, data, pull, match, checks):
     if summary_changed:
         LOG.debug(
             "summary changed",
-            summary={"title": summary_title, "name": summary_name, "summary": summary},
+            summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
         )
         check_api.set_check_run(
             pull.g_pull,
-            summary_name,
+            SUMMARY_NAME,
             "completed",
             "success",
             output={"title": summary_title, "summary": summary},
@@ -188,7 +189,7 @@ def post_summary(event_type, data, pull, match, checks):
     else:
         LOG.debug(
             "summary unchanged",
-            summary={"title": summary_title, "name": summary_name, "summary": summary},
+            summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
         )
 
 
@@ -222,68 +223,92 @@ def exec_action(
         return "failure", "action '%s' failed" % action, " "
 
 
+def load_conclusions(pull, summary_check):
+    if not summary_check:
+        return {}
+
+    line = summary_check.output["summary"].splitlines()[-1]
+    if line.startswith("<!-- ") and line.endswith(" -->"):
+        return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
+    else:
+        LOG.warning(
+            "previous conclusion not found in summary",
+            pull_request=pull,
+            summary_check=summary_check,
+        )
+        return {}
+
+
+def serialize_conclusions(conclusions):
+    return (
+        "<!-- %s -->" % base64.b64encode(yaml.safe_dump(conclusions).encode()).decode()
+    )
+
+
+def get_previous_conclusion(previous_conclusions, name, checks):
+    if name in previous_conclusions:
+        return previous_conclusions[name]
+    # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
+    # synchrnozation event issue is fixed
+    elif name in checks:
+        return checks[name].conclusion
+    return "neutral"
+
+
 def run_actions(
-    installation_id, installation_token, event_type, data, pull, match, checks
+    installation_id,
+    installation_token,
+    event_type,
+    data,
+    pull,
+    match,
+    checks,
+    previous_conclusions,
 ):
 
-    actions_ran = []
+    actions_ran = set()
+    conclusions = {}
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action in rule["actions"]:
             check_name = "Rule: %s (%s)" % (rule["name"], action)
-            prev_check = checks.get(check_name)
+
+            previous_conclusion = get_previous_conclusion(
+                previous_conclusions, check_name, checks
+            )
+
+            done_by_another_action = (
+                rule["actions"][action].only_once and action in actions_ran
+            )
 
             if missing_conditions:
-                if not prev_check:
-                    LOG.info(
-                        "action evaluation: ignored, missing condition and never ran",
-                        report=("no-previous-check", "", ""),
-                        check_name=check_name,
-                        pull_request=pull,
-                        missing_conditions=missing_conditions,
-                    )
-                    continue
                 method_name = "cancel"
-                expected_conclusion = ["cancelled", "neutral"]
+                expected_conclusions = ["neutral", "cancelled"]
             else:
                 method_name = "run"
-                expected_conclusion = ["success", "failure"]
+                expected_conclusions = ["success", "failure"]
+                statsd.increment("engine.actions.count", tags=["name:%s" % action])
+                actions_ran.add(action)
 
-            already_run = (
-                prev_check
-                and prev_check.conclusion in expected_conclusion
-                and event_type != "refresh"
+            done_in_the_past = (
+                previous_conclusion in expected_conclusions and event_type != "refresh"
             )
-            if already_run:
-                if method_name == "run":
-                    actions_ran.append(action)
-                LOG.info(
-                    "action evaluation: ignored, already '%s'",
-                    method_name,
-                    report=(
-                        prev_check.conclusion,
-                        prev_check.output["title"],
-                        prev_check.output["summary"],
-                    ),
-                    check_name=check_name,
-                    pull_request=pull,
-                    missing_conditions=missing_conditions,
-                )
-                continue
 
-            # NOTE(sileht) We can't run two action merge for example
-            if rule["actions"][action].only_once and action in actions_ran:
-                report = ("success", "Another %s action already ran" % action, "")
-                LOG.info(
-                    "action evaluation: ignored, another action %s "
-                    "has already been run",
-                    action,
-                    report=report,
-                    check_name=check_name,
-                    pull_request=pull,
-                    missing_conditions=missing_conditions,
+            if done_in_the_past:
+                report = None
+                message = "ignored, already in expected state: %s/%s" % (
+                    method_name,
+                    previous_conclusion,
                 )
+
+            elif done_by_another_action:
+                # NOTE(sileht) We can't run two action merge for example,
+                # This assumes the action produce a report
+                report = ("success", "Another %s action already ran" % action, "")
+                message = "ignored, another action `%s` has already been run" % action
+
             else:
+                # NOTE(sileht): check state change so we have to run "run" or "cancel"
                 report = exec_action(
                     method_name,
                     rule,
@@ -295,28 +320,40 @@ def run_actions(
                     pull,
                     missing_conditions,
                 )
-                if method_name == "run":
-                    statsd.increment("engine.actions.count", tags=["name:%s" % action])
-                    actions_ran.append(action)
-                LOG.info(
-                    "action evaluation: %s",
-                    method_name,
-                    report=report,
-                    check_name=check_name,
-                    pull_request=pull,
-                    missing_conditions=missing_conditions,
-                )
+                message = "`%s` executed" % method_name
 
             if report:
                 conclusion, title, summary = report
                 status = "completed" if conclusion else "in_progress"
-                check_api.set_check_run(
-                    pull.g_pull,
-                    check_name,
-                    status,
-                    conclusion,
-                    output={"title": title, "summary": summary},
-                )
+                try:
+                    check_api.set_check_run(
+                        pull.g_pull,
+                        check_name,
+                        status,
+                        conclusion,
+                        output={"title": title, "summary": summary},
+                    )
+                except Exception:
+                    LOG.error("Fail to post check `%s`", check_name, exception=True)
+                conclusions[check_name] = conclusion
+            else:
+                # NOTE(sileht): action doesn't have report (eg:
+                # comment/request_reviews/..) So just assume it succeed
+                conclusions[check_name] = expected_conclusions[0]
+
+            LOG.info(
+                "action evaluation: %s",
+                message,
+                report=report,
+                previous_conclusion=previous_conclusion,
+                conclusion=conclusions[check_name],
+                check_name=check_name,
+                pull_request=pull,
+                missing_conditions=missing_conditions,
+                event_type=event_type,
+            )
+
+    return conclusions
 
 
 @app.task
@@ -340,8 +377,18 @@ def handle(installation_id, pull_request_rules_raw, event_type, data):
         if c._rawData["app"]["id"] == config.INTEGRATION_ID
     )
 
-    post_summary(event_type, data, pull, match, checks)
+    summary_check = checks.get(SUMMARY_NAME)
+    previous_conclusions = load_conclusions(pull, summary_check)
 
-    run_actions(
-        installation_id, installation_token, event_type, data, pull, match, checks
+    conclusions = run_actions(
+        installation_id,
+        installation_token,
+        event_type,
+        data,
+        pull,
+        match,
+        checks,
+        previous_conclusions,
     )
+
+    post_summary(event_type, data, pull, match, summary_check, conclusions)
