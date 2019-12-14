@@ -186,7 +186,7 @@ def smart_strict_workflow_periodic_task():
 
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             LOG.warning(
-                "pull request with mergeable_state unknown " "retrying later",
+                "pull request with mergeable_state unknown retrying later",
                 pull_request=e.pull,
             )
             _move_pull_at_end(e.pull)
