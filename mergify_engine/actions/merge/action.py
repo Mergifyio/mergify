@@ -59,12 +59,10 @@ class MergeAction(actions.Action):
     ):
         LOG.debug("process merge", config=self.config, pull=pull)
 
-        output = helpers.merge_report(pull)
+        output = helpers.merge_report(pull, self.config["strict"])
         if output:
-            return output
-
-        output = helpers.output_for_mergeable_state(pull, self.config["strict"])
-        if output:
+            if self.config["strict"] == "smart":
+                queue.remove_pull(pull)
             return output
 
         if self.config["strict"] and pull.is_behind():
@@ -180,7 +178,7 @@ class MergeAction(actions.Action):
             LOG.info("merged", pull=pull)
 
         pull.g_pull.update()
-        return helpers.merge_report(pull)
+        return helpers.merge_report(pull, self.config["strict"])
 
     def _handle_merge_error(self, e, pull, installation_id):
         if e.status >= 500:
