@@ -156,7 +156,7 @@ def get_ignore_reason(subscription, event_type, data):
 
 
 def meter_event(event_type, data):
-    tags = []
+    tags = [f"event_type:{event_type}"]
 
     if "action" in data:
         tags.append(f"action:{data['action']}")
@@ -171,7 +171,7 @@ def meter_event(event_type, data):
         ] in ["mergify[bot]", "mergify-test[bot]"]:
             tags.append("by_mergify")
 
-    statsd.increment(f"engine.github.events.{event_type}", tags=tags)
+    statsd.increment(f"github.events", tags=tags)
 
 
 @app.task
