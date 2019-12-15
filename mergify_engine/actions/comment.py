@@ -21,7 +21,6 @@ import github
 import voluptuous
 
 from mergify_engine import actions
-from mergify_engine import config
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -38,13 +37,6 @@ class CommentAction(actions.Action):
         pull,
         missing_conditions,
     ):
-        for comment in pull.g_pull.get_issue_comments():
-            if (
-                comment.user.id == config.BOT_USER_ID
-                and comment.body == self.config["message"]
-            ):
-                return
-
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:  # pragma: no cover
