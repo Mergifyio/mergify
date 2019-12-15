@@ -264,6 +264,16 @@ def run_actions(
     checks,
     previous_conclusions,
 ):
+    """
+    What action.run() and action.cancel() return should be reworked a bit. Currently the
+    meaning is not really clear, it could be:
+    - None - (succeed but no dedicated report is posted with check api
+    - (None, "<title>", "<summary>") - (action is pending, for merge/backport/...)
+    - ("success", "<title>", "<summary>")
+    - ("failure", "<title>", "<summary>")
+    - ("neutral", "<title>", "<summary>")
+    - ("cancelled", "<title>", "<summary>")
+    """
 
     actions_ran = set()
     conclusions = {}
