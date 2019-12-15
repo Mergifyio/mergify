@@ -37,6 +37,8 @@ class DismissReviewsAction(actions.Action):
         ),
     }
 
+    always_run = True
+
     def run(
         self,
         installation_id,

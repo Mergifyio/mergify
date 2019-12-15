@@ -51,6 +51,8 @@ class Action(abc.ABC):
     is_action = True
     is_command = False
 
+    always_run = False
+
     config = attr.ib()
     cancelled_check_report = (
         "neutral",

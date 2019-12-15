@@ -290,7 +290,9 @@ def run_actions(
                 actions_ran.add(action)
 
             done_in_the_past = (
-                previous_conclusion in expected_conclusions and event_type != "refresh"
+                not rule["actions"][action].always_run
+                and previous_conclusion in expected_conclusions
+                and event_type != "refresh"
             )
 
             if done_in_the_past:
