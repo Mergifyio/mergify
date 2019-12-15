@@ -88,17 +88,20 @@ class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
             self._completed_at = self._makeStringAttribute(attributes["completed_at"])
 
 
-def get_checks(pull, parameters=None):
-    checks = list(
-        github.PaginatedList.PaginatedList(
-            Check,
-            pull._requester,
-            "%s/commits/%s/check-runs" % (pull.base.repo.url, pull.head.sha),
-            parameters,
-            list_item="check_runs",
-            headers={"Accept": "application/vnd.github.antiope-preview+json"},
-        )
+def get_checks_for_ref(repo, sha, parameters=None, mergify_only=False):
+    checks = github.PaginatedList.PaginatedList(
+        Check,
+        repo._requester,
+        "%s/commits/%s/check-runs" % (repo.url, sha),
+        parameters,
+        list_item="check_runs",
+        headers={"Accept": "application/vnd.github.antiope-preview+json"},
     )
+
+    if mergify_only:
+        checks = [c for c in checks if c._rawData["app"]["id"] == config.INTEGRATION_ID]
+    else:
+        checks = list(checks)
 
     # FIXME(sileht): We currently have some issue to set back
     # conclusion to null, Maybe a GH bug or not.
@@ -109,6 +112,10 @@ def get_checks(pull, parameters=None):
             check._useAttributes({"conclusion": None})
 
     return checks
+
+
+def get_checks(pull, parameters=None, mergify_only=False):
+    return get_checks_for_ref(pull.base.repo, pull.head.sha, parameters, mergify_only)
 
 
 def get_check_suite(g_repo, check_suite_id):

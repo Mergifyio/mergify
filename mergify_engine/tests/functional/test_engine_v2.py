@@ -345,6 +345,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(len(comments), len(new_comments))
         self.assertEqual("WTF?", new_comments[-1].body)
 
+        # Add new commit to ensure Summary get copied and comment not reposted
+        open(self.git.tmp + "/new_file", "wb").close()
+        self.git("add", self.git.tmp + "/new_file")
+        self.git("commit", "--no-edit", "-m", "new commit")
+        self.git("push", "--quiet", "fork", "fork/pr%d" % self.pr_counter)
+
+        self.wait_for("pull_request", {"action": "synchronize"})
+
+        # Ensure nothing changed
+        new_comments = list(p.get_issue_comments())
+        self.assertEqual(len(comments), len(new_comments))
+        self.assertEqual("WTF?", new_comments[-1].body)
+
     def test_close(self):
         rules = {
             "pull_request_rules": [

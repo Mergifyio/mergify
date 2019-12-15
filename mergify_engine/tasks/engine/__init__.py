@@ -112,6 +112,31 @@ def check_configuration_changes(event_pull):
     return False
 
 
+def copy_summary_from_previous_head_sha(g_pull, sha):
+    checks = check_api.get_checks_for_ref(
+        g_pull.base.repo,
+        sha,
+        {"check_name": actions_runner.SUMMARY_NAME},
+        mergify_only=True,
+    )
+    if not checks:
+        LOG.warning(
+            "Got synchronize event but didn't find Summary on previous head sha",
+            pull_request=g_pull,
+        )
+        return
+    check_api.set_check_run(
+        g_pull,
+        actions_runner.SUMMARY_NAME,
+        "completed",
+        "success",
+        output={
+            "title": checks[0].output["title"],
+            "summary": checks[0].output["summary"],
+        },
+    )
+
+
 @app.task
 def run(event_type, data):
     """Everything starts here."""
@@ -251,6 +276,12 @@ def run(event_type, data):
             },
         )
         return
+
+    # CheckRun are attached to head sha, so when user add commits or force push
+    # we can't directly get the previous Mergify Summary. So we copy it here, then
+    # anything that looks at it in next celery tasks will find it.
+    if event_type == "pull_request" and data["action"] == "synchronize":
+        copy_summary_from_previous_head_sha(event_pull, data["before"])
 
     commands_runner.spawn_pending_commands_tasks(
         installation_id, event_type, data, event_pull

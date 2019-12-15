@@ -22,7 +22,6 @@ import pkg_resources
 import yaml
 
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import doc
 from mergify_engine import mergify_pull
 from mergify_engine import rules
@@ -372,9 +371,7 @@ def handle(installation_id, pull_request_rules_raw, event_type, data):
     )
     match = pull_request_rules.get_pull_request_rule(pull)
     checks = dict(
-        (c.name, c)
-        for c in check_api.get_checks(pull.g_pull)
-        if c._rawData["app"]["id"] == config.INTEGRATION_ID
+        (c.name, c) for c in check_api.get_checks(pull.g_pull, mergify_only=True)
     )
 
     summary_check = checks.get(SUMMARY_NAME)
