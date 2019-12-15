@@ -101,11 +101,8 @@ def _handle_first_pull_in_queue(queue, pull):
     _, installation_id, owner, reponame, branch = queue.split("~")
     old_checks = [
         c
-        for c in check_api.get_checks(pull.g_pull)
-        if (
-            c.name.endswith(" (merge)")
-            and c._rawData["app"]["id"] == config.INTEGRATION_ID
-        )
+        for c in check_api.get_checks(pull.g_pull, mergify_only=True)
+        if c.name.endswith(" (merge)")
     ]
 
     output = helpers.merge_report(pull, True)
