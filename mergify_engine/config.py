@@ -115,6 +115,7 @@ def log():
             in [
                 "PRIVATE_KEY",
                 "WEBHOOK_SECRET",
+                "CACHE_TOKEN_SECRET",
                 "OAUTH_CLIENT_ID",
                 "OAUTH_CLIENT_SECRET",
                 "MAIN_TOKEN",
