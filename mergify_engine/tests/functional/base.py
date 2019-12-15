@@ -15,6 +15,7 @@
 # under the License.
 import copy
 import json
+import queue
 import os
 import re
 import shutil
@@ -48,6 +49,11 @@ RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"
 FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
+
+# NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
+# So all REST API calls will block and execute celery tasks directly
+worker.app.conf.task_always_eager = True
+worker.app.conf.task_eager_propagates = True
 
 
 class GitterRecorder(utils.Gitter):
@@ -133,10 +139,133 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
-# NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
-# So all REST API calls will block and execute celery tasks directly
-worker.app.conf.task_always_eager = True
-worker.app.conf.task_eager_propagates = True
+class EventReader:
+    def __init__(self, app):
+        self._app = app
+        self._session = requests.Session()
+        self._session.trust_env = False
+        self._handled_events = queue.Queue()
+        self._counter = 0
+
+    def drain(self):
+        # NOTE(sileht): Drop any pending events still on the server
+        r = self._session.delete(
+            "https://gh.mergify.io/events-testing",
+            data=FAKE_DATA,
+            headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+        )
+        r.raise_for_status()
+
+    def wait_for(self, event_type, expected_payload, timeout=60 if RECORD else 2):
+        started_at = time.monotonic()
+        while time.monotonic() - started_at < timeout:
+            try:
+                event = self._handled_events.get(block=False)
+            except queue.Empty:
+                for event in self._get_events():
+                    self._forward_to_engine(event)
+                    self._handled_events.put(event)
+                else:
+                    if RECORD:
+                        time.sleep(1)
+                continue
+
+            if event["type"] == event_type and self._match(
+                event["payload"], expected_payload
+            ):
+                return
+
+        raise Exception(
+            f"Never got event `{event_type}` with payload `{expected_payload}` (timeout)"
+        )
+
+    @classmethod
+    def _match(cls, data, expected_data):
+        if isinstance(expected_data, dict):
+            for key, expected in expected_data.items():
+                if key not in data:
+                    return False
+                if not cls._match(data[key], expected):
+                    return False
+            return True
+        else:
+            return data == expected_data
+
+    def _get_events(self):
+        # NOTE(sileht): we use a counter to make each call unique in cassettes
+        self._counter += 1
+        return self._session.get(
+            f"https://gh.mergify.io/events-testing?counter={self._counter}",
+            data=FAKE_DATA,
+            headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+        ).json()
+
+    def _forward_to_engine(self, event):
+        payload = event["payload"]
+        if event["type"] in ["check_run", "check_suite"]:
+            extra = "/%s/%s" % (
+                payload[event["type"]].get("status"),
+                payload[event["type"]].get("conclusion"),
+            )
+        elif event["type"] == "status":
+            extra = "/%s" % payload.get("state")
+        else:
+            extra = ""
+        LOG.warning(
+            "### EVENT RECEIVED ### [%s] %s/%s%s: %s",
+            event["id"],
+            event["type"],
+            payload.get("action"),
+            extra,
+            self._remove_useless_links(copy.deepcopy(event)),
+        )
+        r = self._app.post(
+            "/event",
+            headers={
+                "X-GitHub-Event": event["type"],
+                "X-GitHub-Delivery": "123456789",
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+            data=json.dumps(payload),
+        )
+        return r
+
+    @classmethod
+    def _remove_useless_links(cls, data):
+        if isinstance(data, dict):
+            data.pop("installation", None)
+            data.pop("sender", None)
+            data.pop("repository", None)
+            data.pop("base", None)
+            data.pop("head", None)
+            data.pop("id", None)
+            data.pop("node_id", None)
+            data.pop("tree_id", None)
+            data.pop("_links", None)
+            data.pop("user", None)
+            data.pop("body", None)
+            data.pop("after", None)
+            data.pop("before", None)
+            data.pop("app", None)
+            data.pop("timestamp", None)
+            data.pop("external_id", None)
+            if "organization" in data:
+                data["organization"].pop("description", None)
+            if "check_run" in data:
+                data["check_run"].pop("checks_suite", None)
+            for key, value in list(data.items()):
+                if key.endswith("url"):
+                    del data[key]
+                elif key.endswith("_at"):
+                    del data[key]
+                else:
+                    data[key] = cls._remove_useless_links(value)
+            return data
+        elif isinstance(data, list):
+            return [cls._remove_useless_links(elem) for elem in data]
+        else:
+            return data
 
 
 class FunctionalTestBase(testtools.TestCase):
@@ -225,17 +354,6 @@ class FunctionalTestBase(testtools.TestCase):
         cassette = self.recorder.use_cassette("http.json")
         cassette.__enter__()
         self.addCleanup(cassette.__exit__)
-
-        self.session = requests.Session()
-        self.session.trust_env = False
-
-        # Cleanup the remote testing redis
-        r = self.session.delete(
-            "https://gh.mergify.io/events-testing",
-            data=FAKE_DATA,
-            headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
-        )
-        r.raise_for_status()
 
         integration = github.GithubIntegration(
             config.INTEGRATION_ID, config.PRIVATE_KEY
@@ -337,6 +455,8 @@ class FunctionalTestBase(testtools.TestCase):
                 return_value=[self.r_o_integration],
             )
         )
+        self._event_reader = EventReader(self.app)
+        self._event_reader.drain()
 
     def tearDown(self):
         # self.r_o_admin.delete()
@@ -347,6 +467,11 @@ class FunctionalTestBase(testtools.TestCase):
         # we create repo too quickly
         if RECORD:
             time.sleep(0.5)
+
+        self._event_reader.drain()
+
+    def wait_for(self, *args, **kwargs):
+        return self._event_reader.wait_for(*args, **kwargs)
 
     def get_gitter(self):
         self.git_counter += 1
@@ -392,22 +517,15 @@ class FunctionalTestBase(testtools.TestCase):
                     b"fatal: remote error: access denied "
                     b"or repository not exported" in e.output
                 ):
-                    # Forks can take some time, retry
-                    time.sleep(0.2)
+                    if RECORD:
+                        # Forks can take some time, retry
+                        time.sleep(0.2)
                 else:
                     raise
             else:
                 break
         else:
             raise RuntimeError("Unable to fetch from the forked repository")
-
-        # NOTE(sileht): Github looks buggy here:
-        # We receive for the new repo the expected events:
-        # * installation_repositories
-        # * integration_installation_repositories
-        # * 1 push per branches
-        # * check_suite/requested
-        self.drop_events(4 + len(test_branches))
 
     @staticmethod
     def response_filter(response):
@@ -426,169 +544,6 @@ class FunctionalTestBase(testtools.TestCase):
         ]:
             response["headers"].pop(h, None)
         return response
-
-    def drop_events(self, total):
-        events = []
-        while len(events) < total:
-            events.extend(
-                list(
-                    self.session.get(
-                        "https://gh.mergify.io/events-testing?number=%d"
-                        % (total - len(events)),
-                        data=FAKE_DATA,
-                        headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
-                    ).json()
-                )
-            )
-
-    @staticmethod
-    def sorted_event(event):
-        # Just allow randomly sorted dict
-        return event[0], sorted(event[1].keys())
-
-    def push_events(self, expected_events, ordered=True):
-        LOG.debug("============= push events start =============")
-        expected_events = copy.deepcopy(expected_events)
-        total = len(expected_events)
-        events = []
-        loop = 0
-
-        while len(events) < total:
-            loop += 1
-            if loop > 100:
-                raise RuntimeError(
-                    "Never got expected number of events, "
-                    "got %d events instead of %d" % (len(events), total)
-                )
-
-            if RECORD:
-                time.sleep(0.2)
-
-            events += self._process_events(total - len(events))
-
-        events = [(e["type"], e) for e in events]
-
-        if not ordered:
-            events = list(sorted(events, key=self.sorted_event))
-            expected_events = list(sorted(expected_events, key=self.sorted_event))
-
-        pos = 0
-        for (etype, event), (expected_etype, expected_data) in zip(
-            events, expected_events
-        ):
-            pos += 1
-
-            if expected_etype is not None and expected_etype != etype:
-                raise Exception(
-                    "[%d] Got %s event type instead of %s:\n"
-                    "%s\nintead of\n%s"
-                    % (
-                        pos,
-                        event["type"],
-                        expected_etype,
-                        self._event_for_log(event),
-                        expected_data,
-                    )
-                )
-
-            self._validate_key(pos, event["payload"], expected_data)
-        LOG.debug("============= push events end =============")
-
-    @classmethod
-    def _validate_key(cls, pos, data, expected_data):
-        if isinstance(expected_data, dict):
-            for key, expected in expected_data.items():
-                if key in data:
-                    cls._validate_key(pos, data[key], expected)
-                else:
-                    raise Exception("[%d] %s is missing" % (pos, key))
-        else:
-            if data != expected_data:
-                raise Exception(
-                    "[%d] Got %s instead of %s" % (pos, data, expected_data)
-                )
-
-    @classmethod
-    def _remove_useless_links(cls, data):
-        data.pop("installation", None)
-        data.pop("sender", None)
-        data.pop("repository", None)
-        data.pop("base", None)
-        data.pop("head", None)
-        data.pop("id", None)
-        data.pop("node_id", None)
-        data.pop("tree_id", None)
-        data.pop("_links", None)
-        data.pop("user", None)
-        data.pop("body", None)
-        data.pop("after", None)
-        data.pop("before", None)
-        data.pop("app", None)
-        data.pop("timestamp", None)
-        data.pop("external_id", None)
-        if "organization" in data:
-            data["organization"].pop("description", None)
-        if "check_run" in data:
-            data["check_run"].pop("checks_suite", None)
-        for key, value in list(data.items()):
-            if key.endswith("url"):
-                del data[key]
-            if key.endswith("_at"):
-                del data[key]
-            if isinstance(value, dict):
-                data[key] = cls._remove_useless_links(value)
-        return data
-
-    @classmethod
-    def _event_for_log(cls, event):
-        filtered_payload = copy.deepcopy(event)
-        return cls._remove_useless_links(filtered_payload)
-
-    def _process_events(self, number):
-        # NOTE(sileht): Simulate push Github events, we use a counter
-        # for have each cassette call unique
-        events = list(
-            self.session.get(
-                "https://gh.mergify.io/events-testing?number=%d" % number,
-                data=FAKE_DATA,
-                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
-            ).json()
-        )
-        if events:
-            for e in events:
-                self._process_event(e["id"], e["type"], e["payload"])
-        return events
-
-    def _process_event(self, _id, _type, payload):  # noqa
-        action = payload.get("action")
-        if _type in ["check_run", "check_suite"]:
-            extra = "/%s/%s" % (
-                payload[_type].get("status"),
-                payload[_type].get("conclusion"),
-            )
-        elif _type == "status":
-            extra = "/%s" % payload.get("state")
-        else:
-            extra = ""
-        LOG.debug(
-            "* Proceed event: [%s] %s/%s%s: %s",
-            _id,
-            _type,
-            action,
-            extra,
-            self._event_for_log(payload),
-        )
-        r = self.app.post(
-            "/event",
-            headers={
-                "X-GitHub-Event": _type,
-                "X-GitHub-Delivery": "123456789",
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-            data=json.dumps(payload),
-        )
-        return r
 
     def create_pr(
         self,
@@ -634,46 +589,13 @@ class FunctionalTestBase(testtools.TestCase):
             body=message or title,
         )
 
-        expected_events = [("pull_request", {"action": "opened"})]
-        if base_repo == "main":
-            expected_events += [("push", {})]
-        if files and ".mergify.yml" in files:
-            # Yeah... we can receive opened after the check_run/suite ... it's
-            # just random
-            expected_events += [
-                ("check_suite", {"check_suite": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ]
-        else:
-            if base_repo == "main":
-                expected_events += [
-                    ("check_suite", {"check_suite": {"conclusion": None}})
-                ]
-            expected_events += [
-                ("check_suite", {"check_suite": {"conclusion": "success"}}),
-                (
-                    "check_run",
-                    {"check_run": {"conclusion": "success", "status": "completed"}},
-                ),
-                (
-                    "check_run",
-                    {"check_run": {"conclusion": "success", "status": "completed"}},
-                ),
-            ]
-        self.push_events(expected_events, ordered=False)
+        self.wait_for("pull_request", {"action": "opened"})
 
         # NOTE(sileht): We return the same but owned by the main project
         p = self.r_o_integration.get_pull(p.number)
         commits = list(p.get_commits())
 
         return p, commits
-
-    def create_status_and_push_event(
-        self, pr, context="continuous-integration/fake-ci", state="success"
-    ):
-        self.create_status(pr, context, state)
-        self.push_events([("status", {"state": state})])
 
     def create_status(
         self, pr, context="continuous-integration/fake-ci", state="success"
@@ -689,19 +611,18 @@ class FunctionalTestBase(testtools.TestCase):
             },
             headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
+        self.wait_for("status", {"state": state})
 
-    def create_review_and_push_event(self, pr, commit, event="APPROVE"):
+    def create_review(self, pr, commit, event="APPROVE"):
         pr_review = self.r_o_admin.get_pull(pr.number)
         r = pr_review.create_review(commit, "Perfect", event=event)
-        self.push_events([("pull_request_review", {"action": "submitted"})])
+        self.wait_for("pull_request_review", {"action": "submitted"})
         return r
 
-    def add_label_and_push_events(self, pr, label, additional_checks=[]):
+    def add_label(self, pr, label):
         self.r_o_admin.create_label(label, "000000")
         pr.add_to_labels(label)
-        events = [("pull_request", {"action": "labeled"})]
-        events.extend(additional_checks)
-        self.push_events(events, ordered=False)
+        self.wait_for("pull_request", {"action": "labeled"})
 
     def branch_protection_protect(self, branch, rule):
         if (
