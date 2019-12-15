@@ -30,9 +30,6 @@ app = celery.Celery()
 
 app.conf.broker_url = config.CELERY_BROKER_URL
 
-# Limit the connection to Redis to 1 per worker
-app.conf.broker_pool_limit = 1
-
 # Configure number of worker via env var
 app.conf.worker_concurrency = int(os.environ.get("CELERYD_CONCURRENCY", 1))
 
