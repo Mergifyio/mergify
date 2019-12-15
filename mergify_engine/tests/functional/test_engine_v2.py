@@ -69,36 +69,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        self.add_label_and_push_events(p, "backport-3.1")
-        self.push_events(
-            [("check_run", {"check_run": {"conclusion": None}})]  # Backport
-        )
+        self.add_label(p, "backport-3.1")
         p.remove_from_labels("backport-3.1")
-
-        title = "The rule doesn't match anymore, this action has been cancelled"
-
-        self.push_events(
-            [
-                ("pull_request", {"action": "unlabeled"}),
-                ("check_suite", {"action": "completed"}),
-                (
-                    "check_run",
-                    {
-                        "check_run": {
-                            "conclusion": "neutral",
-                            "output": {"title": title},
-                        }
-                    },
-                ),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "unlabeled"})
 
         checks = list(
             check_api.get_checks(p, {"check_name": "Rule: backport (backport)"})
         )
         self.assertEqual("neutral", checks[0].conclusion)
-        self.assertEqual(title, checks[0].output["title"])
+        self.assertEqual(
+            "The rule doesn't match anymore, this action has been cancelled",
+            checks[0].output["title"],
+        )
 
     def test_delete_branch(self):
         rules = {
@@ -120,37 +102,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p1, _ = self.create_pr(base_repo="main", branch="#1-first-pr")
         p1.merge()
-        self.push_events(
-            [
-                ("check_suite", {"action": "requested"}),
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         p2, _ = self.create_pr(base_repo="main", branch="#2-second-pr")
         p2.edit(state="close")
+        self.wait_for("pull_request", {"action": "closed"})
 
-        self.push_events([("pull_request", {"action": "closed"})], ordered=False)
-
-        self.add_label_and_push_events(
-            p1,
-            "merge",
-            [
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-            ],
-        )
-        self.add_label_and_push_events(
-            p2,
-            "close",
-            [
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),  # Merge
-            ],
-        )
+        self.add_label(p1, "merge")
+        self.add_label(p2, "close")
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(2, len(pulls))
@@ -178,18 +137,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         p1.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
-
-        self.add_label_and_push_events(
-            p1, "merge", [("check_run", {"check_run": {"conclusion": "success"}})]
-        )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.add_label(p1, "merge")
+        self.wait_for("check_run", {"check_run": {"conclusion": "success"}})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         assert 2 == len(pulls)
@@ -217,24 +167,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         p1.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
-
-        self.add_label_and_push_events(
-            p1,
-            "merge",
-            [
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("push", {}),
-                ("pull_request", {"action": "closed"}),
-            ],
-        )
+        self.wait_for("pull_request", {"action": "closed", "number": p1.number})
+        self.add_label(p1, "merge")
+        self.wait_for("pull_request", {"action": "closed", "number": p2.number})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         assert 2 == len(pulls)
@@ -329,7 +264,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
-        self.add_label_and_push_events(p, "stable")
+        self.add_label(p, "stable")
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
@@ -374,7 +309,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        self.push_events([("pull_request_review", {})]),
+        self.wait_for("pull_request_review", {}),
 
         p.update()
         comments = list(p.get_reviews())
@@ -403,9 +338,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", comments[-1].body)
 
         # Add a label to trigger mergify
-        self.add_label_and_push_events(
-            p, "stable", [("issue_comment", {"action": "created"})]
-        )
+        self.add_label(p, "stable")
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
@@ -450,7 +383,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
         branch = "fork/pr%d" % self.pr_counter
-        self.create_review_and_push_event(p, commits[-1], "APPROVE")
+        self.create_review(p, commits[-1], "APPROVE")
 
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
@@ -462,32 +395,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.git("commit", "--no-edit", "-m", "unwanted_changes")
         self.git("push", "--quiet", "fork", branch)
 
-        self.push_events([("pull_request", {"action": "synchronize"})]),
-        self.push_events(
-            [
-                ("check_suite", {"action": "completed"}),
-                (
-                    "check_run",
-                    {
-                        "check_run": {
-                            "conclusion": "success",
-                            "output": {"title": "1 rule matches"},
-                        }
-                    },
-                ),
-                (
-                    "check_run",
-                    {
-                        "check_run": {
-                            "conclusion": "success",
-                            "output": {"title": "1 rule matches"},
-                        }
-                    },
-                ),
-                ("pull_request_review", {"action": "dismissed"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.wait_for("pull_request_review", {"action": "dismissed"})
 
         self.assertEqual(
             [("DISMISSED", "mergify-test1")],
@@ -495,7 +404,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         commits = list(p.get_commits())
-        self.create_review_and_push_event(p, commits[-1], "REQUEST_CHANGES")
+        self.create_review(p, commits[-1], "REQUEST_CHANGES")
 
         self.assertEqual(
             [("DISMISSED", "mergify-test1"), ("CHANGES_REQUESTED", "mergify-test1")],
@@ -507,32 +416,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.git("commit", "--no-edit", "-m", "unwanted_changes2")
         self.git("push", "--quiet", "fork", branch)
 
-        self.push_events([("pull_request", {"action": "synchronize"})]),
-        self.push_events(
-            [
-                ("check_suite", {"action": "completed"}),
-                (
-                    "check_run",
-                    {
-                        "check_run": {
-                            "conclusion": "success",
-                            "output": {"title": "1 rule matches"},
-                        }
-                    },
-                ),
-                (
-                    "check_run",
-                    {
-                        "check_run": {
-                            "conclusion": "success",
-                            "output": {"title": "1 rule matches"},
-                        }
-                    },
-                ),
-                ("pull_request_review", {"action": "dismissed"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.wait_for("pull_request_review", {"action": "dismissed"})
 
         self.assertEqual(
             [("DISMISSED", "mergify-test1"), ("DISMISSED", "mergify-test1")],
@@ -559,8 +444,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, commits = self.create_pr(two_commits=True)
 
-        self.add_label_and_push_events(p, "backport-#3.1")
-        self.push_events([("pull_request", {"action": "closed"}), ("push", {})])
+        self.add_label(p, "backport-#3.1")
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(2, len(pulls))
@@ -617,32 +502,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2, commits = self.create_pr()
 
         p.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"}),
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        try:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        except requests.ConnectionError:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status_and_push_event(p2)
-        self.create_review_and_push_event(p2, commits[0])
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "synchronize"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -652,16 +522,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(commits[0].commit.message, commits2[0].commit.message)
 
         # Retry to merge pr2
-        self.create_status_and_push_event(p2)
+        self.create_status(p2)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
@@ -690,31 +553,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2, commits = self.create_pr()
 
         p.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ]
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        try:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        except requests.ConnectionError:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status_and_push_event(p2)
-        self.create_review_and_push_event(p2, commits[0])
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "synchronize"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -725,16 +574,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         # Retry to merge pr2
-        self.create_status_and_push_event(p2)
+        self.create_status(p2)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
@@ -763,25 +605,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2, commits = self.create_pr()
 
         p.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ]
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        try:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        except requests.ConnectionError:
+            previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status_and_push_event(p2)
-        self.create_review_and_push_event(p2, commits[0])
-
-        self.push_events(
-            [
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}})
-            ]
-        )
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
 
         r = self.app.get(
             "/queues/%s" % (config.INSTALLATION_ID),
@@ -804,18 +636,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         self.assertEqual(r.json, {"mergifyio-testing/%s" % self.name: {"master": [2]}})
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "synchronize"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-                # Summary
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -826,16 +647,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         # Retry to merge pr2
-        self.create_status_and_push_event(p2)
+        self.create_status(p2)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
@@ -864,13 +678,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p3, commits = self.create_pr()
 
         p.merge()
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ]
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         try:
             previous_master_sha = self.r_o_admin.get_commits()[0].sha
@@ -879,39 +687,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
-        self.push_events(
-            [
-                # fake-ci statuses
-                ("status", {"state": "success"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-            ]
-        )
 
         # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "synchronize"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-                # Summary
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
-        self.push_events(
-            [
-                ("status", {"state": "success"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-            ]
-        )
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -920,47 +702,23 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         self.create_status(p2, "continuous-integration/fake-ci", "failure")
-        self.push_events([("status", {"state": "failure"})])
-        self.push_events(
-            [
-                ("check_run", {"check_run": {"conclusion": "neutral"}}),
-                ("check_suite", {"check_suite": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+
+        # FIXME(sileht): Previous actions tracker was posting a "Rule XXXX (merge)" with
+        # neutral status saying the Merge doesn't match anymore, the new one doesn't
+        # It's not a big deal as the the rule doesn't match anymore anyways.:w
+        self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
         # Should got to the next PR
         run_smart_strict_workflow_periodic_task()
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "synchronize"}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": None}}),
-                # Summary
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         p3 = self.r_o_admin.get_pull(p3.number)
         commits3 = list(p3.get_commits())
         self.assertIn("Merge branch 'master' into fork/pr", commits3[-1].commit.message)
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
-        self.push_events(
-            [
-                ("status", {"state": "success"}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-                ("check_suite", {"action": "completed"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
@@ -1001,6 +759,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "@unknown/team",
                 "@invalid/team/break-here",
                 "sileht",
+                "jd",
                 "mergify-test1",
             ]
         )
@@ -1042,6 +801,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "user",
                 "@unknown/team",
                 "@invalid/team/break-here",
+                "jd",
                 "sileht",
                 "mergify-test1",
             ]
@@ -1065,18 +825,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         msg = "This is the title\n\nAnd this is the message"
         p, _ = self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
-        self.create_status_and_push_event(p)
+        self.create_status(p)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
@@ -1088,8 +839,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         checks = list(check_api.get_checks(p))
         assert len(checks) == 2
-        assert checks[1].name == "Summary"
-        assert msg in checks[1].output["summary"]
+        assert checks[0].name == "Summary"
+        assert msg in checks[0].output["summary"]
 
     def test_merge_custom_msg(self):
         return self._test_merge_custom_msg("Commit Message:\n")
@@ -1120,18 +871,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             title="Such a bug", body="I can't explain, but don't work"
         )
         p, commits = self.create_pr(message="It fixes it\n\nCloses #%s" % i.number)
-        self.create_status_and_push_event(p)
+        self.create_status(p)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
@@ -1162,19 +904,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p2, commits = self.create_pr()
-        self.create_status_and_push_event(p2)
-        self.create_review_and_push_event(p2, commits[0])
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
@@ -1212,13 +945,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        self.push_events(
-            [
-                (
-                    "check_run",
-                    {"check_run": {"conclusion": None, "status": "in_progress"}},
-                )
-            ]
+        self.wait_for(
+            "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
         checks = list(check_api.get_checks(p, {"check_name": "Rule: merge (merge)"}))
@@ -1229,18 +957,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             checks[0].output["title"],
         )
 
-        self.create_status_and_push_event(p)
+        self.create_status(p)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_run", {"check_run": {"conclusion": "success"}}),
-                ("check_suite", {"action": "requested"}),
-                ("check_suite", {"action": "completed"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(1, len(pulls))
@@ -1283,28 +1002,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.branch_protection_protect("master", rule)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
 
-        self.create_status_and_push_event(p2)
+        self.create_status(p2)
 
-        self.push_events(
-            [
-                # FIXME(sileht): Why twice ??
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "failure"}}),
-                # Merge
-                ("check_run", {"check_run": {"conclusion": "failure"}}),
-                ("check_suite", {"action": "completed"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         checks = list(check_api.get_checks(p2, {"check_name": "Rule: merge (merge)"}))
         self.assertEqual("failure", checks[0].conclusion)
@@ -1393,9 +1095,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p.create_issue_comment("@mergifyio refresh")
 
-        self.push_events(
-            [("issue_comment", {"action": "created"})], ordered=False,
-        )
+        self.wait_for("issue_comment", {"action": "created"})
 
         checks = list(check_api.get_checks(p))
         assert len(checks) == 1
@@ -1487,19 +1187,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         # Since we use celery eager system for testing, countdown= are ignored.
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
-        time.sleep(10)
+        if base.RECORD:
+            time.sleep(10)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-                (
-                    "issue_comment",
-                    {"action": "created", "comment": {"body": "It conflict!"}},
-                ),
-            ],
-            ordered=False,
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for(
+            "issue_comment", {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
     def test_command_rebase_ok(self):
@@ -1520,19 +1213,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         # Since we use celery eager system for testing, countdown= are ignored.
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
-        time.sleep(10)
+        if base.RECORD:
+            time.sleep(10)
 
-        self.push_events(
-            [
-                ("pull_request", {"action": "closed"}),
-                ("push", {}),
-                ("check_suite", {"action": "requested"}),
-                ("issue_comment", {"action": "created"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("issue_comment", {"action": "created"})
 
-        time.sleep(1)
+        if base.RECORD:
+            time.sleep(1)
+
         oldsha = p2.head.sha
         p2.update()
         assert oldsha != p2.head.sha
@@ -1556,23 +1245,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1", "feature/one"])
         p, _ = self.create_pr()
 
-        # Since we use celery eager system for testing, countdown= are ignored.
-        # Wait a bit than Github refresh the mergeable_state before running the
-        # engine
-        time.sleep(10)
-
-        self.push_events([("issue_comment", {"action": "created"})])
+        self.wait_for("issue_comment", {"action": "created"})
 
         p.merge()
-        self.push_events(
-            [
-                ("push", {}),
-                ("pull_request", {"action": "closed"}),
-                ("check_suite", {"action": "requested"}),
-                ("issue_comment", {"action": "created"}),
-            ],
-            ordered=False,
-        )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("issue_comment", {"action": "created"})
 
         try:
             pulls = list(self.r_o_admin.get_pulls(state="all"))

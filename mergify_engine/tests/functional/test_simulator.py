@@ -61,7 +61,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert r.json["title"] == "1 rule matches"
         assert r.json["summary"].startswith(
-            "#### Rule: assign (assign)\n- [X] `base=master`\n\n<hr />\n\n<details>\n<summary>Mergify"
+            "#### Rule: assign (assign)\n- [X] `base=master`\n\n<hr />"
         )
 
         r = self.app.post(
