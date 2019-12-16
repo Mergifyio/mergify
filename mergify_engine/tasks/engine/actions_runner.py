@@ -345,7 +345,7 @@ def run_actions(
                         output={"title": title, "summary": summary},
                     )
                 except Exception:
-                    LOG.error("Fail to post check `%s`", check_name, exception=True)
+                    LOG.error("Fail to post check `%s`", check_name, exc_info=True)
                 conclusions[check_name] = conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
