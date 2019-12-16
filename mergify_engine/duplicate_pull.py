@@ -19,6 +19,8 @@ import daiquiri
 
 import github
 
+import tenacity
+
 from mergify_engine import config
 from mergify_engine import doc
 from mergify_engine import utils
@@ -26,9 +28,18 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
-ERRORS_TO_IGNORE = set(
-    ["reference already exists", "You may want to first integrate the remote changes"]
-)
+class DuplicateNeedRetry(Exception):
+    pass
+
+
+GIT_MESSAGE_TO_EXCEPTION = {
+    b"No such device or address": DuplicateNeedRetry,
+    b"Could not resolve host": DuplicateNeedRetry,
+    b"the remote end hung up unexpectedly": DuplicateNeedRetry,
+    b"Operation timed out": DuplicateNeedRetry,
+    b"reference already exists": None,
+    b"You may want to first integrate the remote changes": None,
+}
 
 
 @functools.total_ordering
@@ -124,6 +135,11 @@ def get_destination_branch_name(pull, branch, kind):
     )
 
 
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
+)
 def duplicate(pull, branch, installation_token, kind=BACKPORT):
     """Duplicate a pull request.
 
@@ -190,20 +206,23 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
                 )
 
         git("push", "origin", bp_branch)
-    except subprocess.CalledProcessError as e:  # pragma: no cover
-        output = e.output.decode()
-        for error in ERRORS_TO_IGNORE:
-            if error in output:
-                return
-        LOG.error(
-            "duplicate failed: %s",
-            output,
-            pull_request=pull,
-            branch=branch.name,
-            kind=kind,
-            exc_info=True,
-        )
-        return
+    except subprocess.CalledProcessError as in_exception:  # pragma: no cover
+        for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
+            if message in in_exception.output:
+                if out_exception is None:
+                    return
+                else:
+                    raise out_exception(in_exception.output.decode())
+        else:
+            LOG.error(
+                "duplicate failed: %s",
+                in_exception.output.decode(),
+                pull_request=pull,
+                branch=branch.name,
+                kind=kind,
+                exc_info=True,
+            )
+            return
     except Exception:  # pragma: no cover
         LOG.error(
             "duplicate failed",

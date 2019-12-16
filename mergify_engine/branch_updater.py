@@ -59,6 +59,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"cannot lock ref 'refs/heads/": BranchUpdateNeedRetry,
     b"Could not resolve host": BranchUpdateNeedRetry,
     b"Operation timed out": BranchUpdateNeedRetry,
+    b"No such device or address": BranchUpdateNeedRetry,
 }
 
 GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
