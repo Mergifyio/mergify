@@ -310,13 +310,9 @@ def run_actions(
             else:
                 deprecated_done_in_the_past = None
 
-            done_in_the_past = (
-                not rule["actions"][action].always_run
-                and (
-                    previous_conclusion in expected_conclusions
-                    or deprecated_done_in_the_past
-                )
-                and event_type != "refresh"
+            done_in_the_past = not rule["actions"][action].always_run and (
+                previous_conclusion in expected_conclusions
+                or deprecated_done_in_the_past
             )
 
             if done_in_the_past:
