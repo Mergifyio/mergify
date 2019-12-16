@@ -198,10 +198,7 @@ class MergeAction(actions.Action):
                 pull.g_pull.update()
                 return self._sync_with_base_branch(pull, installation_id)
 
-            elif e.status != 405:
-                message = "Mergify failed to merge the pull request"
-
-            elif pull.g_pull.mergeable_state == "blocked":
+            elif e.status == 405:
                 return (
                     None,
                     "Waiting for the Branch Protection to be validated",
@@ -209,9 +206,8 @@ class MergeAction(actions.Action):
                     "to merge the pull request. Mergify will merge when "
                     "branch protection settings validate the pull request.",
                 )
-
             else:
-                message = "Repository settings are blocking automatic merging"
+                message = "Mergify failed to merge the pull request"
 
         log_method = LOG.error if e.status >= 500 else LOG.info
         log_method(
