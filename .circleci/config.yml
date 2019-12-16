@@ -1,10 +1,5 @@
 version: 2.1
 
-orbs:
-  build-tools: circleci/build-tools@2.3.1
-  docker: circleci/docker@0.5.0
-  slack: circleci/slack@3.2.0
-
 commands:
   tox:
     parameters:
@@ -80,32 +75,6 @@ jobs:
             GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
             gh-pages --dotfiles --message "[skip ci] Updates" --dist doc/build
 
-  build-docker-image:
-    executor: docker/machine
-    steps:
-      - checkout
-      - docker/build:
-          tag: latest
-          image: mergifyio/engine
-      - build-tools/run-filtered:
-          only-branch: master
-          steps:
-            - docker/check
-            - docker/push:
-                tag: latest
-                image: mergifyio/engine
-
-  code-deploy:
-    docker:
-      - image: circleci/buildpack-deps:curl
-    steps:
-      - run: |
-          curl -X POST https://api.github.com/repos/Mergifyio/mergify-engine/deployments \
-               -H "Authorization: token ${GITHUB_DEPLOYMENT_TOKEN}" \
-               -H "Accept: application/vnd.github.machine-man-preview+json" \
-               -H "Content-Type: application/json" \
-               -d '{"ref": "master", "auto_merge": false, "required_contexts": []}'
-
 workflows:
   version: 2
 
@@ -116,10 +85,6 @@ workflows:
       - docs
       - datadog
       - requirements
-      - build-docker-image
       - docs-deploy:
-          requires: [build-docker-image, py38, pep8, docs]
-          filters: {branches: {only: master}}
-      - code-deploy:
-          requires: [build-docker-image, py38, pep8, docs]
+          requires: [py38, pep8, docs, datadog, requirements]
           filters: {branches: {only: master}}
