@@ -358,6 +358,42 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(len(comments), len(new_comments))
         self.assertEqual("WTF?", new_comments[-1].body)
 
+    def test_comment_backwardcompat(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment",
+                    "conditions": ["base=master"],
+                    "actions": {"comment": {"message": "WTF?"}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        p.update()
+        comments = list(p.get_issue_comments())
+        self.assertEqual("WTF?", comments[-1].body)
+
+        # Override Summary with the old format
+        check_api.set_check_run(
+            p,
+            "Summary",
+            "completed",
+            "success",
+            output={"title": "whatever", "summary": "erased"},
+        )
+
+        # Add a label to trigger mergify
+        self.add_label(p, "stable")
+
+        # Ensure nothing changed
+        new_comments = list(p.get_issue_comments())
+        self.assertEqual(len(comments), len(new_comments))
+        self.assertEqual("WTF?", new_comments[-1].body)
+
     def test_close(self):
         rules = {
             "pull_request_rules": [

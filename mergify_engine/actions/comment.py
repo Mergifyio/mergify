@@ -21,12 +21,23 @@ import github
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 
 LOG = daiquiri.getLogger(__name__)
 
 
 class CommentAction(actions.Action):
     validator = {voluptuous.Required("message"): str}
+
+    def deprecated_already_done_protection(self, pull):
+        # TODO(sileht): drop this in 2 months (February 2020)
+        for comment in pull.g_pull.get_issue_comments():
+            if (
+                comment.user.id == config.BOT_USER_ID
+                and comment.body == self.config["message"]
+            ):
+                return True
+        return False
 
     def run(
         self,
