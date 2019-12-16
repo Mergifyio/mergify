@@ -235,7 +235,7 @@ def load_conclusions(pull, summary_check):
             pull_request=pull,
             summary_check=summary_check,
         )
-        return {}
+        return {"deprecated_summary": True}
 
 
 def serialize_conclusions(conclusions):
@@ -299,9 +299,23 @@ def run_actions(
                 statsd.increment("engine.actions.count", tags=["name:%s" % action])
                 actions_ran.add(action)
 
+            # TODO(sileht): Backward compatibility, drop this in 2 months (February 2020)
+            if (
+                previous_conclusions.get("deprecated_summary", False)
+                and action == "comment"
+            ):
+                deprecated_done_in_the_past = rule["actions"][
+                    action
+                ].deprecated_already_done_protection(pull)
+            else:
+                deprecated_done_in_the_past = None
+
             done_in_the_past = (
                 not rule["actions"][action].always_run
-                and previous_conclusion in expected_conclusions
+                and (
+                    previous_conclusion in expected_conclusions
+                    or deprecated_done_in_the_past
+                )
                 and event_type != "refresh"
             )
 
