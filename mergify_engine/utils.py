@@ -81,13 +81,28 @@ CELERY_EXTRAS_FORMAT = (
 
 
 def setup_logging():
-    daiquiri.setup(
-        outputs=[
+    outputs = []
+
+    if config.LOG_STDOUT:
+        outputs.append(
             daiquiri.output.Stream(
                 sys.stdout, formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT)
             )
-        ],
-        level=(logging.DEBUG if config.DEBUG else logging.INFO),
+        )
+
+    if config.LOG_JSON_FILE:
+        outputs.append(
+            daiquiri.output.TimedRotatingFile(
+                filename=config.LOG_JSON_FILE,
+                level=logging.DEBUG,
+                interval=datetime.timedelta(seconds=5),
+                backup_count=48,
+                formatter=daiquiri.formatter.JSON_FORMATTER,
+            )
+        )
+
+    daiquiri.setup(
+        outputs=outputs, level=(logging.DEBUG if config.DEBUG else logging.INFO),
     )
     daiquiri.set_default_log_levels(
         [
