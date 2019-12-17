@@ -14,7 +14,6 @@
 
 import base64
 
-import daiquiri
 from datadog import statsd
 
 import pkg_resources
@@ -27,8 +26,6 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.worker import app
-
-LOG = daiquiri.getLogger(__name__)
 
 mergify_rule_path = pkg_resources.resource_filename(
     __name__, "../../data/default_pull_request_rules.yml"
@@ -174,7 +171,7 @@ def post_summary(event_type, data, pull, match, summary_check, conclusions):
     )
 
     if summary_changed:
-        LOG.debug(
+        pull.log.debug(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
         )
@@ -186,7 +183,7 @@ def post_summary(event_type, data, pull, match, summary_check, conclusions):
             output={"title": summary_title, "summary": summary},
         )
     else:
-        LOG.debug(
+        pull.log.debug(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
         )
@@ -214,7 +211,7 @@ def exec_action(
             missing_conditions,
         )
     except Exception:  # pragma: no cover
-        LOG.error(
+        pull.log.error(
             "action failed", action=action, rule=rule, pull_request=pull, exc_info=True
         )
         # TODO(sileht): extract sentry event id and post it, so
@@ -230,7 +227,7 @@ def load_conclusions(pull, summary_check):
     if line.startswith("<!-- ") and line.endswith(" -->"):
         return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
     else:
-        LOG.warning(
+        pull.log.warning(
             "previous conclusion not found in summary",
             pull_request=pull,
             summary_check=summary_check,
@@ -357,21 +354,20 @@ def run_actions(
                         output={"title": title, "summary": summary},
                     )
                 except Exception:
-                    LOG.error("Fail to post check `%s`", check_name, exc_info=True)
+                    pull.log.error("Fail to post check `%s`", check_name, exc_info=True)
                 conclusions[check_name] = conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
                 # comment/request_reviews/..) So just assume it succeed
                 conclusions[check_name] = expected_conclusions[0]
 
-            LOG.info(
+            pull.log.info(
                 "action evaluation: %s",
                 message,
                 report=report,
                 previous_conclusion=previous_conclusion,
                 conclusion=conclusions[check_name],
                 check_name=check_name,
-                pull_request=pull,
                 missing_conditions=missing_conditions,
                 event_type=event_type,
             )

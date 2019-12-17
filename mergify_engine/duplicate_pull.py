@@ -15,8 +15,6 @@
 import functools
 import subprocess
 
-import daiquiri
-
 import github
 
 import tenacity
@@ -24,8 +22,6 @@ import tenacity
 from mergify_engine import config
 from mergify_engine import doc
 from mergify_engine import utils
-
-LOG = daiquiri.getLogger(__name__)
 
 
 class DuplicateNeedRetry(Exception):
@@ -93,7 +89,7 @@ def _get_commits_to_cherrypick(pull, merge_commit):
         while True:
             if len(commit.parents) != 1:
                 # NOTE(sileht): What is that? A merge here?
-                LOG.error("unhandled commit structure", pull_request=pull)
+                pull.log.error("unhandled commit structure")
                 return []
 
             out_commits.insert(0, commit)
@@ -103,21 +99,20 @@ def _get_commits_to_cherrypick(pull, merge_commit):
 
             if pull.g_pull.number not in pull_numbers:
                 if len(out_commits) == 1:
-                    LOG.info(
+                    pull.log.info(
                         "Pull requests merged with one commit rebased, " "or squashed",
-                        pull_request=pull,
                     )
                 else:
-                    LOG.info("Pull requests merged after rebase", pull_request=pull)
+                    pull.log.info("Pull requests merged after rebase")
                 return out_commits
 
     elif len(merge_commit.parents) == 2:
-        LOG.info("Pull request merged with merge commit", pull_request=pull)
+        pull.log.info("Pull request merged with merge commit")
         return _get_commits_without_base_branch_merge(pull)
 
     else:  # pragma: no cover
         # NOTE(sileht): What is that?
-        LOG.error("unhandled commit structure", pull_request=pull)
+        pull.log.error("unhandled commit structure")
         return []
 
 
@@ -194,7 +189,7 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
             try:
                 git("cherry-pick", "-x", commit.sha)
             except subprocess.CalledProcessError as e:  # pragma: no cover
-                LOG.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
+                pull.log.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
                 cherry_pick_fail = True
                 status = git("status").decode("utf8")
                 git("add", "*")
@@ -214,17 +209,16 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
                 else:
                     raise out_exception(in_exception.output.decode())
         else:
-            LOG.error(
+            pull.log.error(
                 "duplicate failed: %s",
                 in_exception.output.decode(),
-                pull_request=pull,
                 branch=branch.name,
                 kind=kind,
                 exc_info=True,
             )
             return
     except Exception:  # pragma: no cover
-        LOG.error(
+        pull.log.error(
             "duplicate failed",
             pull_request=pull,
             branch=branch.name,

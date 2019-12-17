@@ -12,14 +12,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 import github.GithubObject
 
 from mergify_engine import config
 from mergify_engine import utils
-
-LOG = daiquiri.getLogger(__name__)
 
 
 class Check(github.GithubObject.NonCompletableGithubObject):  # pragma no cover
@@ -168,9 +164,8 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
         checks = [Check(pull._requester, headers, data, completed=True)]
 
     if len(checks) > 1:
-        LOG.warning(
+        pull.log.warning(
             "Multiple mergify checks have been created, " "we got the known race.",
-            pull_request=pull,
         )
 
     post_parameters["details_url"] += "?check_run_id=%s" % checks[0].id

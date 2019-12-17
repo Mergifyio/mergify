@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 import github
 
 import voluptuous
@@ -23,8 +21,6 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import utils
-
-LOG = daiquiri.getLogger(__name__)
 
 
 class DismissReviewsAction(actions.Action):
@@ -76,9 +72,6 @@ class DismissReviewsAction(actions.Action):
                 headers={"Accept": "application/vnd.github.machine-man-preview+json"},
             )
         except github.GithubException as e:  # pragma: no cover
-            LOG.error(
-                "failed to dismiss review",
-                status=e.status,
-                error=e.data["message"],
-                pull_request=pull,
+            pull.log.error(
+                "failed to dismiss review", status=e.status, error=e.data["message"],
             )

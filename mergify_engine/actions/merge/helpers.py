@@ -12,11 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 from mergify_engine import branch_updater
-
-LOG = daiquiri.getLogger(__name__)
 
 
 def merge_report(pull, strict):
