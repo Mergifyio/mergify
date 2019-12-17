@@ -1,0 +1,10 @@
+
+init_config:
+
+instances:
+
+logs:
+  - type: file
+    path: <MERGIFYENGINE_LOG_JSON_FILE>
+    source: python
+    sourcecategory: sourcecode
