@@ -7,6 +7,7 @@ case $DYNOTYPE in
     web)
         cat > "$DATADOG_CONF" <<EOF
 confd_path: $DD_CONF_DIR/conf.d
+logs_enabled: true
 additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
@@ -31,6 +32,7 @@ EOF
     engine)
         cat > "$DATADOG_CONF" <<EOF
 confd_path: $DD_CONF_DIR/conf.d
+logs_enabled: true
 additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
