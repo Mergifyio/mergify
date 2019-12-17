@@ -296,7 +296,6 @@ def run_actions(
             else:
                 method_name = "run"
                 expected_conclusions = ["success", "failure"]
-                statsd.increment("engine.actions.count", tags=["name:%s" % action])
                 actions_ran.add(action)
 
             # TODO(sileht): Backward compatibility, drop this in 2 months (February 2020)
@@ -342,6 +341,9 @@ def run_actions(
                     missing_conditions,
                 )
                 message = "`%s` executed" % method_name
+
+            if report and report[0] is not None and method_name == "run":
+                statsd.increment("engine.actions.count", tags=["name:%s" % action])
 
             if report:
                 conclusion, title, summary = report
