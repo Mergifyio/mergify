@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 import github
 
 import voluptuous
@@ -24,7 +22,6 @@ from mergify_engine import actions
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
-LOG = daiquiri.getLogger(__name__)
 BRANCH_PROTECTION_FAQ_URL = (
     "https://doc.mergify.io/faq.html#"
     "mergify-is-unable-to-merge-my-pull-request-due-to-"
@@ -57,7 +54,7 @@ class MergeAction(actions.Action):
         pull,
         missing_conditions,
     ):
-        LOG.debug("process merge", config=self.config, pull=pull)
+        pull.log.debug("process merge", config=self.config)
 
         output = helpers.merge_report(pull, self.config["strict"])
         if output:
@@ -171,11 +168,11 @@ class MergeAction(actions.Action):
             pull.g_pull.merge(sha=pull.g_pull.head.sha, merge_method=method, **kwargs)
         except github.GithubException as e:  # pragma: no cover
             if pull.g_pull.is_merged():
-                LOG.info("merged in the meantime", pull=pull)
+                pull.log.info("merged in the meantime")
             else:
                 return self._handle_merge_error(e, pull, installation_id)
         else:
-            LOG.info("merged", pull=pull)
+            pull.log.info("merged")
 
         pull.g_pull.update()
         return helpers.merge_report(pull, self.config["strict"])
@@ -192,9 +189,7 @@ class MergeAction(actions.Action):
                 # NOTE(sileht): The base branch was modified between pull.is_behind() call and
                 # here, usually by something not merged by mergify. So we need sync it again
                 # with the base branch.
-                LOG.info(
-                    "Base branch was modified in the meantime, retrying", pull=pull
-                )
+                pull.log.info("Base branch was modified in the meantime, retrying")
                 pull.g_pull.update()
                 return self._sync_with_base_branch(pull, installation_id)
 
@@ -209,7 +204,7 @@ class MergeAction(actions.Action):
             else:
                 message = "Mergify failed to merge the pull request"
 
-        log_method = LOG.error if e.status >= 500 else LOG.info
+        log_method = pull.log.error if e.status >= 500 else pull.log.info
         log_method(
             "merge fail",
             status=e.status,

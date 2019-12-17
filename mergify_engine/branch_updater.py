@@ -18,8 +18,6 @@
 import subprocess
 import uuid
 
-import daiquiri
-
 import github
 
 import tenacity
@@ -27,8 +25,6 @@ import tenacity
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
-
-LOG = daiquiri.getLogger(__name__)
 
 
 UNRECOVERABLE_ERROR = ["head repository does not exist"]
@@ -145,7 +141,7 @@ def _do_update(pull, token, method="merge"):
         except subprocess.CalledProcessError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
-                    LOG.debug("Complete history cloned", pull_request=pull)
+                    pull.log.debug("Complete history cloned")
                     # NOTE(sileht): We currently assume we have only one parent
                     # commit in common. Since Git is a graph, in some case this
                     # graph can be more complicated.
@@ -167,16 +163,13 @@ def _do_update(pull, token, method="merge"):
             if message in in_exception.output:
                 raise out_exception(in_exception.output.decode())
         else:
-            LOG.error(
-                "update branch failed: %s",
-                in_exception.output.decode(),
-                pull_request=pull,
-                exc_info=True,
+            pull.log.error(
+                "update branch failed: %s", in_exception.output.decode(), exc_info=True,
             )
             raise BranchUpdateFailure()
 
     except Exception:  # pragma: no cover
-        LOG.error("update branch failed", pull_request=pull, exc_info=True)
+        pull.log.error("update branch failed", pull_request=pull, exc_info=True)
         raise BranchUpdateFailure()
     finally:
         git.cleanup()
@@ -197,25 +190,19 @@ def update_with_api(pull):
         )
     except github.GithubException as e:
         if e.status == 422 and e.data["message"] not in UNRECOVERABLE_ERROR:
-            LOG.debug(
+            pull.log.debug(
                 "branch updated in the meantime",
                 status=e.status,
                 error=e.data["message"],
-                pull_request=pull,
             )
             return
         elif e.status < 500:
-            LOG.debug(
-                "update branch failed",
-                status=e.status,
-                error=e.data["message"],
-                pull_request=pull,
+            pull.log.debug(
+                "update branch failed", status=e.status, error=e.data["message"],
             )
             raise BranchUpdateFailure(e.data["message"])
         else:
-            LOG.debug(
-                "update branch failed", status=e.status, error=str(e), pull_request=pull
-            )
+            pull.log.debug("update branch failed", status=e.status, error=str(e))
             raise BranchUpdateNeedRetry()
 
 
@@ -228,12 +215,11 @@ def update_with_git(pull, installation_id, method="merge"):
         try:
             return _do_update(pull, token, method)
         except AuthentificationFailure as e:  # pragma: no cover
-            LOG.debug(
+            pull.log.debug(
                 "authentification failure, will retry another token: %s",
                 e,
                 login=login,
-                pull_request=pull,
             )
 
-    LOG.error("unable to update branch: no tokens are valid", pull_request=pull)
+    pull.log.error("unable to update branch: no tokens are valid")
     raise BranchUpdateFailure("No oauth valid tokens")

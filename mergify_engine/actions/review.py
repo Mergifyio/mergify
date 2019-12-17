@@ -14,14 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
-
-LOG = daiquiri.getLogger(__name__)
 
 
 EVENT_STATE_MAP = {

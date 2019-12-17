@@ -120,9 +120,8 @@ def copy_summary_from_previous_head_sha(g_pull, sha):
         mergify_only=True,
     )
     if not checks:
-        LOG.warning(
+        g_pull.log.warning(
             "Got synchronize event but didn't find Summary on previous head sha",
-            pull_request=g_pull,
         )
         return
     check_api.set_check_run(
@@ -176,11 +175,8 @@ def run(event_type, data):
     # Override pull_request with the updated one
     data["pull_request"] = event_pull.raw_data
 
-    LOG.info(
-        "Pull request found in the event %s",
-        event_type,
-        repo=repo.full_name,
-        pull_request=event_pull,
+    event_pull.log.info(
+        "Pull request found in the event %s", event_type,
     )
 
     if (
@@ -188,62 +184,43 @@ def run(event_type, data):
         or "repo" not in event_pull.raw_data["base"]
         or len(list(event_pull.raw_data["base"]["repo"].keys())) < 70
     ):
-        LOG.warning(
+        event_pull.log.warning(
             "the pull request payload looks suspicious",
             event_type=event_type,
             data=data,
-            pull_request=event_pull.raw_data,
-            repo=repo.fullname,
         )
 
     if (
         event_type == "status" and event_pull.head.sha != data["sha"]
     ):  # pragma: no cover
-        LOG.info(
-            "No need to proceed queue (got status of an old commit)",
-            repo=repo.full_name,
-            pull_request=event_pull,
-        )
+        event_pull.log.info("No need to proceed queue (got status of an old commit)",)
         return
 
     elif (
         event_type in ["status", "check_suite", "check_run"] and event_pull.merged
     ):  # pragma: no cover
-        LOG.info(
+        event_pull.log.info(
             "No need to proceed queue (got status of a merged " "pull request)",
-            repo=repo.full_name,
-            pull_request=event_pull,
         )
         return
     elif (
         event_type in ["check_suite", "check_run"]
         and event_pull.head.sha != data[event_type]["head_sha"]
     ):  # pragma: no cover
-        LOG.info(
-            "No need to proceed queue (got %s of an old " "commit)",
-            event_type,
-            repo=repo.full_name,
-            pull_request=event_pull,
+        event_pull.log.info(
+            "No need to proceed queue (got %s of an old " "commit)", event_type,
         )
         return
 
     if check_configuration_changes(event_pull):
-        LOG.info(
-            "Configuration changed, ignoring",
-            repo=repo.full_name,
-            pull_request=event_pull,
-        )
+        event_pull.log.info("Configuration changed, ignoring",)
         return
 
     # BRANCH CONFIGURATION CHECKING
     try:
         mergify_config = rules.get_mergify_config(repo)
     except rules.NoRules:  # pragma: no cover
-        LOG.info(
-            "No need to proceed queue (.mergify.yml is missing)",
-            repo=repo.full_name,
-            pull_request=event_pull,
-        )
+        event_pull.log.info("No need to proceed queue (.mergify.yml is missing)",)
         return
     except rules.InvalidRules as e:  # pragma: no cover
         # Not configured, post status check with the error message

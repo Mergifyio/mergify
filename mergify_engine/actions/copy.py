@@ -17,16 +17,12 @@
 import re
 from urllib import parse
 
-import daiquiri
-
 import github
 
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import duplicate_pull
-
-LOG = daiquiri.getLogger(__name__)
 
 
 def Regex(value):
@@ -74,11 +70,8 @@ class CopyAction(actions.Action):
                     parse.quote(branch_name, safe="")
                 )
             except github.GithubException as e:  # pragma: no cover
-                LOG.error(
-                    "%s: fail to get branch",
-                    self.KIND,
-                    pull_request=pull,
-                    error=e.data["message"],
+                pull.log.error(
+                    "%s: fail to get branch", self.KIND, error=e.data["message"],
                 )
 
                 state = "failure"

@@ -14,7 +14,6 @@
 
 import re
 
-import daiquiri
 from datadog import statsd
 
 import github
@@ -26,8 +25,6 @@ from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import utils
 from mergify_engine.worker import app
-
-LOG = daiquiri.getLogger(__name__)
 
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
@@ -123,9 +120,8 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
     try:
         pull.g_pull.create_issue_comment(result)
     except github.GithubException as e:  # pragma: no cover
-        LOG.error(
+        pull.log.error(
             "fail to post comment on the pull request",
             status=e.status,
             error=e.data["message"],
-            pull_request=pull,
         )

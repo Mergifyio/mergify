@@ -14,15 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 import github
 
 import voluptuous
 
 from mergify_engine import actions
-
-LOG = daiquiri.getLogger(__name__)
 
 MSG = "This pull request has been automatically closed by Mergify."
 
@@ -46,22 +42,20 @@ class CloseAction(actions.Action):
         try:
             pull.g_pull.edit(state="close")
         except github.GithubException as e:  # pragma: no cover
-            LOG.error(
+            pull.log.error(
                 "fail to close the pull request",
                 status=e.status,
                 error=e.data["message"],
-                pull_request=pull,
             )
             return ("failure", "Pull request can't be closed", "")
 
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:  # pragma: no cover
-            LOG.error(
+            pull.log.error(
                 "fail to post comment on the pull request",
                 status=e.status,
                 error=e.data["message"],
-                pull_request=pull,
             )
             return ("failure", "the close message can't be created", "")
 

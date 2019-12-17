@@ -80,6 +80,18 @@ CELERY_EXTRAS_FORMAT = (
 )
 
 
+def GithubPullRequestLog(self):
+    return daiquiri.getLogger(
+        __name__,
+        gh_owner=self.base.user.login,
+        gh_repo=self.base.repo.name,
+        gh_branch=self.base.ref,
+        gh_pull=self.number,
+        gh_pull_url=self.html_url,
+        gh_pull_state=("merged" if self.merged else (self.mergeable_state or "none")),
+    )
+
+
 def setup_logging():
     outputs = []
 
@@ -113,6 +125,9 @@ def setup_logging():
             ("vcr", "WARN"),
         ]
     )
+
+    github.PullRequest.PullRequest.log = property(GithubPullRequestLog)
+
     config.log()
 
 

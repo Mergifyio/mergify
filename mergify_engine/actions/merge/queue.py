@@ -51,7 +51,7 @@ def add_pull(pull, method):
     score = utils.utcnow().timestamp()
     redis.zadd(queue, {pull.g_pull.number: score}, nx=True)
     redis.set(_get_update_method_cache_key(pull), method)
-    LOG.debug("pull request added to merge queue", queue=queue, pull=pull)
+    pull.log.debug("pull request added to merge queue", queue=queue)
 
 
 def remove_pull(pull):
@@ -59,7 +59,7 @@ def remove_pull(pull):
     queue = _get_queue_cache_key(pull)
     redis.zrem(queue, pull.g_pull.number)
     redis.delete(_get_update_method_cache_key(pull))
-    LOG.debug("pull request removed from merge queue", queue=queue, pull=pull)
+    pull.log.debug("pull request removed from merge queue", queue=queue)
 
 
 def _move_pull_at_end(pull):  # pragma: no cover
@@ -67,10 +67,8 @@ def _move_pull_at_end(pull):  # pragma: no cover
     queue = _get_queue_cache_key(pull)
     score = utils.utcnow().timestamp()
     redis.zadd(queue, {pull.g_pull.number: score}, xx=True)
-    LOG.debug(
-        "pull request moved at the end of the merge queue",
-        queue=queue,
-        pull_request=pull,
+    pull.log.debug(
+        "pull request moved at the end of the merge queue", queue=queue,
     )
 
 
@@ -108,16 +106,15 @@ def _handle_first_pull_in_queue(queue, pull):
     output = helpers.merge_report(pull, True)
     if output:
         conclusion, title, summary = output
-        LOG.debug(
+        pull.log.debug(
             "pull request closed in the meantime",
-            pull=pull,
             conclusion=conclusion,
             title=title,
             summary=summary,
         )
         remove_pull(pull)
     else:
-        LOG.debug("updating base branch of pull request", pull=pull)
+        pull.log.debug("updating base branch of pull request")
         redis = utils.get_redis_for_cache()
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = helpers.update_pull_base_branch(
@@ -125,18 +122,15 @@ def _handle_first_pull_in_queue(queue, pull):
         )
 
         if pull.g_pull.state == "closed":
-            LOG.debug(
+            pull.log.debug(
                 "pull request closed in the meantime",
-                pull=pull,
                 conclusion=conclusion,
                 title=title,
                 summary=summary,
             )
             remove_pull(pull)
         elif conclusion == "failure":
-            LOG.debug(
-                "base branch update failed", pull=pull, title=title, summary=summary
-            )
+            pull.log.debug("base branch update failed", title=title, summary=summary)
             _move_pull_at_end(pull)
 
     status = "completed" if conclusion else "in_progress"
@@ -169,30 +163,24 @@ def smart_strict_workflow_periodic_task():
             elif pull.g_pull.state == "closed" or pull.is_behind():
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
-                LOG.debug(
+                pull.log.debug(
                     "pull request needs to be updated again or has been closed",
-                    pull_request=pull,
                 )
                 _handle_first_pull_in_queue(queue, pull)
             else:
                 # NOTE(sileht): Pull request has not been merged or cancelled
                 # yet wait next loop
-                LOG.debug(
-                    "pull request checks are still in progress", pull_request=pull
-                )
+                pull.log.debug("pull request checks are still in progress")
 
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
-            LOG.warning(
+            e.pull.log.warning(
                 "pull request with mergeable_state unknown retrying later",
-                pull_request=e.pull,
             )
             _move_pull_at_end(e.pull)
         except Exception:  # pragma: no cover
-            LOG.error(
-                "Fail to process merge queue",
-                queue=queue,
-                pull_request=pull,
-                exc_info=True,
+            log = pull.log if pull else LOG
+            log.error(
+                "Fail to process merge queue", queue=queue, exc_info=True,
             )
             if pull:
                 _move_pull_at_end(pull)

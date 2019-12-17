@@ -19,8 +19,6 @@ from urllib import parse
 
 import attr
 
-import daiquiri
-
 import github
 
 import tenacity
@@ -28,8 +26,6 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
-
-LOG = daiquiri.getLogger(__name__)
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
@@ -60,6 +56,10 @@ class MergifyPull(object):
     g_pull = attr.ib()
     installation_id = attr.ib()
     _consolidated_data = attr.ib(init=False, default=None)
+
+    @property
+    def log(self):
+        return self.g_pull.log
 
     @classmethod
     def from_raw(cls, installation_id, installation_token, pull_raw):
@@ -248,12 +248,11 @@ class MergifyPull(object):
         except github.GithubException as e:
             if e.status >= 500:
                 raise
-            LOG.warning(
+            self.log.warning(
                 "fail to get the organization, team or members",
                 team=name,
                 status=e.status,
                 detail=e.data["message"],
-                pull_request=self,
             )
         return [name]
 
@@ -281,7 +280,7 @@ class MergifyPull(object):
             return
 
         # Github is currently processing this PR, we wait the completion
-        LOG.info("refreshing", pull_request=self)
+        self.log.info("refreshing")
 
         # NOTE(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change, so we get a fresh pull request instead
@@ -305,7 +304,7 @@ class MergifyPull(object):
             return
 
         # Github is currently processing this PR, we wait the completion
-        LOG.info("refreshing", pull_request=self)
+        self.log.info("refreshing")
 
         # NOTE(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change, so we get a fresh pull request instead

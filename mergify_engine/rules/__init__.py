@@ -20,8 +20,6 @@ import operator
 
 import attr
 
-import daiquiri
-
 import github
 
 import voluptuous
@@ -30,9 +28,6 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine.rules import filter
-
-
-LOG = daiquiri.getLogger(__name__)
 
 
 def PullRequestRuleCondition(value):
