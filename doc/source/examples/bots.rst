@@ -39,7 +39,7 @@ dependencies.
       - name: automatic merge for Greenkeeper pull requests
         conditions:
           - author=greenkeeper[bot]
-          - status-success=continuous-integration/travis-ci/pr
+          - status-success=Travis CI - Pull Request
           - status-success=greenkeeper/verify
         actions:
           merge:
