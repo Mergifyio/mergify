@@ -59,7 +59,12 @@ def get_github_pull_from_event(repo, event_type, data):
             return get_github_pull_from_sha(repo, sha)
         if len(pulls) > 1:  # pragma: no cover
             # NOTE(sileht): It's that technically possible, but really ?
-            LOG.warning("check_suite/check_run attached on multiple pulls")
+            LOG.warning(
+                "check_suite/check_run attached on multiple pulls",
+                gh_owner=repo.owner.login,
+                gh_repo=repo.name,
+                event_type=event_type,
+            )
 
         for p in pulls:
             try:
@@ -155,7 +160,9 @@ def run(event_type, data):
             rate.remaining,
             rate.limit,
             rate.reset,
-            repository=data["repository"]["name"],
+            event_type=event_type,
+            gh_owner=data["repository"]["owner"]["login"],
+            gh_repo=data["repository"]["name"],
         )
 
     try:
@@ -163,21 +170,29 @@ def run(event_type, data):
             data["repository"]["owner"]["login"] + "/" + data["repository"]["name"]
         )
     except github.UnknownObjectException:  # pragma: no cover
-        LOG.info("Repository not found in the event %s, ignoring", event_type)
+        LOG.info(
+            "Repository not found in the event %s, ignoring",
+            event_type,
+            gh_owner=data["repository"]["owner"]["login"],
+            gh_repo=data["repository"]["name"],
+        )
         return
 
     event_pull = get_github_pull_from_event(repo, event_type, data)
 
     if not event_pull:  # pragma: no cover
-        LOG.info("No pull request found in the event %s, " "ignoring", event_type)
+        LOG.info(
+            "No pull request found in the event %s, " "ignoring",
+            event_type,
+            gh_owner=data["repository"]["owner"]["login"],
+            gh_repo=data["repository"]["name"],
+        )
         return
 
     # Override pull_request with the updated one
     data["pull_request"] = event_pull.raw_data
 
-    event_pull.log.info(
-        "Pull request found in the event %s", event_type,
-    )
+    event_pull.log.info("Pull request found in the event %s", event_type)
 
     if (
         "base" not in event_pull.raw_data

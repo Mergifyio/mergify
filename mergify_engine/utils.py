@@ -85,6 +85,7 @@ def GithubPullRequestLog(self):
         __name__,
         gh_owner=self.base.user.login,
         gh_repo=self.base.repo.name,
+        gh_private=self.base.repo.private,
         gh_branch=self.base.ref,
         gh_pull=self.number,
         gh_pull_url=self.html_url,

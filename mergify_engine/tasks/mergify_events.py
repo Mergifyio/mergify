@@ -29,14 +29,19 @@ LOG = daiquiri.getLogger(__name__)
 
 @app.task
 def job_refresh(owner, repo, kind, ref=None):
-    LOG.info("%s/%s/%s/%s: refreshing", owner, repo, kind, ref)
+    LOG.info("job refresh", kind=kind, ref=ref, gh_owner=owner, gh_repo=repo)
 
     integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
         installation_id = utils.get_installation_id(integration, owner, repo)
     except github.GithubException as e:
         LOG.warning(
-            "%s/%s/%s/%s: mergify not installed", owner, repo, kind, ref, error=str(e)
+            "mergify not installed",
+            kind=kind,
+            ref=ref,
+            gh_owner=owner,
+            gh_repo=repo,
+            error=str(e),
         )
         return
 

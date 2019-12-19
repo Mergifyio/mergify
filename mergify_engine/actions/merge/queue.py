@@ -27,6 +27,13 @@ from mergify_engine.worker import app
 LOG = daiquiri.getLogger(__name__)
 
 
+def get_queue_logger(queue):
+    _, installation_id, owner, reponame, branch = queue.split("~")
+    return daiquiri.getLogger(
+        __name__, gh_owner=owner, gh_repo=reponame, gh_branch=branch
+    )
+
+
 def _get_queue_cache_key(pull):
     return "strict-merge-queues~%s~%s~%s~%s" % (
         pull.installation_id,
@@ -80,10 +87,10 @@ def _get_next_pull_request(queue):
         installation_token = integration.get_access_token(installation_id).token
     except github.UnknownObjectException:  # pragma: no cover
         LOG.error(
-            "token for install %d does not exists anymore (%s/%s)",
+            "token for install %d does not exists anymore",
             installation_id,
-            owner,
-            reponame,
+            gh_owner=owner,
+            gh_repo=reponame,
         )
         return
 
@@ -153,13 +160,14 @@ def smart_strict_workflow_periodic_task():
     redis = utils.get_redis_for_cache()
     LOG.debug("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):
-        LOG.debug("handling queue: %s", queue)
+        queue_log = get_queue_logger(queue)
+        queue_log.debug("handling queue: %s", queue)
 
         pull = None
         try:
             pull = _get_next_pull_request(queue)
             if not pull:
-                LOG.debug("no pull request for this queue", queue=queue)
+                queue_log.debug("no pull request for this queue")
             elif pull.g_pull.state == "closed" or pull.is_behind():
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
@@ -178,9 +186,9 @@ def smart_strict_workflow_periodic_task():
             )
             _move_pull_at_end(e.pull)
         except Exception:  # pragma: no cover
-            log = pull.log if pull else LOG
+            log = pull.log if pull else queue_log
             log.error(
-                "Fail to process merge queue", queue=queue, exc_info=True,
+                "Fail to process merge queue", exc_info=True,
             )
             if pull:
                 _move_pull_at_end(pull)

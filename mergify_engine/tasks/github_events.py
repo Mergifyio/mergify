@@ -40,7 +40,7 @@ def job_marketplace(event_type, event_id, data):
             integration, owner, account_type=account_type
         )
     except github.GithubException as e:
-        LOG.warning("%s: mergify not installed", owner, error=str(e))
+        LOG.warning("mergify not installed", gh_owner=owner, error=str(e))
         installation_id = None
         subscription = {
             "subscription_active": "Unknown",
@@ -58,6 +58,7 @@ def job_marketplace(event_type, event_id, data):
         event_id=event_id,
         install_id=installation_id,
         sender=data["sender"]["login"],
+        gh_owner=owner,
         subscription_active=subscription["subscription_active"],
         subscription_reason=subscription["subscription_reason"],
     )
@@ -222,10 +223,10 @@ def job_filter_and_dispatch(event_type, event_id, data):
         event_type=event_type,
         event_id=event_id,
         install_id=installation_id,
-        install_owner=installation_owner,
         sender=data["sender"]["login"],
-        repository=repo_name,
-        private=private,
+        gh_owner=installation_owner,
+        gh_repo=repo_name,
+        gh_private=private,
         subscription_active=subscription["subscription_active"],
         subscription_reason=subscription["subscription_reason"],
     )
