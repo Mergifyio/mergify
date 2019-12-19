@@ -68,12 +68,12 @@ jobs:
           command: |
             touch doc/build/.nojekyll
             echo doc.mergify.io > doc/build/CNAME
-            sudo npm install -g gh-pages@2.0.1
+            npm install --no-save gh-pages@2.0.1
             git config user.email "ci-build@mergify.io"
             git config user.name "ci-build"
             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
             GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
-            gh-pages --dotfiles --message "[skip ci] Updates" --dist doc/build
+            node_modules/gh-pages/bin/gh-pages.js --dotfiles --message "[skip ci] Updates" --dist doc/build
 
 workflows:
   version: 2
