@@ -181,15 +181,11 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
     if "installation" in data:
         installation_id = data["installation"]["id"]
-        installation_owner = data["installation"].get("account", {"login": "Unknown"})[
-            "login"
-        ]
         subscription = sub_utils.get_subscription(
             utils.get_redis_for_cache(), installation_id
         )
     else:
         installation_id = "Unknown"
-        installation_owner = "Unknown"
         subscription = {
             "subscription_active": "Unknown",
             "subscription_reason": "No",
@@ -211,9 +207,10 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
 
     if "repository" in data:
-        repo_name = data["repository"]["full_name"]
+        owner, _, repo_name = data["repository"]["full_name"].partition("/")
         private = data["repository"]["private"]
     else:
+        owner = "Unknown"
         repo_name = "Unknown"
         private = "Unknown"
 
@@ -224,7 +221,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         event_id=event_id,
         install_id=installation_id,
         sender=data["sender"]["login"],
-        gh_owner=installation_owner,
+        gh_owner=owner,
         gh_repo=repo_name,
         gh_private=private,
         subscription_active=subscription["subscription_active"],
