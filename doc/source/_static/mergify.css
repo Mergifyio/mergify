@@ -25,6 +25,12 @@ div.highlight > pre {
     padding: 1.2em;
 }
 
+/* Hide the toc on main page */
+.toctree-wrapper {
+    visibility: hidden;
+    height: 0;
+}
+
 /* Navbar Class styles */
 .navbar {
     box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.4);
