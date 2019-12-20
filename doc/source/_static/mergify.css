@@ -76,7 +76,7 @@ div.document {
         margin: initial;
         margin-top: -1em;
         padding-top: 2em;
-        height: 100vh;
+        max-height: 100vh;
         border-right: 1px solid rgb(236, 238, 239);
         overflow: scroll;
     }
