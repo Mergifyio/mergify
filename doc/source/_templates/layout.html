@@ -26,10 +26,11 @@
 {%- block relbar2 %}{% endblock %}
 
 {%- block header %}
-{% include "navbar.html" %}
 {%- endblock %}
 
 {%- block content %}
+<div class="body-container">
+  {% include "navbar.html" %}
   {% include "breadcrumb.html" %}
   <div class="main container-fluid">
     <div class="row">
@@ -52,6 +53,7 @@
       <div class="clearer"></div>
     </div>
   </div>
+</div>
 {%- endblock %}
 
 {%- block footer %}
