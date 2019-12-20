@@ -1,7 +1,32 @@
-Mergify.io's documentation
-==========================
+Mergify Documentation
+=====================
 
-Welcome to the `mergify.io <https://mergify.io>`_ documentation!
+Whether you’re a startup or a global enterprise, learn how to automate your
+GitHub workflows and pull requests.
+
+Mergify allows to execution any action on your pull requests based on rules you
+define.
+
+First Steps
+-----------
+
+.. raw:: html
+   :file: first-steps.html
+
+
+Use Cases
+---------
+
+.. raw:: html
+   :file: use-cases.html
+
+Any question?
+-------------
+
+We're always happy to help with questions you might have.
+Contact `our support <mailto:support@mergify.io>`_ or our `sales team
+<mailto:sales@mergify.io>`_.
+
 
 .. toctree::
    :maxdepth: 2
@@ -15,5 +40,3 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    examples
    badge
    faq
-
-Any question? You can reach `the support <mailto:support@mergify.io>`_ out.
