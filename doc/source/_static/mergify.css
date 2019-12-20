@@ -11,6 +11,18 @@ body div.body {
     min-width: auto;
 }
 
+/* This is equivalent to the responsive containers introduced in Bootstrap 4.4
+   but with a wider width */
+@media (min-width: 1400px) {
+    .body-container {
+        max-width: 1400px;
+        padding-right: 15px;
+        padding-left: 15px;
+        margin-right: auto;
+        margin-left: auto;
+    }
+}
+
 img.img-fluid {
     margin-top: 1.5em;
     margin-bottom: 1.5em;
@@ -32,17 +44,14 @@ div.highlight > pre {
 }
 
 /* Navbar Class styles */
-.navbar {
-    box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.4);
-    -moz-box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.4);
-    -webkit-box-shadow: 10px 0px 20px 0px rgba(0,0,0,0.4);
-    -o-box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.4);
-    -ms-box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.4);
-}
-
 .navbar .navbar-brand {
     background-size: contain;
     height: 37px;
+}
+
+.navbar-nav > .nav-item {
+    /* needed so the links in the navbar are aligned with top-left logo */
+    padding-top: 0.6em;
 }
 
 .navbar .navbar-brand img.logo {
@@ -164,6 +173,7 @@ div.alert-primary > p.admonition-title > div.icon:after {
     padding: 0 1rem .75rem 1rem;
     margin-bottom: 1rem;
     font-size: 100%!important;
+    border-bottom: 1px solid rgb(236, 238, 239);
 }
 
 .related a.btn {
