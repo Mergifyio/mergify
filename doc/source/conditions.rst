@@ -239,6 +239,20 @@ this checks succeed before doing any action should be written as:
        - status-success=Uno.UI - CI
 
 
+Github Actions are the only exception:
+
+.. image:: _static/status-check-gh-example.png
+   :alt: Status check Github Action example
+
+In this example only the GitHub Action job name should be used,
+``A job to say hello`` here. The condition will be:
+
+.. code-block:: yaml
+
+     conditions:
+       - status-success=A job to say hello
+
+
 Examples
 ~~~~~~~~
 
