@@ -6,7 +6,7 @@
 
 Conditions are used in pull request rules to check if a pull request matches a
 certain rule. If a pull request matches all of the listed conditions in a rule,
-the subsequent action listed in that rule will be applied. Conditions must be
+the subsequent actions listed in that rule will be applied. Conditions must be
 listed under the ``conditions`` section of the ``pull_request_rules`` entries —
 see :ref:`configuration file format`.
 
@@ -17,37 +17,48 @@ A condition is a string that has the following format::
 
   [ "-" ] [ "#" ] <attribute> [ <operator> <value> ]
 
-An ``attribute`` is a property of a pull request, such as its author, its title
-or its base branch. An ``operator`` is used to determine how the match between
-the pull request's ``attribute`` and the defined ``value`` will occur.
+- The optional ``-`` prefix is equivalent to the `not` operator.
 
-For example, the condition ``author=jd`` will be evaluated to true if the
-GitHub login of the author of the pull request is ``jd``. The condition
-``base~=^stable/`` will match any pull request whose base branch matches the
-regular expression ``^stable/``.
+- The optional ``#`` prefix indicates to consider the length of the attribute
+  value rather than its content.
 
-The special ``#`` prefix indicates to consider the length of the attribute
-rather than its content. For example, ``approved-reviews-by=sileht`` will match
-if the user ``sileht`` approved the pull request. However,
-``#approved-reviews-by>=2`` will match if at least 2 collaborators approved the
-pull request.
+- An ``attribute`` is a property of a pull request, such as its author, its
+  title or its base branch.
+
+- An ``operator`` is used to determine how the match between the pull request's
+  ``attribute`` and the defined ``value`` occurs.
+
+For example:
+
+- ``author=jd`` evaluates to true if the GitHub login of the author of the pull
+  request is ``jd``.
+
+- ``base~=^stable/`` matches any pull request whose base branch matches the
+  regular expression ``^stable/``.
+
+- ``approved-reviews-by=sileht`` matches if the user ``sileht`` is in the list
+  of contributors who approved the pull request.
+
+- ``#approved-reviews-by>=2`` matches if at least 2 collaborators approved the
+  pull request.
+
+- ``-merged`` matches if the pull requested has not been merged.
 
 .. warning::
 
-   The ``#`` character is considered as the comment delimiter in YAML. ``#`` is
-   also the length operator in Mergify's conditions system, therefore don't
-   forget to use ``"`` around the condition.
+   The ``#`` character is considered as a comment delimiter in YAML. As ``#``
+   is the length operator in Mergify's conditions system, don't forget to use
+   ``"`` around the condition to write valid YAML syntax.
 
-``operator`` and ``value`` are not mandatory if the ``attribute`` type is
-``Boolean``.
+.. note::
 
-The special ``-`` prefix is equivalent to the `not` operator.
+  ``operator`` and ``value`` are only optional if the ``attribute`` type is
+  ``Boolean``.
 
 Attribute List
 ~~~~~~~~~~~~~~
 
-Here's the list of pull request attribute that rules can be matched against:
-
+Here's the list of pull request attribute that can be used in conditions:
 
 .. list-table::
    :header-rows: 1
@@ -66,7 +77,7 @@ Here's the list of pull request attribute that rules can be matched against:
      - The list of GitHub user or team login that approved the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This will match only reviewers with ``admin`` or ``write`` permission
+       This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``author``
      - string
@@ -85,7 +96,7 @@ Here's the list of pull request attribute that rules can be matched against:
        review for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This will match only reviewers with ``admin`` or ``write`` permission
+       This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``closed``
      - Boolean
@@ -99,7 +110,7 @@ Here's the list of pull request attribute that rules can be matched against:
        for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This will match only reviewers with ``admin`` or ``write`` permission
+       This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``dismissed-reviews-by``
      - array of string
@@ -107,9 +118,8 @@ Here's the list of pull request attribute that rules can be matched against:
        in the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This will match only reviewers with ``admin`` or ``write`` permission
+       This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
-       Only teams of the repository owner will works
    * - ``files``
      - string
      - The files that are modified, deleted or added by the pull request.
@@ -139,28 +149,28 @@ Here's the list of pull request attribute that rules can be matched against:
        pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This will match only reviewers with ``admin`` or ``write`` permission
+       This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``status-success``
      - array of string
      - The list of status checks that successfuly passed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
-       `Travis CI - Pull Request`. See `About status check name`_ for more
+       `Travis CI - Pull Request`. See `Status Check Name`_ for more
        details.
    * - ``status-neutral``
      - array of string
      - The list of status checks that are neutral for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
-       `Travis CI - Pull Request`. See `About status check name`_ for more
+       `Travis CI - Pull Request`. See `Status Check Name`_ for more
        details.
    * - ``status-failure``
      - array of string
      - The list of status checks that failed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
-       `Travis CI - Pull Request`. See `About status check name`_ for more
+       `Travis CI - Pull Request`. See `Status Check Name`_ for more
        details.
    * - ``title``
      - string
@@ -210,21 +220,15 @@ Operators List
        value. It's usually used to compare against the length of an array using
        the ``#`` prefix.
 
+Status Check Name
+~~~~~~~~~~~~~~~~~
 
-.. note::
+Generic Status Check
+++++++++++++++++++++
 
-    For all `reviewers` related attributes, only users with `write` or `admin`
-    permission on the repository are used, others are ignored.
-
-
-About status check name
-~~~~~~~~~~~~~~~~~~~~~~~
-
-When using the ``status-success`` and ``status-failure`` conditions, you need
-to use the name of your check service.
-
-This can be find by opening an existing pull request and scrolling down near
-the ``Merge`` button.
+When using the ``status-success``, ``status-neutral`` and ``status-failure``
+conditions, you need to use the name of your check service. This can be find by
+opening an existing pull request and scrolling down near the ``Merge`` button.
 
 .. image:: _static/status-check-example.png
    :alt: Status check example
@@ -238,64 +242,18 @@ this checks succeed before doing any action should be written as:
      conditions:
        - status-success=Uno.UI - CI
 
+GitHub Actions
+++++++++++++++
 
-Github Actions are the only exception:
+GitHub Actions works slightly differently. To match a status check when using
+GitHub Action, only the job name is used.
 
 .. image:: _static/status-check-gh-example.png
-   :alt: Status check Github Action example
+   :alt: Status check GitHub Action example
 
-In this example only the GitHub Action job name should be used,
-``A job to say hello`` here. The condition will be:
+In the example above, it would be ``A job to say hello``:
 
 .. code-block:: yaml
 
      conditions:
        - status-success=A job to say hello
-
-
-Examples
-~~~~~~~~
-
-Matching Pull Requests Passing Travis and Being Approved
---------------------------------------------------------
-
-Those conditions will match any pull request that has been approved by two
-reviewers and where Travis CI passes.
-
-.. code-block:: yaml
-
-     conditions:
-       - "#approved-reviews-by>=2"
-       - status-success=continuous-integration/travis-ci/pr
-
-
-If you want to ignore pull request that has a negative review, you can enhance
-this condition set like this:
-
-.. code-block:: yaml
-
-     conditions:
-       - "#approved-reviews-by>=2"
-       - status-success=continuous-integration/travis-ci/pr
-       - "#changes-requested-reviews-by=0"
-
-This can make sure that any pull request that has a change for request in a
-review is not matched.
-
-
-Matching Merged Pull Requests
------------------------------
-
-Matching merged pull requests is straight forward:
-
-.. code-block:: yaml
-
-     conditions:
-       - merged
-
-On the other hand, matching unmerged pull requests can be done with:
-
-.. code-block:: yaml
-
-     conditions:
-       - -merged
