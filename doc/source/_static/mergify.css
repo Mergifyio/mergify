@@ -61,9 +61,14 @@ div.highlight > pre {
 
 /* Fix headers for scrolling */
 
-h1, h2, h3, h4, h5, h6 {
+h1 {
     padding-top: 80px;
     margin-top: -80px;
+}
+
+h2, h3, h4, h5, h6 {
+    padding-top: 80px;
+    margin-top: -50px;
 }
 
 /* Sidebar styles */
@@ -267,8 +272,6 @@ blockquote {
 }
 
 div.bodywrapper {
-    margin-left: 2em;
-    margin-right: 2em;
     padding-left: 2em;
     padding-right: 2em;
 }
