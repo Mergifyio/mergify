@@ -37,6 +37,7 @@ from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import utils
+from mergify_engine import sub_utils
 from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
@@ -128,8 +129,19 @@ def refresh_branch(owner, repo, branch):
     return "Refresh queued", 202
 
 
+@app.route("/subscription-cache/<installation_id>", methods=["PUT"])
+def subscription_cache_update(installation_id):  # pragma: no cover
+    authentification()
+    r = utils.get_redis_for_cache()
+    sub = flask.request.get_json()
+    if sub is None:
+        return "Empty content", 400
+    sub_utils.save_subscription_to_cache(r, installation_id, sub)
+    return "Cache updated", 200
+
+
 @app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
-def subscription_cache(installation_id):  # pragma: no cover
+def subscription_cache_delete(installation_id):  # pragma: no cover
     authentification()
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
