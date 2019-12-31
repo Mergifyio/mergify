@@ -124,7 +124,7 @@ def _retrieve_subscription_from_cache(r, installation_id):
         return _decrypt(encrypted_sub)
 
 
-def _save_subscription_to_cache(r, installation_id, sub):
+def save_subscription_to_cache(r, installation_id, sub):
     encrypted = _encrypt(sub)
     r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
 
@@ -135,5 +135,5 @@ def get_subscription(r, installation_id):
     # the all tokens cache
     if not sub or "tokens" not in sub:
         sub = _retrieve_subscription_from_db(installation_id)
-        _save_subscription_to_cache(r, installation_id, sub)
+        save_subscription_to_cache(r, installation_id, sub)
     return sub

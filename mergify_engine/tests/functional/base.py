@@ -345,9 +345,8 @@ class FunctionalTestBase(testtools.TestCase):
             "subscription_cost": 100,
             "subscription_reason": "You're not nice",
         }
-        self.redis.set(
-            "subscription-cache-%s" % config.INSTALLATION_ID,
-            sub_utils._encrypt(self.subscription),
+        sub_utils.save_subscription_to_cache(
+            self.redis, config.INSTALLATION_ID, self.subscription,
         )
 
         # Let's start recording
