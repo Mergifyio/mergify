@@ -122,8 +122,8 @@ def report(url):
         mergify_config_content = rules.get_mergify_config_content(r)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
-
-    print(mergify_config_content.decode())
+    else:
+        print(mergify_config_content.decode())
 
     try:
         mergify_config = rules.UserConfigurationSchema(mergify_config_content)
