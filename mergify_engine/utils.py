@@ -93,6 +93,9 @@ def GithubPullRequestLog(self):
     )
 
 
+github.PullRequest.PullRequest.log = property(GithubPullRequestLog)
+
+
 def setup_logging():
     outputs = []
 
@@ -126,8 +129,6 @@ def setup_logging():
             ("vcr", "WARN"),
         ]
     )
-
-    github.PullRequest.PullRequest.log = property(GithubPullRequestLog)
 
     config.log()
 
