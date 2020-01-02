@@ -225,6 +225,10 @@ branch is rebased).
        when the pull request is updated. If set to ``False``, nothing will be
        done. If set to a list, each item should be the GitHub login of a user
        whose review will be removed.
+   * - ``message``
+     - string
+     - ``Pull request has been modified.``
+     - The message to post when dismissing the review.
 
 .. _label action:
 
