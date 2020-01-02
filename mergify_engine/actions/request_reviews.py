@@ -31,7 +31,9 @@ class RequestReviewsAction(actions.Action):
             "review-requested",
         )
         existing_reviews = set(itertools.chain(*[data[key] for key in reviews_keys]))
-        user_reviews_to_request = set(self.config["users"]).difference(existing_reviews)
+        user_reviews_to_request = (
+            set(self.config["users"]) - existing_reviews - set((pull.g_pull.author,))
+        )
         team_reviews_to_request = set(self.config["teams"]).difference(
             # Team starts with @
             {e[1:] for e in existing_reviews if e.startswith("@")}
