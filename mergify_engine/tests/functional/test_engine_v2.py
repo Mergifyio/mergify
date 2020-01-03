@@ -414,6 +414,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
 
     def test_dismiss_reviews(self):
+        return self._test_dismiss_reviews()
+
+    def test_dismiss_reviews_custom_message(self):
+        return self._test_dismiss_reviews(message="Loser")
+
+    def _test_dismiss_reviews(self, message=None):
         rules = {
             "pull_request_rules": [
                 {
@@ -428,6 +434,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 }
             ]
         }
+
+        if message is not None:
+            rules["pull_request_rules"][0]["actions"]["dismiss_reviews"][
+                "message"
+            ] = message
 
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
@@ -468,6 +479,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "synchronize"})
         self.wait_for("pull_request_review", {"action": "dismissed"})
 
+        # There's no way to retrieve the dismiss message :(
         self.assertEqual(
             [("DISMISSED", "mergify-test1"), ("DISMISSED", "mergify-test1")],
             [(r.state, r.user.login) for r in p.get_reviews()],

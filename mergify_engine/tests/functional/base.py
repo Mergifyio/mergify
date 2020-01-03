@@ -29,6 +29,8 @@ import fixtures
 
 import github
 
+import pytest
+
 import requests
 import requests.sessions
 
@@ -268,6 +270,7 @@ class EventReader:
             return data
 
 
+@pytest.mark.usefixtures("logger_checker")
 class FunctionalTestBase(testtools.TestCase):
     def setUp(self):
         super(FunctionalTestBase, self).setUp()
@@ -326,9 +329,6 @@ class FunctionalTestBase(testtools.TestCase):
                 REPO_UUID = f.read()
 
         self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
-
-        utils.setup_logging()
-        config.log()
 
         self.git = self.get_gitter()
         self.addCleanup(self.git.cleanup)
