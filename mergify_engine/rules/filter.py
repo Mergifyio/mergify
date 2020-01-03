@@ -120,9 +120,9 @@ class Filter:
     LENGTH_OPERATOR = "#"
     ATTR_SEPARATOR = "."
 
-    def _get_value_comparator(self, op, name, values):
+    def _get_value_comparator(self, op, iterable_op, name, values):
         if op != len and name in self._value_expanders:
-            return lambda x: any(
+            return lambda x: iterable_op(
                 map(lambda y: op(x, y), self._value_expanders[name](values))
             )
         else:
@@ -170,7 +170,7 @@ class Filter:
 
             def _op(values):
                 values = self._resolve_name(values, nodes[0])
-                cmp = self._get_value_comparator(op, nodes[0], nodes[1])
+                cmp = self._get_value_comparator(op, iterable_op, nodes[0], nodes[1])
 
                 if isinstance(values, (list, tuple)) and op != len:
                     return iterable_op(map(cmp, values))
