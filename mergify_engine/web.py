@@ -176,7 +176,7 @@ def PullRequestUrl(v):
 
 SimulatorSchema = voluptuous.Schema(
     {
-        voluptuous.Required("pull_request"): PullRequestUrl(),
+        voluptuous.Required("pull_request"): voluptuous.Any(None, PullRequestUrl()),
         voluptuous.Required("mergify.yml"): rules.UserConfigurationSchema,
     }
 )
@@ -216,18 +216,23 @@ def simulator():
 
     data = SimulatorSchema(flask.request.get_json(force=True))
     pull_request = data["pull_request"]
-    pull_request_rules = data["mergify.yml"]["pull_request_rules"]
 
-    match = pull_request_rules.get_pull_request_rule(pull_request)
+    if pull_request:
+        pull_request_rules = data["mergify.yml"]["pull_request_rules"]
 
-    raw_event = {
-        "repository": pull_request.g_pull.base.repo.raw_data,
-        "installation": {"id": pull_request.installation_id},
-        "pull_request": pull_request.g_pull.raw_data,
-    }
-    title, summary = actions_runner.gen_summary(
-        "refresh", raw_event, pull_request, match
-    )
+        match = pull_request_rules.get_pull_request_rule(pull_request)
+
+        raw_event = {
+            "repository": pull_request.g_pull.base.repo.raw_data,
+            "installation": {"id": pull_request.installation_id},
+            "pull_request": pull_request.g_pull.raw_data,
+        }
+        title, summary = actions_runner.gen_summary(
+            "refresh", raw_event, pull_request, match
+        )
+    else:
+        title = "The configuration is valid"
+        summary = None
     return flask.jsonify({"title": title, "summary": summary}), 200
 
 

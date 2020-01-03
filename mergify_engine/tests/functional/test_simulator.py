@@ -50,6 +50,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         users:
           - mergify-test1
 """
+
+        r = self.app.post(
+            "/simulator",
+            json={"pull_request": None, "mergify.yml": mergify_yaml},
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200, r.json
+        assert r.json["title"] == "The configuration is valid"
+        assert r.json["summary"] is None
+
         r = self.app.post(
             "/simulator",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
