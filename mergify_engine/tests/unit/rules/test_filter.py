@@ -88,6 +88,14 @@ def test_does_not_contain():
     assert not f(foo=(1, 2))
 
 
+def test_set_value_expanders_does_not_contain():
+    f = filter.Filter({"!=": ("foo", "@bar")})
+    f.set_value_expanders("foo", lambda x: ["foobaz", "foobar"])
+    assert not f(foo="foobar")
+    assert not f(foo="foobaz")
+    assert f(foo="foobiz")
+
+
 def test_contains():
     f = filter.Filter({"=": ("foo", 1)})
     assert f(foo=[1, 2])
