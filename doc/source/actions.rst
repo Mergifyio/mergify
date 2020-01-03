@@ -309,9 +309,15 @@ The ``merge`` action merges the pull request into its base branch. The
        * GPG signed commits will lost their signatures.
        * Also see: :ref:`faq strict rebase`
 
+Branch Protection Settings
+--------------------------
+
 Note that Mergify will always respect the branch protection settings. When the
 conditions match and the ``merge`` action runs, Mergify waits for the
 branch protection to be validated before really merging the pull request.
+
+Commit Message and ``squash`` Method
+------------------------------------
 
 When a pull request is merged using the squash or merge method, Mergify uses
 the default commit message provided by GitHub. You can override the commit
