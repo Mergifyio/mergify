@@ -12,6 +12,7 @@ mergify-engine
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
 
 This is how it works:
+
 1. You write rules describing how to match a pull request, and which actions need to be executed.
 2. The engine executes the action as soon as a pull request matches the conditions.
 
