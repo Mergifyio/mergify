@@ -8,3 +8,5 @@ logs:
     path: <MERGIFYENGINE_LOG_JSON_FILE>
     source: python
     sourcecategory: sourcecode
+    tags:
+      - service:mergify-engine
