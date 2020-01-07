@@ -31,6 +31,7 @@ class DismissReviewsAction(actions.Action):
         voluptuous.Required("changes_requested", default=True): voluptuous.Any(
             True, False, [str]
         ),
+        voluptuous.Required("message", default="Pull request has been modified."): str,
     }
 
     always_run = True
@@ -62,13 +63,12 @@ class DismissReviewsAction(actions.Action):
                 if conf and (conf is True or review.user.login in conf):
                     self._dismissal_review(pull, review)
 
-    @staticmethod
-    def _dismissal_review(pull, review):
+    def _dismissal_review(self, pull, review):
         try:
             review._requester.requestJsonAndCheck(
                 "PUT",
                 "%s/reviews/%s/dismissals" % (review.pull_request_url, review.id),
-                input={"message": "Pull request has been modified."},
+                input={"message": self.config["message"]},
                 headers={"Accept": "application/vnd.github.machine-man-preview+json"},
             )
         except github.GithubException as e:  # pragma: no cover
