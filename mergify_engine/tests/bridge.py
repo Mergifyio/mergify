@@ -31,7 +31,7 @@ LOG = logging.getLogger(__name__)
 def run():
     parser = argparse.ArgumentParser()
     parser.add_argument("--clean", action="store_true")
-    parser.add_argument("--dest", default="http://localhost:8802/event")
+    parser.add_argument("--dest", default="http://localhost:5000/event")
 
     args = parser.parse_args()
 

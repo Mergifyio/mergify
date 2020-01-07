@@ -1,0 +1,2 @@
+engine: honcho start
+bridge: python -u mergify_engine/tests/bridge.py --clean

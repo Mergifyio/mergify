@@ -1,0 +1,2 @@
+beat: celery beat -A mergify_engine.worker
+worker: celery worker -A mergify_engine.worker --task-events -Q mergify,celery

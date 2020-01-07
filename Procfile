@@ -1,2 +1,2 @@
 web: gunicorn --statsd-host localhost:8125 mergify_engine.wsgi
-engine: celery worker --beat -A mergify_engine.worker --task-events -Q mergify,celery
+engine: honcho -f Procfile-celery start
