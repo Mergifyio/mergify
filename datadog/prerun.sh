@@ -6,6 +6,8 @@ case $DYNOTYPE in
         ;;
     web)
         cat > "$DATADOG_CONF" <<EOF
+process_config:
+  enabled: "true"
 confd_path: $DD_CONF_DIR/conf.d
 logs_enabled: true
 additional_checksd: $DD_CONF_DIR/checks.d
@@ -31,6 +33,8 @@ EOF
         ;;
     engine)
         cat > "$DATADOG_CONF" <<EOF
+process_config:
+  enabled: "true"
 confd_path: $DD_CONF_DIR/conf.d
 logs_enabled: true
 additional_checksd: $DD_CONF_DIR/checks.d
