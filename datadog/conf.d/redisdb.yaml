@@ -5,7 +5,7 @@ instances:
    port: <CACHE PORT>
    password: <CACHE PASSWORD>
    tags:
-     - service:cache
+     - role:cache
 
  - host: <CELERY HOST>
    port: <CELERY PORT>
@@ -15,4 +15,4 @@ instances:
      - schedule
      - mergify
    tags:
-     - service:celery
+     - role:celery
