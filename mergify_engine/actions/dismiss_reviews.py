@@ -73,5 +73,8 @@ class DismissReviewsAction(actions.Action):
             )
         except github.GithubException as e:  # pragma: no cover
             pull.log.error(
-                "failed to dismiss review", status=e.status, error=e.data["message"],
+                "failed to dismiss review",
+                status=e.status,
+                error_message=e.data["message"],
+                error=e.data.get("errors"),
             )

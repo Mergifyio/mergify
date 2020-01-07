@@ -47,6 +47,10 @@ app.conf.task_time_limit = 2 * 60
 app.conf.task_soft_time_limit = 15 * 60
 app.conf.task_time_limit = 16 * 60
 
+# All our Celery tasks are designed to be idempotent. We should ack the task
+# after it finished its execution in total.
+app.conf.task_acks_late = True
+
 
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
