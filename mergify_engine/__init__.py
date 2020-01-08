@@ -19,6 +19,7 @@ import daiquiri
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
 from mergify_engine import exceptions
@@ -46,5 +47,5 @@ if config.SENTRY_URL:  # pragma: no cover
         config.SENTRY_URL,
         environment=config.SENTRY_ENVIRONMENT,
         before_send=fixup_sentry_reporting,
-        integrations=[CeleryIntegration(), FlaskIntegration()],
+        integrations=[CeleryIntegration(), FlaskIntegration(), RedisIntegration()],
     )
