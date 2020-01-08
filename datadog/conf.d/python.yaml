@@ -7,6 +7,5 @@ logs:
   - type: file
     path: <MERGIFYENGINE_LOG_JSON_FILE>
     source: python
+    service: mergify-engine
     sourcecategory: sourcecode
-    tags:
-      - service:mergify-engine
