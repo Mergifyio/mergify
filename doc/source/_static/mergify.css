@@ -61,12 +61,16 @@ div.highlight > pre {
 
 /* Fix headers for scrolling */
 
-h1 {
+.section > h1 {
     padding-top: 80px;
     margin-top: -80px;
 }
 
-h2, h3, h4, h5, h6 {
+.section > h2,
+.section > h3,
+.section > h4,
+.section > h5,
+.section > h6 {
     padding-top: 80px;
     margin-top: -50px;
 }
