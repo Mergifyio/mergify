@@ -1,17 +1,33 @@
 .. _configuration file format:
 
-===========================
- Configuration File Format
-===========================
+====================
+ Configuration File
+====================
 
-The configuration file for Mergify should be named ``.mergify.yml`` or
-``.mergify/config.yml`` and must be placed in the root directory of your GitHub
-repository. Mergify uses the default repository branch configured on GitHub to
-read the configuration file — usually ``master``. The file format is `YAML
-<http://yaml.org/>`_.
+File Used
+---------
 
-The file main entry is a dictionary whose key is named ``pull_request_rules``.
-The value of the ``pull_request_rules`` key must be a list of dictionary.
+Mergify uses the configuration file that is:
+
+- The file named ``.mergify.yml``, or, as a fallback, ``.mergify/config.yml``
+  from the root directory.
+
+- In the the default repository branch configured on GitHub — usually
+  ``master``.
+
+Format
+------
+
+Here's what you need to know about the file format:
+
+- The file format is `YAML <http://yaml.org/>`_.
+
+- The file main type is a dictionary whose only key is named
+  ``pull_request_rules``.
+
+- The value type of the ``pull_request_rules`` is list.
+
+- Each entry in ``pull_request_rules`` must be a dictionary.
 
 Each dictionary must have the following keys:
 
@@ -35,40 +51,22 @@ Each dictionary must have the following keys:
      - A dictionary made of :ref:`Actions` that will be executed on the
        matching pull requests.
 
-The rules are evaluated in the order they are defined and, therefore, the
-actions are executed in that same order.
+The rules are evaluated in the order they are defined in ``pull_request_rules``
+and, therefore, the actions are executed in that same order.
 
-Example
-=======
-
-Here's a simple example of a configuration file:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge when CI passes and 2 reviews
-        conditions:
-          - "#approved-reviews-by>=2"
-          - status-success=Travis CI - Pull Request
-          - base=master
-        actions:
-          merge:
-            method: merge
-
-See :ref:`Examples` for more examples.
+See :ref:`Examples` for configuration file examples.
 
 Validation
-==========
+----------
 
-Usually, changes to the configuration file should be done via a pull request,
-in order for Mergify to validate it.
+Changes to the configuration file should be done via a pull request in order
+for Mergify to validate it via a GitHub check.
 
-However if you are creating the initial configuration or want to validate it
-locally before sending a pull request, you can use:
+However, if you want to validate your configuration file before sending a pull
+request, you can use the following command line:
 
 .. code:: bash
 
-    $ cd <my_project>
     $ curl -F 'data=@.mergify.yml' https://gh.mergify.io/validate
 
 
@@ -80,5 +78,3 @@ Or by uploading the configuration file with this form:
       <input type=file name=data>
       <input type=submit value=Validate>
     </form>
-
-
