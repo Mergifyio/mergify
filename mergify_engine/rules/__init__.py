@@ -19,11 +19,8 @@ import itertools
 import operator
 
 import attr
-
 import github
-
 import voluptuous
-
 import yaml
 
 from mergify_engine import actions

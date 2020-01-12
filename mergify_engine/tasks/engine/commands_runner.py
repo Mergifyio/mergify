@@ -14,12 +14,10 @@
 
 import re
 
-from datadog import statsd
-
 import github
-
 import voluptuous
 
+from datadog import statsd
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import mergify_pull

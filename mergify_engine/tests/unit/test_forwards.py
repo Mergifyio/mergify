@@ -14,14 +14,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import uuid
 import os
+import uuid
 from unittest import mock
 
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
-
 
 # NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
 # So all REST API calls will block and execute celery tasks directly

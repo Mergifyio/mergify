@@ -18,9 +18,7 @@ import re
 from urllib import parse
 
 import attr
-
 import github
-
 import tenacity
 
 from mergify_engine import check_api

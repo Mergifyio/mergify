@@ -15,8 +15,8 @@
 # under the License.
 import copy
 import json
-import queue
 import os
+import queue
 import re
 import shutil
 import subprocess
@@ -24,18 +24,12 @@ import time
 import uuid
 
 import daiquiri
-
 import fixtures
-
 import github
-
 import pytest
-
 import requests
 import requests.sessions
-
 import testtools
-
 import vcr
 
 from mergify_engine import branch_updater

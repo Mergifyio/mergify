@@ -18,7 +18,6 @@ import re
 from urllib import parse
 
 import github
-
 import voluptuous
 
 from mergify_engine import actions

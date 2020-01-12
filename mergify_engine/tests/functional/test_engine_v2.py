@@ -18,7 +18,6 @@ import time
 from unittest import mock
 
 import requests.exceptions
-
 import yaml
 
 from mergify_engine import check_api
@@ -27,7 +26,6 @@ from mergify_engine import debug
 from mergify_engine import mergify_pull
 from mergify_engine.tasks.engine import actions_runner
 from mergify_engine.tests.functional import base
-
 
 LOG = logging.getLogger(__name__)
 

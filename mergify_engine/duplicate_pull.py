@@ -16,7 +16,6 @@ import functools
 import subprocess
 
 import github
-
 import tenacity
 
 from mergify_engine import config

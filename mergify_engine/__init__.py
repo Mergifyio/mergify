@@ -13,9 +13,7 @@
 # under the License.
 
 import celery.exceptions
-
 import daiquiri
-
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.flask import FlaskIntegration

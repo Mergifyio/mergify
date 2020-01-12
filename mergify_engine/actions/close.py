@@ -15,7 +15,6 @@
 # under the License.
 
 import github
-
 import voluptuous
 
 from mergify_engine import actions

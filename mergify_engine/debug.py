@@ -16,7 +16,6 @@ import argparse
 import pprint
 
 import github
-
 import requests
 
 from mergify_engine import check_api

@@ -25,15 +25,11 @@ import sys
 import tempfile
 
 import celery.app.log
-
 import daiquiri
-
 import github
-
 import redis
-from billiard import current_process
-
 import requests
+from billiard import current_process
 
 from mergify_engine import config
 

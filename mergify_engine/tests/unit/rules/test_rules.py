@@ -14,9 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import pytest
-
 import voluptuous
-
 
 from mergify_engine import rules
 
