@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+
 import pkg_resources
 
 extensions = ["sphinx.ext.githubpages"]

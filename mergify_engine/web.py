@@ -26,23 +26,19 @@ import logging
 from urllib.parse import urlsplit
 
 import flask
-
-from flask_cors import cross_origin
-
 import github
-
 import voluptuous
+from flask_cors import cross_origin
 
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine import sub_utils
+from mergify_engine import utils
 from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
 from mergify_engine.tasks.engine import actions_runner
-
 
 LOG = logging.getLogger(__name__)
 

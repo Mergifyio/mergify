@@ -14,11 +14,10 @@
 import os
 
 import celery
+import daiquiri
 from celery import signals
 
-import daiquiri
 from datadog import statsd
-
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import utils
@@ -125,7 +124,7 @@ def statsd_task_rejected(sender, **kwargs):
 
 
 # Register our tasks
-import mergify_engine.tasks.forward_events  # noqa
-import mergify_engine.tasks.github_events  # noqa
-import mergify_engine.tasks.mergify_events  # noqa
-from mergify_engine.actions.merge import queue  # noqa
+import mergify_engine.tasks.forward_events  # noqa isort:skip
+import mergify_engine.tasks.github_events  # noqa isort:skip
+import mergify_engine.tasks.mergify_events  # noqa isort:skip
+from mergify_engine.actions.merge import queue  # noqa isort:skip

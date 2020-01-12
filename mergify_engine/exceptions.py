@@ -13,7 +13,6 @@
 # under the License.
 
 import github
-
 import requests
 
 

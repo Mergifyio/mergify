@@ -1,4 +1,5 @@
 import logging
+
 import pytest
 
 from mergify_engine import utils

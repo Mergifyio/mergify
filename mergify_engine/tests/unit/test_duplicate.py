@@ -15,8 +15,8 @@
 # under the License.
 from unittest import mock
 
-from mergify_engine import duplicate_pull
 from mergify_engine import config
+from mergify_engine import duplicate_pull
 from mergify_engine import mergify_pull
 
 

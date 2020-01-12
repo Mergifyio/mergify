@@ -19,13 +19,11 @@ import subprocess
 import uuid
 
 import github
-
 import tenacity
 
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
-
 
 UNRECOVERABLE_ERROR = ["head repository does not exist"]
 

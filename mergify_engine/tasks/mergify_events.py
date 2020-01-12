@@ -15,9 +15,7 @@
 import uuid
 
 import daiquiri
-
 import github
-
 
 from mergify_engine import config
 from mergify_engine import utils

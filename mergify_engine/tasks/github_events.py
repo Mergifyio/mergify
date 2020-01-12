@@ -13,12 +13,9 @@
 # under the License.
 
 import daiquiri
-
-from datadog import statsd
-
 import github
 
-
+from datadog import statsd
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils

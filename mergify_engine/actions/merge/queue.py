@@ -13,7 +13,6 @@
 # under the License.
 
 import daiquiri
-
 import github
 
 from mergify_engine import check_api

@@ -14,12 +14,10 @@
 
 import base64
 
-from datadog import statsd
-
 import pkg_resources
-
 import yaml
 
+from datadog import statsd
 from mergify_engine import check_api
 from mergify_engine import doc
 from mergify_engine import mergify_pull

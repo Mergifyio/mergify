@@ -18,7 +18,6 @@
 from unittest import mock
 
 import pytest
-
 import voluptuous
 
 from mergify_engine import mergify_pull

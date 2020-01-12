@@ -15,12 +15,10 @@
 # under the License.
 
 import abc
-import pkg_resources
 
 import attr
-
+import pkg_resources
 import voluptuous
-
 
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES = None
