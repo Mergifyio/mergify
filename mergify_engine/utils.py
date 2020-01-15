@@ -107,8 +107,8 @@ def setup_logging():
             daiquiri.output.TimedRotatingFile(
                 filename=config.LOG_JSON_FILE,
                 level=logging.DEBUG,
-                interval=datetime.timedelta(seconds=5),
-                backup_count=48,
+                interval=datetime.timedelta(minutes=1),
+                backup_count=10,
                 formatter=daiquiri.formatter.JSON_FORMATTER,
             )
         )
