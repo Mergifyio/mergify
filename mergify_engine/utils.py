@@ -98,7 +98,9 @@ def setup_logging():
     if config.LOG_STDOUT:
         outputs.append(
             daiquiri.output.Stream(
-                sys.stdout, formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT)
+                sys.stdout,
+                formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT),
+                level=config.LOG_STDOUT_LEVEL,
             )
         )
 

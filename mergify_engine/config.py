@@ -16,6 +16,7 @@
 
 import base64
 import distutils.util
+import logging
 import os
 import re
 
@@ -31,6 +32,13 @@ def CoercedBool(value):
     return bool(distutils.util.strtobool(str(value)))
 
 
+def CoercedLoggingLevel(value):
+    value = value.upper()
+    if value in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        return getattr(logging, value)
+    raise ValueError
+
+
 def CommaSeparatedStringList(value):
     return value.split(",")
 
@@ -41,6 +49,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required("DEBUG", default=True): CoercedBool,
         voluptuous.Required("LOG_RATELIMIT", default=False): CoercedBool,
         voluptuous.Required("LOG_STDOUT", default=True): CoercedBool,
+        voluptuous.Required("LOG_STDOUT_LEVEL", default=None): voluptuous.Any(
+            None, CoercedLoggingLevel
+        ),
         voluptuous.Required("LOG_DATADOG", default=False): CoercedBool,
         voluptuous.Required("LOG_JSON_FILE", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
