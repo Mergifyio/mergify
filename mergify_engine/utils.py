@@ -113,6 +113,9 @@ def setup_logging():
             )
         )
 
+    if config.LOG_DATADOG:
+        outputs.append(daiquiri.output.Datadog())
+
     daiquiri.setup(
         outputs=outputs, level=(logging.DEBUG if config.DEBUG else logging.INFO),
     )
