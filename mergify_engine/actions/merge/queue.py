@@ -78,7 +78,7 @@ def _move_pull_at_end(pull):  # pragma: no cover
     )
 
 
-def _get_next_pull_request(queue):
+def _get_next_pull_request(queue, queue_log):
     _, installation_id, owner, reponame, branch = queue.split("~")
 
     integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
@@ -94,7 +94,8 @@ def _get_next_pull_request(queue):
         return
 
     redis = utils.get_redis_for_cache()
-    pull_numbers = redis.zrange(queue, 0, 0)
+    pull_numbers = redis.zrange(queue, 0, -1)
+    queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if pull_numbers:
         return mergify_pull.MergifyPull.from_number(
             installation_id, installation_token, owner, reponame, int(pull_numbers[0])
@@ -164,7 +165,7 @@ def smart_strict_workflow_periodic_task():
 
         pull = None
         try:
-            pull = _get_next_pull_request(queue)
+            pull = _get_next_pull_request(queue, queue_log)
             if not pull:
                 queue_log.debug("no pull request for this queue")
             elif pull.g_pull.state == "closed" or pull.is_behind():
