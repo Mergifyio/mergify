@@ -74,10 +74,6 @@ if [ -n "$DYNO" ]; then
     # When datadog.sh is called it will copy the example and overwrite our conf
     cp "$DATADOG_CONF" "$DATADOG_CONF.example"
 
-    if [ -n $"MERGIFYENGINE_LOG_JSON_FILE" ]; then
-        sed -i "s,<MERGIFYENGINE_LOG_JSON_FILE>,${MERGIFYENGINE_LOG_JSON_FILE},g" $DD_CONF_DIR/conf.d/python.d/conf.yaml
-    fi
-
     REDIS_REGEX='^redis://([^:]+):([^@]+)@([^:]+):([^/]+)$'
 
     if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
