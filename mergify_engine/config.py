@@ -36,7 +36,7 @@ def CoercedLoggingLevel(value):
     value = value.upper()
     if value in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
         return getattr(logging, value)
-    raise ValueError
+    raise ValueError(value)
 
 
 def CommaSeparatedStringList(value):
