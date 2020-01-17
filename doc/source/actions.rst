@@ -5,8 +5,8 @@
 =========
 
 When a pull request matches the list of :ref:`Conditions` of a rule, the
-actions set in the rule are executed by Mergify. The actions should be put
-under the ``actions`` key in the ``pull_request_rules`` entry — see
+actions configured in that rule are executed by Mergify. The actions should be
+put under the ``actions`` key in the ``pull_request_rules`` entry — see
 :ref:`configuration file format`.
 
 The list of available actions is listed below, with their parameters:
@@ -28,8 +28,8 @@ The ``assign`` action assigns users to the pull request.
      - Value Description
    * - ``users``
      - array of string
-     - None
-     - The users to assign to the pull request
+     - 
+     - The users to assign to the pull request.
 
 
 .. _backport action:
@@ -42,9 +42,9 @@ over an extended period. Developers usually create stable branches that are
 maintained for a while by cherry-picking patches from the development branch.
 
 This process is called *backporting* as it implies that bug fixes merged into
-the development branch are ported back to the stable branch. The stable branch
-can then be used to release a new minor version of the software, fixing some of
-its bugs.
+the development branch are ported back to the stable branch(es). The stable
+branch can then be used to release a new minor version of the software, fixing
+some of its bugs.
 
 As this process of backporting patches can be tedious, Mergify automates this
 mechanism to save developers' time and ease their duty.
@@ -113,7 +113,7 @@ The ``comment`` action adds a comment to the pull request.
      - Value Description
    * - ``message``
      - string
-     - None
+     - 
      - The message to write as a comment.
 
 
@@ -138,7 +138,7 @@ The ``review`` action reviews the pull request.
      - The kind of review, can be ``APPROVE``, ``REQUEST_CHANGES``, ``COMMENT``
    * - ``message``
      - string
-     - None
+     - 
      - The message to write as a comment.
 
 
@@ -173,9 +173,9 @@ that is the branch which hosts the commits. This only works if the branch is
 stored in the same repository that the pull request target, i.e., if the pull
 request comes from the same repository and not from a fork.
 
-This action takes no configuration options. The action will happen when the
-pull request is closed or merged: you can decide what suits you best using
-:ref:`Conditions`.
+This action takes no configuration options. The action will only happen if and
+when the pull request is closed or merged: you can decide what suits you best
+using :ref:`Conditions`.
 
 .. list-table::
    :header-rows: 1
@@ -190,7 +190,7 @@ pull request is closed or merged: you can decide what suits you best using
      - ``False``
      - If set to ``True``, the branch will be deleted even if another pull
        request depends on the head branch. GitHub will therefore close the
-       dependents pull requests.
+       dependent pull requests.
 
 
 .. _dismiss_reviews action:
@@ -290,7 +290,7 @@ The ``merge`` action merges the pull request into its base branch. The
        multiple pull requests are ready to be merged, they will all be updated
        with their base branch at the same time, and the first ready to be
        merged will be merged; the remaining pull request will be updated once
-       again. If you prefer to update one pull request at a time (for example,
+       again. If you prefer to update one pull request at a time (e.g.,
        to save CI runtime), set ``strict`` to ``smart`` instead: Mergify will
        queue the mergeable pull requests and update them one at a time serially.
    * - ``strict_method``
@@ -313,8 +313,8 @@ Branch Protection Settings
 --------------------------
 
 Note that Mergify will always respect the branch protection settings. When the
-conditions match and the ``merge`` action runs, Mergify waits for the
-branch protection to be validated before really merging the pull request.
+conditions match and the ``merge`` action runs, Mergify waits for the branch
+protection to be validated before merging the pull request.
 
 Commit Message and ``squash`` Method
 ------------------------------------
@@ -348,11 +348,11 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - Value Description
   * - ``users``
     - array of string
-    - None
+    - 
     - The username to request reviews from.
   * - ``teams``
     - array of string
-    - None
+    - 
     - The team name to request reviews from.
 
 .. _rebase action:
@@ -362,132 +362,7 @@ rebase
 
 The ``rebase`` action will rebase the pull request against its base branch.
 
-Be aware that rebasing will force-push to the pull request head branch: any
-change done to the pull request while Mergify is rebasing will be lost.
+.. warning::
 
-Git merge workflow and Mergify equivalent configuration
--------------------------------------------------------
-
-Examples without `strict: true` are obviously not recommended, more information
-here: :ref:`strict merge`.
-
-`base branch` is usually "master" or "dev",
-`head branch` is the pull request branch.
-
-
-.. list-table::
-   :header-rows: 1
-   :widths: 2 2
-
-   * - Git merge workflow
-     - Mergify configuration
-
-   * - ::
-
-         (on head branch) $ git merge --no-ff base
-
-     - ::
-
-         merge:
-           method: merge
-
-   * - ::
-
-         (on head branch) $ git merge --no-ff base
-         (on head branch) # Wait for CI to go green
-         (on base branch) $ git merge --no-ff head
-
-     - ::
-
-         merge:
-           strict: true
-           method: merge
-
-   * - ::
-
-         (on head branch) $ git rebase base
-         (on base branch) $ git merge --ff head
-
-     - ::
-
-         merge:
-           method: rehead
-
-   * - ::
-
-         (on head branch) $ git merge --no-ff base
-         (on head branch) # Wait for CI to go green
-         (on head branch) $ git rebase base
-         (on base branch) $ git merge --ff head
-
-     - ::
-
-         merge:
-           strict: true
-           method: rebase
-
-   * - ::
-
-         (on head branch) $ git rebase base
-         (on head branch) # Wait for CI to go green
-         (on base branch) $ git merge --no-ff head
-
-     - ::
-
-         merge:
-           strict: true
-           strict_method: rebase
-           method: merge
-
-   * - ::
-
-        (on head branch) # Squash all commits
-        (on base branch) $ git merge --ff head
-
-     - ::
-
-         merge:
-           method: squash
-
-   * - ::
-
-         (on head branch) $ git merge --no-ff base
-         (on head branch) # Wait for CI to go green
-         (on head branch) # Squash all commits
-         (on base branch) $ git merge --ff head
-
-     - ::
-
-         merge:
-           strict: true
-           method: squash
-
-   * - ::
-
-         (on head branch) $ git rebase base
-         (on head branch) # Wait for CI to go green
-         (on head branch) # Squash all commits
-         (on base branch) $ git merge --ff head
-
-     - ::
-
-         merge:
-           strict: true
-           strict_method: rebase
-           method: squash
-
-   * - ::
-
-         (on head branch) $ git rebase base
-         (on head branch) # Squash all commits
-         (on head branch) # Mergify wait for CI
-         (on head branch) $ git merge --no-ff head
-
-     - ::
-
-         merge:
-           strict: true
-           strict_method: squash
-           method: merge
-
-       `(not yet implemented)`
+   Be aware that rebasing force-pushes the pull request head branch: any change
+   done to the that branch while Mergify is rebasing will be lost.
