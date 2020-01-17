@@ -32,6 +32,10 @@ $(function() {
   // images
   $(".documentwrapper img").addClass("img-fluid");
 
+  // Fix embedded ToC (example page)
+  $("div.topic > ul").addClass("list-group");
+  $("div.topic > ul > li").addClass("list-group-item").addClass("flex-fill").addClass("list-group-item-action");
+  $("div.topic").removeClass("topic");
 });
 
 

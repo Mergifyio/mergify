@@ -4,26 +4,28 @@
  Example Rules
 ===============
 
-You can define more specific rules based on the large number of criterias
-available: pull request author, base branch, labels, files, etc.
+Mergify allows you to define a lot of specific rules. There is a large number
+of criterias available to define rues: pull request author, base branch,
+labels, files, etc.
 
-Here's a few example that should help you getting started.
+In this section, we build a few examples that should help you getting started
+and cover many common use cases.
 
 .. contents::
    :local:
-   :depth: 2
+   :depth: 1
 
-Automatic Merge when CI works and approving reviews
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+✅ Automatic Merge when CI works and approving reviews
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This is the classic rule that enables Mergify automatic merge when the
+This is a classic! That rule enables Mergify automatic merge when the
 continuous integration system validates the pull request and a human reviewed
 it.
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge when CI passes and 2 reviews
+      - name: automatic merge for master when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
           - status-success=Travis CI - Pull Request
@@ -34,12 +36,12 @@ it.
 
 You can tweak as fine as you want. For example, many users like to use a label
 such as ``work-in-progress`` to indicate that a pull request is not ready to be
-merged — even if's approved.
+merged — even if's approved:
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge when CI passes and 2 reviews
+      - name: automatic merge for master when CI passes and 2 reviews and not WIP
         conditions:
           - "#approved-reviews-by>=2"
           - status-success=Travis CI - Pull Request
@@ -55,7 +57,7 @@ use:
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge when GitHub branch protection passes
+      - name: automatic merge when GitHub branch protection passes on master
         conditions:
           - base=master
         actions:
@@ -63,10 +65,47 @@ use:
             method: merge
 
 
-Using Labels to Backport Pull-Requests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can also remove the branch limitation so it'd work on any branch:
 
-Copying pull requests to a maintenance branch is something common as explained
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge when GitHub branch protection passes
+        conditions: []
+        actions:
+          merge:
+            method: merge
+
+🗂 Merging based on Modified Files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You could decide to only merge some pull requests based on the files they
+touch. You can use the ``files`` attribute to access the modified file list and
+``#files`` to access the number of files.
+
+This tweak is useful when you want Mergify to merge only data files which can be
+validated by the script, linter, etc.
+
+The below sample merges only if ``data.json`` changed and if the pul requests
+passes Circle CI's validation tests:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge on CircleCI success if only data.json is changed
+        conditions:
+          - "status-success=ci/circleci: validate"
+          - files=data1.json
+          - "#files=1"
+        actions:
+          merge:
+            method: merge
+
+
+👩‍🔧 Using Labels to Backport Pull-Requests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Copying pull requests to a maintenance  branch is something common as explained
 in :ref:`backport action`. In order to elect a pull request to be backported,
 it's common to use a label. You could write a rule such as:
 
@@ -82,12 +121,13 @@ it's common to use a label. You could write a rule such as:
             branches:
               - stable
 
+You could also manually trigger them using the :ref:`backport command` command.
 
-Deleting Merged Branch
-~~~~~~~~~~~~~~~~~~~~~~
+✂️ Deleting Merged Branch
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some users create pull request from the same repository by using different
-branch, rather than creating a pull request from a fork. That's fine, but it
+branches — rather than creating a pull request from a fork. That's fine, but it
 tends to leave a lot of useless branch behind when the pull request is merged.
 
 Mergify allows to delete those branches once the pull request has been merged:
@@ -96,18 +136,19 @@ Mergify allows to delete those branches once the pull request has been merged:
 
     pull_request_rules:
       - name: delete head branch after merge
-        conditions: []
+        conditions:
+          - merged
         actions:
           delete_head_branch: {}
 
 
-Less Strict Rules for Stable Branches
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+🏖 Less Strict Rules for Stable Branches
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some projects like having easier review requirements for stable/maintenance
-branches. That usually means having e.g. 2 review requested for merging into
-master, but only one for a stable branch, since those pull request are
-essentially backport from ``master``.
+Some projects like having easier review requirements for maintenance branches.
+That usually means having e.g. 2 review requested for merging into ``master``,
+but only one for a stable branch — since those pull request are essentially
+backport from ``master``.
 
 To automate the merge in this case, you could write some rules along those:
 
@@ -132,11 +173,13 @@ To automate the merge in this case, you could write some rules along those:
             method: merge
 
 
-Using Labels to Enable/Disable Merge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+🎬 Using Labels to Enable/Disable Merge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some developers are not comfortable with having a final step before merging the
-code. In that case, you can add a condition using a ``label``:
+Some developers are not comfortable with fully automatic merge — they like
+having a final word before merging the code. In that case, you can add a
+condition using a `label
+<https://help.github.com/articles/labeling-issues-and-pull-requests/>`_:
 
 .. code-block:: yaml
 
@@ -152,8 +195,7 @@ code. In that case, you can add a condition using a ``label``:
             method: merge
 
 As soon as the pull request has been approved by 2 contributors and gets the
-`label <https://help.github.com/articles/labeling-issues-and-pull-requests/>`_
-``ready-to-be-merged``, the pull request will be merged by Mergify.
+label ``ready-to-be-merged``, the pull request will be merged by Mergify.
 
 On the other hand, some developers wants an option to disable the automatic
 merge feature with a label. This can be useful to indicate that a pull request
@@ -176,10 +218,10 @@ In that case, if a pull request gets labelled with ``work-in-progress``, it
 won't be merged, even if approved by 2 contributors and having Travis CI
 passing.
 
-Removing Stale Reviews
-~~~~~~~~~~~~~~~~~~~~~~
+🥶 Removing Stale Reviews
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When a pull request is updated, GitHub does not remove the possibly outdated
+When a pull request is updated, GitHub does not remove the (possibly) outdated
 reviews approvals or changes request. It's a good idea to remove them as soon
 as the pull request gets updated with new commits.
 
@@ -192,12 +234,26 @@ as the pull request gets updated with new commits.
         actions:
           dismiss_reviews: {}
 
-Require All Requested Reviews to Be Approved
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You could also only dismiss the outdated reviews if the author is not a member
+of a particular team. This allows to keep the approval if the author is
+trusted, even if they update their code:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: remove outdated reviews for non trusted authors
+        conditions:
+          - base=master
+          - author!=@myorg/mytrustedteam
+        actions:
+          dismiss_reviews: {}
+
+🙅️ Require All Requested Reviews to Be Approved
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If all requested reviews have been approved, then the number of
 ``review-requested``, ``changes-requested-reviews-by``, and
-``commented-reviews-by`` will all be 0. You also want to make sure there's at
+``commented-reviews-by`` should all be 0. You also want to make sure there's at
 least one positive review, obviously.
 
 .. code-block:: yaml
@@ -216,43 +272,89 @@ least one positive review, obviously.
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
-Using Files to Narrow Down the Files to Merge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+💌 Welcoming your Contributors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After the CI pass, to automate the merge only if the specified files are changed
-and no other files, then use ``files`` to specify the file and ``#files`` to
-limit the number of files.
-
-This tweak is useful when you want Mergify to merge only data files which can be
-validated by the script, linter, etc.
-
-The below sample merges only if both or either one of ``data1.json`` and
-``data2.json`` file is changed and passes Circle CI's validation tests:
+When somebody that's not part of your team creates a pull requests, it might be
+great to give him a few hints about what to expect next. You could write him a
+little message.
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge on CircleCI success if data1.json is changed
+      - name: say hi on new contribution
         conditions:
-          - "status-success=ci/circleci: validate"
-          - base=master
-          - files=data1.json
-          - "#files=1"
+          - author!=@myorg/regularcontributors
         actions:
-          merge:
-            method: merge
-            strict: true
+            comment:
+              message: |
+                  Welcome to our great project!
+                  We're delight to have you onboard <3
 
-      - name: automatic merge on CircleCI success if list2.json is changed
+🤜 Request for Action
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If any event that requires the author of the pull request to edit its pull
+request happen, you could write a rule that says something about it.
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: ask to resolve conflict
         conditions:
-          - "status-success=ci/circleci: validate"
-          - base=master
-          - files=data2.json
-          - "#files=1"
+          - conflicts
         actions:
-          merge:
-            method: merge
-            strict: true
+            comment:
+              message: This pull request is now in conflicts. Could you fix it? 🙏
+
+The same goes if one of your check fails. It might be good to give a few hints
+to your contributor:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: ask to fix commit message
+        conditions:
+          - status-failure=Semantic Pull Request
+          - -closed
+        actions:
+            comment:
+              message: |
+                Title does not follow the guidelines of [Conventional Commits](https://www.conventionalcommits.org).
+                Please adjust title before merge.
+
+
+👀 Flexible Reviewers Assignement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can assigne people for review based on any criteria you like. A classic is
+to use the name of modified files to do it:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: ask jd to review changes on python files
+        conditions:
+          - files~=\.py$
+          - -closed
+        actions:
+          request_reviews:
+            users:
+              - jd
+
+You can also ask entire teams to review a pull request based on, e.g., labels:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: ask the security team to review security labelled PR
+        conditions:
+          - label=security
+        actions:
+          request_reviews:
+            teams:
+              - "@myorg/security-dev"
+              - "@myorg/security-ops"
 
 
 .. include:: examples/bots.rst

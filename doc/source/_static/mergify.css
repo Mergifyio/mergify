@@ -13,9 +13,9 @@ body div.body {
 
 /* This is equivalent to the responsive containers introduced in Bootstrap 4.4
    but with a wider width */
-@media (min-width: 1400px) {
+@media (min-width: 1440px) {
     .body-container {
-        max-width: 1400px;
+        max-width: 1440px;
         padding-right: 15px;
         padding-left: 15px;
         margin-right: auto;
