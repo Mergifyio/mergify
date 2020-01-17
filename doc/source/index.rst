@@ -11,7 +11,7 @@ Welcome to the `mergify.io <https://mergify.io>`_ documentation!
    conditions
    actions
    commands
-   strict-workflow
+   merge-action
    examples
    badge
    faq

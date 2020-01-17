@@ -5,7 +5,7 @@ FAQ
 How do I fix the *"Pull request can't be updated with latest base branch changes, owner doesn't allow modification"* error?
 ---------------------------------------------------------------------------------------------------------------------------
 
-When :doc:`strict-workflow` is enabled, pull requests must be updated with the
+When :ref:`strict merge` is enabled, pull requests must be updated with the
 latest content from the target branch before being merged. To do that, Mergify
 needs the permission to update the source branch of the pull request.
 
