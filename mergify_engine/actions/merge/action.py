@@ -184,7 +184,13 @@ class MergeAction(actions.Action):
         else:
             server_message = e.data["message"]
 
-            if "Base branch was modified" in e.data["message"]:
+            if "Head branch was modified" in e.data["message"]:
+                return (
+                    "cancelled",
+                    "Head branch was modified in the meantime",
+                    "The head branch was modified, the merge action have been cancelled.",
+                )
+            elif "Base branch was modified" in e.data["message"]:
                 # NOTE(sileht): The base branch was modified between pull.is_behind() call and
                 # here, usually by something not merged by mergify. So we need sync it again
                 # with the base branch.
