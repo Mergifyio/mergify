@@ -104,6 +104,17 @@ in the :ref:`merge action` action. For example:
             strict: true
 
 
+Viewing the Merge Queue
+=======================
+
+When several pull request are ready to be merged and the `strict` option is
+enabled, Mergify needs to merge serially. To do that, it handles a `merge
+gqueue`. This queue can be seen from your dashboard:
+
+.. figure:: _static/merge-queue.png
+   :alt: The strict merge queue
+
+
 Git merge workflow and Mergify equivalent configuration
 -------------------------------------------------------
 
