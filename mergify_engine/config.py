@@ -53,7 +53,6 @@ Schema = voluptuous.Schema(
             None, CoercedLoggingLevel
         ),
         voluptuous.Required("LOG_DATADOG", default=False): CoercedBool,
-        voluptuous.Required("LOG_JSON_FILE", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_ENVIRONMENT", default="test"): str,
         # Github mandatory
