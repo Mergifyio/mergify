@@ -55,8 +55,8 @@ For example:
   ``operator`` and ``value`` are only optional if the ``attribute`` type is
   ``Boolean``.
 
-Attribute List
-~~~~~~~~~~~~~~
+Attributes
+~~~~~~~~~~
 
 Here's the list of pull request attribute that can be used in conditions:
 
@@ -176,8 +176,17 @@ Here's the list of pull request attribute that can be used in conditions:
      - string
      - The title of the pull request.
 
-Operators List
-~~~~~~~~~~~~~~
+
+.. note::
+
+   When the attributes type is an array, the :ref:`Operators` have a different
+   behaviour and check against every value of the array. There is no need to
+   use a different syntax.
+
+.. _Operators:
+
+Operators
+~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -189,16 +198,18 @@ Operators List
    * - Equal
      - ``=`` or ``:``
      - This operator checks for strict equality. If the target attribute type
-       is an array, each element of the array is compared against the value.
+       is an array, each element of the array is compared against the value and
+       the condition is true if any value matches.
    * - Not Equal
      - ``!=`` or ``≠``
      - This operator checks for non equality. If the target attribute type
-       is an array, each element of the array is compared against the value.
+       is an array, each element of the array is compared against the value and
+       the condition is true if no value matches.
    * - Match
      - ``~=``
      - This operator checks for regular expression matching. If the target
        attribute type is an array, each element of the array is matched
-       against the value.
+       against the value and the condition is true if any value matches.
    * - Greater Than or Equal
      - ``>=`` or ``≥``
      - This operator checks for the value to be greater than or equal to the
@@ -219,6 +230,38 @@ Operators List
      - This operator checks for the value to be lesser than the provided
        value. It's usually used to compare against the length of an array using
        the ``#`` prefix.
+
+
+Impementing Or Conditions
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `conditions` do not support the `or` operation. As Mergify evaluates and
+apply every matching rules from your configuration, you can implement multiple
+rules in order to have this.
+
+For example, to automatically merge a pull request if its author is ``foo`` or
+``bar``, you could write:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge if author is foo
+        conditions:
+          - author=foo
+          - status-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
+    pull_request_rules:
+      - name: automatic merge if author is bar
+        conditions:
+          - author=foo
+          - status-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
 
 Status Check Name
 ~~~~~~~~~~~~~~~~~
