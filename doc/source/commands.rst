@@ -4,9 +4,13 @@
  Commands
 ==========
 
-:ref:`Actions` can be run directly by commenting on a pull request. The syntax is::
+Mergify is able to run some :ref:`Actions` directly without leveraging the rule
+system. By commenting on a pull request, you can ask Mergify to executes some
+actions.
 
-  @Mergifyio [parameters …]
+The syntax of the comment is::
+
+  @Mergifyio <command> [parameters …]
 
 The list of available commands is listed below, with their parameters:
 
@@ -15,7 +19,7 @@ The list of available commands is listed below, with their parameters:
 rebase
 ======
 
-   Will run the :ref:`rebase action` action.
+   Runs the :ref:`rebase action` action.
 
 .. list-table::
   :widths: 1 7
@@ -31,7 +35,7 @@ rebase
 backport
 ========
 
-   Will run the :ref:`backport action` action.
+Runs the :ref:`backport action` action.
 
 .. list-table::
   :widths: 1 7
@@ -45,7 +49,7 @@ backport
 refresh
 ========
 
-   Will re-evalute your Mergify rules on this pull request
+Re-evalutes your Mergify rules on this pull request.
 
 .. list-table::
   :widths: 1 7
