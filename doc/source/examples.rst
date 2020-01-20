@@ -51,6 +51,20 @@ merged — even if's approved:
           merge:
             method: merge
 
+You might want to merge a pull request only if it has been approved by a
+certain member. You could therefore write such a rule:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for master when CI passes approved by octocat
+        conditions:
+          - approved-reviews-by=octocat
+          - status-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
 If you are already using the GitHub Branch Protection system. You can just
 use:
 
