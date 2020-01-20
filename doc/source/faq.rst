@@ -17,26 +17,26 @@ rebase``) or to give permission for Mergify to do it as described in `the
 GitHub documentation
 <https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/>`_.
 
-
 Mergify is unable to merge my pull request due to my branch protection settings
 -------------------------------------------------------------------------------
 
 This happens usually if you limit the people that have the authorization to
 merge pull requests. To make it works with Mergify you must add it to the
-branch protection settings in the "Restrict who can push to matching branches" list.
+branch protection settings in the "`Restrict who can push to matching branches`" list.
 
 Why did Mergify seem to have merged my pull request whereas all conditions were not true?
 -----------------------------------------------------------------------------------------
 
 The GitHub user interface might be misleading you in thinking that your pull
 request has been merged by Mergify, while it wasn't.
+
 If your pull request A has all its commits contained in another pull request B,
 and if B is merged by Mergify, then A will appeared to have been merged by
 Mergify too. GitHub detects that A's commits are a subset of B's commits and
 therefore decides to automatically marks pull request A as merged.
 
 Be sure that Mergify did nothing on the pull request A if it told you so in the
-Checks tab. This is GitHub UI magic.
+`Checks` tab. Dont't be fooled by GitHub UI.
 
 .. _`faq strict rebase`:
 
