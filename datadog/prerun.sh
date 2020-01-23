@@ -26,7 +26,10 @@ tags:
   - appname:$HEROKU_APP_NAME
   - service:web
 EOF
-        cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
+        cat > "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
+init_config:
+
+instances:
   - name: gunicorn-worker
     search_string: ['^gunicorn: worker']
     exact_match: false
@@ -53,7 +56,10 @@ tags:
   - appname:$HEROKU_APP_NAME
   - service:celery
 EOF
-        cat >> "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
+        cat > "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
+init_config:
+
+instances:
   - name: celery-main
     # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
     search_string: ['\[celeryd: .+:MainProcess\]']
@@ -99,4 +105,4 @@ fi
 # overwrite our conf
 cp -f "$DATADOG_CONF" "$DATADOG_CONF.example"
 cp -f "$DD_CONF_DIR/conf.d/process.d/conf.yaml" "$APP_DATADOG_CONF_DIR/process.yml"
-cp -f "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml" "$APP_DATADOG_CONF_DIR/redis.yml"
+cp -f "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml" "$APP_DATADOG_CONF_DIR/redisdb.yml"
