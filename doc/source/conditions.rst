@@ -256,7 +256,7 @@ For example, to automatically merge a pull request if its author is ``foo`` or
     pull_request_rules:
       - name: automatic merge if author is bar
         conditions:
-          - author=foo
+          - author=bar
           - status-success=Travis CI - Pull Request
         actions:
           merge:
