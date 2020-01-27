@@ -32,14 +32,17 @@ WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 
 
 def load_action(message):
+    """Load an action from a message.
+
+    :return: A tuple with 3 values: the command name, the commands args and the action."""
     action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(message)
     if match and match[1] in action_classes:
         action_class = action_classes[match[1]]
-        config = action_class.command_to_config(match[2].strip())
+        command_args = match[2].strip()
+        config = action_class.command_to_config(command_args)
         action = voluptuous.Schema(action_class.get_schema())(config)
-        command = "%s%s" % (match[1], match[2])
-        return command, action
+        return match[1], command_args, action
 
 
 def spawn_pending_commands_tasks(installation_id, event_type, data, g_pull):
@@ -83,13 +86,18 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
     ):
         action = load_action(comment)
         if action:
-            command, method = action
+            command, command_args, method = action
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
             report = method.run(
                 installation_id, installation_token, event_type, data, pull, []
             )
+
+            if command_args:
+                command_full = f"{command} {command_args}"
+            else:
+                command_full = command
 
             if report:
                 conclusion, title, summary = report
@@ -98,13 +106,13 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
                         return
                     conclusion = "pending"
                 result = "**Command `{command}`: {conclusion}**\n> **{title}**\n{summary}\n".format(
-                    command=command,
+                    command=command_full,
                     conclusion=conclusion,
                     title=title,
                     summary=("\n> ".join(summary.split("\n"))).strip(),
                 )
             else:
-                result = "**Command `{}`: success**".format(command)
+                result = f"**Command `{command_full}`: success**"
         else:
             result = UNKNOWN_COMMAND_MESSAGE
 
