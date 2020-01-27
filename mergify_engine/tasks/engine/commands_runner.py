@@ -61,7 +61,7 @@ def spawn_pending_commands_tasks(installation_id, event_type, data, g_pull):
 
     for pending in pendings:
         run_command.s(
-            installation_id, event_type, data, "@mergifyio %s" % pending, rerun=True
+            installation_id, event_type, data, "@Mergifyio %s" % pending, rerun=True
         ).apply_async()
 
 
@@ -116,7 +116,7 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
         else:
             result = UNKNOWN_COMMAND_MESSAGE
 
-        if "@mergifyio" not in comment:  # @mergify have been used instead
+        if "@mergifyio" not in comment.lower():  # @mergify have been used instead
             result += "\n\n" + WRONG_ACCOUNT_MESSAGE
     else:
         result = "@{} is not allowed to run commands".format(
