@@ -74,7 +74,7 @@ instances:
       - service:celery
   - name: celery-beat
     # celery-beat
-    search_string: ['[celery beat]']
+    search_string: ['\[celery beat\]']
     tags:
       - service:celery
 EOF
