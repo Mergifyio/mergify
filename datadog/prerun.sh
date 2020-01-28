@@ -73,8 +73,9 @@ instances:
     tags:
       - service:celery
   - name: celery-beat
-    # celery-beat
+    # [celery beat] beat -A mergify_engine.worker
     search_string: ['\[celery beat\]']
+    exact_match: false
     tags:
       - service:celery
 EOF
