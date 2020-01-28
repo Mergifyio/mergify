@@ -4,13 +4,13 @@
 # see https://github.com/DataDog/heroku-buildpack-datadog/issues/155
 if [ -z "$DYNO" ]; then
     DISABLE_DATADOG_AGENT="true"
-    exit 0
+    return
 fi
 
 case $DYNOTYPE in
     run)
         DISABLE_DATADOG_AGENT="true"
-        exit 0
+        return
         ;;
     web)
         cat > "$DATADOG_CONF" <<EOF
