@@ -70,7 +70,11 @@ def create_jwt():
 def report(url):
     redis = utils.get_redis_for_cache()
     path = url.replace("https://github.com/", "")
-    owner, repo, _, pull_number = path.split("/")
+    try:
+        owner, repo, _, pull_number = path.split("/")
+    except ValueError:
+        print(f"Wrong URL: {url}")
+        return
 
     integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     install_id = utils.get_installation_id(integration, owner, repo=repo)
