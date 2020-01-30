@@ -102,7 +102,6 @@ def _retrieve_subscription_from_db(installation_id):
             "tokens": {},
             "subscription_active": False,
             "subscription_reason": reason,
-            "subscription_cost": 0,
         }
     elif resp.status_code == 200:
         sub = resp.json()
