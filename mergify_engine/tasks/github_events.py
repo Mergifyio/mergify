@@ -178,9 +178,10 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
     if "installation" in data:
         installation_id = data["installation"]["id"]
-        subscription = sub_utils.get_subscription(
-            utils.get_redis_for_cache(), installation_id
-        )
+        r = utils.get_redis_for_cache()
+        if event_type in ["installation", "installation_repositories"]:
+            r.delete("subscription-cache-%s" % installation_id)
+        subscription = sub_utils.get_subscription(r, installation_id)
     else:
         installation_id = "Unknown"
         subscription = {
