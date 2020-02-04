@@ -67,6 +67,36 @@ def create_jwt():
     return integration.create_jwt()
 
 
+def report_sub(install_id, slug, sub, title):
+    print(f"* {title} SUB DETAIL: {sub['subscription_reason']}")
+    print(f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])}")
+
+    try:
+        for login, token in sub["tokens"].items():
+            try:
+                repos = get_repositories_setuped(token, install_id)
+            except github.BadCredentialsException:
+                print(f"* {title} SUB: token for {login} is invalid (BadCreds)")
+            except github.GithubException as e:
+                if e.status != 401:
+                    raise
+                print(f"* {title} SUB: token for {login} is invalid (401)")
+            else:
+                if any((r["full_name"] == slug) for r in repos):
+                    print(
+                        f"* {title} SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY"
+                    )
+                else:
+                    print(
+                        f"* {title} SUB: MERGIFY INSTALLED BUT DISABLED ON THIS REPOSITORY"
+                    )
+                break
+        else:
+            print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
+    except github.UnknownObjectException:
+        print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
+
+
 def report(url):
     redis = utils.get_redis_for_cache()
     path = url.replace("https://github.com/", "")
@@ -75,6 +105,7 @@ def report(url):
     except ValueError:
         print(f"Wrong URL: {url}")
         return
+    slug = owner + "/" + repo
 
     integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     install_id = utils.get_installation_id(integration, owner, repo=repo)
@@ -87,30 +118,8 @@ def report(url):
         "* SUBSCRIBED (cache/db): %s / %s"
         % (cached_sub["subscription_active"], db_sub["subscription_active"])
     )
-    print("* SUB DETAIL: %s" % db_sub["subscription_reason"])
-
-    print("* NUMBER OF CACHED TOKENS: %d" % len(cached_sub["tokens"]))
-
-    try:
-        for login, token in cached_sub["tokens"].items():
-            try:
-                repos = get_repositories_setuped(token, install_id)
-            except github.BadCredentialsException:
-                print("** token for %s invalid" % login)
-            except github.GithubException as e:
-                if e.status != 401:
-                    raise
-                print("** token for %s invalid" % login)
-            else:
-                if any((r["full_name"] == owner + "/" + repo) for r in repos):
-                    print("* MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY")
-                else:
-                    print("* MERGIFY INSTALLED BUT DISABLED " "ON THIS REPOSITORY")
-                break
-        else:
-            print("* MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
-    except github.UnknownObjectException:
-        print("* MERGIFY SEEMS NOT INSTALLED")
+    report_sub(install_id, slug, cached_sub, "ENGINE-CACHE")
+    report_sub(install_id, slug, db_sub, "DASHBOARD")
 
     installation_token = integration.get_access_token(install_id).token
 
