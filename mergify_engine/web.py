@@ -14,20 +14,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-# NOTE(sileht): usefull for gunicon, not really for uwsgi
-# import gevent
-# import gevent.monkey
-# gevent.monkey.patch_all()
-
 import collections
 import hmac
 import json
 import logging
 from urllib.parse import urlsplit
 
-import flask
-from flask_cors import cross_origin
+import fastapi
 import httpx
+from starlette import requests
+from starlette import responses
+from starlette.middleware import cors
 import voluptuous
 
 from mergify_engine import config
@@ -45,15 +42,15 @@ from mergify_engine.tasks.engine import actions_runner
 
 LOG = logging.getLogger(__name__)
 
-app = flask.Flask(__name__, static_url_path="")
+app = fastapi.FastAPI()
 
 
-def authentification():  # pragma: no cover
+async def authentification(request: requests.Request):
     # Only SHA1 is supported
-    header_signature = flask.request.headers.get("X-Hub-Signature")
+    header_signature = request.headers.get("X-Hub-Signature")
     if header_signature is None:
         LOG.warning("Webhook without signature")
-        flask.abort(403)
+        raise fastapi.HTTPException(status_code=403)
 
     try:
         sha_name, signature = header_signature.split("=")
@@ -62,41 +59,55 @@ def authentification():  # pragma: no cover
 
     if sha_name != "sha1":
         LOG.warning("Webhook signature malformed")
-        flask.abort(403)
+        raise fastapi.HTTPException(status_code=403)
 
-    mac = utils.compute_hmac(flask.request.data)
+    body = await request.body()
+    mac = utils.compute_hmac(body)
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
-        flask.abort(403)
+        raise fastapi.HTTPException(status_code=403)
 
 
-def _get_badge_url(owner, repo, ext):
-    style = flask.request.args.get("style", "flat")
-    return flask.redirect(
-        f"https://img.shields.io/endpoint.{ext}?url=https://dashboard.mergify.io/badges/{owner}/{repo}&style={style}"
+def _get_badge_url(owner, repo, ext, style):
+    return responses.RedirectResponse(
+        url=f"https://img.shields.io/endpoint.{ext}?url=https://dashboard.mergify.io/badges/{owner}/{repo}&style={style}",
+        status_code=302,
     )
 
 
-@app.route("/badges/<owner>/<repo>.png")
-def badge_png(owner, repo):  # pragma: no cover
-    return _get_badge_url(owner, repo, "png")
+@app.get("/badges/{owner}/{repo}.png")
+async def badge_png(owner, repo, style: str = "flat"):  # pragma: no cover
+    return _get_badge_url(owner, repo, "png", style)
 
 
-@app.route("/badges/<owner>/<repo>.svg")
-def badge_svg(owner, repo):  # pragma: no cover
-    return _get_badge_url(owner, repo, "svg")
+@app.get("/badges/{owner}/{repo}.svg")
+async def badge_svg(owner, repo, style: str = "flat"):  # pragma: no cover
+    return _get_badge_url(owner, repo, "svg", style)
 
 
-@app.route("/badges/<owner>/<repo>")
-def badge(owner, repo):
-    return flask.redirect(f"https://dashboard.mergify.io/badges/{owner}/{repo}")
+@app.get("/badges/{owner}/{repo}")
+async def badge(owner, repo):
+    return responses.RedirectResponse(
+        url=f"https://dashboard.mergify.io/badges/{owner}/{repo}"
+    )
 
 
-@app.route("/validate", methods=["POST"])
-@cross_origin()
-def config_validator():  # pragma: no cover
+config_validator_app = fastapi.FastAPI()
+config_validator_app.add_middleware(
+    cors.CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@config_validator_app.post("/")
+async def config_validator(
+    data: fastapi.UploadFile = fastapi.File(...),
+):  # pragma: no cover
     try:
-        rules.UserConfigurationSchema(flask.request.files["data"].stream)
+        rules.UserConfigurationSchema(await data.read())
     except Exception as e:
         status = 400
         message = str(e)
@@ -104,51 +115,63 @@ def config_validator():  # pragma: no cover
         status = 200
         message = "The configuration is valid"
 
-    return flask.Response(message, status=status, mimetype="text/plain")
+    return responses.PlainTextResponse(message, status_code=status)
 
 
-@app.route("/refresh/<owner>/<repo>", methods=["POST"])
-def refresh_repo(owner, repo):
-    authentification()
+app.mount("/validate", config_validator_app)
+
+
+@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(authentification)])
+async def refresh_repo(owner, repo):
     mergify_events.job_refresh.delay(owner, repo, "repo")
-    return "Refresh queued", 202
+    return responses.Response("Refresh queued", status_code=202)
 
 
 RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 
 
-@app.route("/refresh/<owner>/<repo>/pull/<int:pull>", methods=["POST"])
-def refresh_pull(owner, repo, pull):
-    authentification()
-    action = RefreshActionSchema(flask.request.args.get("action", "user"))
+@app.post(
+    "/refresh/{owner}/{repo}/pull/{pull}",
+    dependencies=[fastapi.Depends(authentification)],
+)
+async def refresh_pull(owner, repo, pull: int, action="user"):
+    action = RefreshActionSchema(action)
     mergify_events.job_refresh.delay(owner, repo, "pull", pull, action=action)
-    return "Refresh queued", 202
+    return responses.Response("Refresh queued", status_code=202)
 
 
-@app.route("/refresh/<owner>/<repo>/branch/<branch>", methods=["POST"])
-def refresh_branch(owner, repo, branch):
-    authentification()
+@app.post(
+    "/refresh/{owner}/{repo}/branch/{branch}",
+    dependencies=[fastapi.Depends(authentification)],
+)
+async def refresh_branch(owner, repo, branch):
     mergify_events.job_refresh.delay(owner, repo, "branch", branch)
-    return "Refresh queued", 202
+    return responses.Response("Refresh queued", status_code=202)
 
 
-@app.route("/subscription-cache/<installation_id>", methods=["PUT"])
-def subscription_cache_update(installation_id):  # pragma: no cover
-    authentification()
+@app.put(
+    "/subscription-cache/{installation_id}",
+    dependencies=[fastapi.Depends(authentification)],
+)
+async def subscription_cache_update(
+    installation_id, request: requests.Request
+):  # pragma: no cover
     r = utils.get_redis_for_cache()
-    sub = flask.request.get_json()
+    sub = await request.json()
     if sub is None:
-        return "Empty content", 400
+        return responses.Response("Empty content", status_code=400)
     sub_utils.save_subscription_to_cache(r, installation_id, sub)
-    return "Cache updated", 200
+    return responses.Response("Cache updated", status_code=200)
 
 
-@app.route("/subscription-cache/<installation_id>", methods=["DELETE"])
-def subscription_cache_delete(installation_id):  # pragma: no cover
-    authentification()
+@app.delete(
+    "/subscription-cache/{installation_id}",
+    dependencies=[fastapi.Depends(authentification)],
+)
+async def subscription_cache_delete(installation_id):  # pragma: no cover
     r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation_id)
-    return "Cache cleaned", 200
+    return responses.Response("Cache cleaned", status_code=200)
 
 
 class PullRequestUrlInvalid(voluptuous.Invalid):
@@ -202,23 +225,22 @@ def voluptuous_error(error):
     }
 
 
-@app.errorhandler(voluptuous.Invalid)
-def voluptuous_errors(error):
+@app.exception_handler(voluptuous.Invalid)
+async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
     # FIXME(sileht): remove error at payload root
-    payload = voluptuous_error(error)
+    payload = voluptuous_error(exc)
     payload["errors"] = []
-    if isinstance(error, voluptuous.MultipleInvalid):
-        payload["errors"].extend(map(voluptuous_error, error.errors))
+    if isinstance(exc, voluptuous.MultipleInvalid):
+        payload["errors"].extend(map(voluptuous_error, exc.errors))
     else:
-        payload["errors"].extend(voluptuous_error(error))
-    return flask.make_response(flask.jsonify(payload), 400)
+        payload["errors"].extend(voluptuous_error(exc))
+    return responses.JSONResponse(status_code=400, content=payload)
 
 
-@app.route("/simulator", methods=["POST"])
-def simulator():
-    authentification()
+@app.post("/simulator", dependencies=[fastapi.Depends(authentification)])
+async def simulator(request: requests.Request):
 
-    data = SimulatorSchema(flask.request.get_json(force=True))
+    data = SimulatorSchema(await request.json())
     ctxt = data["pull_request"]
 
     if ctxt:
@@ -229,39 +251,38 @@ def simulator():
     else:
         title = "The configuration is valid"
         summary = None
-    return flask.jsonify({"title": title, "summary": summary}), 200
+    return responses.JSONResponse(
+        status_code=200, content={"title": title, "summary": summary}
+    )
 
 
-@app.route("/marketplace", methods=["POST"])
-def marketplace_handler():  # pragma: no cover
-    authentification()
-
-    event_type = flask.request.headers.get("X-GitHub-Event")
-    event_id = flask.request.headers.get("X-GitHub-Delivery")
-    data = flask.request.get_json()
+@app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
+async def marketplace_handler(request: requests.Request):  # pragma: no cover
+    event_type = request.headers.get("X-GitHub-Event")
+    event_id = request.headers.get("X-GitHub-Delivery")
+    data = await request.json()
 
     github_events.job_marketplace.apply_async(args=[event_type, event_id, data])
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
+        raw = await request.body()
         forward_events.post.s(
             config.WEBHOOK_MARKETPLACE_FORWARD_URL,
-            data=flask.request.get_data().decode(),
+            data=raw.decode(),
             headers={
                 "X-GitHub-Event": event_type,
                 "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": flask.request.headers.get("X-Hub-Signature"),
-                "User-Agent": flask.request.headers.get("User-Agent"),
-                "Content-Type": flask.request.headers.get("Content-Type"),
+                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                "User-Agent": request.headers.get("User-Agent"),
+                "Content-Type": request.headers.get("Content-Type"),
             },
         ).delay()
 
-    return "Event queued", 202
+    return responses.Response("Event queued", status_code=202)
 
 
-@app.route("/queues/<installation_id>", methods=["GET"])
-def queues(installation_id):
-    authentification()
-
+@app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(authentification)])
+async def queues(installation_id):
     redis = utils.get_redis_for_cache()
     queues = collections.defaultdict(dict)
     filter_ = "strict-merge-queues~%s~*" % installation_id
@@ -271,16 +292,14 @@ def queues(installation_id):
             int(pull) for pull, score in redis.zscan_iter(queue)
         ]
 
-    return flask.jsonify(queues)
+    return responses.JSONResponse(status_code=200, content=queues)
 
 
-@app.route("/event", methods=["POST"])
-def event_handler():
-    authentification()
-
-    event_type = flask.request.headers.get("X-GitHub-Event")
-    event_id = flask.request.headers.get("X-GitHub-Delivery")
-    data = flask.request.get_json()
+@app.post("/event", dependencies=[fastapi.Depends(authentification)])
+async def event_handler(request: requests.Request):
+    event_type = request.headers.get("X-GitHub-Event")
+    event_id = request.headers.get("X-GitHub-Delivery")
+    data = await request.json()
 
     github_events.job_filter_and_dispatch.apply_async(
         args=[event_type, event_id, data], countdown=30
@@ -291,68 +310,74 @@ def event_handler():
         and config.WEBHOOK_FORWARD_EVENT_TYPES is not None
         and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
     ):
+        raw = await request.body()
         forward_events.post.s(
             config.WEBHOOK_APP_FORWARD_URL,
-            data=flask.request.get_data().decode(),
+            data=raw.decode(),
             headers={
                 "X-GitHub-Event": event_type,
                 "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": flask.request.headers.get("X-Hub-Signature"),
-                "User-Agent": flask.request.headers.get("User-Agent"),
-                "Content-Type": flask.request.headers.get("Content-Type"),
+                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                "User-Agent": request.headers.get("User-Agent"),
+                "Content-Type": request.headers.get("Content-Type"),
             },
         ).delay()
 
-    return "Event queued", 202
+    return responses.Response("Event queued", status_code=202)
 
 
 # NOTE(sileht): These endpoints are used for recording cassetes, we receive
 # Github event on POST, we store them is redis, GET to retreive and delete
-@app.route("/events-testing", methods=["POST", "GET", "DELETE"])
-def event_testing_handler():  # pragma: no cover
-    authentification()
+@app.delete("/events-testing", dependencies=[fastapi.Depends(authentification)])
+async def event_testing_handler_delete():  # pragma: no cover
     r = utils.get_redis_for_cache()
-    if flask.request.method == "DELETE":
-        r.delete("events-testing")
-        return "", 202
-    elif flask.request.method == "POST":
-        event_type = flask.request.headers.get("X-GitHub-Event")
-        event_id = flask.request.headers.get("X-GitHub-Delivery")
-        data = flask.request.get_json()
-        r.rpush(
-            "events-testing",
-            json.dumps({"id": event_id, "type": event_type, "payload": data}),
-        )
-        return "", 202
+    r.delete("events-testing")
+    return responses.Response("Event queued", status_code=202)
+
+
+@app.post("/events-testing", dependencies=[fastapi.Depends(authentification)])
+async def event_testing_handler_post(request: requests.Request):  # pragma: no cover
+    r = utils.get_redis_for_cache()
+    event_type = request.headers.get("X-GitHub-Event")
+    event_id = request.headers.get("X-GitHub-Delivery")
+    data = await request.json()
+    r.rpush(
+        "events-testing",
+        json.dumps({"id": event_id, "type": event_type, "payload": data}),
+    )
+    return responses.Response("Event queued", status_code=202)
+
+
+@app.get("/events-testing", dependencies=[fastapi.Depends(authentification)])
+async def event_testing_handler_get(number: int = None):  # pragma: no cover
+    r = utils.get_redis_for_cache()
+    p = r.pipeline()
+    if number is None:
+        p.lrange("events-testing", 0, -1)
+        p.delete("events-testing")
+        values = p.execute()[0]
     else:
-        p = r.pipeline()
-        number = flask.request.args.get("number")
-        if number:
-            for _ in range(int(number)):
-                p.lpop("events-testing")
-            values = p.execute()
-        else:
-            p.lrange("events-testing", 0, -1)
-            p.delete("events-testing")
-            values = p.execute()[0]
-        data = [json.loads(i) for i in values if i is not None]
-        return flask.jsonify(data)
+        for _ in range(number):
+            p.lpop("events-testing")
+        values = p.execute()
+    data = [json.loads(i) for i in values if i is not None]
+    return responses.JSONResponse(content=data)
 
 
-@app.route("/marketplace-testing", methods=["POST"])
-def marketplace_testng_handler():  # pragma: no cover
-    event_type = flask.request.headers.get("X-GitHub-Event")
-    event_id = flask.request.headers.get("X-GitHub-Delivery")
-    data = flask.request.get_json()
-    LOG.info(
+@app.post("/marketplace-testing")
+async def marketplace_testng_handler(request: requests.Request):  # pragma: no cover
+    event_type = request.headers.get("X-GitHub-Event")
+    event_id = request.headers.get("X-GitHub-Delivery")
+    data = await request.json()
+    LOG.debug(
         "received marketplace testing events",
         event_type=event_type,
         event_id=event_id,
         data=data,
     )
-    return "Event ignored", 202
+    return responses.Response("Event ignored", status_code=202)
 
 
-@app.route("/")
-def index():  # pragma: no cover
-    return flask.redirect("https://mergify.io/")
+@app.get("/")
+async def index():  # pragma: no cover
+    return responses.RedirectResponse(url="https://mergify.io/")

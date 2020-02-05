@@ -14,8 +14,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
+
+from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine.web import app as application  # noqa
 
+
+if config.SENTRY_URL:
+    application = SentryAsgiMiddleware(application)
 
 utils.setup_logging()

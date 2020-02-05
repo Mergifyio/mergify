@@ -14,19 +14,26 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from starlette import testclient
+
 from mergify_engine import web
 
 
 def test_badge_redirect():
-    with web.app.test_request_context("/"):
-        reply = web._get_badge_url("mergifyio", "mergify-engine", "png")
+    with testclient.TestClient(web.app) as client:
+        reply = client.get(
+            "/badges/mergifyio/mergify-engine.png", allow_redirects=False
+        )
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
             "https://img.shields.io/endpoint.png"
             "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
         )
 
-        reply = web._get_badge_url("mergifyio", "mergify-engine", "svg")
+    with testclient.TestClient(web.app) as client:
+        reply = client.get(
+            "/badges/mergifyio/mergify-engine.svg", allow_redirects=False
+        )
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
             "https://img.shields.io/endpoint.svg"
@@ -35,8 +42,8 @@ def test_badge_redirect():
 
 
 def test_badge_endpoint():
-    with web.app.test_request_context("/"):
-        reply = web.badge("mergifyio", "mergify-engine")
+    with testclient.TestClient(web.app) as client:
+        reply = client.get("/badges/mergifyio/mergify-engine", allow_redirects=False)
         assert reply.headers["Location"] == (
             "https://dashboard.mergify.io/badges/mergifyio/mergify-engine"
         )
