@@ -15,6 +15,8 @@
 # under the License.
 import json
 
+from starlette import testclient
+
 from mergify_engine import utils
 from mergify_engine import web
 
@@ -26,12 +28,12 @@ def test_subscription_cache_delete():
     headers = {
         "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
     }
-    with web.app.test_client() as client:
+    with testclient.TestClient(web.app) as client:
         reply = client.delete(
             f"/subscription-cache/{installation_id}", data=data, headers=headers
         )
         assert reply.status_code == 200
-        assert reply.data == b"Cache cleaned"
+        assert reply.content == b"Cache cleaned"
 
 
 def test_subscription_cache_update():
@@ -43,9 +45,9 @@ def test_subscription_cache_update():
         "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
         "Content-Type": f"application/json; charset={charset}",
     }
-    with web.app.test_client() as client:
+    with testclient.TestClient(web.app) as client:
         reply = client.put(
             f"/subscription-cache/{installation_id}", data=data, headers=headers
         )
         assert reply.status_code == 200
-        assert reply.data == b"Cache updated"
+        assert reply.content == b"Cache updated"
