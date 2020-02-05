@@ -59,9 +59,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "Content-type": "application/json",
             },
         )
-        assert r.status_code == 200, r.json
-        assert r.json["title"] == "The configuration is valid"
-        assert r.json["summary"] is None
+        assert r.status_code == 200, r.json()
+        assert r.json()["title"] == "The configuration is valid"
+        assert r.json()["summary"] is None
 
         r = self.app.post(
             "/simulator",
@@ -72,8 +72,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             },
         )
 
-        assert r.json["title"] == "1 rule matches"
-        assert r.json["summary"].startswith(
+        assert r.json()["title"] == "1 rule matches"
+        assert r.json()["summary"].startswith(
             "#### Rule: assign (assign)\n- [X] `base=master`\n\n<hr />"
         )
 
@@ -86,7 +86,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 400
-        assert r.json == {
+        assert r.json() == {
             "type": "MultipleInvalid",
             "error": "Invalid yaml",
             "details": ["mergify.yml", {"line": 2, "column": 2}],
@@ -110,8 +110,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 400
-        r.json["errors"] = sorted(r.json["errors"], key=operator.itemgetter("message"))
-        assert r.json == {
+        r.json()["errors"] = sorted(
+            r.json()["errors"], key=operator.itemgetter("message")
+        )
+        assert r.json() == {
             "type": "MultipleInvalid",
             "error": "extra keys not allowed",
             "details": ["invalid"],

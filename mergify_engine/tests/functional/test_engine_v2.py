@@ -864,7 +864,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "Content-type": "application/json",
             },
         )
-        self.assertEqual(r.json, {"mergifyio-testing/%s" % self.name: {"master": [2]}})
+        self.assertEqual(
+            r.json(), {"mergifyio-testing/%s" % self.name: {"master": [2]}}
+        )
 
         # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
@@ -876,7 +878,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "Content-type": "application/json",
             },
         )
-        self.assertEqual(r.json, {"mergifyio-testing/%s" % self.name: {"master": [2]}})
+        self.assertEqual(
+            r.json(), {"mergifyio-testing/%s" % self.name: {"master": [2]}}
+        )
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
@@ -1419,7 +1423,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                     },
                 },
             )
-        assert r.data == b"Event queued"
+        assert r.content == b"Event queued"
         assert r.status_code == 202
 
     def test_refresh_on_conflict(self):

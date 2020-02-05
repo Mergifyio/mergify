@@ -29,6 +29,7 @@ import github
 import pytest
 import requests
 import requests.sessions
+from starlette import testclient
 import testtools
 import vcr
 
@@ -328,8 +329,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.git = self.get_gitter()
         self.addCleanup(self.git.cleanup)
 
-        web.app.testing = True
-        self.app = web.app.test_client()
+        self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
