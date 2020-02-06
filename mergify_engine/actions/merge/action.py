@@ -185,6 +185,11 @@ class MergeAction(actions.Action):
             server_message = e.data["message"]
 
             if "Head branch was modified" in e.data["message"]:
+                pull.log.debug(
+                    "Head branch was modified in the meantime",
+                    status=e.status,
+                    error_message=server_message,
+                )
                 return (
                     "cancelled",
                     "Head branch was modified in the meantime",
@@ -194,11 +199,20 @@ class MergeAction(actions.Action):
                 # NOTE(sileht): The base branch was modified between pull.is_behind() call and
                 # here, usually by something not merged by mergify. So we need sync it again
                 # with the base branch.
-                pull.log.info("Base branch was modified in the meantime, retrying")
+                pull.log.debug(
+                    "Base branch was modified in the meantime, retrying",
+                    status=e.status,
+                    error_message=server_message,
+                )
                 pull.g_pull.update()
                 return self._sync_with_base_branch(pull, installation_id)
 
             elif e.status == 405:
+                pull.log.debug(
+                    "Waiting for the Branch Protection to be validated",
+                    status=e.status,
+                    error_message=server_message,
+                )
                 return (
                     None,
                     "Waiting for the Branch Protection to be validated",
