@@ -218,7 +218,8 @@ class MergeAction(actions.Action):
                     "Waiting for the Branch Protection to be validated",
                     "Branch Protection is enabled and is preventing Mergify "
                     "to merge the pull request. Mergify will merge when "
-                    "branch protection settings validate the pull request.",
+                    "branch protection settings validate the pull request. "
+                    f"(detail: {e.data['message']})",
                 )
             else:
                 message = "Mergify failed to merge the pull request"
