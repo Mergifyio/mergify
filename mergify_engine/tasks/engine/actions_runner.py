@@ -221,16 +221,17 @@ def load_conclusions(pull, summary_check):
     if not summary_check:
         return {}
 
-    line = summary_check.output["summary"].splitlines()[-1]
-    if line.startswith("<!-- ") and line.endswith(" -->"):
-        return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
-    else:
-        pull.log.warning(
-            "previous conclusion not found in summary",
-            pull_request=pull,
-            summary_check=summary_check,
-        )
-        return {"deprecated_summary": True}
+    if summary_check.output["summary"]:
+        line = summary_check.output["summary"].splitlines()[-1]
+        if line.startswith("<!-- ") and line.endswith(" -->"):
+            return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
+
+    pull.log.warning(
+        "previous conclusion not found in summary",
+        pull_request=pull,
+        summary_check=summary_check,
+    )
+    return {"deprecated_summary": True}
 
 
 def serialize_conclusions(conclusions):
