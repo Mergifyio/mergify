@@ -134,6 +134,8 @@ def setup_logging():
             ("urllib3.connectionpool", "WARN"),
             ("vcr", "WARN"),
             ("cachecontrol", "WARN"),
+            ("httpx.client", "WARN"),
+            ("mergify_engine.aws_auth", "WARN"),
         ]
     )
 

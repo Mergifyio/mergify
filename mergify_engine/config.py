@@ -56,6 +56,12 @@ Schema = voluptuous.Schema(
         voluptuous.Required("LOG_DATADOG", default=False): CoercedBool,
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_ENVIRONMENT", default="test"): str,
+        # AWS mandatory
+        voluptuous.Required("AWS_ACCOUNT_ID"): str,
+        voluptuous.Required("AWS_REGION_NAME"): str,
+        voluptuous.Required("AWS_ACCESS_KEY_ID"): str,
+        voluptuous.Required("AWS_SECRET_ACCESS_KEY"): str,
+        voluptuous.Required("AWS_SQS_QUEUE"): str,
         # Github mandatory
         voluptuous.Required("INTEGRATION_ID"): voluptuous.Coerce(int),
         voluptuous.Required("PRIVATE_KEY"): str,
@@ -134,6 +140,9 @@ def log():
                 "FORK_TOKEN",
                 "MAIN_TOKEN_DELETE",
                 "FORK_TOKEN_DELETE",
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY",
+                "AWS_ACCOUNT_ID",
             ]
             and value is not None
         ):

@@ -35,6 +35,7 @@ import voluptuous
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
+from mergify_engine import sqs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.tasks import forward_events
@@ -310,8 +311,10 @@ async def event_handler(request: requests.Request):
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    github_events.job_filter_and_dispatch.apply_async(
-        args=[event_type, event_id, data], countdown=30
+    await sqs.send(
+        github_events.job_filter_and_dispatch,
+        (event_type, event_id, data),
+        countdown=30,
     )
 
     if (

@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import copy
 import json
 import os
@@ -20,6 +21,7 @@ import queue
 import re
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 
@@ -36,6 +38,7 @@ import vcr
 from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import duplicate_pull
+from mergify_engine import sqs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
@@ -135,6 +138,28 @@ class GitterRecorder(utils.Gitter):
         super(GitterRecorder, self).cleanup()
         if RECORD:
             self.save_records()
+
+
+class SQSTestWorker:
+    def __init__(self):
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._target)
+
+    def _target(self):
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_forever()
+        finally:
+            self._loop.run_until_complete(self._loop.shutdown_asyncgens())
+            self._loop.close()
+
+    def start(self):
+        self._thread.start()
+        self._loop.call_soon_threadsafe(asyncio.ensure_future, sqs.main())
+
+    def stop(self):
+        self._loop.stop()
+        self._thread.join()
 
 
 class EventReader:
@@ -442,6 +467,8 @@ class FunctionalTestBase(testtools.TestCase):
                 return_value=[self.r_o_integration],
             )
         )
+        self._sqs_worker = SQSTestWorker()
+        self._sqs_worker.start()
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
 
@@ -456,6 +483,7 @@ class FunctionalTestBase(testtools.TestCase):
             time.sleep(0.5)
 
         self._event_reader.drain()
+        self._sqs_worker.stop()
 
     def wait_for(self, *args, **kwargs):
         return self._event_reader.wait_for(*args, **kwargs)
