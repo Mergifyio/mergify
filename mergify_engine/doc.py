@@ -15,10 +15,11 @@
 MERGIFY_PULL_REQUEST_DOC = """
 <details>
 <summary>Mergify commands and options</summary>
+
 <br />
-More conditions and actions can be found in the [documention](https://doc.mergify.io/).
-<br />
-<br />
+
+More conditions and actions can be found in the [documentation](https://doc.mergify.io/).
+
 You can also trigger Mergify actions by commenting on this pull request:
 
 - `@Mergifyio refresh` will re-evaluate the rules
