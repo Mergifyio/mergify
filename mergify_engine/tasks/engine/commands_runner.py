@@ -45,9 +45,9 @@ def load_action(message):
         return match[1], command_args, action
 
 
-def spawn_pending_commands_tasks(installation_id, event_type, data, g_pull):
+def spawn_pending_commands_tasks(pull, sources):
     pendings = set()
-    for comment in g_pull.get_issue_comments():
+    for comment in pull.g_pull.get_issue_comments():
         if comment.user.id != config.BOT_USER_ID:
             return
         match = COMMAND_RESULT_MATCHER.search(comment.body)
@@ -60,28 +60,36 @@ def spawn_pending_commands_tasks(installation_id, event_type, data, g_pull):
                 pendings.remove(command)
 
     for pending in pendings:
-        run_command.s(
-            installation_id, event_type, data, "@Mergifyio %s" % pending, rerun=True
+        run_command_async.s(
+            pull.installation_id,
+            pull.g_pull.raw_data,
+            sources,
+            "@Mergifyio %s" % pending,
+            None,
+            rerun=True,
         ).apply_async()
 
 
 @app.task
-def run_command(installation_id, event_type, data, comment, rerun=False):
+def run_command_async(
+    installation_id, pull_request_raw, sources, comment, user, rerun=False
+):
     installation_token = utils.get_installation_token(installation_id)
     if not installation_token:
         return
 
     pull = mergify_pull.MergifyPull.from_raw(
-        installation_id, installation_token, data["pull_request"]
+        installation_id, installation_token, pull_request_raw
     )
+    return run_command(pull, sources, comment, user, rerun)
 
+
+def run_command(pull, sources, comment, user, rerun=False):
     # Run command only if this is a pending task or if user have permission to do it.
     if (
         rerun
-        or data["comment"]["user"]["id"] == config.BOT_USER_ID
-        or pull.g_pull.base.repo.get_collaborator_permission(
-            data["comment"]["user"]["login"]
-        )
+        or user["id"] == config.BOT_USER_ID
+        or pull.g_pull.base.repo.get_collaborator_permission(user["login"])
         in ["admin", "write"]
     ):
         action = load_action(comment)
@@ -90,7 +98,6 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-            sources = [{"event_type": event_type, "data": data}]
             report = method.run(pull, sources, [])
 
             if command_args:
@@ -118,9 +125,7 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
         if "@mergifyio" not in comment.lower():  # @mergify have been used instead
             result += "\n\n" + WRONG_ACCOUNT_MESSAGE
     else:
-        result = "@{} is not allowed to run commands".format(
-            data["comment"]["user"]["login"]
-        )
+        result = "@{} is not allowed to run commands".format(user["login"])
 
     try:
         pull.g_pull.create_issue_comment(result)

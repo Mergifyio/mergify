@@ -290,17 +290,14 @@ def run(event_type, data):
     if event_type == "pull_request" and data["action"] == "synchronize":
         copy_summary_from_previous_head_sha(event_pull, data["before"])
 
-    commands_runner.spawn_pending_commands_tasks(
-        installation_id, event_type, data, event_pull
-    )
+    pull = mergify_pull.MergifyPull(g, event_pull, installation_id, installation_token)
+    sources = [{"event_type": event_type, "data": data}]
+
+    commands_runner.spawn_pending_commands_tasks(pull, sources)
 
     if event_type == "issue_comment":
-        commands_runner.run_command.s(
-            installation_id, event_type, data, data["comment"]["body"]
-        ).apply_async()
-    else:
-        pull = mergify_pull.MergifyPull(
-            g, event_pull, installation_id, installation_token
+        commands_runner.run_command(
+            pull, sources, data["comment"]["body"], data["comment"]["user"]
         )
-        sources = [{"event_type": event_type, "data": data}]
+    else:
         actions_runner.handle(mergify_config["pull_request_rules"], pull, sources)
