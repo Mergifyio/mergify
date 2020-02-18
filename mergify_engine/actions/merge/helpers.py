@@ -91,9 +91,4 @@ def update_pull_base_branch(pull, installation_id, method):
         else:
             return ("failure", "Base branch update has failed", e.message)
     else:
-        # NOTE(sileht): We update g_pull to have the new head.sha,
-        # so future created checks will be posted on the new sha.
-        # Otherwise the checks will be lost the GitHub UI on the
-        # old sha.
-        pull.wait_for_sha_change()
         return WAIT_FOR_CI_REPORT

@@ -292,31 +292,6 @@ class MergifyPull(object):
 
         raise exceptions.MergeableStateUnknown(self)
 
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=0.2),
-        stop=tenacity.stop_after_attempt(5),
-        retry=tenacity.retry_never,
-    )
-    def _wait_for_sha_change(self, old_sha):
-        if self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha:
-            return
-
-        # Github is currently processing this PR, we wait the completion
-        self.log.info("refreshing")
-
-        # NOTE(sileht): Well github doesn't always update etag/last_modified
-        # when mergeable_state change, so we get a fresh pull request instead
-        # of using update()
-        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
-        if self.g_pull.state == "closed" or self.g_pull.head.sha != old_sha:
-            return
-        raise tenacity.TryAgain
-
-    def wait_for_sha_change(self):
-        old_sha = self.g_pull.head.sha
-        self._wait_for_sha_change(old_sha)
-        self._ensure_mergable_state()
-
     def base_is_modifiable(self):
         return (
             self.g_pull.raw_data["maintainer_can_modify"]
