@@ -28,15 +28,7 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
             return
         if pull.g_pull.state == "closed":
@@ -82,13 +74,5 @@ class DeleteHeadBranchAction(actions.Action):
             "",
         )
 
-    def cancel(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):  # pragma: no cover
+    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report

@@ -204,10 +204,10 @@ def update_with_api(pull):
             raise BranchUpdateNeedRetry()
 
 
-def update_with_git(pull, installation_id, method="merge"):
+def update_with_git(pull, method="merge"):
     redis = utils.get_redis_for_cache()
 
-    subscription = sub_utils.get_subscription(redis, installation_id)
+    subscription = sub_utils.get_subscription(redis, pull.installation_id)
 
     for login, token in subscription["tokens"].items():
         try:

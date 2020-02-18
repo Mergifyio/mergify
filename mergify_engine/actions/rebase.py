@@ -24,11 +24,9 @@ class RebaseAction(actions.Action):
     validator = {}
 
     @staticmethod
-    def run(
-        installation_id, installation_token, event_type, data, pull, missing_conditions
-    ):
+    def run(pull, sources, missing_conditions):
         try:
-            branch_updater.update_with_git(pull, installation_id, "rebase")
+            branch_updater.update_with_git(pull, "rebase")
         except branch_updater.BranchUpdateFailure as e:
             return "failure", "Branch rebase failed", str(e)
         else:

@@ -11,15 +11,7 @@ class RequestReviewsAction(actions.Action):
         voluptuous.Required("teams", default=[]): [str],
     }
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
 
         # Using consolidated data to avoid already done API lookup
         data = pull.to_dict()

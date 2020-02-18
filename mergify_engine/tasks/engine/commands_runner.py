@@ -90,9 +90,8 @@ def run_command(installation_id, event_type, data, comment, rerun=False):
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-            report = method.run(
-                installation_id, installation_token, event_type, data, pull, []
-            )
+            sources = [{"event_type": event_type, "data": data}]
+            report = method.run(pull, sources, [])
 
             if command_args:
                 command_full = f"{command} {command_args}"

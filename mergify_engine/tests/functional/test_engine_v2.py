@@ -24,7 +24,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import debug
 from mergify_engine import mergify_pull
-from mergify_engine.tasks.engine import actions_runner
+from mergify_engine.tasks import engine
 from mergify_engine.tests.functional import base
 
 LOG = logging.getLogger(__name__)
@@ -46,8 +46,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     """
 
     def setUp(self):
-        with open(actions_runner.mergify_rule_path, "r") as f:
-            actions_runner.MERGIFY_RULE = yaml.safe_load(
+        with open(engine.mergify_rule_path, "r") as f:
+            engine.MERGIFY_RULE = yaml.safe_load(
                 f.read().replace("mergify[bot]", "mergify-test[bot]")
             )
         super(TestEngineV2Scenario, self).setUp()

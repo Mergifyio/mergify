@@ -34,15 +34,7 @@ class ReviewAction(actions.Action):
         voluptuous.Required("message", default=None): voluptuous.Any(None, str),
     }
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         payload = {"event": self.config["type"]}
         body = self.config["message"]
         if not body and self.config["type"] != "APPROVE":

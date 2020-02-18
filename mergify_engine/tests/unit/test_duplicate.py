@@ -50,7 +50,10 @@ def test_get_commits_to_cherry_pick_rebase(_):
     g_pull.get_commits = _get_commits
 
     pull = mergify_pull.MergifyPull(
-        g=g, g_pull=g_pull, installation_id=config.INSTALLATION_ID
+        g=g,
+        g_pull=g_pull,
+        installation_id=config.INSTALLATION_ID,
+        installation_token=mock.Mock(),
     )
 
     base_branch = mock.Mock()
@@ -87,7 +90,10 @@ def test_get_commits_to_cherry_pick_merge():
     g_pull.get_commits = _get_commits
 
     pull = mergify_pull.MergifyPull(
-        g=g, g_pull=g_pull, installation_id=config.INSTALLATION_ID
+        g=g,
+        g_pull=g_pull,
+        installation_id=config.INSTALLATION_ID,
+        installation_token=mock.Mock(),
     )
 
     base_branch = mock.Mock()

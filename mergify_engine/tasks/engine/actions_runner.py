@@ -14,24 +14,11 @@
 
 import base64
 
-import pkg_resources
 import yaml
 
 from datadog import statsd
 from mergify_engine import check_api
 from mergify_engine import doc
-from mergify_engine import mergify_pull
-from mergify_engine import rules
-from mergify_engine import utils
-from mergify_engine.worker import app
-
-mergify_rule_path = pkg_resources.resource_filename(
-    __name__, "../../data/default_pull_request_rules.yml"
-)
-
-with open(mergify_rule_path, "r") as f:
-    MERGIFY_RULE = yaml.safe_load(f.read())
-
 
 PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
 
@@ -60,13 +47,14 @@ def find_embedded_pull(pull):
             return p_other
 
 
-def get_already_merged_summary(event_type, data, pull, match):
-    if (
-        event_type != "pull_request"
-        or data["action"] != "closed"
-        or not pull.g_pull.merged
-    ):
-        return ""
+def get_already_merged_summary(pull, sources, match):
+    for source in sources:
+        if (
+            source["event_type"] != "pull_request"
+            or source["data"]["action"] != "closed"
+            or not pull.g_pull.merged
+        ):
+            return ""
 
     action_merge_found = False
     action_merge_found_in_active_rule = False
@@ -109,9 +97,9 @@ def gen_summary_rules(rules):
     return summary
 
 
-def gen_summary(event_type, data, pull, match):
+def gen_summary(pull, sources, match):
     summary = ""
-    summary += get_already_merged_summary(event_type, data, pull, match)
+    summary += get_already_merged_summary(pull, sources, match)
     summary += gen_summary_rules(match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x[0]["hidden"], match.ignored_rules)))
 
@@ -156,8 +144,8 @@ def gen_summary(event_type, data, pull, match):
     return summary_title, summary
 
 
-def post_summary(event_type, data, pull, match, summary_check, conclusions):
-    summary_title, summary = gen_summary(event_type, data, pull, match)
+def post_summary(pull, sources, match, summary_check, conclusions):
+    summary_title, summary = gen_summary(pull, sources, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
@@ -187,27 +175,10 @@ def post_summary(event_type, data, pull, match, summary_check, conclusions):
         )
 
 
-def exec_action(
-    method_name,
-    rule,
-    action,
-    installation_id,
-    installation_token,
-    event_type,
-    data,
-    pull,
-    missing_conditions,
-):
+def exec_action(method_name, rule, action, pull, sources, missing_conditions):
     try:
         method = getattr(rule["actions"][action], method_name)
-        return method(
-            installation_id,
-            installation_token,
-            event_type,
-            data,
-            pull,
-            missing_conditions,
-        )
+        return method(pull, sources, missing_conditions)
     except Exception:  # pragma: no cover
         pull.log.error(
             "action failed", action=action, rule=rule, pull_request=pull, exc_info=True
@@ -251,14 +222,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
 
 
 def run_actions(
-    installation_id,
-    installation_token,
-    event_type,
-    data,
-    pull,
-    match,
-    checks,
-    previous_conclusions,
+    pull, sources, match, checks, previous_conclusions,
 ):
     """
     What action.run() and action.cancel() return should be reworked a bit. Currently the
@@ -326,15 +290,7 @@ def run_actions(
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
                 report = exec_action(
-                    method_name,
-                    rule,
-                    action,
-                    installation_id,
-                    installation_token,
-                    event_type,
-                    data,
-                    pull,
-                    missing_conditions,
+                    method_name, rule, action, pull, sources, missing_conditions,
                 )
                 message = "`%s` executed" % method_name
 
@@ -368,26 +324,13 @@ def run_actions(
                 conclusion=conclusions[check_name],
                 check_name=check_name,
                 missing_conditions=missing_conditions,
-                event_type=event_type,
+                event_types=[se["event_type"] for se in sources],
             )
 
     return conclusions
 
 
-@app.task
-def handle(installation_id, pull_request_rules_raw, event_type, data):
-
-    installation_token = utils.get_installation_token(installation_id)
-    if not installation_token:
-        return
-
-    # Some mandatory rules
-    pull_request_rules_raw["rules"].extend(MERGIFY_RULE["rules"])
-
-    pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
-    pull = mergify_pull.MergifyPull.from_raw(
-        installation_id, installation_token, data["pull_request"]
-    )
+def handle(pull_request_rules, pull, sources):
     match = pull_request_rules.get_pull_request_rule(pull)
     checks = dict(
         (c.name, c) for c in check_api.get_checks(pull.g_pull, mergify_only=True)
@@ -396,15 +339,6 @@ def handle(installation_id, pull_request_rules_raw, event_type, data):
     summary_check = checks.get(SUMMARY_NAME)
     previous_conclusions = load_conclusions(pull, summary_check)
 
-    conclusions = run_actions(
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        match,
-        checks,
-        previous_conclusions,
-    )
+    conclusions = run_actions(pull, sources, match, checks, previous_conclusions,)
 
-    post_summary(event_type, data, pull, match, summary_check, conclusions)
+    post_summary(pull, sources, match, summary_check, conclusions)

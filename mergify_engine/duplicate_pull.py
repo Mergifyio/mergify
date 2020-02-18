@@ -134,7 +134,7 @@ def get_destination_branch_name(pull, branch, kind):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
-def duplicate(pull, branch, installation_token, kind=BACKPORT):
+def duplicate(pull, branch, kind=BACKPORT):
     """Duplicate a pull request.
 
     :param repo: The repository.
@@ -162,7 +162,7 @@ def duplicate(pull, branch, installation_token, kind=BACKPORT):
     try:
         git("init")
         git.configure()
-        git.add_cred("x-access-token", installation_token, repo.full_name)
+        git.add_cred("x-access-token", pull.installation_token, repo.full_name)
         git(
             "remote",
             "add",

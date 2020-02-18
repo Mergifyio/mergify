@@ -24,6 +24,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.tasks import engine
 from mergify_engine.tasks.engine import actions_runner
 
 
@@ -143,7 +144,7 @@ def report(url):
         print("configuration is invalid %s" % str(e))
     else:
         pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
-        pull_request_rules_raw["rules"].extend(actions_runner.MERGIFY_RULE["rules"])
+        pull_request_rules_raw["rules"].extend(engine.MERGIFY_RULE["rules"])
         pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     try:
@@ -152,7 +153,7 @@ def report(url):
         print("Wrong pull request number")
         return g, None
 
-    mp = mergify_pull.MergifyPull(g, p, install_id)
+    mp = mergify_pull.MergifyPull(g, p, install_id, installation_token)
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
     try:
@@ -171,7 +172,9 @@ def report(url):
 
     print("* MERGIFY LIVE MATCHES:")
     match = pull_request_rules.get_pull_request_rule(mp)
-    summary_title, summary = actions_runner.gen_summary("refresh", {}, mp, match)
+    summary_title, summary = actions_runner.gen_summary(
+        mp, [{"event_type": "refresh", "data": {}}], match
+    )
     print("> %s" % summary_title)
     print(summary)
 

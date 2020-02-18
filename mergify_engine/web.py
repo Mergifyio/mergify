@@ -224,7 +224,7 @@ def simulator():
             "pull_request": pull_request.g_pull.raw_data,
         }
         title, summary = actions_runner.gen_summary(
-            "refresh", raw_event, pull_request, match
+            pull_request, [{"event_type": "refresh", "data": raw_event}], match
         )
     else:
         title = "The configuration is valid"
