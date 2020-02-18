@@ -34,15 +34,7 @@ class CommentAction(actions.Action):
                 return True
         return False
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:  # pragma: no cover

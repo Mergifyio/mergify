@@ -53,6 +53,7 @@ class MergifyPull(object):
     g = attr.ib()
     g_pull = attr.ib()
     installation_id = attr.ib()
+    installation_token = attr.ib()
     _consolidated_data = attr.ib(init=False, default=None)
 
     @property
@@ -67,7 +68,7 @@ class MergifyPull(object):
         pull = github.PullRequest.PullRequest(
             g._Github__requester, {}, pull_raw, completed=True
         )
-        return cls(g, pull, installation_id)
+        return cls(g, pull, installation_id, installation_token)
 
     @classmethod
     def from_number(
@@ -78,7 +79,7 @@ class MergifyPull(object):
         )
         repo = g.get_repo(owner + "/" + reponame)
         pull = repo.get_pull(pull_number)
-        return cls(g, pull, installation_id)
+        return cls(g, pull, installation_id, installation_token)
 
     def __attrs_post_init__(self):
         self._ensure_mergable_state()

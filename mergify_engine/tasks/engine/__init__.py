@@ -11,11 +11,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import pkg_resources
+
 import daiquiri
 import github
+import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -24,6 +28,13 @@ from mergify_engine.tasks.engine import commands_runner
 from mergify_engine.worker import app
 
 LOG = daiquiri.getLogger(__name__)
+
+mergify_rule_path = pkg_resources.resource_filename(
+    __name__, "../../data/default_pull_request_rules.yml"
+)
+
+with open(mergify_rule_path, "r") as f:
+    MERGIFY_RULE = yaml.safe_load(f.read())
 
 
 def get_github_pull_from_sha(repo, sha):
@@ -181,7 +192,7 @@ def run(event_type, data):
 
     if not event_pull:  # pragma: no cover
         LOG.info(
-            "No pull request found in the event %s, " "ignoring",
+            "No pull request found in the event %s, ignoring",
             event_type,
             gh_owner=data["repository"]["owner"]["login"],
             gh_repo=data["repository"]["name"],
@@ -214,7 +225,7 @@ def run(event_type, data):
         event_type in ["status", "check_suite", "check_run"] and event_pull.merged
     ):  # pragma: no cover
         event_pull.log.info(
-            "No need to proceed queue (got status of a merged " "pull request)",
+            "No need to proceed queue (got status of a merged pull request)",
         )
         return
     elif (
@@ -251,6 +262,11 @@ def run(event_type, data):
             )
         return
 
+    # Add global and mandatory rules
+    mergify_config["pull_request_rules"].rules.extend(
+        rules.load_pull_request_rules_schema(MERGIFY_RULE["rules"])
+    )
+
     subscription = sub_utils.get_subscription(
         utils.get_redis_for_cache(), installation_id
     )
@@ -283,9 +299,8 @@ def run(event_type, data):
             installation_id, event_type, data, data["comment"]["body"]
         ).apply_async()
     else:
-        actions_runner.handle.s(
-            installation_id,
-            mergify_config["pull_request_rules"].as_dict(),
-            event_type,
-            data,
-        ).apply_async()
+        pull = mergify_pull.MergifyPull(
+            g, event_pull, installation_id, installation_token
+        )
+        sources = [{"event_type": event_type, "data": data}]
+        actions_runner.handle(mergify_config["pull_request_rules"], pull, sources)

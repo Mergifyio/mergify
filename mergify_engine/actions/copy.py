@@ -41,15 +41,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("regexes", default=[]): [Regex],
     }
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         branches = self.config["branches"]
         if self.config["regexes"]:
             regexes = list(map(re.compile, self.config["regexes"]))
@@ -84,9 +76,7 @@ class CopyAction(actions.Action):
 
             # No, then do it
             if not new_pull:
-                new_pull = duplicate_pull.duplicate(
-                    pull, branch, installation_token, self.KIND
-                )
+                new_pull = duplicate_pull.duplicate(pull, branch, self.KIND)
 
                 # NOTE(sileht): We relook again in case of concurrent duplicate
                 # are done because of two events received too closely
@@ -119,13 +109,5 @@ class CopyAction(actions.Action):
         if pulls:
             return pulls[-1]
 
-    def cancel(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):  # pragma: no cover
+    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report

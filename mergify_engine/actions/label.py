@@ -28,15 +28,7 @@ class LabelAction(actions.Action):
         voluptuous.Required("remove", default=[]): [str],
     }
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         all_label = [l.name for l in pull.g_pull.base.repo.get_labels()]
         for label in self.config["add"]:
             if label not in all_label:

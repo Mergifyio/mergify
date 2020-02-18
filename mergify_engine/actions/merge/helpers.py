@@ -75,12 +75,12 @@ WAIT_FOR_CI_REPORT = (
 )
 
 
-def update_pull_base_branch(pull, installation_id, method):
+def update_pull_base_branch(pull, method):
     try:
         if method == "merge":
             branch_updater.update_with_api(pull)
         else:
-            branch_updater.update_with_git(pull, installation_id, method)
+            branch_updater.update_with_git(pull, method)
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status

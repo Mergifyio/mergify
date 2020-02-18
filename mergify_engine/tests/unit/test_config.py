@@ -166,7 +166,9 @@ def test_get_pull_request_rule():
     review._rawData = {"author_association": "MEMBER"}
     g_pull.get_reviews.return_value = [review]
 
-    pull_request = mergify_pull.MergifyPull(g=g, g_pull=g_pull, installation_id=123)
+    pull_request = mergify_pull.MergifyPull(
+        g=g, g_pull=g_pull, installation_id=123, installation_token="<token>"
+    )
 
     # Don't catch data in these tests
     pull_request.to_dict = pull_request._get_consolidated_data

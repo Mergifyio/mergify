@@ -124,9 +124,7 @@ def _handle_first_pull_in_queue(queue, pull):
         pull.log.debug("updating base branch of pull request")
         redis = utils.get_redis_for_cache()
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
-        conclusion, title, summary = helpers.update_pull_base_branch(
-            pull, installation_id, method
-        )
+        conclusion, title, summary = helpers.update_pull_base_branch(pull, method)
 
         if pull.g_pull.state == "closed":
             pull.log.debug(

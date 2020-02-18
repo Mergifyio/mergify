@@ -44,15 +44,7 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def run(self, pull, sources, missing_conditions):
         pull.log.debug("process merge", config=self.config)
 
         output = helpers.merge_report(pull, self.config["strict"])
@@ -62,23 +54,15 @@ class MergeAction(actions.Action):
             return output
 
         if self.config["strict"] and pull.is_behind():
-            return self._sync_with_base_branch(pull, installation_id)
+            return self._sync_with_base_branch(pull)
         else:
             try:
-                return self._merge(pull, installation_id)
+                return self._merge(pull)
             finally:
                 if self.config["strict"] == "smart":
                     queue.remove_pull(pull)
 
-    def cancel(
-        self,
-        installation_id,
-        installation_token,
-        event_type,
-        data,
-        pull,
-        missing_conditions,
-    ):
+    def cancel(self, pull, sources, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
@@ -128,7 +112,7 @@ class MergeAction(actions.Action):
 
         return False
 
-    def _sync_with_base_branch(self, pull, installation_id):
+    def _sync_with_base_branch(self, pull):
         if not pull.base_is_modifiable():
             return (
                 "failure",
@@ -146,11 +130,9 @@ class MergeAction(actions.Action):
                 "be updated soon, and then merged.",
             )
         else:
-            return helpers.update_pull_base_branch(
-                pull, installation_id, self.config["strict_method"]
-            )
+            return helpers.update_pull_base_branch(pull, self.config["strict_method"])
 
-    def _merge(self, pull, installation_id):
+    def _merge(self, pull):
         if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:
@@ -169,14 +151,14 @@ class MergeAction(actions.Action):
             if pull.g_pull.is_merged():
                 pull.log.info("merged in the meantime")
             else:
-                return self._handle_merge_error(e, pull, installation_id)
+                return self._handle_merge_error(e, pull)
         else:
             pull.log.info("merged")
 
         pull.g_pull.update()
         return helpers.merge_report(pull, self.config["strict"])
 
-    def _handle_merge_error(self, e, pull, installation_id):
+    def _handle_merge_error(self, e, pull):
         if e.status >= 500:
             message = "GitHub failed to merge the pull request"
             # There's no data in that case
@@ -205,7 +187,7 @@ class MergeAction(actions.Action):
                     error_message=server_message,
                 )
                 pull.g_pull.update()
-                return self._sync_with_base_branch(pull, installation_id)
+                return self._sync_with_base_branch(pull)
 
             elif e.status == 405:
                 pull.log.debug(

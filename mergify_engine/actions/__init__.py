@@ -77,13 +77,9 @@ class Action(abc.ABC):
         return {}
 
     @staticmethod
-    def run(
-        installation_id, installation_token, event_type, data, pull, missing_conditions
-    ):  # pragma: no cover
+    def run(pull, sources, missing_conditions):  # pragma: no cover
         pass
 
     @staticmethod
-    def cancel(
-        installation_id, installation_token, event_type, data, pull, missing_conditions
-    ):  # pragma: no cover
+    def cancel(pull, sources, missing_conditions):  # pragma: no cover
         pass
