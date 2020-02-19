@@ -13,7 +13,6 @@
 # under the License.
 
 import collections
-import functools
 import itertools
 import re
 from urllib import parse
@@ -25,6 +24,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import functools_bp
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
@@ -293,7 +293,7 @@ class MergifyPull(object):
 
         raise exceptions.MergeableStateUnknown(self)
 
-    @functools.cached_property
+    @functools_bp.cached_property
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(
             parse.quote(self.g_pull.base.ref, safe="")
@@ -338,11 +338,11 @@ class MergifyPull(object):
             ),
         }
 
-    @functools.cached_property
+    @functools_bp.cached_property
     def reviews(self):
         return list(self.g_pull.get_reviews())
 
-    @functools.cached_property
+    @functools_bp.cached_property
     def commits(self):
         return list(self.g_pull.get_commits())
 
