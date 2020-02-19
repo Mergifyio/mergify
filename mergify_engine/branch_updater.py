@@ -119,7 +119,7 @@ def _do_update(pull, token, method="merge"):
             "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo),
         )
 
-        depth = int(pull.num_commits) + 1
+        depth = len(pull.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
