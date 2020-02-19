@@ -13,6 +13,7 @@
 # under the License.
 
 import collections
+import functools
 import itertools
 import re
 from urllib import parse
@@ -300,7 +301,7 @@ class MergifyPull(object):
         branch = self.g_pull.base.repo.get_branch(
             parse.quote(self.g_pull.base.ref, safe="")
         )
-        for commit in self.g_pull.get_commits():
+        for commit in self.commits:
             for parent in commit.parents:
                 if parent.sha == branch.commit.sha:
                     return False
@@ -339,6 +340,10 @@ class MergifyPull(object):
                 else (self.g_pull.mergeable_state or "none")
             ),
         }
+
+    @functools.cached_property
+    def commits(self):
+        return list(self.g_pull.get_commits())
 
     # NOTE(sileht): map all attributes that in theory doesn't do http calls
 
@@ -405,7 +410,3 @@ class MergifyPull(object):
     @property
     def merged_by(self):
         return self.g_pull.merged_by
-
-    @property
-    def num_commits(self):
-        return self.g_pull.commits

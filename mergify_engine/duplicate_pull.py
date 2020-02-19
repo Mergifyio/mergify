@@ -68,12 +68,11 @@ def is_base_branch_merge_commit(commit, base_branch):
 
 
 def _get_commits_without_base_branch_merge(pull):
-    commits = pull.g_pull.get_commits()
     base_branch = pull.base_ref
     return list(
         filter(
             lambda c: not is_base_branch_merge_commit(c, base_branch),
-            sorted(commits, key=CommitOrderingKey),
+            sorted(pull.commits, key=CommitOrderingKey),
         )
     )
 
