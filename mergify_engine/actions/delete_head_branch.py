@@ -56,12 +56,11 @@ class DeleteHeadBranchAction(actions.Action):
                 )
             except github.GithubException as e:
                 if e.status not in [422, 404]:
-                    pull.log.error(
-                        "Unable to delete head branch",
-                        status=e.status,
-                        error=e.data["message"],
+                    return (
+                        "failure",
+                        "Unable to delete the head branch",
+                        e.data["message"],
                     )
-                    return ("failure", "Unable to delete the head branch", "")
             return (
                 "success",
                 "Branch `%s` has been deleted" % pull.head_ref,

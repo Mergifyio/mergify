@@ -239,16 +239,14 @@ def run_actions(
     conclusions = {}
     # Run actions
     for rule, missing_conditions in match.matching_rules:
-        for action in rule["actions"]:
+        for action, action_obj in rule["actions"].items():
             check_name = "Rule: %s (%s)" % (rule["name"], action)
 
             previous_conclusion = get_previous_conclusion(
                 previous_conclusions, check_name, checks
             )
 
-            done_by_another_action = (
-                rule["actions"][action].only_once and action in actions_ran
-            )
+            done_by_another_action = action_obj.only_once and action in actions_ran
 
             if missing_conditions:
                 method_name = "cancel"
@@ -263,13 +261,13 @@ def run_actions(
                 previous_conclusions.get("deprecated_summary", False)
                 and action == "comment"
             ):
-                deprecated_done_in_the_past = rule["actions"][
-                    action
-                ].deprecated_already_done_protection(pull)
+                deprecated_done_in_the_past = action_obj.deprecated_already_done_protection(
+                    pull
+                )
             else:
                 deprecated_done_in_the_past = None
 
-            done_in_the_past = not rule["actions"][action].always_run and (
+            done_in_the_past = not action_obj.always_run and (
                 previous_conclusion in expected_conclusions
                 or deprecated_done_in_the_past
             )
@@ -300,16 +298,19 @@ def run_actions(
             if report:
                 conclusion, title, summary = report
                 status = "completed" if conclusion else "in_progress"
-                try:
-                    check_api.set_check_run(
-                        pull.g_pull,
-                        check_name,
-                        status,
-                        conclusion,
-                        output={"title": title, "summary": summary},
-                    )
-                except Exception:
-                    pull.log.error("Fail to post check `%s`", check_name, exc_info=True)
+                if not action_obj.silent_report:
+                    try:
+                        check_api.set_check_run(
+                            pull.g_pull,
+                            check_name,
+                            status,
+                            conclusion,
+                            output={"title": title, "summary": summary},
+                        )
+                    except Exception:
+                        pull.log.error(
+                            "Fail to post check `%s`", check_name, exc_info=True
+                        )
                 conclusions[check_name] = conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
