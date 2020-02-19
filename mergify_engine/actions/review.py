@@ -48,12 +48,7 @@ class ReviewAction(actions.Action):
 
         # TODO(sileht): We should catch it some how, when we drop pygithub for sure
         reviews = reversed(
-            list(
-                filter(
-                    lambda r: r.user.id is not config.BOT_USER_ID,
-                    pull.g_pull.get_reviews(),
-                )
-            )
+            list(filter(lambda r: r.user.id is not config.BOT_USER_ID, pull.reviews))
         )
         for review in reviews:
             if (
