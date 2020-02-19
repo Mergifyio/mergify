@@ -67,5 +67,4 @@ def test_pull_behind(commits_tree_generator):
         installation_id=config.INSTALLATION_ID,
         installation_token=mock.Mock(),
     )
-    behind = pull.is_behind()
-    assert expected == behind
+    assert expected == pull.is_behind

@@ -53,7 +53,7 @@ class MergeAction(actions.Action):
                 queue.remove_pull(pull)
             return output
 
-        if self.config["strict"] and pull.is_behind():
+        if self.config["strict"] and pull.is_behind:
             return self._sync_with_base_branch(pull)
         else:
             try:
@@ -178,7 +178,7 @@ class MergeAction(actions.Action):
                     "The head branch was modified, the merge action have been cancelled.",
                 )
             elif "Base branch was modified" in e.data["message"]:
-                # NOTE(sileht): The base branch was modified between pull.is_behind() call and
+                # NOTE(sileht): The base branch was modified between pull.is_behind call and
                 # here, usually by something not merged by mergify. So we need sync it again
                 # with the base branch.
                 pull.log.debug(

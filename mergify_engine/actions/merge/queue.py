@@ -166,7 +166,7 @@ def smart_strict_workflow_periodic_task():
             pull = _get_next_pull_request(queue, queue_log)
             if not pull:
                 queue_log.debug("no pull request for this queue")
-            elif pull.state == "closed" or pull.is_behind():
+            elif pull.state == "closed" or pull.is_behind:
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
                 pull.log.debug(
