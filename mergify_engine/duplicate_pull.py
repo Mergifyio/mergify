@@ -69,7 +69,7 @@ def is_base_branch_merge_commit(commit, base_branch):
 
 def _get_commits_without_base_branch_merge(pull):
     commits = pull.g_pull.get_commits()
-    base_branch = pull.g_pull.base.ref
+    base_branch = pull.base_ref
     return list(
         filter(
             lambda c: not is_base_branch_merge_commit(c, base_branch),
@@ -96,7 +96,7 @@ def _get_commits_to_cherrypick(pull, merge_commit):
             pulls = utils.get_github_pulls_from_sha(pull.g_pull.base.repo, commit.sha)
             pull_numbers = [p.number for p in pulls]
 
-            if pull.g_pull.number not in pull_numbers:
+            if pull.number not in pull_numbers:
                 if len(out_commits) == 1:
                     pull.log.info(
                         "Pull requests merged with one commit rebased, " "or squashed",
@@ -122,11 +122,7 @@ BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 
 
 def get_destination_branch_name(pull, branch, kind):
-    return "mergify/%s/%s/pr-%s" % (
-        BRANCH_PREFIX_MAP[kind],
-        branch.name,
-        pull.g_pull.number,
-    )
+    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch.name, pull.number,)
 
 
 @tenacity.retry(
@@ -151,7 +147,7 @@ def duplicate(pull, branch, kind=BACKPORT):
     cherry_pick_fail = False
     body = "This is an automated %s of pull request #%d done " "by Mergify.io" % (
         kind,
-        pull.g_pull.number,
+        pull.number,
     )
 
     git = utils.Gitter()
@@ -170,12 +166,12 @@ def duplicate(pull, branch, kind=BACKPORT):
             "https://%s/%s" % (config.GITHUB_DOMAIN, repo.full_name),
         )
 
-        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.g_pull.number)
-        git("fetch", "--quiet", "origin", pull.g_pull.base.ref)
+        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.number)
+        git("fetch", "--quiet", "origin", pull.base_ref)
         git("fetch", "--quiet", "origin", branch.name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch.name)
 
-        merge_commit = repo.get_commit(pull.g_pull.merge_commit_sha)
+        merge_commit = repo.get_commit(pull.merge_commit_sha)
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
@@ -239,7 +235,7 @@ def duplicate(pull, branch, kind=BACKPORT):
     try:
         return repo.create_pull(
             title="{} ({} #{})".format(
-                pull.g_pull.title, BRANCH_PREFIX_MAP[kind], pull.g_pull.number
+                pull.title, BRANCH_PREFIX_MAP[kind], pull.number
             ),
             body=body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
             base=branch.name,

@@ -27,7 +27,7 @@ class CloseAction(actions.Action):
     validator = {voluptuous.Required("message", default=MSG): str}
 
     def run(self, pull, sources, missing_conditions):
-        if pull.g_pull.state == "close":
+        if pull.state == "close":
             return
 
         try:

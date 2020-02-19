@@ -29,19 +29,19 @@ class DeleteHeadBranchAction(actions.Action):
     )
 
     def run(self, pull, sources, missing_conditions):
-        if pull.g_pull.head.repo.id != pull.g_pull.base.repo.id:
+        if pull.from_fork:
             return
-        if pull.g_pull.state == "closed":
+        if pull.state == "closed":
             if self.config is None or not self.config["force"]:
                 pulls_using_this_branch = list(
-                    pull.g_pull.base.repo.get_pulls(base=pull.g_pull.head.ref)
+                    pull.g_pull.base.repo.get_pulls(base=pull.head_ref)
                 )
                 if pulls_using_this_branch:
                     return (
                         "success",
                         "Branch `{}` was not deleted "
                         "because it is used by {}".format(
-                            pull.g_pull.head.ref,
+                            pull.head_ref,
                             " ".join("#%d" % p.number for p in pulls_using_this_branch),
                         ),
                         "",
@@ -52,7 +52,7 @@ class DeleteHeadBranchAction(actions.Action):
                     "DELETE",
                     pull.g_pull.base.repo.url
                     + "/git/refs/heads/"
-                    + parse.quote(pull.g_pull.head.ref, safe=""),
+                    + parse.quote(pull.head_ref, safe=""),
                 )
             except github.GithubException as e:
                 if e.status not in [422, 404]:
@@ -64,13 +64,13 @@ class DeleteHeadBranchAction(actions.Action):
                     return ("failure", "Unable to delete the head branch", "")
             return (
                 "success",
-                "Branch `%s` has been deleted" % pull.g_pull.head.ref,
+                "Branch `%s` has been deleted" % pull.head_ref,
                 "",
             )
         return (
             None,
             "Branch `%s` will be deleted once the pull request is closed"
-            % pull.g_pull.head.ref,
+            % pull.head_ref,
             "",
         )
 

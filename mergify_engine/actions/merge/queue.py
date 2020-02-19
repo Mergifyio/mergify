@@ -36,18 +36,18 @@ def get_queue_logger(queue):
 def _get_queue_cache_key(pull):
     return "strict-merge-queues~%s~%s~%s~%s" % (
         pull.installation_id,
-        pull.g_pull.base.repo.owner.login.lower(),
-        pull.g_pull.base.repo.name.lower(),
-        pull.g_pull.base.ref,
+        pull.base_repo_owner_login.lower(),
+        pull.base_repo_name.lower(),
+        pull.base_ref,
     )
 
 
 def _get_update_method_cache_key(pull):
     return "strict-merge-method~%s~%s~%s~%s" % (
         pull.installation_id,
-        pull.g_pull.base.repo.owner.login.lower(),
-        pull.g_pull.base.repo.name.lower(),
-        pull.g_pull.number,
+        pull.base_repo_owner_login.lower(),
+        pull.base_repo_name.lower(),
+        pull.number,
     )
 
 
@@ -55,7 +55,7 @@ def add_pull(pull, method):
     queue = _get_queue_cache_key(pull)
     redis = utils.get_redis_for_cache()
     score = utils.utcnow().timestamp()
-    redis.zadd(queue, {pull.g_pull.number: score}, nx=True)
+    redis.zadd(queue, {pull.number: score}, nx=True)
     redis.set(_get_update_method_cache_key(pull), method)
     pull.log.debug("pull request added to merge queue", queue=queue)
 
@@ -63,7 +63,7 @@ def add_pull(pull, method):
 def remove_pull(pull):
     redis = utils.get_redis_for_cache()
     queue = _get_queue_cache_key(pull)
-    redis.zrem(queue, pull.g_pull.number)
+    redis.zrem(queue, pull.number)
     redis.delete(_get_update_method_cache_key(pull))
     pull.log.debug("pull request removed from merge queue", queue=queue)
 
@@ -72,7 +72,7 @@ def _move_pull_at_end(pull):  # pragma: no cover
     redis = utils.get_redis_for_cache()
     queue = _get_queue_cache_key(pull)
     score = utils.utcnow().timestamp()
-    redis.zadd(queue, {pull.g_pull.number: score}, xx=True)
+    redis.zadd(queue, {pull.number: score}, xx=True)
     pull.log.debug(
         "pull request moved at the end of the merge queue", queue=queue,
     )
@@ -126,7 +126,7 @@ def _handle_first_pull_in_queue(queue, pull):
         method = redis.get(_get_update_method_cache_key(pull)) or "merge"
         conclusion, title, summary = helpers.update_pull_base_branch(pull, method)
 
-        if pull.g_pull.state == "closed":
+        if pull.state == "closed":
             pull.log.debug(
                 "pull request closed in the meantime",
                 conclusion=conclusion,
@@ -166,7 +166,7 @@ def smart_strict_workflow_periodic_task():
             pull = _get_next_pull_request(queue, queue_log)
             if not pull:
                 queue_log.debug("no pull request for this queue")
-            elif pull.g_pull.state == "closed" or pull.is_behind():
+            elif pull.state == "closed" or pull.is_behind():
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
                 pull.log.debug(
