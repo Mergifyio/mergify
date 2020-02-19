@@ -898,8 +898,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         checks = list(check_api.get_checks(p))
         assert len(checks) == 2
-        assert checks[0].name == "Summary"
-        assert msg in checks[0].output["summary"]
+        for check in checks:
+            if check.name == "Summary":
+                assert msg in check.output["summary"]
+                break
+        else:
+            assert False, "Summary check not found"
 
     def test_merge_custom_msg(self):
         return self._test_merge_custom_msg("Commit Message:\n")
