@@ -79,7 +79,7 @@ class MergeAction(actions.Action):
     @staticmethod
     def _required_statuses_in_progress(pull, missing_conditions):
         # It's closed, it's not going to change
-        if pull.g_pull.state == "closed":
+        if pull.state == "closed":
             return False
 
         need_look_at_checks = []
@@ -146,7 +146,7 @@ class MergeAction(actions.Action):
 
         kwargs = pull.get_merge_commit_message() or {}
         try:
-            pull.g_pull.merge(sha=pull.g_pull.head.sha, merge_method=method, **kwargs)
+            pull.g_pull.merge(sha=pull.head_sha, merge_method=method, **kwargs)
         except github.GithubException as e:  # pragma: no cover
             if pull.g_pull.is_merged():
                 pull.log.info("merged in the meantime")

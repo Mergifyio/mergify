@@ -95,11 +95,11 @@ def _do_update(pull, token, method="merge"):
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
 
-    head_repo = pull.g_pull.head.repo.full_name
-    base_repo = pull.g_pull.base.repo.full_name
+    head_repo = pull.head_repo_owner_login + "/" + pull.head_repo_name
+    base_repo = pull.base_repo_owner_login + "/" + pull.base_repo_name
 
-    head_branch = pull.g_pull.head.ref
-    base_branch = pull.g_pull.base.ref
+    head_branch = pull.head_ref
+    base_branch = pull.base_ref
     git = utils.Gitter()
     try:
         git("init")
@@ -119,7 +119,7 @@ def _do_update(pull, token, method="merge"):
             "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo),
         )
 
-        depth = int(pull.g_pull.commits) + 1
+        depth = int(pull.num_commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
@@ -183,7 +183,7 @@ def update_with_api(pull):
         pull.g_pull._requester.requestJsonAndCheck(
             "PUT",
             pull.g_pull.url + "/update-branch",
-            input={"expected_head_sha": pull.g_pull.head.sha},
+            input={"expected_head_sha": pull.head_sha},
             headers={"Accept": "application/vnd.github.lydian-preview+json"},
         )
     except github.GithubException as e:

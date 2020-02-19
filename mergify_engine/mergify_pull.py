@@ -146,7 +146,7 @@ class MergifyPull(object):
             "milestone": (self.g_pull.milestone.title if self.g_pull.milestone else ""),
             "conflict": self.g_pull.mergeable_state == "dirty",
             "base": self.g_pull.base.ref,
-            "head": self.g_pull.head.ref,
+            "head": self.head_ref,
             "locked": self.g_pull._rawData["locked"],
             "title": self.g_pull.title,
             "body": self.g_pull.body,
@@ -294,10 +294,7 @@ class MergifyPull(object):
         raise exceptions.MergeableStateUnknown(self)
 
     def base_is_modifiable(self):
-        return (
-            self.g_pull.raw_data["maintainer_can_modify"]
-            or self.g_pull.head.repo.id == self.g_pull.base.repo.id
-        )
+        return self.g_pull.raw_data["maintainer_can_modify"] or not self.from_fork
 
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(
@@ -342,3 +339,73 @@ class MergifyPull(object):
                 else (self.g_pull.mergeable_state or "none")
             ),
         }
+
+    # NOTE(sileht): map all attributes that in theory doesn't do http calls
+
+    @property
+    def number(self):
+        return self.g_pull.number
+
+    @property
+    def title(self):
+        return self.g_pull.title
+
+    @property
+    def user(self):
+        return self.g_pull.user.login
+
+    @property
+    def state(self):
+        return self.g_pull.state
+
+    @property
+    def from_fork(self):
+        return self.g_pull.head.repo.id != self.g_pull.base.repo.id
+
+    @property
+    def merge_commit_sha(self):
+        return self.g_pull.merge_commit_sha
+
+    @property
+    def head_sha(self):
+        return self.g_pull.head.sha
+
+    @property
+    def base_ref(self):
+        return self.g_pull.base.ref
+
+    @property
+    def head_ref(self):
+        return self.g_pull.head.ref
+
+    @property
+    def base_repo_name(self):
+        return self.g_pull.base.repo.name
+
+    @property
+    def head_repo_name(self):
+        return self.g_pull.head.repo.name
+
+    @property
+    def base_repo_owner_login(self):
+        return self.g_pull.base.repo.owner.login
+
+    @property
+    def head_repo_owner_login(self):
+        return self.g_pull.head.repo.owner.login
+
+    @property
+    def mergeable_state(self):
+        return self.g_pull.mergeable_state
+
+    @property
+    def merged(self):
+        return self.g_pull.merged
+
+    @property
+    def merged_by(self):
+        return self.g_pull.merged_by
+
+    @property
+    def num_commits(self):
+        return self.g_pull.commits

@@ -161,7 +161,7 @@ def report(url):
     except github.GithubException as e:
         print("Unable to know if pull request branch is behind: %s" % e)
 
-    print("mergeable_state: %s" % mp.g_pull.mergeable_state)
+    print("mergeable_state: %s" % mp.mergeable_state)
 
     print("* MERGIFY LAST CHECKS:")
     checks = list(check_api.get_checks(p))

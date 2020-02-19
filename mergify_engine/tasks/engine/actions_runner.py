@@ -34,12 +34,12 @@ def find_embedded_pull(pull):
     # NOTE(sileht): We are looking for a pull request that have been merged
     # very recently and have commit sha in common with current pull request.
     expected_commits = [c.sha for c in pull.g_pull.get_commits()]
-    pulls = pull.g_pull.base.repo.get_pulls(state="closed", base=pull.g_pull.base.ref)[
+    pulls = pull.g_pull.base.repo.get_pulls(state="closed", base=pull.base_ref)[
         0:PULL_REQUEST_EMBEDDED_CHECK_BACKLOG
     ]
 
     for p_other in pulls:
-        if p_other.number == pull.g_pull.number:
+        if p_other.number == pull.number:
             continue
         commits = [c.sha for c in p_other.get_commits()]
         commits_not_found = [c for c in expected_commits if c not in commits]
@@ -52,7 +52,7 @@ def get_already_merged_summary(pull, sources, match):
         if (
             source["event_type"] != "pull_request"
             or source["data"]["action"] != "closed"
-            or not pull.g_pull.merged
+            or not pull.merged
         ):
             return ""
 
@@ -79,7 +79,7 @@ def get_already_merged_summary(pull, sources, match):
     else:
         return (
             "⚠️ The pull request has been merged manually by "
-            "@%s\n\n" % pull.g_pull.merged_by.login
+            "@%s\n\n" % pull.merged_by.login
         )
 
 
