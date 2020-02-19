@@ -293,9 +293,6 @@ class MergifyPull(object):
 
         raise exceptions.MergeableStateUnknown(self)
 
-    def base_is_modifiable(self):
-        return self.g_pull.raw_data["maintainer_can_modify"] or not self.from_fork
-
     @functools.cached_property
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(
@@ -370,6 +367,10 @@ class MergifyPull(object):
     @property
     def from_fork(self):
         return self.g_pull.head.repo.id != self.g_pull.base.repo.id
+
+    @property
+    def base_is_modifiable(self):
+        return self.g_pull.raw_data["maintainer_can_modify"] or not self.from_fork
 
     @property
     def merge_commit_sha(self):

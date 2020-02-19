@@ -113,7 +113,7 @@ class MergeAction(actions.Action):
         return False
 
     def _sync_with_base_branch(self, pull):
-        if not pull.base_is_modifiable():
+        if not pull.base_is_modifiable:
             return (
                 "failure",
                 "Pull request can't be updated with latest "
