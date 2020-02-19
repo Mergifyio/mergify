@@ -61,6 +61,10 @@ class Action(abc.ABC):
     # If an action can't be twice in a rule this must be set to true
     only_once = False
 
+    # If set to True, does not post the report to the Check API
+    # Only keep it for internal tracking
+    silent_report = False
+
     @property
     @staticmethod
     @abc.abstractmethod

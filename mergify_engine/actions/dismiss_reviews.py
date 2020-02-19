@@ -35,6 +35,8 @@ class DismissReviewsAction(actions.Action):
 
     always_run = True
 
+    silent_report = True
+
     @staticmethod
     def _have_been_synchronized(sources):
         for source in sources:
@@ -71,9 +73,10 @@ class DismissReviewsAction(actions.Action):
                 headers={"Accept": "application/vnd.github.machine-man-preview+json"},
             )
         except github.GithubException as e:  # pragma: no cover
-            pull.log.error(
-                "failed to dismiss review",
-                status=e.status,
-                error_message=e.data["message"],
-                error=e.data.get("errors"),
+            server_message = e.data.get("message")
+            return (
+                None,
+                "Unable to dismiss review",
+                f"GitHub error: [{e.status_code}] `{server_message}`",
             )
+        return ("success", "Review dismissed", "")

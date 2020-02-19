@@ -24,6 +24,8 @@ from mergify_engine import config
 class CommentAction(actions.Action):
     validator = {voluptuous.Required("message"): str}
 
+    silent_report = True
+
     def deprecated_already_done_protection(self, pull):
         # TODO(sileht): drop this in 2 months (February 2020)
         for comment in pull.g_pull.get_issue_comments():
@@ -35,11 +37,14 @@ class CommentAction(actions.Action):
         return False
 
     def run(self, pull, sources, missing_conditions):
+        message = self.config["message"]
         try:
-            pull.g_pull.create_issue_comment(self.config["message"])
+            pull.g_pull.create_issue_comment(message)
         except github.GithubException as e:  # pragma: no cover
-            pull.log.error(
-                "fail to post comment on the pull request",
-                status=e.status,
-                error=e.data["message"],
+            server_message = e.data.get("message")
+            return (
+                None,
+                "Unable to post comment",
+                f"GitHub error: [{e.status_code}] `{server_message}`",
             )
+        return ("success", "Comment posted", message)
