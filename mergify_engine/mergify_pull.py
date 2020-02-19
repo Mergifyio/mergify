@@ -93,19 +93,18 @@ class MergifyPull(object):
             "write",
         ]
 
-    def _get_reviews(self):
+    def _get_consolidated_reviews(self):
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        reviews = list(self.g_pull.get_reviews())
         valid_users = list(
             map(
                 lambda u: u.login,
-                filter(self._valid_perm, set([r.user for r in reviews])),
+                filter(self._valid_perm, set([r.user for r in self.reviews])),
             )
         )
         comments = dict()
         approvals = dict()
-        for review in reviews:
+        for review in self.reviews:
             if review.user.login not in valid_users:
                 continue
             # Only keep latest review of an user
@@ -121,7 +120,7 @@ class MergifyPull(object):
         return self._consolidated_data
 
     def _get_consolidated_data(self):
-        comments, approvals = self._get_reviews()
+        comments, approvals = self._get_consolidated_reviews()
         statuses = self._get_checks()
         # FIXME(jd) pygithub does 2 HTTP requests whereas 1 is enough!
         (
@@ -340,6 +339,10 @@ class MergifyPull(object):
                 else (self.g_pull.mergeable_state or "none")
             ),
         }
+
+    @functools.cached_property
+    def reviews(self):
+        return list(self.g_pull.get_reviews())
 
     @functools.cached_property
     def commits(self):

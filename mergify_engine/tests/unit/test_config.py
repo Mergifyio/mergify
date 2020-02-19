@@ -384,6 +384,7 @@ def test_get_pull_request_rule():
     review2.state = "APPROVED"
     review2._rawData = {"author_association": "MEMBER"}
     g_pull.get_reviews.return_value = [review, review2]
+    del pull_request.__dict__["reviews"]
 
     # Team conditions with no review missing
     pull_request_rules = rules.PullRequestRules(
