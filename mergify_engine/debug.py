@@ -157,7 +157,7 @@ def report(url):
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
     try:
-        print("is_behind: %s" % mp.is_behind())
+        print("is_behind: %s" % mp.is_behind)
     except github.GithubException as e:
         print("Unable to know if pull request branch is behind: %s" % e)
 

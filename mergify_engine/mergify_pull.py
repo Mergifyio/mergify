@@ -296,6 +296,7 @@ class MergifyPull(object):
     def base_is_modifiable(self):
         return self.g_pull.raw_data["maintainer_can_modify"] or not self.from_fork
 
+    @functools.cached_property
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(
             parse.quote(self.g_pull.base.ref, safe="")
