@@ -78,6 +78,16 @@ def _move_pull_at_end(pull):  # pragma: no cover
     )
 
 
+def _get_pulls(queue):
+    redis = utils.get_redis_for_cache()
+    return redis.zrange(queue, 0, -1)
+
+
+def get_pulls_from_queue(pull):
+    queue = _get_queue_cache_key(pull)
+    return _get_pulls(queue)
+
+
 def _get_next_pull_request(queue, queue_log):
     _, installation_id, owner, reponame, branch = queue.split("~")
 
@@ -93,8 +103,7 @@ def _get_next_pull_request(queue, queue_log):
         )
         return
 
-    redis = utils.get_redis_for_cache()
-    pull_numbers = redis.zrange(queue, 0, -1)
+    pull_numbers = _get_pulls(queue)
     queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if pull_numbers:
         return mergify_pull.MergifyPull.from_number(
