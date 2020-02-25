@@ -13,6 +13,7 @@
 # under the License.
 
 from mergify_engine import branch_updater
+from mergify_engine.actions.merge import queue
 
 
 def merge_report(pull, strict):
@@ -68,11 +69,19 @@ def merge_report(pull, strict):
     return conclusion, title, summary
 
 
-WAIT_FOR_CI_REPORT = (
-    None,
-    "Base branch updates done",
-    "The pull request has been automatically updated to follow its base branch and will be merged soon",
-)
+def get_wait_for_ci_report(pull):
+    queue_status = ""
+    pulls = queue.get_pulls_from_queue(pull)
+    if pulls:
+        links = ", ".join((f"#{pull}" for pull in pulls))
+        queue_status = f"The following pull requests are queued: {links}"
+
+    return (
+        None,
+        "Base branch updates done",
+        "The pull request has been automatically updated to follow its base branch and "
+        f"will be merged soon.\n\n{queue_status}",
+    )
 
 
 def update_pull_base_branch(pull, method):
@@ -91,4 +100,4 @@ def update_pull_base_branch(pull, method):
         else:
             return ("failure", "Base branch update has failed", e.message)
     else:
-        return WAIT_FOR_CI_REPORT
+        return get_wait_for_ci_report(pull)
