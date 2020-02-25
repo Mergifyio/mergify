@@ -45,6 +45,6 @@ class CommentAction(actions.Action):
             return (
                 None,
                 "Unable to post comment",
-                f"GitHub error: [{e.status_code}] `{server_message}`",
+                f"GitHub error: [{e.status}] `{server_message}`",
             )
         return ("success", "Comment posted", message)
