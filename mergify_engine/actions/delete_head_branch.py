@@ -55,7 +55,9 @@ class DeleteHeadBranchAction(actions.Action):
                     + parse.quote(pull.head_ref, safe=""),
                 )
             except github.GithubException as e:
-                if e.status not in [422, 404]:
+                if e.status >= 500:
+                    raise
+                elif e.status not in [422, 404]:
                     return (
                         "failure",
                         "Unable to delete the head branch",

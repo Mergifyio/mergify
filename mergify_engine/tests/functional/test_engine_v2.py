@@ -705,6 +705,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
         )
 
+        checks = list(check_api.get_checks(p2))
+        for check in checks:
+            if check.name == "Rule: strict merge on master (merge)":
+                assert (
+                    "will be merged soon.\n\nThe following pull requests are queued: #2"
+                    in check.output["summary"]
+                )
+                break
+        else:
+            assert False, "Merge check not found"
+
         # Retry to merge pr2
         self.create_status(p2)
 

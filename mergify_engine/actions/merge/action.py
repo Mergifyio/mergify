@@ -69,7 +69,7 @@ class MergeAction(actions.Action):
         if self.config["strict"] and self._required_statuses_in_progress(
             pull, missing_conditions
         ):
-            return helpers.WAIT_FOR_CI_REPORT
+            return helpers.get_wait_for_ci_report(pull)
 
         if self.config["strict"] == "smart":
             queue.remove_pull(pull)

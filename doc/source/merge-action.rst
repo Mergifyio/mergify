@@ -73,7 +73,7 @@ have merged ``master`` in the base branch automatically. The continuous
 integration system would have run again and marked the pull request as failing
 the test, removing it from the mergeable candidate.
 
-.. figure:: _static/merge-ci-fail.png
+.. figure:: _static/rebase-ci-fails.png
    :alt: Rebase make CI fails
 
 When the ``strict`` option is enabled, Mergify takes care of merging the target
