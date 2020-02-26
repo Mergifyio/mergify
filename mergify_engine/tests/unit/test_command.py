@@ -48,4 +48,8 @@ def test_command_loader():
     assert command == "backport"
     assert args == "branch-3.1 branch-3.2"
     assert isinstance(action, BackportAction)
-    assert action.config == {"branches": ["branch-3.1", "branch-3.2"], "regexes": []}
+    assert action.config == {
+        "branches": ["branch-3.1", "branch-3.2"],
+        "regexes": [],
+        "ignore_conflicts": False,
+    }

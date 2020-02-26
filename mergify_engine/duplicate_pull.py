@@ -15,6 +15,7 @@
 import functools
 import subprocess
 
+import attr
 import github
 import tenacity
 
@@ -25,6 +26,11 @@ from mergify_engine import utils
 
 class DuplicateNeedRetry(Exception):
     pass
+
+
+@attr.s
+class DuplicateFailed(Exception):
+    reason = attr.ib()
 
 
 GIT_MESSAGE_TO_EXCEPTION = {
@@ -129,14 +135,13 @@ def get_destination_branch_name(pull, branch, kind):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
-def duplicate(pull, branch, kind=BACKPORT):
+def duplicate(pull, branch, ignore_conflicts=False, kind=BACKPORT):
     """Duplicate a pull request.
 
-    :param repo: The repository.
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.mergify_pull.MergifyPull
-    :param branch_name: The branch name to copy to.
-    :param installation_token: The installation token.
+    :param branch: The branch to copy to.
+    :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param kind: is a backport or a copy
     """
     repo = pull.g_pull.base.repo
@@ -184,15 +189,16 @@ def duplicate(pull, branch, kind=BACKPORT):
                 git("cherry-pick", "-x", commit.sha)
             except subprocess.CalledProcessError as e:  # pragma: no cover
                 pull.log.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
-                cherry_pick_fail = True
-                status = git("status").decode("utf8")
-                git("add", "*")
-                git("commit", "-a", "--no-edit", "--allow-empty")
-
+                git_status = git("status").decode("utf8")
                 body += "\n\nCherry-pick of %s has failed:\n```\n%s```\n\n" % (
                     commit.sha,
-                    status,
+                    git_status,
                 )
+                if not ignore_conflicts:
+                    raise DuplicateFailed(body)
+                cherry_pick_fail = True
+                git("add", "*")
+                git("commit", "-a", "--no-edit", "--allow-empty")
 
         git("push", "origin", bp_branch)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
