@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import logging
+import os.path
 import time
 from unittest import mock
 
@@ -513,6 +514,98 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert "No backport have been created" == checks[0].output["title"]
         assert (
             "* Backport to branch `crashme` failed: Branch not found" % ()
+            == checks[0].output["summary"]
+        )
+
+    def _do_backport_conflicts(self, ignore_conflicts):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "actions": {"merge": {"method": "rebase"}},
+                },
+                {
+                    "name": "Backport to stable/#3.1",
+                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "actions": {
+                        "backport": {
+                            "branches": ["stable/#3.1"],
+                            "ignore_conflicts": ignore_conflicts,
+                        }
+                    },
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1"])
+
+        # Commit something in stable
+        self.git("checkout", "--quiet", "stable/#3.1")
+        # Write in the file that create_pr will create in master
+        with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
+            f.write(b"conflicts incoming")
+        self.git("add", "conflicts")
+        self.git("commit", "--no-edit", "-m", "add conflict")
+        self.git("push", "--quiet", "main", "stable/#3.1")
+
+        p, commits = self.create_pr(files={"conflicts": "ohoh"})
+
+        self.add_label(p, "backport-#3.1")
+        self.wait_for("pull_request", {"action": "closed"})
+
+        return list(
+            check_api.get_checks(
+                p, {"check_name": "Rule: Backport to stable/#3.1 (backport)"}
+            )
+        )
+
+    def test_backport_conflicts(self):
+        checks = self._do_backport_conflicts(False)
+
+        # Retrieve the new commit id that has been be cherry-picked
+        self.git("fetch", "main")
+        commit_id = (
+            self.git("show-ref", "--hash", "main/master").decode("utf-8").strip()
+        )
+
+        assert "failure" == checks[0].conclusion
+        assert "No backport have been created" == checks[0].output["title"]
+        assert (
+            f"""* Backport to branch `stable/#3.1` failed
+
+
+Cherry-pick of {commit_id} has failed:
+```
+On branch mergify/bp/stable/#3.1/pr-1
+Your branch is up to date with 'origin/stable/#3.1'.
+
+You are currently cherry-picking commit {commit_id[:7]}.
+  (fix conflicts and run "git cherry-pick --continue")
+  (use "git cherry-pick --skip" to skip this patch)
+  (use "git cherry-pick --abort" to cancel the cherry-pick operation)
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+	both added:      conflicts
+
+no changes added to commit (use "git add" and/or "git commit -a")
+```
+
+"""
+            == checks[0].output["summary"]
+        )
+
+    def test_backport_ignore_conflicts(self):
+        checks = self._do_backport_conflicts(True)
+
+        pull = list(self.r_o_admin.get_pulls())[0]
+
+        assert "success" == checks[0].conclusion
+        assert "Backports have been created" == checks[0].output["title"]
+        assert (
+            "* [#%d %s](%s) has been created for branch `stable/#3.1`"
+            % (pull.number, pull.title, pull.html_url,)
             == checks[0].output["summary"]
         )
 
