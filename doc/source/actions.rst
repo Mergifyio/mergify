@@ -68,7 +68,14 @@ parameter:
    * - ``regexes``
      - array of string
      - ``[]``
-     - The list of regexes to find branches the pull request should be copied to.
+     - The list of regexes to find branches the pull request should be copied
+       to.
+   * - ``ignore_conflicts``
+     - Boolean
+     - ``False``
+     - Whether to create the pull requests even if they are conflicts when
+       cherry-picking the commits.
+
 
 Once the backporting pull request is closed or merged, Mergify will
 automatically delete the backport head branch that it created.
@@ -94,6 +101,11 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - array of string
      - ``[]``
      - The list of regexes to find branches the pull request should be copied to.
+   * - ``ignore_conflicts``
+     - Boolean
+     - ``False``
+     - Whether to create the pull requests even if they are conflicts when
+       cherry-picking the commits.
 
 
 .. _comment action:

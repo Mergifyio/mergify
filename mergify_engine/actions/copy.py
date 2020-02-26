@@ -40,6 +40,7 @@ class CopyAction(actions.Action):
     validator = {
         voluptuous.Required("branches", default=[]): [str],
         voluptuous.Required("regexes", default=[]): [Regex],
+        voluptuous.Required("ignore_conflicts", default=False): bool,
     }
 
     def _copy(self, pull, branch_name):
@@ -66,7 +67,15 @@ class CopyAction(actions.Action):
 
         # No, then do it
         if not new_pull:
-            new_pull = duplicate_pull.duplicate(pull, branch, self.KIND)
+            try:
+                new_pull = duplicate_pull.duplicate(
+                    pull, branch, self.config["ignore_conflicts"], self.KIND,
+                )
+            except duplicate_pull.DuplicateFailed as e:
+                return (
+                    "failure",
+                    f"Backport to branch `{branch_name}` failed\n{e.reason}",
+                )
 
             # NOTE(sileht): We relook again in case of concurrent duplicate
             # are done because of two events received too closely
