@@ -61,7 +61,7 @@ class DeleteHeadBranchAction(actions.Action):
                     return (
                         "failure",
                         "Unable to delete the head branch",
-                        e.data["message"],
+                        f"GitHub error: [{e.status}] `{e.data['message']}`",
                     )
             return (
                 "success",

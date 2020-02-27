@@ -68,9 +68,7 @@ class DismissReviewsAction(actions.Action):
                     except github.GithubException as e:  # pragma: no cover
                         if e.status >= 500:
                             raise
-                        errors.add(
-                            f"GitHub error: [{e.status_code}] `{e.data['message']}`"
-                        )
+                        errors.add(f"GitHub error: [{e.status}] `{e.data['message']}`")
 
             if errors:
                 return (None, "Unable to dismiss review", "\n".join(errors))
