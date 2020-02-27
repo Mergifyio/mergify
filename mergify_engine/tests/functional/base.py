@@ -354,21 +354,9 @@ class FunctionalTestBase(testtools.TestCase):
             config.INSTALLATION_ID
         ).token
 
-        self.g_integration = github.Github(
-            self.installation_token,
-            base_url="https://api.%s" % config.GITHUB_DOMAIN,
-            retry=3,
-        )
-        self.g_admin = github.Github(
-            config.MAIN_TOKEN,
-            base_url="https://api.%s" % config.GITHUB_DOMAIN,
-            retry=3,
-        )
-        self.g_fork = github.Github(
-            config.FORK_TOKEN,
-            base_url="https://api.%s" % config.GITHUB_DOMAIN,
-            retry=3,
-        )
+        self.g_integration = utils.Github(self.installation_token)
+        self.g_admin = utils.Github(config.MAIN_TOKEN)
+        self.g_fork = utils.Github(config.FORK_TOKEN)
 
         self.o_admin = self.g_admin.get_organization(config.TESTING_ORGANIZATION)
         self.o_integration = self.g_integration.get_organization(
