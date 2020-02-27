@@ -330,6 +330,7 @@ def run_actions(
             else:
                 # NOTE(sileht): action doesn't have report (eg:
                 # comment/request_reviews/..) So just assume it succeed
+                pull.log.error("action must return a conclusion", action=action)
                 conclusions[check_name] = expected_conclusions[0]
 
             pull.log.info(
