@@ -47,6 +47,7 @@ def clear_token_cache():
 
 def refresher():
     parser = argparse.ArgumentParser(description="Force refresh of mergify_engine")
+    parser.add_argument("--action", default="user", choices=["user", "forced"])
     parser.add_argument(
         "urls",
         nargs="*",
@@ -61,9 +62,8 @@ def refresher():
 
     if args.urls:
         for url in args.urls:
-            api_call(
-                config.BASE_URL + "/refresh/" + url.replace("https://github.com/", "")
-            )
+            url = url.replace("https://github.com/", "")
+            api_call(f"{config.BASE_URL}/refresh/{url}?action={args.action}")
     else:
         parser.print_help()
 

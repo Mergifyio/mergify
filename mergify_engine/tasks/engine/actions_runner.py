@@ -215,7 +215,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
     if name in previous_conclusions:
         return previous_conclusions[name]
     # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
-    # synchrnozation event issue is fixed
+    # synchronization event issue is fixed
     elif name in checks:
         return checks[name].conclusion
     return "neutral"
@@ -235,7 +235,16 @@ def run_actions(
     - ("cancelled", "<title>", "<summary>")
     """
 
-    refresh_requested = any([source["event_type"] == "refresh" for source in sources])
+    user_refresh_requested = any(
+        [source["event_type"] == "refresh" for source in sources]
+    )
+    forced_refresh_requested = any(
+        [
+            (source["event_type"] == "refresh" and source["data"]["action"] == "forced")
+            for source in sources
+        ]
+    )
+
     actions_ran = set()
     conclusions = {}
     # Run actions
@@ -267,7 +276,8 @@ def run_actions(
 
             need_to_be_run = (
                 action_obj.always_run
-                or (refresh_requested and previous_conclusion == "failure")
+                or forced_refresh_requested
+                or (user_refresh_requested and previous_conclusion == "failure")
                 or previous_conclusion not in expected_conclusions
             )
 

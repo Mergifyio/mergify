@@ -25,6 +25,7 @@ class RefreshAction(actions.Action):
 
     def run(self, pull, sources, missing_conditions):
         data = {
+            "action": "user",
             "repository": pull.g_pull.base.repo.raw_data,
             "installation": {"id": pull.installation_id},
             "pull_request": pull.g_pull.raw_data,
