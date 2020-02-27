@@ -30,7 +30,8 @@ class DeleteHeadBranchAction(actions.Action):
 
     def run(self, pull, sources, missing_conditions):
         if pull.from_fork:
-            return
+            return ("success", "Pull request come from fork", "")
+
         if pull.state == "closed":
             if self.config is None or not self.config["force"]:
                 pulls_using_this_branch = list(
