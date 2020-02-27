@@ -16,6 +16,11 @@ import github
 import requests
 
 
+class RateLimited(Exception):
+    def __init__(self, countdown):
+        self.countdown = countdown
+
+
 class MergeableStateUnknown(Exception):
     def __init__(self, pull):
         self.pull = pull
@@ -25,7 +30,9 @@ BASE_RETRY_TIMEOUT = 60
 
 
 def need_retry(exception):  # pragma: no cover
-    if isinstance(exception, MergeableStateUnknown):
+    if isinstance(exception, RateLimited):
+        return exception.countdown
+    elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
     elif (
         (isinstance(exception, github.GithubException) and exception.status >= 500)
@@ -45,6 +52,7 @@ def need_retry(exception):  # pragma: no cover
         # Bad creds or token expired, we can't really known
         if exception.status == 401:
             return BASE_RETRY_TIMEOUT
-        # Rate limit or abuse detection mechanism
+        # Rate limit or abuse detection mechanism, futures events will be rate limited
+        # correctly by mergify_engine.utils.Github()
         elif exception.status == 403:
             return BASE_RETRY_TIMEOUT * 5

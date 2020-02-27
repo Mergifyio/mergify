@@ -18,7 +18,6 @@ import github
 import yaml
 
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
@@ -159,21 +158,7 @@ def run(event_type, data):
     if not installation_token:
         return
 
-    g = github.Github(
-        installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
-    )
-
-    if config.LOG_RATELIMIT:  # pragma: no cover
-        rate = g.get_rate_limit().rate
-        LOG.info(
-            "ratelimit: %s/%s, reset at %s",
-            rate.remaining,
-            rate.limit,
-            rate.reset,
-            event_type=event_type,
-            gh_owner=data["repository"]["owner"]["login"],
-            gh_repo=data["repository"]["name"],
-        )
+    g = utils.Github(installation_token)
 
     try:
         repo = g.get_repo(

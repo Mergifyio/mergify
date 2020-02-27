@@ -187,6 +187,9 @@ def smart_strict_workflow_periodic_task():
                 # yet wait next loop
                 pull.log.debug("pull request checks are still in progress")
 
+        except exceptions.RateLimited as e:
+            log = pull.log if pull else queue_log
+            log.info("rate limited", remaining_seconds=e.countdown)
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             e.pull.log.warning(
                 "pull request with mergeable_state unknown retrying later",
