@@ -215,7 +215,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
     if name in previous_conclusions:
         return previous_conclusions[name]
     # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
-    # synchrnozation event issue is fixed
+    # synchronization event issue is fixed
     elif name in checks:
         return checks[name].conclusion
     return "neutral"
@@ -235,16 +235,22 @@ def run_actions(
     - ("cancelled", "<title>", "<summary>")
     """
 
+    user_refresh_requested = any(
+        [source["event_type"] == "refresh" for source in sources]
+    )
+    forced_refresh_requested = any(
+        [
+            (source["event_type"] == "refresh" and source["data"]["action"] == "forced")
+            for source in sources
+        ]
+    )
+
     actions_ran = set()
     conclusions = {}
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action, action_obj in rule["actions"].items():
             check_name = "Rule: %s (%s)" % (rule["name"], action)
-
-            previous_conclusion = get_previous_conclusion(
-                previous_conclusions, check_name, checks
-            )
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
@@ -260,20 +266,29 @@ def run_actions(
             if (
                 previous_conclusions.get("deprecated_summary", False)
                 and action == "comment"
+                and action_obj.deprecated_double_comment_protection(pull)
             ):
-                deprecated_done_in_the_past = action_obj.deprecated_already_done_protection(
-                    pull
-                )
+                previous_conclusion = "success"
             else:
-                deprecated_done_in_the_past = None
+                previous_conclusion = get_previous_conclusion(
+                    previous_conclusions, check_name, checks
+                )
 
-            done_in_the_past = not action_obj.always_run and (
-                previous_conclusion in expected_conclusions
-                or deprecated_done_in_the_past
+            need_to_be_run = (
+                action_obj.always_run
+                or forced_refresh_requested
+                or (user_refresh_requested and previous_conclusion == "failure")
+                or previous_conclusion not in expected_conclusions
             )
 
-            if done_in_the_past:
-                report = None
+            # TODO(sileht): refactor it to store the whole report in the check summary,
+            # not just the conclusions
+
+            silent_report = action_obj.silent_report
+
+            if not need_to_be_run:
+                silent_report = True
+                report = (previous_conclusion, "Already in expected state", "")
                 message = "ignored, already in expected state: %s/%s" % (
                     method_name,
                     previous_conclusion,
@@ -298,7 +313,7 @@ def run_actions(
             if report:
                 conclusion, title, summary = report
                 status = "completed" if conclusion else "in_progress"
-                if not action_obj.silent_report:
+                if not silent_report:
                     try:
                         check_api.set_check_run(
                             pull.g_pull,

@@ -26,7 +26,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 @app.task
-def job_refresh(owner, repo, kind, ref=None):
+def job_refresh(owner, repo, kind, ref=None, action="user"):
     LOG.info("job refresh", kind=kind, ref=ref, gh_owner=owner, gh_repo=repo)
 
     integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
@@ -59,6 +59,7 @@ def job_refresh(owner, repo, kind, ref=None):
     for p in pulls:
         # Mimic the github event format
         data = {
+            "action": action,
             "repository": r.raw_data,
             "installation": {"id": installation_id},
             "pull_request": p.raw_data,
