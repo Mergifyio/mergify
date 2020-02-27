@@ -34,6 +34,8 @@ class ReviewAction(actions.Action):
         voluptuous.Required("message", default=None): voluptuous.Any(None, str),
     }
 
+    silent_report = True
+
     def run(self, pull, sources, missing_conditions):
         payload = {"event": self.config["type"]}
         body = self.config["message"]
@@ -56,7 +58,7 @@ class ReviewAction(actions.Action):
                 and review.state == EVENT_STATE_MAP[self.config["type"]]
             ):
                 # Already posted
-                return
+                return ("success", "Review already posted", "")
 
             elif (
                 self.config["type"] == "REQUEST_CHANGES" and review.state == "APPROVED"
@@ -73,3 +75,5 @@ class ReviewAction(actions.Action):
         pull.g_pull._requester.requestJsonAndCheck(
             "POST", pull.g_pull.url + "/reviews", input=payload
         )
+
+        return ("success", "Review posted", "")
