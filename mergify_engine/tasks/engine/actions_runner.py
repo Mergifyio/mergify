@@ -235,16 +235,13 @@ def run_actions(
     - ("cancelled", "<title>", "<summary>")
     """
 
+    refresh_requested = any([source["event_type"] == "refresh" for source in sources])
     actions_ran = set()
     conclusions = {}
     # Run actions
     for rule, missing_conditions in match.matching_rules:
         for action, action_obj in rule["actions"].items():
             check_name = "Rule: %s (%s)" % (rule["name"], action)
-
-            previous_conclusion = get_previous_conclusion(
-                previous_conclusions, check_name, checks
-            )
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
@@ -260,19 +257,21 @@ def run_actions(
             if (
                 previous_conclusions.get("deprecated_summary", False)
                 and action == "comment"
+                and action_obj.deprecated_double_comment_protection(pull)
             ):
-                deprecated_done_in_the_past = action_obj.deprecated_already_done_protection(
-                    pull
-                )
+                previous_conclusion = "success"
             else:
-                deprecated_done_in_the_past = None
+                previous_conclusion = get_previous_conclusion(
+                    previous_conclusions, check_name, checks
+                )
 
-            done_in_the_past = not action_obj.always_run and (
-                previous_conclusion in expected_conclusions
-                or deprecated_done_in_the_past
+            need_to_be_run = (
+                action_obj.always_run
+                or (refresh_requested and previous_conclusion == "failure")
+                or previous_conclusion not in expected_conclusions
             )
 
-            if done_in_the_past:
+            if not need_to_be_run:
                 report = None
                 message = "ignored, already in expected state: %s/%s" % (
                     method_name,
