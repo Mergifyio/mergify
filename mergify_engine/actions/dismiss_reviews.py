@@ -57,27 +57,36 @@ class DismissReviewsAction(actions.Action):
             # This is only true for method="rebase"
             redis = utils.get_redis_for_cache()
             if redis.get("branch-update-%s" % pull.head_sha):
-                return
+                return ("success", "Rebased/Updated by us, nothing to do", "")
 
+            errors = set()
             for review in pull.to_dict()["_approvals"]:
                 conf = self.config.get(review.state.lower(), False)
                 if conf and (conf is True or review.user.login in conf):
-                    self._dismissal_review(pull, review)
+                    try:
+                        self._dismissal_review(pull, review)
+                    except github.GithubException as e:  # pragma: no cover
+                        if e.status >= 500:
+                            raise
+                        errors.add(
+                            f"GitHub error: [{e.status_code}] `{e.data['message']}`"
+                        )
+
+            if errors:
+                return (None, "Unable to dismiss review", "\n".join(errors))
+            else:
+                return ("success", "Review dismissed", "")
+        else:
+            return (
+                "success",
+                "Nothing to do, pull request have not been synchronized",
+                "",
+            )
 
     def _dismissal_review(self, pull, review):
-        try:
-            review._requester.requestJsonAndCheck(
-                "PUT",
-                "%s/reviews/%s/dismissals" % (review.pull_request_url, review.id),
-                input={"message": self.config["message"]},
-                headers={"Accept": "application/vnd.github.machine-man-preview+json"},
-            )
-        except github.GithubException as e:  # pragma: no cover
-            if e.status >= 500:
-                raise
-            return (
-                None,
-                "Unable to dismiss review",
-                f"GitHub error: [{e.status_code}] `{e.data['message']}`",
-            )
-        return ("success", "Review dismissed", "")
+        review._requester.requestJsonAndCheck(
+            "PUT",
+            "%s/reviews/%s/dismissals" % (review.pull_request_url, review.id),
+            input={"message": self.config["message"]},
+            headers={"Accept": "application/vnd.github.machine-man-preview+json"},
+        )
