@@ -73,10 +73,11 @@ class DismissReviewsAction(actions.Action):
                 headers={"Accept": "application/vnd.github.machine-man-preview+json"},
             )
         except github.GithubException as e:  # pragma: no cover
-            server_message = e.data.get("message")
+            if e.status >= 500:
+                raise
             return (
                 None,
                 "Unable to dismiss review",
-                f"GitHub error: [{e.status_code}] `{server_message}`",
+                f"GitHub error: [{e.status_code}] `{e.data['message']}`",
             )
         return ("success", "Review dismissed", "")
