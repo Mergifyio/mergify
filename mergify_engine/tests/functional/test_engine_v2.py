@@ -17,7 +17,6 @@ import logging
 import time
 from unittest import mock
 
-import requests.exceptions
 import yaml
 
 from mergify_engine import check_api
@@ -609,10 +608,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.wait_for("pull_request", {"action": "closed"}),
 
-        try:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
-        except requests.ConnectionError:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
@@ -660,10 +656,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.wait_for("pull_request", {"action": "closed"})
 
-        try:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
-        except requests.ConnectionError:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
@@ -712,10 +705,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.wait_for("pull_request", {"action": "closed"})
 
-        try:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
-        except requests.ConnectionError:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
@@ -796,11 +786,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.merge()
         self.wait_for("pull_request", {"action": "closed"})
 
-        try:
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
-        except requests.exceptions.ConnectionError:
-            # Please don't ask me why this call always fail..
-            previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
 
@@ -1371,11 +1357,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("issue_comment", {"action": "created"})
 
-        try:
-            pulls = list(self.r_o_admin.get_pulls(state="all"))
-        except Exception:
-            # NOTE(sileht): Don't ask me, and thx Github
-            pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
         self.assertEqual(3, len(pulls))
 
     def test_truncated_check_output(self):
