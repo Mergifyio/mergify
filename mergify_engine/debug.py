@@ -124,9 +124,7 @@ def report(url):
 
     installation_token = integration.get_access_token(install_id).token
 
-    g = github.Github(
-        installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
-    )
+    g = utils.Github(installation_token)
     r = g.get_repo(owner + "/" + repo)
     print("* REPOSITORY IS %s" % "PRIVATE" if r.private else "PUBLIC")
 

@@ -44,7 +44,7 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
         return
 
     token = integration.get_access_token(installation_id).token
-    g = github.Github(token, base_url="https://api.%s" % config.GITHUB_DOMAIN)
+    g = utils.Github(token)
     r = g.get_repo("%s/%s" % (owner, repo))
 
     if kind == "repo":

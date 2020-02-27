@@ -32,6 +32,7 @@ import requests
 from billiard import current_process
 
 from mergify_engine import config
+from mergify_engine import exceptions
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -280,3 +281,16 @@ def ignore_client_side_error():
         if 400 <= e.status < 500:
             return
         raise
+
+
+RATE_LIMIT_THRESHOLD = 20
+
+
+def Github(*args, **kwargs):
+    kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
+    g = github.Github(*args, **kwargs)
+    rate = g.get_rate_limit().core
+    if rate.remaining < RATE_LIMIT_THRESHOLD:
+        delta = rate.reset - datetime.datetime.utcnow()
+        raise exceptions.RateLimited(delta.total_seconds())
+    return g

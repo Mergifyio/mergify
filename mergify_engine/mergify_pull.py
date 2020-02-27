@@ -22,9 +22,9 @@ import github
 import tenacity
 
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
+from mergify_engine import utils
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
@@ -63,9 +63,7 @@ class MergifyPull(object):
 
     @classmethod
     def from_raw(cls, installation_id, installation_token, pull_raw):
-        g = github.Github(
-            installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
-        )
+        g = utils.Github(installation_token)
         pull = github.PullRequest.PullRequest(
             g._Github__requester, {}, pull_raw, completed=True
         )
@@ -75,9 +73,7 @@ class MergifyPull(object):
     def from_number(
         cls, installation_id, installation_token, owner, reponame, pull_number
     ):
-        g = github.Github(
-            installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
-        )
+        g = utils.Github(installation_token)
         repo = g.get_repo(owner + "/" + reponame)
         pull = repo.get_pull(pull_number)
         return cls(g, pull, installation_id, installation_token)
