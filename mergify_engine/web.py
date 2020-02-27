@@ -111,10 +111,14 @@ def refresh_repo(owner, repo):
     return "Refresh queued", 202
 
 
+RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
+
+
 @app.route("/refresh/<owner>/<repo>/pull/<int:pull>", methods=["POST"])
 def refresh_pull(owner, repo, pull):
     authentification()
-    mergify_events.job_refresh.delay(owner, repo, "pull", pull)
+    action = RefreshActionSchema(flask.request.args.get("action", "user"))
+    mergify_events.job_refresh.delay(owner, repo, "pull", pull, action=action)
     return "Refresh queued", 202
 
 
