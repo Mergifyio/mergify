@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib3
 
 import celery.app.log
 import daiquiri
@@ -284,10 +285,25 @@ def ignore_client_side_error():
 
 
 RATE_LIMIT_THRESHOLD = 20
+FATAL_RETRY = 5
+FATAL_BACKOFF = 0.2
+FATAL_STATUSES = list(range(500, 599)) + [429]
+METHOD_WHITELIST = ["HEAD", "TRACE", "GET", "PUT", "OPTIONS", "DELETE", "POST", "PATCH"]
 
 
 def Github(*args, **kwargs):
     kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
+    kwargs["retry"] = urllib3.Retry(
+        total=None,
+        redirect=3,
+        connect=FATAL_RETRY,
+        read=FATAL_RETRY,
+        status=FATAL_RETRY,
+        backoff_factor=FATAL_BACKOFF,
+        status_forcelist=FATAL_STATUSES,
+        method_whitelist=METHOD_WHITELIST,
+        raise_on_status=False,
+    )
     g = github.Github(*args, **kwargs)
     rate = g.get_rate_limit().core
     if rate.remaining < RATE_LIMIT_THRESHOLD:
