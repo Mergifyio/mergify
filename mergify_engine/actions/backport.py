@@ -22,6 +22,7 @@ class BackportAction(copy.CopyAction):
 
     KIND = "backport"
     SUCCESS_MESSAGE = "Backports have been created"
+    FAILURE_MESSAGE = "No backport have been created"
 
     @staticmethod
     def command_to_config(string):

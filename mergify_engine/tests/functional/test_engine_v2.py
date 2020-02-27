@@ -483,6 +483,39 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
+    def test_backport_no_branch(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "actions": {"merge": {"method": "merge", "rebase_fallback": None}},
+                },
+                {
+                    "name": "Backport",
+                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "actions": {"backport": {"branches": ["crashme"]}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules), test_branches=[])
+
+        p, commits = self.create_pr(two_commits=True)
+
+        self.add_label(p, "backport-#3.1")
+        self.wait_for("pull_request", {"action": "closed"})
+
+        checks = list(
+            check_api.get_checks(p, {"check_name": "Rule: Backport (backport)"})
+        )
+        assert "failure" == checks[0].conclusion
+        assert "No backport have been created" == checks[0].output["title"]
+        assert (
+            "* backport to branch `crashme` has failed: Branch not found" % ()
+            == checks[0].output["summary"]
+        )
+
     def _do_test_backport(self, method, config=None):
         rules = {
             "pull_request_rules": [
@@ -513,6 +546,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual(True, pulls[1].merged)
         self.assertEqual("closed", pulls[1].state)
         self.assertEqual(False, pulls[0].merged)
+
+        checks = list(
+            check_api.get_checks(
+                p, {"check_name": "Rule: Backport to stable/#3.1 (backport)"}
+            )
+        )
+        assert "success" == checks[0].conclusion
+        assert "Backports have been created" == checks[0].output["title"]
+        assert (
+            "* [#%d %s](%s) has been created for branch `stable/#3.1`"
+            % (pulls[0].number, pulls[0].title, pulls[0].html_url,)
+            == checks[0].output["summary"]
+        )
 
         self.assertEqual(
             ["mergify/bp/stable/#3.1/pr-1"],
