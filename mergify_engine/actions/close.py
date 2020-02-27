@@ -28,16 +28,20 @@ class CloseAction(actions.Action):
 
     def run(self, pull, sources, missing_conditions):
         if pull.state == "close":
-            return
+            return ("success", "Pull request is already closed", "")
 
         try:
             pull.g_pull.edit(state="close")
         except github.GithubException as e:  # pragma: no cover
+            if e.status >= 500:
+                raise
             return ("failure", "Pull request can't be closed", e.data["message"])
 
         try:
             pull.g_pull.create_issue_comment(self.config["message"])
         except github.GithubException as e:  # pragma: no cover
+            if e.status >= 500:
+                raise
             return ("failure", "The close message can't be created", e.data["message"])
 
         return ("success", "The pull request has been closed", self.config["message"])
