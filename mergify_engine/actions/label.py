@@ -28,6 +28,8 @@ class LabelAction(actions.Action):
         voluptuous.Required("remove", default=[]): [str],
     }
 
+    silent_report = True
+
     def run(self, pull, sources, missing_conditions):
         all_label = [l.name for l in pull.g_pull.base.repo.get_labels()]
         for label in self.config["add"]:
@@ -43,3 +45,5 @@ class LabelAction(actions.Action):
             if label in pull_labels:
                 with utils.ignore_client_side_error():
                     pull.g_pull.remove_from_labels(label)
+
+        return ("success", "Labels added/removed", "")
