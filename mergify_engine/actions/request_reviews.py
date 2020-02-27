@@ -45,7 +45,7 @@ class RequestReviewsAction(actions.Action):
                 return (
                     None,
                     "Unable to create review request",
-                    f"GitHub error: [{e.status_code}] `{e.data['message']}`",
+                    f"GitHub error: [{e.status}] `{e.data['message']}`",
                 )
             return ("success", "New reviews requested", "")
         else:
