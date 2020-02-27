@@ -511,7 +511,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert "failure" == checks[0].conclusion
         assert "No backport have been created" == checks[0].output["title"]
         assert (
-            "* backport to branch `crashme` has failed: Branch not found" % ()
+            "* Backport to branch `crashme` failed: Branch not found" % ()
             == checks[0].output["summary"]
         )
 
