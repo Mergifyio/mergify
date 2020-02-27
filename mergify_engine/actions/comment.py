@@ -26,7 +26,7 @@ class CommentAction(actions.Action):
 
     silent_report = True
 
-    def deprecated_already_done_protection(self, pull):
+    def deprecated_double_comment_protection(self, pull):
         # TODO(sileht): drop this in 2 months (February 2020)
         for comment in pull.g_pull.get_issue_comments():
             if (
