@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 
+
 EVENT_STATE_MAP = {
     "APPROVE": "APPROVED",
     "REQUEST_CHANGES": "CHANGES_REQUESTED",

@@ -14,11 +14,12 @@
 
 import base64
 
+from datadog import statsd
 import yaml
 
-from datadog import statsd
 from mergify_engine import check_api
 from mergify_engine import doc
+
 
 PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
 

@@ -19,4 +19,5 @@ from unittest import mock
 
 from datadog import statsd
 
+
 statsd.socket = mock.Mock()

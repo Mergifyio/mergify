@@ -17,4 +17,5 @@
 from mergify_engine import utils
 from mergify_engine.web import app as application  # noqa
 
+
 utils.setup_logging()

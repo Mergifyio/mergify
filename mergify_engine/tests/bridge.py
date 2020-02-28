@@ -25,6 +25,7 @@ import requests
 from mergify_engine import config
 from mergify_engine import utils
 
+
 LOG = logging.getLogger(__name__)
 
 

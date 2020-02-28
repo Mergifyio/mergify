@@ -14,13 +14,14 @@
 import os
 
 import celery
-import daiquiri
 from celery import signals
-
+import daiquiri
 from datadog import statsd
+
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import utils
+
 
 LOG = daiquiri.getLogger(__name__)
 

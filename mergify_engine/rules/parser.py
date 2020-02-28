@@ -15,6 +15,7 @@
 # under the License.
 import pyparsing
 
+
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
 github_login = pyparsing.CharsNotIn(" /@")

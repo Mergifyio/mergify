@@ -14,15 +14,16 @@
 
 import re
 
+from datadog import statsd
 import github
 import voluptuous
 
-from datadog import statsd
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import utils
 from mergify_engine.worker import app
+
 
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")

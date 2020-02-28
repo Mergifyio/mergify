@@ -4,6 +4,7 @@
 
 from _thread import RLock  # noqa
 
+
 _NOT_FOUND = object()
 
 

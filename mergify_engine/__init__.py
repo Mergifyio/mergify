@@ -22,6 +22,7 @@ from sentry_sdk.integrations.redis import RedisIntegration
 from mergify_engine import config
 from mergify_engine import exceptions
 
+
 LOG = daiquiri.getLogger(__name__)
 
 
