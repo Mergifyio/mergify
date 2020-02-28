@@ -81,6 +81,9 @@ Schema = voluptuous.Schema(
         # Mergify
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
+        voluptuous.Required(
+            "HTTP_CACHE_URL", default="redis://localhost:6379?db=7"
+        ): str,
         voluptuous.Required("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required(
             "CELERY_BROKER_URL", default="redis://localhost:6379/9"
