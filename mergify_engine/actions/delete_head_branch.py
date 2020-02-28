@@ -75,6 +75,3 @@ class DeleteHeadBranchAction(actions.Action):
             % pull.head_ref,
             "",
         )
-
-    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
-        return self.cancelled_check_report
