@@ -27,6 +27,7 @@ import urllib3
 
 import celery.app.log
 import daiquiri
+from datadog import statsd
 import github
 import redis
 import requests
@@ -308,5 +309,6 @@ def Github(*args, **kwargs):
     rate = g.get_rate_limit().core
     if rate.remaining < RATE_LIMIT_THRESHOLD:
         delta = rate.reset - datetime.datetime.utcnow()
+        statsd.increment("engine.rate_limited")
         raise exceptions.RateLimited(delta.total_seconds())
     return g
