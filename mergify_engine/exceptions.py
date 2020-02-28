@@ -44,7 +44,9 @@ def need_retry(exception):  # pragma: no cover
         or isinstance(exception, requests.exceptions.Timeout)
         or isinstance(exception, requests.exceptions.TooManyRedirects)
     ):
-        return BASE_RETRY_TIMEOUT
+        # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
+        # is in a really bad shape...
+        return BASE_RETRY_TIMEOUT * 5
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
