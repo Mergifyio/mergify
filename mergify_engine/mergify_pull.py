@@ -26,6 +26,7 @@ from mergify_engine import exceptions
 from mergify_engine import functools_bp
 from mergify_engine import utils
 
+
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 

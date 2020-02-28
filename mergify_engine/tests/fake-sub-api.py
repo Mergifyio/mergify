@@ -18,6 +18,7 @@ import logging
 
 import flask
 
+
 LOG = logging.getLogger(__name__)
 
 app = flask.Flask(__name__, static_url_path="")

@@ -22,6 +22,7 @@ from mergify_engine import utils
 from mergify_engine.tasks import github_events
 from mergify_engine.worker import app
 
+
 LOG = daiquiri.getLogger(__name__)
 
 

@@ -20,6 +20,7 @@ import attr
 import pkg_resources
 import voluptuous
 
+
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES = None
 

@@ -18,13 +18,14 @@ import json
 import os
 
 import cryptography
-import daiquiri
-import requests
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
+import daiquiri
+import requests
 
 from mergify_engine import config
+
 
 LOG = daiquiri.getLogger(__name__)
 

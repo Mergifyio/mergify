@@ -40,6 +40,7 @@ from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
 
+
 LOG = daiquiri.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"

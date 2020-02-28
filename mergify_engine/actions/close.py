@@ -19,6 +19,7 @@ import voluptuous
 
 from mergify_engine import actions
 
+
 MSG = "This pull request has been automatically closed by Mergify."
 
 

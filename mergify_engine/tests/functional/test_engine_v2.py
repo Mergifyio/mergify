@@ -26,6 +26,7 @@ from mergify_engine import mergify_pull
 from mergify_engine.tasks import engine
 from mergify_engine.tests.functional import base
 
+
 LOG = logging.getLogger(__name__)
 
 

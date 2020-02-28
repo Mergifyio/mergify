@@ -21,6 +21,7 @@ from mergify_engine import actions
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
+
 BRANCH_PROTECTION_FAQ_URL = (
     "https://doc.mergify.io/faq.html#"
     "mergify-is-unable-to-merge-my-pull-request-due-to-"

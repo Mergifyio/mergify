@@ -11,10 +11,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import pkg_resources
-
 import daiquiri
 import github
+import pkg_resources
 import yaml
 
 from mergify_engine import check_api
@@ -25,6 +24,7 @@ from mergify_engine import utils
 from mergify_engine.tasks.engine import actions_runner
 from mergify_engine.tasks.engine import commands_runner
 from mergify_engine.worker import app
+
 
 LOG = daiquiri.getLogger(__name__)
 

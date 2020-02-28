@@ -23,18 +23,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib3
 
+from billiard import current_process
 import celery.app.log
 import daiquiri
 from datadog import statsd
 import github
 import redis
 import requests
-from billiard import current_process
+import urllib3
 
 from mergify_engine import config
 from mergify_engine import exceptions
+
 
 LOG = daiquiri.getLogger(__name__)
 
