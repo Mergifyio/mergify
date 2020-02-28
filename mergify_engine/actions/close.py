@@ -45,6 +45,3 @@ class CloseAction(actions.Action):
             return ("failure", "The close message can't be created", e.data["message"])
 
         return ("success", "The pull request has been closed", self.config["message"])
-
-    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
-        return self.cancelled_check_report

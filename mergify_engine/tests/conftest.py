@@ -14,7 +14,7 @@ def logger_checker(request, caplog):
     yield
     for when in ("setup", "call", "teardown"):
         assert [] == [
-            rec.message
+            rec.getMessage()
             for rec in caplog.get_records(when)
             if rec.levelname in ("CRITICAL", "ERROR")
         ]

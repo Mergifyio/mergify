@@ -137,6 +137,3 @@ class CopyAction(actions.Action):
         )
         if pulls:
             return pulls[-1]
-
-    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
-        return self.cancelled_check_report
