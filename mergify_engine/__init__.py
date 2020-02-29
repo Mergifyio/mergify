@@ -100,12 +100,18 @@ def cached_session_init(self, *args, **kwargs):
     real_session_init(self, *args, **kwargs)
 
     if config.HTTP_CACHE_URL:
-        github_adapter = CustomCacheControlAdapter(
+        adapter = CustomCacheControlAdapter(
             max_retries=RETRY, cache=RedisCache(utils.get_redis_for_http_cache())
         )
     else:
-        github_adapter = requests.adapters.HTTPAdapter(max_retries=RETRY)
-    self.mount(f"https://api.{config.GITHUB_DOMAIN}", github_adapter)
+        adapter = requests.adapters.HTTPAdapter(max_retries=RETRY)
+
+    self.mount(f"https://api.{config.GITHUB_DOMAIN}", adapter)
+    self.mount(config.SUBSCRIPTION_URL, adapter)
+    if config.WEBHOOK_APP_FORWARD_URL:
+        self.mount(config.WEBHOOK_APP_FORWARD_URL, adapter)
+    if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
+        self.mount(config.WEBHOOK_MARKETPLACE_FORWARD_URL, adapter)
 
 
 requests.sessions.Session.__init__ = cached_session_init
