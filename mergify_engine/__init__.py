@@ -12,15 +12,22 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import re
+
+import cachecontrol
+from cachecontrol.caches import RedisCache
 import celery.exceptions
 import daiquiri
+import requests
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
+import urllib3
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -48,3 +55,63 @@ if config.SENTRY_URL:  # pragma: no cover
         before_send=fixup_sentry_reporting,
         integrations=[CeleryIntegration(), FlaskIntegration(), RedisIntegration()],
     )
+
+
+RETRY = urllib3.Retry(
+    total=None,
+    redirect=3,
+    connect=5,
+    read=5,
+    status=5,
+    backoff_factor=0.2,
+    status_forcelist=list(range(500, 599)) + [429],
+    method_whitelist=[
+        "HEAD",
+        "TRACE",
+        "GET",
+        "PUT",
+        "OPTIONS",
+        "DELETE",
+        "POST",
+        "PATCH",
+    ],
+    raise_on_status=False,
+)
+
+
+SINGLE_PULL_API_RE = re.compile(
+    f"^https://api.{config.GITHUB_DOMAIN}:443/repos/[^/]+/[^/]+/pulls/\\d+$"
+)
+
+real_session_init = requests.sessions.Session.__init__
+
+
+class CustomCacheControlAdapter(cachecontrol.CacheControlAdapter):
+    def send(self, request, *args, **kwargs):
+        # NOTE(sileht): never ever cache get_pull(), we need mergeable_state
+        # up2date and when it changes etag is not updated...
+        if SINGLE_PULL_API_RE.match(request.url):
+            cache_url = self.controller.cache_url(request.url)
+            self.cache.delete(cache_url)
+        return super().send(request, *args, **kwargs)
+
+
+def cached_session_init(self, *args, **kwargs):
+    real_session_init(self, *args, **kwargs)
+
+    if config.HTTP_CACHE_URL:
+        adapter = CustomCacheControlAdapter(
+            max_retries=RETRY, cache=RedisCache(utils.get_redis_for_http_cache())
+        )
+    else:
+        adapter = requests.adapters.HTTPAdapter(max_retries=RETRY)
+
+    self.mount(f"https://api.{config.GITHUB_DOMAIN}", adapter)
+    self.mount(config.SUBSCRIPTION_URL, adapter)
+    if config.WEBHOOK_APP_FORWARD_URL:
+        self.mount(config.WEBHOOK_APP_FORWARD_URL, adapter)
+    if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
+        self.mount(config.WEBHOOK_MARKETPLACE_FORWARD_URL, adapter)
+
+
+requests.sessions.Session.__init__ = cached_session_init
