@@ -31,7 +31,6 @@ from datadog import statsd
 import github
 import redis
 import requests
-import urllib3
 
 from mergify_engine import config
 from mergify_engine import exceptions
@@ -53,6 +52,19 @@ def get_redis_for_cache():
         p = current_process()
         REDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
     return REDIS_CONNECTION_CACHE
+
+
+global REDIS_CONNECTION_HTTP_CACHE
+REDIS_CONNECTION_HTTP_CACHE = None
+
+
+def get_redis_for_http_cache():
+    global REDIS_CONNECTION_HTTP_CACHE
+    if REDIS_CONNECTION_HTTP_CACHE is None:
+        REDIS_CONNECTION_HTTP_CACHE = redis.StrictRedis.from_url(config.HTTP_CACHE_URL)
+        p = current_process()
+        REDIS_CONNECTION_HTTP_CACHE.client_setname("http-cache:%s" % p.name)
+    return REDIS_CONNECTION_HTTP_CACHE
 
 
 def utcnow():
@@ -287,25 +299,10 @@ def ignore_client_side_error():
 
 
 RATE_LIMIT_THRESHOLD = 20
-FATAL_RETRY = 5
-FATAL_BACKOFF = 0.2
-FATAL_STATUSES = list(range(500, 599)) + [429]
-METHOD_WHITELIST = ["HEAD", "TRACE", "GET", "PUT", "OPTIONS", "DELETE", "POST", "PATCH"]
 
 
 def Github(*args, **kwargs):
     kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
-    kwargs["retry"] = urllib3.Retry(
-        total=None,
-        redirect=3,
-        connect=FATAL_RETRY,
-        read=FATAL_RETRY,
-        status=FATAL_RETRY,
-        backoff_factor=FATAL_BACKOFF,
-        status_forcelist=FATAL_STATUSES,
-        method_whitelist=METHOD_WHITELIST,
-        raise_on_status=False,
-    )
     g = github.Github(*args, **kwargs)
     rate = g.get_rate_limit().core
     if rate.remaining < RATE_LIMIT_THRESHOLD:
