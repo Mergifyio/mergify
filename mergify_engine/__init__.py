@@ -13,11 +13,13 @@
 # under the License.
 
 import re
+from urllib import parse
 
 import cachecontrol
 from cachecontrol.caches import RedisCache
 import celery.exceptions
 import daiquiri
+from datadog import statsd
 import requests
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -93,7 +95,13 @@ class CustomCacheControlAdapter(cachecontrol.CacheControlAdapter):
         if SINGLE_PULL_API_RE.match(request.url):
             cache_url = self.controller.cache_url(request.url)
             self.cache.delete(cache_url)
-        return super().send(request, *args, **kwargs)
+        resp = super().send(request, *args, **kwargs)
+        hostname = parse.urlsplit(request.url).hostname
+        if getattr(resp, "from_cache", False):
+            statsd.increment("engine.http_client_cache.hit", tags=[f"to:{hostname}"])
+        else:
+            statsd.increment("engine.http_client_cache.miss", tags=[f"to:{hostname}"])
+        return resp
 
 
 def cached_session_init(self, *args, **kwargs):
