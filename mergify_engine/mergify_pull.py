@@ -182,11 +182,9 @@ class MergifyPull(object):
         for status in github.PaginatedList.PaginatedList(
             github.CommitStatus.CommitStatus,
             self.g_pull._requester,
-            self.g_pull.base.repo.url
-            + "/commits/"
-            + self.g_pull.head.sha
-            + "/statuses",
+            self.g_pull.base.repo.url + "/commits/" + self.g_pull.head.sha + "/status",
             None,
+            list_item="statuses",
         ):
             if status.context not in already_seen:
                 already_seen.add(status.context)
