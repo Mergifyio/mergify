@@ -1395,6 +1395,30 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "issue_comment", {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
+    def test_command_update(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "auto-rebase-on-conflict",
+                    "conditions": ["conflict"],
+                    "actions": {"comment": {"message": "nothing"}},
+                }
+            ]
+        }
+        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
+        p1, _ = self.create_pr(files={"TESTING2": "foobar"})
+        p2, _ = self.create_pr(files={"TESTING3": "foobar"})
+        p1.merge()
+
+        self.wait_for("pull_request", {"action": "closed"})
+
+        self.create_message(p2, "@mergifyio update")
+
+        oldsha = p2.head.sha
+        p2.update()
+        assert p2.commits == 2
+        assert oldsha != p2.head.sha
+
     def test_command_rebase_ok(self):
         rules = {
             "pull_request_rules": [
