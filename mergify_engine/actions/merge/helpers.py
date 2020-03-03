@@ -38,7 +38,7 @@ def merge_report(pull, strict):
 
     # NOTE(sileht): Take care of all branch protection state
     elif pull.mergeable_state == "dirty":
-        conclusion = None
+        conclusion = "failure"
         title = "Merge conflict needs to be solved"
         summary = ""
     elif pull.mergeable_state == "unknown":
