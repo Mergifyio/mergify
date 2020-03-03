@@ -16,3 +16,9 @@ instances:
      - mergify
    tags:
      - role:celery
+
+ - host: <HTTPCACHE HOST>
+   port: <HTTPCACHE PORT>
+   password: <HTTPCACHE PASSWORD>
+   tags:
+     - role:httpcache

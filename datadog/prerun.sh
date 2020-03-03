@@ -101,6 +101,14 @@ if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
     fi
 fi
 
+if [ -n "$MERGIFYENGINE_HTTP_CACHE_URL" ]; then
+    if [[ $MERGIFYENGINE_HTTP_CACHE_URL =~ $REDIS_REGEX ]]; then
+        sed -i "s/<HTTPCACHE HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<HTTPCACHE PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<HTTPCACHE PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+    fi
+fi
+
 # Workaround for https://github.com/DataDog/heroku-buildpack-datadog/issues/155
 # When datadog.sh is called it will copy the example and project confd, and
 # overwrite our conf
