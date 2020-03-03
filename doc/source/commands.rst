@@ -30,6 +30,22 @@ rebase
   * - Example
     - ``@Mergifyio rebase``
 
+.. _update command:
+
+update
+======
+
+   Runs the :ref:`update action` action.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio update``
+  * - Example
+    - ``@Mergifyio update``
+
 .. _backport command:
 
 backport

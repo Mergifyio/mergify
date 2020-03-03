@@ -606,6 +606,12 @@ class FunctionalTestBase(testtools.TestCase):
         self.wait_for("pull_request_review", {"action": "submitted"})
         return r
 
+    def create_message(self, pr, message):
+        pr_review = self.r_o_admin.get_pull(pr.number)
+        comment = pr_review.create_issue_comment(message)
+        self.wait_for("issue_comment", {"action": "created"})
+        return comment
+
     def add_label(self, pr, label):
         self.r_o_admin.create_label(label, "000000")
         pr.add_to_labels(label)

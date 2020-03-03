@@ -28,7 +28,7 @@ The ``assign`` action assigns users to the pull request.
      - Value Description
    * - ``users``
      - array of string
-     - 
+     -
      - The users to assign to the pull request.
 
 
@@ -125,7 +125,7 @@ The ``comment`` action adds a comment to the pull request.
      - Value Description
    * - ``message``
      - string
-     - 
+     -
      - The message to write as a comment.
 
 
@@ -150,7 +150,7 @@ The ``review`` action reviews the pull request.
      - The kind of review, can be ``APPROVE``, ``REQUEST_CHANGES``, ``COMMENT``
    * - ``message``
      - string
-     - 
+     -
      - The message to write as a comment.
 
 
@@ -360,11 +360,11 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - Value Description
   * - ``users``
     - array of string
-    - 
+    -
     - The username to request reviews from.
   * - ``teams``
     - array of string
-    - 
+    -
     - The team name to request reviews from.
 
 .. _rebase action:
@@ -378,3 +378,10 @@ The ``rebase`` action will rebase the pull request against its base branch.
 
    Be aware that rebasing force-pushes the pull request head branch: any change
    done to the that branch while Mergify is rebasing will be lost.
+
+.. _update action:
+
+update
+======
+
+The ``update`` action updates the pull request against its base branch.
