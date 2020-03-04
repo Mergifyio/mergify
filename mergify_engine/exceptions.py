@@ -26,12 +26,15 @@ class MergeableStateUnknown(Exception):
         self.pull = pull
 
 
+RATE_LIMIT_RETRY_MIN = 3
 BASE_RETRY_TIMEOUT = 60
 
 
 def need_retry(exception):  # pragma: no cover
     if isinstance(exception, RateLimited):
-        return exception.countdown
+        # NOTE(sileht): when we are close to reset date, and since utc time between us and
+        # github differ a bit, we can have negative delta, so set a minimun for retrying
+        return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
     elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
     elif (
