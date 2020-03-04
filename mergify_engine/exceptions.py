@@ -17,8 +17,9 @@ import requests
 
 
 class RateLimited(Exception):
-    def __init__(self, countdown):
+    def __init__(self, countdown, raw_data):
         self.countdown = countdown
+        self.raw_data = raw_data
 
 
 class MergeableStateUnknown(Exception):

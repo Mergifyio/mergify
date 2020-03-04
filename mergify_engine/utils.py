@@ -304,9 +304,9 @@ RATE_LIMIT_THRESHOLD = 20
 def Github(*args, **kwargs):
     kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
     g = github.Github(*args, **kwargs)
-    rate = g.get_rate_limit().core
-    if rate.remaining < RATE_LIMIT_THRESHOLD:
-        delta = rate.reset - datetime.datetime.utcnow()
+    rate = g.get_rate_limit()
+    if rate.core.remaining < RATE_LIMIT_THRESHOLD:
+        delta = rate.core.reset - datetime.datetime.utcnow()
         statsd.increment("engine.rate_limited")
-        raise exceptions.RateLimited(delta.total_seconds())
+        raise exceptions.RateLimited(delta.total_seconds(), rate.raw_data)
     return g
