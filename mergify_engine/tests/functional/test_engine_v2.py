@@ -679,6 +679,58 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p = self._do_test_backport("rebase")
         self.assertEquals(2, p.commits)
 
+    def test_merge_squash(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": ["base=master", "label=squash"],
+                    "actions": {"merge": {"method": "squash"}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr(files={"foo": "bar"})
+        p2, _ = self.create_pr(two_commits=True)
+        p1.merge()
+
+        self.add_label(p2, "squash")
+
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p2.update()
+        self.assertEqual(2, p2.commits)
+        self.assertEqual(True, p2.merged)
+
+    def test_merge_strict_squash(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": ["base=master", "label=squash"],
+                    "actions": {"merge": {"strict": "smart", "method": "squash"}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr(files={"foo": "bar"})
+        p2, _ = self.create_pr(two_commits=True)
+        p1.merge()
+
+        self.add_label(p2, "squash")
+
+        run_smart_strict_workflow_periodic_task()
+
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p2.update()
+        self.assertEqual(3, p2.commits)
+        self.assertEqual(True, p2.merged)
+
     def test_merge_strict_rebase(self):
         rules = {
             "pull_request_rules": [
