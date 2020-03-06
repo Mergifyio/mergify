@@ -136,12 +136,15 @@ def get_destination_branch_name(pull, branch, kind):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
-def duplicate(pull, branch, ignore_conflicts=False, kind=BACKPORT):
+def duplicate(
+    pull, branch, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
+):
     """Duplicate a pull request.
 
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.mergify_pull.MergifyPull
     :param branch: The branch to copy to.
+    :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param kind: is a backport or a copy
     """
@@ -229,7 +232,7 @@ def duplicate(pull, branch, ignore_conflicts=False, kind=BACKPORT):
         )
 
     try:
-        return repo.create_pull(
+        pr = repo.create_pull(
             title="{} ({} #{})".format(
                 pull.title, BRANCH_PREFIX_MAP[kind], pull.number
             ),
@@ -241,3 +244,8 @@ def duplicate(pull, branch, ignore_conflicts=False, kind=BACKPORT):
         if e.status == 422 and "No commits between" in e.data["message"]:
             return
         raise
+
+    if cherry_pick_fail and label_conflicts is not None:
+        pr.add_to_labels(label_conflicts)
+
+    return pr
