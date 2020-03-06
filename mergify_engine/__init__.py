@@ -91,7 +91,7 @@ real_session_init = requests.sessions.Session.__init__
 
 class CustomSerializer(Serializer):
     def prepare_response(self, request, cached):
-        cached.get("vary", {}).pop("Authorization")
+        cached.get("vary", {}).pop("Authorization", None)
         return super().prepare_response(request, cached)
 
 
