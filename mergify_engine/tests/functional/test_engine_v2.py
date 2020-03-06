@@ -608,6 +608,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             % (pull.number, pull.title, pull.html_url,)
             == checks[0].output["summary"]
         )
+        assert [l.name for l in pull.labels] == ["conflicts"]
 
     def _do_test_backport(self, method, config=None):
         rules = {

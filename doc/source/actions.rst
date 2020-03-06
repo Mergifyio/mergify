@@ -75,6 +75,11 @@ parameter:
      - ``False``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
+   * - ``label_conflicts``
+     - string
+     - ``conflicts``
+     - The label to add to the created pull requested if it has conflicts and
+       ``ignore_conflicts`` is set to ``true``.
 
 
 Once the backporting pull request is closed or merged, Mergify will
@@ -106,6 +111,11 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - ``False``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
+   * - ``label_conflicts``
+     - string
+     - ``conflicts``
+     - The label to add to the created pull requested if it has conflicts and
+       ``ignore_conflicts`` is set to ``true``.
 
 
 .. _comment action:

@@ -41,6 +41,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("branches", default=[]): [str],
         voluptuous.Required("regexes", default=[]): [Regex],
         voluptuous.Required("ignore_conflicts", default=False): bool,
+        voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
 
     def _copy(self, pull, branch_name):
@@ -69,7 +70,11 @@ class CopyAction(actions.Action):
         if not new_pull:
             try:
                 new_pull = duplicate_pull.duplicate(
-                    pull, branch, self.config["ignore_conflicts"], self.KIND,
+                    pull,
+                    branch,
+                    self.config["label_conflicts"],
+                    self.config["ignore_conflicts"],
+                    self.KIND,
                 )
             except duplicate_pull.DuplicateFailed as e:
                 return (
