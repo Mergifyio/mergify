@@ -215,7 +215,7 @@ def duplicate(pull, branch, ignore_conflicts=False, kind=BACKPORT):
         git.cleanup()
 
     body = (
-        "This is an automated {kind} of pull request #{pull.number} done by Mergify.io"
+        f"This is an automated {kind} of pull request #{pull.number} done by Mergify"
         + body
     )
 
