@@ -39,6 +39,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"the remote end hung up unexpectedly": DuplicateNeedRetry,
     b"Operation timed out": DuplicateNeedRetry,
     b"reference already exists": None,
+    b"Aborting commit due to empty commit message": None,
     b"You may want to first integrate the remote changes": None,
 }
 
