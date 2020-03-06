@@ -133,6 +133,7 @@ def setup_logging():
             ("github.Requester", "WARN"),
             ("urllib3.connectionpool", "WARN"),
             ("vcr", "WARN"),
+            ("cachecontrol", "WARN"),
         ]
     )
 
