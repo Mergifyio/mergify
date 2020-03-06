@@ -55,6 +55,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     b"Could not resolve host": BranchUpdateNeedRetry,
     b"Operation timed out": BranchUpdateNeedRetry,
     b"No such device or address": BranchUpdateNeedRetry,
+    b"Protected branch update failed": BranchUpdateFailure,
 }
 
 GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
