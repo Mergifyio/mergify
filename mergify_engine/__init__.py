@@ -17,6 +17,7 @@ from urllib import parse
 
 import cachecontrol
 from cachecontrol.caches import RedisCache
+from cachecontrol.serialize import Serializer
 import celery.exceptions
 import daiquiri
 from datadog import statsd
@@ -88,6 +89,12 @@ SINGLE_PULL_API_RE = re.compile(
 real_session_init = requests.sessions.Session.__init__
 
 
+class CustomSerializer(Serializer):
+    def prepare_response(self, request, cached):
+        cached.get("vary", {}).pop("Authorization")
+        return super().prepare_response(request, cached)
+
+
 class CustomCacheControlAdapter(cachecontrol.CacheControlAdapter):
     def send(self, request, *args, **kwargs):
         # NOTE(sileht): never ever cache get_pull(), we need mergeable_state
@@ -109,7 +116,9 @@ def cached_session_init(self, *args, **kwargs):
 
     if config.HTTP_CACHE_URL:
         adapter = CustomCacheControlAdapter(
-            max_retries=RETRY, cache=RedisCache(utils.get_redis_for_http_cache())
+            max_retries=RETRY,
+            cache=RedisCache(utils.get_redis_for_http_cache()),
+            serializer=CustomSerializer(),
         )
     else:
         adapter = requests.adapters.HTTPAdapter(max_retries=RETRY)
