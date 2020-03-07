@@ -161,6 +161,7 @@ def post_summary(pull, sources, match, summary_check, conclusions):
         pull.log.debug(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
+            sources=sources,
         )
         check_api.set_check_run(
             pull.g_pull,
@@ -173,6 +174,7 @@ def post_summary(pull, sources, match, summary_check, conclusions):
         pull.log.debug(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
+            sources=sources,
         )
 
 
