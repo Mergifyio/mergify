@@ -108,6 +108,9 @@ def get_ignore_reason(subscription, event_type, data):
     elif event_type == "status" and data["state"] == "pending":
         return "ignored (state pending)"
 
+    elif event_type == "check_suite" and data["action"] != "rerequested":
+        return "ignored (check_suite/%s)" % data["action"]
+
     elif (
         event_type in ["check_run", "check_suite"]
         and data[event_type]["app"]["id"] == config.INTEGRATION_ID
