@@ -34,12 +34,12 @@ def get_queue_logger(queue):
     )
 
 
-def _get_queue_cache_key(pull):
+def _get_queue_cache_key(pull, base_ref=None):
     return "strict-merge-queues~%s~%s~%s~%s" % (
         pull.installation_id,
         pull.base_repo_owner_login.lower(),
         pull.base_repo_name.lower(),
-        pull.base_ref,
+        base_ref or pull.base_ref,
     )
 
 
@@ -77,6 +77,16 @@ def _move_pull_at_end(pull):  # pragma: no cover
     pull.log.debug(
         "pull request moved at the end of the merge queue", queue=queue,
     )
+
+
+def _move_pull_to_new_base_branch(pull, old_base_branch):
+    redis = utils.get_redis_for_cache()
+    old_queue = _get_queue_cache_key(pull, old_base_branch)
+    new_queue = _get_queue_cache_key(pull)
+    redis.zrem(old_queue, pull.number)
+    method = redis.get(_get_update_method_cache_key(pull)) or "merge"
+    add_pull(pull, method)
+    pull.log.debug("pull request moved from %s to %s", old_queue, new_queue)
 
 
 def _get_pulls(queue):
@@ -168,6 +178,7 @@ def smart_strict_workflow_periodic_task():
     redis = utils.get_redis_for_cache()
     LOG.debug("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):
+        queue_base_branch = queue.split("~")[4]
         queue_log = get_queue_logger(queue)
         queue_log.debug("handling queue: %s", queue)
 
@@ -176,6 +187,13 @@ def smart_strict_workflow_periodic_task():
             pull = _get_next_pull_request(queue, queue_log)
             if not pull:
                 queue_log.debug("no pull request for this queue")
+            elif pull.base_ref != queue_base_branch:
+                pull.log.debug(
+                    "pull request base branch have changed",
+                    old_branch=queue_base_branch,
+                    new_branch=pull.base_ref,
+                )
+                _move_pull_to_new_base_branch(pull, queue_base_branch)
             elif pull.state == "closed" or pull.is_behind:
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
