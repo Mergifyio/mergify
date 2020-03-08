@@ -11,12 +11,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import daiquiri
 import github
 import pkg_resources
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
@@ -150,6 +152,62 @@ def copy_summary_from_previous_head_sha(g_pull, sha):
     )
 
 
+HTTP_CACHE_TO_CLEAN = {
+    "pull_request": ["/pulls", "/pulls/{pull_request[number]}"],
+    "check_run": ["/commits/{check_run[head_sha]}/check-runs"],
+    "status": ["/commits/{sha}/status"],
+    "issue_comment": ["/issues/{issue[number]}/comments"],
+    "pull_request_review": ["/pulls/{pull_request[number]}/reviews"],
+}
+
+
+def _suffixes_to_urls(pull, data, suffixes):
+    for suffix in suffixes:
+        try:
+            suffix_formatted = suffix.format(**data)
+        except Exception:
+            pull.log.error(
+                "Fail to format cache urls %s : %s",
+                suffix,
+                list(data["pull_request"].keys()),
+                exc_info=True,
+            )
+            continue
+        yield f"{pull.base_url}{suffix_formatted}".replace(
+            f"https://{config.GITHUB_DOMAIN}/", f"https://{config.GITHUB_DOMAIN}:443/",
+        )
+        yield f"{pull.base_id_url}{suffix_formatted}".replace(
+            f"https://{config.GITHUB_DOMAIN}/", f"https://{config.GITHUB_DOMAIN}:443/",
+        )
+
+
+def invalidate_http_cache(pull, sources):
+    if not config.HTTP_CACHE_URL:
+        return
+
+    redis_http_cache = utils.get_redis_for_http_cache()
+    for source in sources:
+        if source["event_type"] == "pull_request" and source["data"]["action"] in [
+            "synchronize",
+            "reopened",
+        ]:
+            keys = redis_http_cache.keys(f"{pull.base_url}/*") + redis_http_cache.keys(
+                f"{pull.base_id_url}/*"
+            )
+            if keys:
+                redis_http_cache.delete(*keys)
+            return
+
+        url_suffixes = HTTP_CACHE_TO_CLEAN.get(source["event_type"])
+        if url_suffixes:
+            urls = list(_suffixes_to_urls(pull, source["data"], url_suffixes))
+            redis_http_cache.delete(*urls)
+            for url in urls:
+                keys = redis_http_cache.keys(f"{url}?*")
+                if keys:
+                    redis_http_cache.delete(*keys)
+
+
 @app.task
 def run(event_type, data):
     """Everything starts here."""
@@ -277,6 +335,12 @@ def run(event_type, data):
 
     pull = mergify_pull.MergifyPull(g, event_pull, installation_id, installation_token)
     sources = [{"event_type": event_type, "data": data}]
+
+    # NOTE(sileht): etag and Github... it's recommended to rely on it but we often
+    # received the event about thing, before the etag change on their side. So the
+    # workaround is to invalidate our cache manually...
+    # This must be done before mergify_pull.MergifyPull is used
+    invalidate_http_cache(pull, sources)
 
     commands_runner.spawn_pending_commands_tasks(pull, sources)
 

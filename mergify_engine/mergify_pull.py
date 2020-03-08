@@ -22,6 +22,7 @@ import github
 import tenacity
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
 from mergify_engine import utils
@@ -378,6 +379,14 @@ class MergifyPull(object):
     @property
     def base_ref(self):
         return self.g_pull.base.ref
+
+    @property
+    def base_url(self):
+        return self.g_pull.base.repo.url
+
+    @property
+    def base_id_url(self):
+        return f"https://api.{config.GITHUB_DOMAIN}/repositories/{self.g_pull.base.repo.id}/"
 
     @property
     def head_ref(self):
