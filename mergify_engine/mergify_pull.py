@@ -119,11 +119,6 @@ class MergifyPull(object):
     def _get_consolidated_data(self):
         comments, approvals = self._get_consolidated_reviews()
         statuses = self._get_checks()
-        # FIXME(jd) pygithub does 2 HTTP requests whereas 1 is enough!
-        (
-            review_requested_users,
-            review_requested_teams,
-        ) = self.g_pull.get_review_requests()
         return {
             # Only use internally attributes
             "_approvals": approvals,
@@ -133,8 +128,8 @@ class MergifyPull(object):
             # no label set
             "label": [l.name for l in self.g_pull.labels],
             "review-requested": (
-                [u.login for u in review_requested_users]
-                + ["@" + t.slug for t in review_requested_teams]
+                [u["login"] for u in self.g_pull._rawData["requested_reviewers"]]
+                + ["@" + t["slug"] for t in self.g_pull._rawData["requested_teams"]]
             ),
             "author": self.g_pull.user.login,
             "merged-by": (self.g_pull.merged_by.login if self.g_pull.merged_by else ""),
