@@ -145,12 +145,15 @@ def test_get_pull_request_rule():
     g_pull = mock.Mock()
     g_pull.assignees = []
     g_pull.labels = []
-    g_pull.get_review_requests.return_value = ([], [])
     g_pull.author = "jd"
     g_pull.base.ref = "master"
     g_pull.head.ref = "myfeature"
     g_pull.base.repo.get_collaborator_permission.return_value = "write"
-    g_pull._rawData = {"locked": False}
+    g_pull._rawData = {
+        "locked": False,
+        "requested_reviewers": [],
+        "requested_teams": [],
+    }
     g_pull.title = "My awesome job"
     g_pull.body = "I rock"
     g_pull.user.login = "another-jd"
