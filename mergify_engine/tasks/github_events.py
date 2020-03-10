@@ -128,19 +128,6 @@ def get_ignore_reason(subscription, event_type, data):
     ):
         return "ignored (comment is not for mergify)"
 
-    elif event_type == "pull_request" and data["action"] not in [
-        "opened",
-        "reopened",
-        "closed",
-        "synchronize",
-        "labeled",
-        "unlabeled",
-        "edited",
-        "locked",
-        "unlocked",
-    ]:
-        return "ignored (action %s)" % data["action"]
-
     if "repository" in data and data["repository"]["archived"]:  # pragma: no cover
         return "ignored (repository archived)"
 
