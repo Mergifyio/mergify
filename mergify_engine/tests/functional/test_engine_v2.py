@@ -1504,6 +1504,39 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert oldsha != p2.head.sha
         assert p2.raw_data["mergeable_state"] != "conflict"
 
+    def test_requested_reviews(self):
+        team = list(self.o_admin.get_teams())[0]
+        team.set_repo_permission(self.r_o_admin, "push")
+
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "user",
+                    "conditions": ["base=master", "review-requested=sileht"],
+                    "actions": {"comment": {"message": "review-requested user"}},
+                },
+                {
+                    "name": "team",
+                    "conditions": ["base=master", "review-requested=@testing"],
+                    "actions": {"comment": {"message": "review-requested team"}},
+                },
+            ],
+        }
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr()
+        p1.create_review_request(reviewers=["sileht"])
+        self.wait_for("pull_request", {"action": "review_requested"})
+        self.wait_for("issue_comment", {"action": "created"})
+
+        p2, _ = self.create_pr()
+        p2.create_review_request(team_reviewers=[team.slug])
+        self.wait_for("pull_request", {"action": "review_requested"})
+        self.wait_for("issue_comment", {"action": "created"})
+
+        self.assertEqual("review-requested user", list(p1.get_issue_comments())[0].body)
+        self.assertEqual("review-requested team", list(p2.get_issue_comments())[0].body)
+
     def test_command_backport(self):
         rules = {
             "pull_request_rules": [
