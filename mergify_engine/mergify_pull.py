@@ -255,7 +255,8 @@ class MergifyPull(object):
             return []
         if not isinstance(values, (list, tuple)):
             values = [values]
-        return list(itertools.chain.from_iterable((map(self._resolve_login, values))))
+        values = list(itertools.chain.from_iterable((map(self._resolve_login, values))))
+        return values
 
     UNUSABLE_STATES = ["unknown", None]
 

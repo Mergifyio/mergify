@@ -109,7 +109,6 @@ class PullRequestRules:
         TEAM_ATTRIBUTES = (
             "author",
             "merged_by",
-            "review-requested",
             "approved-reviews-by",
             "dismissed-reviews-by",
             "commented-reviews-by",
@@ -134,7 +133,7 @@ class PullRequestRules:
                 for condition in rule["conditions"]:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
-                            attrib, self.pull_request.resolve_teams
+                            attrib, self.pull_request.resolve_teams,
                         )
                     if not condition(**d):
                         next_conditions_to_validate.append(condition)
