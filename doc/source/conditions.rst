@@ -266,6 +266,12 @@ modified files:
 - ``-files~=^src/`` is **true** if none of the files that are modified are in
   the ``src`` directory.
 
+.. tip::
+
+   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
+   <https://pythex.org/>`_ to test your regular expression.
+
+
 Impementing Or Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
