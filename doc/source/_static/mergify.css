@@ -177,6 +177,12 @@ div.alert-warning > p.admonition-title > div.icon:after {
     content: "\f06a";
 }
 
+div.alert-info> p.admonition-title > div.icon:after {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: "\f0eb";
+}
+
 div.alert-primary > p.admonition-title > div.icon:after {
     font-family: "Font Awesome 5 Free";
     font-weight: 900;
