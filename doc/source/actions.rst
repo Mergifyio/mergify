@@ -27,7 +27,7 @@ The ``assign`` action assigns users to the pull request.
      - Default
      - Value Description
    * - ``users``
-     - array of string
+     - list of string
      -
      - The users to assign to the pull request.
 
@@ -62,11 +62,11 @@ parameter:
      - Default
      - Value Description
    * - ``branches``
-     - array of string
+     - list of string
      - ``[]``
      - The list of branches the pull request should be copied to.
    * - ``regexes``
-     - array of string
+     - list of string
      - ``[]``
      - The list of regexes to find branches the pull request should be copied
        to.
@@ -99,11 +99,11 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - Default
      - Value Description
    * - ``branches``
-     - array of string
+     - list of string
      - ``[]``
      - The list of branches the pull request should be copied to.
    * - ``regexes``
-     - array of string
+     - list of string
      - ``[]``
      - The list of regexes to find branches the pull request should be copied to.
    * - ``ignore_conflicts``
@@ -234,14 +234,14 @@ branch is rebased).
      - Default
      - Value Description
    * - ``approved``
-     - Boolean or array of string
+     - Boolean or list of string
      - ``True``
      - If set to ``True``, all the approving reviews will be removed when the
        pull request is updated. If set to ``False``, nothing will be done. If
        set to a list, each item should be the GitHub login of a user whose
        review will be removed.
    * - ``changes_requested``
-     - Boolean or array of string
+     - Boolean or list of string
      - ``True``
      - If set to ``True``, all the reviews requesting changes will be removed
        when the pull request is updated. If set to ``False``, nothing will be
@@ -269,11 +269,11 @@ The ``label`` action can add or remove `labels
      - Default
      - Value Description
    * - ``add``
-     - array of string
+     - list of string
      - ``[]``
      - The list of labels to add.
    * - ``remove``
-     - array of string
+     - list of string
      - ``[]``
      - The list of labels to remove.
 
@@ -369,11 +369,11 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - Default
     - Value Description
   * - ``users``
-    - array of string
+    - list of string
     -
     - The username to request reviews from.
   * - ``teams``
-    - array of string
+    - list of string
     -
     - The team name to request reviews from.
 

@@ -100,7 +100,7 @@ touch. You can use the ``files`` attribute to access the modified file list and
 This tweak is useful when you want Mergify to merge only data files which can be
 validated by the script, linter, etc.
 
-The below sample merges only if ``data.json`` changed and if the pul requests
+The below sample merges only if ``data.json`` changed and if the pull request
 passes Circle CI's validation tests:
 
 .. code-block:: yaml
@@ -109,8 +109,23 @@ passes Circle CI's validation tests:
       - name: automatic merge on CircleCI success if only data.json is changed
         conditions:
           - "status-success=ci/circleci: validate"
-          - files=data1.json
+          - files=data.json
           - "#files=1"
+        actions:
+          merge:
+            method: merge
+
+You can also match patterns using regular expression. The following rule merges
+the pull requests when the CI passes and when all the files are inside the
+``src/`` directory:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge on CircleCI success if only data.json is changed
+        conditions:
+          - "status-success=ci/circleci: validate"
+          - -files~=^(!?src/)
         actions:
           merge:
             method: merge

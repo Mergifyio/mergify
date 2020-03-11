@@ -68,12 +68,12 @@ Here's the list of pull request attribute that can be used in conditions:
      - Value type
      - Value description
    * - ``assignee``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that are assigned to the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
    * - ``approved-reviews-by``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that approved the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
@@ -91,7 +91,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - string
      - The contents of the pull request.
    * - ``changes-requested-reviews-by``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that have requested changes in a
        review for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
@@ -105,7 +105,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - Boolean
      - Whether the pull request is conflicting with its base branch.
    * - ``commented-reviews-by``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that have commented in a review
        for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
@@ -113,7 +113,7 @@ Here's the list of pull request attribute that can be used in conditions:
        This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``dismissed-reviews-by``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that have their review dismissed
        in the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
@@ -127,7 +127,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - string
      - The name of the branch where the pull request changes are implemented.
    * - ``label``
-     - array of string
+     - list of string
      - The list of labels of the pull request.
    * - ``locked``
      - Boolean
@@ -144,7 +144,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - string
      - The milestone title associated to the pull request.
    * - ``review-requested``
-     - array of string
+     - list of string
      - The list of GitHub user or team login that were requested to review the
        pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
@@ -152,21 +152,21 @@ Here's the list of pull request attribute that can be used in conditions:
        This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
    * - ``status-success``
-     - array of string
+     - list of string
      - The list of status checks that successfuly passed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `Status Check Name`_ for more
        details.
    * - ``status-neutral``
-     - array of string
+     - list of string
      - The list of status checks that are neutral for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `Status Check Name`_ for more
        details.
    * - ``status-failure``
-     - array of string
+     - list of string
      - The list of status checks that failed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
@@ -175,13 +175,6 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``title``
      - string
      - The title of the pull request.
-
-
-.. note::
-
-   When the attributes type is an array, the :ref:`Operators` have a different
-   behaviour and check against every value of the array. There is no need to
-   use a different syntax.
 
 .. _Operators:
 
@@ -198,39 +191,80 @@ Operators
    * - Equal
      - ``=`` or ``:``
      - This operator checks for strict equality. If the target attribute type
-       is an array, each element of the array is compared against the value and
+       is a list, each element of the list is compared against the value and
        the condition is true if any value matches.
    * - Not Equal
      - ``!=`` or ``≠``
      - This operator checks for non equality. If the target attribute type
-       is an array, each element of the array is compared against the value and
+       is a list, each element of the list is compared against the value and
        the condition is true if no value matches.
    * - Match
      - ``~=``
      - This operator checks for regular expression matching. If the target
-       attribute type is an array, each element of the array is matched
+       attribute type is a list, each element of the list is matched
        against the value and the condition is true if any value matches.
    * - Greater Than or Equal
      - ``>=`` or ``≥``
      - This operator checks for the value to be greater than or equal to the
-       provided value. It's usually used to compare against the length of an
-       array using the ``#`` prefix.
+       provided value. It's usually used to compare against the length of a
+       list using the ``#`` prefix.
    * - Greater Than
      - ``>``
      - This operator checks for the value to be greater than the provided
-       value. It's usually used to compare against the length of an array using
+       value. It's usually used to compare against the length of a list using
        the ``#`` prefix.
    * - Lesser Than or Equal
      - ``<=`` or ``≤``
      - This operator checks for the value to be lesser then or equal to the
-       provided value. It's usually used to compare against the length of an
-       array using the ``#`` prefix.
+       provided value. It's usually used to compare against the length of a
+       list using the ``#`` prefix.
    * - Lesser Than
      - ``<``
-     - This operator checks for the value to be lesser than the provided
-       value. It's usually used to compare against the length of an array using
-       the ``#`` prefix.
+     - This operator checks for the value to be lesser than the provided value.
+       It's usually used to compare against the length of a list using the
+       ``#`` prefix.
 
+
+How To Match Lists
+~~~~~~~~~~~~~~~~~~~
+
+Some attributes have a type of ``list``. Most `Operators`_ are able to match
+value against lists: they will iterate over all the values of the list and
+return true if any of the value matches.
+
+For example, the ``label`` attribute is a list of string containing the names
+of the label attached to a pull request. With a pull request whose labels are
+``(bug, work-in-progress)``, then:
+
+- ``label=work-in-progress`` is **true** because there is a label named
+  ``work-in-progress``.
+
+- ``label=enhancement`` is **false** because there is no label named
+  ``enhancement``.
+
+- ``label!=work-in-progress`` is **false** because there is a label named
+  ``work-in-progress``.
+
+- ``label~=^work`` is **true** because there is a label matching the regular
+  expression ``^work``.
+
+- ``-label~=^work`` is **false** because there is a label matching the regular
+  expression ``^work`` but the condition is reversed with the ``-`` prefix.
+
+The same applies for the ``files`` attribute — which contains the list of
+modified files:
+
+- ``files=README`` is **true** if the file ``README`` is modified in the pull
+  request.
+
+- ``files!=README`` is **true** if the file ``README`` is not modified in the
+  pull request.
+
+- ``files~=^src/`` is **true** if any files in the ``src`` directory is
+  modified in the pull request.
+
+- ``-files~=^src/`` is **true** if none of the files that are modified are in
+  the ``src`` directory.
 
 Impementing Or Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
