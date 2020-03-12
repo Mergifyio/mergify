@@ -224,6 +224,11 @@ Operators
        It's usually used to compare against the length of a list using the
        ``#`` prefix.
 
+.. tip::
+
+   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
+   <https://pythex.org/>`_ to test your regular expression.
+
 
 How To Match Lists
 ~~~~~~~~~~~~~~~~~~~
@@ -265,11 +270,6 @@ modified files:
 
 - ``-files~=^src/`` is **true** if none of the files that are modified are in
   the ``src`` directory.
-
-.. tip::
-
-   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
-   <https://pythex.org/>`_ to test your regular expression.
 
 
 Impementing Or Conditions
