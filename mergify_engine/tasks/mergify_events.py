@@ -15,10 +15,9 @@
 import uuid
 
 import daiquiri
-import github
+import httpx
 
-from mergify_engine import config
-from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.tasks import github_events
 from mergify_engine.worker import app
 
@@ -30,10 +29,9 @@ LOG = daiquiri.getLogger(__name__)
 def job_refresh(owner, repo, kind, ref=None, action="user"):
     LOG.info("job refresh", kind=kind, ref=ref, gh_owner=owner, gh_repo=repo)
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
-        installation_id = utils.get_installation_id(integration, owner, repo)
-    except github.GithubException as e:
+        client = github.get_client(owner, repo)
+    except httpx.HTTPError as e:
         LOG.warning(
             "mergify not installed",
             kind=kind,
@@ -44,16 +42,12 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
         )
         return
 
-    token = integration.get_access_token(installation_id).token
-    g = utils.Github(token)
-    r = g.get_repo("%s/%s" % (owner, repo))
-
     if kind == "repo":
-        pulls = r.get_pulls()
+        pulls = list(client.items("pulls"))
     elif kind == "branch":
-        pulls = r.get_pulls(base=ref)
+        pulls = list(client.items("pulls", base=ref))
     elif kind == "pull":
-        pulls = [r.get_pull(ref)]
+        pulls = [client.item(f"pulls/{ref}")]
     else:
         raise RuntimeError("Invalid kind")
 
@@ -61,9 +55,9 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
         # Mimic the github event format
         data = {
             "action": action,
-            "repository": r.raw_data,
-            "installation": {"id": installation_id},
-            "pull_request": p.raw_data,
+            "repository": p["base"]["repo"],
+            "installation": {"id": client.installation_id},
+            "pull_request": p,
             "sender": {"login": "<internal>"},
         }
         github_events.job_filter_and_dispatch.s(

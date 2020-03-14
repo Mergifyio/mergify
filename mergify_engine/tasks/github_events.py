@@ -14,11 +14,12 @@
 
 import daiquiri
 from datadog import statsd
-import github
+import httpx
 
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.clients import github_app
 from mergify_engine.tasks import engine
 from mergify_engine.tasks import mergify_events
 from mergify_engine.worker import app
@@ -32,12 +33,11 @@ def job_marketplace(event_type, event_id, data):
 
     owner = data["marketplace_purchase"]["account"]["login"]
     account_type = data["marketplace_purchase"]["account"]["type"]
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
-        installation_id = utils.get_installation_id(
-            integration, owner, account_type=account_type
+        installation_id = github_app.get_client().get_installation_id(
+            owner, account_type=account_type
         )
-    except github.GithubException as e:
+    except httpx.HTTPError as e:
         LOG.warning("mergify not installed", gh_owner=owner, error=str(e))
         installation_id = None
         subscription = {
