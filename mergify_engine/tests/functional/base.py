@@ -40,6 +40,7 @@ from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
+from mergify_engine.clients import github_app
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -297,6 +298,14 @@ class FunctionalTestBase(testtools.TestCase):
             custom_patches=(
                 (github.MainClass, "HTTPSConnection", vcr.stubs.VCRHTTPSConnection),
             ),
+        )
+
+        github_app_client = github_app._Client()
+
+        self.useFixture(
+            fixtures.MockPatchObject(
+                github_app, "get_client", lambda: github_app_client
+            )
         )
 
         self.useFixture(

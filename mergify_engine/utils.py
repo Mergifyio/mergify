@@ -27,13 +27,11 @@ import tempfile
 from billiard import current_process
 import celery.app.log
 import daiquiri
-from datadog import statsd
 import github
 import redis
 import requests
 
 from mergify_engine import config
-from mergify_engine import exceptions
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -132,7 +130,9 @@ def setup_logging():
             ("kombu", "WARN"),
             ("github.Requester", "WARN"),
             ("urllib3.connectionpool", "WARN"),
+            ("urllib3.util.retry", "WARN"),
             ("vcr", "WARN"),
+            ("httpx", "WARN"),
             ("cachecontrol", "WARN"),
         ]
     )
@@ -299,15 +299,6 @@ def ignore_client_side_error():
         raise
 
 
-RATE_LIMIT_THRESHOLD = 20
-
-
 def Github(*args, **kwargs):
     kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
-    g = github.Github(*args, **kwargs)
-    rate = g.get_rate_limit()
-    if rate.core.remaining < RATE_LIMIT_THRESHOLD:
-        delta = rate.core.reset - datetime.datetime.utcnow()
-        statsd.increment("engine.rate_limited")
-        raise exceptions.RateLimited(delta.total_seconds(), rate.raw_data)
-    return g
+    return github.Github(*args, **kwargs)

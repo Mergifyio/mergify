@@ -13,6 +13,7 @@
 # under the License.
 
 import github
+import httpx
 import requests
 
 
@@ -41,7 +42,7 @@ def need_retry(exception):  # pragma: no cover
     elif (
         (isinstance(exception, github.GithubException) and exception.status >= 500)
         or (
-            isinstance(exception, requests.exceptions.HTTPError)
+            isinstance(exception, (requests.exceptions.HTTPError, httpx.HTTPError))
             and exception.response.status_code >= 500
         )
         or isinstance(exception, requests.exceptions.ConnectionError)
@@ -61,4 +62,12 @@ def need_retry(exception):  # pragma: no cover
         # Rate limit or abuse detection mechanism, futures events will be rate limited
         # correctly by mergify_engine.utils.Github()
         elif exception.status == 403:
+            return BASE_RETRY_TIMEOUT * 5
+    elif isinstance(exception, httpx.HTTPError):
+        # Bad creds or token expired, we can't really known
+        if exception.response.status_code == 401:
+            return BASE_RETRY_TIMEOUT
+        # Rate limit or abuse detection mechanism, futures events will be rate limited
+        # correctly by mergify_engine.utils.Github()
+        elif exception.response.status_code == 403:
             return BASE_RETRY_TIMEOUT * 5
