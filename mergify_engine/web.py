@@ -27,7 +27,7 @@ from urllib.parse import urlsplit
 
 import flask
 from flask_cors import cross_origin
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import config
@@ -35,6 +35,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
@@ -158,21 +159,21 @@ def PullRequestUrl(v):
     _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
     pull_number = int(pull_number)
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     try:
-        installation_id = utils.get_installation_id(integration, owner, repo)
-    except github.GithubException:
+        client = github.get_client(owner, repo)
+    except httpx.HTTPError:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
         )
 
-    token = integration.get_access_token(installation_id).token
     try:
-        return mergify_pull.MergifyPull.from_number(
-            installation_id, token, owner, repo, pull_number
-        )
-    except github.UnknownObjectException:
-        raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
+        data = client.item(f"pulls/{pull_number}")
+    except httpx.HTTPError as e:
+        if e.reponse.status_code == 404:
+            raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
+        raise
+
+    return mergify_pull.MergifyPull(client, data)
 
 
 SimulatorSchema = voluptuous.Schema(

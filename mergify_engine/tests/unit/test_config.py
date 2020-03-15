@@ -132,31 +132,19 @@ def test_pull_request_rule_schema_invalid():
             rules.PullRequestRules([invalid])
 
 
-def test_get_pull_request_rule():
-    g = mock.Mock()
-
+@mock.patch("mergify_engine.mergify_pull.MergifyPull.g", return_value=mock.PropertyMock)
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
+)
+def test_get_pull_request_rule(g_pull, g):
     team = mock.Mock()
     team.slug = "my-reviewers"
     team.get_members.return_value = [mock.Mock(login="sileht"), mock.Mock(login="jd")]
+
     org = mock.Mock()
     org.get_teams.return_value = [team]
     g.get_organization.return_value = org
 
-    g_pull = mock.Mock()
-    g_pull.assignees = []
-    g_pull.labels = []
-    g_pull.author = "jd"
-    g_pull.base.ref = "master"
-    g_pull.head.ref = "myfeature"
-    g_pull.base.repo.get_collaborator_permission.return_value = "write"
-    g_pull._rawData = {
-        "locked": False,
-        "requested_reviewers": [],
-        "requested_teams": [],
-    }
-    g_pull.title = "My awesome job"
-    g_pull.body = "I rock"
-    g_pull.user.login = "another-jd"
     file1 = mock.Mock()
     file1.filename = "README.rst"
     file2 = mock.Mock()
@@ -168,9 +156,31 @@ def test_get_pull_request_rule():
     review.state = "APPROVED"
     review._rawData = {"author_association": "MEMBER"}
     g_pull.get_reviews.return_value = [review]
+    g_pull.base.repo.get_collaborator_permission.return_value = "write"
 
     pull_request = mergify_pull.MergifyPull(
-        g=g, g_pull=g_pull, installation_id=123, installation_token="<token>"
+        mock.Mock(),
+        {
+            "number": 1,
+            "html_url": "<html_url>",
+            "state": "closed",
+            "merged_by": None,
+            "merged_at": None,
+            "merged": False,
+            "milestone": None,
+            "mergeable_state": "unstable",
+            "assignees": [],
+            "labels": [],
+            "author": "jd",
+            "base": {"ref": "master", "repo": {"name": "name", "private": False}},
+            "head": {"ref": "myfeature"},
+            "locked": False,
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "title": "My awesome job",
+            "body": "I rock",
+            "user": {"login": "another-jd"},
+        },
     )
 
     # Don't catch data in these tests
@@ -428,9 +438,7 @@ def test_get_pull_request_rule():
     assert len(match.matching_rules[0][1]) == 0
 
     # Forbidden labels, when forbiden label set
-    label = mock.Mock()
-    label.name = "status/wip"
-    pull_request.g_pull.labels = [label]
+    pull_request.data["labels"] = [{"name": "status/wip"}]
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r["name"] for r in match.rules] == ["default"]
@@ -442,9 +450,7 @@ def test_get_pull_request_rule():
     )
 
     # Forbidden labels, when other label set
-    label = mock.Mock()
-    label.name = "allowed"
-    pull_request.g_pull.labels = [label]
+    pull_request.data["labels"] = [{"name": "allowed"}]
 
     match = pull_request_rules.get_pull_request_rule(pull_request)
     assert [r["name"] for r in match.rules] == ["default"]

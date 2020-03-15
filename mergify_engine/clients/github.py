@@ -68,14 +68,22 @@ class GithubInstallationClient(httpx.Client, common.HttpxRetriesMixin):
             **common.DEFAULT_CLIENT_OPTIONS,
         )
 
-    def item(self, url, **params):
-        r = self.get(url, params=params)
+    def item(self, url, api_version=None, **params):
+        headers = {}
+        if api_version:
+            headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+
+        r = self.get(url, params=params, headers=headers)
         r.raise_for_status()
         return r.json()
 
-    def items(self, url, **params):
+    def items(self, url, api_version=None, **params):
+        headers = {}
+        if api_version:
+            headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+
         while True:
-            r = self.get(url, params=params)
+            r = self.get(url, params=params, headers=headers)
             r.raise_for_status()
             for item in r.json():
                 yield item

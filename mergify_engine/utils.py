@@ -29,7 +29,6 @@ import celery.app.log
 import daiquiri
 import github
 import redis
-import requests
 
 from mergify_engine import config
 
@@ -145,86 +144,6 @@ def compute_hmac(data):
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
     return str(mac.hexdigest())
-
-
-def get_installations(integration):  # pragma: no cover
-    # FIXME(sileht): This is currently always mocked in tests
-
-    installs = []
-    url = "https://api.%s/app/installations" % config.GITHUB_DOMAIN
-    token = "Bearer {}".format(integration.create_jwt())
-    session = requests.Session()
-    while True:
-        response = session.get(
-            url,
-            headers={
-                "Authorization": token,
-                "Accept": "application/vnd.github.machine-man-preview+json",
-                "User-Agent": "PyGithub/Python",
-            },
-        )
-        if response.status_code == 200:
-            installs.extend(response.json())
-            if "next" in response.links:
-                url = response.links["next"]["url"]
-                continue
-            else:
-                return installs
-        elif response.status_code == 403:
-            raise github.BadCredentialsException(
-                status=response.status_code, data=response.text
-            )
-        elif response.status_code == 404:
-            raise github.UnknownObjectException(
-                status=response.status_code, data=response.text
-            )
-        raise github.GithubException(status=response.status_code, data=response.text)
-
-
-def get_installation_id(integration, owner, repo=None, account_type=None):
-    if not account_type and not repo:
-        raise RuntimeError("repo or account_type must be passed")
-    if repo:
-        url = "https://api.%s/repos/%s/%s/installation" % (
-            config.GITHUB_DOMAIN,
-            owner,
-            repo,
-        )
-    else:
-        url = "https://api.%s/%s/%s/installation" % (
-            config.GITHUB_DOMAIN,
-            "users" if account_type.lower() == "User" else "orgs",
-            owner,
-        )
-    token = "Bearer {}".format(integration.create_jwt())
-    response = requests.get(
-        url,
-        headers={
-            "Authorization": token,
-            "Accept": "application/vnd.github.machine-man-preview+json",
-            "User-Agent": "PyGithub/Python",
-        },
-    )
-    if response.status_code == 200:
-        return response.json()["id"]
-    elif response.status_code == 403:
-        raise github.BadCredentialsException(
-            status=response.status_code, data=response.text
-        )
-    elif response.status_code == 404:
-        raise github.UnknownObjectException(
-            status=response.status_code, data=response.text
-        )
-    raise github.GithubException(status=response.status_code, data=response.text)
-
-
-def get_installation_token(installation_id):
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
-    try:
-        return integration.get_access_token(installation_id).token
-    except github.UnknownObjectException:  # pragma: no cover
-        LOG.error("token for install %d does not exists anymore", installation_id)
-        return
 
 
 def get_github_pulls_from_sha(repo, sha):

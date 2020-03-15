@@ -24,6 +24,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import debug
 from mergify_engine import mergify_pull
+from mergify_engine.clients import github
 from mergify_engine.tasks import engine
 from mergify_engine.tests.functional import base
 
@@ -994,9 +995,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        pull = mergify_pull.MergifyPull.from_raw(
-            config.INSTALLATION_ID, config.MAIN_TOKEN, p.raw_data
+        client = github.get_client(
+            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
         )
+        pull = mergify_pull.MergifyPull(client, p.raw_data)
 
         logins = pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
@@ -1032,9 +1034,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        pull = mergify_pull.MergifyPull.from_raw(
-            config.INSTALLATION_ID, config.MAIN_TOKEN, p.raw_data
+        client = github.get_client(
+            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
         )
+        pull = mergify_pull.MergifyPull(client, p.raw_data)
 
         logins = pull.resolve_teams(
             [

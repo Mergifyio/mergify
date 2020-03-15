@@ -18,7 +18,7 @@ from mergify_engine.actions.merge import queue
 
 def merge_report(pull, strict):
     if pull.merged:
-        if pull.merged_by and pull.merged_by.login in [
+        if pull.merged_by in [
             "mergify[bot]",
             "mergify-test[bot]",
         ]:
@@ -93,7 +93,7 @@ def update_pull_base_branch(pull, method):
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status
-        pull.g_pull.update()
+        pull.update()
         output = merge_report(pull, True)
         if output:
             return output

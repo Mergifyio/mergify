@@ -13,14 +13,13 @@
 # under the License.
 
 import daiquiri
-import github
 
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
+from mergify_engine.clients import github
 from mergify_engine.worker import app
 
 
@@ -100,26 +99,17 @@ def get_pulls_from_queue(pull):
 
 
 def _get_next_pull_request(queue, queue_log):
-    _, installation_id, owner, reponame, branch = queue.split("~")
-
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
-    try:
-        installation_token = integration.get_access_token(installation_id).token
-    except github.UnknownObjectException:  # pragma: no cover
-        LOG.error(
-            "token for install %d does not exists anymore",
-            installation_id,
-            gh_owner=owner,
-            gh_repo=reponame,
-        )
-        return
-
+    _, installation_id, owner, repo, branch = queue.split("~")
     pull_numbers = _get_pulls(queue)
     queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if pull_numbers:
-        return mergify_pull.MergifyPull.from_number(
-            installation_id, installation_token, owner, reponame, int(pull_numbers[0])
-        )
+        pull_number = int(pull_numbers[0])
+        # TODO(sileht): We should maybe cleanup the queue on error here, instead of
+        # retrying forever, but since it's not clear if mergify have been uninstalled or
+        # if it's a temporary Github issue.
+        client = github.get_client(owner, repo, installation_id)
+        data = client.item(f"pulls/{pull_number}")
+        return mergify_pull.MergifyPull(client, data)
 
 
 def _handle_first_pull_in_queue(queue, pull):

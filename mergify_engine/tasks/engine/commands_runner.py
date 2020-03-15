@@ -15,13 +15,13 @@
 import re
 
 from datadog import statsd
-import github
+import github as pygithub
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import mergify_pull
-from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.worker import app
 
 
@@ -63,7 +63,7 @@ def spawn_pending_commands_tasks(pull, sources):
     for pending in pendings:
         run_command_async.s(
             pull.installation_id,
-            pull.g_pull.raw_data,
+            pull.data,
             sources,
             "@Mergifyio %s" % pending,
             None,
@@ -75,13 +75,10 @@ def spawn_pending_commands_tasks(pull, sources):
 def run_command_async(
     installation_id, pull_request_raw, sources, comment, user, rerun=False
 ):
-    installation_token = utils.get_installation_token(installation_id)
-    if not installation_token:
-        return
-
-    pull = mergify_pull.MergifyPull.from_raw(
-        installation_id, installation_token, pull_request_raw
-    )
+    owner = pull_request_raw["base"]["user"]["login"]
+    repo = pull_request_raw["base"]["repo"]["name"]
+    client = github.get_client(owner, repo, installation_id)
+    pull = mergify_pull.MergifyPull(client, pull_request_raw)
     return run_command(pull, sources, comment, user, rerun)
 
 
@@ -130,7 +127,7 @@ def run_command(pull, sources, comment, user, rerun=False):
 
     try:
         pull.g_pull.create_issue_comment(result)
-    except github.GithubException as e:  # pragma: no cover
+    except pygithub.GithubException as e:  # pragma: no cover
         pull.log.error(
             "fail to post comment on the pull request",
             status=e.status,

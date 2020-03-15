@@ -156,7 +156,7 @@ class MergeAction(actions.Action):
         else:
             pull.log.info("merged")
 
-        pull.g_pull.update()
+        pull.update()
         return helpers.merge_report(pull, self.config["strict"])
 
     def _handle_merge_error(self, e, pull):
