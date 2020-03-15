@@ -15,7 +15,7 @@
 import argparse
 import pprint
 
-import github
+import github as pygithub
 import requests
 
 from mergify_engine import check_api
@@ -24,6 +24,7 @@ from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.tasks import engine
 from mergify_engine.tasks.engine import actions_runner
 
@@ -53,18 +54,18 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
             else:
                 return repositories
         elif response.status_code == 403:
-            raise github.BadCredentialsException(
+            raise pygithub.BadCredentialsException(
                 status=response.status_code, data=response.text
             )
         elif response.status_code == 404:
-            raise github.UnknownObjectException(
+            raise pygithub.UnknownObjectException(
                 status=response.status_code, data=response.text
             )
-        raise github.GithubException(status=response.status_code, data=response.text)
+        raise pygithub.GithubException(status=response.status_code, data=response.text)
 
 
 def create_jwt():
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
+    integration = pygithub.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
     return integration.create_jwt()
 
 
@@ -76,9 +77,9 @@ def report_sub(install_id, slug, sub, title):
         for login, token in sub["tokens"].items():
             try:
                 repos = get_repositories_setuped(token, install_id)
-            except github.BadCredentialsException:
+            except pygithub.BadCredentialsException:
                 print(f"* {title} SUB: token for {login} is invalid (BadCreds)")
-            except github.GithubException as e:
+            except pygithub.GithubException as e:
                 if e.status != 401:
                     raise
                 print(f"* {title} SUB: token for {login} is invalid (401)")
@@ -94,7 +95,7 @@ def report_sub(install_id, slug, sub, title):
                 break
         else:
             print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
-    except github.UnknownObjectException:
+    except pygithub.UnknownObjectException:
         print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
 
 
@@ -108,29 +109,31 @@ def report(url):
         return
     slug = owner + "/" + repo
 
-    integration = github.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
-    install_id = utils.get_installation_id(integration, owner, repo=repo)
+    client = github.get_client(owner, repo)
 
-    print("* INSTALLATION ID: %s" % install_id)
+    print("* INSTALLATION ID: %s" % client.installation_id)
 
-    cached_sub = sub_utils.get_subscription(redis, install_id)
-    db_sub = sub_utils._retrieve_subscription_from_db(install_id)
+    cached_sub = sub_utils.get_subscription(redis, client.installation_id)
+    db_sub = sub_utils._retrieve_subscription_from_db(client.installation_id)
     print(
         "* SUBSCRIBED (cache/db): %s / %s"
         % (cached_sub["subscription_active"], db_sub["subscription_active"])
     )
-    report_sub(install_id, slug, cached_sub, "ENGINE-CACHE")
-    report_sub(install_id, slug, db_sub, "DASHBOARD")
+    report_sub(client.installation_id, slug, cached_sub, "ENGINE-CACHE")
+    report_sub(client.installation_id, slug, db_sub, "DASHBOARD")
 
-    installation_token = integration.get_access_token(install_id).token
+    pull_raw = client.item(f"pulls/{pull_number}")
+    mp = mergify_pull.MergifyPull(client, pull_raw)
 
-    g = utils.Github(installation_token)
-    r = g.get_repo(owner + "/" + repo)
-    print("* REPOSITORY IS %s" % "PRIVATE" if r.private else "PUBLIC")
+    print(
+        "* REPOSITORY IS %s" % "PRIVATE"
+        if mp.data["base"]["repo"]["private"]
+        else "PUBLIC"
+    )
 
     print("* CONFIGURATION:")
     try:
-        mergify_config_content = rules.get_mergify_config_content(r)
+        mergify_config_content = rules.get_mergify_config_content(mp.g_pull.base.repo)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
     else:
@@ -145,24 +148,17 @@ def report(url):
         pull_request_rules_raw["rules"].extend(engine.MERGIFY_RULE["rules"])
         pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
-    try:
-        p = r.get_pull(int(pull_number))
-    except github.UnknownObjectException:
-        print("Wrong pull request number")
-        return g, None
-
-    mp = mergify_pull.MergifyPull(g, p, install_id, installation_token)
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
     try:
         print("is_behind: %s" % mp.is_behind)
-    except github.GithubException as e:
+    except pygithub.GithubException as e:
         print("Unable to know if pull request branch is behind: %s" % e)
 
     print("mergeable_state: %s" % mp.mergeable_state)
 
     print("* MERGIFY LAST CHECKS:")
-    checks = list(check_api.get_checks(p))
+    checks = list(check_api.get_checks(mp.g_pull))
     for c in checks:
         if c._rawData["app"]["id"] == config.INTEGRATION_ID:
             print("[%s]: %s | %s" % (c.name, c.conclusion, c.output.get("title")))
@@ -176,7 +172,7 @@ def report(url):
     print("> %s" % summary_title)
     print(summary)
 
-    return g, p
+    return mp
 
 
 def main():

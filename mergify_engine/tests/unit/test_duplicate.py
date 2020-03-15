@@ -15,7 +15,6 @@
 # under the License.
 from unittest import mock
 
-from mergify_engine import config
 from mergify_engine import duplicate_pull
 from mergify_engine import mergify_pull
 
@@ -31,12 +30,10 @@ def fake_get_github_pulls_from_sha(repo, sha):
     "mergify_engine.duplicate_pull.utils.get_github_pulls_from_sha",
     side_effect=fake_get_github_pulls_from_sha,
 )
-def test_get_commits_to_cherry_pick_rebase(_):
-    g = mock.Mock()
-    g_pull = mock.Mock()
-    g_pull.merged = True
-    g_pull.number = 6
-
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
+)
+def test_get_commits_to_cherry_pick_rebase(g_pull, _):
     c1 = mock.Mock()
     c1.sha = "c1f"
     c1.parents = []
@@ -44,16 +41,22 @@ def test_get_commits_to_cherry_pick_rebase(_):
     c2.sha = "c2"
     c2.parents = [c1]
 
-    def _get_commits():
-        return [c1, c2]
+    g_pull.get_commits.return_value = [c1, c2]
 
-    g_pull.get_commits = _get_commits
+    client = mock.Mock()
+    client.auth.get_access_token.return_value = "<token>"
 
     pull = mergify_pull.MergifyPull(
-        g=g,
-        g_pull=g_pull,
-        installation_id=config.INSTALLATION_ID,
-        installation_token=mock.Mock(),
+        client,
+        {
+            "number": 6,
+            "merged": True,
+            "state": "closed",
+            "html_url": "<html_url>",
+            "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
+            "user": {"login": "user"},
+            "merged_at": None,
+        },
     )
 
     base_branch = mock.Mock()
@@ -72,11 +75,10 @@ def test_get_commits_to_cherry_pick_rebase(_):
     ]
 
 
-def test_get_commits_to_cherry_pick_merge():
-    g = mock.Mock()
-    g_pull = mock.Mock()
-    g_pull.merged = True
-
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
+)
+def test_get_commits_to_cherry_pick_merge(g_pull):
     c1 = mock.Mock()
     c1.sha = "c1f"
     c1.parents = []
@@ -84,16 +86,22 @@ def test_get_commits_to_cherry_pick_merge():
     c2.sha = "c2"
     c2.parents = [c1]
 
-    def _get_commits():
-        return [c1, c2]
+    g_pull.get_commits.return_value = [c1, c2]
 
-    g_pull.get_commits = _get_commits
+    client = mock.Mock()
+    client.auth.get_access_token.return_value = "<token>"
 
     pull = mergify_pull.MergifyPull(
-        g=g,
-        g_pull=g_pull,
-        installation_id=config.INSTALLATION_ID,
-        installation_token=mock.Mock(),
+        client,
+        {
+            "number": 6,
+            "merged": True,
+            "state": "closed",
+            "html_url": "<html_url>",
+            "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
+            "user": {"login": "user"},
+            "merged_at": None,
+        },
     )
 
     base_branch = mock.Mock()

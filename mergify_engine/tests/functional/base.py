@@ -399,19 +399,6 @@ class FunctionalTestBase(testtools.TestCase):
             self.r_o_integration.name,
         )
 
-        # Limit installations/subscription API to the test account
-        install = {
-            "id": config.INSTALLATION_ID,
-            "target_type": "Org",
-            "account": {"login": "mergifyio-testing"},
-        }
-
-        self.useFixture(
-            fixtures.MockPatch(
-                "mergify_engine.utils.get_installations", lambda integration: [install]
-            )
-        )
-
         real_get_subscription = sub_utils.get_subscription
 
         def fake_retrieve_subscription_from_db(install_id):

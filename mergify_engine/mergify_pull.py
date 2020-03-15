@@ -18,13 +18,15 @@ import re
 from urllib import parse
 
 import attr
-import github
+import daiquiri
+import github as pygithub
 import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
 from mergify_engine import utils
+from mergify_engine.clients import github
 
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
@@ -51,33 +53,49 @@ GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 
 @attr.s()
 class MergifyPull(object):
-    # NOTE(sileht): Use from_cache/from_event not the constructor directly
-    g = attr.ib()
-    g_pull = attr.ib()
-    installation_id = attr.ib()
-    installation_token = attr.ib()
+    client = attr.ib()
+    data = attr.ib()
     _consolidated_data = attr.ib(init=False, default=None)
 
     @property
-    def log(self):
-        return self.g_pull.log
+    def g(self):
+        # NOTE(sileht): Remove me
+        return utils.Github(self.installation_token)
 
-    @classmethod
-    def from_raw(cls, installation_id, installation_token, pull_raw):
-        g = utils.Github(installation_token)
-        pull = github.PullRequest.PullRequest(
-            g._Github__requester, {}, pull_raw, completed=True
+    @property
+    def g_pull(self):
+        # NOTE(sileht): Remove me
+        return pygithub.PullRequest.PullRequest(
+            self.g._Github__requester, {}, self.data, completed=True
         )
-        return cls(g, pull, installation_id, installation_token)
 
-    @classmethod
-    def from_number(
-        cls, installation_id, installation_token, owner, reponame, pull_number
-    ):
-        g = utils.Github(installation_token)
-        repo = g.get_repo(owner + "/" + reponame)
-        pull = repo.get_pull(pull_number)
-        return cls(g, pull, installation_id, installation_token)
+    @property
+    def log(self):
+        return daiquiri.getLogger(
+            __name__,
+            gh_owner=self.data["user"]["login"],
+            gh_repo=self.data["base"]["repo"]["name"],
+            gh_private=self.data["base"]["repo"]["private"],
+            gh_branch=self.data["base"]["ref"],
+            gh_pull=self.data["number"],
+            gh_pull_url=self.data["html_url"],
+            gh_pull_state=(
+                "merged"
+                if self.data["merged_at"]
+                else (self.data.get("mergeable_state", "unknown") or "none")
+            ),
+        )
+
+    @property
+    def installation_id(self):
+        # NOTE(sileht): Remove me
+        return self.client.installation_id
+
+    @property
+    def installation_token(self):
+        # TODO(sileht): This is used by Git commands, we should validate it
+        # before using it
+        return self.client.auth.get_access_token()
 
     def __attrs_post_init__(self):
         self._ensure_mergable_state()
@@ -123,25 +141,29 @@ class MergifyPull(object):
             # Only use internally attributes
             "_approvals": approvals,
             # Can be used by rules too
-            "assignee": [a.login for a in self.g_pull.assignees],
+            "assignee": [a["login"] for a in self.data["assignees"]],
             # NOTE(sileht): We put an empty label to allow people to match
             # no label set
-            "label": [l.name for l in self.g_pull.labels],
+            "label": [l["name"] for l in self.data["labels"]],
             "review-requested": (
-                [u["login"] for u in self.g_pull._rawData["requested_reviewers"]]
-                + ["@" + t["slug"] for t in self.g_pull._rawData["requested_teams"]]
+                [u["login"] for u in self.data["requested_reviewers"]]
+                + ["@" + t["slug"] for t in self.data["requested_teams"]]
             ),
-            "author": self.g_pull.user.login,
-            "merged-by": (self.g_pull.merged_by.login if self.g_pull.merged_by else ""),
-            "merged": self.g_pull.merged,
-            "closed": self.g_pull.state == "closed",
-            "milestone": (self.g_pull.milestone.title if self.g_pull.milestone else ""),
-            "conflict": self.g_pull.mergeable_state == "dirty",
-            "base": self.g_pull.base.ref,
-            "head": self.head_ref,
-            "locked": self.g_pull._rawData["locked"],
-            "title": self.g_pull.title,
-            "body": self.g_pull.body,
+            "author": self.data["user"]["login"],
+            "merged-by": (
+                self.data["merged_by"]["login"] if self.data["merged_by"] else ""
+            ),
+            "merged": self.data["merged"],
+            "closed": self.data["state"] == "closed",
+            "milestone": (
+                self.data["milestone"]["title"] if self.data["milestone"] else ""
+            ),
+            "conflict": self.data["mergeable_state"] == "dirty",
+            "base": self.data["base"]["ref"],
+            "head": self.data["head"]["ref"],
+            "locked": self.data["locked"],
+            "title": self.data["title"],
+            "body": self.data["body"],
             "files": [f.filename for f in self.g_pull.get_files()],
             "approved-reviews-by": [
                 r.user.login for r in approvals if r.state == "APPROVED"
@@ -174,8 +196,8 @@ class MergifyPull(object):
     def _get_statuses(self):
         already_seen = set()
         statuses = []
-        for status in github.PaginatedList.PaginatedList(
-            github.CommitStatus.CommitStatus,
+        for status in pygithub.PaginatedList.PaginatedList(
+            pygithub.CommitStatus.CommitStatus,
             self.g_pull._requester,
             self.g_pull.base.repo.url + "/commits/" + self.g_pull.head.sha + "/status",
             None,
@@ -197,7 +219,7 @@ class MergifyPull(object):
                     for c in check_api.get_checks(self.g_pull)
                 ]
             )
-        except github.GithubException as e:
+        except pygithub.GithubException as e:
             if (
                 e.status != 403
                 or e.data["message"] != "Resource not accessible by integration"
@@ -226,7 +248,7 @@ class MergifyPull(object):
                 return [name]
             organization = organization[1:]
         else:
-            organization = self.g_pull.base.repo.owner.login
+            organization = self.data["base"]["repo"]["owner"]["login"]
             team_slug = name[1:]
 
         try:
@@ -234,7 +256,7 @@ class MergifyPull(object):
             for team in g_organization.get_teams():
                 if team.slug == team_slug:
                     return [m.login for m in team.get_members()]
-        except github.GithubException as e:
+        except pygithub.GithubException as e:
             if e.status >= 500:
                 raise
             self.log.warning(
@@ -264,9 +286,15 @@ class MergifyPull(object):
         reraise=True,
     )
     def _ensure_mergable_state(self, force=False):
-        if self.g_pull.state == "closed":
+        if self.data["state"] == "closed":
             return
-        if not force and self.g_pull.mergeable_state not in self.UNUSABLE_STATES:
+
+        # NOTE(sileht): If pull request come from /pulls listing, they are incomplete,
+        # This ensure we have the complete view
+        if "mergeable_state" not in self.data:
+            force = True
+
+        if not force and self.data["mergeable_state"] not in self.UNUSABLE_STATES:
             return
 
         # Github is currently processing this PR, we wait the completion
@@ -275,19 +303,25 @@ class MergifyPull(object):
         # NOTE(sileht): Well github doesn't always update etag/last_modified
         # when mergeable_state change, so we get a fresh pull request instead
         # of using update()
-        self.g_pull = self.g_pull.base.repo.get_pull(self.g_pull.number)
+        self.data = self.client.item(f"pulls/{self.data['number']}")
         if (
-            self.g_pull.state == "closed"
-            or self.g_pull.mergeable_state not in self.UNUSABLE_STATES
+            self.data["state"] == "closed"
+            or self.data["mergeable_state"] not in self.UNUSABLE_STATES
         ):
             return
 
         raise exceptions.MergeableStateUnknown(self)
 
+    def update(self):
+        # TODO(sileht): Remove me,
+        # Don't use it, because consolidated data are not updated after that.
+        # Only used by merge action for posting an update report after rebase.
+        self.data = self.client.item(f"pulls/{self.data['number']}")
+
     @functools_bp.cached_property
     def is_behind(self):
         branch = self.g_pull.base.repo.get_branch(
-            parse.quote(self.g_pull.base.ref, safe="")
+            parse.quote(self.data["base"]["ref"], safe="")
         )
         for commit in self.commits:
             for parent in commit.parents:
@@ -296,13 +330,13 @@ class MergifyPull(object):
         return True
 
     def get_merge_commit_message(self):
-        if not self.g_pull.body:
+        if not self.data["body"]:
             return
 
         found = False
         message_lines = []
 
-        for line in self.g_pull.body.split("\n"):
+        for line in self.data["body"].split("\n"):
             if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
                 found = True
             elif found and MARKDOWN_TITLE_RE.match(line):
@@ -318,14 +352,14 @@ class MergifyPull(object):
 
     def __str__(self):
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
-            "login": self.g_pull.base.user.login,
-            "repo": self.g_pull.base.repo.name,
-            "number": self.g_pull.number,
-            "branch": self.g_pull.base.ref,
+            "login": self.data["base"]["user"]["login"],
+            "repo": self.data["base"]["repo"]["name"],
+            "number": self.data["number"],
+            "branch": self.data["base"]["ref"],
             "pr_state": (
                 "merged"
-                if self.g_pull.merged
-                else (self.g_pull.mergeable_state or "none")
+                if self.data["merged"]
+                else (self.data["mergeable_state"] or "none")
             ),
         }
 
@@ -341,68 +375,68 @@ class MergifyPull(object):
 
     @property
     def number(self):
-        return self.g_pull.number
+        return self.data["number"]
 
     @property
     def title(self):
-        return self.g_pull.title
+        return self.data["title"]
 
     @property
     def user(self):
-        return self.g_pull.user.login
+        return self.data["user"]["login"]
 
     @property
     def state(self):
-        return self.g_pull.state
+        return self.data["state"]
 
     @property
     def from_fork(self):
-        return self.g_pull.head.repo.id != self.g_pull.base.repo.id
+        return self.data["head"]["repo"]["id"] != self.data["base"]["repo"]["id"]
 
     @property
     def base_is_modifiable(self):
-        return self.g_pull.raw_data["maintainer_can_modify"] or not self.from_fork
+        return self.data["maintainer_can_modify"] or not self.from_fork
 
     @property
     def merge_commit_sha(self):
-        return self.g_pull.merge_commit_sha
+        return self.data["merge_commit_sha"]
 
     @property
     def head_sha(self):
-        return self.g_pull.head.sha
+        return self.data["head"]["sha"]
 
     @property
     def base_ref(self):
-        return self.g_pull.base.ref
+        return self.data["base"]["ref"]
 
     @property
     def head_ref(self):
-        return self.g_pull.head.ref
+        return self.data["head"]["ref"]
 
     @property
     def base_repo_name(self):
-        return self.g_pull.base.repo.name
+        return self.data["base"]["repo"]["name"]
 
     @property
     def head_repo_name(self):
-        return self.g_pull.head.repo.name
+        return self.data["head"]["repo"]["name"]
 
     @property
     def base_repo_owner_login(self):
-        return self.g_pull.base.repo.owner.login
+        return self.data["base"]["repo"]["owner"]["login"]
 
     @property
     def head_repo_owner_login(self):
-        return self.g_pull.head.repo.owner.login
+        return self.data["head"]["repo"]["owner"]["login"]
 
     @property
     def mergeable_state(self):
-        return self.g_pull.mergeable_state
+        return self.data["mergeable_state"]
 
     @property
     def merged(self):
-        return self.g_pull.merged
+        return self.data["merged"]
 
     @property
     def merged_by(self):
-        return self.g_pull.merged_by
+        return self.data["merged_by"]["login"]
