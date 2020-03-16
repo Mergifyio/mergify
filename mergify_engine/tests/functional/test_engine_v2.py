@@ -1056,7 +1056,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         )
 
-    def _test_merge_custom_msg(self, header):
+    def _test_merge_custom_msg(self, header, method="squash"):
         rules = {
             "pull_request_rules": [
                 {
@@ -1065,7 +1065,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                         "base=master",
                         "status-success=continuous-integration/fake-ci",
                     ],
-                    "actions": {"merge": {"method": "squash"}},
+                    "actions": {"merge": {"method": method}},
                 }
             ]
         }
@@ -1103,6 +1103,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     def test_merge_custom_msg_rn(self):
         return self._test_merge_custom_msg("Commit Message\r\n")
+
+    def test_merge_custom_msg_merge(self):
+        return self._test_merge_custom_msg("Commit Message:\n", "merge")
 
     def test_merge_and_closes_issues(self):
         rules = {
