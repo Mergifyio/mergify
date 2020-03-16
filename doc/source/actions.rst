@@ -341,11 +341,11 @@ protection to be validated before merging the pull request.
 Commit Message and ``squash`` Method
 ------------------------------------
 
-When a pull request is merged using the squash or merge method, Mergify uses
-the default commit message provided by GitHub. You can override the commit
+When a pull request is merged using the ``squash`` or ``merge`` method, Mergify
+uses the default commit message provided by GitHub. You can override the commit
 message by adding a section in the pull request body. The section must start
-with the Markdown title "Commit Message" and contain the actual commit message.
-For example::
+with the Markdown title "Commit Message" and contain the actual commit
+message::
 
     ## Commit Message
     My wanted commit title
