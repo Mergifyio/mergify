@@ -13,6 +13,7 @@
 # under the License.
 
 import base64
+import copy
 
 from datadog import statsd
 import yaml
@@ -145,6 +146,27 @@ def gen_summary(pull, sources, match):
     return summary_title, summary
 
 
+def _filterred_sources_for_logging(data, inplace=False):
+    if not inplace:
+        data = copy.deepcopy(data)
+
+    if isinstance(data, dict):
+        data.pop("node_id", None)
+        data.pop("tree_id", None)
+        data.pop("_links", None)
+        data.pop("external_id", None)
+        for key, value in list(data.items()):
+            if key.endswith("url"):
+                del data[key]
+            else:
+                data[key] = _filterred_sources_for_logging(value, inplace=True)
+        return data
+    elif isinstance(data, list):
+        return [_filterred_sources_for_logging(elem, inplace=True) for elem in data]
+    else:
+        return data
+
+
 def post_summary(pull, sources, match, summary_check, conclusions):
     summary_title, summary = gen_summary(pull, sources, match)
 
@@ -161,7 +183,7 @@ def post_summary(pull, sources, match, summary_check, conclusions):
         pull.log.debug(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
-            sources=sources,
+            sources=_filterred_sources_for_logging(sources),
         )
         check_api.set_check_run(
             pull.g_pull,
@@ -174,7 +196,7 @@ def post_summary(pull, sources, match, summary_check, conclusions):
         pull.log.debug(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
-            sources=sources,
+            sources=_filterred_sources_for_logging(sources),
         )
 
 
