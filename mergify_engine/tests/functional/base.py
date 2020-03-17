@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import copy
+import datetime
 import json
 import os
 import queue
@@ -537,8 +538,33 @@ class FunctionalTestBase(testtools.TestCase):
             "Last-Modified",
             "X-RateLimit-Remaining",
             "X-Runtime-rack",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Expose-Headers",
+            "Cache-Control",
+            "Content-Security-Policy",
+            "Referrer-Policy",
+            "Server",
+            "Status",
+            "Strict-Transport-Security",
+            "Vary",
+            "X-Content-Type-Options",
+            "X-Frame-Options",
+            "X-XSS-Protection",
         ]:
             response["headers"].pop(h, None)
+            try:
+                data = json.loads(response["body"]["string"].decode())
+            except ValueError:
+                pass
+            else:
+                if "token" in data and "expires_at" in data:
+                    data["token"] = "<TOKEN>"
+                    if not RECORD:
+                        data["expires_at"] = (
+                            datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+                        ).isoformat(timespec="seconds") + "Z"
+                    response["body"]["string"] = json.dumps(data).encode()
+
         return response
 
     def create_pr(
