@@ -139,6 +139,7 @@ class MergifyPull(object):
         return self._consolidated_data
 
     def _get_consolidated_data(self):
+        files = list(self.client.items(f"pulls/{self.data['number']}/files"))
         comments, approvals = self._get_consolidated_reviews()
         statuses = self._get_checks()
         return {
@@ -168,7 +169,7 @@ class MergifyPull(object):
             "locked": self.data["locked"],
             "title": self.data["title"],
             "body": self.data["body"],
-            "files": [f.filename for f in self.g_pull.get_files()],
+            "files": [f["filename"] for f in files],
             "approved-reviews-by": [
                 r["user"]["login"] for r in approvals if r["state"] == "APPROVED"
             ],
