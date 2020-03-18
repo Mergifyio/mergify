@@ -22,7 +22,7 @@ from mergify_engine import mergify_pull
 
 
 def create_commit(sha=None):
-    return mock.Mock(sha=sha, parents=[], spec=["parents", "sha"])
+    return dict(sha=sha, parents=[])
 
 
 @pytest.fixture(params=["U-A-B-C", "O-A-B-C", "O-A-BO-C", "O-A-BU-C", "O-A-B-CU"])
@@ -42,13 +42,13 @@ def commits_tree_generator(request):
         if elem == "-":
             commits.append(cur)
             cur = create_commit()
-            cur.parents.append(commits[-1])
+            cur["parents"].append(commits[-1])
         elif elem == "U":
-            cur.parents.append(create_commit("base"))
+            cur["parents"].append(create_commit("base"))
         elif elem == "O":
-            cur.parents.append(create_commit("outdated"))
+            cur["parents"].append(create_commit("outdated"))
         else:
-            cur.parents.append(create_commit("sha-%s" % elem))
+            cur["parents"].append(create_commit("sha-%s" % elem))
     commits.append(cur)
     return behind, commits
 
@@ -56,16 +56,24 @@ def commits_tree_generator(request):
 def test_pull_behind(commits_tree_generator):
     expected, commits = commits_tree_generator
     with mock.patch(
-        "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
-    ) as g_pull:
-        g_pull.base.repo.get_branch.return_value = mock.Mock(
-            commit=mock.Mock(sha="base")
-        )
-        g_pull.get_commits.return_value = commits
+        "mergify_engine.mergify_pull.MergifyPull.commits",
+        new_callable=mock.PropertyMock(return_value=commits),
+    ):
+        with mock.patch(
+            "mergify_engine.mergify_pull.MergifyPull.g_pull",
+            return_value=mock.PropertyMock,
+        ) as g_pull:
+            g_pull.base.repo.get_branch.return_value = mock.Mock(
+                commit=mock.Mock(sha="base")
+            )
 
-        pull = mergify_pull.MergifyPull(
-            mock.Mock(),
-            data={"mergeable_state": "clean", "state": "open", "base": {"ref": "#foo"}},
-        )
+            pull = mergify_pull.MergifyPull(
+                mock.Mock(),
+                data={
+                    "mergeable_state": "clean",
+                    "state": "open",
+                    "base": {"ref": "#foo"},
+                },
+            )
 
-        assert expected == pull.is_behind
+            assert expected == pull.is_behind

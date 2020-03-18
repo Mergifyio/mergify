@@ -33,15 +33,13 @@ def fake_get_github_pulls_from_sha(repo, sha):
 @mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
 )
-def test_get_commits_to_cherry_pick_rebase(g_pull, _):
-    c1 = mock.Mock()
-    c1.sha = "c1f"
-    c1.parents = []
-    c2 = mock.Mock()
-    c2.sha = "c2"
-    c2.parents = [c1]
-
-    g_pull.get_commits.return_value = [c1, c2]
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
+)
+def test_get_commits_to_cherry_pick_rebase(commits, g_pull, _):
+    c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
+    c2 = {"sha": "c2", "parents": [c1], "commit": {"message": "foobar"}}
+    commits.return_value = [c1, c2]
 
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
@@ -59,15 +57,9 @@ def test_get_commits_to_cherry_pick_rebase(g_pull, _):
         },
     )
 
-    base_branch = mock.Mock()
-    base_branch.sha = "base_branch"
-    base_branch.parents = []
-    rebased_c1 = mock.Mock()
-    rebased_c1.sha = "rebased_c1"
-    rebased_c1.parents = [base_branch]
-    rebased_c2 = mock.Mock()
-    rebased_c2.sha = "rebased_c2"
-    rebased_c2.parents = [rebased_c1]
+    base_branch = {"sha": "base_branch", "parents": []}
+    rebased_c1 = {"sha": "rebased_c1", "parents": [base_branch]}
+    rebased_c2 = {"sha": "rebased_c2", "parents": [rebased_c1]}
 
     assert duplicate_pull._get_commits_to_cherrypick(pull, rebased_c2) == [
         rebased_c1,
@@ -78,15 +70,13 @@ def test_get_commits_to_cherry_pick_rebase(g_pull, _):
 @mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
 )
-def test_get_commits_to_cherry_pick_merge(g_pull):
-    c1 = mock.Mock()
-    c1.sha = "c1f"
-    c1.parents = []
-    c2 = mock.Mock()
-    c2.sha = "c2"
-    c2.parents = [c1]
-
-    g_pull.get_commits.return_value = [c1, c2]
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
+)
+def test_get_commits_to_cherry_pick_merge(commits, g_pull):
+    c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
+    c2 = {"sha": "c2", "parents": [c1], "commit": {"message": "foobar"}}
+    commits.return_value = [c1, c2]
 
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
@@ -104,11 +94,7 @@ def test_get_commits_to_cherry_pick_merge(g_pull):
         },
     )
 
-    base_branch = mock.Mock()
-    base_branch.sha = "base_branch"
-    base_branch.parents = []
-    merge_commit = mock.Mock()
-    merge_commit.sha = "merge_commit"
-    merge_commit.parents = [base_branch, c2]
+    base_branch = {"sha": "base_branch", "parents": []}
+    merge_commit = {"sha": "merge_commit", "parents": [base_branch, c2]}
 
     assert duplicate_pull._get_commits_to_cherrypick(pull, merge_commit) == [c1, c2]
