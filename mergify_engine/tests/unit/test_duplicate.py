@@ -53,7 +53,9 @@ def test_get_commits_to_cherry_pick_rebase(commits, g_pull, _):
             "html_url": "<html_url>",
             "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
             "user": {"login": "user"},
+            "merged_by": None,
             "merged_at": None,
+            "mergeable_state": "clean",
         },
     )
 
@@ -91,6 +93,8 @@ def test_get_commits_to_cherry_pick_merge(commits, g_pull):
             "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
             "user": {"login": "user"},
             "merged_at": None,
+            "merged_by": None,
+            "mergeable_state": "clean",
         },
     )
 

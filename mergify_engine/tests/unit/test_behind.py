@@ -72,6 +72,9 @@ def test_pull_behind(commits_tree_generator):
                 data={
                     "mergeable_state": "clean",
                     "state": "open",
+                    "merged": False,
+                    "merged_at": None,
+                    "merged_by": None,
                     "base": {"ref": "#foo"},
                 },
             )

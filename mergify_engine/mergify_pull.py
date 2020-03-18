@@ -73,15 +73,27 @@ class MergifyPull(object):
     def log(self):
         return daiquiri.getLogger(
             __name__,
-            gh_owner=self.data["user"]["login"],
-            gh_repo=self.data["base"]["repo"]["name"],
-            gh_private=self.data["base"]["repo"]["private"],
-            gh_branch=self.data["base"]["ref"],
+            gh_owner=self.data["user"]["login"]
+            if "user" in self.data
+            else "<unknown-yet>",
+            gh_repo=(
+                self.data["base"]["repo"]["name"]
+                if "base" in self.data
+                else "<unknown-yet>"
+            ),
+            gh_private=(
+                self.data["base"]["repo"]["private"]
+                if "base" in self.data
+                else "<unknown-yet>"
+            ),
+            gh_branch=self.data["base"]["ref"]
+            if "base" in self.data
+            else "<unknown-yet>",
             gh_pull=self.data["number"],
-            gh_pull_url=self.data["html_url"],
+            gh_pull_url=self.data.get("html_url", "<unknown-yet>"),
             gh_pull_state=(
                 "merged"
-                if self.data["merged_at"]
+                if self.data.get("merged")
                 else (self.data.get("mergeable_state", "unknown") or "none")
             ),
         )
@@ -284,20 +296,43 @@ class MergifyPull(object):
         reraise=True,
     )
     def _ensure_complete(self):
-        if not self._is_complete():
+        if not (
+            self._is_data_complete()
+            and self._is_background_github_processing_completed()
+        ):
             self.data = self.client.item(f"pulls/{self.data['number']}")
 
-        if self._is_complete():
+        if not self._is_data_complete():
+            self.log.error(
+                "/pulls/%s has returned an incomplete payload...",
+                self.data["number"],
+                data=self.data,
+            )
+
+        if self._is_background_github_processing_completed():
             return
 
         raise exceptions.MergeableStateUnknown(self)
 
-    def _is_complete(self):
+    def _is_data_complete(self):
         # NOTE(sileht): If pull request come from /pulls listing or check-runs sometimes,
         # they are incomplete, This ensure we have the complete view
+        fields_to_control = (
+            "state",
+            "mergeable_state",
+            "merged_by",
+            "merged",
+            "merged_at",
+        )
+        for field in fields_to_control:
+            if field not in self.data:
+                return False
+        return True
+
+    def _is_background_github_processing_completed(self):
         return (
-            self.data.get("state") == "closed"
-            or self.data.get("mergeable_state") not in self.UNUSABLE_STATES
+            self.data["state"] == "closed"
+            or self.data["mergeable_state"] not in self.UNUSABLE_STATES
         )
 
     def update(self):
