@@ -305,8 +305,8 @@ class MergifyPull(object):
             parse.quote(self.data["base"]["ref"], safe="")
         )
         for commit in self.commits:
-            for parent in commit.parents:
-                if parent.sha == branch.commit.sha:
+            for parent in commit["parents"]:
+                if parent["sha"] == branch.commit.sha:
                     return False
         return True
 
@@ -350,7 +350,7 @@ class MergifyPull(object):
 
     @functools_bp.cached_property
     def commits(self):
-        return list(self.g_pull.get_commits())
+        return list(self.client.items(f"pulls/{self.data['number']}/commits"))
 
     # NOTE(sileht): map all attributes that in theory doesn't do http calls
 

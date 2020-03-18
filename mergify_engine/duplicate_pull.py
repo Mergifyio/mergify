@@ -51,11 +51,11 @@ class CommitOrderingKey(object):
 
     @staticmethod
     def order_commit(c1, c2):
-        if c1.sha == c2.sha:
+        if c1["sha"] == c2["sha"]:
             return 0
 
-        for p in c1.parents:
-            if c2.sha == p.sha:
+        for p in c1["parents"]:
+            if c2["sha"] == p["sha"]:
                 return 1
 
         return -1
@@ -69,13 +69,13 @@ class CommitOrderingKey(object):
 
 def is_base_branch_merge_commit(commit, base_branch):
     return (
-        commit.commit.message.startswith("Merge branch '%s'" % base_branch)
-        and len(commit.parents) == 2
+        commit["commit"]["message"].startswith("Merge branch '%s'" % base_branch)
+        and len(commit["parents"]) == 2
     )
 
 
 def _get_commits_without_base_branch_merge(pull):
-    base_branch = pull.base_ref
+    base_branch = pull.data["base"]["ref"]
     return list(
         filter(
             lambda c: not is_base_branch_merge_commit(c, base_branch),
@@ -85,33 +85,38 @@ def _get_commits_without_base_branch_merge(pull):
 
 
 def _get_commits_to_cherrypick(pull, merge_commit):
-    if len(merge_commit.parents) == 1:
+    if len(merge_commit["parents"]) == 1:
         # NOTE(sileht): We have a rebase+merge or squash+merge
         # We pick all commits until a sha is not linked with our PR
 
         out_commits = []
         commit = merge_commit
         while True:
-            if len(commit.parents) != 1:
+            if "parents" not in commit:
+                commit = pull.client.item(f"commits/{commit['sha']}")
+
+            if len(commit["parents"]) != 1:
                 # NOTE(sileht): What is that? A merge here?
                 pull.log.error("unhandled commit structure")
                 return []
 
             out_commits.insert(0, commit)
-            commit = commit.parents[0]
-            pulls = utils.get_github_pulls_from_sha(pull.g_pull.base.repo, commit.sha)
+            commit = commit["parents"][0]
+            pulls = utils.get_github_pulls_from_sha(
+                pull.g_pull.base.repo, commit["sha"]
+            )
             pull_numbers = [p.number for p in pulls]
 
             if pull.number not in pull_numbers:
                 if len(out_commits) == 1:
                     pull.log.info(
-                        "Pull requests merged with one commit rebased, " "or squashed",
+                        "Pull requests merged with one commit rebased, or squashed",
                     )
                 else:
                     pull.log.info("Pull requests merged after rebase")
                 return out_commits
 
-    elif len(merge_commit.parents) == 2:
+    elif len(merge_commit["parents"]) == 2:
         pull.log.info("Pull request merged with merge commit")
         return _get_commits_without_base_branch_merge(pull)
 
@@ -128,7 +133,7 @@ BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 
 
 def get_destination_branch_name(pull, branch, kind):
-    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch.name, pull.number,)
+    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch.name, pull.number)
 
 
 @tenacity.retry(
@@ -176,22 +181,22 @@ def duplicate(
         git("fetch", "--quiet", "origin", branch.name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch.name)
 
-        merge_commit = repo.get_commit(pull.merge_commit_sha)
+        merge_commit = pull.client.item(f"commits/{pull.merge_commit_sha}")
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
             # git("fetch", "origin", "%s:refs/remotes/origin/%s-commit" %
-            #    (commit.sha, commit.sha)
+            #    (commit["sha"], commit["sha"])
             #    )
-            # last_commit_date = commit.commit.committer.date
+            # last_commit_date = commit["commit"]["committer"]["date"]
             # git("fetch", "origin", pull.base.ref,
             #    "--shallow-since='%s'" % last_commit_date)
             try:
-                git("cherry-pick", "-x", commit.sha)
+                git("cherry-pick", "-x", commit["sha"])
             except subprocess.CalledProcessError as e:  # pragma: no cover
-                pull.log.debug("fail to cherry-pick %s: %s", commit.sha, e.output)
+                pull.log.debug("fail to cherry-pick %s: %s", commit["sha"], e.output)
                 git_status = git("status").decode("utf8")
-                body += f"\n\nCherry-pick of {commit.sha} has failed:\n```\n{git_status}```\n\n"
+                body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{git_status}```\n\n"
                 if not ignore_conflicts:
                     raise DuplicateFailed(body)
                 cherry_pick_fail = True

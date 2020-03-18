@@ -35,7 +35,7 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 def find_embedded_pull(pull):
     # NOTE(sileht): We are looking for a pull request that have been merged
     # very recently and have commit sha in common with current pull request.
-    expected_commits = [c.sha for c in pull.commits]
+    expected_commits = [c["sha"] for c in pull.commits]
     pulls = pull.g_pull.base.repo.get_pulls(state="closed", base=pull.base_ref)[
         0:PULL_REQUEST_EMBEDDED_CHECK_BACKLOG
     ]
