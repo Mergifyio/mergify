@@ -55,7 +55,7 @@ class GithubBearerAuth(httpx.Auth):
             yield request
 
 
-class _Client(httpx.Client, common.HttpxHelpersMixin):
+class _Client(common.BaseClient):
     def __init__(self):
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}",
@@ -76,7 +76,6 @@ class _Client(httpx.Client, common.HttpxHelpersMixin):
         response = self.get(url)
         if response.status_code == 200:
             return response.json()["id"]
-        response.raise_for_status()
 
 
 global _GITHUB_APP

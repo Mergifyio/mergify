@@ -47,7 +47,6 @@ class GithubInstallationAuth(httpx.Auth):
             r = github_app.get_client().post(
                 f"/app/installations/{self.installation_id}/access_tokens",
             )
-            r.raise_for_status()
             self._access_token = r.json()["token"]
             self._access_token_expiration = datetime.fromisoformat(
                 r.json()["expires_at"][:-1]
@@ -55,7 +54,7 @@ class GithubInstallationAuth(httpx.Auth):
         return self._access_token
 
 
-class GithubInstallationClient(httpx.Client, common.HttpxHelpersMixin):
+class GithubInstallationClient(common.BaseClient):
     def __init__(self, owner, repo, installation_id=None):
         self.owner = owner
         self.repo = repo
@@ -74,7 +73,6 @@ class GithubInstallationClient(httpx.Client, common.HttpxHelpersMixin):
             headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
 
         r = self.get(url, params=params, headers=headers)
-        r.raise_for_status()
         return r.json()
 
     def items(self, url, api_version=None, list_items=None, **params):
@@ -84,7 +82,6 @@ class GithubInstallationClient(httpx.Client, common.HttpxHelpersMixin):
 
         while True:
             r = self.get(url, params=params, headers=headers)
-            r.raise_for_status()
             items = r.json()
             if list_items:
                 items = items[list_items]
