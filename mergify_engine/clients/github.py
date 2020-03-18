@@ -77,7 +77,7 @@ class GithubInstallationClient(httpx.Client, common.HttpxRetriesMixin):
         r.raise_for_status()
         return r.json()
 
-    def items(self, url, api_version=None, **params):
+    def items(self, url, api_version=None, list_items=None, **params):
         headers = {}
         if api_version:
             headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
@@ -85,7 +85,10 @@ class GithubInstallationClient(httpx.Client, common.HttpxRetriesMixin):
         while True:
             r = self.get(url, params=params, headers=headers)
             r.raise_for_status()
-            for item in r.json():
+            items = r.json()
+            if list_items:
+                items = items[list_items]
+            for item in items:
                 yield item
             if "next" in r.links:
                 url = r.links["next"]["url"]

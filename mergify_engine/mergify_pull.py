@@ -193,21 +193,6 @@ class MergifyPull(object):
             # cancelled, timed_out, or action_required
         }
 
-    def _get_statuses(self):
-        already_seen = set()
-        statuses = []
-        for status in pygithub.PaginatedList.PaginatedList(
-            pygithub.CommitStatus.CommitStatus,
-            self.g_pull._requester,
-            self.g_pull.base.repo.url + "/commits/" + self.g_pull.head.sha + "/status",
-            None,
-            list_item="statuses",
-        ):
-            if status.context not in already_seen:
-                already_seen.add(status.context)
-                statuses.append(status)
-        return statuses
-
     def _get_checks(self):
         generic_checks = set()
         try:
@@ -226,10 +211,16 @@ class MergifyPull(object):
             ):
                 raise
 
+        statuses = list(
+            self.client.items(
+                f"commits/{self.data['head']['sha']}/status", list_items="statuses"
+            )
+        )
+
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         generic_checks |= set(
-            [GenericCheck(s.context, s.state) for s in self._get_statuses()]
+            [GenericCheck(s["context"], s["state"]) for s in statuses]
         )
         return generic_checks
 
