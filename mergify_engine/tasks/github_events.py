@@ -37,7 +37,7 @@ def job_marketplace(event_type, event_id, data):
         installation_id = github_app.get_client().get_installation_id(
             owner, account_type=account_type
         )
-    except httpx.HTTPError as e:
+    except httpx.HTTPClientSideError as e:
         LOG.warning("mergify not installed", gh_owner=owner, error=str(e))
         installation_id = None
         subscription = {

@@ -43,7 +43,7 @@ def need_retry(exception):  # pragma: no cover
         (isinstance(exception, github.GithubException) and exception.status >= 500)
         or (
             isinstance(exception, (requests.exceptions.HTTPError, httpx.HTTPError))
-            and exception.response.status_code >= 500
+            and (exception.response is None or exception.response.status_code >= 500)
         )
         or isinstance(exception, requests.exceptions.ConnectionError)
         or isinstance(exception, requests.exceptions.Timeout)

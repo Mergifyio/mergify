@@ -55,7 +55,7 @@ class GithubInstallationAuth(httpx.Auth):
         return self._access_token
 
 
-class GithubInstallationClient(httpx.Client, common.HttpxRetriesMixin):
+class GithubInstallationClient(httpx.Client, common.HttpxHelpersMixin):
     def __init__(self, owner, repo, installation_id=None):
         self.owner = owner
         self.repo = repo
