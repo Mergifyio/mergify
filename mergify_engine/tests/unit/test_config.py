@@ -136,7 +136,10 @@ def test_pull_request_rule_schema_invalid():
 @mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
 )
-def test_get_pull_request_rule(g_pull, g):
+@mock.patch(
+    "mergify_engine.mergify_pull.MergifyPull.reviews", new_callable=mock.PropertyMock
+)
+def test_get_pull_request_rule(reviews, g_pull, g):
     team = mock.Mock()
     team.slug = "my-reviewers"
     team.get_members.return_value = [mock.Mock(login="sileht"), mock.Mock(login="jd")]
@@ -151,15 +154,17 @@ def test_get_pull_request_rule(g_pull, g):
     file2.filename = "setup.py"
     g_pull.get_files.return_value = [file1, file2]
 
-    review = mock.Mock()
-    review.user.login = "sileht"
-    review.state = "APPROVED"
-    review._rawData = {"author_association": "MEMBER"}
-    g_pull.get_reviews.return_value = [review]
-    g_pull.base.repo.get_collaborator_permission.return_value = "write"
+    review = {
+        "user": {"login": "sileht", "type": "User"},
+        "state": "APPROVED",
+        "author_association": "MEMBER",
+    }
+    reviews.return_value = [review]
+    client = mock.Mock()
+    client.item.return_value = {"permission": "write"}
 
     pull_request = mergify_pull.MergifyPull(
-        mock.Mock(),
+        client,
         {
             "number": 1,
             "html_url": "<html_url>",
@@ -392,12 +397,12 @@ def test_get_pull_request_rule(g_pull, g):
     assert len(match.matching_rules[0][1]) == 1
     assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
 
-    review2 = mock.Mock()
-    review2.user.login = "jd"
-    review2.state = "APPROVED"
-    review2._rawData = {"author_association": "MEMBER"}
-    g_pull.get_reviews.return_value = [review, review2]
-    del pull_request.__dict__["reviews"]
+    review2 = {
+        "user": {"login": "jd", "type": "User"},
+        "state": "APPROVED",
+        "author_association": "MEMBER",
+    }
+    reviews.return_value = [review, review2]
 
     # Team conditions with no review missing
     pull_request_rules = rules.PullRequestRules(

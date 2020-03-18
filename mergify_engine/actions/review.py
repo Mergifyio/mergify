@@ -51,30 +51,32 @@ class ReviewAction(actions.Action):
 
         # TODO(sileht): We should catch it some how, when we drop pygithub for sure
         reviews = reversed(
-            list(filter(lambda r: r.user.id is not config.BOT_USER_ID, pull.reviews))
+            list(
+                filter(
+                    lambda r: r["user"]["id"] is not config.BOT_USER_ID, pull.reviews
+                )
+            )
         )
         for review in reviews:
             if (
-                review.body == (body or "")
-                and review.state == EVENT_STATE_MAP[self.config["type"]]
+                review["body"] == (body or "")
+                and review["state"] == EVENT_STATE_MAP[self.config["type"]]
             ):
                 # Already posted
                 return ("success", "Review already posted", "")
 
             elif (
-                self.config["type"] == "REQUEST_CHANGES" and review.state == "APPROVED"
+                self.config["type"] == "REQUEST_CHANGES"
+                and review["state"] == "APPROVED"
             ):
                 break
 
             elif (
-                self.config["type"] == "APPROVE" and review.state == "CHANGES_REQUESTED"
+                self.config["type"] == "APPROVE"
+                and review["state"] == "CHANGES_REQUESTED"
             ):
                 break
 
-        # FIXME(sileht): With future pygithub >= 2.0.0, we can use pull.create_review
-        # Current version enforce to pass body while it's not required for APPROVE
-        pull.g_pull._requester.requestJsonAndCheck(
-            "POST", pull.g_pull.url + "/reviews", input=payload
-        )
+        pull.client.post(f"pulls/{pull.data['number']}/reviews", json=payload)
 
         return ("success", "Review posted", "")

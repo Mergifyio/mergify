@@ -100,33 +100,37 @@ class MergifyPull(object):
     def __attrs_post_init__(self):
         self._ensure_complete()
 
-    def _valid_perm(self, user):
-        if user.type == "Bot":
-            return True
-        return self.g_pull.base.repo.get_collaborator_permission(user.login) in [
-            "admin",
-            "write",
+    def _get_valid_users(self):
+        bots = list(
+            set(
+                [r["user"]["login"] for r in self.reviews if r["user"]["type"] == "Bot"]
+            )
+        )
+        collabs = set(
+            [r["user"]["login"] for r in self.reviews if r["user"]["type"] != "Bot"]
+        )
+        valid_collabs = [
+            login
+            for login in collabs
+            if self.client.item(f"collaborators/{login}/permission")["permission"]
+            in ["admin", "write"]
         ]
+        return bots + valid_collabs
 
     def _get_consolidated_reviews(self):
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        valid_users = list(
-            map(
-                lambda u: u.login,
-                filter(self._valid_perm, set([r.user for r in self.reviews])),
-            )
-        )
         comments = dict()
         approvals = dict()
+        valid_users = self._get_valid_users()
         for review in self.reviews:
-            if review.user.login not in valid_users:
+            if review["user"]["login"] not in valid_users:
                 continue
             # Only keep latest review of an user
-            if review.state == "COMMENTED":
-                comments[review.user.login] = review
+            if review["state"] == "COMMENTED":
+                comments[review["user"]["login"]] = review
             else:
-                approvals[review.user.login] = review
+                approvals[review["user"]["login"]] = review
         return list(comments.values()), list(approvals.values())
 
     def to_dict(self):
@@ -166,16 +170,18 @@ class MergifyPull(object):
             "body": self.data["body"],
             "files": [f.filename for f in self.g_pull.get_files()],
             "approved-reviews-by": [
-                r.user.login for r in approvals if r.state == "APPROVED"
+                r["user"]["login"] for r in approvals if r["state"] == "APPROVED"
             ],
             "dismissed-reviews-by": [
-                r.user.login for r in approvals if r.state == "DISMISSED"
+                r["user"]["login"] for r in approvals if r["state"] == "DISMISSED"
             ],
             "changes-requested-reviews-by": [
-                r.user.login for r in approvals if r.state == "CHANGES_REQUESTED"
+                r["user"]["login"]
+                for r in approvals
+                if r["state"] == "CHANGES_REQUESTED"
             ],
             "commented-reviews-by": [
-                r.user.login for r in comments if r.state == "COMMENTED"
+                r["user"]["login"] for r in comments if r["state"] == "COMMENTED"
             ],
             "status-success": [s.context for s in statuses if s.state == "success"],
             # NOTE(jd) The Check API set conclusion to None for pending.
@@ -346,7 +352,7 @@ class MergifyPull(object):
 
     @functools_bp.cached_property
     def reviews(self):
-        return list(self.g_pull.get_reviews())
+        return list(self.client.items(f"pulls/{self.data['number']}/reviews"))
 
     @functools_bp.cached_property
     def commits(self):
