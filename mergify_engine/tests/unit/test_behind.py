@@ -55,28 +55,21 @@ def commits_tree_generator(request):
 
 def test_pull_behind(commits_tree_generator):
     expected, commits = commits_tree_generator
-    with mock.patch(
-        "mergify_engine.mergify_pull.MergifyPull.commits",
-        new_callable=mock.PropertyMock(return_value=commits),
-    ):
-        with mock.patch(
-            "mergify_engine.mergify_pull.MergifyPull.g_pull",
-            return_value=mock.PropertyMock,
-        ) as g_pull:
-            g_pull.base.repo.get_branch.return_value = mock.Mock(
-                commit=mock.Mock(sha="base")
-            )
+    client = mock.Mock()
+    client.items.return_value = commits  # /pulls/X/commits
+    client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
 
-            pull = mergify_pull.MergifyPull(
-                mock.Mock(),
-                data={
-                    "mergeable_state": "clean",
-                    "state": "open",
-                    "merged": False,
-                    "merged_at": None,
-                    "merged_by": None,
-                    "base": {"ref": "#foo"},
-                },
-            )
+    pull = mergify_pull.MergifyPull(
+        client,
+        data={
+            "number": 1,
+            "mergeable_state": "clean",
+            "state": "open",
+            "merged": False,
+            "merged_at": None,
+            "merged_by": None,
+            "base": {"ref": "#foo"},
+        },
+    )
 
-            assert expected == pull.is_behind
+    assert expected == pull.is_behind
