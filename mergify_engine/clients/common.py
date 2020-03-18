@@ -36,6 +36,9 @@ class HTTPClientSideError(httpx.HTTPError):
         # https://developer.github.com/v3/#client-errors
         return self.response.json()["message"]
 
+    def status_code(self):
+        return self.response.status_code
+
 
 class HTTPNotFound(HTTPClientSideError):
     pass
