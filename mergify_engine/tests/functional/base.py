@@ -36,6 +36,7 @@ import vcr
 from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import duplicate_pull
+from mergify_engine import mergify_pull
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
@@ -319,6 +320,14 @@ class FunctionalTestBase(testtools.TestCase):
                 duplicate_pull.utils, "Gitter", lambda: self.get_gitter()
             )
         )
+
+        if not RECORD:
+            # NOTE(sileht): Don't wait exponentialy during replay
+            self.useFixture(
+                fixtures.MockPatchObject(
+                    mergify_pull.MergifyPull._ensure_mergable_state.retry, "wait", None
+                )
+            )
 
         # Web authentification always pass
         self.useFixture(fixtures.MockPatch("hmac.compare_digest", return_value=True))
