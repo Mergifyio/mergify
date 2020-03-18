@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -61,14 +61,15 @@ class DismissReviewsAction(actions.Action):
 
             errors = set()
             for review in pull.to_dict()["_approvals"]:
-                conf = self.config.get(review.state.lower(), False)
-                if conf and (conf is True or review.user.login in conf):
+                conf = self.config.get(review["state"].lower(), False)
+                if conf and (conf is True or review["user"]["login"] in conf):
                     try:
                         self._dismissal_review(pull, review)
-                    except github.GithubException as e:  # pragma: no cover
-                        if e.status >= 500:
+                    except httpx.HTTPError as e:  # pragma: no cover
+                        if e.status_code >= 500:
                             raise
-                        errors.add(f"GitHub error: [{e.status}] `{e.data['message']}`")
+                        message = e.response.json()["message"]
+                        errors.add(f"GitHub error: [{e.status_code}] `{message}`")
 
             if errors:
                 return (None, "Unable to dismiss review", "\n".join(errors))
@@ -82,9 +83,7 @@ class DismissReviewsAction(actions.Action):
             )
 
     def _dismissal_review(self, pull, review):
-        review._requester.requestJsonAndCheck(
-            "PUT",
-            "%s/reviews/%s/dismissals" % (review.pull_request_url, review.id),
-            input={"message": self.config["message"]},
-            headers={"Accept": "application/vnd.github.machine-man-preview+json"},
+        pull.client.put(
+            f"pulls/{pull.data['number']}/reviews/{review['id']}/dismissals",
+            json={"message": self.config["message"]},
         )
