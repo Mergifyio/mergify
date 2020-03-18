@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -28,21 +28,20 @@ class CloseAction(actions.Action):
     validator = {voluptuous.Required("message", default=MSG): str}
 
     def run(self, pull, sources, missing_conditions):
-        if pull.state == "close":
+        if pull.data["state"] == "close":
             return ("success", "Pull request is already closed", "")
 
         try:
-            pull.g_pull.edit(state="close")
-        except github.GithubException as e:  # pragma: no cover
-            if e.status >= 500:
-                raise
-            return ("failure", "Pull request can't be closed", e.data["message"])
+            pull.client.patch(f"pulls/{pull.data['number']}", json={"state": "close"})
+        except httpx.HTTPClientSideError as e:  # pragma: no cover
+            return ("failure", "Pull request can't be closed", e.message)
 
         try:
-            pull.g_pull.create_issue_comment(self.config["message"])
-        except github.GithubException as e:  # pragma: no cover
-            if e.status >= 500:
-                raise
-            return ("failure", "The close message can't be created", e.data["message"])
+            pull.client.post(
+                f"issues/{pull.data['number']}/comments",
+                json={"body": self.config["message"]},
+            )
+        except httpx.HTTPClientSideError as e:  # pragma: no cover
+            return ("failure", "The close message can't be created", e.message)
 
         return ("success", "The pull request has been closed", self.config["message"])
