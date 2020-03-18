@@ -98,7 +98,7 @@ class MergifyPull(object):
         return self.client.auth.get_access_token()
 
     def __attrs_post_init__(self):
-        self._ensure_mergable_state()
+        self._ensure_complete()
 
     def _valid_perm(self, user):
         if user.type == "Bot":
@@ -285,32 +285,22 @@ class MergifyPull(object):
         retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
         reraise=True,
     )
-    def _ensure_mergable_state(self, force=False):
-        if self.data["state"] == "closed":
-            return
+    def _ensure_complete(self):
+        if not self._is_complete():
+            self.data = self.client.item(f"pulls/{self.data['number']}")
 
-        # NOTE(sileht): If pull request come from /pulls listing, they are incomplete,
-        # This ensure we have the complete view
-        if "mergeable_state" not in self.data:
-            force = True
-
-        if not force and self.data["mergeable_state"] not in self.UNUSABLE_STATES:
-            return
-
-        # Github is currently processing this PR, we wait the completion
-        self.log.info("refreshing")
-
-        # NOTE(sileht): Well github doesn't always update etag/last_modified
-        # when mergeable_state change, so we get a fresh pull request instead
-        # of using update()
-        self.data = self.client.item(f"pulls/{self.data['number']}")
-        if (
-            self.data["state"] == "closed"
-            or self.data["mergeable_state"] not in self.UNUSABLE_STATES
-        ):
+        if self._is_complete():
             return
 
         raise exceptions.MergeableStateUnknown(self)
+
+    def _is_complete(self):
+        # NOTE(sileht): If pull request come from /pulls listing or check-runs sometimes,
+        # they are incomplete, This ensure we have the complete view
+        return (
+            self.data.get("state") == "closed"
+            or self.data.get("mergeable_state") not in self.UNUSABLE_STATES
+        )
 
     def update(self):
         # TODO(sileht): Remove me,
