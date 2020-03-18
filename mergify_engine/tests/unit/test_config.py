@@ -140,6 +140,9 @@ def test_pull_request_rule_schema_invalid():
     "mergify_engine.mergify_pull.MergifyPull.reviews", new_callable=mock.PropertyMock
 )
 def test_get_pull_request_rule(reviews, g_pull, g):
+
+    client = mock.Mock()
+
     team = mock.Mock()
     team.slug = "my-reviewers"
     team.get_members.return_value = [mock.Mock(login="sileht"), mock.Mock(login="jd")]
@@ -148,11 +151,9 @@ def test_get_pull_request_rule(reviews, g_pull, g):
     org.get_teams.return_value = [team]
     g.get_organization.return_value = org
 
-    file1 = mock.Mock()
-    file1.filename = "README.rst"
-    file2 = mock.Mock()
-    file2.filename = "setup.py"
-    g_pull.get_files.return_value = [file1, file2]
+    file1 = {"filename": "README.rst"}
+    file2 = {"filename": "setup.py"}
+    client.items.return_value = [file1, file2]
 
     review = {
         "user": {"login": "sileht", "type": "User"},
@@ -160,7 +161,6 @@ def test_get_pull_request_rule(reviews, g_pull, g):
         "author_association": "MEMBER",
     }
     reviews.return_value = [review]
-    client = mock.Mock()
     client.item.return_value = {"permission": "write"}
 
     pull_request = mergify_pull.MergifyPull(
