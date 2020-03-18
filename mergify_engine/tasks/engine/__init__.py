@@ -50,10 +50,8 @@ def get_github_pull_from_event(client, event_type, data):
     elif event_type == "issue_comment":
         try:
             return client.item(f"pulls/{data['issue']['number']}")
-        except httpx.HTTPError as e:  # pragma: no cover
-            if e.response.status_code == 404:
-                return
-            raise
+        except httpx.HTTPNotFound:  # pragma: no cover
+            return
 
     elif event_type == "status":
         return get_github_pull_from_sha(client, data["sha"])

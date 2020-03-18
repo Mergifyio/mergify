@@ -65,11 +65,8 @@ class DismissReviewsAction(actions.Action):
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:
                         self._dismissal_review(pull, review)
-                    except httpx.HTTPError as e:  # pragma: no cover
-                        if e.status_code >= 500:
-                            raise
-                        message = e.response.json()["message"]
-                        errors.add(f"GitHub error: [{e.status_code}] `{message}`")
+                    except httpx.HTTPClientSideError as e:  # pragma: no cover
+                        errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
 
             if errors:
                 return (None, "Unable to dismiss review", "\n".join(errors))

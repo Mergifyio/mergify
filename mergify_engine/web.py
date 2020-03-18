@@ -161,17 +161,15 @@ def PullRequestUrl(v):
 
     try:
         client = github.get_client(owner, repo)
-    except httpx.HTTPError:
+    except httpx.HTTPNotFound:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
         )
 
     try:
         data = client.item(f"pulls/{pull_number}")
-    except httpx.HTTPError as e:
-        if e.reponse.status_code == 404:
-            raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
-        raise
+    except httpx.HTTPNotFound:
+        raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
     return mergify_pull.MergifyPull(client, data)
 

@@ -15,6 +15,8 @@
 # under the License.
 
 
+import httpx
+
 from mergify_engine import RETRY
 
 
@@ -27,7 +29,25 @@ DEFAULT_CLIENT_OPTIONS = {
 }
 
 
-class HttpxRetriesMixin:
+class HTTPClientSideError(httpx.HTTPError):
+    @property
+    def message(self):
+        # TODO(sileht): do something with errors and documentation_url when present
+        # https://developer.github.com/v3/#client-errors
+        return self.response.json()["message"]
+
+
+class HTTPNotFound(HTTPClientSideError):
+    pass
+
+
+httpx.HTTPClientSideError = HTTPClientSideError
+httpx.HTTPNotFound = HTTPNotFound
+
+STATUS_CODE_TO_EXC = {404: HTTPNotFound}
+
+
+class HttpxHelpersMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # httpx doesn't support retries yet, but the sync client uses urllib3 like request
@@ -40,3 +60,14 @@ class HttpxRetriesMixin:
             return real_url_open(*args, **kwargs)
 
         self.dispatch.pool.url_open = _mergify_patched_url_open
+
+    def request(self, *args, **kwargs):
+        try:
+            return super().request(*args, **kwargs)
+        except httpx.HTTPError as e:
+            if e.response and 400 <= e.response.status_code < 500:
+                exc_class = STATUS_CODE_TO_EXC.get(
+                    e.reponse.status_code, HTTPClientSideError
+                )
+                raise exc_class(e.args, e.request, e.response) from e
+            raise

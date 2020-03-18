@@ -31,7 +31,7 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
 
     try:
         client = github.get_client(owner, repo)
-    except httpx.HTTPError as e:
+    except httpx.HTTPNotFound as e:
         LOG.warning(
             "mergify not installed",
             kind=kind,

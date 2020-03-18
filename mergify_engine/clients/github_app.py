@@ -55,7 +55,7 @@ class GithubBearerAuth(httpx.Auth):
             yield request
 
 
-class _Client(httpx.Client, common.HttpxRetriesMixin):
+class _Client(httpx.Client, common.HttpxHelpersMixin):
     def __init__(self):
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}",
