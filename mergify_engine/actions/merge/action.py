@@ -187,7 +187,7 @@ class MergeAction(actions.Action):
                     status=e.status,
                     error_message=server_message,
                 )
-                pull.g_pull.update()
+                pull.update()
                 return self._sync_with_base_branch(pull)
 
             elif e.status == 405:
