@@ -1,6 +1,6 @@
 import itertools
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -35,17 +35,18 @@ class RequestReviewsAction(actions.Action):
         )
         if user_reviews_to_request or team_reviews_to_request:
             try:
-                pull.g_pull.create_review_request(
-                    reviewers=list(user_reviews_to_request),
-                    team_reviewers=list(team_reviews_to_request),
+                pull.client.post(
+                    f"pulls/{pull.data['number']}/requested_reviewers",
+                    json={
+                        "reviewers": list(user_reviews_to_request),
+                        "team_reviewers": list(team_reviews_to_request),
+                    },
                 )
-            except github.GithubException as e:  # pragma: no cover
-                if e.status >= 500:
-                    raise
+            except httpx.HTTPClientSideError as e:  # pragma: no cover
                 return (
                     None,
                     "Unable to create review request",
-                    f"GitHub error: [{e.status}] `{e.data['message']}`",
+                    f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
             return ("success", "New reviews requested", "")
         else:
