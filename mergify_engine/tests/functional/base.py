@@ -325,7 +325,7 @@ class FunctionalTestBase(testtools.TestCase):
             # NOTE(sileht): Don't wait exponentialy during replay
             self.useFixture(
                 fixtures.MockPatchObject(
-                    mergify_pull.MergifyPull._ensure_mergable_state.retry, "wait", None
+                    mergify_pull.MergifyPull._ensure_complete.retry, "wait", None
                 )
             )
 

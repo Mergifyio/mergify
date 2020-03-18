@@ -1581,3 +1581,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
             pr, "Test", "completed", "success", {"summary": "a" * 70000, "title": "bla"}
         )
         assert check.output["summary"] == ("a" * 65532 + "…")
+
+    def test_pull_request_complete(self):
+        rules = {
+            "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr()
+        client = github.get_client(
+            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
+        )
+        pull = mergify_pull.MergifyPull(client, {"number": 1})
+        self.assertEqual(1, pull.data["number"])
+        self.assertEqual("open", pull.data["state"])
+        self.assertEqual("clean", pull.data["mergeable_state"])
