@@ -102,7 +102,7 @@ def get_client(*args, **kwargs):
     rate = client.item("/rate_limit")["resources"]
     if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
         reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         delta = reset - now
         statsd.increment("engine.rate_limited")
         raise exceptions.RateLimited(delta.total_seconds(), rate)
