@@ -15,6 +15,7 @@
 # under the License.
 
 import random
+from urllib import parse
 
 import voluptuous
 
@@ -32,22 +33,27 @@ class LabelAction(actions.Action):
     silent_report = True
 
     def run(self, pull, sources, missing_conditions):
-        all_label = [l.name for l in pull.g_pull.base.repo.get_labels()]
+        all_label = [l["name"] for l in pull.client.items("labels")]
         for label in self.config["add"]:
             if label not in all_label:
                 color = "%06x" % random.randrange(16 ** 6)
                 with utils.ignore_client_side_error():
-                    pull.g_pull.base.repo.create_label(label, color)
+                    pull.client.post("labels", json={"name": label, "color": color})
 
-        pull.g_pull.add_to_labels(*self.config["add"])
+        pull.client.post(
+            f"issues/{pull.data['number']}/labels", json={"labels": self.config["add"]}
+        )
 
         if self.config["remove_all"]:
-            pull.g_pull.delete_labels()
+            pull.client.delete(f"issues/{pull.data['number']}/labels")
         else:
-            pull_labels = [l.name for l in pull.g_pull.labels]
+            pull_labels = [l["name"] for l in pull.data["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
                     with utils.ignore_client_side_error():
-                        pull.g_pull.remove_from_labels(label)
+                        label_escaped = parse.quote(label, safe="")
+                        pull.client.delete(
+                            f"issues/{pull.data['number']}/labels/{label_escaped}"
+                        )
 
         return ("success", "Labels added/removed", "")
