@@ -21,7 +21,7 @@ import yaml
 from mergify_engine.tests.functional import base
 
 
-class TestEngineV2Scenario(base.FunctionalTestBase):
+class TestSimulator(base.FunctionalTestBase):
     """Mergify engine tests.
 
     Tests user github resource and are slow, so we must reduce the number
