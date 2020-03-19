@@ -104,7 +104,24 @@ def _get_commits_to_cherrypick(pull, merge_commit):
             commit = commit["parents"][0]
 
             pull_numbers = [
-                p["number"] for p in pull.client.items(f"commits/{commit['sha']}/pulls")
+                p["number"]
+                for p in pull.client.items(
+                    f"commits/{commit['sha']}/pulls", api_version="groot"
+                )
+                if (
+                    p["base"]["repo"]["full_name"]
+                    == pull.data["base"]["repo"]["full_name"]
+                )
+            ] + [
+                p["number"]
+                for p in pull.client.items(
+                    f"/repos/{pull.data['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
+                    api_version="groot",
+                )
+                if (
+                    p["base"]["repo"]["full_name"]
+                    == pull.data["base"]["repo"]["full_name"]
+                )
             ]
             if pull.data["number"] not in pull_numbers:
                 if len(out_commits) == 1:

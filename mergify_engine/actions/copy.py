@@ -91,7 +91,7 @@ class CopyAction(actions.Action):
             return (
                 "success",
                 f"[#{new_pull['number']} {new_pull['title']}]({new_pull['html_url']}) "
-                " has been created for branch `{branch_name}`",
+                f"has been created for branch `{branch_name}`",
             )
 
         return (
