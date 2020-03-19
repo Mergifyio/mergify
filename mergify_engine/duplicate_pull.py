@@ -16,7 +16,7 @@ import dataclasses
 import functools
 import subprocess
 
-import github
+import httpx
 import tenacity
 
 from mergify_engine import config
@@ -102,12 +102,11 @@ def _get_commits_to_cherrypick(pull, merge_commit):
 
             out_commits.insert(0, commit)
             commit = commit["parents"][0]
-            pulls = utils.get_github_pulls_from_sha(
-                pull.g_pull.base.repo, commit["sha"]
-            )
-            pull_numbers = [p.number for p in pulls]
 
-            if pull.number not in pull_numbers:
+            pull_numbers = [
+                p["number"] for p in pull.client.items(f"commits/{commit['sha']}/pulls")
+            ]
+            if pull.data["number"] not in pull_numbers:
                 if len(out_commits) == 1:
                     pull.log.info(
                         "Pull requests merged with one commit rebased, or squashed",
@@ -132,8 +131,8 @@ COPY = "copy"
 BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 
 
-def get_destination_branch_name(pull, branch, kind):
-    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch.name, pull.number)
+def get_destination_branch_name(pull_number, branch_name, kind):
+    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch_name, pull_number)
 
 
 @tenacity.retry(
@@ -142,7 +141,7 @@ def get_destination_branch_name(pull, branch, kind):
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
 def duplicate(
-    pull, branch, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
+    pull, branch_name, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
 ):
     """Duplicate a pull request.
 
@@ -153,9 +152,8 @@ def duplicate(
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param kind: is a backport or a copy
     """
-    repo = pull.g_pull.base.repo
-
-    bp_branch = get_destination_branch_name(pull, branch, kind)
+    repo_full_name = pull.data["base"]["repo"]["full_name"]
+    bp_branch = get_destination_branch_name(pull.data["number"], branch_name, kind)
 
     cherry_pick_fail = False
     body = ""
@@ -168,18 +166,18 @@ def duplicate(
     try:
         git("init")
         git.configure()
-        git.add_cred("x-access-token", pull.installation_token, repo.full_name)
+        git.add_cred("x-access-token", pull.installation_token, repo_full_name)
         git(
             "remote",
             "add",
             "origin",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, repo.full_name),
+            "https://%s/%s" % (config.GITHUB_DOMAIN, repo_full_name),
         )
 
-        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.number)
-        git("fetch", "--quiet", "origin", pull.base_ref)
-        git("fetch", "--quiet", "origin", branch.name)
-        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch.name)
+        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.data["number"])
+        git("fetch", "--quiet", "origin", pull.data["base"]["ref"])
+        git("fetch", "--quiet", "origin", branch_name)
+        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
         merge_commit = pull.client.item(f"commits/{pull.merge_commit_sha}")
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
@@ -215,7 +213,7 @@ def duplicate(
             pull.log.error(
                 "duplicate failed: %s",
                 in_exception.output.decode(),
-                branch=branch.name,
+                branch=branch_name,
                 kind=kind,
                 exc_info=True,
             )
@@ -237,20 +235,26 @@ def duplicate(
         )
 
     try:
-        pr = repo.create_pull(
-            title="{} ({} #{})".format(
-                pull.title, BRANCH_PREFIX_MAP[kind], pull.number
-            ),
-            body=body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
-            base=branch.name,
-            head=bp_branch,
-        )
-    except github.GithubException as e:
-        if e.status == 422 and "No commits between" in e.data["message"]:
+        duplicate_pr = pull.client.post(
+            "pulls",
+            json={
+                "title": "{} ({} #{})".format(
+                    pull.data["title"], BRANCH_PREFIX_MAP[kind], pull.data["number"]
+                ),
+                "body": body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
+                "base": branch_name,
+                "head": bp_branch,
+            },
+        ).json()
+    except httpx.HTTPClientSideError as e:
+        if e.status_code == 422 and "No commits between" in e.message:
             return
         raise
 
     if cherry_pick_fail and label_conflicts is not None:
-        pr.add_to_labels(label_conflicts)
+        pull.client.post(
+            f"issues/{duplicate_pr['number']}/labels",
+            json={"labels": [label_conflicts]},
+        )
 
-    return pr
+    return duplicate_pr
