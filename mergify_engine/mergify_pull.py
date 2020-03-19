@@ -343,12 +343,11 @@ class MergifyPull(object):
 
     @functools_bp.cached_property
     def is_behind(self):
-        branch = self.g_pull.base.repo.get_branch(
-            parse.quote(self.data["base"]["ref"], safe="")
-        )
+        branch_name_escaped = parse.quote(self.data["base"]["ref"], safe="")
+        branch = self.client.item(f"branches/{branch_name_escaped}")
         for commit in self.commits:
             for parent in commit["parents"]:
-                if parent["sha"] == branch.commit.sha:
+                if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
 
