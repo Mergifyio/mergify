@@ -26,9 +26,9 @@ class RefreshAction(actions.Action):
     def run(self, pull, sources, missing_conditions):
         data = {
             "action": "user",
-            "repository": pull.g_pull.base.repo.raw_data,
-            "installation": {"id": pull.installation_id},
-            "pull_request": pull.g_pull.raw_data,
+            "repository": pull.data["base"]["repo"],
+            "installation": {"id": pull.client.installation_id},
+            "pull_request": pull.data,
             "sender": {"login": "<internal>"},
         }
         github_events.job_filter_and_dispatch.s(
