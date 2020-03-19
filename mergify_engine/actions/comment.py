@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -28,10 +28,10 @@ class CommentAction(actions.Action):
 
     def deprecated_double_comment_protection(self, pull):
         # TODO(sileht): drop this in 2 months (February 2020)
-        for comment in pull.g_pull.get_issue_comments():
+        for comment in pull.client.items(f"issues/{pull.data['number']}/comments"):
             if (
-                comment.user.id == config.BOT_USER_ID
-                and comment.body == self.config["message"]
+                comment["user"]["id"] == config.BOT_USER_ID
+                and comment["body"] == self.config["message"]
             ):
                 return True
         return False
@@ -39,12 +39,13 @@ class CommentAction(actions.Action):
     def run(self, pull, sources, missing_conditions):
         message = self.config["message"]
         try:
-            pull.g_pull.create_issue_comment(message)
-        except github.GithubException as e:  # pragma: no cover
-            server_message = e.data.get("message")
+            pull.client.post(
+                f"issues/{pull.data['number']}/comments", json={"body": message},
+            )
+        except httpx.HTTPClientSideError as e:  # pragma: no cover
             return (
                 None,
                 "Unable to post comment",
-                f"GitHub error: [{e.status}] `{server_message}`",
+                f"GitHub error: [{e.status_code}] `{e.message}`",
             )
         return ("success", "Comment posted", message)
