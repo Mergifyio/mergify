@@ -71,7 +71,7 @@ class CopyAction(actions.Action):
             try:
                 new_pull = duplicate_pull.duplicate(
                     pull,
-                    branch,
+                    branch_name,
                     self.config["label_conflicts"],
                     self.config["ignore_conflicts"],
                     self.KIND,
@@ -90,8 +90,8 @@ class CopyAction(actions.Action):
         if new_pull:
             return (
                 "success",
-                "[#%d %s](%s) has been created for branch `%s`"
-                % (new_pull.number, new_pull.title, new_pull.html_url, branch_name,),
+                f"[#{new_pull['number']} {new_pull['title']}]({new_pull['html_url']}) "
+                " has been created for branch `{branch_name}`",
             )
 
         return (
@@ -140,7 +140,9 @@ class CopyAction(actions.Action):
 
     @classmethod
     def get_existing_duplicate_pull(cls, pull, branch):
-        bp_branch = duplicate_pull.get_destination_branch_name(pull, branch, cls.KIND)
+        bp_branch = duplicate_pull.get_destination_branch_name(
+            pull.number, branch.name, cls.KIND
+        )
         # NOTE(sileht): Github looks buggy here, head= doesn't work as expected
         pulls = list(
             p
@@ -150,4 +152,4 @@ class CopyAction(actions.Action):
             if p.head.ref == bp_branch
         )
         if pulls:
-            return pulls[-1]
+            return pulls[-1].raw_data

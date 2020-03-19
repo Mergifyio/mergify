@@ -19,30 +19,29 @@ from mergify_engine import duplicate_pull
 from mergify_engine import mergify_pull
 
 
-def fake_get_github_pulls_from_sha(repo, sha):
-    if sha.startswith("rebased_c"):
-        return [mock.Mock(number=6)]
+def fake_get_github_pulls_from_sha(url):
+    if url.endswith("commits/rebased_c1/pulls"):
+        return [{"number": 6}]
+    elif url.endswith("commits/rebased_c2/pulls"):
+        return [{"number": 6}]
     else:
         return []
 
 
-@mock.patch(
-    "mergify_engine.duplicate_pull.utils.get_github_pulls_from_sha",
-    side_effect=fake_get_github_pulls_from_sha,
-)
 @mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
 )
 @mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
 )
-def test_get_commits_to_cherry_pick_rebase(commits, g_pull, _):
+def test_get_commits_to_cherry_pick_rebase(commits, g_pull):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
     c2 = {"sha": "c2", "parents": [c1], "commit": {"message": "foobar"}}
     commits.return_value = [c1, c2]
 
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
+    client.items.side_effect = fake_get_github_pulls_from_sha
 
     pull = mergify_pull.MergifyPull(
         client,
