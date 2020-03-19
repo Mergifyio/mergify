@@ -17,7 +17,7 @@
 import re
 from urllib import parse
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -49,22 +49,27 @@ class CopyAction(actions.Action):
 
         Returns a tuple of strings (state, reason).
         """
+
+        # NOTE(sileht): Ensure branch exists first
+        escaped_branch_name = parse.quote(branch_name, safe="")
         try:
-            branch = pull.g_pull.base.repo.get_branch(parse.quote(branch_name, safe=""))
-        except github.GithubException as e:
-            if e.status >= 500:
-                state = None
-            else:
-                state = "failure"
+            pull.client.item(f"branches/{escaped_branch_name}")
+        except httpx.HTTPError as e:
+            if not e.response:
+                raise
             detail = "%s to branch `%s` failed: " % (
                 self.KIND.capitalize(),
                 branch_name,
             )
-            detail += e.data["message"]
+            if e.response.status_code >= 500:
+                state = None
+            else:
+                state = "failure"
+                detail += e.response.json()["message"]
             return state, detail
 
         # NOTE(sileht) does the duplicate have already been done ?
-        new_pull = self.get_existing_duplicate_pull(pull, branch)
+        new_pull = self.get_existing_duplicate_pull(pull, branch_name)
 
         # No, then do it
         if not new_pull:
@@ -85,7 +90,7 @@ class CopyAction(actions.Action):
             # NOTE(sileht): We relook again in case of concurrent duplicate
             # are done because of two events received too closely
             if not new_pull:
-                new_pull = self.get_existing_duplicate_pull(pull, branch)
+                new_pull = self.get_existing_duplicate_pull(pull, branch_name)
 
         if new_pull:
             return (
@@ -96,7 +101,7 @@ class CopyAction(actions.Action):
 
         return (
             "failure",
-            "%s to branch `%s` failed" % (self.KIND.capitalize(), branch_name),
+            f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
     def run(self, pull, sources, missing_conditions):
@@ -139,17 +144,19 @@ class CopyAction(actions.Action):
         )
 
     @classmethod
-    def get_existing_duplicate_pull(cls, pull, branch):
+    def get_existing_duplicate_pull(cls, pull, branch_name):
         bp_branch = duplicate_pull.get_destination_branch_name(
-            pull.number, branch.name, cls.KIND
+            pull.data["number"], branch_name, cls.KIND
         )
         # NOTE(sileht): Github looks buggy here, head= doesn't work as expected
         pulls = list(
-            p
-            for p in pull.g_pull.base.repo.get_pulls(
-                base=branch.name, sort="created", state="all"
+            pull.client.items(
+                "pulls",
+                base=branch_name,
+                sort="created",
+                state="all",
+                head=f"{pull.data['head']['user']['login']}/{bp_branch}",
             )
-            if p.head.ref == bp_branch
         )
         if pulls:
-            return pulls[-1].raw_data
+            return pulls[-1]
