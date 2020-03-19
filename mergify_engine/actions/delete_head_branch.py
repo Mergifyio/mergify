@@ -16,7 +16,7 @@
 
 from urllib import parse
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -32,46 +32,41 @@ class DeleteHeadBranchAction(actions.Action):
         if pull.from_fork:
             return ("success", "Pull request come from fork", "")
 
-        if pull.state == "closed":
+        if pull.data["state"] == "closed":
             if self.config is None or not self.config["force"]:
                 pulls_using_this_branch = list(
-                    pull.g_pull.base.repo.get_pulls(base=pull.head_ref)
+                    pull.client.items("pulls", json={"base": pull.data["head"]["ref"]})
                 )
                 if pulls_using_this_branch:
                     return (
                         "success",
                         "Branch `{}` was not deleted "
                         "because it is used by {}".format(
-                            pull.head_ref,
-                            " ".join("#%d" % p.number for p in pulls_using_this_branch),
+                            pull.data["head"]["ref"],
+                            " ".join(
+                                "#%d" % p["number"] for p in pulls_using_this_branch
+                            ),
                         ),
                         "",
                     )
 
+            ref_to_delete = parse.quote(pull.data["head"]["ref"], safe="")
             try:
-                pull.g_pull.head.repo._requester.requestJsonAndCheck(
-                    "DELETE",
-                    pull.g_pull.base.repo.url
-                    + "/git/refs/heads/"
-                    + parse.quote(pull.head_ref, safe=""),
-                )
-            except github.GithubException as e:
-                if e.status >= 500:
-                    raise
-                elif e.status not in [422, 404]:
+                pull.client.delete(f"git/refs/heads/{ref_to_delete}")
+            except httpx.HTTPClientSideError as e:
+                if e.status_code not in [422, 404]:
                     return (
                         "failure",
                         "Unable to delete the head branch",
-                        f"GitHub error: [{e.status}] `{e.data['message']}`",
+                        f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
             return (
                 "success",
-                "Branch `%s` has been deleted" % pull.head_ref,
+                f"Branch `{pull.data['head']['ref']}` has been deleted",
                 "",
             )
         return (
             None,
-            "Branch `%s` will be deleted once the pull request is closed"
-            % pull.head_ref,
+            f"Branch `{pull.data['head']['ref']}` will be deleted once the pull request is closed",
             "",
         )
