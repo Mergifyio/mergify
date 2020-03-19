@@ -276,6 +276,10 @@ The ``label`` action can add or remove `labels
      - list of string
      - ``[]``
      - The list of labels to remove.
+   * - ``remove_all``
+     - Boolean
+     - ``false``
+     - Remove all labels from the pull request.
 
 .. _merge action:
 

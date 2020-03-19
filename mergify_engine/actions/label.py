@@ -26,6 +26,7 @@ class LabelAction(actions.Action):
     validator = {
         voluptuous.Required("add", default=[]): [str],
         voluptuous.Required("remove", default=[]): [str],
+        voluptuous.Required("remove_all", default=False): bool,
     }
 
     silent_report = True
@@ -40,10 +41,13 @@ class LabelAction(actions.Action):
 
         pull.g_pull.add_to_labels(*self.config["add"])
 
-        pull_labels = [l.name for l in pull.g_pull.labels]
-        for label in self.config["remove"]:
-            if label in pull_labels:
-                with utils.ignore_client_side_error():
-                    pull.g_pull.remove_from_labels(label)
+        if self.config["remove_all"]:
+            pull.g_pull.delete_labels()
+        else:
+            pull_labels = [l.name for l in pull.g_pull.labels]
+            for label in self.config["remove"]:
+                if label in pull_labels:
+                    with utils.ignore_client_side_error():
+                        pull.g_pull.remove_from_labels(label)
 
         return ("success", "Labels added/removed", "")
