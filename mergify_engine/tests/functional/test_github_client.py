@@ -61,5 +61,7 @@ class TestGithubClient(base.FunctionalTestBase):
         pull = client.item("pulls/2")
         self.assertEqual(2, pull["number"])
 
-        e = self.assertRaises(httpx.HTTPError, client.item, "pulls/4")
-        self.assertEqual(404, e.response.status_code)
+        with self.assertRaises(httpx.HTTPError) as ctxt:
+            client.item("pulls/4")
+
+        self.assertEqual(404, ctxt.exception.response.status_code)
