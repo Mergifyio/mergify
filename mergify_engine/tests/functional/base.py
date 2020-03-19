@@ -275,7 +275,7 @@ class FunctionalTestBase(testtools.TestCase):
         self.pr_counter = 0
         self.git_counter = 0
         self.cassette_library_dir = os.path.join(
-            CASSETTE_LIBRARY_DIR_BASE, self._testMethodName
+            CASSETTE_LIBRARY_DIR_BASE, self.__class__.__name__, self._testMethodName
         )
 
         # Recording stuffs
