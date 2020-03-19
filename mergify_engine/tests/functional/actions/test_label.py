@@ -19,6 +19,33 @@ from mergify_engine.tests.functional import base
 
 
 class TestLabelAction(base.FunctionalTestBase):
+    def test_label(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "rename label",
+                    "conditions": ["base=master", "label=stable"],
+                    "actions": {
+                        "label": {
+                            "add": ["unstable", "foobar"],
+                            "remove": ["stable", "what"],
+                        }
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.add_label(p, "stable")
+
+        pulls = list(self.r_o_admin.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted(["unstable", "foobar"]), sorted([l.name for l in pulls[0].labels])
+        )
+
     def test_label_remove_all(self):
         rules = {
             "pull_request_rules": [
