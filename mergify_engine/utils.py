@@ -28,6 +28,7 @@ from billiard import current_process
 import celery.app.log
 import daiquiri
 import github
+import httpx
 import redis
 
 from mergify_engine import config
@@ -212,6 +213,8 @@ class Gitter(object):
 def ignore_client_side_error():
     try:
         yield
+    except httpx.HTTPClientSideError:
+        return
     except github.GithubException as e:
         if 400 <= e.status < 500:
             return
