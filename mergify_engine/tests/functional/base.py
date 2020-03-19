@@ -22,15 +22,15 @@ import re
 import shutil
 import subprocess
 import time
+import unittest
+from unittest import mock
 import uuid
 
 import daiquiri
-import fixtures
 import github
 import pytest
 import requests
 import requests.sessions
-import testtools
 import vcr
 
 from mergify_engine import branch_updater
@@ -269,7 +269,7 @@ class EventReader:
 
 
 @pytest.mark.usefixtures("logger_checker")
-class FunctionalTestBase(testtools.TestCase):
+class FunctionalTestBase(unittest.TestCase):
     def setUp(self):
         super(FunctionalTestBase, self).setUp()
         self.pr_counter = 0
@@ -303,34 +303,22 @@ class FunctionalTestBase(testtools.TestCase):
 
         github_app_client = github_app._Client()
 
-        self.useFixture(
-            fixtures.MockPatchObject(
-                github_app, "get_client", lambda: github_app_client
-            )
-        )
-
-        self.useFixture(
-            fixtures.MockPatchObject(
-                branch_updater.utils, "Gitter", lambda: self.get_gitter()
-            )
-        )
-
-        self.useFixture(
-            fixtures.MockPatchObject(
-                duplicate_pull.utils, "Gitter", lambda: self.get_gitter()
-            )
-        )
+        mock.patch.object(github_app, "get_client", lambda: github_app_client).start()
+        mock.patch.object(
+            branch_updater.utils, "Gitter", lambda: self.get_gitter()
+        ).start()
+        mock.patch.object(
+            duplicate_pull.utils, "Gitter", lambda: self.get_gitter()
+        ).start()
 
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
-            self.useFixture(
-                fixtures.MockPatchObject(
-                    mergify_pull.MergifyPull._ensure_complete.retry, "wait", None
-                )
-            )
+            mock.patch.object(
+                mergify_pull.MergifyPull._ensure_complete.retry, "wait", None
+            ).start()
 
         # Web authentification always pass
-        self.useFixture(fixtures.MockPatch("hmac.compare_digest", return_value=True))
+        mock.patch("hmac.compare_digest", return_value=True).start()
 
         reponame_path = os.path.join(self.cassette_library_dir, "reponame")
 
@@ -421,33 +409,25 @@ class FunctionalTestBase(testtools.TestCase):
                     "subscription_reason": "We're just testing",
                 }
 
-        self.useFixture(
-            fixtures.MockPatch(
-                "mergify_engine.branch_updater.sub_utils.get_subscription",
-                side_effect=fake_subscription,
-            )
-        )
+        mock.patch(
+            "mergify_engine.branch_updater.sub_utils.get_subscription",
+            side_effect=fake_subscription,
+        ).start()
 
-        self.useFixture(
-            fixtures.MockPatch(
-                "mergify_engine.branch_updater.sub_utils._retrieve_subscription_from_db",
-                side_effect=fake_retrieve_subscription_from_db,
-            )
-        )
+        mock.patch(
+            "mergify_engine.branch_updater.sub_utils._retrieve_subscription_from_db",
+            side_effect=fake_retrieve_subscription_from_db,
+        ).start()
 
-        self.useFixture(
-            fixtures.MockPatch(
-                "mergify_engine.sub_utils.get_subscription",
-                side_effect=fake_subscription,
-            )
-        )
+        mock.patch(
+            "mergify_engine.sub_utils.get_subscription", side_effect=fake_subscription,
+        ).start()
 
-        self.useFixture(
-            fixtures.MockPatch(
-                "github.MainClass.Installation.Installation.get_repos",
-                return_value=[self.r_o_integration],
-            )
-        )
+        mock.patch(
+            "github.MainClass.Installation.Installation.get_repos",
+            return_value=[self.r_o_integration],
+        ).start()
+
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
 
@@ -462,6 +442,7 @@ class FunctionalTestBase(testtools.TestCase):
             time.sleep(0.5)
 
         self._event_reader.drain()
+        mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):
         return self._event_reader.wait_for(*args, **kwargs)
