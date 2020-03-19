@@ -57,20 +57,14 @@ def get_github_pull_from_event(client, event_type, data):
     elif event_type == "status":
         return get_github_pull_from_sha(client, data["sha"])
 
-    elif event_type in ["check_suite", "check_run"]:
-        if event_type == "check_run":
-            pulls = data["check_run"]["check_suite"]["pull_requests"]
-            sha = data["check_run"]["head_sha"]
-        else:
-            pulls = data["check_suite"]["pull_requests"]
-            sha = data["check_suite"]["head_sha"]
-
+    elif event_type == "check_run":
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        pulls = [
-            p for p in pulls if p["base"]["repo"]["url"] == str(client.base_url)[:-1]
-        ]
+        base_repo_url = str(client.base_url)[:-1]
+        pulls = data["check_run"]["pull_requests"]
+        pulls = [p for p in pulls if p["base"]["repo"]["url"] == base_repo_url]
 
         if not pulls:
+            sha = data["check_run"]["head_sha"]
             pulls = [get_github_pull_from_sha(client, sha)]
 
         if len(pulls) > 1:  # pragma: no cover
