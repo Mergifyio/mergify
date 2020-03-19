@@ -245,33 +245,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         requests = pulls[0].get_review_requests()
         self.assertEqual(sorted([team.slug]), sorted([l.slug for l in requests[1]]))
 
-    def test_label(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "rename label",
-                    "conditions": ["base=master", "label=stable"],
-                    "actions": {
-                        "label": {
-                            "add": ["unstable", "foobar"],
-                            "remove": ["stable", "what"],
-                        }
-                    },
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-        self.add_label(p, "stable")
-
-        pulls = list(self.r_o_admin.get_pulls())
-        self.assertEqual(1, len(pulls))
-        self.assertEqual(
-            sorted(["unstable", "foobar"]), sorted([l.name for l in pulls[0].labels])
-        )
-
     def test_debugger(self):
         rules = {
             "pull_request_rules": [
