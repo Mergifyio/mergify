@@ -19,11 +19,22 @@ from mergify_engine import duplicate_pull
 from mergify_engine import mergify_pull
 
 
-def fake_get_github_pulls_from_sha(url):
+def fake_get_github_pulls_from_sha(url, api_version=None):
+    pr = {
+        "number": 6,
+        "base": {
+            "ref": "ref",
+            "repo": {"full_name": "user/ref", "name": "name", "private": False},
+        },
+        "head": {
+            "ref": "fork",
+            "repo": {"full_name": "fork/other", "name": "other", "private": False},
+        },
+    }
     if url.endswith("commits/rebased_c1/pulls"):
-        return [{"number": 6}]
+        return [pr]
     elif url.endswith("commits/rebased_c2/pulls"):
-        return [{"number": 6}]
+        return [pr]
     else:
         return []
 
@@ -50,7 +61,14 @@ def test_get_commits_to_cherry_pick_rebase(commits, g_pull):
             "merged": True,
             "state": "closed",
             "html_url": "<html_url>",
-            "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
+            "base": {
+                "ref": "ref",
+                "repo": {"full_name": "user/ref", "name": "name", "private": False},
+            },
+            "head": {
+                "ref": "fork",
+                "repo": {"full_name": "fork/other", "name": "other", "private": False},
+            },
             "user": {"login": "user"},
             "merged_by": None,
             "merged_at": None,
@@ -89,7 +107,14 @@ def test_get_commits_to_cherry_pick_merge(commits, g_pull):
             "merged": True,
             "state": "closed",
             "html_url": "<html_url>",
-            "base": {"ref": "ref", "repo": {"name": "name", "private": False}},
+            "base": {
+                "ref": "ref",
+                "repo": {"full_name": "user/ref", "name": "name", "private": False},
+            },
+            "head": {
+                "ref": "fork",
+                "repo": {"full_name": "fork/other", "name": "other", "private": False},
+            },
             "user": {"login": "user"},
             "merged_at": None,
             "merged_by": None,
