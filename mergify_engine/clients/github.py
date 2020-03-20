@@ -67,6 +67,9 @@ class GithubInstallationClient(common.BaseClient):
             **common.DEFAULT_CLIENT_OPTIONS,
         )
 
+    def __repr__(self):
+        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation_id}>"
+
     def item(self, url, api_version=None, **params):
         headers = {}
         if api_version:
