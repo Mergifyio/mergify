@@ -17,6 +17,7 @@
 
 from datetime import datetime
 
+import daiquiri
 from datadog import statsd
 import httpx
 
@@ -24,6 +25,9 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine.clients import common
 from mergify_engine.clients import github_app
+
+
+LOG = daiquiri.getLogger(__name__)
 
 
 class GithubInstallationAuth(httpx.Auth):
@@ -58,9 +62,15 @@ class GithubInstallationClient(common.BaseClient):
     def __init__(self, owner, repo, installation_id=None):
         self.owner = owner
         self.repo = repo
-        self.installation_id = installation_id or github_app.get_client().get_installation_id(
-            owner, repo
-        )
+        self.installation_id = github_app.get_client().get_installation_id(owner, repo)
+        if installation_id is not None and self.installation_id != installation_id:
+            LOG.error(
+                "installation id for repository diff from event installation id",
+                gh_owner=owner,
+                gh_repo=repo,
+                installation_id=self.installation_id,
+                expected_installation_id=installation_id,
+            )
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
             auth=GithubInstallationAuth(self.installation_id),
