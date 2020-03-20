@@ -107,7 +107,7 @@ def _get_next_pull_request(queue, queue_log):
         # TODO(sileht): We should maybe cleanup the queue on error here, instead of
         # retrying forever, but since it's not clear if mergify have been uninstalled or
         # if it's a temporary Github issue.
-        client = github.get_client(owner, repo, installation_id)
+        client = github.get_client(owner, repo, int(installation_id))
         data = client.item(f"pulls/{pull_number}")
         return mergify_pull.MergifyPull(client, data)
 
