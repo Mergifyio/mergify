@@ -17,6 +17,7 @@ import pkg_resources
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
@@ -159,8 +160,10 @@ def run(event_type, data):
     owner = data["repository"]["owner"]["login"]
     repo = data["repository"]["name"]
 
-    client = github.get_client(owner, repo, installation_id)
-
+    try:
+        client = github.get_client(owner, repo, installation_id)
+    except exceptions.MergifyNotInstalled:
+        return
     raw_pull = get_github_pull_from_event(client, event_type, data)
 
     if not raw_pull:  # pragma: no cover

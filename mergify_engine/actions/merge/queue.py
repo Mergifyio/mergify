@@ -98,16 +98,22 @@ def get_pulls_from_queue(pull):
     return _get_pulls(queue)
 
 
+def _delete_queue(queue):
+    redis = utils.get_redis_for_cache()
+    redis.delete(queue)
+
+
 def _get_next_pull_request(queue, queue_log):
     _, installation_id, owner, repo, branch = queue.split("~")
     pull_numbers = _get_pulls(queue)
     queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if pull_numbers:
         pull_number = int(pull_numbers[0])
-        # TODO(sileht): We should maybe cleanup the queue on error here, instead of
-        # retrying forever, but since it's not clear if mergify have been uninstalled or
-        # if it's a temporary Github issue.
-        client = github.get_client(owner, repo, int(installation_id))
+        try:
+            client = github.get_client(owner, repo, int(installation_id))
+        except exceptions.MergifyNotInstalled:
+            _delete_queue(queue)
+            return
         data = client.item(f"pulls/{pull_number}")
         return mergify_pull.MergifyPull(client, data)
 

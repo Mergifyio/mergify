@@ -20,6 +20,7 @@ import requests
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
@@ -109,7 +110,11 @@ def report(url):
         return
     slug = owner + "/" + repo
 
-    client = github.get_client(owner, repo)
+    try:
+        client = github.get_client(owner, repo)
+    except exceptions.MergifyNotInstalled:
+        print("* Mergify is not installed there")
+        return
 
     print("* INSTALLATION ID: %s" % client.installation_id)
 
