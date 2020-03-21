@@ -14,9 +14,9 @@
 
 import daiquiri
 from datadog import statsd
-import httpx
 
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github_app
@@ -37,18 +37,12 @@ def job_marketplace(event_type, event_id, data):
         installation_id = github_app.get_client().get_installation_id(
             owner, account_type=account_type
         )
-    except httpx.HTTPClientSideError as e:
-        LOG.warning("mergify not installed", gh_owner=owner, error=str(e))
-        installation_id = None
-        subscription = {
-            "subscription_active": "Unknown",
-            "subscription_reason": "No",
-            "tokens": None,
-        }
-    else:
-        r = utils.get_redis_for_cache()
-        r.delete("subscription-cache-%s" % installation_id)
-        subscription = sub_utils.get_subscription(r, installation_id)
+    except exceptions.MergifyNotInstalled:
+        return
+
+    r = utils.get_redis_for_cache()
+    r.delete("subscription-cache-%s" % installation_id)
+    subscription = sub_utils.get_subscription(r, installation_id)
 
     LOG.info(
         "Marketplace event",

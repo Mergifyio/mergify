@@ -17,6 +17,10 @@ import httpx
 import requests
 
 
+class MergifyNotInstalled(Exception):
+    pass
+
+
 class RateLimited(Exception):
     def __init__(self, countdown, raw_data):
         self.countdown = countdown
