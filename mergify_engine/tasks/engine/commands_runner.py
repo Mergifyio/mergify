@@ -14,16 +14,20 @@
 
 import re
 
+import daiquiri
 from datadog import statsd
 import github as pygithub
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine.clients import github
 from mergify_engine.worker import app
 
+
+LOG = daiquiri.getLogger(__name__)
 
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
@@ -77,7 +81,12 @@ def run_command_async(
 ):
     owner = pull_request_raw["base"]["user"]["login"]
     repo = pull_request_raw["base"]["repo"]["name"]
-    client = github.get_client(owner, repo, installation_id)
+
+    try:
+        client = github.get_client(owner, repo, installation_id)
+    except exceptions.MergifyNotInstalled:
+        return
+
     pull = mergify_pull.MergifyPull(client, pull_request_raw)
     return run_command(pull, sources, comment, user, rerun)
 

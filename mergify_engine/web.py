@@ -31,6 +31,7 @@ import httpx
 import voluptuous
 
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import mergify_pull
 from mergify_engine import rules
 from mergify_engine import sub_utils
@@ -161,7 +162,7 @@ def PullRequestUrl(v):
 
     try:
         client = github.get_client(owner, repo)
-    except httpx.HTTPNotFound:
+    except exceptions.MergifyNotInstalled:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
         )

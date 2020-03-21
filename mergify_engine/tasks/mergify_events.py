@@ -15,8 +15,8 @@
 import uuid
 
 import daiquiri
-import httpx
 
+from mergify_engine import exceptions
 from mergify_engine.clients import github
 from mergify_engine.tasks import github_events
 from mergify_engine.worker import app
@@ -31,15 +31,7 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
 
     try:
         client = github.get_client(owner, repo)
-    except httpx.HTTPNotFound as e:
-        LOG.warning(
-            "mergify not installed",
-            kind=kind,
-            ref=ref,
-            gh_owner=owner,
-            gh_repo=repo,
-            error=str(e),
-        )
+    except exceptions.MergifyNotInstalled:
         return
 
     if kind == "repo":
