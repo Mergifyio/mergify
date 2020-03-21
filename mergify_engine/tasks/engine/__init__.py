@@ -65,7 +65,9 @@ def get_github_pull_from_event(client, event_type, data):
             sha = data["check_suite"]["head_sha"]
 
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        pulls = [p for p in pulls if p["base"]["repo"]["url"] == client.base_url[:-1]]
+        pulls = [
+            p for p in pulls if p["base"]["repo"]["url"] == str(client.base_url)[:-1]
+        ]
 
         if not pulls:
             pulls = [get_github_pull_from_sha(client, sha)]
