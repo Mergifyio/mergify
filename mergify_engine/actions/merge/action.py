@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import github
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -134,7 +134,7 @@ class MergeAction(actions.Action):
             return helpers.update_pull_base_branch(pull, self.config["strict_method"])
 
     def _merge(self, pull):
-        if self.config["method"] != "rebase" or pull.g_pull.raw_data["rebaseable"]:
+        if self.config["method"] != "rebase" or pull.data["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:
             method = self.config["rebase_fallback"]
@@ -145,75 +145,67 @@ class MergeAction(actions.Action):
                 "",
             )
 
-        kwargs = pull.get_merge_commit_message() or {}
+        data = pull.get_merge_commit_message() or {}
+        data["sha"] = pull.data["head"]["sha"]
+        data["merge_method"] = method
+
         try:
-            pull.g_pull.merge(sha=pull.head_sha, merge_method=method, **kwargs)
-        except github.GithubException as e:  # pragma: no cover
-            if pull.g_pull.is_merged():
+            pull.client.put(f"pulls/{pull.data['number']}/merge", json=data)
+        except httpx.HTTPClientSideError as e:  # pragma: no cover
+            pull.update()
+            if pull.data["merged"]:
                 pull.log.info("merged in the meantime")
             else:
                 return self._handle_merge_error(e, pull)
         else:
+            pull.update()
             pull.log.info("merged")
 
-        pull.update()
         return helpers.merge_report(pull, self.config["strict"])
 
     def _handle_merge_error(self, e, pull):
-        if e.status >= 500:
-            message = "GitHub failed to merge the pull request"
-            # There's no data in that case
-            server_message = "Server Error"
+        if "Head branch was modified" in e.message:
+            pull.log.debug(
+                "Head branch was modified in the meantime",
+                status=e.status_code,
+                error_message=e.message,
+            )
+            return (
+                "cancelled",
+                "Head branch was modified in the meantime",
+                "The head branch was modified, the merge action have been cancelled.",
+            )
+        elif "Base branch was modified" in e.message:
+            # NOTE(sileht): The base branch was modified between pull.is_behind call and
+            # here, usually by something not merged by mergify. So we need sync it again
+            # with the base branch.
+            pull.log.debug(
+                "Base branch was modified in the meantime, retrying",
+                status=e.status_code,
+                error_message=e.message,
+            )
+            return self._sync_with_base_branch(pull)
+
+        elif e.status_code == 405:
+            pull.log.debug(
+                "Waiting for the Branch Protection to be validated",
+                status=e.status_code,
+                error_message=e.message,
+            )
+            return (
+                None,
+                "Waiting for the Branch Protection to be validated",
+                "Branch Protection is enabled and is preventing Mergify "
+                "to merge the pull request. Mergify will merge when "
+                "branch protection settings validate the pull request. "
+                f"(detail: {e.message})",
+            )
         else:
-            server_message = e.data["message"]
-
-            if "Head branch was modified" in e.data["message"]:
-                pull.log.debug(
-                    "Head branch was modified in the meantime",
-                    status=e.status,
-                    error_message=server_message,
-                )
-                return (
-                    "cancelled",
-                    "Head branch was modified in the meantime",
-                    "The head branch was modified, the merge action have been cancelled.",
-                )
-            elif "Base branch was modified" in e.data["message"]:
-                # NOTE(sileht): The base branch was modified between pull.is_behind call and
-                # here, usually by something not merged by mergify. So we need sync it again
-                # with the base branch.
-                pull.log.debug(
-                    "Base branch was modified in the meantime, retrying",
-                    status=e.status,
-                    error_message=server_message,
-                )
-                pull.update()
-                return self._sync_with_base_branch(pull)
-
-            elif e.status == 405:
-                pull.log.debug(
-                    "Waiting for the Branch Protection to be validated",
-                    status=e.status,
-                    error_message=server_message,
-                )
-                return (
-                    None,
-                    "Waiting for the Branch Protection to be validated",
-                    "Branch Protection is enabled and is preventing Mergify "
-                    "to merge the pull request. Mergify will merge when "
-                    "branch protection settings validate the pull request. "
-                    f"(detail: {e.data['message']})",
-                )
-            else:
-                message = "Mergify failed to merge the pull request"
-
-        log_method = pull.log.error if e.status >= 500 else pull.log.info
-        log_method(
-            "merge fail",
-            status=e.status,
-            mergify_message=message,
-            error_message=server_message,
-            pull=pull,
-        )
-
-        return ("failure", message, f"GitHub error message: `{server_message}`")
+            message = "Mergify failed to merge the pull request"
+            pull.log.info(
+                "merge fail",
+                status=e.status_code,
+                mergify_message=message,
+                error_message=e.message,
+            )
+            return ("failure", message, f"GitHub error message: `{e.message}`")
