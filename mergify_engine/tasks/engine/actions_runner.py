@@ -22,8 +22,6 @@ from mergify_engine import check_api
 from mergify_engine import doc
 
 
-PULL_REQUEST_EMBEDDED_CHECK_BACKLOG = 10
-
 SUMMARY_NAME = "Summary"
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -36,14 +34,16 @@ def find_embedded_pull(pull):
     # NOTE(sileht): We are looking for a pull request that have been merged
     # very recently and have commit sha in common with current pull request.
     expected_commits = [c["sha"] for c in pull.commits]
-    pulls = pull.g_pull.base.repo.get_pulls(state="closed", base=pull.base_ref)[
-        0:PULL_REQUEST_EMBEDDED_CHECK_BACKLOG
-    ]
+
+    # NOTE(sileht): Looks only for the first page
+    pulls = pull.client.item("pulls", state="closed", base=pull.data["base"]["ref"])
 
     for p_other in pulls:
-        if p_other.number == pull.number:
+        if p_other["number"] == pull.data["number"]:
             continue
-        commits = [c.sha for c in p_other.get_commits()]
+        commits = [
+            c["sha"] for c in pull.client.items(f"pulls/{p_other['number']}/commits")
+        ]
         commits_not_found = [c for c in expected_commits if c not in commits]
         if not commits_not_found:
             return p_other
@@ -54,7 +54,7 @@ def get_already_merged_summary(pull, sources, match):
         if (
             source["event_type"] != "pull_request"
             or source["data"]["action"] != "closed"
-            or not pull.merged
+            or not pull.data["merged"]
         ):
             return ""
 
@@ -76,12 +76,12 @@ def get_already_merged_summary(pull, sources, match):
     if other_pr:
         return (
             "⚠️ The pull request has been closed by GitHub"
-            "because its commits are also part of #%d\n\n" % other_pr.number
+            "because its commits are also part of #%d\n\n" % other_pr["number"]
         )
     else:
         return (
             "⚠️ The pull request has been merged manually by "
-            "@%s\n\n" % pull.merged_by
+            "@%s\n\n" % pull.data["merged_by"]
         )
 
 
