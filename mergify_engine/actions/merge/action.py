@@ -92,23 +92,20 @@ class MergeAction(actions.Action):
                 return False
 
         if need_look_at_checks:
-            checks = list(ctxt._get_checks())
-            if not checks:
-                # No checks have been send yet
+            if not ctxt.checks:
                 return True
 
-            # Take only checks we care about
-            checks = [
-                s
-                for s in checks
+            states = [
+                state
+                for name, state in ctxt.checks.items()
                 for cond in need_look_at_checks
-                if cond(**{cond.attribute_name: s.context})
+                if cond(**{cond.attribute_name: name})
             ]
-            if not checks:
+            if not states:
                 return True
 
-            for s in checks:
-                if s.state in ("pending", None):
+            for state in states:
+                if state in ("pending", None):
                     return True
 
         return False

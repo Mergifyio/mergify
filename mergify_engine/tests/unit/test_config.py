@@ -146,8 +146,16 @@ def test_get_pull_request_rule():
     get_files = [{"filename": "README.rst"}, {"filename": "setup.py"}]
     get_team_members = [{"login": "sileht"}, {"login": "jd"}]
 
+    get_checks = []
+    get_statuses = [{"context": "continuous-integration/fake-ci", "state": "success"}]
     client.item.return_value = {"permission": "write"}  # get review user perm
-    client.items.side_effect = [get_reviews, get_files, get_team_members]
+    client.items.side_effect = [
+        get_reviews,
+        get_files,
+        get_checks,
+        get_statuses,
+        get_team_members,
+    ]
 
     ctxt = mergify_context.MergifyContext(
         client,
@@ -163,8 +171,8 @@ def test_get_pull_request_rule():
             "assignees": [],
             "labels": [],
             "author": "jd",
-            "base": {"ref": "master", "repo": {"name": "name", "private": False}},
-            "head": {"ref": "myfeature"},
+            "base": {"ref": "master", "repo": {"name": "name", "private": False},},
+            "head": {"ref": "myfeature", "sha": "<sha>"},
             "locked": False,
             "requested_reviewers": [],
             "requested_teams": [],
@@ -176,12 +184,6 @@ def test_get_pull_request_rule():
 
     # Don't catch data in these tests
     ctxt.to_dict = ctxt._get_consolidated_data
-
-    fake_ci = mock.Mock()
-    fake_ci.context = "continuous-integration/fake-ci"
-    fake_ci.state = "success"
-    ctxt._get_checks = mock.Mock()
-    ctxt._get_checks.return_value = [fake_ci]
 
     # Empty conditions
     pull_request_rules = rules.PullRequestRules(

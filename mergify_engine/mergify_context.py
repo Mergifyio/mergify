@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import collections
 import itertools
 import re
 from urllib import parse
@@ -45,8 +44,6 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 # https://platform.github.community/t/documentation-about-mergeable-state/4259
 # https://github.com/octokit/octokit.net/issues/1763
 # https://developer.github.com/v4/enum/mergestatestatus/
-
-GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 
 
 @attr.s()
@@ -142,7 +139,6 @@ class MergifyContext(object):
 
     def _get_consolidated_data(self):
         comments, approvals = self._get_consolidated_reviews()
-        statuses = self._get_checks()
         return {
             # Only use internally attributes
             "_approvals": approvals,
@@ -185,7 +181,6 @@ class MergifyContext(object):
             "commented-reviews-by": [
                 r["user"]["login"] for r in comments if r["state"] == "COMMENTED"
             ],
-            "status-success": [s.context for s in statuses if s.state == "success"],
             # NOTE(jd) The Check API set conclusion to None for pending.
             # NOTE(sileht): "pending" statuses are not really trackable, we
             # voluntary drop this event because CIs just sent they status every
@@ -193,36 +188,33 @@ class MergifyContext(object):
             # that). This was causing a big load on Mergify for nothing useful
             # tracked, and on big projects it can reach the rate limit very
             # quickly.
-            # "status-pending": [s.context for s in statuses
-            #                    if s.state in ("pending", None)],
-            "status-failure": [s.context for s in statuses if s.state == "failure"],
-            "status-neutral": [s.context for s in statuses if s.state == "neutral"],
+            "status-success": [
+                name for name, state in self.checks.items() if state == "success"
+            ],
+            "status-failure": [
+                name for name, state in self.checks.items() if state == "failure"
+            ],
+            "status-neutral": [
+                name for name, state in self.checks.items() if state == "neutral"
+            ],
             # NOTE(sileht): Not handled for now
             # cancelled, timed_out, or action_required
         }
 
-    def _get_checks(self):
+    @functools_bp.cached_property
+    def checks(self):
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        generic_checks = set(
-            [
-                GenericCheck(c["name"], c["conclusion"])
-                for c in check_api.get_checks(self)
-            ]
-        )
-
-        statuses = list(
-            self.client.items(
+        checks = dict((c["name"], c["conclusion"]) for c in check_api.get_checks(self))
+        # NOTE(sileht): state can be one of error, failure, pending,
+        # or success.
+        checks.update(
+            (s["context"], s["state"])
+            for s in self.client.items(
                 f"commits/{self.pull['head']['sha']}/status", list_items="statuses"
             )
         )
-
-        # NOTE(sileht): state can be one of error, failure, pending,
-        # or success.
-        generic_checks |= set(
-            [GenericCheck(s["context"], s["state"]) for s in statuses]
-        )
-        return generic_checks
+        return checks
 
     def _resolve_login(self, name):
         if not name:
