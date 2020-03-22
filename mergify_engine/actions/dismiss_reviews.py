@@ -60,7 +60,7 @@ class DismissReviewsAction(actions.Action):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
             errors = set()
-            for review in ctxt.to_dict()["_approvals"]:
+            for review in ctxt.consolidated_reviews[1]:
                 conf = self.config.get(review["state"].lower(), False)
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:

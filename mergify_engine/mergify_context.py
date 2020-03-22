@@ -105,7 +105,8 @@ class MergifyContext(object):
         ]
         return bots + valid_collabs
 
-    def _get_consolidated_reviews(self):
+    @functools_bp.cached_property
+    def consolidated_reviews(self):
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
         comments = dict()
@@ -127,10 +128,8 @@ class MergifyContext(object):
         return self._consolidated_data
 
     def _get_consolidated_data(self):
-        comments, approvals = self._get_consolidated_reviews()
+        comments, approvals = self.consolidated_reviews
         return {
-            # Only use internally attributes
-            "_approvals": approvals,
             # Can be used by rules too
             "assignee": [a["login"] for a in self.pull["assignees"]],
             # NOTE(sileht): We put an empty label to allow people to match
