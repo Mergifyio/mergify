@@ -132,33 +132,22 @@ def test_pull_request_rule_schema_invalid():
             rules.PullRequestRules([invalid])
 
 
-@mock.patch("mergify_engine.mergify_pull.MergifyPull.g", return_value=mock.PropertyMock)
-@mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.reviews", new_callable=mock.PropertyMock
-)
-def test_get_pull_request_rule(reviews, g):
+def test_get_pull_request_rule():
 
     client = mock.Mock()
 
-    team = mock.Mock()
-    team.slug = "my-reviewers"
-    team.get_members.return_value = [mock.Mock(login="sileht"), mock.Mock(login="jd")]
+    get_reviews = [
+        {
+            "user": {"login": "sileht", "type": "User"},
+            "state": "APPROVED",
+            "author_association": "MEMBER",
+        }
+    ]
+    get_files = [{"filename": "README.rst"}, {"filename": "setup.py"}]
+    get_team_members = [{"login": "sileht"}, {"login": "jd"}]
 
-    org = mock.Mock()
-    org.get_teams.return_value = [team]
-    g.get_organization.return_value = org
-
-    file1 = {"filename": "README.rst"}
-    file2 = {"filename": "setup.py"}
-    client.items.return_value = [file1, file2]
-
-    review = {
-        "user": {"login": "sileht", "type": "User"},
-        "state": "APPROVED",
-        "author_association": "MEMBER",
-    }
-    reviews.return_value = [review]
-    client.item.return_value = {"permission": "write"}
+    client.item.return_value = {"permission": "write"}  # get review user perm
+    client.items.side_effect = [get_reviews, get_files, get_team_members]
 
     pull_request = mergify_pull.MergifyPull(
         client,
@@ -394,12 +383,17 @@ def test_get_pull_request_rule(reviews, g):
     assert len(match.matching_rules[0][1]) == 1
     assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
 
-    review2 = {
-        "user": {"login": "jd", "type": "User"},
-        "state": "APPROVED",
-        "author_association": "MEMBER",
-    }
-    reviews.return_value = [review, review2]
+    get_reviews.append(
+        {
+            "user": {"login": "jd", "type": "User"},
+            "state": "APPROVED",
+            "author_association": "MEMBER",
+        }
+    )
+    client.items.side_effect = [get_reviews, get_files, get_team_members]
+    # Drop caches
+    del pull_request.__dict__["reviews"]
+    del pull_request.__dict__["files"]
 
     # Team conditions with no review missing
     pull_request_rules = rules.PullRequestRules(
