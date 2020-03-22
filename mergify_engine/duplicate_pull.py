@@ -196,7 +196,7 @@ def duplicate(
         git("fetch", "--quiet", "origin", branch_name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
-        merge_commit = pull.client.item(f"commits/{pull.merge_commit_sha}")
+        merge_commit = pull.client.item(f"commits/{pull.data['merge_commit_sha']}")
         for commit in _get_commits_to_cherrypick(pull, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
@@ -204,7 +204,7 @@ def duplicate(
             #    (commit["sha"], commit["sha"])
             #    )
             # last_commit_date = commit["commit"]["committer"]["date"]
-            # git("fetch", "origin", pull.base.ref,
+            # git("fetch", "origin", pull.data["base"]["ref"],
             #    "--shallow-since='%s'" % last_commit_date)
             try:
                 git("cherry-pick", "-x", commit["sha"])
@@ -239,7 +239,7 @@ def duplicate(
         git.cleanup()
 
     body = (
-        f"This is an automated {kind} of pull request #{pull.number} done by Mergify"
+        f"This is an automated {kind} of pull request #{pull.data['number']} done by Mergify"
         + body
     )
 

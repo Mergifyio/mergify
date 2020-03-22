@@ -80,7 +80,7 @@ class MergeAction(actions.Action):
     @staticmethod
     def _required_statuses_in_progress(pull, missing_conditions):
         # It's closed, it's not going to change
-        if pull.state == "closed":
+        if pull.data["state"] == "closed":
             return False
 
         need_look_at_checks = []
