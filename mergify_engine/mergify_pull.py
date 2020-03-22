@@ -63,13 +63,6 @@ class MergifyPull(object):
         return utils.Github(self.installation_token)
 
     @property
-    def g_pull(self):
-        # NOTE(sileht): Remove me
-        return pygithub.PullRequest.PullRequest(
-            self.g._Github__requester, {}, self.data, completed=True
-        )
-
-    @property
     def log(self):
         return daiquiri.getLogger(
             __name__,
