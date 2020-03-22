@@ -45,42 +45,42 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, pull, sources, missing_conditions):
-        pull.log.debug("process merge", config=self.config)
+    def run(self, ctxt, sources, missing_conditions):
+        ctxt.log.debug("process merge", config=self.config)
 
-        output = helpers.merge_report(pull, self.config["strict"])
+        output = helpers.merge_report(ctxt, self.config["strict"])
         if output:
             if self.config["strict"] == "smart":
-                queue.remove_pull(pull)
+                queue.remove_pull(ctxt)
             return output
 
-        if self.config["strict"] and pull.is_behind:
-            return self._sync_with_base_branch(pull)
+        if self.config["strict"] and ctxt.is_behind:
+            return self._sync_with_base_branch(ctxt)
         else:
             try:
-                return self._merge(pull)
+                return self._merge(ctxt)
             finally:
                 if self.config["strict"] == "smart":
-                    queue.remove_pull(pull)
+                    queue.remove_pull(ctxt)
 
-    def cancel(self, pull, sources, missing_conditions):
+    def cancel(self, ctxt, sources, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
         if self.config["strict"] and self._required_statuses_in_progress(
-            pull, missing_conditions
+            ctxt, missing_conditions
         ):
-            return helpers.get_wait_for_ci_report(pull)
+            return helpers.get_wait_for_ci_report(ctxt)
 
         if self.config["strict"] == "smart":
-            queue.remove_pull(pull)
+            queue.remove_pull(ctxt)
 
         return self.cancelled_check_report
 
     @staticmethod
-    def _required_statuses_in_progress(pull, missing_conditions):
+    def _required_statuses_in_progress(ctxt, missing_conditions):
         # It's closed, it's not going to change
-        if pull.data["state"] == "closed":
+        if ctxt.pull["state"] == "closed":
             return False
 
         need_look_at_checks = []
@@ -92,7 +92,7 @@ class MergeAction(actions.Action):
                 return False
 
         if need_look_at_checks:
-            checks = list(pull._get_checks())
+            checks = list(ctxt._get_checks())
             if not checks:
                 # No checks have been send yet
                 return True
@@ -113,8 +113,8 @@ class MergeAction(actions.Action):
 
         return False
 
-    def _sync_with_base_branch(self, pull):
-        if not pull.base_is_modifiable:
+    def _sync_with_base_branch(self, ctxt):
+        if not ctxt.pull_base_is_modifiable:
             return (
                 "failure",
                 "Pull request can't be updated with latest "
@@ -123,7 +123,7 @@ class MergeAction(actions.Action):
                 "",
             )
         elif self.config["strict"] == "smart":
-            queue.add_pull(pull, self.config["strict_method"])
+            queue.add_pull(ctxt, self.config["strict_method"])
             return (
                 None,
                 "Base branch will be updated soon",
@@ -131,10 +131,10 @@ class MergeAction(actions.Action):
                 "be updated soon, and then merged.",
             )
         else:
-            return helpers.update_pull_base_branch(pull, self.config["strict_method"])
+            return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
 
-    def _merge(self, pull):
-        if self.config["method"] != "rebase" or pull.data["rebaseable"]:
+    def _merge(self, ctxt):
+        if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:
             method = self.config["rebase_fallback"]
@@ -145,27 +145,27 @@ class MergeAction(actions.Action):
                 "",
             )
 
-        data = pull.get_merge_commit_message() or {}
-        data["sha"] = pull.data["head"]["sha"]
+        data = ctxt.get_merge_commit_message() or {}
+        data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method
 
         try:
-            pull.client.put(f"pulls/{pull.data['number']}/merge", json=data)
+            ctxt.client.put(f"pulls/{ctxt.pull['number']}/merge", json=data)
         except httpx.HTTPClientSideError as e:  # pragma: no cover
-            pull.update()
-            if pull.data["merged"]:
-                pull.log.info("merged in the meantime")
+            ctxt.update()
+            if ctxt.pull["merged"]:
+                ctxt.log.info("merged in the meantime")
             else:
-                return self._handle_merge_error(e, pull)
+                return self._handle_merge_error(e, ctxt)
         else:
-            pull.update()
-            pull.log.info("merged")
+            ctxt.update()
+            ctxt.log.info("merged")
 
-        return helpers.merge_report(pull, self.config["strict"])
+        return helpers.merge_report(ctxt, self.config["strict"])
 
-    def _handle_merge_error(self, e, pull):
+    def _handle_merge_error(self, e, ctxt):
         if "Head branch was modified" in e.message:
-            pull.log.debug(
+            ctxt.log.debug(
                 "Head branch was modified in the meantime",
                 status=e.status_code,
                 error_message=e.message,
@@ -179,15 +179,15 @@ class MergeAction(actions.Action):
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
             # here, usually by something not merged by mergify. So we need sync it again
             # with the base branch.
-            pull.log.debug(
+            ctxt.log.debug(
                 "Base branch was modified in the meantime, retrying",
                 status=e.status_code,
                 error_message=e.message,
             )
-            return self._sync_with_base_branch(pull)
+            return self._sync_with_base_branch(ctxt)
 
         elif e.status_code == 405:
-            pull.log.debug(
+            ctxt.log.debug(
                 "Waiting for the Branch Protection to be validated",
                 status=e.status_code,
                 error_message=e.message,
@@ -202,7 +202,7 @@ class MergeAction(actions.Action):
             )
         else:
             message = "Mergify failed to merge the pull request"
-            pull.log.info(
+            ctxt.log.info(
                 "merge fail",
                 status=e.status_code,
                 mergify_message=message,

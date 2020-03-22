@@ -22,7 +22,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import mergify_pull
+from mergify_engine import mergify_context
 from mergify_engine.clients import github
 from mergify_engine.worker import app
 
@@ -50,9 +50,9 @@ def load_action(message):
         return match[1], command_args, action
 
 
-def spawn_pending_commands_tasks(pull, sources):
+def spawn_pending_commands_tasks(ctxt, sources):
     pendings = set()
-    for comment in pull.client.items(f"issues/{pull.data['number']}/comments"):
+    for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
         if comment["user"]["id"] != config.BOT_USER_ID:
             return
         match = COMMAND_RESULT_MATCHER.search(comment["body"])
@@ -66,8 +66,8 @@ def spawn_pending_commands_tasks(pull, sources):
 
     for pending in pendings:
         run_command_async.s(
-            pull.installation_id,
-            pull.data,
+            ctxt.client.installation_id,
+            ctxt.pull,
             sources,
             "@Mergifyio %s" % pending,
             None,
@@ -87,16 +87,16 @@ def run_command_async(
     except exceptions.MergifyNotInstalled:
         return
 
-    pull = mergify_pull.MergifyPull(client, pull_request_raw)
+    pull = mergify_context.MergifyContext(client, pull_request_raw)
     return run_command(pull, sources, comment, user, rerun)
 
 
-def run_command(pull, sources, comment, user, rerun=False):
+def run_command(ctxt, sources, comment, user, rerun=False):
     # Run command only if this is a pending task or if user have permission to do it.
     if (
         rerun
         or user["id"] == config.BOT_USER_ID
-        or pull.has_write_permissions(user["login"])
+        or ctxt.has_write_permissions(user["login"])
     ):
         action = load_action(comment)
         if action:
@@ -104,7 +104,7 @@ def run_command(pull, sources, comment, user, rerun=False):
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-            report = method.run(pull, sources, [])
+            report = method.run(ctxt, sources, [])
 
             if command_args:
                 command_full = f"{command} {command_args}"
@@ -134,11 +134,11 @@ def run_command(pull, sources, comment, user, rerun=False):
         result = "@{} is not allowed to run commands".format(user["login"])
 
     try:
-        pull.client.post(
-            f"issues/{pull.data['number']}/comments", json={"body": result}
+        ctxt.client.post(
+            f"issues/{ctxt.pull['number']}/comments", json={"body": result}
         )
     except httpx.HTTPClientSideError as e:  # pragma: no cover
-        pull.log.error(
+        ctxt.log.error(
             "fail to post comment on the pull request",
             status=e.status_code,
             error=e.message,

@@ -16,9 +16,9 @@ from mergify_engine import branch_updater
 from mergify_engine.actions.merge import queue
 
 
-def merge_report(pull, strict):
-    if pull.data["merged"]:
-        if pull.data["merged_by"]["login"] in [
+def merge_report(ctxt, strict):
+    if ctxt.pull["merged"]:
+        if ctxt.pull["merged_by"]["login"] in [
             "mergify[bot]",
             "mergify-test[bot]",
         ]:
@@ -29,30 +29,30 @@ def merge_report(pull, strict):
         title = "The pull request has been merged %s" % mode
         summary = "The pull request has been merged %s at *%s*" % (
             mode,
-            pull.data["merge_commit_sha"],
+            ctxt.pull["merge_commit_sha"],
         )
-    elif pull.data["state"] == "closed":
+    elif ctxt.pull["state"] == "closed":
         conclusion = "cancelled"
         title = "The pull request has been closed manually"
         summary = ""
 
     # NOTE(sileht): Take care of all branch protection state
-    elif pull.data["mergeable_state"] == "dirty":
+    elif ctxt.pull["mergeable_state"] == "dirty":
         conclusion = "failure"
         title = "Merge conflict needs to be solved"
         summary = ""
-    elif pull.data["mergeable_state"] == "unknown":
+    elif ctxt.pull["mergeable_state"] == "unknown":
         conclusion = "failure"
         title = "Pull request state reported as `unknown` by GitHub"
         summary = ""
     # FIXME(sileht): We disable this check as github wrongly report
     # mergeable_state == blocked sometimes. The workaround is to try to merge
     # it and if that fail we checks for blocking state.
-    # elif pull.data["mergeable_state"] == "blocked":
+    # elif ctxt.pull["mergeable_state"] == "blocked":
     #     conclusion = "failure"
     #     title = "Branch protection settings are blocking automatic merging"
     #     summary = ""
-    elif pull.data["mergeable_state"] == "behind" and not strict:
+    elif ctxt.pull["mergeable_state"] == "behind" and not strict:
         # Strict mode has been enabled in branch protection but not in
         # mergify
         conclusion = "failure"

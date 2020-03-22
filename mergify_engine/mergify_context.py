@@ -50,37 +50,37 @@ GenericCheck = collections.namedtuple("GenericCheck", ["context", "state"])
 
 
 @attr.s()
-class MergifyPull(object):
+class MergifyContext(object):
     client = attr.ib()
-    data = attr.ib()
+    pull = attr.ib()
     _consolidated_data = attr.ib(init=False, default=None)
 
     @property
     def log(self):
         return daiquiri.getLogger(
             __name__,
-            gh_owner=self.data["user"]["login"]
-            if "user" in self.data
+            gh_owner=self.pull["user"]["login"]
+            if "user" in self.pull
             else "<unknown-yet>",
             gh_repo=(
-                self.data["base"]["repo"]["name"]
-                if "base" in self.data
+                self.pull["base"]["repo"]["name"]
+                if "base" in self.pull
                 else "<unknown-yet>"
             ),
             gh_private=(
-                self.data["base"]["repo"]["private"]
-                if "base" in self.data
+                self.pull["base"]["repo"]["private"]
+                if "base" in self.pull
                 else "<unknown-yet>"
             ),
-            gh_branch=self.data["base"]["ref"]
-            if "base" in self.data
+            gh_branch=self.pull["base"]["ref"]
+            if "base" in self.pull
             else "<unknown-yet>",
-            gh_pull=self.data["number"],
-            gh_pull_url=self.data.get("html_url", "<unknown-yet>"),
+            gh_pull=self.pull["number"],
+            gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
             gh_pull_state=(
                 "merged"
-                if self.data.get("merged")
-                else (self.data.get("mergeable_state", "unknown") or "none")
+                if self.pull.get("merged")
+                else (self.pull.get("mergeable_state", "unknown") or "none")
             ),
         )
 
@@ -147,29 +147,29 @@ class MergifyPull(object):
             # Only use internally attributes
             "_approvals": approvals,
             # Can be used by rules too
-            "assignee": [a["login"] for a in self.data["assignees"]],
+            "assignee": [a["login"] for a in self.pull["assignees"]],
             # NOTE(sileht): We put an empty label to allow people to match
             # no label set
-            "label": [l["name"] for l in self.data["labels"]],
+            "label": [l["name"] for l in self.pull["labels"]],
             "review-requested": (
-                [u["login"] for u in self.data["requested_reviewers"]]
-                + ["@" + t["slug"] for t in self.data["requested_teams"]]
+                [u["login"] for u in self.pull["requested_reviewers"]]
+                + ["@" + t["slug"] for t in self.pull["requested_teams"]]
             ),
-            "author": self.data["user"]["login"],
+            "author": self.pull["user"]["login"],
             "merged-by": (
-                self.data["merged_by"]["login"] if self.data["merged_by"] else ""
+                self.pull["merged_by"]["login"] if self.pull["merged_by"] else ""
             ),
-            "merged": self.data["merged"],
-            "closed": self.data["state"] == "closed",
+            "merged": self.pull["merged"],
+            "closed": self.pull["state"] == "closed",
             "milestone": (
-                self.data["milestone"]["title"] if self.data["milestone"] else ""
+                self.pull["milestone"]["title"] if self.pull["milestone"] else ""
             ),
-            "conflict": self.data["mergeable_state"] == "dirty",
-            "base": self.data["base"]["ref"],
-            "head": self.data["head"]["ref"],
-            "locked": self.data["locked"],
-            "title": self.data["title"],
-            "body": self.data["body"],
+            "conflict": self.pull["mergeable_state"] == "dirty",
+            "base": self.pull["base"]["ref"],
+            "head": self.pull["head"]["ref"],
+            "locked": self.pull["locked"],
+            "title": self.pull["title"],
+            "body": self.pull["body"],
             "files": [f["filename"] for f in self.files],
             "approved-reviews-by": [
                 r["user"]["login"] for r in approvals if r["state"] == "APPROVED"
@@ -213,7 +213,7 @@ class MergifyPull(object):
 
         statuses = list(
             self.client.items(
-                f"commits/{self.data['head']['sha']}/status", list_items="statuses"
+                f"commits/{self.pull['head']['sha']}/status", list_items="statuses"
             )
         )
 
@@ -239,7 +239,7 @@ class MergifyPull(object):
                 return [name]
             organization = organization[1:]
         else:
-            organization = self.data["base"]["repo"]["owner"]["login"]
+            organization = self.pull["base"]["repo"]["owner"]["login"]
             team_slug = name[1:]
 
         try:
@@ -281,13 +281,13 @@ class MergifyPull(object):
             self._is_data_complete()
             and self._is_background_github_processing_completed()
         ):
-            self.data = self.client.item(f"pulls/{self.data['number']}")
+            self.pull = self.client.item(f"pulls/{self.pull['number']}")
 
         if not self._is_data_complete():
             self.log.error(
                 "/pulls/%s has returned an incomplete payload...",
-                self.data["number"],
-                data=self.data,
+                self.pull["number"],
+                data=self.pull,
             )
 
         if self._is_background_github_processing_completed():
@@ -306,25 +306,25 @@ class MergifyPull(object):
             "merged_at",
         )
         for field in fields_to_control:
-            if field not in self.data:
+            if field not in self.pull:
                 return False
         return True
 
     def _is_background_github_processing_completed(self):
         return (
-            self.data["state"] == "closed"
-            or self.data["mergeable_state"] not in self.UNUSABLE_STATES
+            self.pull["state"] == "closed"
+            or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
         )
 
     def update(self):
         # TODO(sileht): Remove me,
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
-        self.data = self.client.item(f"pulls/{self.data['number']}")
+        self.pull = self.client.item(f"pulls/{self.pull['number']}")
 
     @functools_bp.cached_property
     def is_behind(self):
-        branch_name_escaped = parse.quote(self.data["base"]["ref"], safe="")
+        branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
         branch = self.client.item(f"branches/{branch_name_escaped}")
         for commit in self.commits:
             for parent in commit["parents"]:
@@ -333,13 +333,13 @@ class MergifyPull(object):
         return True
 
     def get_merge_commit_message(self):
-        if not self.data["body"]:
+        if not self.pull["body"]:
             return
 
         found = False
         message_lines = []
 
-        for line in self.data["body"].split("\n"):
+        for line in self.pull["body"].split("\n"):
             if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
                 found = True
             elif found and MARKDOWN_TITLE_RE.match(line):
@@ -355,33 +355,33 @@ class MergifyPull(object):
 
     def __str__(self):
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
-            "login": self.data["base"]["user"]["login"],
-            "repo": self.data["base"]["repo"]["name"],
-            "number": self.data["number"],
-            "branch": self.data["base"]["ref"],
+            "login": self.pull["base"]["user"]["login"],
+            "repo": self.pull["base"]["repo"]["name"],
+            "number": self.pull["number"],
+            "branch": self.pull["base"]["ref"],
             "pr_state": (
                 "merged"
-                if self.data["merged"]
-                else (self.data["mergeable_state"] or "none")
+                if self.pull["merged"]
+                else (self.pull["mergeable_state"] or "none")
             ),
         }
 
     @functools_bp.cached_property
     def reviews(self):
-        return list(self.client.items(f"pulls/{self.data['number']}/reviews"))
+        return list(self.client.items(f"pulls/{self.pull['number']}/reviews"))
 
     @functools_bp.cached_property
     def commits(self):
-        return list(self.client.items(f"pulls/{self.data['number']}/commits"))
+        return list(self.client.items(f"pulls/{self.pull['number']}/commits"))
 
     @functools_bp.cached_property
     def files(self):
-        return list(self.client.items(f"pulls/{self.data['number']}/files"))
+        return list(self.client.items(f"pulls/{self.pull['number']}/files"))
 
     @property
-    def from_fork(self):
-        return self.data["head"]["repo"]["id"] != self.data["base"]["repo"]["id"]
+    def pull_from_fork(self):
+        return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
     @property
-    def base_is_modifiable(self):
-        return self.data["maintainer_can_modify"] or not self.from_fork
+    def pull_base_is_modifiable(self):
+        return self.pull["maintainer_can_modify"] or not self.pull_from_fork

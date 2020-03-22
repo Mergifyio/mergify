@@ -208,13 +208,13 @@ class InvalidRules(Exception):
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
 
 
-def get_mergify_config_content(pull, ref=None):
+def get_mergify_config_content(ctxt, ref=None):
     kwargs = {}
     if ref:
         kwargs["ref"] = ref
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
-            content = pull.client.item(f"contents/{filename}", **kwargs)["content"]
+            content = ctxt.client.item(f"contents/{filename}", **kwargs)["content"]
             return base64.b64decode(bytearray(content, "utf-8"))
         except httpx.HTTPNotFound:
             continue

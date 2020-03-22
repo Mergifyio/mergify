@@ -84,7 +84,7 @@ def _do_update_branch(git, method, base_branch, head_branch):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def _do_update(pull, token, method="merge"):
+def _do_update(ctxt, token, method="merge"):
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -99,18 +99,18 @@ def _do_update(pull, token, method="merge"):
     # $ git push origin sileht/testpr:sileht/testpr
 
     head_repo = (
-        pull.data["head"]["repo"]["owner"]["login"]
+        ctxt.pull["head"]["repo"]["owner"]["login"]
         + "/"
-        + pull.data["head"]["repo"]["name"]
+        + ctxt.pull["head"]["repo"]["name"]
     )
     base_repo = (
-        pull.data["base"]["repo"]["owner"]["login"]
+        ctxt.pull["base"]["repo"]["owner"]["login"]
         + "/"
-        + pull.data["base"]["repo"]["name"]
+        + ctxt.pull["base"]["repo"]["name"]
     )
 
-    head_branch = pull.data["head"]["ref"]
-    base_branch = pull.data["base"]["ref"]
+    head_branch = ctxt.pull["head"]["ref"]
+    base_branch = ctxt.pull["base"]["ref"]
     git = utils.Gitter()
     try:
         git("init")
@@ -130,7 +130,7 @@ def _do_update(pull, token, method="merge"):
             "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo),
         )
 
-        depth = len(pull.commits) + 1
+        depth = len(ctxt.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
@@ -150,7 +150,7 @@ def _do_update(pull, token, method="merge"):
         except subprocess.CalledProcessError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
-                    pull.log.debug("Complete history cloned")
+                    ctxt.log.debug("Complete history cloned")
                     # NOTE(sileht): We currently assume we have only one parent
                     # commit in common. Since Git is a graph, in some case this
                     # graph can be more complicated.
@@ -172,13 +172,13 @@ def _do_update(pull, token, method="merge"):
             if message in in_exception.output:
                 raise out_exception(in_exception.output.decode())
         else:
-            pull.log.error(
+            ctxt.log.error(
                 "update branch failed: %s", in_exception.output.decode(), exc_info=True,
             )
             raise BranchUpdateFailure()
 
     except Exception:  # pragma: no cover
-        pull.log.error("update branch failed", exc_info=True)
+        ctxt.log.error("update branch failed", exc_info=True)
         raise BranchUpdateFailure()
     finally:
         git.cleanup()
@@ -189,26 +189,26 @@ def _do_update(pull, token, method="merge"):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def update_with_api(pull):
+def update_with_api(ctxt):
     try:
-        pull.client.put(
-            f"pulls/{pull.data['number']}/update-branch",
+        ctxt.client.put(
+            f"pulls/{ctxt.pull['number']}/update-branch",
             api_version="lydian",
-            json={"expected_head_sha": pull.data["head"]["sha"]},
+            json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
     except httpx.HTTPClientSideError as e:
         if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:
-            pull.log.debug(
+            ctxt.log.debug(
                 "branch updated in the meantime", status=e.status_code, error=e.message,
             )
             return
         else:
-            pull.log.debug(
+            ctxt.log.debug(
                 "update branch failed", status=e.status_code, error=e.message,
             )
             raise BranchUpdateFailure(e.data["message"])
     except httpx.HTTPError as e:
-        pull.log.debug(
+        ctxt.log.debug(
             "update branch failed",
             status=(e.response.status_code if e.response else None),
             error=str(e),
@@ -216,20 +216,20 @@ def update_with_api(pull):
         raise BranchUpdateNeedRetry()
 
 
-def update_with_git(pull, method="merge"):
+def update_with_git(ctxt, method="merge"):
     redis = utils.get_redis_for_cache()
 
-    subscription = sub_utils.get_subscription(redis, pull.installation_id)
+    subscription = sub_utils.get_subscription(redis, ctxt.installation_id)
 
     for login, token in subscription["tokens"].items():
         try:
-            return _do_update(pull, token, method)
+            return _do_update(ctxt, token, method)
         except AuthentificationFailure as e:  # pragma: no cover
-            pull.log.debug(
+            ctxt.log.debug(
                 "authentification failure, will retry another token: %s",
                 e,
                 login=login,
             )
 
-    pull.log.error("unable to update branch: no tokens are valid")
+    ctxt.log.error("unable to update branch: no tokens are valid")
     raise BranchUpdateFailure("No oauth valid tokens")

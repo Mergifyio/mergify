@@ -14,10 +14,10 @@ class RequestReviewsAction(actions.Action):
 
     silent_report = True
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
 
         # Using consolidated data to avoid already done API lookup
-        data = pull.to_dict()
+        data = ctxt.to_dict()
         reviews_keys = (
             "approved-reviews-by",
             "dismissed-reviews-by",
@@ -29,7 +29,7 @@ class RequestReviewsAction(actions.Action):
         user_reviews_to_request = (
             set(self.config["users"])
             - existing_reviews
-            - set((pull.data["user"]["login"],))
+            - set((ctxt.pull["user"]["login"],))
         )
         team_reviews_to_request = set(self.config["teams"]).difference(
             # Team starts with @
@@ -37,8 +37,8 @@ class RequestReviewsAction(actions.Action):
         )
         if user_reviews_to_request or team_reviews_to_request:
             try:
-                pull.client.post(
-                    f"pulls/{pull.data['number']}/requested_reviewers",
+                ctxt.client.post(
+                    f"pulls/{ctxt.pull['number']}/requested_reviewers",
                     json={
                         "reviewers": list(user_reviews_to_request),
                         "team_reviewers": list(team_reviews_to_request),

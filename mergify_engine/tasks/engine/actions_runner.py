@@ -30,31 +30,31 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 </details>"""
 
 
-def find_embedded_pull(pull):
+def find_embedded_pull(ctxt):
     # NOTE(sileht): We are looking for a pull request that have been merged
     # very recently and have commit sha in common with current pull request.
-    expected_commits = [c["sha"] for c in pull.commits]
+    expected_commits = [c["sha"] for c in ctxt.commits]
 
     # NOTE(sileht): Looks only for the first page
-    pulls = pull.client.item("pulls", state="closed", base=pull.data["base"]["ref"])
+    pulls = ctxt.client.item("pulls", state="closed", base=ctxt.pull["base"]["ref"])
 
     for p_other in pulls:
-        if p_other["number"] == pull.data["number"]:
+        if p_other["number"] == ctxt.pull["number"]:
             continue
         commits = [
-            c["sha"] for c in pull.client.items(f"pulls/{p_other['number']}/commits")
+            c["sha"] for c in ctxt.client.items(f"pulls/{p_other['number']}/commits")
         ]
         commits_not_found = [c for c in expected_commits if c not in commits]
         if not commits_not_found:
             return p_other
 
 
-def get_already_merged_summary(pull, sources, match):
+def get_already_merged_summary(ctxt, sources, match):
     for source in sources:
         if (
             source["event_type"] != "pull_request"
             or source["data"]["action"] != "closed"
-            or not pull.data["merged"]
+            or not ctxt.pull["merged"]
         ):
             return ""
 
@@ -72,7 +72,7 @@ def get_already_merged_summary(pull, sources, match):
     if not action_merge_found or action_merge_found_in_active_rule:
         return ""
 
-    other_pr = find_embedded_pull(pull)
+    other_pr = find_embedded_pull(ctxt)
     if other_pr:
         return (
             "⚠️ The pull request has been closed by GitHub"
@@ -81,7 +81,7 @@ def get_already_merged_summary(pull, sources, match):
     else:
         return (
             "⚠️ The pull request has been merged manually by "
-            "@%s\n\n" % pull.data["merged_by"]["login"]
+            "@%s\n\n" % ctxt.pull["merged_by"]["login"]
         )
 
 
@@ -167,8 +167,8 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
-def post_summary(pull, sources, match, summary_check, conclusions):
-    summary_title, summary = gen_summary(pull, sources, match)
+def post_summary(ctxt, sources, match, summary_check, conclusions):
+    summary_title, summary = gen_summary(ctxt, sources, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
@@ -180,40 +180,38 @@ def post_summary(pull, sources, match, summary_check, conclusions):
     )
 
     if summary_changed:
-        pull.log.debug(
+        ctxt.log.debug(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(sources),
         )
         check_api.set_check_run(
-            pull,
+            ctxt,
             SUMMARY_NAME,
             "completed",
             "success",
             output={"title": summary_title, "summary": summary},
         )
     else:
-        pull.log.debug(
+        ctxt.log.debug(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(sources),
         )
 
 
-def exec_action(method_name, rule, action, pull, sources, missing_conditions):
+def exec_action(method_name, rule, action, ctxt, sources, missing_conditions):
     try:
         method = getattr(rule["actions"][action], method_name)
-        return method(pull, sources, missing_conditions)
+        return method(ctxt, sources, missing_conditions)
     except Exception:  # pragma: no cover
-        pull.log.error(
-            "action failed", action=action, rule=rule, pull_request=pull, exc_info=True
-        )
+        ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
         return "failure", "action '%s' failed" % action, " "
 
 
-def load_conclusions(pull, summary_check):
+def load_conclusions(ctxt, summary_check):
     if not summary_check:
         return {}
 
@@ -222,10 +220,8 @@ def load_conclusions(pull, summary_check):
         if line.startswith("<!-- ") and line.endswith(" -->"):
             return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
 
-    pull.log.warning(
-        "previous conclusion not found in summary",
-        pull_request=pull,
-        summary_check=summary_check,
+    ctxt.log.warning(
+        "previous conclusion not found in summary", summary_check=summary_check,
     )
     return {"deprecated_summary": True}
 
@@ -247,7 +243,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
 
 
 def run_actions(
-    pull, sources, match, checks, previous_conclusions,
+    ctxt, sources, match, checks, previous_conclusions,
 ):
     """
     What action.run() and action.cancel() return should be reworked a bit. Currently the
@@ -291,7 +287,7 @@ def run_actions(
             if (
                 previous_conclusions.get("deprecated_summary", False)
                 and action == "comment"
-                and action_obj.deprecated_double_comment_protection(pull)
+                and action_obj.deprecated_double_comment_protection(ctxt)
             ):
                 previous_conclusion = "success"
             else:
@@ -328,7 +324,7 @@ def run_actions(
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
                 report = exec_action(
-                    method_name, rule, action, pull, sources, missing_conditions,
+                    method_name, rule, action, ctxt, sources, missing_conditions,
                 )
                 message = "`%s` executed" % method_name
 
@@ -341,24 +337,24 @@ def run_actions(
                 if not silent_report:
                     try:
                         check_api.set_check_run(
-                            pull,
+                            ctxt,
                             check_name,
                             status,
                             conclusion,
                             output={"title": title, "summary": summary},
                         )
                     except Exception:
-                        pull.log.error(
+                        ctxt.log.error(
                             "Fail to post check `%s`", check_name, exc_info=True
                         )
                 conclusions[check_name] = conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
                 # comment/request_reviews/..) So just assume it succeed
-                pull.log.error("action must return a conclusion", action=action)
+                ctxt.log.error("action must return a conclusion", action=action)
                 conclusions[check_name] = expected_conclusions[0]
 
-            pull.log.info(
+            ctxt.log.info(
                 "action evaluation: %s",
                 message,
                 report=report,

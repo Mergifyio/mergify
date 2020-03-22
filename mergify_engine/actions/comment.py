@@ -26,9 +26,9 @@ class CommentAction(actions.Action):
 
     silent_report = True
 
-    def deprecated_double_comment_protection(self, pull):
+    def deprecated_double_comment_protection(self, ctxt):
         # TODO(sileht): drop this in 2 months (February 2020)
-        for comment in pull.client.items(f"issues/{pull.data['number']}/comments"):
+        for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
             if (
                 comment["user"]["id"] == config.BOT_USER_ID
                 and comment["body"] == self.config["message"]
@@ -36,11 +36,11 @@ class CommentAction(actions.Action):
                 return True
         return False
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         message = self.config["message"]
         try:
-            pull.client.post(
-                f"issues/{pull.data['number']}/comments", json={"body": message},
+            ctxt.client.post(
+                f"issues/{ctxt.pull['number']}/comments", json={"body": message},
             )
         except httpx.HTTPClientSideError as e:  # pragma: no cover
             return (

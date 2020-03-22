@@ -32,32 +32,32 @@ class LabelAction(actions.Action):
 
     silent_report = True
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         if self.config["add"]:
-            all_label = [l["name"] for l in pull.client.items("labels")]
+            all_label = [l["name"] for l in ctxt.client.items("labels")]
             for label in self.config["add"]:
                 if label not in all_label:
                     color = "%06x" % random.randrange(16 ** 6)
                     try:
-                        pull.client.post("labels", json={"name": label, "color": color})
+                        ctxt.client.post("labels", json={"name": label, "color": color})
                     except httpx.HTTPClientSideError:
                         continue
 
-            pull.client.post(
-                f"issues/{pull.data['number']}/labels",
+            ctxt.client.post(
+                f"issues/{ctxt.pull['number']}/labels",
                 json={"labels": self.config["add"]},
             )
 
         if self.config["remove_all"]:
-            pull.client.delete(f"issues/{pull.data['number']}/labels")
+            ctxt.client.delete(f"issues/{ctxt.pull['number']}/labels")
         elif self.config["remove"]:
-            pull_labels = [l["name"] for l in pull.data["labels"]]
+            pull_labels = [l["name"] for l in ctxt.pull["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
                     label_escaped = parse.quote(label, safe="")
                     try:
-                        pull.client.delete(
-                            f"issues/{pull.data['number']}/labels/{label_escaped}"
+                        ctxt.client.delete(
+                            f"issues/{ctxt.pull['number']}/labels/{label_escaped}"
                         )
                     except httpx.HTTPClientSideError:
                         continue
