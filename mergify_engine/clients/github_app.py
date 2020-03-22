@@ -106,8 +106,11 @@ class _Client(common.BaseClient):
                     "mergify installation doesn't have required permissions",
                     gh_owner=owner,
                     gh_repo=repo,
+                    permissions=installation["permissions"],
                 )
-                raise exceptions.MergifyNotInstalled()
+                # FIXME(sileht): Looks like ton of people have not all permissions
+                # Or this is buggy, so disable it for now.
+                # raise exceptions.MergifyNotInstalled()
 
         return installation["id"]
 
