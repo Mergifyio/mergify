@@ -16,8 +16,8 @@ from mergify_engine import config
 from mergify_engine import utils
 
 
-def get_checks_for_ref(pull, sha, mergify_only=False, **kwargs):
-    checks = pull.client.items(
+def get_checks_for_ref(ctxt, sha, mergify_only=False, **kwargs):
+    checks = ctxt.client.items(
         f"commits/{sha}/check-runs",
         api_version="antiope",
         list_items="check_runs",
@@ -40,8 +40,8 @@ def get_checks_for_ref(pull, sha, mergify_only=False, **kwargs):
     return checks
 
 
-def get_checks(pull, mergify_only=False, **kwargs):
-    return get_checks_for_ref(pull, pull.data["head"]["sha"], mergify_only, **kwargs)
+def get_checks(ctxt, mergify_only=False, **kwargs):
+    return get_checks_for_ref(ctxt, ctxt.pull["head"]["sha"], mergify_only, **kwargs)
 
 
 def compare_dict(d1, d2, keys):
@@ -51,10 +51,10 @@ def compare_dict(d1, d2, keys):
     return True
 
 
-def set_check_run(pull, name, status, conclusion=None, output=None):
+def set_check_run(ctxt, name, status, conclusion=None, output=None):
     post_parameters = {
         "name": name,
-        "head_sha": pull.data["head"]["sha"],
+        "head_sha": ctxt.pull["head"]["sha"],
         "status": status,
     }
     if conclusion:
@@ -68,22 +68,22 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
         post_parameters["output"] = output
 
     post_parameters["started_at"] = utils.utcnow().isoformat()
-    post_parameters["details_url"] = "%s/checks" % pull.data["html_url"]
+    post_parameters["details_url"] = "%s/checks" % ctxt.pull["html_url"]
 
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
-    checks = get_checks(pull, check_name=name, mergify_only=True)
+    checks = get_checks(ctxt, check_name=name, mergify_only=True)
 
     if not checks:
         checks = [
-            pull.client.post(
+            ctxt.client.post(
                 "check-runs", api_version="antiope", json=post_parameters,
             ).json()
         ]
 
     if len(checks) > 1:
-        pull.log.warning(
+        ctxt.log.warning(
             "Multiple mergify checks have been created, we got the known race.",
         )
 
@@ -110,7 +110,7 @@ def set_check_run(pull, name, status, conclusion=None, output=None):
             ):
                 continue
 
-        check = pull.client.patch(
+        check = ctxt.client.patch(
             f"check-runs/{check['id']}", api_version="antiope", json=post_parameters,
         ).json()
 

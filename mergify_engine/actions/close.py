@@ -27,18 +27,18 @@ class CloseAction(actions.Action):
     only_once = True
     validator = {voluptuous.Required("message", default=MSG): str}
 
-    def run(self, pull, sources, missing_conditions):
-        if pull.data["state"] == "close":
+    def run(self, ctxt, sources, missing_conditions):
+        if ctxt.pull["state"] == "close":
             return ("success", "Pull request is already closed", "")
 
         try:
-            pull.client.patch(f"pulls/{pull.data['number']}", json={"state": "close"})
+            ctxt.client.patch(f"pulls/{ctxt.pull['number']}", json={"state": "close"})
         except httpx.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "Pull request can't be closed", e.message)
 
         try:
-            pull.client.post(
-                f"issues/{pull.data['number']}/comments",
+            ctxt.client.post(
+                f"issues/{ctxt.pull['number']}/comments",
                 json={"body": self.config["message"]},
             )
         except httpx.HTTPClientSideError as e:  # pragma: no cover

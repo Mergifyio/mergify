@@ -28,21 +28,21 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(self, pull, sources, missing_conditions):
-        if pull.from_fork:
+    def run(self, ctxt, sources, missing_conditions):
+        if ctxt.pull_from_fork:
             return ("success", "Pull request come from fork", "")
 
-        if pull.data["state"] == "closed":
+        if ctxt.pull["state"] == "closed":
             if self.config is None or not self.config["force"]:
                 pulls_using_this_branch = list(
-                    pull.client.items("pulls", json={"base": pull.data["head"]["ref"]})
+                    ctxt.client.items("pulls", json={"base": ctxt.pull["head"]["ref"]})
                 )
                 if pulls_using_this_branch:
                     return (
                         "success",
                         "Branch `{}` was not deleted "
                         "because it is used by {}".format(
-                            pull.data["head"]["ref"],
+                            ctxt.pull["head"]["ref"],
                             " ".join(
                                 "#%d" % p["number"] for p in pulls_using_this_branch
                             ),
@@ -50,9 +50,9 @@ class DeleteHeadBranchAction(actions.Action):
                         "",
                     )
 
-            ref_to_delete = parse.quote(pull.data["head"]["ref"], safe="")
+            ref_to_delete = parse.quote(ctxt.pull["head"]["ref"], safe="")
             try:
-                pull.client.delete(f"git/refs/heads/{ref_to_delete}")
+                ctxt.client.delete(f"git/refs/heads/{ref_to_delete}")
             except httpx.HTTPClientSideError as e:
                 if e.status_code not in [422, 404]:
                     return (
@@ -62,11 +62,11 @@ class DeleteHeadBranchAction(actions.Action):
                     )
             return (
                 "success",
-                f"Branch `{pull.data['head']['ref']}` has been deleted",
+                f"Branch `{ctxt.pull['head']['ref']}` has been deleted",
                 "",
             )
         return (
             None,
-            f"Branch `{pull.data['head']['ref']}` will be deleted once the pull request is closed",
+            f"Branch `{ctxt.pull['head']['ref']}` will be deleted once the pull request is closed",
             "",
         )

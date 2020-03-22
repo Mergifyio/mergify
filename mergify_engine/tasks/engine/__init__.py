@@ -18,7 +18,7 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import exceptions
-from mergify_engine import mergify_pull
+from mergify_engine import mergify_context
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -82,22 +82,22 @@ def get_github_pull_from_event(client, event_type, data):
             return pulls[0]
 
 
-def check_configuration_changes(pull):
-    if pull.data["base"]["repo"]["default_branch"] == pull.data["base"]["ref"]:
+def check_configuration_changes(ctxt):
+    if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
-        for f in pull.files:
+        for f in ctxt.files:
             if f["filename"] in rules.MERGIFY_CONFIG_FILENAMES:
                 ref = f["contents_url"].split("?ref=")[1]
 
         if ref is not None:
             try:
-                rules.get_mergify_config(pull, ref=ref)
+                rules.get_mergify_config(ctxt, ref=ref)
             except rules.InvalidRules as e:  # pragma: no cover
                 # Not configured, post status check with the error message
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API
                 check_api.set_check_run(
-                    pull,
+                    ctxt,
                     "Summary",
                     "completed",
                     "failure",
@@ -108,7 +108,7 @@ def check_configuration_changes(pull):
                 )
             else:
                 check_api.set_check_run(
-                    pull,
+                    ctxt,
                     "Summary",
                     "completed",
                     "success",
@@ -123,17 +123,17 @@ def check_configuration_changes(pull):
     return False
 
 
-def copy_summary_from_previous_head_sha(pull, sha):
+def copy_summary_from_previous_head_sha(ctxt, sha):
     checks = check_api.get_checks_for_ref(
-        pull, sha, mergify_only=True, check_name=actions_runner.SUMMARY_NAME,
+        ctxt, sha, mergify_only=True, check_name=actions_runner.SUMMARY_NAME,
     )
     if not checks:
-        pull.log.warning(
+        ctxt.log.warning(
             "Got synchronize event but didn't find Summary on previous head sha",
         )
         return
     check_api.set_check_run(
-        pull,
+        ctxt,
         actions_runner.SUMMARY_NAME,
         "completed",
         "success",
@@ -166,58 +166,58 @@ def run(event_type, data):
         )
         return
 
-    pull = mergify_pull.MergifyPull(client, raw_pull)
+    ctxt = mergify_context.MergifyContext(client, raw_pull)
     # Override pull_request with the updated one
-    data["pull_request"] = pull.data
+    data["pull_request"] = ctxt.pull
 
-    pull.log.info("Pull request found in the event %s", event_type)
+    ctxt.log.info("Pull request found in the event %s", event_type)
 
     if (
-        "base" not in pull.data
-        or "repo" not in pull.data["base"]
-        or len(list(pull.data["base"]["repo"].keys())) < 70
+        "base" not in ctxt.pull
+        or "repo" not in ctxt.pull["base"]
+        or len(list(ctxt.pull["base"]["repo"].keys())) < 70
     ):
-        pull.log.warning(
+        ctxt.log.warning(
             "the pull request payload looks suspicious",
             event_type=event_type,
             data=data,
         )
 
     if (
-        event_type == "status" and pull.data["head"]["sha"] != data["sha"]
+        event_type == "status" and ctxt.pull["head"]["sha"] != data["sha"]
     ):  # pragma: no cover
-        pull.log.info("No need to proceed queue (got status of an old commit)",)
+        ctxt.log.info("No need to proceed queue (got status of an old commit)",)
         return
 
     elif (
-        event_type in ["status", "check_suite", "check_run"] and pull.data["merged"]
+        event_type in ["status", "check_suite", "check_run"] and ctxt.pull["merged"]
     ):  # pragma: no cover
-        pull.log.info("No need to proceed queue (got status of a merged pull request)",)
+        ctxt.log.info("No need to proceed queue (got status of a merged pull request)",)
         return
     elif (
         event_type in ["check_suite", "check_run"]
-        and pull.data["head"]["sha"] != data[event_type]["head_sha"]
+        and ctxt.pull["head"]["sha"] != data[event_type]["head_sha"]
     ):  # pragma: no cover
-        pull.log.info(
+        ctxt.log.info(
             "No need to proceed queue (got %s of an old " "commit)", event_type,
         )
         return
 
-    if check_configuration_changes(pull):
-        pull.log.info("Configuration changed, ignoring",)
+    if check_configuration_changes(ctxt):
+        ctxt.log.info("Configuration changed, ignoring",)
         return
 
     # BRANCH CONFIGURATION CHECKING
     try:
-        mergify_config = rules.get_mergify_config(pull)
+        mergify_config = rules.get_mergify_config(ctxt)
     except rules.NoRules:  # pragma: no cover
-        pull.log.info("No need to proceed queue (.mergify.yml is missing)",)
+        ctxt.log.info("No need to proceed queue (.mergify.yml is missing)",)
         return
     except rules.InvalidRules as e:  # pragma: no cover
         # Not configured, post status check with the error message
         if event_type == "pull_request" and data["action"] in ["opened", "synchronize"]:
             check_api.set_check_run(
-                pull,
+                ctxt,
                 "Summary",
                 "completed",
                 "failure",
@@ -237,9 +237,9 @@ def run(event_type, data):
         utils.get_redis_for_cache(), installation_id
     )
 
-    if pull.data["base"]["repo"]["private"] and not subscription["subscription_active"]:
+    if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
         check_api.set_check_run(
-            pull,
+            ctxt,
             "Summary",
             "completed",
             "failure",
@@ -254,15 +254,15 @@ def run(event_type, data):
     # we can't directly get the previous Mergify Summary. So we copy it here, then
     # anything that looks at it in next celery tasks will find it.
     if event_type == "pull_request" and data["action"] == "synchronize":
-        copy_summary_from_previous_head_sha(pull, data["before"])
+        copy_summary_from_previous_head_sha(ctxt, data["before"])
 
     sources = [{"event_type": event_type, "data": data}]
 
-    commands_runner.spawn_pending_commands_tasks(pull, sources)
+    commands_runner.spawn_pending_commands_tasks(ctxt, sources)
 
     if event_type == "issue_comment":
         commands_runner.run_command(
-            pull, sources, data["comment"]["body"], data["comment"]["user"]
+            ctxt, sources, data["comment"]["body"], data["comment"]["user"]
         )
     else:
-        actions_runner.handle(mergify_config["pull_request_rules"], pull, sources)
+        actions_runner.handle(mergify_config["pull_request_rules"], ctxt, sources)

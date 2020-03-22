@@ -48,7 +48,7 @@ class DismissReviewsAction(actions.Action):
                 return True
         return False
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         if self._have_been_synchronized(sources):
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
@@ -56,15 +56,15 @@ class DismissReviewsAction(actions.Action):
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
             redis = utils.get_redis_for_cache()
-            if redis.get("branch-update-%s" % pull.data["head"]["sha"]):
+            if redis.get("branch-update-%s" % ctxt.pull["head"]["sha"]):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
             errors = set()
-            for review in pull.to_dict()["_approvals"]:
+            for review in ctxt.to_dict()["_approvals"]:
                 conf = self.config.get(review["state"].lower(), False)
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:
-                        self._dismissal_review(pull, review)
+                        self._dismissal_review(ctxt, review)
                     except httpx.HTTPClientSideError as e:  # pragma: no cover
                         errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
 
@@ -79,8 +79,8 @@ class DismissReviewsAction(actions.Action):
                 "",
             )
 
-    def _dismissal_review(self, pull, review):
-        pull.client.put(
-            f"pulls/{pull.data['number']}/reviews/{review['id']}/dismissals",
+    def _dismissal_review(self, ctxt, review):
+        ctxt.client.put(
+            f"pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
             json={"message": self.config["message"]},
         )

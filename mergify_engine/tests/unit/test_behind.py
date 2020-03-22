@@ -18,7 +18,7 @@ from unittest import mock
 
 import pytest
 
-from mergify_engine import mergify_pull
+from mergify_engine import mergify_context
 
 
 def create_commit(sha=None):
@@ -59,9 +59,9 @@ def test_pull_behind(commits_tree_generator):
     client.items.return_value = commits  # /pulls/X/commits
     client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
 
-    pull = mergify_pull.MergifyPull(
+    ctxt = mergify_context.MergifyContext(
         client,
-        data={
+        pull={
             "number": 1,
             "mergeable_state": "clean",
             "state": "open",
@@ -72,4 +72,4 @@ def test_pull_behind(commits_tree_generator):
         },
     )
 
-    assert expected == pull.is_behind
+    assert expected == ctxt.is_behind

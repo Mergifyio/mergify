@@ -25,13 +25,13 @@ class AssignAction(actions.Action):
 
     silent_report = True
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         wanted = set(self.config["users"])
-        already = set((user["login"] for user in pull.data["assignees"]))
+        already = set((user["login"] for user in ctxt.pull["assignees"]))
         assignees = list(wanted - already)
         try:
-            pull.client.post(
-                f"issues/{pull.data['number']}/assignees",
+            ctxt.client.post(
+                f"issues/{ctxt.pull['number']}/assignees",
                 json={"assignees": assignees},
             )
         except httpx.HTTPClientSideError as e:  # pragma: no cover
