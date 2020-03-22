@@ -15,8 +15,7 @@
 import argparse
 import pprint
 
-import github as pygithub
-import requests
+import httpx
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -37,7 +36,7 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
         install_id,
     )
     token = "token {}".format(token)
-    session = requests.Session()
+    session = httpx.Client()
     while True:
         response = session.get(
             url,
@@ -54,50 +53,40 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
                 continue
             else:
                 return repositories
-        elif response.status_code == 403:
-            raise pygithub.BadCredentialsException(
-                status=response.status_code, data=response.text
-            )
-        elif response.status_code == 404:
-            raise pygithub.UnknownObjectException(
-                status=response.status_code, data=response.text
-            )
-        raise pygithub.GithubException(status=response.status_code, data=response.text)
-
-
-def create_jwt():
-    integration = pygithub.GithubIntegration(config.INTEGRATION_ID, config.PRIVATE_KEY)
-    return integration.create_jwt()
+        else:
+            response.raise_for_status()
 
 
 def report_sub(install_id, slug, sub, title):
     print(f"* {title} SUB DETAIL: {sub['subscription_reason']}")
     print(f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])}")
 
-    try:
-        for login, token in sub["tokens"].items():
-            try:
-                repos = get_repositories_setuped(token, install_id)
-            except pygithub.BadCredentialsException:
-                print(f"* {title} SUB: token for {login} is invalid (BadCreds)")
-            except pygithub.GithubException as e:
-                if e.status != 401:
-                    raise
-                print(f"* {title} SUB: token for {login} is invalid (401)")
+    for login, token in sub["tokens"].items():
+        try:
+            repos = get_repositories_setuped(token, install_id)
+        except httpx.HTTPError as e:
+            if not e.response or e.response.status_code >= 500:
+                raise
+            if e.response.status_code == 404:
+                print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
+                return
             else:
-                if any((r["full_name"] == slug) for r in repos):
-                    print(
-                        f"* {title} SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY"
-                    )
-                else:
-                    print(
-                        f"* {title} SUB: MERGIFY INSTALLED BUT DISABLED ON THIS REPOSITORY"
-                    )
-                break
+                print(
+                    f"* {title} SUB: token for {login} is invalid "
+                    f"({e.response.status_code}: {e.response.json()['message']})"
+                )
         else:
-            print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
-    except pygithub.UnknownObjectException:
-        print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
+            if any((r["full_name"] == slug) for r in repos):
+                print(
+                    f"* {title} SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY"
+                )
+            else:
+                print(
+                    f"* {title} SUB: MERGIFY INSTALLED BUT DISABLED ON THIS REPOSITORY"
+                )
+            break
+    else:
+        print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
 def report(url):
@@ -155,10 +144,8 @@ def report(url):
 
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
-    try:
-        print("is_behind: %s" % mp.is_behind)
-    except pygithub.GithubException as e:
-        print("Unable to know if pull request branch is behind: %s" % e)
+
+    print("is_behind: %s" % mp.is_behind)
 
     print("mergeable_state: %s" % mp.mergeable_state)
 
