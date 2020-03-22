@@ -74,17 +74,17 @@ def is_base_branch_merge_commit(commit, base_branch):
     )
 
 
-def _get_commits_without_base_branch_merge(pull):
-    base_branch = pull.data["base"]["ref"]
+def _get_commits_without_base_branch_merge(ctxt):
+    base_branch = ctxt.pull["base"]["ref"]
     return list(
         filter(
             lambda c: not is_base_branch_merge_commit(c, base_branch),
-            sorted(pull.commits, key=CommitOrderingKey),
+            sorted(ctxt.commits, key=CommitOrderingKey),
         )
     )
 
 
-def _get_commits_to_cherrypick(pull, merge_commit):
+def _get_commits_to_cherrypick(ctxt, merge_commit):
     if len(merge_commit["parents"]) == 1:
         # NOTE(sileht): We have a rebase+merge or squash+merge
         # We pick all commits until a sha is not linked with our PR
@@ -93,11 +93,11 @@ def _get_commits_to_cherrypick(pull, merge_commit):
         commit = merge_commit
         while True:
             if "parents" not in commit:
-                commit = pull.client.item(f"commits/{commit['sha']}")
+                commit = ctxt.client.item(f"commits/{commit['sha']}")
 
             if len(commit["parents"]) != 1:
                 # NOTE(sileht): What is that? A merge here?
-                pull.log.error("unhandled commit structure")
+                ctxt.log.error("unhandled commit structure")
                 return []
 
             out_commits.insert(0, commit)
@@ -105,40 +105,40 @@ def _get_commits_to_cherrypick(pull, merge_commit):
 
             pull_numbers = [
                 p["number"]
-                for p in pull.client.items(
+                for p in ctxt.client.items(
                     f"commits/{commit['sha']}/pulls", api_version="groot"
                 )
                 if (
                     p["base"]["repo"]["full_name"]
-                    == pull.data["base"]["repo"]["full_name"]
+                    == ctxt.pull["base"]["repo"]["full_name"]
                 )
             ] + [
                 p["number"]
-                for p in pull.client.items(
-                    f"/repos/{pull.data['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
+                for p in ctxt.client.items(
+                    f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
                     api_version="groot",
                 )
                 if (
                     p["base"]["repo"]["full_name"]
-                    == pull.data["base"]["repo"]["full_name"]
+                    == ctxt.pull["base"]["repo"]["full_name"]
                 )
             ]
-            if pull.data["number"] not in pull_numbers:
+            if ctxt.pull["number"] not in pull_numbers:
                 if len(out_commits) == 1:
-                    pull.log.info(
+                    ctxt.log.info(
                         "Pull requests merged with one commit rebased, or squashed",
                     )
                 else:
-                    pull.log.info("Pull requests merged after rebase")
+                    ctxt.log.info("Pull requests merged after rebase")
                 return out_commits
 
     elif len(merge_commit["parents"]) == 2:
-        pull.log.info("Pull request merged with merge commit")
-        return _get_commits_without_base_branch_merge(pull)
+        ctxt.log.info("Pull request merged with merge commit")
+        return _get_commits_without_base_branch_merge(ctxt)
 
     else:  # pragma: no cover
         # NOTE(sileht): What is that?
-        pull.log.error("unhandled commit structure")
+        ctxt.log.error("unhandled commit structure")
         return []
 
 
@@ -158,19 +158,19 @@ def get_destination_branch_name(pull_number, branch_name, kind):
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
 def duplicate(
-    pull, branch_name, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
+    ctxt, branch_name, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
 ):
     """Duplicate a pull request.
 
     :param pull: The pull request.
-    :type pull: py:class:mergify_engine.mergify_pull.MergifyPull
+    :type pull: py:class:mergify_engine.mergify_context.MergifyContext
     :param branch: The branch to copy to.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param kind: is a backport or a copy
     """
-    repo_full_name = pull.data["base"]["repo"]["full_name"]
-    bp_branch = get_destination_branch_name(pull.data["number"], branch_name, kind)
+    repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
+    bp_branch = get_destination_branch_name(ctxt.pull["number"], branch_name, kind)
 
     cherry_pick_fail = False
     body = ""
@@ -183,7 +183,7 @@ def duplicate(
     try:
         git("init")
         git.configure()
-        git.add_cred("x-access-token", pull.installation_token, repo_full_name)
+        git.add_cred("x-access-token", ctxt.installation_token, repo_full_name)
         git(
             "remote",
             "add",
@@ -191,25 +191,25 @@ def duplicate(
             "https://%s/%s" % (config.GITHUB_DOMAIN, repo_full_name),
         )
 
-        git("fetch", "--quiet", "origin", "pull/%s/head" % pull.data["number"])
-        git("fetch", "--quiet", "origin", pull.data["base"]["ref"])
+        git("fetch", "--quiet", "origin", "pull/%s/head" % ctxt.pull["number"])
+        git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
         git("fetch", "--quiet", "origin", branch_name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
-        merge_commit = pull.client.item(f"commits/{pull.data['merge_commit_sha']}")
-        for commit in _get_commits_to_cherrypick(pull, merge_commit):
+        merge_commit = ctxt.client.item(f"commits/{ctxt.pull['merge_commit_sha']}")
+        for commit in _get_commits_to_cherrypick(ctxt, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
             # git("fetch", "origin", "%s:refs/remotes/origin/%s-commit" %
             #    (commit["sha"], commit["sha"])
             #    )
             # last_commit_date = commit["commit"]["committer"]["date"]
-            # git("fetch", "origin", pull.data["base"]["ref"],
+            # git("fetch", "origin", ctxt.pull["base"]["ref"],
             #    "--shallow-since='%s'" % last_commit_date)
             try:
                 git("cherry-pick", "-x", commit["sha"])
             except subprocess.CalledProcessError as e:  # pragma: no cover
-                pull.log.debug("fail to cherry-pick %s: %s", commit["sha"], e.output)
+                ctxt.log.debug("fail to cherry-pick %s: %s", commit["sha"], e.output)
                 git_status = git("status").decode("utf8")
                 body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{git_status}```\n\n"
                 if not ignore_conflicts:
@@ -227,7 +227,7 @@ def duplicate(
                 else:
                     raise out_exception(in_exception.output.decode())
         else:
-            pull.log.error(
+            ctxt.log.error(
                 "duplicate failed: %s",
                 in_exception.output.decode(),
                 branch=branch_name,
@@ -239,7 +239,7 @@ def duplicate(
         git.cleanup()
 
     body = (
-        f"This is an automated {kind} of pull request #{pull.data['number']} done by Mergify"
+        f"This is an automated {kind} of pull request #{ctxt.pull['number']} done by Mergify"
         + body
     )
 
@@ -252,11 +252,11 @@ def duplicate(
         )
 
     try:
-        duplicate_pr = pull.client.post(
+        duplicate_pr = ctxt.client.post(
             "pulls",
             json={
                 "title": "{} ({} #{})".format(
-                    pull.data["title"], BRANCH_PREFIX_MAP[kind], pull.data["number"]
+                    ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
                 ),
                 "body": body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
                 "base": branch_name,
@@ -269,7 +269,7 @@ def duplicate(
         raise
 
     if cherry_pick_fail and label_conflicts is not None:
-        pull.client.post(
+        ctxt.client.post(
             f"issues/{duplicate_pr['number']}/labels",
             json={"labels": [label_conflicts]},
         )

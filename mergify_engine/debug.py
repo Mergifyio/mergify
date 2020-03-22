@@ -20,7 +20,7 @@ import httpx
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import mergify_pull
+from mergify_engine import mergify_context
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -117,17 +117,17 @@ def report(url):
     report_sub(client.installation_id, slug, db_sub, "DASHBOARD")
 
     pull_raw = client.item(f"pulls/{pull_number}")
-    mp = mergify_pull.MergifyPull(client, pull_raw)
+    ctxt = mergify_context.MergifyContext(client, pull_raw)
 
     print(
         "* REPOSITORY IS %s" % "PRIVATE"
-        if mp.data["base"]["repo"]["private"]
+        if ctxt.pull["base"]["repo"]["private"]
         else "PUBLIC"
     )
 
     print("* CONFIGURATION:")
     try:
-        mergify_config_content = rules.get_mergify_config_content(mp)
+        mergify_config_content = rules.get_mergify_config_content(ctxt)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
         pull_request_rules = None
@@ -143,28 +143,28 @@ def report(url):
             pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     print("* PULL REQUEST:")
-    pprint.pprint(mp.to_dict(), width=160)
+    pprint.pprint(ctxt.to_dict(), width=160)
 
-    print("is_behind: %s" % mp.is_behind)
+    print("is_behind: %s" % ctxt.is_behind)
 
-    print("mergeable_state: %s" % mp.data["mergeable_state"])
+    print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
 
     print("* MERGIFY LAST CHECKS:")
-    checks = list(check_api.get_checks(mp, mergify_only=True))
+    checks = list(check_api.get_checks(ctxt, mergify_only=True))
     for c in checks:
         print("[%s]: %s | %s" % (c["name"], c["conclusion"], c["output"].get("title")))
         print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
 
     if pull_request_rules is not None:
         print("* MERGIFY LIVE MATCHES:")
-        match = pull_request_rules.get_pull_request_rule(mp)
+        match = pull_request_rules.get_pull_request_rule(ctxt)
         summary_title, summary = actions_runner.gen_summary(
-            mp, [{"event_type": "refresh", "data": {}}], match
+            ctxt, [{"event_type": "refresh", "data": {}}], match
         )
         print("> %s" % summary_title)
         print(summary)
 
-    return mp
+    return ctxt
 
 
 def main():

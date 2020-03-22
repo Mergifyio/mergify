@@ -16,7 +16,7 @@
 from unittest import mock
 
 from mergify_engine import duplicate_pull
-from mergify_engine import mergify_pull
+from mergify_engine import mergify_context
 
 
 def fake_get_github_pulls_from_sha(url, api_version=None):
@@ -40,7 +40,8 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
 
 
 @mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
+    "mergify_engine.mergify_context.MergifyContext.commits",
+    new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_rebase(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
@@ -51,7 +52,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
     client.auth.get_access_token.return_value = "<token>"
     client.items.side_effect = fake_get_github_pulls_from_sha
 
-    pull = mergify_pull.MergifyPull(
+    ctxt = mergify_context.MergifyContext(
         client,
         {
             "number": 6,
@@ -77,14 +78,15 @@ def test_get_commits_to_cherry_pick_rebase(commits):
     rebased_c1 = {"sha": "rebased_c1", "parents": [base_branch]}
     rebased_c2 = {"sha": "rebased_c2", "parents": [rebased_c1]}
 
-    assert duplicate_pull._get_commits_to_cherrypick(pull, rebased_c2) == [
+    assert duplicate_pull._get_commits_to_cherrypick(ctxt, rebased_c2) == [
         rebased_c1,
         rebased_c2,
     ]
 
 
 @mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
+    "mergify_engine.mergify_context.MergifyContext.commits",
+    new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_merge(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
@@ -94,7 +96,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
 
-    pull = mergify_pull.MergifyPull(
+    ctxt = mergify_context.MergifyContext(
         client,
         {
             "number": 6,
@@ -119,4 +121,4 @@ def test_get_commits_to_cherry_pick_merge(commits):
     base_branch = {"sha": "base_branch", "parents": []}
     merge_commit = {"sha": "merge_commit", "parents": [base_branch, c2]}
 
-    assert duplicate_pull._get_commits_to_cherrypick(pull, merge_commit) == [c1, c2]
+    assert duplicate_pull._get_commits_to_cherrypick(ctxt, merge_commit) == [c1, c2]

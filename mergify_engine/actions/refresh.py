@@ -23,12 +23,12 @@ class RefreshAction(actions.Action):
     is_action = False
     validator = {}
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         data = {
             "action": "user",
-            "repository": pull.data["base"]["repo"],
-            "installation": {"id": pull.client.installation_id},
-            "pull_request": pull.data,
+            "repository": ctxt.pull["base"]["repo"],
+            "installation": {"id": ctxt.client.installation_id},
+            "pull_request": ctxt.pull,
             "sender": {"login": "<internal>"},
         }
         github_events.job_filter_and_dispatch.s(

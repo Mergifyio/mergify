@@ -44,7 +44,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
 
-    def _copy(self, pull, branch_name):
+    def _copy(self, ctxt, branch_name):
         """Copy the PR to a branch.
 
         Returns a tuple of strings (state, reason).
@@ -53,7 +53,7 @@ class CopyAction(actions.Action):
         # NOTE(sileht): Ensure branch exists first
         escaped_branch_name = parse.quote(branch_name, safe="")
         try:
-            pull.client.item(f"branches/{escaped_branch_name}")
+            ctxt.client.item(f"branches/{escaped_branch_name}")
         except httpx.HTTPError as e:
             if not e.response:
                 raise
@@ -69,13 +69,13 @@ class CopyAction(actions.Action):
             return state, detail
 
         # NOTE(sileht) does the duplicate have already been done ?
-        new_pull = self.get_existing_duplicate_pull(pull, branch_name)
+        new_pull = self.get_existing_duplicate_pull(ctxt, branch_name)
 
         # No, then do it
         if not new_pull:
             try:
                 new_pull = duplicate_pull.duplicate(
-                    pull,
+                    ctxt,
                     branch_name,
                     self.config["label_conflicts"],
                     self.config["ignore_conflicts"],
@@ -90,7 +90,7 @@ class CopyAction(actions.Action):
             # NOTE(sileht): We relook again in case of concurrent duplicate
             # are done because of two events received too closely
             if not new_pull:
-                new_pull = self.get_existing_duplicate_pull(pull, branch_name)
+                new_pull = self.get_existing_duplicate_pull(ctxt, branch_name)
 
         if new_pull:
             return (
@@ -104,19 +104,19 @@ class CopyAction(actions.Action):
             f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         branches = self.config["branches"]
         if self.config["regexes"]:
             regexes = list(map(re.compile, self.config["regexes"]))
             branches.extend(
                 (
                     branch["name"]
-                    for branch in pull.client.items("branches")
+                    for branch in ctxt.client.items("branches")
                     if any(map(lambda regex: regex.match(branch["name"]), regexes))
                 )
             )
 
-        results = [self._copy(pull, branch_name) for branch_name in branches]
+        results = [self._copy(ctxt, branch_name) for branch_name in branches]
 
         # Pick the first status as the final_status
         final_status = results[0][0]
@@ -144,17 +144,17 @@ class CopyAction(actions.Action):
         )
 
     @classmethod
-    def get_existing_duplicate_pull(cls, pull, branch_name):
+    def get_existing_duplicate_pull(cls, ctxt, branch_name):
         bp_branch = duplicate_pull.get_destination_branch_name(
-            pull.data["number"], branch_name, cls.KIND
+            ctxt.pull["number"], branch_name, cls.KIND
         )
         pulls = list(
-            pull.client.items(
+            ctxt.client.items(
                 "pulls",
                 base=branch_name,
                 sort="created",
                 state="all",
-                head=f"{pull.data['head']['user']['login']}:{bp_branch}",
+                head=f"{ctxt.pull['head']['user']['login']}:{bp_branch}",
             )
         )
         if pulls:

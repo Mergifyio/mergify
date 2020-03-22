@@ -26,8 +26,8 @@ class RateLimited(Exception):
 
 
 class MergeableStateUnknown(Exception):
-    def __init__(self, pull):
-        self.pull = pull
+    def __init__(self, ctxt):
+        self.ctxt = ctxt
 
 
 RATE_LIMIT_RETRY_MIN = 3

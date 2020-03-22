@@ -37,7 +37,7 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, pull, sources, missing_conditions):
+    def run(self, ctxt, sources, missing_conditions):
         payload = {"event": self.config["type"]}
         body = self.config["message"]
         if not body and self.config["type"] != "APPROVE":
@@ -53,7 +53,7 @@ class ReviewAction(actions.Action):
         reviews = reversed(
             list(
                 filter(
-                    lambda r: r["user"]["id"] is not config.BOT_USER_ID, pull.reviews
+                    lambda r: r["user"]["id"] is not config.BOT_USER_ID, ctxt.reviews
                 )
             )
         )
@@ -77,6 +77,6 @@ class ReviewAction(actions.Action):
             ):
                 break
 
-        pull.client.post(f"pulls/{pull.data['number']}/reviews", json=payload)
+        ctxt.client.post(f"pulls/{ctxt.pull['number']}/reviews", json=payload)
 
         return ("success", "Review posted", "")
