@@ -181,9 +181,10 @@ def duplicate(
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
     try:
+        token = ctxt.client.auth.get_access_token()
         git("init")
         git.configure()
-        git.add_cred("x-access-token", ctxt.installation_token, repo_full_name)
+        git.add_cred("x-access-token", token, repo_full_name)
         git(
             "remote",
             "add",
