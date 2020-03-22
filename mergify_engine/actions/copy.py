@@ -110,9 +110,9 @@ class CopyAction(actions.Action):
             regexes = list(map(re.compile, self.config["regexes"]))
             branches.extend(
                 (
-                    branch.name
-                    for branch in pull.g_pull.base.repo.get_branches()
-                    if any(map(lambda regex: regex.match(branch.name), regexes))
+                    branch["name"]
+                    for branch in pull.client.items("branches")
+                    if any(map(lambda regex: regex.match(branch["name"]), regexes))
                 )
             )
 
