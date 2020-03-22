@@ -73,13 +73,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.remove_from_labels("backport-3.1")
         self.wait_for("pull_request", {"action": "unlabeled"})
 
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         checks = list(
-            check_api.get_checks(p, {"check_name": "Rule: backport (backport)"})
+            check_api.get_checks(pull, check_name="Rule: backport (backport)")
         )
-        self.assertEqual("neutral", checks[0].conclusion)
+        self.assertEqual("neutral", checks[0]["conclusion"])
         self.assertEqual(
             "The rule doesn't match anymore, this action has been cancelled",
-            checks[0].output["title"],
+            checks[0]["output"]["title"],
         )
 
     def test_delete_branch(self):
@@ -351,8 +352,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", comments[-1].body)
 
         # Override Summary with the old format
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         check_api.set_check_run(
-            p,
+            pull,
             "Summary",
             "completed",
             "success",
@@ -481,14 +483,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         checks = list(
-            check_api.get_checks(p, {"check_name": "Rule: Backport (backport)"})
+            check_api.get_checks(pull, check_name="Rule: Backport (backport)")
         )
-        assert "failure" == checks[0].conclusion
-        assert "No backport have been created" == checks[0].output["title"]
+        assert "failure" == checks[0]["conclusion"]
+        assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
             "* Backport to branch `crashme` failed: Branch not found" % ()
-            == checks[0].output["summary"]
+            == checks[0]["output"]["summary"]
         )
 
     def _do_backport_conflicts(self, ignore_conflicts):
@@ -528,9 +531,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         return list(
             check_api.get_checks(
-                p, {"check_name": "Rule: Backport to stable/#3.1 (backport)"}
+                pull, check_name="Rule: Backport to stable/#3.1 (backport)"
             )
         )
 
@@ -543,8 +547,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             self.git("show-ref", "--hash", "main/master").decode("utf-8").strip()
         )
 
-        assert "failure" == checks[0].conclusion
-        assert "No backport have been created" == checks[0].output["title"]
+        assert "failure" == checks[0]["conclusion"]
+        assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
             f"""* Backport to branch `stable/#3.1` failed
 
@@ -567,7 +571,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 ```
 
 """
-            == checks[0].output["summary"]
+            == checks[0]["output"]["summary"]
         )
 
     def test_backport_ignore_conflicts(self):
@@ -575,12 +579,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         pull = list(self.r_o_admin.get_pulls())[0]
 
-        assert "success" == checks[0].conclusion
-        assert "Backports have been created" == checks[0].output["title"]
+        assert "success" == checks[0]["conclusion"]
+        assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             "* [#%d %s](%s) has been created for branch `stable/#3.1`"
             % (pull.number, pull.title, pull.html_url,)
-            == checks[0].output["summary"]
+            == checks[0]["output"]["summary"]
         )
         assert [l.name for l in pull.labels] == ["conflicts"]
 
@@ -615,17 +619,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.assertEqual("closed", pulls[1].state)
         self.assertEqual(False, pulls[0].merged)
 
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         checks = list(
             check_api.get_checks(
-                p, {"check_name": "Rule: Backport to stable/#3.1 (backport)"}
+                pull, check_name="Rule: Backport to stable/#3.1 (backport)"
             )
         )
-        assert "success" == checks[0].conclusion
-        assert "Backports have been created" == checks[0].output["title"]
+        assert "success" == checks[0]["conclusion"]
+        assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             "* [#%d %s](%s) has been created for branch `stable/#3.1`"
             % (pulls[0].number, pulls[0].title, pulls[0].html_url,)
-            == checks[0].output["summary"]
+            == checks[0]["output"]["summary"]
         )
 
         self.assertEqual(
@@ -862,12 +867,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
         )
 
-        checks = list(check_api.get_checks(p2))
+        pull = mergify_pull.MergifyPull(self.cli_integration, p2.raw_data)
+        checks = list(check_api.get_checks(pull))
         for check in checks:
-            if check.name == "Rule: strict merge on master (merge)":
+            if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "will be merged soon.\n\nThe following pull requests are queued: #2"
-                    in check.output["summary"]
+                    in check["output"]["summary"]
                 )
                 break
         else:
@@ -1062,11 +1068,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
         commit = self.r_o_admin.get_commits()[0].commit
         self.assertEqual(msg, commit.message)
 
-        checks = list(check_api.get_checks(p))
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
+        checks = list(check_api.get_checks(pull))
         assert len(checks) == 2
         for check in checks:
-            if check.name == "Summary":
-                assert msg in check.output["summary"]
+            if check["name"] == "Summary":
+                assert msg in check["output"]["summary"]
                 break
         else:
             assert False, "Summary check not found"
@@ -1181,12 +1188,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        checks = list(check_api.get_checks(p, {"check_name": "Rule: merge (merge)"}))
-        self.assertEqual(None, checks[0].conclusion)
-        self.assertEqual("in_progress", checks[0].status)
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
+        checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
+        self.assertEqual(None, checks[0]["conclusion"])
+        self.assertEqual("in_progress", checks[0]["status"])
         self.assertIn(
             "Waiting for the Branch Protection to be validated",
-            checks[0].output["title"],
+            checks[0]["output"]["title"],
         )
 
         self.create_status(p)
@@ -1240,12 +1248,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        checks = list(check_api.get_checks(p2, {"check_name": "Rule: merge (merge)"}))
-        self.assertEqual("failure", checks[0].conclusion)
+        pull = mergify_pull.MergifyPull(self.cli_integration, p2.raw_data)
+        checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
+        self.assertEqual("failure", checks[0]["conclusion"])
         self.assertIn(
             "Branch protection setting 'strict' conflicts with "
             "Mergify configuration",
-            checks[0].output["title"],
+            checks[0]["output"]["title"],
         )
 
     def _init_test_refresh(self):
@@ -1312,27 +1321,28 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
 
+        pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         check_api.set_check_run(
-            p,
+            pull,
             "Summary",
             "completed",
             "success",
             output={"title": "whatever", "summary": "erased"},
         )
 
-        checks = list(check_api.get_checks(p))
+        checks = list(check_api.get_checks(pull))
         assert len(checks) == 1
-        assert checks[0].name == "Summary"
-        completed_at = checks[0].completed_at
+        assert checks[0]["name"] == "Summary"
+        completed_at = checks[0]["completed_at"]
 
         p.create_issue_comment("@mergifyio refresh")
 
         self.wait_for("issue_comment", {"action": "created"})
 
-        checks = list(check_api.get_checks(p))
+        checks = list(check_api.get_checks(pull))
         assert len(checks) == 1
-        assert checks[0].name == "Summary"
-        assert completed_at != checks[0].completed_at
+        assert checks[0]["name"] == "Summary"
+        assert completed_at != checks[0]["completed_at"]
 
         p.update()
         comments = list(p.get_issue_comments())
@@ -1373,9 +1383,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        checks = list(check_api.get_checks(p1))
+        pull = mergify_pull.MergifyPull(self.cli_integration, p1.raw_data)
+        checks = list(check_api.get_checks(pull))
         assert len(checks) == 1
-        assert checks[0].name == "Summary"
+        assert checks[0]["name"] == "Summary"
 
     def test_marketplace_event(self):
         with mock.patch(
@@ -1550,10 +1561,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         pr, commits = self.create_pr()
+        pull = mergify_pull.MergifyPull(self.cli_integration, pr.raw_data)
         check = check_api.set_check_run(
-            pr, "Test", "completed", "success", {"summary": "a" * 70000, "title": "bla"}
+            pull,
+            "Test",
+            "completed",
+            "success",
+            {"summary": "a" * 70000, "title": "bla"},
         )
-        assert check.output["summary"] == ("a" * 65532 + "…")
+        assert check["output"]["summary"] == ("a" * 65532 + "…")
 
     def test_pull_request_complete(self):
         rules = {

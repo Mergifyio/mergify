@@ -122,8 +122,8 @@ def _handle_first_pull_in_queue(queue, pull):
     _, installation_id, owner, reponame, branch = queue.split("~")
     old_checks = [
         c
-        for c in check_api.get_checks(pull.g_pull, mergify_only=True)
-        if c.name.endswith(" (merge)")
+        for c in check_api.get_checks(pull, mergify_only=True)
+        if c["name"].endswith(" (merge)")
     ]
 
     output = helpers.merge_report(pull, True)
@@ -157,8 +157,8 @@ def _handle_first_pull_in_queue(queue, pull):
     status = "completed" if conclusion else "in_progress"
     for c in old_checks:
         check_api.set_check_run(
-            pull.g_pull,
-            c.name,
+            pull,
+            c["name"],
             status,
             conclusion,
             output={"title": title, "summary": summary},

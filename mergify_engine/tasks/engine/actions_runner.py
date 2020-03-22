@@ -175,8 +175,8 @@ def post_summary(pull, sources, match, summary_check, conclusions):
 
     summary_changed = (
         not summary_check
-        or summary_check.output["title"] != summary_title
-        or summary_check.output["summary"] != summary
+        or summary_check["output"]["title"] != summary_title
+        or summary_check["output"]["summary"] != summary
     )
 
     if summary_changed:
@@ -186,7 +186,7 @@ def post_summary(pull, sources, match, summary_check, conclusions):
             sources=_filterred_sources_for_logging(sources),
         )
         check_api.set_check_run(
-            pull.g_pull,
+            pull,
             SUMMARY_NAME,
             "completed",
             "success",
@@ -217,8 +217,8 @@ def load_conclusions(pull, summary_check):
     if not summary_check:
         return {}
 
-    if summary_check.output["summary"]:
-        line = summary_check.output["summary"].splitlines()[-1]
+    if summary_check["output"]["summary"]:
+        line = summary_check["output"]["summary"].splitlines()[-1]
         if line.startswith("<!-- ") and line.endswith(" -->"):
             return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
 
@@ -242,7 +242,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
     # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
     # synchronization event issue is fixed
     elif name in checks:
-        return checks[name].conclusion
+        return checks[name]["conclusion"]
     return "neutral"
 
 
@@ -341,7 +341,7 @@ def run_actions(
                 if not silent_report:
                     try:
                         check_api.set_check_run(
-                            pull.g_pull,
+                            pull,
                             check_name,
                             status,
                             conclusion,
@@ -374,13 +374,11 @@ def run_actions(
 
 def handle(pull_request_rules, pull, sources):
     match = pull_request_rules.get_pull_request_rule(pull)
-    checks = dict(
-        (c.name, c) for c in check_api.get_checks(pull.g_pull, mergify_only=True)
-    )
+    checks = dict((c["name"], c) for c in check_api.get_checks(pull, mergify_only=True))
 
     summary_check = checks.get(SUMMARY_NAME)
     previous_conclusions = load_conclusions(pull, summary_check)
 
-    conclusions = run_actions(pull, sources, match, checks, previous_conclusions,)
+    conclusions = run_actions(pull, sources, match, checks, previous_conclusions)
 
     post_summary(pull, sources, match, summary_check, conclusions)
