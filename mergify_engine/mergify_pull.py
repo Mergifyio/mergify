@@ -19,14 +19,12 @@ from urllib import parse
 
 import attr
 import daiquiri
-import github as pygithub
+import httpx
 import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
-from mergify_engine import utils
-from mergify_engine.clients import github
 
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
@@ -56,11 +54,6 @@ class MergifyPull(object):
     client = attr.ib()
     data = attr.ib()
     _consolidated_data = attr.ib(init=False, default=None)
-
-    @property
-    def g(self):
-        # NOTE(sileht): Remove me
-        return utils.Github(self.installation_token)
 
     @property
     def log(self):
@@ -250,18 +243,18 @@ class MergifyPull(object):
             team_slug = name[1:]
 
         try:
-            g_organization = self.g.get_organization(organization)
-            for team in g_organization.get_teams():
-                if team.slug == team_slug:
-                    return [m.login for m in team.get_members()]
-        except pygithub.GithubException as e:
-            if e.status >= 500:
-                raise
+            return [
+                member["login"]
+                for member in self.client.items(
+                    f"/orgs/{organization}/teams/{team_slug}/members"
+                )
+            ]
+        except httpx.HTTPClientSideError as e:
             self.log.warning(
                 "fail to get the organization, team or members",
                 team=name,
-                status=e.status,
-                detail=e.data["message"],
+                status=e.status_code,
+                detail=e.message,
             )
         return [name]
 
