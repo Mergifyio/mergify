@@ -91,7 +91,7 @@ def check_configuration_changes(pull):
 
         if ref is not None:
             try:
-                rules.get_mergify_config(pull.g_pull.base.repo, ref=ref)
+                rules.get_mergify_config(pull, ref=ref)
             except rules.InvalidRules as e:  # pragma: no cover
                 # Not configured, post status check with the error message
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
@@ -209,7 +209,7 @@ def run(event_type, data):
 
     # BRANCH CONFIGURATION CHECKING
     try:
-        mergify_config = rules.get_mergify_config(pull.g_pull.base.repo)
+        mergify_config = rules.get_mergify_config(pull)
     except rules.NoRules:  # pragma: no cover
         pull.log.info("No need to proceed queue (.mergify.yml is missing)",)
         return
