@@ -364,9 +364,15 @@ class FunctionalTestBase(unittest.TestCase):
             config.INSTALLATION_ID
         ).token
 
-        self.g_integration = utils.Github(self.installation_token)
-        self.g_admin = utils.Github(config.MAIN_TOKEN)
-        self.g_fork = utils.Github(config.FORK_TOKEN)
+        self.g_integration = pygithub.Github(
+            self.installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
+        )
+        self.g_admin = pygithub.Github(
+            config.MAIN_TOKEN, base_url="https://api.%s" % config.GITHUB_DOMAIN
+        )
+        self.g_fork = pygithub.Github(
+            config.FORK_TOKEN, base_url="https://api.%s" % config.GITHUB_DOMAIN
+        )
 
         self.o_admin = self.g_admin.get_organization(config.TESTING_ORGANIZATION)
         self.o_integration = self.g_integration.get_organization(

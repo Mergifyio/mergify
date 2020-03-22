@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import contextlib
 import datetime
 import hashlib
 import hmac
@@ -27,8 +26,6 @@ import tempfile
 from billiard import current_process
 import celery.app.log
 import daiquiri
-import github
-import httpx
 import redis
 
 from mergify_engine import config
@@ -90,22 +87,6 @@ CELERY_EXTRAS_FORMAT = (
 )
 
 
-def GithubPullRequestLog(self):
-    return daiquiri.getLogger(
-        __name__,
-        gh_owner=self.base.user.login,
-        gh_repo=self.base.repo.name,
-        gh_private=self.base.repo.private,
-        gh_branch=self.base.ref,
-        gh_pull=self.number,
-        gh_pull_url=self.html_url,
-        gh_pull_state=("merged" if self.merged else (self.mergeable_state or "none")),
-    )
-
-
-github.PullRequest.PullRequest.log = property(GithubPullRequestLog)
-
-
 def setup_logging():
     outputs = []
 
@@ -145,23 +126,6 @@ def compute_hmac(data):
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
     return str(mac.hexdigest())
-
-
-def get_github_pulls_from_sha(repo, sha):
-    try:
-        return list(
-            github.PaginatedList.PaginatedList(
-                github.PullRequest.PullRequest,
-                repo._requester,
-                "%s/commits/%s/pulls" % (repo.url, sha),
-                None,
-                headers={"Accept": "application/vnd.github.groot-preview+json"},
-            )
-        )
-    except github.GithubException as e:
-        if e.status in [404, 422]:
-            return []
-        raise
 
 
 class Gitter(object):
@@ -207,20 +171,3 @@ class Gitter(object):
                 "url=https://%s:%s@%s/%s\n\n" % (username, password, domain, path)
             ).encode("utf8"),
         )
-
-
-@contextlib.contextmanager
-def ignore_client_side_error():
-    try:
-        yield
-    except httpx.HTTPClientSideError:
-        return
-    except github.GithubException as e:
-        if 400 <= e.status < 500:
-            return
-        raise
-
-
-def Github(*args, **kwargs):
-    kwargs["base_url"] = "https://api.%s" % config.GITHUB_DOMAIN
-    return github.Github(*args, **kwargs)
