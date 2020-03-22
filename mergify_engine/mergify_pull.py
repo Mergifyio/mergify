@@ -112,6 +112,13 @@ class MergifyPull(object):
     def __attrs_post_init__(self):
         self._ensure_complete()
 
+    def has_write_permissions(self, login):
+        # TODO(sileht): We should catch that, this is also used in command runner
+        return self.client.item(f"collaborators/{login}/permission")["permission"] in [
+            "admin",
+            "write",
+        ]
+
     def _get_valid_users(self):
         bots = list(
             set(
@@ -122,10 +129,7 @@ class MergifyPull(object):
             [r["user"]["login"] for r in self.reviews if r["user"]["type"] != "Bot"]
         )
         valid_collabs = [
-            login
-            for login in collabs
-            if self.client.item(f"collaborators/{login}/permission")["permission"]
-            in ["admin", "write"]
+            login for login in collabs if self.has_write_permissions(login)
         ]
         return bots + valid_collabs
 
