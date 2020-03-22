@@ -392,10 +392,18 @@ def test_get_pull_request_rule():
             "author_association": "MEMBER",
         }
     )
-    client.items.side_effect = [get_reviews, get_files, get_team_members]
+    client.items.side_effect = [
+        get_reviews,
+        get_files,
+        get_checks,
+        get_statuses,
+        get_team_members,
+    ]
     # Drop caches
+    del ctxt.__dict__["checks"]
     del ctxt.__dict__["reviews"]
     del ctxt.__dict__["files"]
+    del ctxt.__dict__["consolidated_reviews"]
 
     # Team conditions with no review missing
     pull_request_rules = rules.PullRequestRules(
