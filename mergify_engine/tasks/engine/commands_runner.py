@@ -16,7 +16,7 @@ import re
 
 import daiquiri
 from datadog import statsd
-import github as pygithub
+import httpx
 import voluptuous
 
 from mergify_engine import actions
@@ -52,10 +52,10 @@ def load_action(message):
 
 def spawn_pending_commands_tasks(pull, sources):
     pendings = set()
-    for comment in pull.g_pull.get_issue_comments():
-        if comment.user.id != config.BOT_USER_ID:
+    for comment in pull.client.items(f"issues/{pull.data['number']}/comments"):
+        if comment["user"]["id"] != config.BOT_USER_ID:
             return
-        match = COMMAND_RESULT_MATCHER.search(comment.body)
+        match = COMMAND_RESULT_MATCHER.search(comment["body"])
         if match:
             command = match[1]
             state = match[2]
@@ -96,8 +96,7 @@ def run_command(pull, sources, comment, user, rerun=False):
     if (
         rerun
         or user["id"] == config.BOT_USER_ID
-        or pull.g_pull.base.repo.get_collaborator_permission(user["login"])
-        in ["admin", "write"]
+        or pull.has_write_permissions(user["login"])
     ):
         action = load_action(comment)
         if action:
@@ -135,10 +134,12 @@ def run_command(pull, sources, comment, user, rerun=False):
         result = "@{} is not allowed to run commands".format(user["login"])
 
     try:
-        pull.g_pull.create_issue_comment(result)
-    except pygithub.GithubException as e:  # pragma: no cover
+        pull.client.post(
+            f"issues/{pull.data['number']}/comments", json={"body": result}
+        )
+    except httpx.HTTPClientSideError as e:  # pragma: no cover
         pull.log.error(
             "fail to post comment on the pull request",
-            status=e.status,
-            error=e.data["message"],
+            status=e.status_code,
+            error=e.message,
         )
