@@ -35,7 +35,7 @@ def get_queue_logger(queue):
 
 def _get_queue_cache_key(ctxt, base_ref=None):
     return "strict-merge-queues~%s~%s~%s~%s" % (
-        ctxt.installation_id,
+        ctxt.client.installation_id,
         ctxt.pull["base"]["repo"]["owner"]["login"].lower(),
         ctxt.pull["base"]["repo"]["name"].lower(),
         base_ref or ctxt.pull["base"]["ref"],
@@ -44,7 +44,7 @@ def _get_queue_cache_key(ctxt, base_ref=None):
 
 def _get_update_method_cache_key(ctxt):
     return "strict-merge-method~%s~%s~%s~%s" % (
-        ctxt.installation_id,
+        ctxt.client.installation_id,
         ctxt.pull["base"]["repo"]["owner"]["login"].lower(),
         ctxt.pull["base"]["repo"]["name"].lower(),
         ctxt.pull["number"],
