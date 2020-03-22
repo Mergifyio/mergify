@@ -82,11 +82,6 @@ class MergifyContext(object):
         )
 
     @property
-    def installation_id(self):
-        # NOTE(sileht): Remove me
-        return self.client.installation_id
-
-    @property
     def installation_token(self):
         # TODO(sileht): This is used by Git commands, we should validate it
         # before using it
