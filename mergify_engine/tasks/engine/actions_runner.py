@@ -81,7 +81,7 @@ def get_already_merged_summary(pull, sources, match):
     else:
         return (
             "⚠️ The pull request has been merged manually by "
-            "@%s\n\n" % pull.data["merged_by"]
+            "@%s\n\n" % pull.data["merged_by"]["login"]
         )
 
 

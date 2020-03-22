@@ -56,7 +56,7 @@ class DismissReviewsAction(actions.Action):
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
             redis = utils.get_redis_for_cache()
-            if redis.get("branch-update-%s" % pull.head_sha):
+            if redis.get("branch-update-%s" % pull.data["head"]["sha"]):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
             errors = set()
