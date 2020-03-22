@@ -163,11 +163,10 @@ def report(url):
     print("mergeable_state: %s" % mp.mergeable_state)
 
     print("* MERGIFY LAST CHECKS:")
-    checks = list(check_api.get_checks(mp.g_pull))
+    checks = list(check_api.get_checks(mp, mergify_only=True))
     for c in checks:
-        if c._rawData["app"]["id"] == config.INTEGRATION_ID:
-            print("[%s]: %s | %s" % (c.name, c.conclusion, c.output.get("title")))
-            print("> " + "\n> ".join(c.output.get("summary").split("\n")))
+        print("[%s]: %s | %s" % (c["name"], c["conclusion"], c["output"].get("title")))
+        print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
 
     if pull_request_rules is not None:
         print("* MERGIFY LIVE MATCHES:")

@@ -57,14 +57,14 @@ def get_github_pull_from_event(client, event_type, data):
     elif event_type == "status":
         return get_github_pull_from_sha(client, data["sha"])
 
-    elif event_type == "check_run":
+    elif event_type in ["check_suite", "check_run"]:
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = str(client.base_url)[:-1]
-        pulls = data["check_run"]["pull_requests"]
+        pulls = data[event_type]["pull_requests"]
         pulls = [p for p in pulls if p["base"]["repo"]["url"] == base_repo_url]
 
         if not pulls:
-            sha = data["check_run"]["head_sha"]
+            sha = data[event_type]["head_sha"]
             pulls = [get_github_pull_from_sha(client, sha)]
 
         if len(pulls) > 1:  # pragma: no cover
@@ -82,22 +82,22 @@ def get_github_pull_from_event(client, event_type, data):
             return pulls[0]
 
 
-def check_configuration_changes(event_pull):
-    if event_pull.base.repo.default_branch == event_pull.base.ref:
+def check_configuration_changes(pull):
+    if pull.data["base"]["repo"]["default_branch"] == pull.data["base"]["ref"]:
         ref = None
-        for f in event_pull.get_files():
-            if f.filename in rules.MERGIFY_CONFIG_FILENAMES:
-                ref = f.contents_url.split("?ref=")[1]
+        for f in pull.files:
+            if f["filename"] in rules.MERGIFY_CONFIG_FILENAMES:
+                ref = f["contents_url"].split("?ref=")[1]
 
         if ref is not None:
             try:
-                rules.get_mergify_config(event_pull.base.repo, ref=ref)
+                rules.get_mergify_config(pull.g_pull.base.repo, ref=ref)
             except rules.InvalidRules as e:  # pragma: no cover
                 # Not configured, post status check with the error message
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API
                 check_api.set_check_run(
-                    event_pull,
+                    pull,
                     "Summary",
                     "completed",
                     "failure",
@@ -108,7 +108,7 @@ def check_configuration_changes(event_pull):
                 )
             else:
                 check_api.set_check_run(
-                    event_pull,
+                    pull,
                     "Summary",
                     "completed",
                     "success",
@@ -123,26 +123,23 @@ def check_configuration_changes(event_pull):
     return False
 
 
-def copy_summary_from_previous_head_sha(g_pull, sha):
+def copy_summary_from_previous_head_sha(pull, sha):
     checks = check_api.get_checks_for_ref(
-        g_pull.base.repo,
-        sha,
-        {"check_name": actions_runner.SUMMARY_NAME},
-        mergify_only=True,
+        pull, sha, mergify_only=True, check_name=actions_runner.SUMMARY_NAME,
     )
     if not checks:
-        g_pull.log.warning(
+        pull.log.warning(
             "Got synchronize event but didn't find Summary on previous head sha",
         )
         return
     check_api.set_check_run(
-        g_pull,
+        pull,
         actions_runner.SUMMARY_NAME,
         "completed",
         "success",
         output={
-            "title": checks[0].output["title"],
-            "summary": checks[0].output["summary"],
+            "title": checks[0]["output"]["title"],
+            "summary": checks[0]["output"]["summary"],
         },
     )
 
@@ -206,7 +203,7 @@ def run(event_type, data):
         )
         return
 
-    if check_configuration_changes(pull.g_pull):
+    if check_configuration_changes(pull):
         pull.log.info("Configuration changed, ignoring",)
         return
 
@@ -220,7 +217,7 @@ def run(event_type, data):
         # Not configured, post status check with the error message
         if event_type == "pull_request" and data["action"] in ["opened", "synchronize"]:
             check_api.set_check_run(
-                pull.g_pull,
+                pull,
                 "Summary",
                 "completed",
                 "failure",
@@ -242,7 +239,7 @@ def run(event_type, data):
 
     if pull.data["base"]["repo"]["private"] and not subscription["subscription_active"]:
         check_api.set_check_run(
-            pull.g_pull,
+            pull,
             "Summary",
             "completed",
             "failure",
@@ -257,7 +254,7 @@ def run(event_type, data):
     # we can't directly get the previous Mergify Summary. So we copy it here, then
     # anything that looks at it in next celery tasks will find it.
     if event_type == "pull_request" and data["action"] == "synchronize":
-        copy_summary_from_previous_head_sha(pull.g_pull, data["before"])
+        copy_summary_from_previous_head_sha(pull, data["before"])
 
     sources = [{"event_type": event_type, "data": data}]
 

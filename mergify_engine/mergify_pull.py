@@ -151,7 +151,6 @@ class MergifyPull(object):
         return self._consolidated_data
 
     def _get_consolidated_data(self):
-        files = list(self.client.items(f"pulls/{self.data['number']}/files"))
         comments, approvals = self._get_consolidated_reviews()
         statuses = self._get_checks()
         return {
@@ -181,7 +180,7 @@ class MergifyPull(object):
             "locked": self.data["locked"],
             "title": self.data["title"],
             "body": self.data["body"],
-            "files": [f["filename"] for f in files],
+            "files": [f["filename"] for f in self.files],
             "approved-reviews-by": [
                 r["user"]["login"] for r in approvals if r["state"] == "APPROVED"
             ],
@@ -213,22 +212,14 @@ class MergifyPull(object):
         }
 
     def _get_checks(self):
-        generic_checks = set()
-        try:
-            # NOTE(sileht): conclusion can be one of success, failure, neutral,
-            # cancelled, timed_out, or action_required, and  None for "pending"
-            generic_checks |= set(
-                [
-                    GenericCheck(c.name, c.conclusion)
-                    for c in check_api.get_checks(self.g_pull)
-                ]
-            )
-        except pygithub.GithubException as e:
-            if (
-                e.status != 403
-                or e.data["message"] != "Resource not accessible by integration"
-            ):
-                raise
+        # NOTE(sileht): conclusion can be one of success, failure, neutral,
+        # cancelled, timed_out, or action_required, and  None for "pending"
+        generic_checks = set(
+            [
+                GenericCheck(c["name"], c["conclusion"])
+                for c in check_api.get_checks(self)
+            ]
+        )
 
         statuses = list(
             self.client.items(
@@ -392,6 +383,10 @@ class MergifyPull(object):
     @functools_bp.cached_property
     def commits(self):
         return list(self.client.items(f"pulls/{self.data['number']}/commits"))
+
+    @functools_bp.cached_property
+    def files(self):
+        return list(self.client.items(f"pulls/{self.data['number']}/files"))
 
     # NOTE(sileht): map all attributes that in theory doesn't do http calls
 

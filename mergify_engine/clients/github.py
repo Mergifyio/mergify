@@ -16,6 +16,7 @@
 
 
 from datetime import datetime
+import functools
 
 import daiquiri
 from datadog import statsd
@@ -77,24 +78,29 @@ class GithubInstallationClient(common.BaseClient):
             **common.DEFAULT_CLIENT_OPTIONS,
         )
 
+        for method in ("get", "post", "put", "patch", "delete", "head"):
+            setattr(self, method, self._inject_api_version(getattr(self, method)))
+
     def __repr__(self):
         return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation_id}>"
 
-    def item(self, url, api_version=None, **params):
-        headers = {}
-        if api_version:
-            headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+    @staticmethod
+    def _inject_api_version(func):
+        @functools.wraps(func)
+        def wrapper(url, api_version=None, **kwargs):
+            headers = kwargs.pop("headers", {})
+            if api_version:
+                headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+            return func(url, headers=headers, **kwargs)
 
-        r = self.get(url, params=params, headers=headers)
-        return r.json()
+        return wrapper
+
+    def item(self, url, api_version=None, **params):
+        return self.get(url, api_version=api_version, params=params).json()
 
     def items(self, url, api_version=None, list_items=None, **params):
-        headers = {}
-        if api_version:
-            headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
-
         while True:
-            r = self.get(url, params=params, headers=headers)
+            r = self.get(url, api_version=api_version, params=params)
             items = r.json()
             if list_items:
                 items = items[list_items]

@@ -27,7 +27,8 @@ from unittest import mock
 import uuid
 
 import daiquiri
-import github
+import github as pygithub
+import httpx
 import pytest
 import requests
 import requests.sessions
@@ -41,6 +42,7 @@ from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
+from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 
 
@@ -297,7 +299,7 @@ class FunctionalTestBase(unittest.TestCase):
             ],
             before_record_response=self.response_filter,
             custom_patches=(
-                (github.MainClass, "HTTPSConnection", vcr.stubs.VCRHTTPSConnection),
+                (pygithub.MainClass, "HTTPSConnection", vcr.stubs.VCRHTTPSConnection),
             ),
         )
 
@@ -355,7 +357,7 @@ class FunctionalTestBase(unittest.TestCase):
         cassette.__enter__()
         self.addCleanup(cassette.__exit__)
 
-        integration = github.GithubIntegration(
+        integration = pygithub.GithubIntegration(
             config.INTEGRATION_ID, config.PRIVATE_KEY
         )
         self.installation_token = integration.get_access_token(
@@ -386,6 +388,15 @@ class FunctionalTestBase(unittest.TestCase):
             self.u_fork.login,
             self.r_o_integration.name,
         )
+
+        try:
+            self.cli_integration = github.get_client(
+                config.TESTING_ORGANIZATION, self.name, config.INSTALLATION_ID
+            )
+        except httpx.HTTPNotFound:
+            self.cli_integration = github.get_client(
+                config.TESTING_ORGANIZATION, self.name, config.INSTALLATION_ID
+            )
 
         real_get_subscription = sub_utils.get_subscription
 
