@@ -81,12 +81,6 @@ class MergifyContext(object):
             ),
         )
 
-    @property
-    def installation_token(self):
-        # TODO(sileht): This is used by Git commands, we should validate it
-        # before using it
-        return self.client.auth.get_access_token()
-
     def __attrs_post_init__(self):
         self._ensure_complete()
 
