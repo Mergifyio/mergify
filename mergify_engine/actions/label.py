@@ -17,10 +17,10 @@
 import random
 from urllib import parse
 
+import httpx
 import voluptuous
 
 from mergify_engine import actions
-from mergify_engine import utils
 
 
 class LabelAction(actions.Action):
@@ -38,8 +38,10 @@ class LabelAction(actions.Action):
             for label in self.config["add"]:
                 if label not in all_label:
                     color = "%06x" % random.randrange(16 ** 6)
-                    with utils.ignore_client_side_error():
+                    try:
                         pull.client.post("labels", json={"name": label, "color": color})
+                    except httpx.HTTPClientSideError:
+                        continue
 
             pull.client.post(
                 f"issues/{pull.data['number']}/labels",
@@ -52,10 +54,12 @@ class LabelAction(actions.Action):
             pull_labels = [l["name"] for l in pull.data["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
-                    with utils.ignore_client_side_error():
-                        label_escaped = parse.quote(label, safe="")
+                    label_escaped = parse.quote(label, safe="")
+                    try:
                         pull.client.delete(
                             f"issues/{pull.data['number']}/labels/{label_escaped}"
                         )
+                    except httpx.HTTPClientSideError:
+                        continue
 
         return ("success", "Labels added/removed", "")
