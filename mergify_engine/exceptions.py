@@ -12,9 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import github
 import httpx
-import requests
 
 
 class MergifyNotInstalled(Exception):
@@ -43,15 +41,8 @@ def need_retry(exception):  # pragma: no cover
         return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
     elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
-    elif (
-        (isinstance(exception, github.GithubException) and exception.status >= 500)
-        or (
-            isinstance(exception, (requests.exceptions.HTTPError, httpx.HTTPError))
-            and (exception.response is None or exception.response.status_code >= 500)
-        )
-        or isinstance(exception, requests.exceptions.ConnectionError)
-        or isinstance(exception, requests.exceptions.Timeout)
-        or isinstance(exception, requests.exceptions.TooManyRedirects)
+    elif isinstance(exception, httpx.HTTPError) and (
+        exception.response is None or exception.response.status_code >= 500
     ):
         # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
         # is in a really bad shape...
@@ -59,14 +50,6 @@ def need_retry(exception):  # pragma: no cover
 
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
-    elif isinstance(exception, github.GithubException):
-        # Bad creds or token expired, we can't really known
-        if exception.status == 401:
-            return BASE_RETRY_TIMEOUT
-        # Rate limit or abuse detection mechanism, futures events will be rate limited
-        # correctly by mergify_engine.utils.Github()
-        elif exception.status == 403:
-            return BASE_RETRY_TIMEOUT * 5
     elif isinstance(exception, httpx.HTTPError):
         # Bad creds or token expired, we can't really known
         if exception.response.status_code == 401:

@@ -44,15 +44,6 @@ def get_checks(pull, mergify_only=False, **kwargs):
     return get_checks_for_ref(pull, pull.data["head"]["sha"], mergify_only, **kwargs)
 
 
-def get_check_suite(g_repo, check_suite_id):
-    _, data = g_repo._requester.requestJsonAndCheck(
-        "GET",
-        g_repo.url + "/check-suites/" + str(check_suite_id),
-        headers={"Accept": "application/vnd.github.antiope-preview+json"},
-    )
-    return data
-
-
 def compare_dict(d1, d2, keys):
     for key in keys:
         if d1.get(key) != d2.get(key):
