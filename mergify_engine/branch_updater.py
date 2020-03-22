@@ -18,7 +18,7 @@
 import subprocess
 import uuid
 
-import github
+import httpx
 import tenacity
 
 from mergify_engine import config
@@ -183,28 +183,29 @@ def _do_update(pull, token, method="merge"):
 )
 def update_with_api(pull):
     try:
-        pull.g_pull._requester.requestJsonAndCheck(
-            "PUT",
-            pull.g_pull.url + "/update-branch",
-            input={"expected_head_sha": pull.head_sha},
-            headers={"Accept": "application/vnd.github.lydian-preview+json"},
+        pull.client.put(
+            f"pulls/{pull.data['number']}/update-branch",
+            api_version="lydian",
+            json={"expected_head_sha": pull.head_sha},
         )
-    except github.GithubException as e:
-        if e.status == 422 and e.data["message"] not in UNRECOVERABLE_ERROR:
+    except httpx.HTTPClientSideError as e:
+        if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:
             pull.log.debug(
-                "branch updated in the meantime",
-                status=e.status,
-                error=e.data["message"],
+                "branch updated in the meantime", status=e.status_code, error=e.message,
             )
             return
-        elif e.status < 500:
+        else:
             pull.log.debug(
-                "update branch failed", status=e.status, error=e.data["message"],
+                "update branch failed", status=e.status_code, error=e.message,
             )
             raise BranchUpdateFailure(e.data["message"])
-        else:
-            pull.log.debug("update branch failed", status=e.status, error=str(e))
-            raise BranchUpdateNeedRetry()
+    except httpx.HTTPError as e:
+        pull.log.debug(
+            "update branch failed",
+            status=(e.response.status_code if e.response else None),
+            error=str(e),
+        )
+        raise BranchUpdateNeedRetry()
 
 
 def update_with_git(pull, method="merge"):
