@@ -98,11 +98,19 @@ def _do_update(pull, token, method="merge"):
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
 
-    head_repo = pull.head_repo_owner_login + "/" + pull.head_repo_name
-    base_repo = pull.base_repo_owner_login + "/" + pull.base_repo_name
+    head_repo = (
+        pull.data["head"]["repo"]["owner"]["login"]
+        + "/"
+        + pull.data["head"]["repo"]["name"]
+    )
+    base_repo = (
+        pull.data["base"]["repo"]["owner"]["login"]
+        + "/"
+        + pull.data["base"]["repo"]["name"]
+    )
 
-    head_branch = pull.head_ref
-    base_branch = pull.base_ref
+    head_branch = pull.data["head"]["ref"]
+    base_branch = pull.data["base"]["ref"]
     git = utils.Gitter()
     try:
         git("init")
@@ -170,7 +178,7 @@ def _do_update(pull, token, method="merge"):
             raise BranchUpdateFailure()
 
     except Exception:  # pragma: no cover
-        pull.log.error("update branch failed", pull_request=pull, exc_info=True)
+        pull.log.error("update branch failed", exc_info=True)
         raise BranchUpdateFailure()
     finally:
         git.cleanup()
@@ -186,7 +194,7 @@ def update_with_api(pull):
         pull.client.put(
             f"pulls/{pull.data['number']}/update-branch",
             api_version="lydian",
-            json={"expected_head_sha": pull.head_sha},
+            json={"expected_head_sha": pull.data["head"]["sha"]},
         )
     except httpx.HTTPClientSideError as e:
         if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:

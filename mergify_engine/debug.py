@@ -147,7 +147,7 @@ def report(url):
 
     print("is_behind: %s" % mp.is_behind)
 
-    print("mergeable_state: %s" % mp.mergeable_state)
+    print("mergeable_state: %s" % mp.data["mergeable_state"])
 
     print("* MERGIFY LAST CHECKS:")
     checks = list(check_api.get_checks(mp, mergify_only=True))

@@ -378,24 +378,6 @@ class MergifyPull(object):
     def files(self):
         return list(self.client.items(f"pulls/{self.data['number']}/files"))
 
-    # NOTE(sileht): map all attributes that in theory doesn't do http calls
-
-    @property
-    def number(self):
-        return self.data["number"]
-
-    @property
-    def title(self):
-        return self.data["title"]
-
-    @property
-    def user(self):
-        return self.data["user"]["login"]
-
-    @property
-    def state(self):
-        return self.data["state"]
-
     @property
     def from_fork(self):
         return self.data["head"]["repo"]["id"] != self.data["base"]["repo"]["id"]
@@ -403,47 +385,3 @@ class MergifyPull(object):
     @property
     def base_is_modifiable(self):
         return self.data["maintainer_can_modify"] or not self.from_fork
-
-    @property
-    def merge_commit_sha(self):
-        return self.data["merge_commit_sha"]
-
-    @property
-    def head_sha(self):
-        return self.data["head"]["sha"]
-
-    @property
-    def base_ref(self):
-        return self.data["base"]["ref"]
-
-    @property
-    def head_ref(self):
-        return self.data["head"]["ref"]
-
-    @property
-    def base_repo_name(self):
-        return self.data["base"]["repo"]["name"]
-
-    @property
-    def head_repo_name(self):
-        return self.data["head"]["repo"]["name"]
-
-    @property
-    def base_repo_owner_login(self):
-        return self.data["base"]["repo"]["owner"]["login"]
-
-    @property
-    def head_repo_owner_login(self):
-        return self.data["head"]["repo"]["owner"]["login"]
-
-    @property
-    def mergeable_state(self):
-        return self.data["mergeable_state"]
-
-    @property
-    def merged(self):
-        return self.data["merged"]
-
-    @property
-    def merged_by(self):
-        return self.data["merged_by"]["login"]
