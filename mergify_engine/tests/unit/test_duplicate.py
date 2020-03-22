@@ -40,12 +40,9 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
 
 
 @mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
-)
-@mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
 )
-def test_get_commits_to_cherry_pick_rebase(commits, g_pull):
+def test_get_commits_to_cherry_pick_rebase(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
     c2 = {"sha": "c2", "parents": [c1], "commit": {"message": "foobar"}}
     commits.return_value = [c1, c2]
@@ -87,12 +84,9 @@ def test_get_commits_to_cherry_pick_rebase(commits, g_pull):
 
 
 @mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
-)
-@mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.commits", new_callable=mock.PropertyMock
 )
-def test_get_commits_to_cherry_pick_merge(commits, g_pull):
+def test_get_commits_to_cherry_pick_merge(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
     c2 = {"sha": "c2", "parents": [c1], "commit": {"message": "foobar"}}
     commits.return_value = [c1, c2]

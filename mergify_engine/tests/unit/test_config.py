@@ -134,12 +134,9 @@ def test_pull_request_rule_schema_invalid():
 
 @mock.patch("mergify_engine.mergify_pull.MergifyPull.g", return_value=mock.PropertyMock)
 @mock.patch(
-    "mergify_engine.mergify_pull.MergifyPull.g_pull", return_value=mock.PropertyMock
-)
-@mock.patch(
     "mergify_engine.mergify_pull.MergifyPull.reviews", new_callable=mock.PropertyMock
 )
-def test_get_pull_request_rule(reviews, g_pull, g):
+def test_get_pull_request_rule(reviews, g):
 
     client = mock.Mock()
 
