@@ -148,14 +148,13 @@ class CopyAction(actions.Action):
         bp_branch = duplicate_pull.get_destination_branch_name(
             pull.data["number"], branch_name, cls.KIND
         )
-        # NOTE(sileht): Github looks buggy here, head= doesn't work as expected
         pulls = list(
             pull.client.items(
                 "pulls",
                 base=branch_name,
                 sort="created",
                 state="all",
-                head=f"{pull.data['head']['user']['login']}/{bp_branch}",
+                head=f"{pull.data['head']['user']['login']}:{bp_branch}",
             )
         )
         if pulls:

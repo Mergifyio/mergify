@@ -608,16 +608,21 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr(two_commits=True)
 
+        # Create another PR to be sure we don't mess things up
+        # see https://github.com/Mergifyio/mergify-engine/issues/849
+        self.create_pr(base="stable/#3.1")
+
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(2, len(pulls))
-        self.assertEqual(2, pulls[0].number)
-        self.assertEqual(1, pulls[1].number)
-        self.assertEqual(True, pulls[1].merged)
-        self.assertEqual("closed", pulls[1].state)
+        self.assertEqual(3, len(pulls))
+        self.assertEqual(True, pulls[2].merged)
+        self.assertEqual("closed", pulls[2].state)
         self.assertEqual(False, pulls[0].merged)
+
+        bp_pull = pulls[0]
+        assert bp_pull.title == "Pull request n1 from fork (bp #1)"
 
         pull = mergify_pull.MergifyPull(self.cli_integration, p.raw_data)
         checks = list(
@@ -629,7 +634,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             "* [#%d %s](%s) has been created for branch `stable/#3.1`"
-            % (pulls[0].number, pulls[0].title, pulls[0].html_url,)
+            % (bp_pull.number, bp_pull.title, bp_pull.html_url,)
             == checks[0]["output"]["summary"]
         )
 
