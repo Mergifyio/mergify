@@ -141,17 +141,17 @@ def report(url):
         mergify_config_content = rules.get_mergify_config_content(mp.g_pull.base.repo)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
+        pull_request_rules = None
     else:
         print(mergify_config_content.decode())
-
-    try:
-        mergify_config = rules.UserConfigurationSchema(mergify_config_content)
-    except rules.InvalidRules as e:  # pragma: no cover
-        print("configuration is invalid %s" % str(e))
-    else:
-        pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
-        pull_request_rules_raw["rules"].extend(engine.MERGIFY_RULE["rules"])
-        pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
+        try:
+            mergify_config = rules.UserConfigurationSchema(mergify_config_content)
+        except rules.InvalidRules as e:  # pragma: no cover
+            print("configuration is invalid %s" % str(e))
+        else:
+            pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
+            pull_request_rules_raw["rules"].extend(engine.MERGIFY_RULE["rules"])
+            pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     print("* PULL REQUEST:")
     pprint.pprint(mp.to_dict(), width=160)
@@ -169,13 +169,14 @@ def report(url):
             print("[%s]: %s | %s" % (c.name, c.conclusion, c.output.get("title")))
             print("> " + "\n> ".join(c.output.get("summary").split("\n")))
 
-    print("* MERGIFY LIVE MATCHES:")
-    match = pull_request_rules.get_pull_request_rule(mp)
-    summary_title, summary = actions_runner.gen_summary(
-        mp, [{"event_type": "refresh", "data": {}}], match
-    )
-    print("> %s" % summary_title)
-    print(summary)
+    if pull_request_rules is not None:
+        print("* MERGIFY LIVE MATCHES:")
+        match = pull_request_rules.get_pull_request_rule(mp)
+        summary_title, summary = actions_runner.gen_summary(
+            mp, [{"event_type": "refresh", "data": {}}], match
+        )
+        print("> %s" % summary_title)
+        print(summary)
 
     return mp
 
