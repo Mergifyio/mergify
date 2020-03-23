@@ -138,7 +138,7 @@ def report(url):
 
     print("* CONFIGURATION:")
     try:
-        mergify_config_content = rules.get_mergify_config_content(mp.g_pull.base.repo)
+        mergify_config_content = rules.get_mergify_config_content(mp)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
         pull_request_rules = None

@@ -15,11 +15,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import base64
 import itertools
 import operator
 
 import attr
-import github
+import httpx
 import voluptuous
 import yaml
 
@@ -207,22 +208,21 @@ class InvalidRules(Exception):
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
 
 
-def get_mergify_config_content(repository, ref=github.GithubObject.NotSet):
+def get_mergify_config_content(pull, ref=None):
+    kwargs = {}
+    if ref:
+        kwargs["ref"] = ref
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
-            return repository.get_contents(filename, ref=ref).decoded_content
-        except github.GithubException as e:  # pragma: no cover
-            # NOTE(sileht): PyGithub is buggy here it should raise
-            # UnknownObjectException. but depending of the error message
-            # the convertion is not done and the generic exception is raise
-            # so always catch the generic
-            if e.status != 404:
-                raise
+            content = pull.client.item(f"contents/{filename}", **kwargs)["content"]
+            return base64.b64decode(bytearray(content, "utf-8"))
+        except httpx.HTTPNotFound:
+            continue
     raise NoRules()
 
 
-def get_mergify_config(repository, ref=github.GithubObject.NotSet):
+def get_mergify_config(pull, ref=None):
     try:
-        return UserConfigurationSchema(get_mergify_config_content(repository, ref))
+        return UserConfigurationSchema(get_mergify_config_content(pull, ref))
     except voluptuous.Invalid as e:
         raise InvalidRules(e)
