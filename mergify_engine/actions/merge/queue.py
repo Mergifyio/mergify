@@ -217,5 +217,8 @@ def smart_strict_workflow_periodic_task():
             )
             if ctxt:
                 _move_pull_at_end(ctxt)
+        finally:
+            if ctxt:
+                ctxt.client.close()
 
     LOG.debug("smart strict workflow loop end")

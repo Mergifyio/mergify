@@ -150,19 +150,26 @@ def run(event_type, data):
     installation_id = data["installation"]["id"]
     owner = data["repository"]["owner"]["login"]
     repo = data["repository"]["name"]
-
     try:
         client = github.get_client(owner, repo, installation_id)
     except exceptions.MergifyNotInstalled:
         return
+
+    try:
+        _run(client, event_type, data)
+    finally:
+        client.close()
+
+
+def _run(client, event_type, data):
     raw_pull = get_github_pull_from_event(client, event_type, data)
 
     if not raw_pull:  # pragma: no cover
         LOG.info(
             "No pull request found in the event %s, ignoring",
             event_type,
-            gh_owner=owner,
-            gh_repo=repo,
+            gh_owner=client.owner,
+            gh_repo=client.repo,
         )
         return
 
@@ -234,7 +241,7 @@ def run(event_type, data):
     )
 
     subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), installation_id
+        utils.get_redis_for_cache(), client.installation_id
     )
 
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
