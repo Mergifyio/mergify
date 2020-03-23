@@ -72,6 +72,7 @@ class GithubInstallationClient(common.BaseClient):
                 installation_id=self.installation_id,
                 expected_installation_id=installation_id,
             )
+        self._nb_requests = 0
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
             auth=GithubInstallationAuth(self.installation_id),
@@ -111,6 +112,17 @@ class GithubInstallationClient(common.BaseClient):
                 params = None
             else:
                 break
+
+    def request(self, *args, **kwargs):
+        try:
+            return super().request(*args, **kwargs)
+        finally:
+            self._nb_requests += 1
+
+    def close(self):
+        super().close()
+        statsd.histogram("github.http_request.size", self._nb_requests)
+        statsd.increment("github.http_request.count", self._nb_requests)
 
 
 RATE_LIMIT_THRESHOLD = 20

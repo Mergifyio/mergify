@@ -34,24 +34,27 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
     except exceptions.MergifyNotInstalled:
         return
 
-    if kind == "repo":
-        pulls = list(client.items("pulls"))
-    elif kind == "branch":
-        pulls = list(client.items("pulls", base=ref))
-    elif kind == "pull":
-        pulls = [client.item(f"pulls/{ref}")]
-    else:
-        raise RuntimeError("Invalid kind")
+    try:
+        if kind == "repo":
+            pulls = list(client.items("pulls"))
+        elif kind == "branch":
+            pulls = list(client.items("pulls", base=ref))
+        elif kind == "pull":
+            pulls = [client.item(f"pulls/{ref}")]
+        else:
+            raise RuntimeError("Invalid kind")
 
-    for p in pulls:
-        # Mimic the github event format
-        data = {
-            "action": action,
-            "repository": p["base"]["repo"],
-            "installation": {"id": client.installation_id},
-            "pull_request": p,
-            "sender": {"login": "<internal>"},
-        }
-        github_events.job_filter_and_dispatch.s(
-            "refresh", str(uuid.uuid4()), data
-        ).apply_async()
+        for p in pulls:
+            # Mimic the github event format
+            data = {
+                "action": action,
+                "repository": p["base"]["repo"],
+                "installation": {"id": client.installation_id},
+                "pull_request": p,
+                "sender": {"login": "<internal>"},
+            }
+            github_events.job_filter_and_dispatch.s(
+                "refresh", str(uuid.uuid4()), data
+            ).apply_async()
+    finally:
+        client.close()

@@ -87,8 +87,11 @@ def run_command_async(
     except exceptions.MergifyNotInstalled:
         return
 
-    pull = mergify_context.MergifyContext(client, pull_request_raw)
-    return run_command(pull, sources, comment, user, rerun)
+    try:
+        pull = mergify_context.MergifyContext(client, pull_request_raw)
+        return run_command(pull, sources, comment, user, rerun)
+    finally:
+        client.close()
 
 
 def run_command(ctxt, sources, comment, user, rerun=False):
