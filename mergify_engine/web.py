@@ -224,9 +224,9 @@ def simulator():
         match = pull_request_rules.get_pull_request_rule(pull_request)
 
         raw_event = {
-            "repository": pull_request.g_pull.base.repo.raw_data,
-            "installation": {"id": pull_request.installation_id},
-            "pull_request": pull_request.g_pull.raw_data,
+            "repository": pull_request.data["base"]["repo"],
+            "installation": {"id": pull_request.client.installation_id},
+            "pull_request": pull_request.data,
         }
         title, summary = actions_runner.gen_summary(
             pull_request, [{"event_type": "refresh", "data": raw_event}], match
