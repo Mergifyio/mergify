@@ -60,21 +60,13 @@ class GithubInstallationAuth(httpx.Auth):
 
 
 class GithubInstallationClient(common.BaseClient):
-    def __init__(self, owner, repo, installation_id=None):
+    def __init__(self, owner, repo, installation):
         self.owner = owner
         self.repo = repo
-        self.installation_id = github_app.get_client().get_installation_id(owner, repo)
-        if installation_id is not None and self.installation_id != installation_id:
-            LOG.error(
-                "installation id for repository diff from event installation id",
-                gh_owner=owner,
-                gh_repo=repo,
-                installation_id=self.installation_id,
-                expected_installation_id=installation_id,
-            )
+        self.installation = installation
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
-            auth=GithubInstallationAuth(self.installation_id),
+            auth=GithubInstallationAuth(self.installation["id"]),
             **common.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -126,3 +118,16 @@ def get_client(*args, **kwargs):
         statsd.increment("engine.rate_limited")
         raise exceptions.RateLimited(delta.total_seconds(), rate)
     return client
+
+
+def get_installation(owner, repo, installation_id=None):
+    installation = github_app.get_client().get_installation(owner, repo)
+    if installation_id is not None and installation["id"] != installation_id:
+        LOG.error(
+            "installation id for repository diff from event installation id",
+            gh_owner=owner,
+            gh_repo=repo,
+            installation_id=installation["id"],
+            expected_installation_id=installation_id,
+        )
+    return installation

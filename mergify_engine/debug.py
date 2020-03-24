@@ -100,21 +100,23 @@ def report(url):
     slug = owner + "/" + repo
 
     try:
-        client = github.get_client(owner, repo)
+        installation = github.get_installation(owner, repo)
     except exceptions.MergifyNotInstalled:
         print("* Mergify is not installed there")
         return
 
-    print("* INSTALLATION ID: %s" % client.installation_id)
+    client = github.get_client(owner, repo, installation)
 
-    cached_sub = sub_utils.get_subscription(redis, client.installation_id)
-    db_sub = sub_utils._retrieve_subscription_from_db(client.installation_id)
+    print("* INSTALLATION ID: %s" % client.installation["id"])
+
+    cached_sub = sub_utils.get_subscription(redis, client.installation["id"])
+    db_sub = sub_utils._retrieve_subscription_from_db(client.installation["id"])
     print(
         "* SUBSCRIBED (cache/db): %s / %s"
         % (cached_sub["subscription_active"], db_sub["subscription_active"])
     )
-    report_sub(client.installation_id, slug, cached_sub, "ENGINE-CACHE")
-    report_sub(client.installation_id, slug, db_sub, "DASHBOARD")
+    report_sub(client.installation["id"], slug, cached_sub, "ENGINE-CACHE")
+    report_sub(client.installation["id"], slug, db_sub, "DASHBOARD")
 
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = mergify_context.MergifyContext(client, pull_raw)

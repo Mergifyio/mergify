@@ -38,7 +38,12 @@ class TestGithubClient(base.FunctionalTestBase):
         self.create_pr()
         self.create_pr(base="other")
 
-        client = github.get_client(self.o_integration.login, self.r_o_integration.name)
+        installation = github.get_installation(
+            self.o_integration.login, self.r_o_integration.name
+        )
+        client = github.get_client(
+            self.o_integration.login, self.r_o_integration.name, installation
+        )
 
         pulls = list(client.items("pulls"))
         self.assertEqual(2, len(pulls))

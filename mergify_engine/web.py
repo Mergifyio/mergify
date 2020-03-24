@@ -161,18 +161,19 @@ def PullRequestUrl(v):
     pull_number = int(pull_number)
 
     try:
-        client = github.get_client(owner, repo)
+        installation = github.get_installation(owner, repo)
     except exceptions.MergifyNotInstalled:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
         )
 
-    try:
-        data = client.item(f"pulls/{pull_number}")
-    except httpx.HTTPNotFound:
-        raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
+    with github.get_client(owner, repo, installation) as client:
+        try:
+            data = client.item(f"pulls/{pull_number}")
+        except httpx.HTTPNotFound:
+            raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
-    return mergify_context.MergifyContext(client, data)
+        return mergify_context.MergifyContext(client, data)
 
 
 SimulatorSchema = voluptuous.Schema(
@@ -219,18 +220,19 @@ def simulator():
     ctxt = data["pull_request"]
 
     if ctxt:
-        pull_request_rules = data["mergify.yml"]["pull_request_rules"]
+        with ctxt.client:
+            pull_request_rules = data["mergify.yml"]["pull_request_rules"]
 
-        match = pull_request_rules.get_pull_request_rule(ctxt)
+            match = pull_request_rules.get_pull_request_rule(ctxt)
 
-        raw_event = {
-            "repository": ctxt.pull["base"]["repo"],
-            "installation": {"id": ctxt.client.installation_id},
-            "pull_request": ctxt.pull,
-        }
-        title, summary = actions_runner.gen_summary(
-            ctxt, [{"event_type": "refresh", "data": raw_event}], match
-        )
+            raw_event = {
+                "repository": ctxt.pull["base"]["repo"],
+                "installation": {"id": ctxt.client.installation["id"]},
+                "pull_request": ctxt.pull,
+            }
+            title, summary = actions_runner.gen_summary(
+                ctxt, [{"event_type": "refresh", "data": raw_event}], match
+            )
     else:
         title = "The configuration is valid"
         summary = None

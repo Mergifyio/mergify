@@ -35,7 +35,7 @@ def get_queue_logger(queue):
 
 def _get_queue_cache_key(ctxt, base_ref=None):
     return "strict-merge-queues~%s~%s~%s~%s" % (
-        ctxt.client.installation_id,
+        ctxt.client.installation["id"],
         ctxt.pull["base"]["repo"]["owner"]["login"].lower(),
         ctxt.pull["base"]["repo"]["name"].lower(),
         base_ref or ctxt.pull["base"]["ref"],
@@ -44,7 +44,7 @@ def _get_queue_cache_key(ctxt, base_ref=None):
 
 def _get_update_method_cache_key(ctxt):
     return "strict-merge-method~%s~%s~%s~%s" % (
-        ctxt.client.installation_id,
+        ctxt.client.installation["id"],
         ctxt.pull["base"]["repo"]["owner"]["login"].lower(),
         ctxt.pull["base"]["repo"]["name"].lower(),
         ctxt.pull["number"],
@@ -103,21 +103,6 @@ def _delete_queue(queue):
     redis.delete(queue)
 
 
-def _get_next_pull_request(queue, queue_log):
-    _, installation_id, owner, repo, branch = queue.split("~")
-    pull_numbers = _get_pulls(queue)
-    queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
-    if pull_numbers:
-        pull_number = int(pull_numbers[0])
-        try:
-            client = github.get_client(owner, repo, int(installation_id))
-        except exceptions.MergifyNotInstalled:
-            _delete_queue(queue)
-            return
-        data = client.item(f"pulls/{pull_number}")
-        return mergify_context.MergifyContext(client, data)
-
-
 def _handle_first_pull_in_queue(queue, ctxt):
     _, installation_id, owner, reponame, branch = queue.split("~")
     old_checks = [
@@ -174,16 +159,51 @@ def smart_strict_workflow_periodic_task():
     redis = utils.get_redis_for_cache()
     LOG.debug("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):
-        queue_base_branch = queue.split("~")[4]
         queue_log = get_queue_logger(queue)
         queue_log.debug("handling queue: %s", queue)
-
-        ctxt = None
         try:
-            ctxt = _get_next_pull_request(queue, queue_log)
-            if not ctxt:
-                queue_log.debug("no pull request for this queue")
-            elif ctxt.pull["base"]["ref"] != queue_base_branch:
+            process_queue(queue)
+        except Exception:
+            queue_log.error("Fail to process merge queue", exc_info=True)
+    LOG.debug("smart strict workflow loop end")
+
+
+def process_queue(queue):
+    queue_log = get_queue_logger(queue)
+    _, installation_id, owner, repo, queue_base_branch = queue.split("~")
+
+    pull_numbers = _get_pulls(queue)
+
+    queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
+    if not pull_numbers:
+        queue_log.debug("no pull request for this queue")
+        return
+
+    pull_number = int(pull_numbers[0])
+
+    try:
+        installation = github.get_installation(owner, repo, int(installation_id))
+    except exceptions.MergifyNotInstalled:
+        _delete_queue(queue)
+        return
+
+    with github.get_client(owner, repo, installation) as client:
+        data = client.item(f"pulls/{pull_number}")
+
+        try:
+            ctxt = mergify_context.MergifyContext(client, data)
+        except exceptions.RateLimited as e:
+            log = ctxt.log if ctxt else queue_log
+            log.info("rate limited", remaining_seconds=e.countdown)
+            return
+        except exceptions.MergeableStateUnknown as e:  # pragma: no cover
+            e.ctxt.log.warning(
+                "pull request with mergeable_state unknown retrying later",
+            )
+            _move_pull_at_end(e.ctxt)
+            return
+        try:
+            if ctxt.pull["base"]["ref"] != queue_base_branch:
                 ctxt.log.debug(
                     "pull request base branch have changed",
                     old_branch=queue_base_branch,
@@ -201,21 +221,6 @@ def smart_strict_workflow_periodic_task():
                 # NOTE(sileht): Pull request has not been merged or cancelled
                 # yet wait next loop
                 ctxt.log.debug("pull request checks are still in progress")
-
-        except exceptions.RateLimited as e:
-            log = ctxt.log if ctxt else queue_log
-            log.info("rate limited", remaining_seconds=e.countdown)
-        except exceptions.MergeableStateUnknown as e:  # pragma: no cover
-            e.ctxt.log.warning(
-                "pull request with mergeable_state unknown retrying later",
-            )
-            _move_pull_at_end(e.ctxt)
         except Exception:  # pragma: no cover
-            log = ctxt.log if ctxt else queue_log
-            log.error(
-                "Fail to process merge queue", exc_info=True,
-            )
-            if ctxt:
-                _move_pull_at_end(ctxt)
-
-    LOG.debug("smart strict workflow loop end")
+            ctxt.log.error("Fail to process merge queue", exc_info=True)
+            _move_pull_at_end(ctxt)

@@ -34,21 +34,21 @@ def job_marketplace(event_type, event_id, data):
     owner = data["marketplace_purchase"]["account"]["login"]
     account_type = data["marketplace_purchase"]["account"]["type"]
     try:
-        installation_id = github_app.get_client().get_installation_id(
+        installation = github_app.get_client().get_installation(
             owner, account_type=account_type
         )
     except exceptions.MergifyNotInstalled:
         return
 
     r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation_id)
-    subscription = sub_utils.get_subscription(r, installation_id)
+    r.delete("subscription-cache-%s" % installation["id"])
+    subscription = sub_utils.get_subscription(r, installation["id"])
 
     LOG.info(
         "Marketplace event",
         event_type=event_type,
         event_id=event_id,
-        install_id=installation_id,
+        install_id=installation["id"],
         sender=data["sender"]["login"],
         gh_owner=owner,
         subscription_active=subscription["subscription_active"],

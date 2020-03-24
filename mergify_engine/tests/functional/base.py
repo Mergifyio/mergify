@@ -395,13 +395,14 @@ class FunctionalTestBase(unittest.TestCase):
             self.r_o_integration.name,
         )
 
+        installation = {"id": config.INSTALLATION_ID}
         try:
             self.cli_integration = github.get_client(
-                config.TESTING_ORGANIZATION, self.name, config.INSTALLATION_ID
+                config.TESTING_ORGANIZATION, self.name, installation
             )
         except httpx.HTTPNotFound:
             self.cli_integration = github.get_client(
-                config.TESTING_ORGANIZATION, self.name, config.INSTALLATION_ID
+                config.TESTING_ORGANIZATION, self.name, installation
             )
 
         real_get_subscription = sub_utils.get_subscription
