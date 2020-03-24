@@ -36,6 +36,8 @@ EXPECTED_MINIMAL_PERMISSIONS = {
     "pages": "write",
     "pull_requests": "write",
     "statuses": "read",
+}
+EXPECTED_MINIMAL_ORG_PERMISSIONS = {
     "members": "read",
 }
 
@@ -100,7 +102,11 @@ class _Client(common.BaseClient):
             )
             raise exceptions.MergifyNotInstalled()
 
-        for perm_name, perm_level in EXPECTED_MINIMAL_PERMISSIONS.items():
+        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS.copy()
+        if installation["target_type"] == "Organization":
+            expected_permissions.update(EXPECTED_MINIMAL_PERMISSIONS)
+
+        for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
                 LOG.warning(
                     "mergify installation doesn't have required permissions",
