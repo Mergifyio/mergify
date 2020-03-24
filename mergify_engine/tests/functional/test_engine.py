@@ -979,9 +979,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        client = github.get_client(
-            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
-        )
+        installation = {"id": config.INSTALLATION_ID}
+        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
         pull = mergify_context.MergifyContext(client, p.raw_data)
 
         logins = pull.resolve_teams(
@@ -1018,9 +1017,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        client = github.get_client(
-            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
-        )
+        installation = {"id": config.INSTALLATION_ID}
+        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
         pull = mergify_context.MergifyContext(client, p.raw_data)
 
         logins = pull.resolve_teams(
@@ -1582,9 +1580,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
-        client = github.get_client(
-            p.base.user.login, p.base.repo.name, config.INSTALLATION_ID
-        )
+        installation = {"id": config.INSTALLATION_ID}
+        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
         ctxt = mergify_context.MergifyContext(client, {"number": 1})
         self.assertEqual(1, ctxt.pull["number"])
         self.assertEqual("open", ctxt.pull["state"])

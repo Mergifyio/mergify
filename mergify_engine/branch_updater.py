@@ -219,7 +219,7 @@ def update_with_api(ctxt):
 def update_with_git(ctxt, method="merge"):
     redis = utils.get_redis_for_cache()
 
-    subscription = sub_utils.get_subscription(redis, ctxt.client.installation_id)
+    subscription = sub_utils.get_subscription(redis, ctxt.client.installation["id"])
 
     for login, token in subscription["tokens"].items():
         try:

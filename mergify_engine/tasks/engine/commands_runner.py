@@ -66,7 +66,7 @@ def spawn_pending_commands_tasks(ctxt, sources):
 
     for pending in pendings:
         run_command_async.s(
-            ctxt.client.installation_id,
+            ctxt.client.installation["id"],
             ctxt.pull,
             sources,
             "@Mergifyio %s" % pending,
@@ -83,12 +83,13 @@ def run_command_async(
     repo = pull_request_raw["base"]["repo"]["name"]
 
     try:
-        client = github.get_client(owner, repo, installation_id)
+        installation = github.get_installation(owner, repo, installation_id)
     except exceptions.MergifyNotInstalled:
         return
 
-    pull = mergify_context.MergifyContext(client, pull_request_raw)
-    return run_command(pull, sources, comment, user, rerun)
+    with github.get_client(owner, repo, installation) as client:
+        pull = mergify_context.MergifyContext(client, pull_request_raw)
+        return run_command(pull, sources, comment, user, rerun)
 
 
 def run_command(ctxt, sources, comment, user, rerun=False):

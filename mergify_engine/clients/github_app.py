@@ -90,7 +90,7 @@ class _Client(common.BaseClient):
             **common.DEFAULT_CLIENT_OPTIONS,
         )
 
-    def get_installation_id(self, owner, repo=None, account_type=None):
+    def get_installation(self, owner, repo=None, account_type=None):
         if not account_type and not repo:
             raise RuntimeError("repo or account_type must be passed")
 
@@ -124,7 +124,7 @@ class _Client(common.BaseClient):
                 # Or this is buggy, so disable it for now.
                 # raise exceptions.MergifyNotInstalled()
 
-        return installation["id"]
+        return installation
 
 
 global _GITHUB_APP
