@@ -29,16 +29,25 @@ from mergify_engine.clients import common
 LOG = daiquiri.getLogger(__name__)
 
 EXPECTED_MINIMAL_PERMISSIONS = {
-    "checks": "write",
-    "contents": "write",
-    "issues": "write",
-    "metadata": "read",
-    "pages": "write",
-    "pull_requests": "write",
-    "statuses": "read",
-}
-EXPECTED_MINIMAL_ORG_PERMISSIONS = {
-    "members": "read",
+    "Organization": {
+        "checks": "write",
+        "contents": "write",
+        "issues": "write",
+        "metadata": "read",
+        "pages": "write",
+        "pull_requests": "write",
+        "statuses": "read",
+        "members": "read",
+    },
+    "User": {
+        "checks": "write",
+        "contents": "write",
+        "issues": "write",
+        "metadata": "read",
+        "pages": "write",
+        "pull_requests": "write",
+        "statuses": "read",
+    },
 }
 
 
@@ -102,10 +111,7 @@ class _Client(common.BaseClient):
             )
             raise exceptions.MergifyNotInstalled()
 
-        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS.copy()
-        if installation["target_type"] == "Organization":
-            expected_permissions.update(EXPECTED_MINIMAL_PERMISSIONS)
-
+        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
         for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
                 LOG.warning(
