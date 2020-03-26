@@ -87,6 +87,13 @@ class Filter:
     def __attrs_post_init__(self):
         self._eval = self.build_evaluator(self.tree)
 
+    def get_attribute_name(self):
+        tree = self.tree.get("-", self.tree)
+        name = list(tree.values())[0][0]
+        if name.startswith(self.LENGTH_OPERATOR):
+            return name[1:]
+        return name
+
     @classmethod
     def parse(cls, string):
         return cls(parser.search.parseString(string, parseAll=True)[0])

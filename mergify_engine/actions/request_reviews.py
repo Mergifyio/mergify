@@ -17,7 +17,6 @@ class RequestReviewsAction(actions.Action):
     def run(self, ctxt, sources, missing_conditions):
 
         # Using consolidated data to avoid already done API lookup
-        data = ctxt.to_dict()
         reviews_keys = (
             "approved-reviews-by",
             "dismissed-reviews-by",
@@ -25,7 +24,9 @@ class RequestReviewsAction(actions.Action):
             "commented-reviews-by",
             "review-requested",
         )
-        existing_reviews = set(itertools.chain(*[data[key] for key in reviews_keys]))
+        existing_reviews = set(
+            itertools.chain(*[ctxt.get_consolidated_data(key) for key in reviews_keys])
+        )
         user_reviews_to_request = (
             set(self.config["users"])
             - existing_reviews

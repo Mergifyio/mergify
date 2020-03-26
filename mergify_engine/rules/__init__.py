@@ -127,7 +127,6 @@ class PullRequestRules:
         ignored_rules = attr.ib(init=False, default=attr.Factory(list))
 
         def __attrs_post_init__(self):
-            d = self.pull_request.to_dict()
             for rule in self.rules:
                 ignore_rules = False
                 next_conditions_to_validate = []
@@ -136,7 +135,10 @@ class PullRequestRules:
                         condition.set_value_expanders(
                             attrib, self.pull_request.resolve_teams,
                         )
-                    if not condition(**d):
+
+                    name = condition.get_attribute_name()
+                    value = self.pull_request.get_consolidated_data(name)
+                    if not condition(**{name: value}):
                         next_conditions_to_validate.append(condition)
                         if condition.attribute_name in self.BASE_ATTRIBUTES:
                             ignore_rules = True
