@@ -122,6 +122,8 @@ class GithubInstallationClient(common.BaseClient):
                 "number of GitHub requests for this session crossed the threshold (%s): %s",
                 LOGGING_REQUESTS_THRESHOLD,
                 nb_requests,
+                gh_owner=self.owner,
+                gh_repo=self.repo,
                 requests=self._requests,
             )
         self._requests = []
