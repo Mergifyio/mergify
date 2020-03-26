@@ -149,13 +149,22 @@ def test_get_pull_request_rule():
     get_checks = []
     get_statuses = [{"context": "continuous-integration/fake-ci", "state": "success"}]
     client.item.return_value = {"permission": "write"}  # get review user perm
-    client.items.side_effect = [
-        get_reviews,
-        get_files,
-        get_checks,
-        get_statuses,
-        get_team_members,
-    ]
+
+    def client_items(url, *args, **kwargs):
+        if url == "pulls/1/reviews":
+            return get_reviews
+        elif url == "pulls/1/files":
+            return get_files
+        elif url == "commits/<sha>/check-runs":
+            return get_checks
+        elif url == "commits/<sha>/status":
+            return get_statuses
+        elif url == "/orgs/orgs/teams/my-reviewers/members":
+            return get_team_members
+        else:
+            raise RuntimeError(f"not handled url {url}")
+
+    client.items.side_effect = client_items
 
     ctxt = mergify_context.MergifyContext(
         client,
@@ -181,9 +190,6 @@ def test_get_pull_request_rule():
             "user": {"login": "another-jd"},
         },
     )
-
-    # Don't catch data in these tests
-    ctxt.to_dict = ctxt._get_consolidated_data
 
     # Empty conditions
     pull_request_rules = rules.PullRequestRules(
@@ -392,17 +398,8 @@ def test_get_pull_request_rule():
             "author_association": "MEMBER",
         }
     )
-    client.items.side_effect = [
-        get_reviews,
-        get_files,
-        get_checks,
-        get_statuses,
-        get_team_members,
-    ]
-    # Drop caches
-    del ctxt.__dict__["checks"]
+
     del ctxt.__dict__["reviews"]
-    del ctxt.__dict__["files"]
     del ctxt.__dict__["consolidated_reviews"]
 
     # Team conditions with no review missing

@@ -50,7 +50,6 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 class MergifyContext(object):
     client = attr.ib()
     pull = attr.ib()
-    _consolidated_data = attr.ib(init=False, default=None)
 
     @property
     def log(self):
@@ -122,72 +121,88 @@ class MergifyContext(object):
                 approvals[review["user"]["login"]] = review
         return list(comments.values()), list(approvals.values())
 
-    def to_dict(self):
-        if self._consolidated_data is None:
-            self._consolidated_data = self._get_consolidated_data()
-        return self._consolidated_data
+    def get_consolidated_data(self, name):
+        if name == "assignee":
+            return [a["login"] for a in self.pull["assignees"]]
 
-    def _get_consolidated_data(self):
-        comments, approvals = self.consolidated_reviews
-        return {
-            # Can be used by rules too
-            "assignee": [a["login"] for a in self.pull["assignees"]],
-            # NOTE(sileht): We put an empty label to allow people to match
-            # no label set
-            "label": [l["name"] for l in self.pull["labels"]],
-            "review-requested": (
-                [u["login"] for u in self.pull["requested_reviewers"]]
-                + ["@" + t["slug"] for t in self.pull["requested_teams"]]
-            ),
-            "author": self.pull["user"]["login"],
-            "merged-by": (
-                self.pull["merged_by"]["login"] if self.pull["merged_by"] else ""
-            ),
-            "merged": self.pull["merged"],
-            "closed": self.pull["state"] == "closed",
-            "milestone": (
-                self.pull["milestone"]["title"] if self.pull["milestone"] else ""
-            ),
-            "conflict": self.pull["mergeable_state"] == "dirty",
-            "base": self.pull["base"]["ref"],
-            "head": self.pull["head"]["ref"],
-            "locked": self.pull["locked"],
-            "title": self.pull["title"],
-            "body": self.pull["body"],
-            "files": [f["filename"] for f in self.files],
-            "approved-reviews-by": [
-                r["user"]["login"] for r in approvals if r["state"] == "APPROVED"
-            ],
-            "dismissed-reviews-by": [
-                r["user"]["login"] for r in approvals if r["state"] == "DISMISSED"
-            ],
-            "changes-requested-reviews-by": [
+        elif name == "label":
+            return [l["name"] for l in self.pull["labels"]]
+
+        elif name == "review-requested":
+            return [u["login"] for u in self.pull["requested_reviewers"]] + [
+                "@" + t["slug"] for t in self.pull["requested_teams"]
+            ]
+
+        elif name == "author":
+            return self.pull["user"]["login"]
+
+        elif name == "merged-by":
+            return self.pull["merged_by"]["login"] if self.pull["merged_by"] else ""
+
+        elif name == "merged":
+            return self.pull["merged"]
+
+        elif name == "closed":
+            return self.pull["state"] == "closed"
+
+        elif name == "milestone":
+            return self.pull["milestone"]["title"] if self.pull["milestone"] else ""
+
+        elif name == "conflict":
+            return self.pull["mergeable_state"] == "dirty"
+
+        elif name == "base":
+            return self.pull["base"]["ref"]
+
+        elif name == "head":
+            return self.pull["head"]["ref"]
+
+        elif name == "locked":
+            return self.pull["locked"]
+
+        elif name == "title":
+            return self.pull["title"]
+
+        elif name == "body":
+            return self.pull["body"]
+
+        elif name == "files":
+            return [f["filename"] for f in self.files]
+
+        elif name == "approved-reviews-by":
+            _, approvals = self.consolidated_reviews
+            return [r["user"]["login"] for r in approvals if r["state"] == "APPROVED"]
+        elif name == "dismissed-reviews-by":
+            _, approvals = self.consolidated_reviews
+            return [r["user"]["login"] for r in approvals if r["state"] == "DISMISSED"]
+        elif name == "changes-requested-reviews-by":
+            _, approvals = self.consolidated_reviews
+            return [
                 r["user"]["login"]
                 for r in approvals
                 if r["state"] == "CHANGES_REQUESTED"
-            ],
-            "commented-reviews-by": [
-                r["user"]["login"] for r in comments if r["state"] == "COMMENTED"
-            ],
-            # NOTE(jd) The Check API set conclusion to None for pending.
-            # NOTE(sileht): "pending" statuses are not really trackable, we
-            # voluntary drop this event because CIs just sent they status every
-            # minutes until the CI pass (at least Travis and Circle CI does
-            # that). This was causing a big load on Mergify for nothing useful
-            # tracked, and on big projects it can reach the rate limit very
-            # quickly.
-            "status-success": [
-                name for name, state in self.checks.items() if state == "success"
-            ],
-            "status-failure": [
-                name for name, state in self.checks.items() if state == "failure"
-            ],
-            "status-neutral": [
-                name for name, state in self.checks.items() if state == "neutral"
-            ],
-            # NOTE(sileht): Not handled for now
-            # cancelled, timed_out, or action_required
-        }
+            ]
+        elif name == "commented-reviews-by":
+            comments, _ = self.consolidated_reviews
+            return [r["user"]["login"] for r in comments if r["state"] == "COMMENTED"]
+
+        # NOTE(jd) The Check API set conclusion to None for pending.
+        # NOTE(sileht): "pending" statuses are not really trackable, we
+        # voluntary drop this event because CIs just sent they status every
+        # minutes until the CI pass (at least Travis and Circle CI does
+        # that). This was causing a big load on Mergify for nothing useful
+        # tracked, and on big projects it can reach the rate limit very
+        # quickly.
+        # NOTE(sileht): Not handled for now: cancelled, timed_out, or action_required
+        elif name == "status-success":
+            return [ctxt for ctxt, state in self.checks.items() if state == "success"]
+        elif name == "status-failure":
+            return [ctxt for ctxt, state in self.checks.items() if state == "failure"]
+        elif name == "status-neutral":
+            return [ctxt for ctxt, state in self.checks.items() if state == "neutral"]
+
+        else:
+            raise AttributeError(f"Invalid attribute: {name}")
 
     @functools_bp.cached_property
     def checks(self):
