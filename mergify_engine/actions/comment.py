@@ -36,7 +36,7 @@ class CommentAction(actions.Action):
                 return True
         return False
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         message = self.config["message"]
         try:
             ctxt.client.post(

@@ -23,7 +23,7 @@ class RefreshAction(actions.Action):
     is_action = False
     validator = {}
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         data = {
             "action": "user",
             "repository": ctxt.pull["base"]["repo"],

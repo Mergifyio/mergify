@@ -172,9 +172,8 @@ def _run(client, event_type, data):
         )
         return
 
-    ctxt = context.Context(client, raw_pull)
-    # Override pull_request with the updated one
-    data["pull_request"] = ctxt.pull
+    sources = [{"event_type": event_type, "data": data}]
+    ctxt = context.Context(client, raw_pull, sources)
 
     if (
         "base" not in ctxt.pull
@@ -262,13 +261,11 @@ def _run(client, event_type, data):
     if event_type == "pull_request" and data["action"] == "synchronize":
         copy_summary_from_previous_head_sha(ctxt, data["before"])
 
-    sources = [{"event_type": event_type, "data": data}]
-
-    commands_runner.spawn_pending_commands_tasks(ctxt, sources)
+    commands_runner.spawn_pending_commands_tasks(ctxt)
 
     if event_type == "issue_comment":
         commands_runner.run_command(
-            ctxt, sources, data["comment"]["body"], data["comment"]["user"]
+            ctxt, data["comment"]["body"], data["comment"]["user"]
         )
     else:
-        actions_runner.handle(mergify_config["pull_request_rules"], ctxt, sources)
+        actions_runner.handle(mergify_config["pull_request_rules"], ctxt)

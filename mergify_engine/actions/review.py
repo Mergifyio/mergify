@@ -37,7 +37,7 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         payload = {"event": self.config["type"]}
         body = self.config["message"]
         if not body and self.config["type"] != "APPROVE":

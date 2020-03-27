@@ -24,7 +24,7 @@ class UpdateAction(actions.Action):
     validator = {}
 
     @staticmethod
-    def run(pull, sources, missing_conditions):
+    def run(pull, missing_conditions):
         try:
             branch_updater.update_with_api(pull)
         except branch_updater.BranchUpdateFailure as e:

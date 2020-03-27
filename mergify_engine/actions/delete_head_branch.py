@@ -28,7 +28,7 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         if ctxt.pull_from_fork:
             return ("success", "Pull request come from fork", "")
 

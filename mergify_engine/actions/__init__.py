@@ -82,8 +82,8 @@ class Action(abc.ABC):
         return {}
 
     @staticmethod
-    def run(pull, sources, missing_conditions):  # pragma: no cover
+    def run(ctxt, missing_conditions):  # pragma: no cover
         pass
 
-    def cancel(self, pull, sources, missing_conditions):  # pragma: no cover
+    def cancel(self, ctxt, missing_conditions):  # pragma: no cover
         return self.cancelled_check_report
