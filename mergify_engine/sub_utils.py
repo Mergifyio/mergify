@@ -92,7 +92,7 @@ def _decrypt(value):
 
 
 def _retrieve_subscription_from_db(installation_id):
-    LOG.debug("Subscription not cached, retrieving it...", install_id=installation_id)
+    LOG.info("Subscription not cached, retrieving it...", install_id=installation_id)
     resp = requests.get(
         config.SUBSCRIPTION_URL % installation_id,
         auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),

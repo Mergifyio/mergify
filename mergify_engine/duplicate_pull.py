@@ -210,7 +210,7 @@ def duplicate(
             try:
                 git("cherry-pick", "-x", commit["sha"])
             except subprocess.CalledProcessError as e:  # pragma: no cover
-                ctxt.log.debug("fail to cherry-pick %s: %s", commit["sha"], e.output)
+                ctxt.log.info("fail to cherry-pick %s: %s", commit["sha"], e.output)
                 git_status = git("status").decode("utf8")
                 body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{git_status}```\n\n"
                 if not ignore_conflicts:

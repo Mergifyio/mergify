@@ -351,7 +351,7 @@ def marketplace_testng_handler():  # pragma: no cover
     event_type = flask.request.headers.get("X-GitHub-Event")
     event_id = flask.request.headers.get("X-GitHub-Delivery")
     data = flask.request.get_json()
-    LOG.debug(
+    LOG.info(
         "received marketplace testing events",
         event_type=event_type,
         event_id=event_id,

@@ -46,7 +46,7 @@ class MergeAction(actions.Action):
     }
 
     def run(self, ctxt, sources, missing_conditions):
-        ctxt.log.debug("process merge", config=self.config)
+        ctxt.log.info("process merge", config=self.config)
 
         output = helpers.merge_report(ctxt, self.config["strict"])
         if output:
@@ -162,7 +162,7 @@ class MergeAction(actions.Action):
 
     def _handle_merge_error(self, e, ctxt):
         if "Head branch was modified" in e.message:
-            ctxt.log.debug(
+            ctxt.log.info(
                 "Head branch was modified in the meantime",
                 status=e.status_code,
                 error_message=e.message,
@@ -176,7 +176,7 @@ class MergeAction(actions.Action):
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
             # here, usually by something not merged by mergify. So we need sync it again
             # with the base branch.
-            ctxt.log.debug(
+            ctxt.log.info(
                 "Base branch was modified in the meantime, retrying",
                 status=e.status_code,
                 error_message=e.message,
@@ -184,7 +184,7 @@ class MergeAction(actions.Action):
             return self._sync_with_base_branch(ctxt)
 
         elif e.status_code == 405:
-            ctxt.log.debug(
+            ctxt.log.info(
                 "Waiting for the Branch Protection to be validated",
                 status=e.status_code,
                 error_message=e.message,
