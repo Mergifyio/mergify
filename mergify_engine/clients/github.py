@@ -28,7 +28,7 @@ from mergify_engine.clients import common
 from mergify_engine.clients import github_app
 
 
-LOGGING_REQUESTS_THRESHOLD = 42
+LOGGING_REQUESTS_THRESHOLD = 20
 LOG = daiquiri.getLogger(__name__)
 
 
