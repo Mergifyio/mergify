@@ -1469,33 +1469,26 @@ no changes added to commit (use "git add" and/or "git commit -a")
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "auto-rebase-on-conflict",
-                    "conditions": ["conflict"],
+                    "name": "auto-rebase-on-label",
+                    "conditions": ["label=rebase"],
                     "actions": {"comment": {"message": "@mergifyio rebase it please"}},
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = self.create_pr(files={"TESTING": "foobar\np1"})
-        p2, _ = self.create_pr(files={"TESTING": "p2\nfoobar"})
+        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar\n"})
+        p1, _ = self.create_pr(files={"TESTING": "foobar\n\n\np1"})
+        p2, _ = self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
         p1.merge()
+        self.add_label(p2, "rebase")
 
-        # Since we use celery eager system for testing, countdown= are ignored.
-        # Wait a bit than Github refresh the mergeable_state before running the
-        # engine
-        if base.RECORD:
-            time.sleep(10)
-
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("issue_comment", {"action": "created"})
-
-        if base.RECORD:
-            time.sleep(1)
+        self.wait_for("pull_request", {"action": "synchronize"})
 
         oldsha = p2.head.sha
+        p2.merge()
         p2.update()
         assert oldsha != p2.head.sha
-        assert p2.raw_data["mergeable_state"] != "conflict"
+        f = p2.base.repo.get_contents("TESTING")
+        assert f.decoded_content == b"p2\n\nfoobar\n\n\np1"
 
     def test_requested_reviews(self):
         team = list(self.o_admin.get_teams())[0]
