@@ -150,7 +150,7 @@ def _do_update(ctxt, token, method="merge"):
         except subprocess.CalledProcessError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
-                    ctxt.log.debug("Complete history cloned")
+                    ctxt.log.info("Complete history cloned")
                     # NOTE(sileht): We currently assume we have only one parent
                     # commit in common. Since Git is a graph, in some case this
                     # graph can be more complicated.
@@ -198,17 +198,17 @@ def update_with_api(ctxt):
         )
     except httpx.HTTPClientSideError as e:
         if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:
-            ctxt.log.debug(
+            ctxt.log.info(
                 "branch updated in the meantime", status=e.status_code, error=e.message,
             )
             return
         else:
-            ctxt.log.debug(
+            ctxt.log.info(
                 "update branch failed", status=e.status_code, error=e.message,
             )
             raise BranchUpdateFailure(e.message)
     except httpx.HTTPError as e:
-        ctxt.log.debug(
+        ctxt.log.info(
             "update branch failed",
             status=(e.response.status_code if e.response else None),
             error=str(e),
@@ -225,7 +225,7 @@ def update_with_git(ctxt, method="merge"):
         try:
             return _do_update(ctxt, token, method)
         except AuthentificationFailure as e:  # pragma: no cover
-            ctxt.log.debug(
+            ctxt.log.info(
                 "authentification failure, will retry another token: %s",
                 e,
                 login=login,

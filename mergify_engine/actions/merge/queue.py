@@ -57,7 +57,7 @@ def add_pull(ctxt, method):
     score = utils.utcnow().timestamp()
     redis.zadd(queue, {ctxt.pull["number"]: score}, nx=True)
     redis.set(_get_update_method_cache_key(ctxt), method)
-    ctxt.log.debug("pull request added to merge queue", queue=queue)
+    ctxt.log.info("pull request added to merge queue", queue=queue)
 
 
 def remove_pull(ctxt):
@@ -65,7 +65,7 @@ def remove_pull(ctxt):
     queue = _get_queue_cache_key(ctxt)
     redis.zrem(queue, ctxt.pull["number"])
     redis.delete(_get_update_method_cache_key(ctxt))
-    ctxt.log.debug("pull request removed from merge queue", queue=queue)
+    ctxt.log.info("pull request removed from merge queue", queue=queue)
 
 
 def _move_pull_at_end(ctxt):  # pragma: no cover
@@ -73,7 +73,7 @@ def _move_pull_at_end(ctxt):  # pragma: no cover
     queue = _get_queue_cache_key(ctxt)
     score = utils.utcnow().timestamp()
     redis.zadd(queue, {ctxt.pull["number"]: score}, xx=True)
-    ctxt.log.debug(
+    ctxt.log.info(
         "pull request moved at the end of the merge queue", queue=queue,
     )
 
@@ -85,7 +85,7 @@ def _move_pull_to_new_base_branch(ctxt, old_base_branch):
     redis.zrem(old_queue, ctxt.pull["number"])
     method = redis.get(_get_update_method_cache_key(ctxt)) or "merge"
     add_pull(ctxt, method)
-    ctxt.log.debug("pull request moved from %s to %s", old_queue, new_queue)
+    ctxt.log.info("pull request moved from %s to %s", old_queue, new_queue)
 
 
 def _get_pulls(queue):
@@ -114,7 +114,7 @@ def _handle_first_pull_in_queue(queue, ctxt):
     output = helpers.merge_report(ctxt, True)
     if output:
         conclusion, title, summary = output
-        ctxt.log.debug(
+        ctxt.log.info(
             "pull request closed in the meantime",
             conclusion=conclusion,
             title=title,
@@ -122,13 +122,13 @@ def _handle_first_pull_in_queue(queue, ctxt):
         )
         remove_pull(ctxt)
     else:
-        ctxt.log.debug("updating base branch of pull request")
+        ctxt.log.info("updating base branch of pull request")
         redis = utils.get_redis_for_cache()
         method = redis.get(_get_update_method_cache_key(ctxt)) or "merge"
         conclusion, title, summary = helpers.update_pull_base_branch(ctxt, method)
 
         if ctxt.pull["state"] == "closed":
-            ctxt.log.debug(
+            ctxt.log.info(
                 "pull request closed in the meantime",
                 conclusion=conclusion,
                 title=title,
@@ -136,7 +136,7 @@ def _handle_first_pull_in_queue(queue, ctxt):
             )
             remove_pull(ctxt)
         elif conclusion == "failure":
-            ctxt.log.debug("base branch update failed", title=title, summary=summary)
+            ctxt.log.info("base branch update failed", title=title, summary=summary)
             _move_pull_at_end(ctxt)
 
     status = "completed" if conclusion else "in_progress"
@@ -157,15 +157,15 @@ def smart_strict_workflow_periodic_task():
     # another one.
 
     redis = utils.get_redis_for_cache()
-    LOG.debug("smart strict workflow loop start")
+    LOG.info("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):
         queue_log = get_queue_logger(queue)
-        queue_log.debug("handling queue: %s", queue)
+        queue_log.info("handling queue: %s", queue)
         try:
             process_queue(queue)
         except Exception:
             queue_log.error("Fail to process merge queue", exc_info=True)
-    LOG.debug("smart strict workflow loop end")
+    LOG.info("smart strict workflow loop end")
 
 
 def process_queue(queue):
@@ -174,9 +174,9 @@ def process_queue(queue):
 
     pull_numbers = _get_pulls(queue)
 
-    queue_log.debug("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
+    queue_log.info("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if not pull_numbers:
-        queue_log.debug("no pull request for this queue")
+        queue_log.info("no pull request for this queue")
         return
 
     pull_number = int(pull_numbers[0])
@@ -204,7 +204,7 @@ def process_queue(queue):
             return
         try:
             if ctxt.pull["base"]["ref"] != queue_base_branch:
-                ctxt.log.debug(
+                ctxt.log.info(
                     "pull request base branch have changed",
                     old_branch=queue_base_branch,
                     new_branch=ctxt.pull["base"]["ref"],
@@ -213,14 +213,14 @@ def process_queue(queue):
             elif ctxt.pull["state"] == "closed" or ctxt.is_behind:
                 # NOTE(sileht): Pick up this pull request and rebase it again
                 # or update its status and remove it from the queue
-                ctxt.log.debug(
+                ctxt.log.info(
                     "pull request needs to be updated again or has been closed",
                 )
                 _handle_first_pull_in_queue(queue, ctxt)
             else:
                 # NOTE(sileht): Pull request has not been merged or cancelled
                 # yet wait next loop
-                ctxt.log.debug("pull request checks are still in progress")
+                ctxt.log.info("pull request checks are still in progress")
         except Exception:  # pragma: no cover
             ctxt.log.error("Fail to process merge queue", exc_info=True)
             _move_pull_at_end(ctxt)

@@ -180,7 +180,7 @@ def post_summary(ctxt, sources, match, summary_check, conclusions):
     )
 
     if summary_changed:
-        ctxt.log.debug(
+        ctxt.log.info(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(sources),
@@ -193,7 +193,7 @@ def post_summary(ctxt, sources, match, summary_check, conclusions):
             output={"title": summary_title, "summary": summary},
         )
     else:
-        ctxt.log.debug(
+        ctxt.log.info(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(sources),
