@@ -30,25 +30,6 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 </details>"""
 
 
-def find_embedded_pull(ctxt):
-    # NOTE(sileht): We are looking for a pull request that have been merged
-    # very recently and have commit sha in common with current pull request.
-    expected_commits = [c["sha"] for c in ctxt.commits]
-
-    # NOTE(sileht): Looks only for the first page
-    pulls = ctxt.client.item("pulls", state="closed", base=ctxt.pull["base"]["ref"])
-
-    for p_other in pulls:
-        if p_other["number"] == ctxt.pull["number"]:
-            continue
-        commits = [
-            c["sha"] for c in ctxt.client.items(f"pulls/{p_other['number']}/commits")
-        ]
-        commits_not_found = [c for c in expected_commits if c not in commits]
-        if not commits_not_found:
-            return p_other
-
-
 def get_already_merged_summary(ctxt, sources, match):
     for source in sources:
         if (
@@ -72,11 +53,13 @@ def get_already_merged_summary(ctxt, sources, match):
     if not action_merge_found or action_merge_found_in_active_rule:
         return ""
 
-    other_pr = find_embedded_pull(ctxt)
-    if other_pr:
+    # NOTE(sileht): While this looks impossible because the pull request haven't been
+    # merged by our engine. If this pull request was a slice of another one, Github close
+    # it automatically and put as merged_by the merger of the other one.
+    if ctxt.pull["merged_by"]["login"] in ["mergify[bot]", "mergify-test[bot]"]:
         return (
             "⚠️ The pull request has been closed by GitHub"
-            "because its commits are also part of #%d\n\n" % other_pr["number"]
+            "because its commits are also part of another pull request"
         )
     else:
         return (
