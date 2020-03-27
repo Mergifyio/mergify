@@ -103,7 +103,7 @@ class _Client(common.BaseClient):
         try:
             installation = self.get(url).json()
         except httpx.HTTPNotFound as e:
-            LOG.warning(
+            LOG.debug(
                 "mergify not installed",
                 gh_owner=owner,
                 gh_repo=repo,
@@ -114,7 +114,7 @@ class _Client(common.BaseClient):
         expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
         for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
-                LOG.warning(
+                LOG.debug(
                     "mergify installation doesn't have required permissions",
                     gh_owner=owner,
                     gh_repo=repo,

@@ -125,15 +125,15 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
             ]
             if ctxt.pull["number"] not in pull_numbers:
                 if len(out_commits) == 1:
-                    ctxt.log.info(
+                    ctxt.log.debug(
                         "Pull requests merged with one commit rebased, or squashed",
                     )
                 else:
-                    ctxt.log.info("Pull requests merged after rebase")
+                    ctxt.log.debug("Pull requests merged after rebase")
                 return out_commits
 
     elif len(merge_commit["parents"]) == 2:
-        ctxt.log.info("Pull request merged with merge commit")
+        ctxt.log.debug("Pull request merged with merge commit")
         return _get_commits_without_base_branch_merge(ctxt)
 
     else:  # pragma: no cover
