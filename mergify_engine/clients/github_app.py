@@ -111,6 +111,7 @@ class _Client(common.BaseClient):
             )
             raise exceptions.MergifyNotInstalled()
 
+        installation["permissions_need_to_be_updated"] = False
         expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
         for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
@@ -120,6 +121,7 @@ class _Client(common.BaseClient):
                     gh_repo=repo,
                     permissions=installation["permissions"],
                 )
+                installation["permissions_need_to_be_updated"] = True
                 # FIXME(sileht): Looks like ton of people have not all permissions
                 # Or this is buggy, so disable it for now.
                 # raise exceptions.MergifyNotInstalled()

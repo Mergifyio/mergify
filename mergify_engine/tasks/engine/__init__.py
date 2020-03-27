@@ -175,6 +175,19 @@ def _run(client, event_type, data):
     sources = [{"event_type": event_type, "data": data}]
     ctxt = context.Context(client, raw_pull, sources)
 
+    if ctxt.client.installation["permissions_need_to_be_updated"]:
+        check_api.set_check_run(
+            ctxt,
+            "Summary",
+            "completed",
+            "failure",
+            output={
+                "title": "Required GitHub permissions are missing.",
+                "summary": "You can accept them at https://dashboard.mergify.io/",
+            },
+        )
+        return
+
     if (
         "base" not in ctxt.pull
         or "repo" not in ctxt.pull["base"]
