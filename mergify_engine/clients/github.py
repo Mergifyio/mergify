@@ -28,6 +28,7 @@ from mergify_engine.clients import common
 from mergify_engine.clients import github_app
 
 
+LOGGING_REQUESTS_THRESHOLD = 42
 LOG = daiquiri.getLogger(__name__)
 
 
@@ -64,7 +65,7 @@ class GithubInstallationClient(common.BaseClient):
         self.owner = owner
         self.repo = repo
         self.installation = installation
-        self._nb_requests = 0
+        self._requests = []
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
             auth=GithubInstallationAuth(self.installation["id"]),
@@ -105,17 +106,27 @@ class GithubInstallationClient(common.BaseClient):
             else:
                 break
 
-    def request(self, *args, **kwargs):
+    def request(self, method, url, *args, **kwargs):
         try:
-            return super().request(*args, **kwargs)
+            return super().request(method, url, *args, **kwargs)
         finally:
-            self._nb_requests += 1
+            self._requests.append((method, url))
 
     def close(self):
         super().close()
-        statsd.histogram("github.http_request.size", self._nb_requests)
-        statsd.increment("github.http_request.count", self._nb_requests)
-        self._nb_requests = 0
+        nb_requests = len(self._requests)
+        statsd.histogram("github.http_request.size", nb_requests)
+        statsd.increment("github.http_request.count", nb_requests)
+        if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
+            LOG.warning(
+                "number of GitHub requests for this session crossed the threshold (%s): %s",
+                LOGGING_REQUESTS_THRESHOLD,
+                nb_requests,
+                gh_owner=self.owner,
+                gh_repo=self.repo,
+                requests=self._requests,
+            )
+        self._requests = []
 
 
 RATE_LIMIT_THRESHOLD = 20
