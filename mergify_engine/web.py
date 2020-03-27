@@ -173,7 +173,9 @@ def PullRequestUrl(v):
         except httpx.HTTPNotFound:
             raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
-        return context.Context(client, data)
+        return context.Context(
+            client, data, [{"event_type": "mergify-simulator", "data": []}]
+        )
 
 
 SimulatorSchema = voluptuous.Schema(
@@ -222,17 +224,8 @@ def simulator():
     if ctxt:
         with ctxt.client:
             pull_request_rules = data["mergify.yml"]["pull_request_rules"]
-
             match = pull_request_rules.get_pull_request_rule(ctxt)
-
-            raw_event = {
-                "repository": ctxt.pull["base"]["repo"],
-                "installation": {"id": ctxt.client.installation["id"]},
-                "pull_request": ctxt.pull,
-            }
-            title, summary = actions_runner.gen_summary(
-                ctxt, [{"event_type": "refresh", "data": raw_event}], match
-            )
+            title, summary = actions_runner.gen_summary(ctxt, match)
     else:
         title = "The configuration is valid"
         summary = None

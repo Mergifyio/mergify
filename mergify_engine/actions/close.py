@@ -27,7 +27,7 @@ class CloseAction(actions.Action):
     only_once = True
     validator = {voluptuous.Required("message", default=MSG): str}
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         if ctxt.pull["state"] == "close":
             return ("success", "Pull request is already closed", "")
 

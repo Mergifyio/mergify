@@ -50,7 +50,7 @@ def load_action(message):
         return match[1], command_args, action
 
 
-def spawn_pending_commands_tasks(ctxt, sources):
+def spawn_pending_commands_tasks(ctxt):
     pendings = set()
     for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
         if comment["user"]["id"] != config.BOT_USER_ID:
@@ -68,7 +68,7 @@ def spawn_pending_commands_tasks(ctxt, sources):
         run_command_async.s(
             ctxt.client.installation["id"],
             ctxt.pull,
-            sources,
+            ctxt.sources,
             "@Mergifyio %s" % pending,
             None,
             rerun=True,
@@ -88,11 +88,11 @@ def run_command_async(
         return
 
     with github.get_client(owner, repo, installation) as client:
-        pull = context.Context(client, pull_request_raw)
-        return run_command(pull, sources, comment, user, rerun)
+        ctxt = context.Context(client, pull_request_raw, sources)
+        return run_command(ctxt, comment, user, rerun)
 
 
-def run_command(ctxt, sources, comment, user, rerun=False):
+def run_command(ctxt, comment, user, rerun=False):
     # Run command only if this is a pending task or if user have permission to do it.
     if (
         rerun
@@ -105,7 +105,7 @@ def run_command(ctxt, sources, comment, user, rerun=False):
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-            report = method.run(ctxt, sources, [])
+            report = method.run(ctxt, [])
 
             if command_args:
                 command_full = f"{command} {command_args}"

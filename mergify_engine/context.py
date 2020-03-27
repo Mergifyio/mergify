@@ -50,6 +50,7 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 class Context(object):
     client = attr.ib()
     pull = attr.ib()
+    sources = attr.ib(factory=list)
 
     @property
     def log(self):

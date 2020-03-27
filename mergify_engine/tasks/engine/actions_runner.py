@@ -30,8 +30,8 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 </details>"""
 
 
-def get_already_merged_summary(ctxt, sources, match):
-    for source in sources:
+def get_already_merged_summary(ctxt, match):
+    for source in ctxt.sources:
         if (
             source["event_type"] != "pull_request"
             or source["data"]["action"] != "closed"
@@ -82,13 +82,13 @@ def gen_summary_rules(rules):
     return summary
 
 
-def gen_summary(pull, sources, match):
+def gen_summary(ctxt, match):
     summary = ""
-    summary += get_already_merged_summary(pull, sources, match)
+    summary += get_already_merged_summary(ctxt, match)
     summary += gen_summary_rules(match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x[0]["hidden"], match.ignored_rules)))
 
-    commit_message = pull.get_merge_commit_message()
+    commit_message = ctxt.get_merge_commit_message()
     if commit_message:
         summary += "<hr />The merge or squash commit message will be:\n\n"
         summary += "```\n"
@@ -150,8 +150,8 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
-def post_summary(ctxt, sources, match, summary_check, conclusions):
-    summary_title, summary = gen_summary(ctxt, sources, match)
+def post_summary(ctxt, match, summary_check, conclusions):
+    summary_title, summary = gen_summary(ctxt, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
@@ -166,7 +166,7 @@ def post_summary(ctxt, sources, match, summary_check, conclusions):
         ctxt.log.info(
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
-            sources=_filterred_sources_for_logging(sources),
+            sources=_filterred_sources_for_logging(ctxt.sources),
         )
         check_api.set_check_run(
             ctxt,
@@ -179,14 +179,14 @@ def post_summary(ctxt, sources, match, summary_check, conclusions):
         ctxt.log.info(
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
-            sources=_filterred_sources_for_logging(sources),
+            sources=_filterred_sources_for_logging(ctxt.sources),
         )
 
 
-def exec_action(method_name, rule, action, ctxt, sources, missing_conditions):
+def exec_action(method_name, rule, action, ctxt, missing_conditions):
     try:
         method = getattr(rule["actions"][action], method_name)
-        return method(ctxt, sources, missing_conditions)
+        return method(ctxt, missing_conditions)
     except Exception:  # pragma: no cover
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
@@ -226,7 +226,7 @@ def get_previous_conclusion(previous_conclusions, name, checks):
 
 
 def run_actions(
-    ctxt, sources, match, checks, previous_conclusions,
+    ctxt, match, checks, previous_conclusions,
 ):
     """
     What action.run() and action.cancel() return should be reworked a bit. Currently the
@@ -240,12 +240,12 @@ def run_actions(
     """
 
     user_refresh_requested = any(
-        [source["event_type"] == "refresh" for source in sources]
+        [source["event_type"] == "refresh" for source in ctxt.sources]
     )
     forced_refresh_requested = any(
         [
             (source["event_type"] == "refresh" and source["data"]["action"] == "forced")
-            for source in sources
+            for source in ctxt.sources
         ]
     )
 
@@ -307,7 +307,7 @@ def run_actions(
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
                 report = exec_action(
-                    method_name, rule, action, ctxt, sources, missing_conditions,
+                    method_name, rule, action, ctxt, missing_conditions,
                 )
                 message = "`%s` executed" % method_name
 
@@ -345,19 +345,19 @@ def run_actions(
                 conclusion=conclusions[check_name],
                 check_name=check_name,
                 missing_conditions=missing_conditions,
-                event_types=[se["event_type"] for se in sources],
+                event_types=[se["event_type"] for se in ctxt.sources],
             )
 
     return conclusions
 
 
-def handle(pull_request_rules, pull, sources):
-    match = pull_request_rules.get_pull_request_rule(pull)
-    checks = dict((c["name"], c) for c in check_api.get_checks(pull, mergify_only=True))
+def handle(pull_request_rules, ctxt):
+    match = pull_request_rules.get_pull_request_rule(ctxt)
+    checks = dict((c["name"], c) for c in check_api.get_checks(ctxt, mergify_only=True))
 
     summary_check = checks.get(SUMMARY_NAME)
-    previous_conclusions = load_conclusions(pull, summary_check)
+    previous_conclusions = load_conclusions(ctxt, summary_check)
 
-    conclusions = run_actions(pull, sources, match, checks, previous_conclusions)
+    conclusions = run_actions(ctxt, match, checks, previous_conclusions)
 
-    post_summary(pull, sources, match, summary_check, conclusions)
+    post_summary(ctxt, match, summary_check, conclusions)

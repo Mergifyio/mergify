@@ -38,8 +38,8 @@ class DismissReviewsAction(actions.Action):
     silent_report = True
 
     @staticmethod
-    def _have_been_synchronized(sources):
-        for source in sources:
+    def _have_been_synchronized(ctxt):
+        for source in ctxt.sources:
             if (
                 source["event_type"] == "pull_request"
                 and source["data"]["action"] == "synchronize"
@@ -48,8 +48,8 @@ class DismissReviewsAction(actions.Action):
                 return True
         return False
 
-    def run(self, ctxt, sources, missing_conditions):
-        if self._have_been_synchronized(sources):
+    def run(self, ctxt, missing_conditions):
+        if self._have_been_synchronized(ctxt):
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
             # his access_token instead of the Mergify installation token.

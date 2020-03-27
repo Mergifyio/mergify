@@ -45,7 +45,7 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt, sources, missing_conditions):
+    def run(self, ctxt, missing_conditions):
         ctxt.log.info("process merge", config=self.config)
 
         output = helpers.merge_report(ctxt, self.config["strict"])
@@ -63,7 +63,7 @@ class MergeAction(actions.Action):
                 if self.config["strict"] == "smart":
                     queue.remove_pull(ctxt)
 
-    def cancel(self, ctxt, sources, missing_conditions):
+    def cancel(self, ctxt, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination

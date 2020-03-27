@@ -119,7 +119,9 @@ def report(url):
     report_sub(client.installation["id"], slug, db_sub, "DASHBOARD")
 
     pull_raw = client.item(f"pulls/{pull_number}")
-    ctxt = context.Context(client, pull_raw)
+    ctxt = context.Context(
+        client, pull_raw, [{"event_type": "mergify-debugger", "data": {}}]
+    )
 
     print(
         "* REPOSITORY IS %s" % "PRIVATE"
@@ -187,9 +189,7 @@ def report(url):
     if pull_request_rules is not None:
         print("* MERGIFY LIVE MATCHES:")
         match = pull_request_rules.get_pull_request_rule(ctxt)
-        summary_title, summary = actions_runner.gen_summary(
-            ctxt, [{"event_type": "refresh", "data": {}}], match
-        )
+        summary_title, summary = actions_runner.gen_summary(ctxt, match)
         print("> %s" % summary_title)
         print(summary)
 
