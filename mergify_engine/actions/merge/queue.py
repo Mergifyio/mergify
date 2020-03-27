@@ -176,7 +176,6 @@ def process_queue(queue):
 
     queue_log.info("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
     if not pull_numbers:
-        queue_log.info("no pull request for this queue")
         return
 
     pull_number = int(pull_numbers[0])
@@ -194,7 +193,7 @@ def process_queue(queue):
             ctxt = mergify_context.MergifyContext(client, data)
         except exceptions.RateLimited as e:
             log = ctxt.log if ctxt else queue_log
-            log.info("rate limited", remaining_seconds=e.countdown)
+            log.debug("rate limited", remaining_seconds=e.countdown)
             return
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             e.ctxt.log.warning(

@@ -176,8 +176,6 @@ def _run(client, event_type, data):
     # Override pull_request with the updated one
     data["pull_request"] = ctxt.pull
 
-    ctxt.log.info("Pull request found in the event %s", event_type)
-
     if (
         "base" not in ctxt.pull
         or "repo" not in ctxt.pull["base"]
@@ -192,19 +190,21 @@ def _run(client, event_type, data):
     if (
         event_type == "status" and ctxt.pull["head"]["sha"] != data["sha"]
     ):  # pragma: no cover
-        ctxt.log.info("No need to proceed queue (got status of an old commit)",)
+        ctxt.log.debug("No need to proceed queue (got status of an old commit)",)
         return
 
     elif (
         event_type in ["status", "check_suite", "check_run"] and ctxt.pull["merged"]
     ):  # pragma: no cover
-        ctxt.log.info("No need to proceed queue (got status of a merged pull request)",)
+        ctxt.log.debug(
+            "No need to proceed queue (got status of a merged pull request)",
+        )
         return
     elif (
         event_type in ["check_suite", "check_run"]
         and ctxt.pull["head"]["sha"] != data[event_type]["head_sha"]
     ):  # pragma: no cover
-        ctxt.log.info(
+        ctxt.log.debug(
             "No need to proceed queue (got %s of an old " "commit)", event_type,
         )
         return
