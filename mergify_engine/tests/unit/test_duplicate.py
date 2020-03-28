@@ -15,8 +15,8 @@
 # under the License.
 from unittest import mock
 
+from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import mergify_context
 
 
 def fake_get_github_pulls_from_sha(url, api_version=None):
@@ -40,8 +40,7 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
 
 
 @mock.patch(
-    "mergify_engine.mergify_context.MergifyContext.commits",
-    new_callable=mock.PropertyMock,
+    "mergify_engine.context.Context.commits", new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_rebase(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
@@ -52,7 +51,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
     client.auth.get_access_token.return_value = "<token>"
     client.items.side_effect = fake_get_github_pulls_from_sha
 
-    ctxt = mergify_context.MergifyContext(
+    ctxt = context.Context(
         client,
         {
             "number": 6,
@@ -86,8 +85,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
 
 
 @mock.patch(
-    "mergify_engine.mergify_context.MergifyContext.commits",
-    new_callable=mock.PropertyMock,
+    "mergify_engine.context.Context.commits", new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_merge(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
@@ -97,7 +95,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
 
-    ctxt = mergify_context.MergifyContext(
+    ctxt = context.Context(
         client,
         {
             "number": 6,

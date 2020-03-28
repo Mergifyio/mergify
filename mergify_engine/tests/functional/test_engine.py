@@ -22,8 +22,8 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import debug
-from mergify_engine import mergify_context
 from mergify_engine.clients import github
 from mergify_engine.tasks import engine
 from mergify_engine.tests.functional import base
@@ -73,7 +73,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.remove_from_labels("backport-3.1")
         self.wait_for("pull_request", {"action": "unlabeled"})
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         checks = list(
             check_api.get_checks(pull, check_name="Rule: backport (backport)")
         )
@@ -352,7 +352,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", comments[-1].body)
 
         # Override Summary with the old format
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         check_api.set_check_run(
             pull,
             "Summary",
@@ -483,7 +483,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         checks = list(
             check_api.get_checks(pull, check_name="Rule: Backport (backport)")
         )
@@ -531,7 +531,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         return list(
             check_api.get_checks(
                 pull, check_name="Rule: Backport to stable/#3.1 (backport)"
@@ -624,7 +624,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         bp_pull = pulls[0]
         assert bp_pull.title == "Pull request n1 from fork (bp #1)"
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         checks = list(
             check_api.get_checks(
                 pull, check_name="Rule: Backport to stable/#3.1 (backport)"
@@ -872,7 +872,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
         )
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p2.raw_data)
+        pull = context.Context(self.cli_integration, p2.raw_data)
         checks = list(check_api.get_checks(pull))
         for check in checks:
             if check["name"] == "Rule: strict merge on master (merge)":
@@ -981,7 +981,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        pull = mergify_context.MergifyContext(client, p.raw_data)
+        pull = context.Context(client, p.raw_data)
 
         logins = pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
@@ -1019,7 +1019,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        pull = mergify_context.MergifyContext(client, p.raw_data)
+        pull = context.Context(client, p.raw_data)
 
         logins = pull.resolve_teams(
             [
@@ -1071,7 +1071,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         commit = self.r_o_admin.get_commits()[0].commit
         self.assertEqual(msg, commit.message)
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         checks = list(check_api.get_checks(pull))
         assert len(checks) == 2
         for check in checks:
@@ -1191,7 +1191,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
         self.assertEqual(None, checks[0]["conclusion"])
         self.assertEqual("in_progress", checks[0]["status"])
@@ -1251,7 +1251,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p2.raw_data)
+        pull = context.Context(self.cli_integration, p2.raw_data)
         checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
         self.assertEqual("failure", checks[0]["conclusion"])
         self.assertIn(
@@ -1324,7 +1324,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
 
-        pull = mergify_context.MergifyContext(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data)
         check_api.set_check_run(
             pull,
             "Summary",
@@ -1386,7 +1386,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        pull = mergify_context.MergifyContext(self.cli_integration, p1.raw_data)
+        pull = context.Context(self.cli_integration, p1.raw_data)
         checks = list(check_api.get_checks(pull))
         assert len(checks) == 1
         assert checks[0]["name"] == "Summary"
@@ -1557,7 +1557,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         pr, commits = self.create_pr()
-        pull = mergify_context.MergifyContext(self.cli_integration, pr.raw_data)
+        pull = context.Context(self.cli_integration, pr.raw_data)
         check = check_api.set_check_run(
             pull,
             "Test",
@@ -1575,7 +1575,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr()
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        ctxt = mergify_context.MergifyContext(client, {"number": 1})
+        ctxt = context.Context(client, {"number": 1})
         self.assertEqual(1, ctxt.pull["number"])
         self.assertEqual("open", ctxt.pull["state"])
         self.assertEqual("clean", ctxt.pull["mergeable_state"])

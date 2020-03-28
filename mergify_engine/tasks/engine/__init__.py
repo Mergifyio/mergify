@@ -17,8 +17,8 @@ import pkg_resources
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import mergify_context
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -172,7 +172,7 @@ def _run(client, event_type, data):
         )
         return
 
-    ctxt = mergify_context.MergifyContext(client, raw_pull)
+    ctxt = context.Context(client, raw_pull)
     # Override pull_request with the updated one
     data["pull_request"] = ctxt.pull
 

@@ -19,8 +19,8 @@ import httpx
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import mergify_context
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -119,7 +119,7 @@ def report(url):
     report_sub(client.installation["id"], slug, db_sub, "DASHBOARD")
 
     pull_raw = client.item(f"pulls/{pull_number}")
-    ctxt = mergify_context.MergifyContext(client, pull_raw)
+    ctxt = context.Context(client, pull_raw)
 
     print(
         "* REPOSITORY IS %s" % "PRIVATE"

@@ -163,7 +163,7 @@ def duplicate(
     """Duplicate a pull request.
 
     :param pull: The pull request.
-    :type pull: py:class:mergify_engine.mergify_context.MergifyContext
+    :type pull: py:class:mergify_engine.context.Context
     :param branch: The branch to copy to.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.

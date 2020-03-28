@@ -36,8 +36,8 @@ import vcr
 
 from mergify_engine import branch_updater
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import mergify_context
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine import web
@@ -316,7 +316,7 @@ class FunctionalTestBase(unittest.TestCase):
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
             mock.patch.object(
-                mergify_context.MergifyContext._ensure_complete.retry, "wait", None
+                context.Context._ensure_complete.retry, "wait", None
             ).start()
 
         # Web authentification always pass

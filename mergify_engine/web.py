@@ -31,8 +31,8 @@ import httpx
 import voluptuous
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import mergify_context
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -173,7 +173,7 @@ def PullRequestUrl(v):
         except httpx.HTTPNotFound:
             raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
-        return mergify_context.MergifyContext(client, data)
+        return context.Context(client, data)
 
 
 SimulatorSchema = voluptuous.Schema(
