@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2020 Mergify SAS
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -12,11 +14,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import functools
 import itertools
+import operator
 import re
 from urllib import parse
 
 import attr
+import cachetools
 import daiquiri
 import httpx
 import tenacity
@@ -51,6 +56,7 @@ class Context(object):
     client = attr.ib()
     pull = attr.ib()
     sources = attr.ib(factory=list)
+    _write_permission_cache = attr.ib(factory=lambda: cachetools.LRUCache(4096))
 
     @property
     def log(self):
@@ -84,8 +90,11 @@ class Context(object):
     def __attrs_post_init__(self):
         self._ensure_complete()
 
+    @cachetools.cachedmethod(
+        cache=operator.attrgetter("_write_permission_cache"),
+        key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
+    )
     def has_write_permissions(self, login):
-        # TODO(sileht): We should cache that, this is also used in command runner
         return self.client.item(f"collaborators/{login}/permission")["permission"] in [
             "admin",
             "write",
