@@ -60,6 +60,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
             "state": "closed",
             "html_url": "<html_url>",
             "base": {
+                "user": {"login": "user"},
                 "ref": "ref",
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},
             },
@@ -105,6 +106,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
             "html_url": "<html_url>",
             "base": {
                 "ref": "ref",
+                "user": {"login": "user"},
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},
             },
             "head": {

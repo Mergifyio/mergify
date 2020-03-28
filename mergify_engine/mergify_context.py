@@ -55,7 +55,7 @@ class MergifyContext(object):
     def log(self):
         return daiquiri.getLogger(
             __name__,
-            gh_owner=self.pull["user"]["login"]
+            gh_owner=self.pull["base"]["user"]["login"]
             if "user" in self.pull
             else "<unknown-yet>",
             gh_repo=(
