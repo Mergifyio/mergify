@@ -73,9 +73,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.remove_from_labels("backport-3.1")
         self.wait_for("pull_request", {"action": "unlabeled"})
 
-        pull = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data)
         checks = list(
-            check_api.get_checks(pull, check_name="Rule: backport (backport)")
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: backport (backport)"
         )
         self.assertEqual("neutral", checks[0]["conclusion"])
         self.assertEqual(
@@ -387,9 +389,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        pull = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data)
         checks = list(
-            check_api.get_checks(pull, check_name="Rule: Backport (backport)")
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: Backport (backport)"
         )
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
@@ -435,11 +439,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        pull = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data)
         return list(
-            check_api.get_checks(
-                pull, check_name="Rule: Backport to stable/#3.1 (backport)"
-            )
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
         )
 
     def test_backport_conflicts(self):
@@ -528,11 +532,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         bp_pull = pulls[0]
         assert bp_pull.title == "Pull request n1 from fork (bp #1)"
 
-        pull = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data)
         checks = list(
-            check_api.get_checks(
-                pull, check_name="Rule: Backport to stable/#3.1 (backport)"
-            )
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
         )
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]
@@ -776,9 +780,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
         )
 
-        pull = context.Context(self.cli_integration, p2.raw_data)
-        checks = list(check_api.get_checks(pull))
-        for check in checks:
+        ctxt = context.Context(self.cli_integration, p2.raw_data)
+        for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "will be merged soon.\n\nThe following pull requests are queued: #2"
@@ -975,10 +978,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         commit = self.r_o_admin.get_commits()[0].commit
         self.assertEqual(msg, commit.message)
 
-        pull = context.Context(self.cli_integration, p.raw_data)
-        checks = list(check_api.get_checks(pull))
-        assert len(checks) == 2
-        for check in checks:
+        ctxt = context.Context(self.cli_integration, p.raw_data)
+        assert len(ctxt.pull_check_runs) == 2
+        for check in ctxt.pull_check_runs:
             if check["name"] == "Summary":
                 assert msg in check["output"]["summary"]
                 break
@@ -1095,8 +1097,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        pull = context.Context(self.cli_integration, p.raw_data)
-        checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
+        ctxt = context.Context(self.cli_integration, p.raw_data)
+        checks = list(
+            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+        )
         self.assertEqual(None, checks[0]["conclusion"])
         self.assertEqual("in_progress", checks[0]["status"])
         self.assertIn(
@@ -1155,8 +1159,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        pull = context.Context(self.cli_integration, p2.raw_data)
-        checks = list(check_api.get_checks(pull, check_name="Rule: merge (merge)"))
+        ctxt = context.Context(self.cli_integration, p2.raw_data)
+        checks = list(
+            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+        )
         self.assertEqual("failure", checks[0]["conclusion"])
         self.assertIn(
             "Branch protection setting 'strict' conflicts with "
@@ -1228,28 +1234,27 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
 
-        pull = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data)
         check_api.set_check_run(
-            pull,
+            ctxt,
             "Summary",
             "completed",
             "success",
             output={"title": "whatever", "summary": "erased"},
         )
 
-        checks = list(check_api.get_checks(pull))
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
-        completed_at = checks[0]["completed_at"]
+        assert len(ctxt.pull_check_runs) == 1
+        assert ctxt.pull_check_runs[0]["name"] == "Summary"
+        completed_at = ctxt.pull_check_runs[0]["completed_at"]
 
         p.create_issue_comment("@mergifyio refresh")
 
         self.wait_for("issue_comment", {"action": "created"})
 
-        checks = list(check_api.get_checks(pull))
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
-        assert completed_at != checks[0]["completed_at"]
+        del ctxt.__dict__["pull_check_runs"]
+        assert len(ctxt.pull_check_runs) == 1
+        assert ctxt.pull_check_runs[0]["name"] == "Summary"
+        assert completed_at != ctxt.pull_check_runs[0]["completed_at"]
 
         p.update()
         comments = list(p.get_issue_comments())
@@ -1290,10 +1295,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        pull = context.Context(self.cli_integration, p1.raw_data)
-        checks = list(check_api.get_checks(pull))
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
+        ctxt = context.Context(self.cli_integration, p1.raw_data)
+        assert len(ctxt.pull_check_runs) == 1
+        assert ctxt.pull_check_runs[0]["name"] == "Summary"
 
     def test_marketplace_event(self):
         with mock.patch(
