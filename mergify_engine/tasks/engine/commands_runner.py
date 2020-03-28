@@ -21,8 +21,8 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import mergify_context
 from mergify_engine.clients import github
 from mergify_engine.worker import app
 
@@ -88,7 +88,7 @@ def run_command_async(
         return
 
     with github.get_client(owner, repo, installation) as client:
-        pull = mergify_context.MergifyContext(client, pull_request_raw)
+        pull = context.Context(client, pull_request_raw)
         return run_command(pull, sources, comment, user, rerun)
 
 

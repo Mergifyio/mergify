@@ -18,7 +18,7 @@ from unittest import mock
 
 import pytest
 
-from mergify_engine import mergify_context
+from mergify_engine import context
 
 
 def create_commit(sha=None):
@@ -59,7 +59,7 @@ def test_pull_behind(commits_tree_generator):
     client.items.return_value = commits  # /pulls/X/commits
     client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
 
-    ctxt = mergify_context.MergifyContext(
+    ctxt = context.Context(
         client,
         pull={
             "number": 1,

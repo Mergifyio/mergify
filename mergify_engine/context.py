@@ -47,7 +47,7 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 
 @attr.s()
-class MergifyContext(object):
+class Context(object):
     client = attr.ib()
     pull = attr.ib()
 

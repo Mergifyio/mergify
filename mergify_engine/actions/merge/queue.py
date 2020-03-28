@@ -15,8 +15,8 @@
 import daiquiri
 
 from mergify_engine import check_api
+from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import mergify_context
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.clients import github
@@ -190,7 +190,7 @@ def process_queue(queue):
         data = client.item(f"pulls/{pull_number}")
 
         try:
-            ctxt = mergify_context.MergifyContext(client, data)
+            ctxt = context.Context(client, data)
         except exceptions.RateLimited as e:
             log = ctxt.log if ctxt else queue_log
             log.debug("rate limited", remaining_seconds=e.countdown)

@@ -20,7 +20,7 @@ from unittest import mock
 import pytest
 import voluptuous
 
-from mergify_engine import mergify_context
+from mergify_engine import context
 from mergify_engine import rules
 
 
@@ -166,7 +166,7 @@ def test_get_pull_request_rule():
 
     client.items.side_effect = client_items
 
-    ctxt = mergify_context.MergifyContext(
+    ctxt = context.Context(
         client,
         {
             "number": 1,
