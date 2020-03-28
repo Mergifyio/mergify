@@ -37,6 +37,9 @@ jobs:
     executor: python
     steps:
       - tox: {target: requirements}
+      - run: |
+          tox -e genreqs
+          git diff --exit-code
 
   pep8:
     executor: python
