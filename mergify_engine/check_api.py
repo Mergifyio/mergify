@@ -12,22 +12,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from mergify_engine import config
 from mergify_engine import utils
 
 
-def get_checks_for_ref(ctxt, sha, mergify_only=False, **kwargs):
-    checks = ctxt.client.items(
-        f"commits/{sha}/check-runs",
-        api_version="antiope",
-        list_items="check_runs",
-        **kwargs,
+def get_checks_for_ref(ctxt, sha, **kwargs):
+    checks = list(
+        ctxt.client.items(
+            f"commits/{sha}/check-runs",
+            api_version="antiope",
+            list_items="check_runs",
+            **kwargs,
+        )
     )
-
-    if mergify_only:
-        checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
-    else:
-        checks = list(checks)
 
     # FIXME(sileht): We currently have some issue to set back
     # conclusion to null, Maybe a GH bug or not.
@@ -38,10 +34,6 @@ def get_checks_for_ref(ctxt, sha, mergify_only=False, **kwargs):
             check["conclusion"] = None
 
     return checks
-
-
-def get_checks(ctxt, mergify_only=False, **kwargs):
-    return get_checks_for_ref(ctxt, ctxt.pull["head"]["sha"], mergify_only, **kwargs)
 
 
 def compare_dict(d1, d2, keys):
@@ -73,16 +65,16 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
     if status == "completed":
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
-    checks = get_checks(ctxt, check_name=name, mergify_only=True)
+    checks = [c for c in ctxt.pull_engine_check_runs if c["name"] == name]
 
     if not checks:
-        checks = [
-            ctxt.client.post(
-                "check-runs", api_version="antiope", json=post_parameters,
-            ).json()
-        ]
+        check = ctxt.client.post(
+            "check-runs", api_version="antiope", json=post_parameters,
+        ).json()
+        ctxt.update_pull_check_runs(check)
+        return check
 
-    if len(checks) > 1:
+    elif len(checks) > 1:
         ctxt.log.warning(
             "Multiple mergify checks have been created, we got the known race.",
         )
@@ -114,4 +106,5 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
             f"check-runs/{check['id']}", api_version="antiope", json=post_parameters,
         ).json()
 
+    ctxt.update_pull_check_runs(check)
     return check

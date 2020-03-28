@@ -27,6 +27,7 @@ import httpx
 import tenacity
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
 
@@ -217,11 +218,27 @@ class Context(object):
         else:
             raise AttributeError(f"Invalid attribute: {name}")
 
+    def update_pull_check_runs(self, check):
+        self.pull_check_runs = [
+            c for c in self.pull_check_runs if c["name"] != check["name"]
+        ]
+        self.pull_check_runs.append(check)
+
+    @functools_bp.cached_property
+    def pull_check_runs(self):
+        return check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
+
+    @property
+    def pull_engine_check_runs(self):
+        return [
+            c for c in self.pull_check_runs if c["app"]["id"] == config.INTEGRATION_ID
+        ]
+
     @functools_bp.cached_property
     def checks(self):
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        checks = dict((c["name"], c["conclusion"]) for c in check_api.get_checks(self))
+        checks = dict((c["name"], c["conclusion"]) for c in self.pull_check_runs)
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update(
@@ -329,6 +346,7 @@ class Context(object):
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
         self.pull = self.client.item(f"pulls/{self.pull['number']}")
+        del self.__dict__["pull_check_runs"]
 
     @functools_bp.cached_property
     def is_behind(self):

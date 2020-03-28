@@ -17,6 +17,7 @@ import pkg_resources
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import rules
@@ -98,7 +99,7 @@ def check_configuration_changes(ctxt):
                 # UI with that API
                 check_api.set_check_run(
                     ctxt,
-                    "Summary",
+                    actions_runner.SUMMARY_NAME,
                     "completed",
                     "failure",
                     output={
@@ -109,7 +110,7 @@ def check_configuration_changes(ctxt):
             else:
                 check_api.set_check_run(
                     ctxt,
-                    "Summary",
+                    actions_runner.SUMMARY_NAME,
                     "completed",
                     "success",
                     output={
@@ -125,8 +126,11 @@ def check_configuration_changes(ctxt):
 
 def copy_summary_from_previous_head_sha(ctxt, sha):
     checks = check_api.get_checks_for_ref(
-        ctxt, sha, mergify_only=True, check_name=actions_runner.SUMMARY_NAME,
+        ctxt, sha, check_name=actions_runner.SUMMARY_NAME,
     )
+    print(checks)
+    checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
+
     if not checks:
         ctxt.log.warning(
             "Got synchronize event but didn't find Summary on previous head sha",
@@ -236,7 +240,7 @@ def _run(client, event_type, data):
         if event_type == "pull_request" and data["action"] in ["opened", "synchronize"]:
             check_api.set_check_run(
                 ctxt,
-                "Summary",
+                actions_runner.SUMMARY_NAME,
                 "completed",
                 "failure",
                 output={
@@ -258,7 +262,7 @@ def _run(client, event_type, data):
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
         check_api.set_check_run(
             ctxt,
-            "Summary",
+            actions_runner.SUMMARY_NAME,
             "completed",
             "failure",
             output={
