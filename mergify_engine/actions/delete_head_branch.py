@@ -35,7 +35,7 @@ class DeleteHeadBranchAction(actions.Action):
         if ctxt.pull["state"] == "closed":
             if self.config is None or not self.config["force"]:
                 pulls_using_this_branch = list(
-                    ctxt.client.items("pulls", json={"base": ctxt.pull["head"]["ref"]})
+                    ctxt.client.items("pulls", base=ctxt.pull["head"]["ref"])
                 )
                 if pulls_using_this_branch:
                     return (
