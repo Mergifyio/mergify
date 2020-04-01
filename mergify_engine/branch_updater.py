@@ -216,6 +216,11 @@ def update_with_api(ctxt):
         raise BranchUpdateNeedRetry()
 
 
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(AuthentificationFailure),
+)
 def update_with_git(ctxt, method="merge"):
     redis = utils.get_redis_for_cache()
 
@@ -231,5 +236,5 @@ def update_with_git(ctxt, method="merge"):
                 login=login,
             )
 
-    ctxt.log.error("unable to update branch: no tokens are valid")
-    raise BranchUpdateFailure("No oauth valid tokens")
+    ctxt.log.warning("unable to update branch: no tokens are valid")
+    raise AuthentificationFailure("No oauth valid tokens")
