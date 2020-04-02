@@ -25,6 +25,7 @@ import daiquiri
 import requests
 
 from mergify_engine import config
+from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -121,9 +122,10 @@ def _retrieve_subscription_from_cache(r, installation_id):
         return _decrypt(encrypted_sub)
 
 
-def save_subscription_to_cache(r, installation_id, sub):
+async def save_subscription_to_cache(installation_id, sub):
+    r = await utils.get_aioredis_for_cache()
     encrypted = _encrypt(sub)
-    r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
+    await r.setex("subscription-cache-%s" % installation_id, 3600, encrypted)
 
 
 def get_subscription(r, installation_id):
@@ -132,5 +134,6 @@ def get_subscription(r, installation_id):
     # the all tokens cache
     if not sub or "tokens" not in sub:
         sub = _retrieve_subscription_from_db(installation_id)
-        save_subscription_to_cache(r, installation_id, sub)
+        encrypted = _encrypt(sub)
+        r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
     return sub
