@@ -177,6 +177,18 @@ def duplicate(
 
     git = utils.Gitter(ctxt.log)
 
+    # FIXME(sileht): Temporary disable backport/copy on big repository
+    if ctxt.pull["base"]["repo"]["owner"]["login"] not in [
+        "mergifyio-testing",
+        "mergify-test1",
+        "mergify-test2",
+        "mergify-test3",
+        "mergify-test4",
+    ]:
+        repo_info = ctxt.client.item()
+        if repo_info["size"] > 350000:
+            raise DuplicateFailed(f"{kind} fail: too big")
+
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
