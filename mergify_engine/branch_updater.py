@@ -111,7 +111,7 @@ def _do_update(ctxt, token, method="merge"):
 
     head_branch = ctxt.pull["head"]["ref"]
     base_branch = ctxt.pull["base"]["ref"]
-    git = utils.Gitter()
+    git = utils.Gitter(ctxt.log)
     try:
         git("init")
         git.configure()

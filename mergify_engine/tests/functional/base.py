@@ -59,8 +59,8 @@ worker.app.conf.task_eager_propagates = True
 
 
 class GitterRecorder(utils.Gitter):
-    def __init__(self, cassette_library_dir, suffix):
-        super(GitterRecorder, self).__init__()
+    def __init__(self, logger, cassette_library_dir, suffix):
+        super(GitterRecorder, self).__init__(logger)
         self.cassette_path = os.path.join(cassette_library_dir, "git-%s.json" % suffix)
         if RECORD:
             self.records = []
@@ -306,12 +306,8 @@ class FunctionalTestBase(unittest.TestCase):
         github_app_client = github_app._Client()
 
         mock.patch.object(github_app, "get_client", lambda: github_app_client).start()
-        mock.patch.object(
-            branch_updater.utils, "Gitter", lambda: self.get_gitter()
-        ).start()
-        mock.patch.object(
-            duplicate_pull.utils, "Gitter", lambda: self.get_gitter()
-        ).start()
+        mock.patch.object(branch_updater.utils, "Gitter", self.get_gitter).start()
+        mock.patch.object(duplicate_pull.utils, "Gitter", self.get_gitter).start()
 
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
@@ -334,7 +330,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
 
-        self.git = self.get_gitter()
+        self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
         web.app.testing = True
@@ -465,9 +461,9 @@ class FunctionalTestBase(unittest.TestCase):
     def wait_for(self, *args, **kwargs):
         return self._event_reader.wait_for(*args, **kwargs)
 
-    def get_gitter(self):
+    def get_gitter(self, logger):
         self.git_counter += 1
-        return GitterRecorder(self.cassette_library_dir, self.git_counter)
+        return GitterRecorder(logger, self.cassette_library_dir, self.git_counter)
 
     def setup_repo(self, mergify_config, test_branches=[], files=[]):
         self.git("init")

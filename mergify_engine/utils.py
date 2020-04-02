@@ -129,26 +129,27 @@ def compute_hmac(data):
 
 
 class Gitter(object):
-    def __init__(self):
+    def __init__(self, logger):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")
-        LOG.info("working in: %s", self.tmp)
+        self.logger = logger
+        self.logger.info("working in: %s", self.tmp)
 
     def __call__(self, *args, **kwargs):  # pragma: no cover
-        LOG.info("calling: %s", " ".join(args))
+        self.logger.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
         kwargs["stderr"] = subprocess.STDOUT
         try:
             return subprocess.check_output(["git"] + list(args), **kwargs)
         except subprocess.CalledProcessError as e:
-            LOG.info("output: %s", e.output)
+            self.logger.info("output: %s", e.output)
             raise
 
     def cleanup(self):
-        LOG.info("cleaning: %s", self.tmp)
+        self.logger.info("cleaning: %s", self.tmp)
         try:
             self("credential-cache", "--socket=%s/.git/creds/socket" % self.tmp, "exit")
         except subprocess.CalledProcessError:  # pragma: no cover
-            LOG.warning("git credential-cache exit fail")
+            self.logger.warning("git credential-cache exit fail")
         shutil.rmtree(self.tmp)
 
     def configure(self):
