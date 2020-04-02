@@ -14,7 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
+import asyncio
 import collections
+import functools
 import hmac
 import json
 import logging
@@ -123,7 +126,11 @@ app.mount("/validate", config_validator_app)
 
 @app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(authentification)])
 async def refresh_repo(owner, repo):
-    mergify_events.job_refresh.delay(owner, repo, "repo")
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, mergify_events.job_refresh.s(owner, repo, "repo").delay
+    )
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -136,7 +143,11 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 )
 async def refresh_pull(owner, repo, pull: int, action="user"):
     action = RefreshActionSchema(action)
-    mergify_events.job_refresh.delay(owner, repo, "pull", pull, action=action)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None,
+        mergify_events.job_refresh.s(owner, repo, "pull", pull, action=action).delay,
+    )
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -145,7 +156,10 @@ async def refresh_pull(owner, repo, pull: int, action="user"):
     dependencies=[fastapi.Depends(authentification)],
 )
 async def refresh_branch(owner, repo, branch):
-    mergify_events.job_refresh.delay(owner, repo, "branch", branch)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, mergify_events.job_refresh.s(owner, repo, "branch", branch).delay
+    )
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -236,20 +250,25 @@ async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
     return responses.JSONResponse(status_code=400, content=payload)
 
 
-@app.post("/simulator", dependencies=[fastapi.Depends(authentification)])
-async def simulator(request: requests.Request):
-
-    data = SimulatorSchema(await request.json())
+def _sync_simulator(payload):
+    data = SimulatorSchema(payload)
     ctxt = data["pull_request"]
-
     if ctxt:
         with ctxt.client:
             pull_request_rules = data["mergify.yml"]["pull_request_rules"]
             match = pull_request_rules.get_pull_request_rule(ctxt)
-            title, summary = actions_runner.gen_summary(ctxt, match)
+            return actions_runner.gen_summary(ctxt, match)
     else:
-        title = "The configuration is valid"
-        summary = None
+        return ("The configuration is valid", None)
+
+
+@app.post("/simulator", dependencies=[fastapi.Depends(authentification)])
+async def simulator(request: requests.Request):
+    payload = await request.json()
+    loop = asyncio.get_running_loop()
+    title, summary = await loop.run_in_executor(
+        None, functools.partial(_sync_simulator, payload)
+    )
     return responses.JSONResponse(
         status_code=200, content={"title": title, "summary": summary}
     )
@@ -261,21 +280,27 @@ async def marketplace_handler(request: requests.Request):  # pragma: no cover
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    github_events.job_marketplace.apply_async(args=[event_type, event_id, data])
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, github_events.job_marketplace.s(event_type, event_id, data).apply_async,
+    )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()
-        forward_events.post.s(
-            config.WEBHOOK_MARKETPLACE_FORWARD_URL,
-            data=raw.decode(),
-            headers={
-                "X-GitHub-Event": event_type,
-                "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                "User-Agent": request.headers.get("User-Agent"),
-                "Content-Type": request.headers.get("Content-Type"),
-            },
-        ).delay()
+        await loop.run_in_executor(
+            None,
+            forward_events.post.s(
+                config.WEBHOOK_MARKETPLACE_FORWARD_URL,
+                data=raw.decode(),
+                headers={
+                    "X-GitHub-Event": event_type,
+                    "X-GitHub-Delivery": event_id,
+                    "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                    "User-Agent": request.headers.get("User-Agent"),
+                    "Content-Type": request.headers.get("Content-Type"),
+                },
+            ).delay,
+        )
 
     return responses.Response("Event queued", status_code=202)
 
@@ -299,8 +324,15 @@ async def event_handler(request: requests.Request):
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    github_events.job_filter_and_dispatch.apply_async(
-        args=[event_type, event_id, data], countdown=30
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None,
+        functools.partial(
+            github_events.job_filter_and_dispatch.s(
+                event_type, event_id, data
+            ).apply_async,
+            countdown=30,
+        ),
     )
 
     if (
@@ -309,17 +341,21 @@ async def event_handler(request: requests.Request):
         and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
     ):
         raw = await request.body()
-        forward_events.post.s(
-            config.WEBHOOK_APP_FORWARD_URL,
-            data=raw.decode(),
-            headers={
-                "X-GitHub-Event": event_type,
-                "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                "User-Agent": request.headers.get("User-Agent"),
-                "Content-Type": request.headers.get("Content-Type"),
-            },
-        ).delay()
+
+        await loop.run_in_executor(
+            None,
+            forward_events.post.s(
+                config.WEBHOOK_APP_FORWARD_URL,
+                data=raw.decode(),
+                headers={
+                    "X-GitHub-Event": event_type,
+                    "X-GitHub-Delivery": event_id,
+                    "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                    "User-Agent": request.headers.get("User-Agent"),
+                    "Content-Type": request.headers.get("Content-Type"),
+                },
+            ).delay,
+        )
 
     return responses.Response("Event queued", status_code=202)
 
