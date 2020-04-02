@@ -175,7 +175,7 @@ def duplicate(
     cherry_pick_fail = False
     body = ""
 
-    git = utils.Gitter()
+    git = utils.Gitter(ctxt.log)
 
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
