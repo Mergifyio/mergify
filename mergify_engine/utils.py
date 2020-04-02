@@ -138,6 +138,8 @@ class Gitter(object):
         self.logger.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
         kwargs["stderr"] = subprocess.STDOUT
+        # Worker timeout at 5 minutes, so ensure subprocess return before
+        kwargs["timeout"] = 4 * 60 + 30
         try:
             return subprocess.check_output(["git"] + list(args), **kwargs)
         except subprocess.CalledProcessError as e:
