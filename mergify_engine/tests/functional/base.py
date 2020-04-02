@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import copy
 import datetime
 import json
@@ -344,8 +345,11 @@ class FunctionalTestBase(unittest.TestCase):
             "subscription_active": False,
             "subscription_reason": "You're not nice",
         }
-        sub_utils.save_subscription_to_cache(
-            self.redis, config.INSTALLATION_ID, self.subscription,
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            sub_utils.save_subscription_to_cache(
+                config.INSTALLATION_ID, self.subscription,
+            )
         )
 
         # Let's start recording
