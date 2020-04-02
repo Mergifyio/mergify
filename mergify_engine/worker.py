@@ -44,8 +44,8 @@ app.conf.task_routes = ([("mergify_engine.tasks.*", {"queue": "mergify"})],)
 app.conf.task_soft_time_limit = 1 * 60
 app.conf.task_time_limit = 2 * 60
 # FIXME(sileht): Backport is using get_pulls() that always returns ton of PRs.
-app.conf.task_soft_time_limit = 15 * 60
-app.conf.task_time_limit = 16 * 60
+app.conf.task_soft_time_limit = 5 * 60
+app.conf.task_time_limit = 6 * 60
 
 # All our Celery tasks are designed to be idempotent. We should ack the task
 # after it finished its execution in total.
