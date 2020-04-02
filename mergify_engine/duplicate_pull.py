@@ -187,6 +187,7 @@ def duplicate(
     ]:
         repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
         if repo_info["size"] > 350000:
+            ctxt.log.warning("repository too big to be forked", size=repo_info["size"])
             raise DuplicateFailed(f"{kind} fail: too big")
 
     # TODO(sileht): This can be done with the Github API only I think:
