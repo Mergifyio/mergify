@@ -185,7 +185,7 @@ def duplicate(
         "mergify-test3",
         "mergify-test4",
     ]:
-        repo_info = ctxt.client.item("")
+        repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
         if repo_info["size"] > 350000:
             raise DuplicateFailed(f"{kind} fail: too big")
 
