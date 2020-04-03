@@ -183,7 +183,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         branch = data["ref"][11:]
         msg_action = "run refresh branch %s" % branch
         mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async(
-            countdown=10
+            countdown=60
         )
     else:
         engine.run.s(event_type, data).apply_async()
