@@ -566,6 +566,7 @@ class FunctionalTestBase(unittest.TestCase):
         base_repo="fork",
         branch=None,
         message=None,
+        draft=False,
     ):
         self.pr_counter += 1
 
@@ -600,6 +601,7 @@ class FunctionalTestBase(unittest.TestCase):
             head="%s:%s" % (login, branch),
             title=title,
             body=message or title,
+            draft=draft,
         )
 
         self.wait_for("pull_request", {"action": "opened"})

@@ -17,7 +17,11 @@ from mergify_engine.actions.merge import queue
 
 
 def merge_report(ctxt, strict):
-    if ctxt.pull["merged"]:
+    if ctxt.pull["draft"]:
+        conclusion = None
+        title = "Draft flag needs to be removed"
+        summary = ""
+    elif ctxt.pull["merged"]:
         if ctxt.pull["merged_by"]["login"] in [
             "mergify[bot]",
             "mergify-test[bot]",

@@ -144,6 +144,9 @@ class Context(object):
                 "@" + t["slug"] for t in self.pull["requested_teams"]
             ]
 
+        elif name == "draft":
+            return self.pull["draft"]
+
         elif name == "author":
             return self.pull["user"]["login"]
 
