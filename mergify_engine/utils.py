@@ -46,7 +46,7 @@ async def get_aioredis_for_cache():
             await aioredis.create_redis_pool(config.STORAGE_URL, encoding="utf8")
         )
         p = current_process()
-        AIOREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
+        await AIOREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
     return AIOREDIS_CONNECTION_CACHE
 
 
