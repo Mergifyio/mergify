@@ -1,2 +1,2 @@
-engine: honcho start --port 8802
+engine: honcho start
 bridge: python -u mergify_engine/tests/bridge.py --clean
