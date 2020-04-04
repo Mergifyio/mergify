@@ -18,6 +18,8 @@ import os
 from unittest import mock
 import uuid
 
+from starlette import testclient
+
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
@@ -51,7 +53,7 @@ def test_app_event_forward(mocked_requests_post, _, __, ___):
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    with web.app.test_client() as client:
+    with testclient.TestClient(web.app) as client:
         client.post("/event", data=data, headers=headers)
 
     mocked_requests_post.assert_called_with(
@@ -81,7 +83,7 @@ def test_market_event_forward(mocked_requests_post, _, __, ___):
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    with web.app.test_client() as client:
+    with testclient.TestClient(web.app) as client:
         client.post("/marketplace", data=data, headers=headers)
 
     mocked_requests_post.assert_called_with(

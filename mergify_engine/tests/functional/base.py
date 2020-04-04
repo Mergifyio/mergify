@@ -32,6 +32,7 @@ import httpx
 import pytest
 import requests
 import requests.sessions
+from starlette import testclient
 import vcr
 
 from mergify_engine import branch_updater
@@ -333,8 +334,7 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
-        web.app.testing = True
-        self.app = web.app.test_client()
+        self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
