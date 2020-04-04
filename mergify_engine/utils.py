@@ -23,7 +23,6 @@ import subprocess
 import sys
 import tempfile
 
-import aioredis
 from billiard import current_process
 import celery.app.log
 import daiquiri
@@ -33,21 +32,6 @@ from mergify_engine import config
 
 
 LOG = daiquiri.getLogger(__name__)
-
-
-global AIOREDIS_CONNECTION_CACHE
-AIOREDIS_CONNECTION_CACHE = None
-
-
-async def get_aioredis_for_cache():
-    global AIOREDIS_CONNECTION_CACHE
-    if AIOREDIS_CONNECTION_CACHE is None:
-        AIOREDIS_CONNECTION_CACHE = aioredis.Redis(
-            await aioredis.create_redis_pool(config.STORAGE_URL, encoding="utf8")
-        )
-        p = current_process()
-        AIOREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
-    return AIOREDIS_CONNECTION_CACHE
 
 
 global REDIS_CONNECTION_CACHE
