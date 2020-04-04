@@ -13,7 +13,7 @@ commands:
             tox -e << parameters.target >>
 
 executors:
-  python:
+  python37:
     docker:
       - image: circleci/python:3.7
   python38:
@@ -34,7 +34,7 @@ jobs:
             python datadog/validate.py
 
   requirements:
-    executor: python
+    executor: python37
     steps:
       - tox: {target: requirements}
       - run: |
@@ -42,7 +42,7 @@ jobs:
           git diff --exit-code
 
   pep8:
-    executor: python
+    executor: python37
     steps:
       - tox: {target: pep8}
 
@@ -54,14 +54,14 @@ jobs:
       - tox: {target: py38}
 
   py37:
-    executor: python
+    executor: python37
     steps:
       - run:
           command: sudo apt install -y redis-server
       - tox: {target: py37}
 
   docs:
-    executor: python
+    executor: python37
     steps:
       - tox: {target: docs}
       - persist_to_workspace:
