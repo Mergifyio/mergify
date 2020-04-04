@@ -353,11 +353,10 @@ def run_actions(
 
 def handle(pull_request_rules, ctxt):
     match = pull_request_rules.get_pull_request_rule(ctxt)
-    checks = dict((c["name"], c) for c in check_api.get_checks(ctxt, mergify_only=True))
+    checks = dict((c["name"], c) for c in ctxt.pull_engine_check_runs)
 
     summary_check = checks.get(SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
 
     conclusions = run_actions(ctxt, match, checks, previous_conclusions)
-
     post_summary(ctxt, match, summary_check, conclusions)
