@@ -120,6 +120,9 @@ Here's the list of pull request attribute that can be used in conditions:
        repository organization.
        This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
+   * - ``draft``
+     - Boolean
+     - Whether the pull request is in draft state.
    * - ``files``
      - string
      - The files that are modified, deleted or added by the pull request.
