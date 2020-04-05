@@ -130,7 +130,7 @@ def setup_logging():
             ("urllib3.util.retry", "WARN"),
             ("vcr", "WARN"),
             ("httpx", "WARN"),
-            ("cachecontrol", "WARN"),
+            ("uvicorn.access", "WARN"),
         ]
     )
 
