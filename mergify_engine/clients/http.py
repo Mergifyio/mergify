@@ -70,7 +70,7 @@ httpx.HTTPNotFound = HTTPNotFound
 STATUS_CODE_TO_EXC = {404: HTTPNotFound}
 
 
-class BaseClient(httpx.Client):
+class Client(httpx.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # httpx doesn't support retries yet, but the sync client uses urllib3 like request

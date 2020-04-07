@@ -23,7 +23,7 @@ import jwt
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine.clients import common
+from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -82,12 +82,12 @@ class GithubBearerAuth(httpx.Auth):
             yield request
 
 
-class _Client(common.BaseClient):
+class _Client(http.Client):
     def __init__(self):
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}",
             auth=GithubBearerAuth(),
-            **common.DEFAULT_CLIENT_OPTIONS,
+            **http.DEFAULT_CLIENT_OPTIONS,
         )
 
     def get_installation(self, owner, repo=None, account_type=None):

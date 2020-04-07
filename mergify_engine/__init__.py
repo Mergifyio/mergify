@@ -22,7 +22,7 @@ from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine.clients import common
+from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -59,7 +59,7 @@ real_session_init = requests.sessions.Session.__init__
 def retring_session_init(self, *args, **kwargs):
     real_session_init(self, *args, **kwargs)
 
-    adapter = requests.adapters.HTTPAdapter(max_retries=common.RETRY)
+    adapter = requests.adapters.HTTPAdapter(max_retries=http.RETRY)
 
     self.mount(f"https://api.{config.GITHUB_DOMAIN}", adapter)
     self.mount(config.SUBSCRIPTION_URL, adapter)
