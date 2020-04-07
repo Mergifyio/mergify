@@ -18,19 +18,19 @@
 import argparse
 import os
 
-import requests
-
 from mergify_engine import config
 from mergify_engine import utils
+from mergify_engine.common import http
 
 
 def api_call(url, method="post"):
     data = os.urandom(250)
     hmac = utils.compute_hmac(data)
 
-    r = requests.request(
-        method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, data=data
-    )
+    with http.Client() as client:
+        r = client.request(
+            method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, data=data
+        )
     r.raise_for_status()
     print(r.text)
 
