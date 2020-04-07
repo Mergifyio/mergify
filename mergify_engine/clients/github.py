@@ -24,8 +24,8 @@ import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine.clients import common
 from mergify_engine.clients import github_app
+from mergify_engine.clients import http
 
 
 LOGGING_REQUESTS_THRESHOLD = 20
@@ -60,7 +60,7 @@ class GithubInstallationAuth(httpx.Auth):
         return self._access_token
 
 
-class GithubInstallationClient(common.BaseClient):
+class GithubInstallationClient(http.Client):
     def __init__(self, owner, repo, installation):
         self.owner = owner
         self.repo = repo
@@ -69,7 +69,7 @@ class GithubInstallationClient(common.BaseClient):
         super().__init__(
             base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
             auth=GithubInstallationAuth(self.installation["id"]),
-            **common.DEFAULT_CLIENT_OPTIONS,
+            **http.DEFAULT_CLIENT_OPTIONS,
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
