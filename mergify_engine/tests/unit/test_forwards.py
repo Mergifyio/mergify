@@ -40,8 +40,8 @@ worker.app.conf.task_eager_propagates = True
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["push"]),
 )
-@mock.patch("mergify_engine.tasks.forward_events.requests.post")
-def test_app_event_forward(mocked_requests_post, _, __, ___):
+@mock.patch("mergify_engine.clients.http.Client")
+def test_app_event_forward(mocked_http_client, _, __, ___):
 
     with open(os.path.dirname(__file__) + "/push_event.json", "rb") as f:
         data = f.read()
@@ -56,7 +56,7 @@ def test_app_event_forward(mocked_requests_post, _, __, ___):
     with testclient.TestClient(web.app) as client:
         client.post("/event", data=data, headers=headers)
 
-    mocked_requests_post.assert_called_with(
+    mocked_http_client.return_value.__enter__.return_value.post.assert_called_with(
         "https://foobar/engine/app", data=data, headers=headers
     )
 
@@ -70,8 +70,8 @@ def test_app_event_forward(mocked_requests_post, _, __, ___):
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["purchased"]),
 )
-@mock.patch("mergify_engine.tasks.forward_events.requests.post")
-def test_market_event_forward(mocked_requests_post, _, __, ___):
+@mock.patch("mergify_engine.clients.http.Client")
+def test_market_event_forward(mocked_http_client, _, __, ___):
 
     with open(os.path.dirname(__file__) + "/market_event.json", "rb") as f:
         data = f.read()
@@ -86,6 +86,6 @@ def test_market_event_forward(mocked_requests_post, _, __, ___):
     with testclient.TestClient(web.app) as client:
         client.post("/marketplace", data=data, headers=headers)
 
-    mocked_requests_post.assert_called_with(
+    mocked_http_client.return_value.__enter__.return_value.post.assert_called_with(
         "https://foobar/engine/market", data=data, headers=headers
     )

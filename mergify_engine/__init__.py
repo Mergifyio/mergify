@@ -15,14 +15,12 @@ import os
 
 import celery.exceptions
 import daiquiri
-import requests
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -51,21 +49,3 @@ if config.SENTRY_URL:  # pragma: no cover
         before_send=fixup_sentry_reporting,
         integrations=[CeleryIntegration(), RedisIntegration()],
     )
-
-
-real_session_init = requests.sessions.Session.__init__
-
-
-def retring_session_init(self, *args, **kwargs):
-    real_session_init(self, *args, **kwargs)
-
-    adapter = requests.adapters.HTTPAdapter(max_retries=http.RETRY)
-
-    self.mount(f"https://api.{config.GITHUB_DOMAIN}", adapter)
-    if config.WEBHOOK_APP_FORWARD_URL:
-        self.mount(config.WEBHOOK_APP_FORWARD_URL, adapter)
-    if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
-        self.mount(config.WEBHOOK_MARKETPLACE_FORWARD_URL, adapter)
-
-
-requests.sessions.Session.__init__ = retring_session_init

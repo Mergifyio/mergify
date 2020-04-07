@@ -12,11 +12,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import requests
-
+from mergify_engine.clients import http
 from mergify_engine.worker import app
 
 
 @app.task
 def post(url, data, headers):
-    requests.post(url, data=data.encode(), headers=headers)
+    with http.Client() as client:
+        client.post(url, data=data.encode(), headers=headers)
