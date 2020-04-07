@@ -31,8 +31,6 @@ import daiquiri
 import github as pygithub
 import httpx
 import pytest
-import requests
-import requests.sessions
 from starlette import testclient
 import vcr
 
@@ -146,14 +144,14 @@ class GitterRecorder(utils.Gitter):
 class EventReader:
     def __init__(self, app):
         self._app = app
-        self._session = requests.Session()
-        self._session.trust_env = False
+        self._session = httpx.Client(trust_env=False)
         self._handled_events = queue.Queue()
         self._counter = 0
 
     def drain(self):
         # NOTE(sileht): Drop any pending events still on the server
-        r = self._session.delete(
+        r = self._session.request(
+            "DELETE",
             "https://gh.mergify.io/events-testing",
             data=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
@@ -198,7 +196,8 @@ class EventReader:
     def _get_events(self):
         # NOTE(sileht): we use a counter to make each call unique in cassettes
         self._counter += 1
-        return self._session.get(
+        return self._session.request(
+            "GET",
             f"https://gh.mergify.io/events-testing?counter={self._counter}",
             data=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
