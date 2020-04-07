@@ -65,19 +65,6 @@ def get_redis_for_cache():
     return REDIS_CONNECTION_CACHE
 
 
-global REDIS_CONNECTION_HTTP_CACHE
-REDIS_CONNECTION_HTTP_CACHE = None
-
-
-def get_redis_for_http_cache():
-    global REDIS_CONNECTION_HTTP_CACHE
-    if REDIS_CONNECTION_HTTP_CACHE is None:
-        REDIS_CONNECTION_HTTP_CACHE = redis.StrictRedis.from_url(config.HTTP_CACHE_URL)
-        p = current_process()
-        REDIS_CONNECTION_HTTP_CACHE.client_setname("http-cache:%s" % p.name)
-    return REDIS_CONNECTION_HTTP_CACHE
-
-
 def utcnow():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
