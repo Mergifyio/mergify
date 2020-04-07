@@ -11,13 +11,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
 import celery.exceptions
 import daiquiri
 import requests
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
@@ -46,9 +46,10 @@ def fixup_sentry_reporting(event, hint):  # pragma: no cover
 if config.SENTRY_URL:  # pragma: no cover
     sentry_sdk.init(
         config.SENTRY_URL,
+        release=os.environ.get("HEROKU_RELEASE_VERSION"),
         environment=config.SENTRY_ENVIRONMENT,
         before_send=fixup_sentry_reporting,
-        integrations=[CeleryIntegration(), FlaskIntegration(), RedisIntegration()],
+        integrations=[CeleryIntegration(), RedisIntegration()],
     )
 
 

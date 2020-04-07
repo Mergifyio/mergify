@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import copy
 import datetime
 import json
@@ -32,6 +33,7 @@ import httpx
 import pytest
 import requests
 import requests.sessions
+from starlette import testclient
 import vcr
 
 from mergify_engine import branch_updater
@@ -333,8 +335,7 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
-        web.app.testing = True
-        self.app = web.app.test_client()
+        self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
@@ -344,8 +345,11 @@ class FunctionalTestBase(unittest.TestCase):
             "subscription_active": False,
             "subscription_reason": "You're not nice",
         }
-        sub_utils.save_subscription_to_cache(
-            self.redis, config.INSTALLATION_ID, self.subscription,
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            sub_utils.save_subscription_to_cache(
+                config.INSTALLATION_ID, self.subscription,
+            )
         )
 
         # Let's start recording
@@ -566,6 +570,7 @@ class FunctionalTestBase(unittest.TestCase):
         base_repo="fork",
         branch=None,
         message=None,
+        draft=False,
     ):
         self.pr_counter += 1
 
@@ -600,6 +605,7 @@ class FunctionalTestBase(unittest.TestCase):
             head="%s:%s" % (login, branch),
             title=title,
             body=message or title,
+            draft=draft,
         )
 
         self.wait_for("pull_request", {"action": "opened"})

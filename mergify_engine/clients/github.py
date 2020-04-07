@@ -139,7 +139,7 @@ def get_client(*args, **kwargs):
         reset = datetime.utcfromtimestamp(rate["core"]["reset"])
         now = datetime.utcnow()
         delta = reset - now
-        statsd.increment("engine.rate_limited")
+        statsd.increment("github.rate_limited")
         raise exceptions.RateLimited(delta.total_seconds(), rate)
     return client
 

@@ -106,9 +106,7 @@ def _delete_queue(queue):
 def _handle_first_pull_in_queue(queue, ctxt):
     _, installation_id, owner, reponame, branch = queue.split("~")
     old_checks = [
-        c
-        for c in check_api.get_checks(ctxt, mergify_only=True)
-        if c["name"].endswith(" (merge)")
+        c for c in ctxt.pull_engine_check_runs if c["name"].endswith(" (merge)")
     ]
 
     output = helpers.merge_report(ctxt, True)

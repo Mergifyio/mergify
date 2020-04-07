@@ -17,7 +17,6 @@ import pprint
 
 import httpx
 
-from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
@@ -181,8 +180,7 @@ def report(url):
     print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
 
     print("* MERGIFY LAST CHECKS:")
-    checks = list(check_api.get_checks(ctxt, mergify_only=True))
-    for c in checks:
+    for c in ctxt.pull_engine_check_runs:
         print("[%s]: %s | %s" % (c["name"], c["conclusion"], c["output"].get("title")))
         print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
 

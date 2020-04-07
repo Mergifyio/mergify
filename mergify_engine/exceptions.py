@@ -13,6 +13,7 @@
 # under the License.
 
 import httpx
+import requests
 
 
 class MergifyNotInstalled(Exception):
@@ -41,13 +42,22 @@ def need_retry(exception):  # pragma: no cover
         return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
     elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
-    elif isinstance(exception, httpx.HTTPError) and (
-        exception.response is None or exception.response.status_code >= 500
+    elif (
+        (
+            isinstance(exception, httpx.HTTPError)
+            and (exception.response is None or exception.response.status_code >= 500)
+        )
+        or (
+            isinstance(exception, requests.exceptions.HTTPError)
+            and (exception.response is None or exception.response.status_code >= 500)
+        )
+        or isinstance(exception, requests.exceptions.ConnectionError)
+        or isinstance(exception, requests.exceptions.Timeout)
+        or isinstance(exception, requests.exceptions.TooManyRedirects)
     ):
         # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
         # is in a really bad shape...
         return BASE_RETRY_TIMEOUT * 5
-
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
     elif isinstance(exception, httpx.HTTPError):

@@ -15,6 +15,7 @@
 # under the License.
 
 import operator
+from unittest import mock
 
 import yaml
 
@@ -59,9 +60,9 @@ class TestSimulator(base.FunctionalTestBase):
                 "Content-type": "application/json",
             },
         )
-        assert r.status_code == 200, r.json
-        assert r.json["title"] == "The configuration is valid"
-        assert r.json["summary"] is None
+        assert r.status_code == 200, r.json()
+        assert r.json()["title"] == "The configuration is valid"
+        assert r.json()["summary"] is None
 
         r = self.app.post(
             "/simulator",
@@ -72,8 +73,8 @@ class TestSimulator(base.FunctionalTestBase):
             },
         )
 
-        assert r.json["title"] == "1 rule matches"
-        assert r.json["summary"].startswith(
+        assert r.json()["title"] == "1 rule matches"
+        assert r.json()["summary"].startswith(
             "#### Rule: assign (assign)\n- [X] `base=master`\n\n<hr />"
         )
 
@@ -86,7 +87,7 @@ class TestSimulator(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 400
-        assert r.json == {
+        assert r.json() == {
             "type": "MultipleInvalid",
             "error": "Invalid yaml",
             "details": ["mergify.yml", {"line": 2, "column": 2}],
@@ -110,30 +111,32 @@ class TestSimulator(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 400
-        r.json["errors"] = sorted(r.json["errors"], key=operator.itemgetter("message"))
-        assert r.json == {
+        r.json()["errors"] = sorted(
+            r.json()["errors"], key=operator.itemgetter("message")
+        )
+        assert r.json() == {
             "type": "MultipleInvalid",
             "error": "extra keys not allowed",
             "details": ["invalid"],
             "message": "extra keys not allowed @ data['invalid']",
-            "errors": [
-                {
-                    "type": "Invalid",
-                    "error": "extra keys not allowed",
-                    "message": "extra keys not allowed @ data['invalid']",
-                    "details": ["invalid"],
-                },
-                {
-                    "type": "RequiredFieldInvalid",
-                    "error": "required key not provided",
-                    "message": "required key not provided @ data['mergify.yml']",
-                    "details": ["mergify.yml"],
-                },
-                {
-                    "type": "RequiredFieldInvalid",
-                    "error": "required key not provided",
-                    "message": "required key not provided @ data['pull_request']",
-                    "details": ["pull_request"],
-                },
-            ],
+            "errors": mock.ANY,
         }
+        assert len(r.json()["errors"]) == 3
+        assert {
+            "type": "Invalid",
+            "error": "extra keys not allowed",
+            "message": "extra keys not allowed @ data['invalid']",
+            "details": ["invalid"],
+        } in r.json()["errors"]
+        assert {
+            "type": "RequiredFieldInvalid",
+            "error": "required key not provided",
+            "message": "required key not provided @ data['pull_request']",
+            "details": ["pull_request"],
+        } in r.json()["errors"]
+        assert {
+            "type": "RequiredFieldInvalid",
+            "error": "required key not provided",
+            "message": "required key not provided @ data['mergify.yml']",
+            "details": ["mergify.yml"],
+        } in r.json()["errors"]
