@@ -389,7 +389,7 @@ async def event_testing_handler_get(number: int = None):  # pragma: no cover
     if number is None:
         p.lrange("events-testing", 0, -1)
         p.delete("events-testing")
-        values = await p.execute()[0]
+        values = (await p.execute())[0]
     else:
         for _ in range(number):
             p.lpop("events-testing")
