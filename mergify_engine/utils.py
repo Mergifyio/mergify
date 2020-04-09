@@ -42,8 +42,8 @@ AIOREDIS_CONNECTION_CACHE = None
 async def get_aioredis_for_cache():
     global AIOREDIS_CONNECTION_CACHE
     if AIOREDIS_CONNECTION_CACHE is None:
-        AIOREDIS_CONNECTION_CACHE = aioredis.Redis(
-            await aioredis.create_redis_pool(config.STORAGE_URL, encoding="utf8")
+        AIOREDIS_CONNECTION_CACHE = await aioredis.create_redis_pool(
+            config.STORAGE_URL, encoding="utf8"
         )
         p = current_process()
         await AIOREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
