@@ -131,6 +131,25 @@ def compute_hmac(data):
     return str(mac.hexdigest())
 
 
+def get_pull_logger(pull):
+    return daiquiri.getLogger(
+        __name__,
+        gh_owner=pull["base"]["user"]["login"] if "user" in pull else "<unknown-yet>",
+        gh_repo=(pull["base"]["repo"]["name"] if "base" in pull else "<unknown-yet>"),
+        gh_private=(
+            pull["base"]["repo"]["private"] if "base" in pull else "<unknown-yet>"
+        ),
+        gh_branch=pull["base"]["ref"] if "base" in pull else "<unknown-yet>",
+        gh_pull=pull["number"],
+        gh_pull_url=pull.get("html_url", "<unknown-yet>"),
+        gh_pull_state=(
+            "merged"
+            if pull.get("merged")
+            else (pull.get("mergeable_state", "unknown") or "none")
+        ),
+    )
+
+
 class Gitter(object):
     def __init__(self, logger):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")

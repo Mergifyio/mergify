@@ -31,13 +31,16 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 
 
 def get_already_merged_summary(ctxt, match):
-    for source in ctxt.sources:
-        if (
-            source["event_type"] != "pull_request"
-            or source["data"]["action"] != "closed"
-            or not ctxt.pull["merged"]
-        ):
-            return ""
+    if not (
+        ctxt.pull["merged"]
+        and any(
+            (
+                s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
+                for s in ctxt.sources
+            )
+        )
+    ):
+        return ""
 
     action_merge_found = False
     action_merge_found_in_active_rule = False

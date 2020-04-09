@@ -161,24 +161,45 @@ def run(event_type, data):
         return
 
     with github.get_client(owner, repo, installation) as client:
-        _run(client, event_type, data)
+        pull = get_github_pull_from_event(client, event_type, data)
+
+        if not pull:  # pragma: no cover
+            LOG.info(
+                "No pull request found in the event %s, ignoring",
+                event_type,
+                gh_owner=owner,
+                gh_repo=repo,
+            )
+            return
+
+        # Get a fresh pull request view
+        # Everything after this must handle batching per pull request
+        sources = [{"event_type": event_type, "data": data}]
+        ctxt = context.Context(client, pull)
+
+        issue_comment_sources = []
+
+        for source in sources:
+            if source["event_type"] == "issue_comment":
+                issue_comment_sources.append(source)
+            else:
+                ctxt.sources.append(source)
+
+        commands_runner.spawn_pending_commands_tasks(ctxt)
+
+        if issue_comment_sources:
+            for source in issue_comment_sources:
+                commands_runner.run_command(
+                    ctxt,
+                    source["data"]["comment"]["body"],
+                    source["data"]["comment"]["user"],
+                )
+
+        if ctxt.sources:
+            run_actions(ctxt)
 
 
-def _run(client, event_type, data):
-    raw_pull = get_github_pull_from_event(client, event_type, data)
-
-    if not raw_pull:  # pragma: no cover
-        LOG.info(
-            "No pull request found in the event %s, ignoring",
-            event_type,
-            gh_owner=client.owner,
-            gh_repo=client.repo,
-        )
-        return
-
-    sources = [{"event_type": event_type, "data": data}]
-    ctxt = context.Context(client, raw_pull, sources)
-
+def run_actions(ctxt):
     if ctxt.client.installation["permissions_need_to_be_updated"]:
         check_api.set_check_run(
             ctxt,
@@ -192,41 +213,8 @@ def _run(client, event_type, data):
         )
         return
 
-    if (
-        "base" not in ctxt.pull
-        or "repo" not in ctxt.pull["base"]
-        or len(list(ctxt.pull["base"]["repo"].keys())) < 70
-    ):
-        ctxt.log.warning(
-            "the pull request payload looks suspicious",
-            event_type=event_type,
-            data=data,
-        )
-
-    if (
-        event_type == "status" and ctxt.pull["head"]["sha"] != data["sha"]
-    ):  # pragma: no cover
-        ctxt.log.debug("No need to proceed queue (got status of an old commit)",)
-        return
-
-    elif (
-        event_type in ["status", "check_suite", "check_run"] and ctxt.pull["merged"]
-    ):  # pragma: no cover
-        ctxt.log.debug(
-            "No need to proceed queue (got status of a merged pull request)",
-        )
-        return
-    elif (
-        event_type in ["check_suite", "check_run"]
-        and ctxt.pull["head"]["sha"] != data[event_type]["head_sha"]
-    ):  # pragma: no cover
-        ctxt.log.debug(
-            "No need to proceed queue (got %s of an old " "commit)", event_type,
-        )
-        return
-
     if check_configuration_changes(ctxt):
-        ctxt.log.info("Configuration changed, ignoring",)
+        ctxt.log.info("Configuration changed, ignoring")
         return
 
     # BRANCH CONFIGURATION CHECKING
@@ -237,7 +225,13 @@ def _run(client, event_type, data):
         return
     except rules.InvalidRules as e:  # pragma: no cover
         # Not configured, post status check with the error message
-        if event_type == "pull_request" and data["action"] in ["opened", "synchronize"]:
+        if any(
+            (
+                s["event_type"] == "pull_request"
+                and s["data"]["action"] in ["opened", "synchronize"]
+                for s in ctxt.sources
+            )
+        ):
             check_api.set_check_run(
                 ctxt,
                 actions_runner.SUMMARY_NAME,
@@ -256,7 +250,7 @@ def _run(client, event_type, data):
     )
 
     subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), client.installation["id"]
+        utils.get_redis_for_cache(), ctxt.client.installation["id"]
     )
 
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
@@ -275,14 +269,15 @@ def _run(client, event_type, data):
     # CheckRun are attached to head sha, so when user add commits or force push
     # we can't directly get the previous Mergify Summary. So we copy it here, then
     # anything that looks at it in next celery tasks will find it.
-    if event_type == "pull_request" and data["action"] == "synchronize":
-        copy_summary_from_previous_head_sha(ctxt, data["before"])
 
-    commands_runner.spawn_pending_commands_tasks(ctxt)
+    synchronize_data = [
+        s["data"]
+        for s in ctxt.sources
+        if s["event_type"] == "pull_request"
+        and s["data"]["action"] == "synchronize"
+        and s["data"]["after"] == ctxt.pull["head"]["sha"]
+    ]
+    if synchronize_data:
+        copy_summary_from_previous_head_sha(ctxt, synchronize_data[0]["before"])
 
-    if event_type == "issue_comment":
-        commands_runner.run_command(
-            ctxt, data["comment"]["body"], data["comment"]["user"]
-        )
-    else:
-        actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+    actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
