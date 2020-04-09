@@ -22,6 +22,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
 import daiquiri
+import httpx
 
 from mergify_engine import config
 from mergify_engine import utils
@@ -95,25 +96,23 @@ def _decrypt(value):
 def _retrieve_subscription_from_db(installation_id):
     LOG.info("Subscription not cached, retrieving it...", install_id=installation_id)
     with http.Client() as client:
-        resp = client.get(
-            config.SUBSCRIPTION_URL % installation_id,
-            auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
-        )
-    if resp.status_code == 404:
-        reason = resp.json().get("message")
-        sub = {
-            "tokens": {},
-            "subscription_active": False,
-            "subscription_reason": reason,
-        }
-    elif resp.status_code == 200:
-        sub = resp.json()
-        sub["tokens"] = dict(
-            (login, token["access_token"]) for login, token in sub["tokens"].items()
-        )
-    else:  # pragma: no cover
-        # NOTE(sileht): handle this better
-        resp.raise_for_status()
+        try:
+            resp = client.get(
+                config.SUBSCRIPTION_URL % installation_id,
+                auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+            )
+        except httpx.HTTPNotFound:
+            reason = resp.json().get("message")
+            sub = {
+                "tokens": {},
+                "subscription_active": False,
+                "subscription_reason": reason,
+            }
+        else:
+            sub = resp.json()
+            sub["tokens"] = dict(
+                (login, token["access_token"]) for login, token in sub["tokens"].items()
+            )
     return sub
 
 
