@@ -346,7 +346,10 @@ class Context(object):
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
         self.pull = self.client.item(f"pulls/{self.pull['number']}")
-        del self.__dict__["pull_check_runs"]
+        try:
+            del self.__dict__["pull_check_runs"]
+        except KeyError:
+            pass
 
     @functools_bp.cached_property
     def is_behind(self):
