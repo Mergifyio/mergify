@@ -22,7 +22,6 @@ from urllib import parse
 
 import attr
 import cachetools
-import daiquiri
 import httpx
 import tenacity
 
@@ -30,6 +29,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
+from mergify_engine import utils
 
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
@@ -61,32 +61,7 @@ class Context(object):
 
     @property
     def log(self):
-        return daiquiri.getLogger(
-            __name__,
-            gh_owner=self.pull["base"]["user"]["login"]
-            if "user" in self.pull
-            else "<unknown-yet>",
-            gh_repo=(
-                self.pull["base"]["repo"]["name"]
-                if "base" in self.pull
-                else "<unknown-yet>"
-            ),
-            gh_private=(
-                self.pull["base"]["repo"]["private"]
-                if "base" in self.pull
-                else "<unknown-yet>"
-            ),
-            gh_branch=self.pull["base"]["ref"]
-            if "base" in self.pull
-            else "<unknown-yet>",
-            gh_pull=self.pull["number"],
-            gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
-            gh_pull_state=(
-                "merged"
-                if self.pull.get("merged")
-                else (self.pull.get("mergeable_state", "unknown") or "none")
-            ),
-        )
+        return utils.get_pull_logger(self.pull)
 
     def __attrs_post_init__(self):
         self._ensure_complete()
