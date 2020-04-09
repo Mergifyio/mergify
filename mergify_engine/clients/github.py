@@ -107,16 +107,25 @@ class GithubInstallationClient(http.Client):
                 break
 
     def request(self, method, url, *args, **kwargs):
+        reply = None
         try:
-            return super().request(method, url, *args, **kwargs)
+            reply = super().request(method, url, *args, **kwargs)
         finally:
+            if reply is None:
+                status_code = "error"
+            else:
+                status_code = reply.status_code
+            statsd.increment(
+                "http.client.requests",
+                tags=[f"hostname:{config.GITHUB_DOMAIN}", f"status_code:{status_code}"],
+            )
             self._requests.append((method, url))
+        return reply
 
     def close(self):
         super().close()
         nb_requests = len(self._requests)
-        statsd.histogram("github.http_request.size", nb_requests)
-        statsd.increment("github.http_request.count", nb_requests)
+        statsd.histogram("http.client.session", nb_requests)
         if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
             LOG.warning(
                 "number of GitHub requests for this session crossed the threshold (%s): %s",
@@ -139,7 +148,9 @@ def get_client(*args, **kwargs):
         reset = datetime.utcfromtimestamp(rate["core"]["reset"])
         now = datetime.utcnow()
         delta = reset - now
-        statsd.increment("github.rate_limited")
+        statsd.increment(
+            "http.client.rate_limited", tags=[f"hostname:{config.GITHUB_DOMAIN}"]
+        )
         raise exceptions.RateLimited(delta.total_seconds(), rate)
     return client
 
