@@ -14,6 +14,8 @@ class RequestReviewsAction(actions.Action):
 
     silent_report = True
 
+    always_run = True
+
     def run(self, ctxt, missing_conditions):
 
         # Using consolidated data to avoid already done API lookup
