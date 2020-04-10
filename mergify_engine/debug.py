@@ -19,13 +19,13 @@ import httpx
 
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
-from mergify_engine.tasks import engine
-from mergify_engine.tasks.engine import actions_runner
+from mergify_engine.engine import actions_runner
 
 
 def get_repositories_setuped(token, install_id):  # pragma: no cover

@@ -17,7 +17,7 @@
 
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
-from mergify_engine.tasks.engine.commands_runner import load_action
+from mergify_engine.engine.commands_runner import load_action
 
 
 def test_command_loader():
