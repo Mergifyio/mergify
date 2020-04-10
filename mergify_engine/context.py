@@ -337,19 +337,28 @@ class Context(object):
         return True
 
     def get_merge_commit_message(self):
-        if not self.pull["body"]:
+        return self._get_merge_commit_message(self.pull["body"])
+
+    @staticmethod
+    def _get_merge_commit_message(body):
+        if not body:
             return
 
         found = False
         message_lines = []
 
-        for line in self.pull["body"].split("\n"):
+        for line in body.split("\n"):
             if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
                 found = True
             elif found and MARKDOWN_TITLE_RE.match(line):
                 break
             elif found:
                 message_lines.append(line)
+
+        # Remove the first empty lines
+        message_lines = list(
+            itertools.dropwhile(lambda x: not x.strip(), message_lines)
+        )
 
         if found and message_lines:
             return {
