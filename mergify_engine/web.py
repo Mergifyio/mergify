@@ -37,10 +37,10 @@ from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.engine import actions_runner
 from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
 from mergify_engine.tasks import mergify_events
-from mergify_engine.tasks.engine import actions_runner
 
 
 LOG = logging.getLogger(__name__)

@@ -24,8 +24,8 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import debug
+from mergify_engine import engine
 from mergify_engine.clients import github
-from mergify_engine.tasks import engine
 from mergify_engine.tests.functional import base
 
 
