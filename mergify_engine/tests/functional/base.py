@@ -39,9 +39,9 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import sub_utils
+from mergify_engine import tasks
 from mergify_engine import utils
 from mergify_engine import web
-from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 
@@ -54,8 +54,8 @@ FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
 # NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
 # So all REST API calls will block and execute celery tasks directly
-worker.app.conf.task_always_eager = True
-worker.app.conf.task_eager_propagates = True
+tasks.app.conf.task_always_eager = True
+tasks.app.conf.task_eager_propagates = True
 
 
 class GitterRecorder(utils.Gitter):

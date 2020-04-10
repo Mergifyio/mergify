@@ -20,7 +20,6 @@ from mergify_engine import exceptions
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.clients import github
-from mergify_engine.worker import app
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -148,12 +147,10 @@ def _handle_first_pull_in_queue(queue, ctxt):
         )
 
 
-@app.task
-def smart_strict_workflow_periodic_task():
+def process_queues():
     # NOTE(sileht): Don't use the celery retry mechnism here, the
     # periodic tasks already retries. This ensure a repo can't block
     # another one.
-
     redis = utils.get_redis_for_cache()
     LOG.info("smart strict workflow loop start")
     for queue in redis.keys("strict-merge-queues~*"):

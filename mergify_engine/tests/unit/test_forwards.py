@@ -20,15 +20,15 @@ import uuid
 
 from starlette import testclient
 
+from mergify_engine import tasks
 from mergify_engine import utils
 from mergify_engine import web
-from mergify_engine import worker
 
 
 # NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
 # So all REST API calls will block and execute celery tasks directly
-worker.app.conf.task_always_eager = True
-worker.app.conf.task_eager_propagates = True
+tasks.app.conf.task_always_eager = True
+tasks.app.conf.task_eager_propagates = True
 
 
 @mock.patch("mergify_engine.tasks.github_events.job_filter_and_dispatch")
