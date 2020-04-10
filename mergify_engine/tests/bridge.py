@@ -45,7 +45,9 @@ def run():
     payload_hmac = utils.compute_hmac(payload_data)
 
     if args.clean:
-        r = session.delete(
+        # httpx doesn't allow data= here yet: https://github.com/encode/httpx/pull/900
+        r = session.request(
+            "DELETE",
             "https://gh.mergify.io/events-testing",
             data=payload_data,
             headers={"X-Hub-Signature": "sha1=" + payload_hmac},
@@ -54,7 +56,9 @@ def run():
 
     while True:
         try:
-            resp = session.get(
+            # httpx doesn't allow data= here yet: https://github.com/encode/httpx/pull/900
+            resp = session.request(
+                "GET",
                 "https://gh.mergify.io/events-testing",
                 data=payload_data,
                 headers={"X-Hub-Signature": "sha1=" + payload_hmac},
