@@ -342,8 +342,8 @@ Note that Mergify will always respect the branch protection settings. When the
 conditions match and the ``merge`` action runs, Mergify waits for the branch
 protection to be validated before merging the pull request.
 
-Commit Message and ``squash`` Method
-------------------------------------
+Commit Message
+--------------
 
 When a pull request is merged using the ``squash`` or ``merge`` method, Mergify
 uses the default commit message provided by GitHub. You can override the commit
