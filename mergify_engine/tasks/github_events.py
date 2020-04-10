@@ -20,9 +20,9 @@ from mergify_engine import exceptions
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github_app
+from mergify_engine.tasks import app
 from mergify_engine.tasks import engine
 from mergify_engine.tasks import mergify_events
-from mergify_engine.worker import app
 
 
 LOG = daiquiri.getLogger(__name__)

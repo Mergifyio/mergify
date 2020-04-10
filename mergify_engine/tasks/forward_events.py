@@ -13,7 +13,7 @@
 # under the License.
 
 from mergify_engine.clients import http
-from mergify_engine.worker import app
+from mergify_engine.tasks import app
 
 
 @app.task

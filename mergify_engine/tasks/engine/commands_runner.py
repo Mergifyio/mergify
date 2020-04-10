@@ -17,7 +17,7 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine.clients import github
 from mergify_engine.engine import commands_runner
-from mergify_engine.worker import app
+from mergify_engine.tasks import app
 
 
 @app.task

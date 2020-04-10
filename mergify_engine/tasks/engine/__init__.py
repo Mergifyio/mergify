@@ -17,7 +17,7 @@ import httpx
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine.clients import github
-from mergify_engine.worker import app
+from mergify_engine.tasks import app
 
 
 LOG = daiquiri.getLogger(__name__)

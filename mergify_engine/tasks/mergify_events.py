@@ -18,8 +18,8 @@ import daiquiri
 
 from mergify_engine import exceptions
 from mergify_engine.clients import github
+from mergify_engine.tasks import app
 from mergify_engine.tasks import github_events
-from mergify_engine.worker import app
 
 
 LOG = daiquiri.getLogger(__name__)
