@@ -125,7 +125,11 @@ class GithubInstallationClient(http.Client):
     def close(self):
         super().close()
         nb_requests = len(self._requests)
-        statsd.histogram("http.client.session", nb_requests)
+        statsd.histogram(
+            "http.client.session",
+            nb_requests,
+            tags=[f"hostname:{config.GITHUB_DOMAIN}"],
+        )
         if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
             LOG.warning(
                 "number of GitHub requests for this session crossed the threshold (%s): %s",
