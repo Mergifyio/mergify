@@ -348,6 +348,17 @@ The ``merge`` action merges the pull request into its base branch. The
        * GPG signed commits will lost their signatures.
        * Mergify will use a token from one of the repository member to
          force-push the branch (see: :ref:`faq strict rebase`).
+   * - ``commit_message``
+     - string
+     - ``default``
+     - Defines what commit message to use when merging using the ``squash`` or
+       ``merge`` method. Possible values are:
+
+       * ``default`` to use the default commit message provided by GitHub
+         or defined in the pull request body (see :ref:`commit message`).
+
+       * ``title+body`` means to use the title and body from the pull request
+         itself as the commit message.
 
 Branch Protection Settings
 --------------------------
@@ -356,20 +367,25 @@ Note that Mergify will always respect the branch protection settings. When the
 conditions match and the ``merge`` action runs, Mergify waits for the branch
 protection to be validated before merging the pull request.
 
-Commit Message
---------------
+.. _commit message:
 
-When a pull request is merged using the ``squash`` or ``merge`` method, Mergify
-uses the default commit message provided by GitHub. You can override the commit
-message by adding a section in the pull request body. The section must start
-with the Markdown title "Commit Message" and contain the actual commit
-message::
+Defining the Commit Message
+---------------------------
+
+When a pull request is merged using the ``squash`` or ``merge`` method, you can
+override the commit message by adding a section in the pull request body. The
+section must start with the Markdown title "Commit Message" and contain the
+actual commit message::
 
     ## Commit Message
     My wanted commit title
 
     The whole commit message finishes at the end of the pull request body or
     before a new Markdown title.
+
+.. note::
+
+   This feature only works when ``commit_message`` is set to ``default``.
 
 .. _request_reviews action:
 
