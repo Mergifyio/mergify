@@ -500,7 +500,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         self.r_fork = self.u_fork.create_fork(self.r_o_integration)
 
-        for _ in range(10):
+        for _ in range(20):
             try:
                 self.git("fetch", "--quiet", "fork")
             except subprocess.CalledProcessError as e:
@@ -510,7 +510,7 @@ class FunctionalTestBase(unittest.TestCase):
                 ):
                     if RECORD:
                         # Forks can take some time, retry
-                        time.sleep(0.2)
+                        time.sleep(0.5)
                 else:
                     raise
             else:
