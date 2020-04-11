@@ -975,15 +975,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         commit = self.r_o_admin.get_commits()[0].commit
         self.assertEqual(msg, commit.message)
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
-        assert len(ctxt.pull_check_runs) == 2
-        for check in ctxt.pull_check_runs:
-            if check["name"] == "Summary":
-                assert msg in check["output"]["summary"]
-                break
-        else:
-            assert False, "Summary check not found"
-
     def test_merge_custom_msg(self):
         return self._test_merge_custom_msg("Commit Message:\n")
 
@@ -995,6 +986,38 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     def test_merge_custom_msg_merge(self):
         return self._test_merge_custom_msg("Commit Message:\n", "merge")
+
+    def test_merge_custom_msg_title_body(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": [
+                        "base=master",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {
+                        "merge": {"method": "merge", "commit_message": "title+body"}
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        msg = "It fixes it"
+        p, _ = self.create_pr(message=msg)
+        self.create_status(p)
+
+        self.wait_for("pull_request", {"action": "closed"})
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(1, pulls[0].number)
+        self.assertEqual(True, pulls[0].merged)
+
+        commit = self.r_o_admin.get_commits()[0].commit
+        self.assertEqual(f"Pull request n1 from fork\n\n{msg}", commit.message)
 
     def test_merge_and_closes_issues(self):
         rules = {

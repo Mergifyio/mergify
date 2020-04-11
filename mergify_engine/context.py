@@ -17,7 +17,6 @@
 import functools
 import itertools
 import operator
-import re
 from urllib import parse
 
 import attr
@@ -30,10 +29,6 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
 from mergify_engine import utils
-
-
-MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
-MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
@@ -335,36 +330,6 @@ class Context(object):
                 if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
-
-    def get_merge_commit_message(self):
-        return self._get_merge_commit_message(self.pull["body"])
-
-    @staticmethod
-    def _get_merge_commit_message(body):
-        if not body:
-            return
-
-        found = False
-        message_lines = []
-
-        for line in body.split("\n"):
-            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
-                found = True
-            elif found and MARKDOWN_TITLE_RE.match(line):
-                break
-            elif found:
-                message_lines.append(line)
-
-        # Remove the first empty lines
-        message_lines = list(
-            itertools.dropwhile(lambda x: not x.strip(), message_lines)
-        )
-
-        if found and message_lines:
-            return {
-                "commit_title": message_lines[0],
-                "commit_message": "\n".join(message_lines[1:]).strip(),
-            }
 
     def __str__(self):
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {

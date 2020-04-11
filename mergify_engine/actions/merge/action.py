@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+# Copyright © 2020 Mergify SAS
+# Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,6 +14,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import itertools
+import re
 
 import httpx
 import voluptuous
@@ -28,6 +31,9 @@ BRANCH_PROTECTION_FAQ_URL = (
     "my-branch-protection-settings"
 )
 
+MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
+MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
+
 
 class MergeAction(actions.Action):
     only_once = True
@@ -42,6 +48,9 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict", default=False): voluptuous.Any(bool, "smart"),
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
+        ),
+        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+            "default", "title+body"
         ),
     }
 
@@ -130,6 +139,36 @@ class MergeAction(actions.Action):
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
 
+    @staticmethod
+    def _get_commit_message(pull, mode="default"):
+        if mode == "title+body":
+            return pull["title"], pull["body"]
+
+        if not pull["body"]:
+            return
+
+        found = False
+        message_lines = []
+
+        for line in pull["body"].split("\n"):
+            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
+                found = True
+            elif found and MARKDOWN_TITLE_RE.match(line):
+                break
+            elif found:
+                message_lines.append(line)
+
+        # Remove the first empty lines
+        message_lines = list(
+            itertools.dropwhile(lambda x: not x.strip(), message_lines)
+        )
+
+        if found and message_lines:
+            return (
+                message_lines[0],
+                "\n".join(message_lines[1:]).strip(),
+            )
+
     def _merge(self, ctxt):
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
@@ -142,7 +181,17 @@ class MergeAction(actions.Action):
                 "",
             )
 
-        data = ctxt.get_merge_commit_message() or {}
+        commit_title_and_message = self._get_commit_message(
+            ctxt.pull, self.config["commit_message"]
+        )
+        if commit_title_and_message is None:
+            data = {}
+        else:
+            data = {
+                "commit_title": commit_title_and_message[0],
+                "commit_message": commit_title_and_message[1],
+            }
+
         data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method
 
