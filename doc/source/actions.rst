@@ -173,7 +173,7 @@ The ``close`` action closes the pull request without merging it.
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
