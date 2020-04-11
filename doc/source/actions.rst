@@ -20,7 +20,7 @@ The ``assign`` action assigns users to the pull request.
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -55,7 +55,7 @@ parameter:
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -92,7 +92,7 @@ The ``copy`` action creates a copy of the pull request targetting other branches
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -127,7 +127,7 @@ The ``comment`` action adds a comment to the pull request.
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -148,7 +148,7 @@ The ``review`` action reviews the pull request.
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -201,7 +201,7 @@ using :ref:`Conditions`.
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -227,7 +227,7 @@ branch is rebased).
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -262,7 +262,7 @@ The ``label`` action can add or remove `labels
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
@@ -291,7 +291,7 @@ The ``merge`` action merges the pull request into its base branch. The
 
 .. list-table::
    :header-rows: 1
-   :widths: 1 1 1 2
+   :widths: 1 1 1 3
 
    * - Key Name
      - Value Type
