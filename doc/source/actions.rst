@@ -311,19 +311,32 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``strict``
      - Boolean or ``smart``
      - ``false``
-     - If set to ``true``, :ref:`strict merge` will be enabled: the pull
-       request will be merged only once up-to-date with its base branch. When
-       multiple pull requests are ready to be merged, they will all be updated
-       with their base branch at the same time, and the first ready to be
-       merged will be merged; the remaining pull request will be updated once
-       again. If you prefer to update one pull request at a time (e.g.,
-       to save CI runtime), set ``strict`` to ``smart`` instead: Mergify will
-       queue the mergeable pull requests and update them one at a time serially.
+     - Determines whether to use :ref:`strict merge`:
+
+       * ``true`` enables :ref:`strict merge`. The pull request will be merged
+         only once up-to-date with its base branch. When multiple pull requests
+         are ready to be merged, they will **all** be updated with their base
+         branch at the same time, and the first ready to be merged will be
+         merged; the remaining pull request will be updated once again.
+
+       * ``smart`` enables :ref:`strict merge` but only update one pull request
+         against its base branch at a time.
+         This allows you to e.g., save CI time, as Mergify will queue the
+         mergeable pull requests and update them serially, one at a time.
+
+       * ``false`` disables :ref:`strict merge` and merge pull requests as soon
+         as possible, without bringing the pull request up-to-date with its
+         base branch.
+
+
    * - ``strict_method``
      - string
      - ``merge``
-     - Base branch update method when strict mode is enabled.
-       Possible values are ``merge`` or ``rebase``.
+     - Update method to use to update the pull request with its base branch
+       when :ref:`strict merge` is enabled. Possible values:
+
+       * ``merge`` to merge the base branch into the pull request.
+       * ``rebase`` to rebase the pull request against its base branch.
 
        Note that ``rebase`` has many drawbacks due to the change of all commits
        sha of the pull request. For example:
@@ -333,7 +346,8 @@ The ``merge`` action merges the pull request into its base branch. The
        * GitHub branch protection of the contributor repository may refuse Mergify to
          force push the rebased pull request.
        * GPG signed commits will lost their signatures.
-       * Also see: :ref:`faq strict rebase`
+       * Mergify will use a token from one of the repository member to
+         force-push the branch (see: :ref:`faq strict rebase`).
 
 Branch Protection Settings
 --------------------------
