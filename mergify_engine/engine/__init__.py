@@ -125,7 +125,6 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
     checks = check_api.get_checks_for_ref(
         ctxt, sha, check_name=actions_runner.SUMMARY_NAME,
     )
-    print(checks)
     checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
 
     if not checks:
