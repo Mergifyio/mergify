@@ -19,5 +19,10 @@ from unittest import mock
 
 from datadog import statsd
 
+from mergify_engine import worker
+
 
 statsd.socket = mock.Mock()
+
+
+worker.WORKER_PROCESSING_DELAY = 0.1
