@@ -65,6 +65,37 @@ def get_redis_for_cache():
     return REDIS_CONNECTION_CACHE
 
 
+global REDIS_CONNECTION_STREAM
+REDIS_CONNECTION_STREAM = None
+
+
+def get_redis_for_stream():
+    global REDIS_CONNECTION_STREAM
+    if REDIS_CONNECTION_STREAM is None:
+        REDIS_CONNECTION_STREAM = redis.StrictRedis.from_url(config.STREAM_URL)
+        p = current_process()
+        REDIS_CONNECTION_STREAM.client_setname("stream:%s" % p.name)
+    return REDIS_CONNECTION_STREAM
+
+
+global AIOREDIS_CONNECTION_STREAM
+AIOREDIS_CONNECTION_STREAM = None
+
+
+async def create_aioredis_for_stream():
+    r = await aioredis.create_redis_pool(config.STREAM_URL)
+    p = current_process()
+    await r.client_setname("stream:%s" % p.name)
+    return r
+
+
+async def get_aioredis_for_stream():
+    global AIOREDIS_CONNECTION_STREAM
+    if AIOREDIS_CONNECTION_STREAM is None:
+        AIOREDIS_CONNECTION_STREAM = await create_aioredis_for_stream()
+    return AIOREDIS_CONNECTION_STREAM
+
+
 def utcnow():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -117,6 +148,8 @@ def setup_logging():
             ("urllib3.util.retry", "WARN"),
             ("vcr", "WARN"),
             ("httpx", "WARN"),
+            ("aioredis", "WARN"),
+            ("asyncio", "WARN"),
             ("uvicorn.access", "WARN"),
         ]
     )

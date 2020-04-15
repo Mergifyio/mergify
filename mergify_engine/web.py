@@ -331,7 +331,6 @@ async def event_handler(request: requests.Request):
             github_events.job_filter_and_dispatch.s(
                 event_type, event_id, data
             ).apply_async,
-            countdown=30,
         ),
     )
 

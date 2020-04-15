@@ -1,2 +1,3 @@
-beat: celery beat -A mergify_engine.tasks
-worker: celery worker --pool gevent -A mergify_engine.tasks --task-events -Q mergify,celery
+celery_beat: celery beat -A mergify_engine.tasks
+celery_worker: celery worker --pool gevent -A mergify_engine.tasks --task-events -Q mergify,celery
+mergify_worker: mergify-engine-worker

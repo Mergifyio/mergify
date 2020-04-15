@@ -22,6 +22,7 @@ import queue
 import re
 import shutil
 import subprocess
+import threading
 import time
 import unittest
 from unittest import mock
@@ -31,6 +32,7 @@ import daiquiri
 import github as pygithub
 import httpx
 import pytest
+import redis
 from starlette import testclient
 import vcr
 
@@ -42,6 +44,7 @@ from mergify_engine import sub_utils
 from mergify_engine import tasks
 from mergify_engine import utils
 from mergify_engine import web
+from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 
@@ -141,12 +144,46 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
+class WorkerThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.daemon = True
+        self._running = threading.Event()
+
+    async def async_run(self):
+        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
+        w.start()
+        while self._running.is_set():
+            await asyncio.sleep(0.42 if RECORD else 0.02)
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    def run(self):
+        self._running.set()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.async_run())
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+
+    def stop(self):
+        if self._running.is_set():
+            self._running.clear()
+            self.join()
+
+
 class EventReader:
     def __init__(self, app):
         self._app = app
         self._session = httpx.Client(trust_env=False)
         self._handled_events = queue.Queue()
         self._counter = 0
+        self._redis = redis.StrictRedis.from_url(
+            config.STREAM_URL, decode_responses=True
+        )
+
+    def close(self):
+        self._redis.close()
 
     def drain(self):
         # NOTE(sileht): Drop any pending events still on the server
@@ -157,6 +194,7 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
         r.raise_for_status()
+        self._redis.flushall()
 
     def wait_for(self, event_type, expected_payload, timeout=60 if RECORD else 2):
         started_at = time.monotonic()
@@ -165,8 +203,9 @@ class EventReader:
                 event = self._handled_events.get(block=False)
             except queue.Empty:
                 for event in self._get_events():
-                    self._forward_to_engine(event)
+                    self._forward_to_engine_api(event)
                     self._handled_events.put(event)
+                    self._wait_all_streams_proceed(started_at, timeout)
                 else:
                     if RECORD:
                         time.sleep(1)
@@ -203,7 +242,14 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()
 
-    def _forward_to_engine(self, event):
+    def _wait_all_streams_proceed(self, started_at, timeout):
+        streams = self._redis.zrange("streams", start=0, end=-1)
+        while time.monotonic() - started_at < timeout and streams:
+            time.sleep(1 if RECORD else 0.1)
+            streams = self._redis.zrange("streams", start=0, end=-1)
+            LOG.debug("Remaining streams: %s", streams)
+
+    def _forward_to_engine_api(self, event):
         payload = event["payload"]
         if event["type"] in ["check_run", "check_suite"]:
             extra = "/%s/%s" % (
@@ -447,6 +493,8 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
+        self._worker_thread = WorkerThread()
+        self._worker_thread.start()
 
     def tearDown(self):
         # self.r_o_admin.delete()
@@ -459,6 +507,8 @@ class FunctionalTestBase(unittest.TestCase):
             time.sleep(0.5)
 
         self._event_reader.drain()
+        self._event_reader.close()
+        self._worker_thread.stop()
         mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):

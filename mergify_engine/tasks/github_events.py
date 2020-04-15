@@ -179,11 +179,12 @@ def job_filter_and_dispatch(event_type, event_id, data):
         owner, _, repo = data["repository"]["full_name"].partition("/")
         branch = data["ref"][11:]
         msg_action = "run refresh branch %s" % branch
-        mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async(
-            countdown=60
-        )
+        mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async()
     else:
-        engine.run.s(event_type, data).apply_async()
+        if installation_id in config.AB_TESTING_INSTALLATION_IDS:
+            engine.run(event_type, data)
+        else:
+            engine.run.s(event_type, data).apply_async(countdown=60)
         msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
 
     if "repository" in data:
