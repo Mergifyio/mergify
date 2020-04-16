@@ -55,6 +55,8 @@ For example:
   ``operator`` and ``value`` are only optional if the ``attribute`` type is
   ``Boolean``.
 
+.. _attributes:
+
 Attributes
 ~~~~~~~~~~
 

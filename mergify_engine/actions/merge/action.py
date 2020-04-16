@@ -18,9 +18,14 @@ import itertools
 import re
 
 import httpx
+import jinja2.exceptions
+import jinja2.runtime
+import jinja2.sandbox
+import jinja2.utils
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import context
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
@@ -33,6 +38,40 @@ BRANCH_PROTECTION_FAQ_URL = (
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
+
+
+class PullRequestContext(jinja2.runtime.Context):
+    """This is a special Context that resolves any attribute first in the "pull request" object.
+
+
+    This allows to write {{author}} instead of {{pull_request.author}}."""
+
+    _InvalidValue = object()
+
+    def resolve_or_missing(self, key):
+        if "pull_request" in self.parent:
+            try:
+                return getattr(self.parent["pull_request"], key)
+            except AttributeError:
+                if "pull_request" in self.vars:
+                    return getattr(self.vars["pull_request"], key)
+                raise
+
+        value = super().resolve_or_missing(key)
+        if value == self._InvalidValue:
+            return jinja2.utils.missing
+
+    @classmethod
+    def inject(cls, env, pull_request):
+        """Inject this context into a Jinja Environment."""
+        env.globals["pull_request"] = pull_request
+        # Set all the value to _InvalidValue as the PullRequestContext will resolve
+        # values correctly anyway. We still need to have those entries in
+        # the global dict so find_undeclared_variables works correctly.
+        env.globals.update(
+            dict((k.replace("-", "_"), cls._InvalidValue) for k in pull_request)
+        )
+        env.context_class = cls
 
 
 class MergeAction(actions.Action):
@@ -140,17 +179,17 @@ class MergeAction(actions.Action):
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
 
     @staticmethod
-    def _get_commit_message(pull, mode="default"):
+    def _get_commit_message(pull_request, mode="default"):
         if mode == "title+body":
-            return pull["title"], pull["body"]
+            return pull_request.title, pull_request.body
 
-        if not pull["body"]:
+        if not pull_request.body:
             return
 
         found = False
         message_lines = []
 
-        for line in pull["body"].split("\n"):
+        for line in pull_request.body.split("\n"):
             if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
                 found = True
             elif found and MARKDOWN_TITLE_RE.match(line):
@@ -164,9 +203,21 @@ class MergeAction(actions.Action):
         )
 
         if found and message_lines:
+            env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
+            PullRequestContext.inject(env, pull_request)
+
+            title = message_lines.pop(0)
+
+            # Remove the empty lines between title and message body
+            message_lines = list(
+                itertools.dropwhile(lambda x: not x.strip(), message_lines)
+            )
+
             return (
-                message_lines[0],
-                "\n".join(message_lines[1:]).strip(),
+                env.from_string(title.strip()).render(),
+                env.from_string(
+                    "\n".join(line.strip() for line in message_lines)
+                ).render(),
             )
 
     def _merge(self, ctxt):
@@ -181,16 +232,37 @@ class MergeAction(actions.Action):
                 "",
             )
 
-        commit_title_and_message = self._get_commit_message(
-            ctxt.pull, self.config["commit_message"]
-        )
-        if commit_title_and_message is None:
-            data = {}
-        else:
-            data = {
-                "commit_title": commit_title_and_message[0],
-                "commit_message": commit_title_and_message[1],
-            }
+        data = {}
+
+        try:
+            commit_title_and_message = self._get_commit_message(
+                ctxt.pull_request, self.config["commit_message"],
+            )
+        except jinja2.exceptions.TemplateSyntaxError as tse:
+            return (
+                "action_required",
+                "Invalid commit message",
+                f"There is an error in your commit message: {tse.message} at line {tse.lineno}",
+            )
+        except jinja2.exceptions.TemplateError as te:
+            return (
+                "action_required",
+                "Invalid commit message",
+                f"There is an error in your commit message: {te.message}",
+            )
+        except context.PullRequestAttributeError as e:
+            return (
+                "action_required",
+                "Invalid commit message",
+                f"There is an error in your commit message, the following variable is unknown: {e.name}",
+            )
+
+        if commit_title_and_message is not None:
+            title, message = commit_title_and_message
+            if title:
+                data["commit_title"] = title
+            if message:
+                data["commit_message"] = message
 
         data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method

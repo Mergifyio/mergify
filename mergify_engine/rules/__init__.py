@@ -117,8 +117,8 @@ class PullRequestRules:
 
         # The list of pull request rules to match against.
         rules = attr.ib()
-        # The pull request to test.
-        pull_request = attr.ib()
+        # The context to test.
+        context = attr.ib()
 
         # The rules matching the pull request.
         matching_rules = attr.ib(init=False, default=attr.Factory(list))
@@ -133,11 +133,11 @@ class PullRequestRules:
                 for condition in rule["conditions"]:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
-                            attrib, self.pull_request.resolve_teams,
+                            attrib, self.context.resolve_teams,
                         )
 
                     name = condition.get_attribute_name()
-                    value = self.pull_request.get_consolidated_data(name)
+                    value = getattr(self.context.pull_request, name)
                     if not condition(**{name: value}):
                         next_conditions_to_validate.append(condition)
                         if condition.attribute_name in self.BASE_ATTRIBUTES:

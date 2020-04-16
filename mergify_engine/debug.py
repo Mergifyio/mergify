@@ -146,33 +146,7 @@ def report(url):
             pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
 
     print("* PULL REQUEST:")
-    pr_data = dict(
-        (attr, ctxt.get_consolidated_data(attr))
-        for attr in (
-            "assignee",
-            "label",
-            "review-requested",
-            "author",
-            "merged-by",
-            "merged",
-            "closed",
-            "milestone",
-            "conflict",
-            "base",
-            "head",
-            "locked",
-            "title",
-            "body",
-            "files",
-            "approved-reviews-by",
-            "dismissed-reviews-by",
-            "changes-requested-reviews-by",
-            "commented-reviews-by",
-            "status-success",
-            "status-failure",
-            "status-neutral",
-        )
-    )
+    pr_data = dict(ctxt.pull_request.items())
     pprint.pprint(pr_data, width=160)
 
     print("is_behind: %s" % ctxt.is_behind)
