@@ -23,7 +23,8 @@ More conditions and actions can be found in the [documentation](https://doc.merg
 You can also trigger Mergify actions by commenting on this pull request:
 
 - `@Mergifyio refresh` will re-evaluate the rules
-- `@Mergifyio rebase` will rebase this PR
+- `@Mergifyio rebase` will rebase this PR on its base branch
+- `@Mergifyio update` will merge the base branch into this PR
 - `@Mergifyio backport <destination>` will backport this PR on `<destination>` branch
 
 Additionally, on Mergify [dashboard](https://dashboard.mergify.io/) you can:
