@@ -20,7 +20,7 @@ import os
 
 from mergify_engine import config
 from mergify_engine import utils
-from mergify_engine.common import http
+from mergify_engine.clients import http
 
 
 def api_call(url, method="post"):
