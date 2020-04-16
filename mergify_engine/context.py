@@ -13,7 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import dataclasses
 import functools
 import itertools
 import operator
@@ -47,12 +47,21 @@ from mergify_engine import utils
 # https://developer.github.com/v4/enum/mergestatestatus/
 
 
+@dataclasses.dataclass
+class PullRequestAttributeError(AttributeError):
+    name: str
+
+
 @attr.s()
 class Context(object):
     client = attr.ib()
     pull = attr.ib()
     sources = attr.ib(factory=list)
     _write_permission_cache = attr.ib(factory=lambda: cachetools.LRUCache(4096))
+
+    @property
+    def pull_request(self):
+        return PullRequest(self)
 
     @property
     def log(self):
@@ -102,7 +111,7 @@ class Context(object):
                 approvals[review["user"]["login"]] = review
         return list(comments.values()), list(approvals.values())
 
-    def get_consolidated_data(self, name):
+    def _get_consolidated_data(self, name):
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
@@ -186,7 +195,7 @@ class Context(object):
             return [ctxt for ctxt, state in self.checks.items() if state == "neutral"]
 
         else:
-            raise AttributeError(f"Invalid attribute: {name}")
+            raise PullRequestAttributeError(name)
 
     def update_pull_check_runs(self, check):
         self.pull_check_runs = [
@@ -363,3 +372,48 @@ class Context(object):
     @property
     def pull_base_is_modifiable(self):
         return self.pull["maintainer_can_modify"] or not self.pull_from_fork
+
+
+@attr.s
+class PullRequest:
+    """A high level pull request object.
+
+    This object is used for e.g. templates.
+    """
+
+    context = attr.ib()
+
+    _ATTRIBUTES = {
+        "assignee",
+        "label",
+        "review-requested",
+        "author",
+        "merged-by",
+        "merged",
+        "closed",
+        "milestone",
+        "conflict",
+        "base",
+        "head",
+        "locked",
+        "title",
+        "body",
+        "files",
+        "approved-reviews-by",
+        "dismissed-reviews-by",
+        "changes-requested-reviews-by",
+        "commented-reviews-by",
+        "status-success",
+        "status-failure",
+        "status-neutral",
+    }
+
+    def __getattr__(self, name):
+        return self.context._get_consolidated_data(name.replace("_", "-"))
+
+    def __iter__(self):
+        return iter(self._ATTRIBUTES)
+
+    def items(self):
+        for k in self:
+            yield k, getattr(self, k)

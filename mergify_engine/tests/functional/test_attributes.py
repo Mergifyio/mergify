@@ -15,6 +15,7 @@
 # under the License.
 import logging
 
+import pytest
 import yaml
 
 from mergify_engine import context
@@ -38,16 +39,49 @@ class TestAttributes(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         pr, _ = self.create_pr()
-        pull = context.Context(self.cli_integration, {"number": pr.number})
-        assert not pull.get_consolidated_data("draft")
+        ctxt = context.Context(self.cli_integration, {"number": pr.number})
+        assert not ctxt.pull_request.draft
 
         pr, _ = self.create_pr(draft=True)
 
         self.wait_for("issue_comment", {"action": "created"})
 
-        pull = context.Context(self.cli_integration, {"number": pr.number})
-        assert pull.get_consolidated_data("draft")
+        ctxt = context.Context(self.cli_integration, {"number": pr.number})
+        assert ctxt.pull_request.draft
 
         pr.update()
         comments = list(pr.get_issue_comments())
         self.assertEqual("draft pr", comments[-1].body)
+
+        # Test underscore/dash attributes
+        assert ctxt.pull_request.review_requested == []
+
+        with pytest.raises(AttributeError):
+            assert ctxt.pull_request.foobar
+
+        # Test items
+        assert list(ctxt.pull_request) == list(context.PullRequest._ATTRIBUTES)
+        assert dict(ctxt.pull_request.items()) == {
+            "closed": False,
+            "locked": False,
+            "assignee": [],
+            "approved-reviews-by": [],
+            "files": ["test2"],
+            "status-neutral": [],
+            "commented-reviews-by": [],
+            "milestone": "",
+            "label": [],
+            "body": "Pull request n2 from fork",
+            "base": "master",
+            "review-requested": [],
+            "status-success": ["Summary"],
+            "changes-requested-reviews-by": [],
+            "merged": False,
+            "head": "fork/pr2",
+            "author": "mergify-test2",
+            "dismissed-reviews-by": [],
+            "merged-by": "",
+            "status-failure": [],
+            "title": "Pull request n2 from fork",
+            "conflict": False,
+        }

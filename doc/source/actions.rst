@@ -373,15 +373,44 @@ Defining the Commit Message
 ---------------------------
 
 When a pull request is merged using the ``squash`` or ``merge`` method, you can
-override the commit message by adding a section in the pull request body. The
-section must start with the Markdown title "Commit Message" and contain the
-actual commit message::
+override the default commit message. To that end, you need to add a section in
+the pull request body that starts with ``Commit Message``.
+
+.. code-block:: md
 
     ## Commit Message
+
     My wanted commit title
 
     The whole commit message finishes at the end of the pull request body or
     before a new Markdown title.
+
+The whole commit message finishes at the end of the pull request body or before
+a new Markdown title.
+
+You can use any available attributes of the pull request in the commit message,
+by writing a template using the `Jinja2
+<https://jinja.palletsprojects.com/templates/>`_ markup.
+
+For example:
+
+.. code-block:: md
+
+    ## Commit Message
+
+    {{title}}
+
+    This pull request implements magnificient features, and I would like to
+    talk about them. This has been written by {{author}} and has been reviewed
+    by:
+
+    {% for user in approved_reviews_by %}
+    - {{user}}
+    {% endfor %}
+
+
+You can use any of the pull request :ref:`attributes` as variable — replacing
+``-`` with ``_`` in variables names.
 
 .. note::
 

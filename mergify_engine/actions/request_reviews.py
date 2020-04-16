@@ -27,7 +27,7 @@ class RequestReviewsAction(actions.Action):
             "review-requested",
         )
         existing_reviews = set(
-            itertools.chain(*[ctxt.get_consolidated_data(key) for key in reviews_keys])
+            itertools.chain(*[getattr(ctxt.pull_request, key) for key in reviews_keys])
         )
         user_reviews_to_request = (
             set(self.config["users"])

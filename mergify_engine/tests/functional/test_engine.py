@@ -945,7 +945,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         )
 
-    def _test_merge_custom_msg(self, header, method="squash"):
+    def _test_merge_custom_msg(
+        self, header, method="squash", msg=None, commit_msg=None
+    ):
         rules = {
             "pull_request_rules": [
                 {
@@ -961,7 +963,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        msg = "This is the title\n\nAnd this is the message"
+        if msg is None:
+            msg = "This is the title\n\nAnd this is the message"
         p, _ = self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
         self.create_status(p)
 
@@ -973,7 +976,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.assertEqual(True, pulls[0].merged)
 
         commit = self.r_o_admin.get_commits()[0].commit
-        self.assertEqual(msg, commit.message)
+        if commit_msg is None:
+            commit_msg = msg
+        assert commit_msg == commit.message
 
     def test_merge_custom_msg(self):
         return self._test_merge_custom_msg("Commit Message:\n")
@@ -986,6 +991,72 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     def test_merge_custom_msg_merge(self):
         return self._test_merge_custom_msg("Commit Message:\n", "merge")
+
+    def test_merge_custom_msg_template(self):
+        return self._test_merge_custom_msg(
+            "Commit Message:\n",
+            "merge",
+            msg="{{title}}\n\nThanks to {{author}}",
+            commit_msg="Pull request n1 from fork\n\nThanks to mergify-test2",
+        )
+
+    def test_merge_invalid_custom_msg(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [
+                        "base=master",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"merge": {"method": "merge"}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        msg = "This is the title\n\nAnd this is the message {{invalid}}"
+        p, _ = self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
+        self.create_status(p)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        assert 1 == len(pulls)
+        assert 1 == pulls[0].number
+        assert pulls[0].merged is False
+
+        ctxt = context.Context(self.cli_integration, p.raw_data)
+        checks = list(
+            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+        )
+        assert "completed" == checks[0]["status"]
+        assert checks[0]["conclusion"] == "action_required"
+        assert (
+            "There is an error in your commit message, the following variable is unknown: invalid"
+            == checks[0]["output"]["summary"]
+        )
+        assert "Invalid commit message" == checks[0]["output"]["title"]
+
+        # Edit and fixes the typo
+        p.edit(body="It fixes it\n\n## Commit Message\n\nHere it is valid now")
+
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for(
+            "check_run",
+            {"check_run": {"conclusion": "success", "status": "completed"}},
+        )
+
+        # delete check run cache
+        del ctxt.__dict__["pull_check_runs"]
+        checks = list(
+            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+        )
+        assert "completed" == checks[0]["status"]
+        assert checks[0]["conclusion"] == "success"
+        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        assert 1 == len(pulls)
+        assert 1 == pulls[0].number
+        assert pulls[0].merged
 
     def test_merge_custom_msg_title_body(self):
         rules = {
