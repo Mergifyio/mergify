@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 
-import aioredis
+import aredis
 from billiard import current_process
 import celery.app.log
 import daiquiri
@@ -35,19 +35,19 @@ from mergify_engine import config
 LOG = daiquiri.getLogger(__name__)
 
 
-global AIOREDIS_CONNECTION_CACHE
-AIOREDIS_CONNECTION_CACHE = None
+global AREDIS_CONNECTION_CACHE
+AREDIS_CONNECTION_CACHE = None
 
 
-async def get_aioredis_for_cache():
-    global AIOREDIS_CONNECTION_CACHE
-    if AIOREDIS_CONNECTION_CACHE is None:
-        AIOREDIS_CONNECTION_CACHE = await aioredis.create_redis_pool(
-            config.STORAGE_URL, encoding="utf8"
+async def get_aredis_for_cache():
+    global AREDIS_CONNECTION_CACHE
+    if AREDIS_CONNECTION_CACHE is None:
+        AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
+            config.STORAGE_URL, decode_responses=True
         )
         p = current_process()
-        await AIOREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
-    return AIOREDIS_CONNECTION_CACHE
+        await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
+    return AREDIS_CONNECTION_CACHE
 
 
 global REDIS_CONNECTION_CACHE
@@ -78,22 +78,22 @@ def get_redis_for_stream():
     return REDIS_CONNECTION_STREAM
 
 
-global AIOREDIS_CONNECTION_STREAM
-AIOREDIS_CONNECTION_STREAM = None
+global AREDIS_CONNECTION_STREAM
+AREDIS_CONNECTION_STREAM = None
 
 
-async def create_aioredis_for_stream():
-    r = await aioredis.create_redis_pool(config.STREAM_URL)
+async def create_aredis_for_stream():
+    r = aredis.StrictRedis.from_url(config.STREAM_URL)
     p = current_process()
     await r.client_setname("stream:%s" % p.name)
     return r
 
 
-async def get_aioredis_for_stream():
-    global AIOREDIS_CONNECTION_STREAM
-    if AIOREDIS_CONNECTION_STREAM is None:
-        AIOREDIS_CONNECTION_STREAM = await create_aioredis_for_stream()
-    return AIOREDIS_CONNECTION_STREAM
+async def get_aredis_for_stream():
+    global AREDIS_CONNECTION_STREAM
+    if AREDIS_CONNECTION_STREAM is None:
+        AREDIS_CONNECTION_STREAM = await create_aredis_for_stream()
+    return AREDIS_CONNECTION_STREAM
 
 
 def utcnow():
@@ -148,7 +148,6 @@ def setup_logging():
             ("urllib3.util.retry", "WARN"),
             ("vcr", "WARN"),
             ("httpx", "WARN"),
-            ("aioredis", "WARN"),
             ("asyncio", "WARN"),
             ("uvicorn.access", "WARN"),
         ]
