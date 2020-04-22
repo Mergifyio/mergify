@@ -123,7 +123,7 @@ def _retrieve_subscription_from_cache(r, installation_id):
 
 
 async def save_subscription_to_cache(installation_id, sub):
-    r = await utils.get_aioredis_for_cache()
+    r = await utils.get_aredis_for_cache()
     encrypted = _encrypt(sub)
     await r.setex("subscription-cache-%s" % installation_id, 3600, encrypted)
 

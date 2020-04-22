@@ -34,12 +34,11 @@ if sys.version_info < (3, 8):
 
 @pytest.fixture()
 async def redis():
-    r = await utils.create_aioredis_for_stream()
+    r = await utils.create_aredis_for_stream()
     try:
         yield r
     finally:
-        r.close()
-        await r.wait_closed()
+        r.connection_pool.disconnect()
 
 
 async def run_worker():

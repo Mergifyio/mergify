@@ -182,7 +182,7 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(authentification)],
 )
 async def subscription_cache_delete(installation_id):  # pragma: no cover
-    r = await utils.get_aioredis_for_cache()
+    r = await utils.get_aredis_for_cache()
     await r.delete("subscription-cache-%s" % installation_id)
     return responses.Response("Cache cleaned", status_code=200)
 
@@ -307,12 +307,14 @@ async def marketplace_handler(request: requests.Request):  # pragma: no cover
 
 @app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(authentification)])
 async def queues(installation_id):
-    redis = await utils.get_aioredis_for_cache()
+    redis = await utils.get_aredis_for_cache()
     queues = collections.defaultdict(dict)
-    async for queue in redis.iscan(match=f"strict-merge-queues~{installation_id}~*"):
+    async for queue in redis.scan_iter(
+        match=f"strict-merge-queues~{installation_id}~*"
+    ):
         _, _, owner, repo, branch = queue.split("~")
         queues[owner + "/" + repo][branch] = [
-            int(pull) async for pull, _ in redis.izscan(queue)
+            int(pull) async for pull, _ in redis.zscan_iter(queue)
         ]
 
     return responses.JSONResponse(status_code=200, content=queues)
@@ -363,14 +365,14 @@ async def event_handler(request: requests.Request):
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.delete("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_delete():  # pragma: no cover
-    r = await utils.get_aioredis_for_cache()
+    r = await utils.get_aredis_for_cache()
     await r.delete("events-testing")
     return responses.Response("Event queued", status_code=202)
 
 
 @app.post("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_post(request: requests.Request):  # pragma: no cover
-    r = await utils.get_aioredis_for_cache()
+    r = await utils.get_aredis_for_cache()
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -383,16 +385,16 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
 
 @app.get("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_get(number: int = None):  # pragma: no cover
-    r = await utils.get_aioredis_for_cache()
-    p = r.pipeline()
-    if number is None:
-        p.lrange("events-testing", 0, -1)
-        p.delete("events-testing")
-        values = (await p.execute())[0]
-    else:
-        for _ in range(number):
-            p.lpop("events-testing")
-        values = await p.execute()
+    r = await utils.get_aredis_for_cache()
+    async with await r.pipeline() as p:
+        if number is None:
+            await p.lrange("events-testing", 0, -1)
+            await p.delete("events-testing")
+            values = (await p.execute())[0]
+        else:
+            for _ in range(number):
+                await p.lpop("events-testing")
+            values = await p.execute()
     data = [json.loads(i) for i in values if i is not None]
     return responses.JSONResponse(content=data)
 

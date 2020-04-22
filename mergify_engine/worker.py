@@ -121,12 +121,11 @@ class StreamProcessor:
         )
 
     async def connect(self):
-        self._redis = await utils.create_aioredis_for_stream()
+        self._redis = await utils.create_aredis_for_stream()
 
     async def close(self):
         if self._redis:
-            self._redis.close()
-            await self._redis.wait_closed()
+            self._redis.connection_pool.disconnect()
             self._redis = None
 
     @contextlib.asynccontextmanager
@@ -139,7 +138,7 @@ class StreamProcessor:
         streams = [
             s
             for s in await self._redis.zrangebyscore(
-                "streams", max=now, offset=0, count=self.worker_count * 2
+                "streams", min=0, max=now, start=0, num=self.worker_count * 2
             )
             if s not in self._pending_streams
         ]
@@ -181,9 +180,7 @@ class StreamProcessor:
                 retry_in = 3 ** attempts * backoff
                 retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
                 score = retry_at.timestamp()
-                await self._redis.zadd(
-                    "streams", score, stream_name, exist=self._redis.ZSET_IF_EXIST,
-                )
+                await self._redis.zaddoption("streams", "XX", **{stream_name: score})
                 raise StreamRetry(attempts, retry_at) from e
             else:
                 await self._redis.hdel("attempts", stream_name)
@@ -192,18 +189,17 @@ class StreamProcessor:
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
-        messages = await self._redis.xread(
-            [stream_name.encode()], timeout=1, count=1000, latest_ids=["0"]
-        )
+        messages = await self._redis.xread(block=1, count=1000, **{stream_name: "0"})
 
         # Groups stream by pull request
         message_ids = collections.defaultdict(list)
         pulls = collections.defaultdict(list)
-        for (_, message_id, message) in messages:
-            data = msgpack.unpackb(message[b"event"], raw=False)
-            key = (data["owner"], data["repo"], data["pull_number"])
-            pulls[key].append(data["source"])
-            message_ids[key].append(message_id)
+        if messages:
+            for message_id, message in messages[stream_name.encode()]:
+                data = msgpack.unpackb(message[b"event"], raw=False)
+                key = (data["owner"], data["repo"], data["pull_number"])
+                pulls[key].append(data["source"])
+                message_ids[key].append(message_id)
 
         for (owner, repo, pull_number), sources in pulls.items():
             logger = daiquiri.getLogger(
@@ -251,8 +247,11 @@ class StreamProcessor:
         score = time.time()
         await self._redis.eval(
             self.ATOMIC_CLEAN_STREAM_SCRIPT,
-            keys=[stream_name.encode()],
-            args=[score, len(message_ids_to_delete)] + message_ids_to_delete,
+            1,
+            *(
+                [stream_name.encode(), score, len(message_ids_to_delete)]
+                + message_ids_to_delete
+            ),
         )
 
     # NOTE(sileht): If the stream still have messages, we update the score to reschedule the
