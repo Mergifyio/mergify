@@ -43,7 +43,7 @@ def test_review_permission_cache():
         "merged_at": None,
     }
 
-    c = context.Context(FakeClient(1), pr,)
+    c = context.Context(FakeClient(1), pr, {})
     assert c._write_permission_cache.currsize == 0
     assert c.has_write_permissions("foo")
     assert c._write_permission_cache.currsize == 1
@@ -57,7 +57,7 @@ def test_review_permission_cache():
     assert c._write_permission_cache.currsize == 3
     assert not c.has_write_permissions("baz")
     assert c._write_permission_cache.currsize == 3
-    c = context.Context(FakeClient(2), pr,)
+    c = context.Context(FakeClient(2), pr, {})
     assert c._write_permission_cache.currsize == 0
     assert c.has_write_permissions("bar")
     assert c._write_permission_cache.currsize == 1

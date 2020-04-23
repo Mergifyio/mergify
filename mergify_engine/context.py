@@ -57,8 +57,11 @@ class PullRequestAttributeError(AttributeError):
 class Context(object):
     client: http.Client
     pull: dict
+    subscription: dict
     sources: List = dataclasses.field(default_factory=list)
-    _write_permission_cache: cachetools.LRUCache = dataclasses.field(default_factory=lambda: cachetools.LRUCache(4096))
+    _write_permission_cache: cachetools.LRUCache = dataclasses.field(
+        default_factory=lambda: cachetools.LRUCache(4096)
+    )
 
     @property
     def pull_request(self):
