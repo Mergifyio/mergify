@@ -62,6 +62,11 @@ Runs the :ref:`backport action` action.
   * - Example
     - ``@Mergifyio backport stable/3.1 stable/4.0``
 
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``backport`` action is only
+   available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
+
 refresh
 ========
 
