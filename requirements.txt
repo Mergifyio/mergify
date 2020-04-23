@@ -8,12 +8,12 @@ certifi==2020.4.5.1
 cffi==1.14.0
 chardet==3.0.4
 click==7.1.1
-cryptography==2.9.1
+cryptography==2.9.2
 daiquiri==2.1.1
 datadog==0.35.0
 decorator==4.4.2
 fastapi==0.54.1
-gevent==1.5.0
+gevent==20.4.0
 greenlet==0.4.15
 gunicorn==20.0.4
 h11==0.9.0
@@ -21,7 +21,7 @@ h2==3.2.0
 hiredis==1.0.1
 honcho==1.0.1
 hpack==3.0.0
-hstspreload==2020.4.21
+hstspreload==2020.4.23
 httptools==0.1.1
 httpx==0.12.1
 hyperframe==5.2.0
