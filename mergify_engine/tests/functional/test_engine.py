@@ -1308,6 +1308,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
@@ -1358,6 +1360,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/branch/master" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
@@ -1368,6 +1372,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
