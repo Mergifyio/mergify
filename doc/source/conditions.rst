@@ -148,6 +148,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``milestone``
      - string
      - The milestone title associated to the pull request.
+   * - ``number``
+     - integer
+     - The pull request number.
    * - ``review-requested``
      - list of string
      - The list of GitHub user or team login that were requested to review the

@@ -141,6 +141,9 @@ class Context(object):
         elif name == "milestone":
             return self.pull["milestone"]["title"] if self.pull["milestone"] else ""
 
+        elif name == "number":
+            return self.pull["number"]
+
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
 
@@ -392,6 +395,7 @@ class PullRequest:
         "merged",
         "closed",
         "milestone",
+        "number",
         "conflict",
         "base",
         "head",
