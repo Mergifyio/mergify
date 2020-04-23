@@ -145,7 +145,11 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
 
 
 def run(client, pull, sources):
-    ctxt = context.Context(client, pull)
+    subscription = sub_utils.get_subscription(
+        utils.get_redis_for_cache(), client.installation["id"]
+    )
+
+    ctxt = context.Context(client, pull, subscription)
 
     issue_comment_sources = []
 
@@ -215,10 +219,6 @@ def run(client, pull, sources):
     # Add global and mandatory rules
     mergify_config["pull_request_rules"].rules.extend(
         rules.load_pull_request_rules_schema(MERGIFY_RULE["rules"])
-    )
-
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), ctxt.client.installation["id"]
     )
 
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
