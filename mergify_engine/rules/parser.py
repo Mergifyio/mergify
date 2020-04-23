@@ -18,6 +18,7 @@ import pyparsing
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
+integer = pyparsing.Word(pyparsing.nums).setParseAction(lambda toks: int(toks[0]))
 github_login = pyparsing.CharsNotIn(" /@")
 github_team = pyparsing.Combine(
     pyparsing.Literal("@") + github_login + pyparsing.Literal("/") + github_login
@@ -50,6 +51,9 @@ def _match_boolean(literal):
         + pyparsing.Empty().setParseAction(pyparsing.replaceWith("="))
         + pyparsing.Empty().setParseAction(pyparsing.replaceWith(True))
     )
+
+
+match_integer = simple_operators + integer
 
 
 def _match_with_operator(token):
@@ -86,6 +90,7 @@ locked = _match_boolean("locked")
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
+number = "number" + match_integer
 review_requests = "review-requested" + _match_login_or_teams
 review_approved_by = "approved-reviews-by" + _match_login_or_teams
 review_dismissed_by = "dismissed-reviews-by" + _match_login_or_teams
@@ -121,6 +126,7 @@ search = (
         | title
         | files
         | milestone
+        | number
         | review_requests
         | review_approved_by
         | review_dismissed_by

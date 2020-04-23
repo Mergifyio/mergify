@@ -19,8 +19,9 @@ import pytest
 from mergify_engine.rules import parser
 
 
-def test_search():
-    for line, result in (
+@pytest.mark.parametrize(
+    "line, result",
+    (
         ("base:master", {"=": ("base", "master")}),
         ("base!=master", {"!=": ("base", "master")}),
         ("base~=^stable/", {"~=": ("base", "^stable/")}),
@@ -34,6 +35,7 @@ def test_search():
         ("#assignee=3", {"=": ("#assignee", 3)}),
         ("#assignee>1", {">": ("#assignee", 1)}),
         ("#assignee>=2", {">=": ("#assignee", 2)}),
+        ("number>=2", {">=": ("number", 2)}),
         ("assignee=@org/team", {"=": ("assignee", "@org/team")}),
         (
             "status-success=my ci has spaces",
@@ -44,11 +46,16 @@ def test_search():
             'status-success="my double quoted ci"',
             {"=": ("status-success", "my double quoted ci")},
         ),
-    ):
-        assert result == tuple(parser.search.parseString(line, parseAll=True))[0]
+    ),
+)
+def test_search(line, result):
+    assert result == tuple(parser.search.parseString(line, parseAll=True))[0]
 
 
-def test_invalid():
-    for line in ("arf", "-heyo", "locked=1", "++head=master", "foo=bar", "#foo=bar"):
-        with pytest.raises(pyparsing.ParseException):
-            parser.search.parseString(line, parseAll=True)
+@pytest.mark.parametrize(
+    "line",
+    ("arf", "-heyo", "locked=1", "++head=master", "foo=bar", "#foo=bar", "number=foo"),
+)
+def test_invalid(line):
+    with pytest.raises(pyparsing.ParseException):
+        parser.search.parseString(line, parseAll=True)
