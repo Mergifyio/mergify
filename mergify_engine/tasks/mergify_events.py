@@ -44,15 +44,13 @@ def job_refresh(owner, repo, kind, ref=None, action="user"):
         else:
             raise RuntimeError("Invalid kind")
 
-        for p in pulls:
-            # Mimic the github event format
-            data = {
-                "action": action,
-                "repository": p["base"]["repo"],
-                "installation": {"id": client.installation["id"]},
-                "pull_request": p,
-                "sender": {"login": "<internal>"},
-            }
-            github_events.job_filter_and_dispatch.s(
-                "refresh", str(uuid.uuid4()), data
-            ).apply_async()
+    for p in pulls:
+        # Mimic the github event format
+        data = {
+            "action": action,
+            "repository": p["base"]["repo"],
+            "installation": {"id": installation["id"]},
+            "pull_request": p,
+            "sender": {"login": "<internal>"},
+        }
+        github_events.job_filter_and_dispatch("refresh", str(uuid.uuid4()), data)
