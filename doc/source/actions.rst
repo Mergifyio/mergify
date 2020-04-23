@@ -85,6 +85,11 @@ parameter:
 Once the backporting pull request is closed or merged, Mergify will
 automatically delete the backport head branch that it created.
 
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``backport`` action is only
+   available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
+
 copy
 ====
 
@@ -117,6 +122,11 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - The label to add to the created pull requested if it has conflicts and
        ``ignore_conflicts`` is set to ``true``.
 
+
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``copy`` action is only
+   available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
 
 .. _comment action:
 
