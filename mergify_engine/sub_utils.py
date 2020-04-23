@@ -130,9 +130,7 @@ async def save_subscription_to_cache(installation_id, sub):
 
 def get_subscription(r, installation_id):
     sub = _retrieve_subscription_from_cache(r, installation_id)
-    # TODO(sileht): We can remove the "tokens" check when we have flush
-    # the all tokens cache
-    if not sub or "tokens" not in sub:
+    if sub is None:
         sub = _retrieve_subscription_from_db(installation_id)
         encrypted = _encrypt(sub)
         r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
