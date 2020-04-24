@@ -190,14 +190,17 @@ class StreamProcessor:
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
-        messages = await self._redis.xread(block=1, count=1000, **{stream_name: "0"})
-        statsd.histogram("engine.streams.size", len(messages))
+        messages_per_streams = await self._redis.xread(
+            block=1, count=1000, **{stream_name: "0"}
+        )
 
         # Groups stream by pull request
         message_ids = collections.defaultdict(list)
         pulls = collections.defaultdict(list)
-        if messages:
-            for message_id, message in messages[stream_name.encode()]:
+        if messages_per_streams:
+            messages = messages_per_streams[stream_name.encode()]
+            statsd.histogram("engine.streams.size", len(messages))
+            for message_id, message in messages:
                 data = msgpack.unpackb(message[b"event"], raw=False)
                 key = (data["owner"], data["repo"], data["pull_number"])
                 pulls[key].append(data["source"])
