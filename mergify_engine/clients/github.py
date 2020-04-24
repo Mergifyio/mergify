@@ -18,18 +18,18 @@
 from datetime import datetime
 import functools
 
-import daiquiri
 from datadog import statsd
 import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
 LOGGING_REQUESTS_THRESHOLD = 20
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 class GithubInstallationAuth(httpx.Auth):

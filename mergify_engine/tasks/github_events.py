@@ -12,12 +12,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
 from datadog import statsd
 import uhashring
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github_app
@@ -26,7 +26,7 @@ from mergify_engine.tasks import engine
 from mergify_engine.tasks import mergify_events
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 @app.task

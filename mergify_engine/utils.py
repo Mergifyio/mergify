@@ -17,22 +17,19 @@
 import datetime
 import hashlib
 import hmac
-import logging
 import shutil
 import subprocess
-import sys
 import tempfile
 
 import aredis
 from billiard import current_process
-import celery.app.log
-import daiquiri
 import redis
 
 from mergify_engine import config
+from mergify_engine import logs
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 global AREDIS_CONNECTION_CACHE
@@ -108,54 +105,6 @@ def unicode_truncate(s, length, encoding="utf-8"):
     return s.encode(encoding)[:length].decode(encoding, errors="ignore")
 
 
-class CustomFormatter(
-    daiquiri.formatter.ColorExtrasFormatter, celery.app.log.TaskFormatter
-):
-    pass
-
-
-CELERY_EXTRAS_FORMAT = (
-    "%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s "
-    "[%(task_id)s] "
-    "%(name)s%(extras)s: %(message)s%(color_stop)s"
-)
-
-
-def setup_logging():
-    outputs = []
-
-    if config.LOG_STDOUT:
-        outputs.append(
-            daiquiri.output.Stream(
-                sys.stdout,
-                formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT),
-                level=config.LOG_STDOUT_LEVEL,
-            )
-        )
-
-    if config.LOG_DATADOG:
-        outputs.append(daiquiri.output.Datadog())
-
-    daiquiri.setup(
-        outputs=outputs, level=(logging.DEBUG if config.DEBUG else logging.INFO),
-    )
-    daiquiri.set_default_log_levels(
-        [
-            ("celery", "INFO"),
-            ("kombu", "WARN"),
-            ("github.Requester", "WARN"),
-            ("urllib3.connectionpool", "WARN"),
-            ("urllib3.util.retry", "WARN"),
-            ("vcr", "WARN"),
-            ("httpx", "WARN"),
-            ("asyncio", "WARN"),
-            ("uvicorn.access", "WARN"),
-        ]
-    )
-
-    config.log()
-
-
 def compute_hmac(data):
     mac = hmac.new(
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
@@ -164,7 +113,7 @@ def compute_hmac(data):
 
 
 def get_pull_logger(pull):
-    return daiquiri.getLogger(
+    return logs.getLogger(
         __name__,
         gh_owner=pull["base"]["user"]["login"] if "user" in pull else "<unknown-yet>",
         gh_repo=(pull["base"]["repo"]["name"] if "base" in pull else "<unknown-yet>"),

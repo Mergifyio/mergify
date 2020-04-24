@@ -15,16 +15,15 @@ import os
 
 import celery
 from celery import signals
-import daiquiri
 from datadog import statsd
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import utils
+from mergify_engine import logs
 from mergify_engine.actions.merge import queue
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 app = celery.Celery()
@@ -55,7 +54,7 @@ app.conf.task_acks_late = True
 
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
-    utils.setup_logging()
+    logs.setup_logging(worker="celery")
 
 
 @app.task

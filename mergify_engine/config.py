@@ -18,14 +18,9 @@ import base64
 import distutils.util
 import logging
 import os
-import re
 
-import daiquiri
 import dotenv
 import voluptuous
-
-
-LOG = daiquiri.getLogger(__name__)
 
 
 # NOTE(sileht) we coerce bool and int in case their are loaded from environment
@@ -128,29 +123,3 @@ globals().update(Schema(CONFIG))
 if not CONFIG["PRIVATE_KEY"].startswith("----"):
     CONFIG["PRIVATE_KEY"] = base64.b64decode(CONFIG["PRIVATE_KEY"])
     PRIVATE_KEY = CONFIG["PRIVATE_KEY"]
-
-
-def log():
-    LOG.info("##################### CONFIGURATION ######################")
-    for key, value in CONFIG.items():
-        name = str(key)
-        if (
-            name
-            in [
-                "PRIVATE_KEY",
-                "WEBHOOK_SECRET",
-                "CACHE_TOKEN_SECRET",
-                "OAUTH_CLIENT_ID",
-                "OAUTH_CLIENT_SECRET",
-                "MAIN_TOKEN",
-                "FORK_TOKEN",
-                "MAIN_TOKEN_DELETE",
-                "FORK_TOKEN_DELETE",
-            ]
-            and value is not None
-        ):
-            value = "*****"
-        if "URL" in name and value is not None:
-            value = re.sub(r"://[^@]*@", "://*****@", value)
-        LOG.info("* MERGIFYENGINE_%s: %s", name, value)
-    LOG.info("##########################################################")

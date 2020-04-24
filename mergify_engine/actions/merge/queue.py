@@ -12,25 +12,22 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
-
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.clients import github
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 def get_queue_logger(queue):
     _, installation_id, owner, reponame, branch = queue.split("~")
-    return daiquiri.getLogger(
-        __name__, gh_owner=owner, gh_repo=reponame, gh_branch=branch
-    )
+    return logs.getLogger(__name__, gh_owner=owner, gh_repo=reponame, gh_branch=branch)
 
 
 def _get_queue_cache_key(ctxt, base_ref=None):

@@ -14,16 +14,16 @@
 import os
 
 import celery.exceptions
-import daiquiri
 import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import logs
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 def fixup_sentry_reporting(event, hint):  # pragma: no cover

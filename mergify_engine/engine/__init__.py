@@ -11,7 +11,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
 import httpx
 import pkg_resources
 import yaml
@@ -19,6 +18,7 @@ import yaml
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import logs
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
@@ -26,7 +26,7 @@ from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 mergify_rule_path = pkg_resources.resource_filename(
     __name__, "../data/default_pull_request_rules.yml"

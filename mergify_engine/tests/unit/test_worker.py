@@ -21,6 +21,7 @@ from freezegun import freeze_time
 import pytest
 
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine import worker
 
@@ -141,12 +142,12 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.run_engine")
-@mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.logs.getLogger")
 async def test_worker_exception(logger_class, run_engine, redis):
     logger = logger_class.return_value
     run_engine.side_effect = Exception
 
-    utils.setup_logging()
+    logs.setup_logging()
 
     worker.push(
         12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
@@ -216,10 +217,10 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.logs.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
-    utils.setup_logging()
+    logs.setup_logging()
     logger = logger_class.return_value
 
     run_engine.side_effect = [
@@ -297,10 +298,10 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.logs.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream(run_engine, logger_class, redis):
-    utils.setup_logging()
+    logs.setup_logging()
     logger = logger_class.return_value
 
     run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
@@ -361,10 +362,10 @@ async def test_stream_processor_retrying_stream(run_engine, logger_class, redis)
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.logs.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_stream_error(run_engine, logger_class, redis):
-    utils.setup_logging()
+    logs.setup_logging()
     logger = logger_class.return_value
 
     run_engine.side_effect = Exception
