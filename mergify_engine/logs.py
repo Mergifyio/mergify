@@ -23,8 +23,9 @@ import daiquiri
 from mergify_engine import config
 
 
-global GLOBAL_EXTRAS
+global GLOBAL_EXTRAS, LOGGERS
 GLOBAL_EXTRAS = {}
+LOGGERS = []
 
 
 class CustomFormatter(
@@ -41,11 +42,13 @@ CELERY_EXTRAS_FORMAT = (
 
 
 def getLogger(name, **kwargs):
-    global GLOBAL_EXTRAS
+    global GLOBAL_EXTRAS, LOGGERS
     extras = {}
     extras.update(GLOBAL_EXTRAS)
     extras.update(kwargs)
-    return daiquiri.getLogger(name, **extras)
+    logger = daiquiri.getLogger(name, **extras)
+    LOGGERS.append(logger)
+    return logger
 
 
 LOG = getLogger(__name__)
@@ -78,8 +81,12 @@ def config_log():
 
 
 def setup_logging(**kwargs):
-    global GLOBAL_EXTRAS
+    global GLOBAL_EXTRAS, LOGGERS
     GLOBAL_EXTRAS.update(kwargs)
+
+    # NOTE(sileht): Some loggers may have been created before the setup update them now.
+    for logger in LOGGERS:
+        logger.extra.update(kwargs)
 
     outputs = []
 
