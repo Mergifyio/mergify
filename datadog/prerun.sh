@@ -79,7 +79,7 @@ instances:
     tags:
       - service:celery
   - name: mergify-engine-worker
-    search_string: ['mergify-engine-worker']
+    search_string: ['bin/mergify-engine-worker']
     exact_match: false
     tags:
       - service:mergify-engine
