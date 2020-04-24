@@ -62,6 +62,7 @@ class TestAttributes(base.FunctionalTestBase):
         # Test items
         assert list(ctxt.pull_request) == list(context.PullRequest._ATTRIBUTES)
         assert dict(ctxt.pull_request.items()) == {
+            "number": pr.number,
             "closed": False,
             "locked": False,
             "assignee": [],
