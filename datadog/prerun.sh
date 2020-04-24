@@ -78,6 +78,11 @@ instances:
     exact_match: false
     tags:
       - service:celery
+  - name: mergify-engine-worker
+    search_string: ['mergify-engine-worker']
+    exact_match: false
+    tags:
+      - service:mergify-engine
 EOF
         ;;
 esac
@@ -98,6 +103,14 @@ if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
         sed -i "s/<CELERY HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CELERY PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CELERY PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+    fi
+fi
+
+if [ -n "$MERGIFYENGINE_STREAM_URL" ]; then
+    if [[ $MERGIFYENGINE_STREAM_URL =~ $REDIS_REGEX ]]; then
+        sed -i "s/<STREAM HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<STREAM PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<STREAM PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
     fi
 fi
 
