@@ -25,6 +25,7 @@ from typing import Any
 from typing import List
 from typing import Set
 
+from datadog import statsd
 import msgpack
 import uvloop
 
@@ -190,6 +191,7 @@ class StreamProcessor:
         installation_id = int(stream_name.split("~")[1])
 
         messages = await self._redis.xread(block=1, count=1000, **{stream_name: "0"})
+        statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
         message_ids = collections.defaultdict(list)
@@ -202,6 +204,8 @@ class StreamProcessor:
                 message_ids[key].append(message_id)
 
         for (owner, repo, pull_number), sources in pulls.items():
+            statsd.histogram("engine.streams.batch-size", len(sources))
+
             logger = logs.getLogger(
                 __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
             )

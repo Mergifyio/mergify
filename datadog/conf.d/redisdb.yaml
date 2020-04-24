@@ -17,6 +17,15 @@ instances:
    tags:
      - role:celery
 
+ - host: <STREAM HOST>
+   port: <STREAM PORT>
+   password: <STREAM PASSWORD>
+   keys:
+     - streams
+     - attempts
+   tags:
+     - role:streams
+
 # - host: <HTTPCACHE HOST>
 #   port: <HTTPCACHE PORT>
 #   password: <HTTPCACHE PASSWORD>
