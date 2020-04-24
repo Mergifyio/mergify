@@ -190,6 +190,7 @@ def test_get_pull_request_rule():
             "body": "I rock",
             "user": {"login": "another-jd"},
         },
+        {},
     )
 
     # Empty conditions

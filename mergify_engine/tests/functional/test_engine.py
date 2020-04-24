@@ -70,7 +70,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p.remove_from_labels("backport-3.1")
         self.wait_for("pull_request", {"action": "unlabeled"})
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -255,7 +255,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("WTF?", comments[-1].body)
 
         # Override Summary with the old format
-        pull = context.Context(self.cli_integration, p.raw_data)
+        pull = context.Context(self.cli_integration, p.raw_data, {})
         check_api.set_check_run(
             pull,
             "Summary",
@@ -386,7 +386,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -436,7 +436,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         return list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -529,7 +529,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         bp_pull = pulls[0]
         assert bp_pull.title == "Pull request n1 from fork (bp #1)"
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -777,7 +777,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
         )
 
-        ctxt = context.Context(self.cli_integration, p2.raw_data)
+        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
@@ -885,7 +885,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        pull = context.Context(client, p.raw_data)
+        pull = context.Context(client, p.raw_data, {})
 
         logins = pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
@@ -923,7 +923,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        pull = context.Context(client, p.raw_data)
+        pull = context.Context(client, p.raw_data, {})
 
         logins = pull.resolve_teams(
             [
@@ -1025,7 +1025,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert 1 == pulls[0].number
         assert pulls[0].merged is False
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1188,7 +1188,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1250,7 +1250,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = context.Context(self.cli_integration, p2.raw_data)
+        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1308,6 +1308,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
@@ -1325,7 +1327,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data)
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
         check_api.set_check_run(
             ctxt,
             "Summary",
@@ -1358,6 +1360,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/branch/master" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
@@ -1368,6 +1372,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(0, len(pulls))
 
@@ -1386,7 +1392,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        ctxt = context.Context(self.cli_integration, p1.raw_data)
+        ctxt = context.Context(self.cli_integration, p1.raw_data, {})
         assert len(ctxt.pull_check_runs) == 1
         assert ctxt.pull_check_runs[0]["name"] == "Summary"
 
@@ -1556,7 +1562,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         pr, commits = self.create_pr()
-        pull = context.Context(self.cli_integration, pr.raw_data)
+        pull = context.Context(self.cli_integration, pr.raw_data, {})
         check = check_api.set_check_run(
             pull,
             "Test",
@@ -1574,7 +1580,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr()
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        ctxt = context.Context(client, {"number": 1})
+        ctxt = context.Context(client, {"number": 1}, {})
         self.assertEqual(1, ctxt.pull["number"])
         self.assertEqual("open", ctxt.pull["state"])
         self.assertEqual("clean", ctxt.pull["mergeable_state"])

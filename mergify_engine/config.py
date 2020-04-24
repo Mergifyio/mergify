@@ -90,12 +90,16 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "AB_TESTING_INSTALLATION_IDS", default="499592"
         ): voluptuous.Any(None, CommaSeparatedIntList),
+        voluptuous.Required("AB_TESTING_PERCENTAGE", default=1): voluptuous.Any(
+            None, int
+        ),
         voluptuous.Required("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required(
             "CELERY_BROKER_URL", default="redis://localhost:6379/9"
         ): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
+        voluptuous.Required("NOSUB_MAX_REPO_SIZE", default=512 * 1024 * 1024): int,
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
         voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,

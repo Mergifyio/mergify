@@ -72,6 +72,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
             "merged_at": None,
             "mergeable_state": "clean",
         },
+        {},
     )
 
     base_branch = {"sha": "base_branch", "parents": []}
@@ -116,6 +117,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
             "merged_by": None,
             "mergeable_state": "clean",
         },
+        {},
     )
 
     base_branch = {"sha": "base_branch", "parents": []}
