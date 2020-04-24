@@ -77,7 +77,7 @@ def config_log():
     LOG.info("##########################################################")
 
 
-def setup_logging(*kwargs):
+def setup_logging(**kwargs):
     global GLOBAL_EXTRAS
     GLOBAL_EXTRAS.update(kwargs)
 
