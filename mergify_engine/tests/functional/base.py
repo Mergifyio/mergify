@@ -350,6 +350,11 @@ class FunctionalTestBase(unittest.TestCase):
             ),
         )
 
+        if not RECORD:
+            mock.patch.object(
+                github_app.GithubBearerAuth, "jwt_expiration", time.time() + 3 * 60
+            )
+
         github_app_client = github_app._Client()
 
         mock.patch.object(github_app, "get_client", lambda: github_app_client).start()
