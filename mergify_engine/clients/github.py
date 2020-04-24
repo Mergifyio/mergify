@@ -76,7 +76,7 @@ class GithubInstallationClient(http.Client):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation_id}>"
+        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation['id']}>"
 
     @staticmethod
     def _inject_api_version(func):
