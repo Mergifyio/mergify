@@ -11,17 +11,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import daiquiri
 import httpx
 
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.tasks import app
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 def get_github_pull_from_sha(client, sha):

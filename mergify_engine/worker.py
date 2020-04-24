@@ -25,18 +25,18 @@ from typing import Any
 from typing import List
 from typing import Set
 
-import daiquiri
 import msgpack
 import uvloop
 
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine.clients import github
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 MAX_RETRIES = 3
@@ -202,7 +202,7 @@ class StreamProcessor:
                 message_ids[key].append(message_id)
 
         for (owner, repo, pull_number), sources in pulls.items():
-            logger = daiquiri.getLogger(
+            logger = logs.getLogger(
                 __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
             )
 
@@ -372,5 +372,5 @@ async def run_forever():
 
 def main():
     uvloop.install()
-    utils.setup_logging()
+    logs.setup_logging(worker="streams")
     asyncio.run(run_forever())

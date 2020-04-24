@@ -28,7 +28,6 @@ import unittest
 from unittest import mock
 import uuid
 
-import daiquiri
 import github as pygithub
 import httpx
 import pytest
@@ -40,6 +39,7 @@ from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import tasks
 from mergify_engine import utils
@@ -49,7 +49,7 @@ from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"
 FAKE_DATA = "whatdataisthat"

@@ -17,16 +17,16 @@
 import threading
 import time
 
-import daiquiri
 import httpx
 import jwt
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine.clients import http
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 EXPECTED_MINIMAL_PERMISSIONS = {
     "Organization": {

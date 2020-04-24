@@ -17,11 +17,11 @@
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
 from mergify_engine import config
-from mergify_engine import utils
+from mergify_engine import logs
 from mergify_engine.web import app as application  # noqa
 
 
 if config.SENTRY_URL:
     application = SentryAsgiMiddleware(application)
 
-utils.setup_logging()
+logs.setup_logging(worker="asgi")

@@ -14,17 +14,17 @@
 
 import re
 
-import daiquiri
 from datadog import statsd
 import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import logs
 from mergify_engine.tasks.engine import commands_runner
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")

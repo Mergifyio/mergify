@@ -22,7 +22,7 @@ import time
 
 import httpx
 
-from mergify_engine import config
+from mergify_engine import logs
 from mergify_engine import utils
 
 
@@ -36,8 +36,7 @@ def run():
 
     args = parser.parse_args()
 
-    utils.setup_logging()
-    config.log()
+    logs.setup_logging()
 
     session = httpx.Client(trust_env=False)
 

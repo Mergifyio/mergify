@@ -14,15 +14,14 @@
 
 import uuid
 
-import daiquiri
-
 from mergify_engine import exceptions
+from mergify_engine import logs
 from mergify_engine.clients import github
 from mergify_engine.tasks import app
 from mergify_engine.tasks import github_events
 
 
-LOG = daiquiri.getLogger(__name__)
+LOG = logs.getLogger(__name__)
 
 
 @app.task
