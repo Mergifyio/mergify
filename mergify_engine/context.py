@@ -17,9 +17,9 @@ import dataclasses
 import functools
 import itertools
 import operator
+from typing import List
 from urllib import parse
 
-import attr
 import cachetools
 import httpx
 import tenacity
@@ -29,6 +29,7 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import functools_bp
 from mergify_engine import utils
+from mergify_engine.clients import http
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
@@ -52,12 +53,15 @@ class PullRequestAttributeError(AttributeError):
     name: str
 
 
-@attr.s()
+@dataclasses.dataclass
 class Context(object):
-    client = attr.ib()
-    pull = attr.ib()
-    sources = attr.ib(factory=list)
-    _write_permission_cache = attr.ib(factory=lambda: cachetools.LRUCache(4096))
+    client: http.Client
+    pull: dict
+    subscription: dict
+    sources: List = dataclasses.field(default_factory=list)
+    _write_permission_cache: cachetools.LRUCache = dataclasses.field(
+        default_factory=lambda: cachetools.LRUCache(4096)
+    )
 
     @property
     def pull_request(self):
@@ -67,7 +71,7 @@ class Context(object):
     def log(self):
         return utils.get_pull_logger(self.pull)
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self._ensure_complete()
 
     @cachetools.cachedmethod(
@@ -377,14 +381,14 @@ class Context(object):
         return self.pull["maintainer_can_modify"] or not self.pull_from_fork
 
 
-@attr.s
+@dataclasses.dataclass
 class PullRequest:
     """A high level pull request object.
 
     This object is used for e.g. templates.
     """
 
-    context = attr.ib()
+    context: Context
 
     _ATTRIBUTES = {
         "assignee",

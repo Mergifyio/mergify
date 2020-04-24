@@ -61,7 +61,7 @@ def test_pull_behind(commits_tree_generator):
 
     ctxt = context.Context(
         client,
-        pull={
+        {
             "number": 1,
             "mergeable_state": "clean",
             "state": "open",
@@ -70,6 +70,7 @@ def test_pull_behind(commits_tree_generator):
             "merged_by": None,
             "base": {"ref": "#foo"},
         },
+        {},
     )
 
     assert expected == ctxt.is_behind

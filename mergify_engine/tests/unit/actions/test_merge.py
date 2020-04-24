@@ -131,7 +131,7 @@ def test_merge_commit_message(body, title, message, mode):
     pull = PR.copy()
     pull["body"] = body
     client = mock.Mock()
-    ctxt = context.Context(client=client, pull=pull)
+    ctxt = context.Context(client=client, pull=pull, subscription={})
     ctxt.checks = {"my CI": "success"}
     pr = ctxt.pull_request
     assert action.MergeAction._get_commit_message(pr, mode=mode) == (title, message)
@@ -163,7 +163,7 @@ on two lines"""
 def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(client=mock.Mock(), pull=pull).pull_request
+    pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
     with pytest.raises(context.PullRequestAttributeError) as x:
         action.MergeAction._get_commit_message(pr)
         assert x.name == "foobar"
@@ -186,6 +186,6 @@ here is my message {{ and broken template
 def test_merge_commit_message_syntax_error(body):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(client=mock.Mock(), pull=pull).pull_request
+    pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
     with pytest.raises(jinja2.exceptions.TemplateSyntaxError):
         action.MergeAction._get_commit_message(pr)
