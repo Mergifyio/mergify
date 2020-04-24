@@ -191,7 +191,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
 
         if installation_id in config.AB_TESTING_INSTALLATION_IDS:
             worker = "streams"
-        elif subscription["subcription_active"]:
+        elif subscription["subscription_active"]:
             worker = "celery"
         else:
             worker = RING.get_node(installation_id)
