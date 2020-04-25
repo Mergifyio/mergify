@@ -28,15 +28,16 @@ class TestGithubClient(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "simulator",
-                    "conditions": ["base!=master"],
+                    "conditions": [f"base!={self.master_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules), test_branches=["other"])
-        self.create_pr()
-        self.create_pr()
-        self.create_pr(base="other")
+        other_branch = self.get_full_branch_name("other")
+        self.setup_repo(yaml.dump(rules), test_branches=[other_branch])
+        p1, _ = self.create_pr()
+        p2, _ = self.create_pr()
+        self.create_pr(base=other_branch)
 
         installation = github.get_installation(
             self.o_integration.login, self.r_o_integration.name
@@ -54,19 +55,19 @@ class TestGithubClient(base.FunctionalTestBase):
         pulls = list(client.items("pulls", per_page=1, page=2))
         self.assertEqual(1, len(pulls))
 
-        pulls = list(client.items("pulls", base="other", state="all"))
+        pulls = list(client.items("pulls", base=other_branch, state="all"))
         self.assertEqual(1, len(pulls))
 
         pulls = list(client.items("pulls", base="unknown"))
         self.assertEqual(0, len(pulls))
 
-        pull = client.item("pulls/1")
-        self.assertEqual(1, pull["number"])
+        pull = client.item(f"pulls/{p1.number}")
+        self.assertEqual(p1.number, pull["number"])
 
-        pull = client.item("pulls/2")
-        self.assertEqual(2, pull["number"])
+        pull = client.item(f"pulls/{p2.number}")
+        self.assertEqual(p2.number, pull["number"])
 
         with self.assertRaises(httpx.HTTPError) as ctxt:
-            client.item("pulls/4")
+            client.item("pulls/10000000000")
 
         self.assertEqual(404, ctxt.exception.response.status_code)
