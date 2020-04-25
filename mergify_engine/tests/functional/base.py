@@ -26,7 +26,6 @@ import threading
 import time
 import unittest
 from unittest import mock
-import uuid
 
 import github as pygithub
 import httpx
@@ -245,7 +244,7 @@ class EventReader:
     def _wait_all_streams_proceed(self, started_at, timeout):
         streams = self._redis.zrange("streams", start=0, end=-1)
         while time.monotonic() - started_at < timeout and streams:
-            time.sleep(1 if RECORD else 0.1)
+            time.sleep(1 if RECORD else 0.01)
             streams = self._redis.zrange("streams", start=0, end=-1)
             LOG.debug("Remaining streams: %s", streams)
 
@@ -382,17 +381,17 @@ class FunctionalTestBase(unittest.TestCase):
         # Web authentification always pass
         mock.patch("hmac.compare_digest", return_value=True).start()
 
-        reponame_path = os.path.join(self.cassette_library_dir, "reponame")
+        branch_prefix_path = os.path.join(self.cassette_library_dir, "branch_prefix")
 
         if RECORD:
-            REPO_UUID = str(uuid.uuid4())
-            with open(reponame_path, "w") as f:
-                f.write(REPO_UUID)
+            self.BRANCH_PREFIX = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+            with open(branch_prefix_path, "w") as f:
+                f.write(self.BRANCH_PREFIX)
         else:
-            with open(reponame_path, "r") as f:
-                REPO_UUID = f.read()
+            with open(branch_prefix_path, "r") as f:
+                self.BRANCH_PREFIX = f.read()
 
-        self.name = "repo-%s-%s" % (REPO_UUID, self._testMethodName)
+        self.master_branch_name = self.get_full_branch_name("master")
 
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
@@ -445,8 +444,14 @@ class FunctionalTestBase(unittest.TestCase):
         assert self.o_integration.login == "mergifyio-testing"
         assert self.u_fork.login == "mergify-test2"
 
-        self.r_o_admin = self.o_admin.create_repo(self.name)
+        # NOTE(sileht): The repository have been manually created in mergifyio-testing
+        # organization and then forked in mergify-test2 user account
+        self.name = "functional-testing-repo"
+
+        self.r_o_admin = self.o_admin.get_repo(self.name)
         self.r_o_integration = self.o_integration.get_repo(self.name)
+        self.r_fork = self.u_fork.get_repo(self.name)
+
         self.url_main = "https://%s/%s" % (
             config.GITHUB_DOMAIN,
             self.r_o_integration.full_name,
@@ -458,14 +463,9 @@ class FunctionalTestBase(unittest.TestCase):
         )
 
         installation = {"id": config.INSTALLATION_ID}
-        try:
-            self.cli_integration = github.get_client(
-                config.TESTING_ORGANIZATION, self.name, installation
-            )
-        except httpx.HTTPNotFound:
-            self.cli_integration = github.get_client(
-                config.TESTING_ORGANIZATION, self.name, installation
-            )
+        self.cli_integration = github.get_client(
+            config.TESTING_ORGANIZATION, self.name, installation
+        )
 
         real_get_subscription = sub_utils.get_subscription
 
@@ -514,7 +514,6 @@ class FunctionalTestBase(unittest.TestCase):
         self._worker_thread.start()
 
     def tearDown(self):
-        # self.r_o_admin.delete()
         super(FunctionalTestBase, self).tearDown()
 
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
@@ -522,6 +521,34 @@ class FunctionalTestBase(unittest.TestCase):
         # we create repo too quickly
         if RECORD:
             time.sleep(0.5)
+
+            self.r_o_admin.edit(default_branch="master")
+
+            for branch in self.r_o_admin.get_git_refs():
+                if (
+                    branch.ref.startswith("refs/heads/")
+                    and branch.ref != "refs/heads/master"
+                ):
+                    if "branch_protection" in branch.ref:
+                        self.branch_protection_unprotect(branch.ref)
+                    branch.delete()
+
+            try:
+                for branch in self.r_fork.get_git_refs():
+                    if (
+                        branch.ref.startswith("refs/heads/")
+                        and branch.ref != "refs/heads/master"
+                    ):
+                        branch.delete()
+            except pygithub.GithubException as e:
+                if e.data["message"] != "Git Repository is empty.":
+                    raise
+
+            for label in self.r_o_admin.get_labels():
+                label.delete()
+
+            for pull in self.r_o_admin.get_pulls():
+                pull.close()
 
         self._event_reader.drain()
         self._event_reader.close()
@@ -559,31 +586,15 @@ class FunctionalTestBase(unittest.TestCase):
                 self.git("add", name)
 
         self.git("commit", "--no-edit", "-m", "initial commit")
+        self.git("branch", "-M", self.master_branch_name)
 
         for test_branch in test_branches:
-            self.git("branch", test_branch, "master")
+            self.git("branch", test_branch, self.master_branch_name)
 
-        self.git("push", "--quiet", "main", "master", *test_branches)
+        self.git("push", "--quiet", "main", self.master_branch_name, *test_branches)
+        self.git("push", "--quiet", "fork", self.master_branch_name, *test_branches)
 
-        self.r_fork = self.u_fork.create_fork(self.r_o_integration)
-
-        for _ in range(5 * 60):
-            try:
-                self.git("fetch", "--quiet", "fork")
-            except subprocess.CalledProcessError as e:
-                if (
-                    b"fatal: remote error: access denied "
-                    b"or repository not exported" in e.output
-                ):
-                    if RECORD:
-                        # Forks can take some time, retry
-                        time.sleep(1)
-                else:
-                    raise
-            else:
-                break
-        else:
-            raise RuntimeError("Unable to fetch from the forked repository")
+        self.r_o_admin.edit(default_branch=self.master_branch_name)
 
     @staticmethod
     def response_filter(response):
@@ -624,9 +635,12 @@ class FunctionalTestBase(unittest.TestCase):
 
         return response
 
+    def get_full_branch_name(self, name):
+        return f"{self.BRANCH_PREFIX}/{self._testMethodName}/{name}"
+
     def create_pr(
         self,
-        base="master",
+        base=None,
         files=None,
         two_commits=False,
         base_repo="fork",
@@ -636,8 +650,13 @@ class FunctionalTestBase(unittest.TestCase):
     ):
         self.pr_counter += 1
 
+        if base is None:
+            base = self.master_branch_name
+
         if not branch:
             branch = "%s/pr%d" % (base_repo, self.pr_counter)
+            branch = self.get_full_branch_name(branch)
+
         title = "Pull request n%d from %s" % (self.pr_counter, base_repo)
 
         self.git("checkout", "--quiet", "%s/%s" % (base_repo, base), "-b", branch)
@@ -710,6 +729,15 @@ class FunctionalTestBase(unittest.TestCase):
         self.r_o_admin.create_label(label, "000000")
         pr.add_to_labels(label)
         self.wait_for("pull_request", {"action": "labeled"})
+
+    def branch_protection_unprotect(self, branch):
+        return self.r_o_admin._requester.requestJsonAndCheck(
+            "DELETE",
+            "{base_url}/branches/{branch}/protection".format(
+                base_url=self.r_o_admin.url, branch=branch
+            ),
+            headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
+        )
 
     def branch_protection_protect(self, branch, rule):
         if (

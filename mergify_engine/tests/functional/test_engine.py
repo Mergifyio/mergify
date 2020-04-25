@@ -52,17 +52,21 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         super(TestEngineV2Scenario, self).setUp()
 
     def test_backport_cancelled(self):
+        stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {
             "pull_request_rules": [
                 {
                     "name": "backport",
-                    "conditions": ["base=master", "label=backport-3.1"],
-                    "actions": {"backport": {"branches": ["stable/3.1"]}},
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-3.1",
+                    ],
+                    "actions": {"backport": {"branches": [stable_branch]}},
                 }
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/3.1"])
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = self.create_pr()
 
@@ -87,7 +91,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"assign": {"users": ["mergify-test1"]}},
                 }
             ]
@@ -97,7 +101,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]), sorted([l.login for l in pulls[0].assignees])
@@ -108,7 +112,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"request_reviews": {"users": ["mergify-test1"]}},
                 }
             ]
@@ -118,7 +122,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         requests = pulls[0].get_review_requests()
         self.assertEqual(
@@ -134,7 +138,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"request_reviews": {"teams": [team.slug]}},
                 }
             ]
@@ -144,7 +148,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         requests = pulls[0].get_review_requests()
         self.assertEqual(sorted([team.slug]), sorted([l.slug for l in requests[1]]))
@@ -154,7 +158,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"comment": {"message": "WTF?"}},
                 }
             ]
@@ -169,12 +173,15 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "approve",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"review": {"type": "APPROVE"}},
                 },
                 {
                     "name": "requested",
-                    "conditions": ["base=master", "#approved-reviews-by>=1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "#approved-reviews-by>=1",
+                    ],
                     "actions": {
                         "review": {"message": "WTF?", "type": "REQUEST_CHANGES"}
                     },
@@ -200,7 +207,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"comment": {"message": "WTF?"}},
                 }
             ]
@@ -226,7 +233,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         open(self.git.tmp + "/new_file", "wb").close()
         self.git("add", self.git.tmp + "/new_file")
         self.git("commit", "--no-edit", "-m", "new commit")
-        self.git("push", "--quiet", "fork", "fork/pr%d" % self.pr_counter)
+        self.git(
+            "push",
+            "--quiet",
+            "fork",
+            self.get_full_branch_name("fork/pr%d" % self.pr_counter),
+        )
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
@@ -240,7 +252,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"comment": {"message": "WTF?"}},
                 }
             ]
@@ -277,7 +289,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "rename label",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"close": {"message": "WTF?"}},
                 }
             ]
@@ -302,7 +314,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "dismiss reviews",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {
                         "dismiss_reviews": {
                             "approved": True,
@@ -320,7 +332,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
-        branch = "fork/pr%d" % self.pr_counter
+        branch = self.get_full_branch_name("fork/pr%d" % self.pr_counter)
         self.create_review(p, commits[-1], "APPROVE")
 
         self.assertEqual(
@@ -368,12 +380,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "Merge on master",
-                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
                     "actions": {"merge": {"method": "merge", "rebase_fallback": None}},
                 },
                 {
                     "name": "Backport",
-                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
                     "actions": {"backport": {"branches": ["crashme"]}},
                 },
             ]
@@ -400,19 +418,26 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
     def _do_backport_conflicts(self, ignore_conflicts):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
                 {
                     "name": "Merge on master",
-                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
                     "actions": {"merge": {"method": "rebase"}},
                 },
                 {
                     "name": "Backport to stable/#3.1",
-                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
                     "actions": {
                         "backport": {
-                            "branches": ["stable/#3.1"],
+                            "branches": [stable_branch],
                             "ignore_conflicts": ignore_conflicts,
                         }
                     },
@@ -420,16 +445,16 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1"])
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         # Commit something in stable
-        self.git("checkout", "--quiet", "stable/#3.1")
+        self.git("checkout", "--quiet", stable_branch)
         # Write in the file that create_pr will create in master
         with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
             f.write(b"conflicts incoming")
         self.git("add", "conflicts")
         self.git("commit", "--no-edit", "-m", "add conflict")
-        self.git("push", "--quiet", "main", "stable/#3.1")
+        self.git("push", "--quiet", "main", stable_branch)
 
         p, commits = self.create_pr(files={"conflicts": "ohoh"})
 
@@ -437,31 +462,37 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        return list(
-            c
-            for c in ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
+        return (
+            p,
+            list(
+                c
+                for c in ctxt.pull_engine_check_runs
+                if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
+            ),
         )
 
     def test_backport_conflicts(self):
-        checks = self._do_backport_conflicts(False)
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        p, checks = self._do_backport_conflicts(False)
 
         # Retrieve the new commit id that has been be cherry-picked
         self.git("fetch", "main")
         commit_id = (
-            self.git("show-ref", "--hash", "main/master").decode("utf-8").strip()
+            self.git("show-ref", "--hash", f"main/{self.master_branch_name}")
+            .decode("utf-8")
+            .strip()
         )
 
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
-            f"""* Backport to branch `stable/#3.1` failed
+            f"""* Backport to branch `{stable_branch}` failed
 
 
 Cherry-pick of {commit_id} has failed:
 ```
-On branch mergify/bp/stable/#3.1/pr-1
-Your branch is up to date with 'origin/stable/#3.1'.
+On branch mergify/bp/{stable_branch}/pr-{p.number}
+Your branch is up to date with 'origin/{stable_branch}'.
 
 You are currently cherry-picking commit {commit_id[:7]}.
   (fix conflicts and run "git cherry-pick --continue")
@@ -480,54 +511,68 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
     def test_backport_ignore_conflicts(self):
-        checks = self._do_backport_conflicts(True)
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        p, checks = self._do_backport_conflicts(True)
 
-        pull = list(self.r_o_admin.get_pulls())[0]
+        pull = list(self.r_o_admin.get_pulls(base=stable_branch))[0]
 
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
-            "* [#%d %s](%s) has been created for branch `stable/#3.1`"
+            f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
             % (pull.number, pull.title, pull.html_url,)
             == checks[0]["output"]["summary"]
         )
         assert [l.name for l in pull.labels] == ["conflicts"]
 
     def _do_test_backport(self, method, config=None):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
                 {
                     "name": "Merge on master",
-                    "conditions": ["base=master", "label=backport-#3.1"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
                     "actions": {"merge": {"method": method, "rebase_fallback": None}},
                 },
                 {
                     "name": "Backport to stable/#3.1",
-                    "conditions": ["base=master", "label=backport-#3.1"],
-                    "actions": {"backport": config or {"branches": ["stable/#3.1"]}},
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
+                    "actions": {"backport": config or {"branches": [stable_branch]}},
                 },
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1"])
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, commits = self.create_pr(two_commits=True)
 
         # Create another PR to be sure we don't mess things up
         # see https://github.com/Mergifyio/mergify-engine/issues/849
-        self.create_pr(base="stable/#3.1")
+        self.create_pr(base=stable_branch)
 
         self.add_label(p, "backport-#3.1")
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(3, len(pulls))
-        self.assertEqual(True, pulls[2].merged)
-        self.assertEqual("closed", pulls[2].state)
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(True, pulls[0].merged)
+        self.assertEqual("closed", pulls[0].state)
+
+        pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
+        self.assertEqual(2, len(pulls))
         self.assertEqual(False, pulls[0].merged)
+        self.assertEqual(False, pulls[1].merged)
 
         bp_pull = pulls[0]
-        assert bp_pull.title == "Pull request n1 from fork (bp #1)"
+        assert bp_pull.title == f"Pull request n1 from fork (bp #{p.number})"
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
@@ -538,13 +583,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
-            "* [#%d %s](%s) has been created for branch `stable/#3.1`"
+            f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
             % (bp_pull.number, bp_pull.title, bp_pull.html_url,)
             == checks[0]["output"]["summary"]
         )
 
         self.assertEqual(
-            ["mergify/bp/stable/#3.1/pr-1"],
+            [f"mergify/bp/{stable_branch}/pr-{p.number}"],
             [
                 b.name
                 for b in self.r_o_admin.get_branches()
@@ -558,7 +603,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.assertEquals(2, p.commits)
 
     def test_backport_merge_commit_regexes(self):
-        p = self._do_test_backport("merge", config={"regexes": ["^stable/.*$"]})
+        prefix = self.get_full_branch_name("stable")
+        p = self._do_test_backport("merge", config={"regexes": [f"^{prefix}/.*$"]})
         self.assertEquals(2, p.commits)
 
     def test_backport_squash_and_merge(self):
@@ -574,7 +620,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "Merge on master",
-                    "conditions": ["base=master", "label=squash"],
+                    "conditions": [f"base={self.master_branch_name}", "label=squash"],
                     "actions": {"merge": {"method": "squash"}},
                 },
             ]
@@ -599,7 +645,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "Merge on master",
-                    "conditions": ["base=master", "label=squash"],
+                    "conditions": [f"base={self.master_branch_name}", "label=squash"],
                     "actions": {"merge": {"strict": "smart", "method": "squash"}},
                 },
             ]
@@ -627,7 +673,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "smart strict merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -636,7 +682,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/3.1"])
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = self.create_pr()
         p2, commits = self.create_pr()
@@ -666,7 +713,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_merge_strict_default(self):
@@ -675,7 +722,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "smart strict merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -684,7 +731,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/3.1"])
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = self.create_pr()
         p2, commits = self.create_pr()
@@ -704,7 +752,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Check master have been merged into the PR
         self.assertIn(
-            "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
+            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}",
+            commits2[-1].commit.message,
         )
 
         # Retry to merge pr2
@@ -715,7 +764,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_merge_smart_strict(self):
@@ -724,7 +773,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "strict merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -733,7 +782,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/3.1"])
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = self.create_pr()
         p2, commits = self.create_pr()
@@ -753,7 +803,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "Content-type": "application/json",
             },
         )
-        assert r.json() == {"mergifyio-testing/%s" % self.name: {"master": [2]}}
+        assert r.json() == {
+            "mergifyio-testing/%s" % self.name: {self.master_branch_name: [p2.number]}
+        }
 
         # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
@@ -765,7 +817,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "Content-type": "application/json",
             },
         )
-        assert r.json() == {"mergifyio-testing/%s" % self.name: {"master": [2]}}
+        assert r.json() == {
+            "mergifyio-testing/%s" % self.name: {self.master_branch_name: [p2.number]}
+        }
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
@@ -774,14 +828,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Check master have been merged into the PR
         self.assertIn(
-            "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
+            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}",
+            commits2[-1].commit.message,
         )
 
         ctxt = context.Context(self.cli_integration, p2.raw_data, {})
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
-                    "will be merged soon.\n\nThe following pull requests are queued: #2"
+                    f"will be merged soon.\n\nThe following pull requests are queued: #{p2.number}"
                     in check["output"]["summary"]
                 )
                 break
@@ -796,7 +851,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_merge_failure_smart_strict(self):
@@ -805,7 +860,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "strict merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"strict": "smart"}},
@@ -813,7 +868,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/3.1"])
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = self.create_pr()
         p2, commits = self.create_pr()
@@ -836,7 +892,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
         self.assertIn(
-            "Merge branch 'master' into fork/pr2", commits2[-1].commit.message
+            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}",
+            commits2[-1].commit.message,
         )
 
         self.create_status(p2, "continuous-integration/fake-ci", "failure")
@@ -853,7 +910,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p3 = self.r_o_admin.get_pull(p3.number)
         commits3 = list(p3.get_commits())
-        self.assertIn("Merge branch 'master' into fork/pr", commits3[-1].commit.message)
+        self.assertIn(
+            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr')}",
+            commits3[-1].commit.message,
+        )
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
         self.wait_for("pull_request", {"action": "closed"})
@@ -861,7 +921,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         master_sha = self.r_o_admin.get_commits()[0].sha
         self.assertNotEqual(previous_master_sha, master_sha)
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
 
     def test_short_teams(self):
@@ -870,7 +930,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@testing",
                     ],
@@ -908,7 +968,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@mergifyio-testing/testing",
                     ],
@@ -953,7 +1013,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": method}},
@@ -970,9 +1030,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         self.assertEqual(1, len(pulls))
-        self.assertEqual(1, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
 
         commit = self.r_o_admin.get_commits()[0].commit
@@ -1006,7 +1067,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "merge",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": "merge"}},
@@ -1020,9 +1081,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
         self.create_status(p)
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         assert 1 == len(pulls)
-        assert 1 == pulls[0].number
         assert pulls[0].merged is False
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -1053,9 +1115,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "success"
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         assert 1 == len(pulls)
-        assert 1 == pulls[0].number
         assert pulls[0].merged
 
     def test_merge_custom_msg_title_body(self):
@@ -1064,7 +1127,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {
@@ -1082,9 +1145,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         self.assertEqual(1, len(pulls))
-        self.assertEqual(1, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
 
         commit = self.r_o_admin.get_commits()[0].commit
@@ -1096,7 +1160,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": "merge"}},
@@ -1114,16 +1178,16 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         self.assertEqual(1, len(pulls))
-        self.assertEqual(2, pulls[0].number)
+        self.assertEqual(p.number, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
         self.assertEqual("closed", pulls[0].state)
 
-        issues = list(self.r_o_admin.get_issues(state="all"))
-        self.assertEqual(2, len(issues))
-        self.assertEqual("closed", issues[0].state)
-        self.assertEqual("closed", issues[1].state)
+        issue = self.r_o_admin.get_issue(i.number)
+        self.assertEqual("closed", issue.state)
 
     def test_rebase(self):
         rules = {
@@ -1131,7 +1195,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "Merge on master",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -1148,9 +1212,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         self.assertEqual(1, len(pulls))
-        self.assertEqual(1, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
         self.assertEqual("closed", pulls[0].state)
 
@@ -1159,7 +1224,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "merge",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1180,7 +1245,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             }
         }
 
-        self.branch_protection_protect("master", rule)
+        self.branch_protection_protect(self.master_branch_name, rule)
 
         p, _ = self.create_pr()
 
@@ -1203,9 +1268,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
+        pulls = list(
+            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        )
         self.assertEqual(1, len(pulls))
-        self.assertEqual(1, pulls[0].number)
         self.assertEqual(True, pulls[0].merged)
 
     def test_merge_branch_protection_strict(self):
@@ -1214,7 +1280,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 {
                     "name": "merge",
                     "conditions": [
-                        "base=master",
+                        f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {}},
@@ -1242,7 +1308,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p1.merge()
 
-        self.branch_protection_protect("master", rule)
+        self.branch_protection_protect(self.master_branch_name, rule)
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -1266,7 +1332,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": ["base!=master"],
+                    "conditions": [f"base!={self.master_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1285,14 +1351,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.git("checkout", "master")
+        self.git("checkout", self.master_branch_name)
         with open(self.git.tmp + "/.mergify.yml", "w") as f:
             f.write(yaml.dump(rules))
         self.git("add", ".mergify.yml")
         self.git("commit", "--no-edit", "-m", "automerge everything")
-        self.git("push", "--quiet", "main", "master")
+        self.git("push", "--quiet", "main", self.master_branch_name)
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(2, len(pulls))
         return p1, p2
 
@@ -1311,7 +1377,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_command_refresh(self):
@@ -1319,7 +1385,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": ["base!=master"],
+                    "conditions": [f"base!={self.master_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1362,7 +1428,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_refresh_repo(self):
@@ -1374,7 +1440,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
-        pulls = list(self.r_o_admin.get_pulls())
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(0, len(pulls))
 
     def test_change_mergify_yml(self):
@@ -1382,7 +1448,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": ["base!=master"],
+                    "conditions": [f"base!={self.master_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1503,12 +1569,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "pull_request_rules": [
                 {
                     "name": "user",
-                    "conditions": ["base=master", "review-requested=sileht"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "review-requested=sileht",
+                    ],
                     "actions": {"comment": {"message": "review-requested user"}},
                 },
                 {
                     "name": "team",
-                    "conditions": ["base=master", "review-requested=@testing"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "review-requested=@testing",
+                    ],
                     "actions": {"comment": {"message": "review-requested team"}},
                 },
             ],
@@ -1529,21 +1601,23 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.assertEqual("review-requested team", list(p2.get_issue_comments())[0].body)
 
     def test_command_backport(self):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        feature_branch = self.get_full_branch_name("feature/one")
         rules = {
             "pull_request_rules": [
                 {
                     "name": "auto-backport",
-                    "conditions": ["base=master"],
+                    "conditions": [f"base={self.master_branch_name}"],
                     "actions": {
                         "comment": {
-                            "message": "@mergifyio backport stable/#3.1 feature/one"
+                            "message": f"@mergifyio backport {stable_branch} {feature_branch}"
                         }
                     },
                 }
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=["stable/#3.1", "feature/one"])
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch, feature_branch])
         p, _ = self.create_pr()
 
         self.wait_for("issue_comment", {"action": "created"})
@@ -1552,8 +1626,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("issue_comment", {"action": "created"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all"))
-        self.assertEqual(3, len(pulls))
+        pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
+        self.assertEqual(1, len(pulls))
+        pulls = list(self.r_o_admin.get_pulls(state="all", base=feature_branch))
+        self.assertEqual(1, len(pulls))
 
     def test_truncated_check_output(self):
         # not used anyhow
@@ -1580,7 +1656,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr()
         installation = {"id": config.INSTALLATION_ID}
         client = github.get_client(p.base.user.login, p.base.repo.name, installation)
-        ctxt = context.Context(client, {"number": 1}, {})
-        self.assertEqual(1, ctxt.pull["number"])
+        ctxt = context.Context(client, {"number": p.number}, {})
+        self.assertEqual(p.number, ctxt.pull["number"])
         self.assertEqual("open", ctxt.pull["state"])
         self.assertEqual("clean", ctxt.pull["mergeable_state"])
