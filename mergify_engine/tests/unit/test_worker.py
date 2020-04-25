@@ -223,9 +223,11 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     logs.setup_logging(worker="streams")
     logger = logger_class.return_value
 
+    # One retries once, the other reaches max_retry
     run_engine.side_effect = [
-        mock.Mock(),
         exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        mock.Mock(),
         exceptions.MergeableStateUnknown(mock.Mock()),
         exceptions.MergeableStateUnknown(mock.Mock()),
     ]
@@ -267,19 +269,23 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     # Check stream still there and attempts recorded
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 1 == len(await redis.hgetall("attempts"))
-
-    assert {b"pull~12345~owner~repo~42": b"1"} == await redis.hgetall("attempts")
+    assert {
+        b"pull~12345~owner~repo~42": b"1",
+        b"pull~12345~owner~repo~123": b"1",
+    } == await redis.hgetall("attempts")
 
     await p.consume("stream~12345")
-    assert len(run_engine.mock_calls) == 3
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
+    assert 1 == len(await redis.hgetall("attempts"))
+    assert len(run_engine.mock_calls) == 4
     assert {b"pull~12345~owner~repo~42": b"2"} == await redis.hgetall("attempts")
 
     await p.consume("stream~12345")
-    assert len(run_engine.mock_calls) == 4
+    assert len(run_engine.mock_calls) == 5
 
     # Too many retries, everything is gone
-    assert 2 == len(logger.info.mock_calls)
+    assert 3 == len(logger.info.mock_calls)
     assert 1 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == (
         "failed to process pull request, retrying",
@@ -300,7 +306,70 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_stream(run_engine, logger_class, redis):
+async def test_stream_processor_retrying_stream_recovered(
+    run_engine, logger_class, redis
+):
+    logs.setup_logging(worker="streams")
+    logger = logger_class.return_value
+
+    run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
+
+    worker.push(
+        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    )
+    worker.push(
+        12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
+    )
+
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
+    assert 2 == await redis.xlen("stream~12345")
+    assert 0 == len(await redis.hgetall("attempts"))
+
+    p = worker.StreamProcessor(1)
+    await p.connect()
+    await p.consume("stream~12345")
+
+    assert len(run_engine.mock_calls) == 1
+    assert run_engine.mock_calls[0] == mock.call(
+        12345,
+        "owner",
+        "repo",
+        123,
+        [
+            {"event_type": "pull_request", "data": {"payload": "whatever"}},
+            {"event_type": "comment", "data": {"payload": "foobar"}},
+        ],
+    )
+
+    # Check stream still there and attempts recorded
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
+    assert 1 == len(await redis.hgetall("attempts"))
+
+    assert {b"stream~12345": b"1"} == await redis.hgetall("attempts")
+
+    run_engine.side_effect = None
+
+    await p.consume("stream~12345")
+    assert len(run_engine.mock_calls) == 2
+    assert 0 == (await redis.zcard("streams"))
+    assert 0 == len(await redis.keys("stream~*"))
+    assert 0 == len(await redis.hgetall("attempts"))
+
+    assert 1 == len(logger.info.mock_calls)
+    assert 0 == len(logger.error.mock_calls)
+    assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
+
+    await p.close()
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_stream_processor_retrying_stream_failure(
+    run_engine, logger_class, redis
+):
     logs.setup_logging(worker="streams")
     logger = logger_class.return_value
 
