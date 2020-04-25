@@ -153,6 +153,7 @@ class StreamProcessor:
             yield
 
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
+        attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
             await self._loop.run_in_executor(
                 self._executor,
@@ -160,14 +161,14 @@ class StreamProcessor:
                     run_engine, installation_id, owner, repo, pull_number, sources,
                 ),
             )
+            await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
-            key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
-            attempts = await self._redis.hincrby("attempts", key)
+            attempts = await self._redis.hincrby("attempts", attempts_key)
             if attempts < MAX_RETRIES:
                 raise PullRetry(attempts) from e
             else:
-                await self._redis.hdel("attempts", key)
+                await self._redis.hdel("attempts", attempts_key)
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
@@ -273,7 +274,9 @@ if message_ids_len > 0 then
     redis.call("XDEL", stream_name, unpack(message_ids))
 end
 
-local len = tonumber(redis.call('XLEN', stream_name))
+redis.call("HDEL", "attempts", stream_name)
+
+local len = tonumber(redis.call("XLEN", stream_name))
 if len == 0 then
     redis.call("ZREM", "streams", stream_name)
     redis.call("DEL", stream_name)
