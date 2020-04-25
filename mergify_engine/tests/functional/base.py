@@ -351,9 +351,21 @@ class FunctionalTestBase(unittest.TestCase):
         )
 
         if not RECORD:
+            # Never expire token during replay
             mock.patch.object(
-                github_app.GithubBearerAuth, "jwt_expiration", time.time() + 3 * 60
-            )
+                github_app.GithubBearerAuth, "get_or_create_jwt", return_value="<TOKEN>"
+            ).start()
+            mock.patch.object(
+                github.GithubInstallationAuth,
+                "get_access_token",
+                return_value={
+                    "access_token": "<TOKEN>",
+                    "expires_at": (
+                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                    ).isoformat()
+                    + "Z",
+                },
+            ).start()
 
         github_app_client = github_app._Client()
 
@@ -606,12 +618,8 @@ class FunctionalTestBase(unittest.TestCase):
             except ValueError:
                 pass
             else:
-                if "token" in data and "expires_at" in data:
+                if "token" in data:
                     data["token"] = "<TOKEN>"
-                    if not RECORD:
-                        data["expires_at"] = (
-                            datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
-                        ).isoformat(timespec="seconds") + "Z"
                     response["body"]["string"] = json.dumps(data).encode()
 
         return response
