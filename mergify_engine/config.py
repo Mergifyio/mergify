@@ -81,7 +81,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("STREAM_URL", default="redis://localhost:6379?db=7"): str,
-        voluptuous.Required("STREAM_WORKERS", default=7): int,
+        voluptuous.Required("STREAM_WORKERS", default=7): voluptuous.Coerce(int),
         voluptuous.Required(
             "AB_TESTING_INSTALLATION_IDS", default="499592"
         ): voluptuous.Any(None, CommaSeparatedIntList),
@@ -94,7 +94,9 @@ Schema = voluptuous.Schema(
         ): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
-        voluptuous.Required("NOSUB_MAX_REPO_SIZE", default=512 * 1024 * 1024): int,
+        voluptuous.Required(
+            "NOSUB_MAX_REPO_SIZE", default=512 * 1024 * 1024
+        ): voluptuous.Coerce(int),
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
         voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,
