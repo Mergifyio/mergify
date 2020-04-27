@@ -85,6 +85,31 @@ instances:
       - service:mergify-engine
 EOF
         ;;
+    worker)
+        cat > "$DATADOG_CONF" <<EOF
+process_config:
+  enabled: "true"
+confd_path: $DD_CONF_DIR/conf.d
+logs_enabled: true
+additional_checksd: $DD_CONF_DIR/checks.d
+tags:
+  - dyno:$DYNO
+  - dynotype:$DYNOTYPE
+  - buildpackversion:$BUILDPACKVERSION
+  - appname:$HEROKU_APP_NAME
+  - service:celery
+EOF
+        cat > "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
+init_config:
+
+instances:
+  - name: mergify-engine-worker
+    search_string: ['bin/mergify-engine-worker']
+    exact_match: false
+    tags:
+      - service:mergify-engine
+EOF
+        ;;
 esac
 
 REDIS_REGEX='^redis://([^:]+):([^@]+)@([^:]+):([^/]+)$'
