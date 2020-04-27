@@ -22,6 +22,9 @@ from urllib import parse
 
 import cachetools
 import httpx
+import jinja2.runtime
+import jinja2.sandbox
+import jinja2.utils
 import tenacity
 
 from mergify_engine import check_api
@@ -425,3 +428,44 @@ class PullRequest:
     def items(self):
         for k in self:
             yield k, getattr(self, k)
+
+    @functools_bp.cached_property
+    def jinja2_env(self):
+        """A Jinja2 environment to render your templates."""
+        env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
+        PullRequestContext.inject(env, self)
+        return env
+
+
+class PullRequestContext(jinja2.runtime.Context):
+    """This is a special Context that resolves any attribute first in the "pull request" object.
+
+
+    This allows to write {{author}} instead of {{pull_request.author}}."""
+
+    _InvalidValue = object()
+
+    def resolve_or_missing(self, key):
+        if "pull_request" in self.parent:
+            try:
+                return getattr(self.parent["pull_request"], key)
+            except AttributeError:
+                if "pull_request" in self.vars:
+                    return getattr(self.vars["pull_request"], key)
+                raise
+
+        value = super().resolve_or_missing(key)
+        if value == self._InvalidValue:
+            return jinja2.utils.missing
+
+    @classmethod
+    def inject(cls, env, pull_request):
+        """Inject this context into a Jinja Environment."""
+        env.globals["pull_request"] = pull_request
+        # Set all the value to _InvalidValue as the PullRequestContext will resolve
+        # values correctly anyway. We still need to have those entries in
+        # the global dict so find_undeclared_variables works correctly.
+        env.globals.update(
+            dict((k.replace("-", "_"), cls._InvalidValue) for k in pull_request)
+        )
+        env.context_class = cls
