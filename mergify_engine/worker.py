@@ -40,7 +40,8 @@ from mergify_engine.clients import github
 LOG = logs.getLogger(__name__)
 
 
-MAX_RETRIES = 3
+MAX_PULL_RETRIES = 3
+MAX_STREAM_RETRIES = 4
 
 WORKER_PROCESSING_DELAY = 30
 
@@ -165,7 +166,7 @@ class StreamProcessor:
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
             attempts = await self._redis.hincrby("attempts", attempts_key)
-            if attempts < MAX_RETRIES:
+            if attempts < MAX_PULL_RETRIES:
                 raise PullRetry(attempts) from e
             else:
                 await self._redis.hdel("attempts", attempts_key)
@@ -178,7 +179,7 @@ class StreamProcessor:
 
             stream_name = f"stream~{installation_id}"
             attempts = await self._redis.hincrby("attempts", stream_name)
-            if attempts < MAX_RETRIES:
+            if attempts < MAX_STREAM_RETRIES:
                 retry_in = 3 ** attempts * backoff
                 retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
                 score = retry_at.timestamp()

@@ -417,11 +417,15 @@ async def test_stream_processor_retrying_stream_failure(
     await p.consume("stream~12345")
     assert len(run_engine.mock_calls) == 3
 
+    await p.consume("stream~12345")
+    assert len(run_engine.mock_calls) == 4
+
     # Too many retries, everything is gone
     assert 2 == len(logger.info.mock_calls)
     assert 1 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
     assert logger.info.mock_calls[1].args == ("failed to process stream, retrying",)
+    assert logger.info.mock_calls[2].args == ("failed to process stream, retrying",)
     assert logger.error.mock_calls[0].args == ("failed to process stream, abandoning",)
     assert 0 == (await redis.zcard("streams"))
     assert 0 == len(await redis.keys("stream~*"))
