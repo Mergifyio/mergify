@@ -118,5 +118,5 @@ fi
 # When datadog.sh is called it will copy the example and project confd, and
 # overwrite our conf
 cp -f "$DATADOG_CONF" "$DATADOG_CONF.example"
-cp -f "$DD_CONF_DIR/conf.d/process.d/conf.yaml" "$APP_DATADOG_CONF_DIR/process.yml"
-cp -f "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml" "$APP_DATADOG_CONF_DIR/redisdb.yml"
+cp -f "$DD_CONF_DIR/conf.d/process.d/conf.yaml" "$APP_DATADOG_CONF_DIR/process.yaml"
+cp -f "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml" "$APP_DATADOG_CONF_DIR/redisdb.yaml"
