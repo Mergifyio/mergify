@@ -19,9 +19,6 @@ import re
 
 import httpx
 import jinja2.exceptions
-import jinja2.runtime
-import jinja2.sandbox
-import jinja2.utils
 import voluptuous
 
 from mergify_engine import actions
@@ -38,40 +35,6 @@ BRANCH_PROTECTION_FAQ_URL = (
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
-
-
-class PullRequestContext(jinja2.runtime.Context):
-    """This is a special Context that resolves any attribute first in the "pull request" object.
-
-
-    This allows to write {{author}} instead of {{pull_request.author}}."""
-
-    _InvalidValue = object()
-
-    def resolve_or_missing(self, key):
-        if "pull_request" in self.parent:
-            try:
-                return getattr(self.parent["pull_request"], key)
-            except AttributeError:
-                if "pull_request" in self.vars:
-                    return getattr(self.vars["pull_request"], key)
-                raise
-
-        value = super().resolve_or_missing(key)
-        if value == self._InvalidValue:
-            return jinja2.utils.missing
-
-    @classmethod
-    def inject(cls, env, pull_request):
-        """Inject this context into a Jinja Environment."""
-        env.globals["pull_request"] = pull_request
-        # Set all the value to _InvalidValue as the PullRequestContext will resolve
-        # values correctly anyway. We still need to have those entries in
-        # the global dict so find_undeclared_variables works correctly.
-        env.globals.update(
-            dict((k.replace("-", "_"), cls._InvalidValue) for k in pull_request)
-        )
-        env.context_class = cls
 
 
 class MergeAction(actions.Action):
@@ -203,8 +166,7 @@ class MergeAction(actions.Action):
         )
 
         if found and message_lines:
-            env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-            PullRequestContext.inject(env, pull_request)
+            env = pull_request.jinja2_env
 
             title = message_lines.pop(0)
 
