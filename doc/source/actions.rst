@@ -148,6 +148,18 @@ The ``comment`` action adds a comment to the pull request.
      -
      - The message to write as a comment.
 
+You can use any available attributes of the pull request in the comment
+message, by writing a template using `Jinja2
+<https://jinja.palletsprojects.com/templates/>`_ markup.
+
+For example:
+
+.. code-block:: jinja
+
+    Thank you {{author}} for your contribution!
+
+You can use any of the pull request :ref:`attributes` as variable — replacing
+``-`` with ``_`` in variables names.
 
 .. _review action:
 
@@ -399,12 +411,12 @@ The whole commit message finishes at the end of the pull request body or before
 a new Markdown title.
 
 You can use any available attributes of the pull request in the commit message,
-by writing a template using the `Jinja2
+by writing a template using `Jinja2
 <https://jinja.palletsprojects.com/templates/>`_ markup.
 
 For example:
 
-.. code-block:: md
+.. code-block:: jinja
 
     ## Commit Message
 
