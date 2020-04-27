@@ -13,7 +13,6 @@
 
 import httpx
 
-from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import logs
 from mergify_engine import worker
@@ -68,8 +67,10 @@ def get_github_pull_from_event(client, event_type, data):
             return pulls[0]
 
 
+# NOTE(sileht): We keep this as task one hour to ensure all celery tasks are done and then we
+# can remove @app.task
 @app.task
-def run(event_type, data, new_worker=False):
+def run(event_type, data):
     """ Extract the pull request from the event and run the engine with it """
     installation_id = data["installation"]["id"]
     owner = data["repository"]["owner"]["login"]
@@ -92,10 +93,4 @@ def run(event_type, data, new_worker=False):
             )
             return
 
-        if new_worker:
-            worker.push(
-                installation["id"], owner, repo, pull["number"], event_type, data
-            )
-        else:
-            sources = [{"event_type": event_type, "data": data}]
-            engine.run(client, pull, sources)
+        worker.push(installation["id"], owner, repo, pull["number"], event_type, data)
