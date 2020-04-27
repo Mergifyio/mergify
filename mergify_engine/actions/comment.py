@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+#  Copyright © 2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,10 +15,12 @@
 # under the License.
 
 import httpx
+import jinja2.exceptions
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import context
 
 
 class CommentAction(actions.Action):
@@ -37,7 +39,29 @@ class CommentAction(actions.Action):
         return False
 
     def run(self, ctxt, missing_conditions):
-        message = self.config["message"]
+        try:
+            message = ctxt.pull_request.jinja2_env.from_string(
+                self.config["message"]
+            ).render()
+        except jinja2.exceptions.TemplateSyntaxError as tse:
+            return (
+                "failure",
+                "Invalid comment message",
+                f"There is an error in your comment message: {tse.message} at line {tse.lineno}",
+            )
+        except jinja2.exceptions.TemplateError as te:
+            return (
+                "failure",
+                "Invalid comment message",
+                f"There is an error in your comment message: {te.message}",
+            )
+        except context.PullRequestAttributeError as e:
+            return (
+                "failure",
+                "Invalid comment message",
+                f"There is an error in your comment message, the following variable is unknown: {e.name}",
+            )
+
         try:
             ctxt.client.post(
                 f"issues/{ctxt.pull['number']}/comments", json={"body": message},
