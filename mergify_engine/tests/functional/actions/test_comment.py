@@ -15,7 +15,6 @@
 # under the License.
 import yaml
 
-from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -129,40 +128,3 @@ class TestCommentAction(base.FunctionalTestBase):
             "There is an error in your message, the following variable is unknown: hello"
             == check["output"]["summary"]
         )
-
-    def test_comment_backwardcompat(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"comment": {"message": "WTF?"}},
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-
-        p.update()
-        comments = list(p.get_issue_comments())
-        self.assertEqual("WTF?", comments[-1].body)
-
-        # Override Summary with the old format
-        pull = context.Context(self.cli_integration, p.raw_data, {})
-        check_api.set_check_run(
-            pull,
-            "Summary",
-            "completed",
-            "success",
-            output={"title": "whatever", "summary": "erased"},
-        )
-
-        # Add a label to trigger mergify
-        self.add_label(p, "stable")
-
-        # Ensure nothing changed
-        new_comments = list(p.get_issue_comments())
-        self.assertEqual(len(comments), len(new_comments))
-        self.assertEqual("WTF?", new_comments[-1].body)
