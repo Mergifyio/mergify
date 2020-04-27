@@ -283,10 +283,7 @@ def run_actions(
             # TODO(sileht): refactor it to store the whole report in the check summary,
             # not just the conclusions
 
-            silent_report = action_obj.silent_report
-
             if not need_to_be_run:
-                silent_report = True
                 report = (previous_conclusion, "Already in expected state", "")
                 message = "ignored, already in expected state: %s/%s" % (
                     method_name,
@@ -312,7 +309,9 @@ def run_actions(
             if report:
                 conclusion, title, summary = report
                 status = "completed" if conclusion else "in_progress"
-                if not silent_report:
+                if need_to_be_run and (
+                    not action_obj.silent_report or conclusion == "failure"
+                ):
                     try:
                         check_api.set_check_run(
                             ctxt,
