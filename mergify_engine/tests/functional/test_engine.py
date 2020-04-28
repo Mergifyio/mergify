@@ -168,40 +168,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, _ = self.create_pr()
         debug.report(p.html_url)
 
-    def test_review(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"review": {"type": "APPROVE"}},
-                },
-                {
-                    "name": "requested",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "#approved-reviews-by>=1",
-                    ],
-                    "actions": {
-                        "review": {"message": "WTF?", "type": "REQUEST_CHANGES"}
-                    },
-                },
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-
-        self.wait_for("pull_request_review", {}),
-
-        p.update()
-        comments = list(p.get_reviews())
-        self.assertEqual(2, len(comments))
-        self.assertEqual("APPROVED", comments[-2].state)
-        self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
-        self.assertEqual("WTF?", comments[-1].body)
-
     def test_dismiss_reviews(self):
         return self._test_dismiss_reviews()
 
