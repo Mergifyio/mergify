@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
-# Copyright © 2018 Julien Danjou <jd@mergify.io>
+# Copyright © 2018-2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -16,15 +15,17 @@
 # under the License.
 
 import base64
+import dataclasses
 import itertools
 import operator
+import typing
 
-import attr
 import httpx
 import voluptuous
 import yaml
 
 from mergify_engine import actions
+from mergify_engine import context
 from mergify_engine.rules import filter
 
 
@@ -58,24 +59,26 @@ PullRequestRulesSchema = voluptuous.Schema(
 )
 
 
-def load_pull_request_rules_schema(rules):
-    rules = PullRequestRulesSchema(rules)
-
-    sorted_rules = sorted(rules, key=operator.itemgetter("name"))
-    grouped_rules = itertools.groupby(sorted_rules, operator.itemgetter("name"))
-    for name, sub_rules in grouped_rules:
-        sub_rules = list(sub_rules)
-        if len(sub_rules) == 1:
-            continue
-        for n, rule in enumerate(sub_rules):
-            rule["name"] += " #%d" % (n + 1)
-
-    return rules
-
-
-@attr.s
+@dataclasses.dataclass
 class PullRequestRules:
-    rules = attr.ib(converter=load_pull_request_rules_schema)
+    rules: typing.List
+
+    def __post_init__(self):
+        sorted_rules = sorted(self.rules, key=operator.itemgetter("name"))
+        grouped_rules = itertools.groupby(sorted_rules, operator.itemgetter("name"))
+        for name, sub_rules in grouped_rules:
+            sub_rules = list(sub_rules)
+            if len(sub_rules) == 1:
+                continue
+            for n, rule in enumerate(sub_rules):
+                rule["name"] += " #%d" % (n + 1)
+
+    def __iter__(self):
+        return iter(self.rules)
+
+    @classmethod
+    def from_list(cls, lst):
+        return cls(PullRequestRulesSchema(lst))
 
     def as_dict(self):
         return {
@@ -92,7 +95,7 @@ class PullRequestRules:
             ]
         }
 
-    @attr.s
+    @dataclasses.dataclass
     class PullRequestRuleForPR:
         """A pull request rule that matches a pull request."""
 
@@ -116,17 +119,20 @@ class PullRequestRules:
         )
 
         # The list of pull request rules to match against.
-        rules = attr.ib()
+        rules: typing.List
+
         # The context to test.
-        context = attr.ib()
+        context: context.Context
 
         # The rules matching the pull request.
-        matching_rules = attr.ib(init=False, default=attr.Factory(list))
+        matching_rules: typing.List = dataclasses.field(
+            init=False, default_factory=list
+        )
 
         # The rules not matching the pull request.
-        ignored_rules = attr.ib(init=False, default=attr.Factory(list))
+        ignored_rules: typing.List = dataclasses.field(init=False, default_factory=list)
 
-        def __attrs_post_init__(self):
+        def __post_init__(self):
             for rule in self.rules:
                 ignore_rules = False
                 next_conditions_to_validate = []
@@ -188,7 +194,11 @@ class Yaml:
 
 UserConfigurationSchema = voluptuous.Schema(
     Yaml(
-        {voluptuous.Required("pull_request_rules"): voluptuous.Coerce(PullRequestRules)}
+        {
+            voluptuous.Required("pull_request_rules"): voluptuous.Coerce(
+                PullRequestRules.from_list
+            )
+        }
     )
 )
 

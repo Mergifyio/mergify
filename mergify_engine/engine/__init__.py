@@ -225,7 +225,7 @@ def run(client, pull, sources):
 
     # Add global and mandatory rules
     mergify_config["pull_request_rules"].rules.extend(
-        rules.load_pull_request_rules_schema(MERGIFY_RULE["rules"])
+        rules.PullRequestRules.from_list(MERGIFY_RULE["rules"]).rules
     )
 
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:

@@ -142,8 +142,9 @@ def report(url):
             print("configuration is invalid %s" % str(e))
         else:
             pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
-            pull_request_rules_raw["rules"].extend(engine.MERGIFY_RULE["rules"])
-            pull_request_rules = rules.PullRequestRules(**pull_request_rules_raw)
+            pull_request_rules = rules.PullRequestRules.from_list(
+                pull_request_rules_raw["rules"] + engine.MERGIFY_RULE["rules"]
+            )
 
     print("* PULL REQUEST:")
     pr_data = dict(ctxt.pull_request.items())

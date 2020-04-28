@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018-2019 Julien Danjou <jd@mergify.io>
+# Copyright © 2018-2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,10 +13,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import dataclasses
 import operator
 import re
-
-import attr
+import typing
 
 from mergify_engine.rules import parser
 
@@ -59,7 +59,7 @@ def _identity(value):
     return value
 
 
-@attr.s(str=False, repr=False)
+@dataclasses.dataclass(repr=False)
 class Filter:
     unary_operators = {"-": operator.not_, "¬": operator.not_}
 
@@ -77,14 +77,17 @@ class Filter:
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
-    tree = attr.ib()
+    tree: typing.Dict[str, typing.Dict]
+
     # The name of the attribute that is going to be evaluated by this filter.
-    attribute_name = attr.ib(init=False)
+    attribute_name: str = dataclasses.field(init=False)
 
     # A method to resolve name externaly
-    _value_expanders = attr.ib(init=False, factory=dict)
+    _value_expanders: typing.Dict[str, typing.Callable] = dataclasses.field(
+        init=False, default_factory=dict
+    )
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self._eval = self.build_evaluator(self.tree)
 
     def get_attribute_name(self):
