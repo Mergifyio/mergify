@@ -24,6 +24,7 @@ from mergify_engine.tasks import github_events
 LOG = logs.getLogger(__name__)
 
 
+# TODO(sileht): Delete me soon
 @app.task
 def job_refresh(owner, repo, kind, ref=None, action="user"):
     LOG.info("job refresh", kind=kind, ref=ref, gh_owner=owner, gh_repo=repo)

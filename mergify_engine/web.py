@@ -22,6 +22,7 @@ import hmac
 import json
 import logging
 from urllib.parse import urlsplit
+import uuid
 
 import fastapi
 import httpx
@@ -40,7 +41,6 @@ from mergify_engine.clients import github
 from mergify_engine.engine import actions_runner
 from mergify_engine.tasks import forward_events
 from mergify_engine.tasks import github_events
-from mergify_engine.tasks import mergify_events
 
 
 LOG = logging.getLogger(__name__)
@@ -124,14 +124,32 @@ async def config_validator(
 app.mount("/validate", config_validator_app)
 
 
-@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(authentification)])
-async def refresh_repo(owner, repo):
+async def _refresh(owner, repo, action="user", **extra_data):
+    event_type = "refresh"
+    data = {
+        "action": action,
+        "repository": {
+            "name": repo,
+            "owner": {"login": owner},
+            "full_name": f"{owner}/{repo}",
+        },
+        "sender": {"login": "<internal>"},
+    }
+    data.update(extra_data)
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
-        None, mergify_events.job_refresh.s(owner, repo, "repo").delay
+        None,
+        github_events.job_filter_and_dispatch.s(
+            event_type, str(uuid.uuid4()), data
+        ).apply_async,
     )
     return responses.Response("Refresh queued", status_code=202)
+
+
+@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(authentification)])
+async def refresh_repo(owner, repo):
+    return await _refresh(owner, repo)
 
 
 RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
@@ -143,12 +161,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 )
 async def refresh_pull(owner, repo, pull: int, action="user"):
     action = RefreshActionSchema(action)
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        mergify_events.job_refresh.s(owner, repo, "pull", pull, action=action).delay,
-    )
-    return responses.Response("Refresh queued", status_code=202)
+    return await _refresh(owner, repo, action=action, pull_request={"number": pull})
 
 
 @app.post(
@@ -156,11 +169,7 @@ async def refresh_pull(owner, repo, pull: int, action="user"):
     dependencies=[fastapi.Depends(authentification)],
 )
 async def refresh_branch(owner, repo, branch):
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None, mergify_events.job_refresh.s(owner, repo, "branch", branch).delay
-    )
-    return responses.Response("Refresh queued", status_code=202)
+    return await _refresh(owner, repo, ref=f"refs/heads/{branch}")
 
 
 @app.put(
