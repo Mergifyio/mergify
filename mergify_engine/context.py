@@ -22,6 +22,7 @@ from urllib import parse
 
 import cachetools
 import httpx
+import jinja2.exceptions
 import jinja2.runtime
 import jinja2.sandbox
 import jinja2.utils
@@ -384,6 +385,10 @@ class Context(object):
         return self.pull["maintainer_can_modify"] or not self.pull_from_fork
 
 
+class RenderMessageFailure(Exception):
+    pass
+
+
 @dataclasses.dataclass
 class PullRequest:
     """A high level pull request object.
@@ -435,6 +440,23 @@ class PullRequest:
         env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
         PullRequestContext.inject(env, self)
         return env
+
+    def render_message(self, message):
+        """Render a message interpolating variables based on pull request attributes."""
+        try:
+            return self.jinja2_env.from_string(message).render()
+        except jinja2.exceptions.TemplateSyntaxError as tse:
+            raise RenderMessageFailure(
+                f"There is an error in your message: {tse.message} at line {tse.lineno}"
+            )
+        except jinja2.exceptions.TemplateError as te:
+            raise RenderMessageFailure(
+                f"There is an error in your message: {te.message}",
+            )
+        except PullRequestAttributeError as e:
+            raise RenderMessageFailure(
+                f"There is an error in your message, the following variable is unknown: {e.name}",
+            )
 
 
 class PullRequestContext(jinja2.runtime.Context):

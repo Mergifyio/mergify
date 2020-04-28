@@ -117,7 +117,7 @@ class TestCommentAction(base.FunctionalTestBase):
         assert "failure" == check["conclusion"]
         assert "Invalid comment message" == check["output"]["title"]
         assert (
-            "There is an error in your comment message: unexpected 'end of template' at line 1"
+            "There is an error in your message: unexpected 'end of template' at line 1"
             == check["output"]["summary"]
         )
 
@@ -126,7 +126,7 @@ class TestCommentAction(base.FunctionalTestBase):
         assert "failure" == check["conclusion"]
         assert "Invalid comment message" == check["output"]["title"]
         assert (
-            "There is an error in your comment message, the following variable is unknown: hello"
+            "There is an error in your message, the following variable is unknown: hello"
             == check["output"]["summary"]
         )
 
