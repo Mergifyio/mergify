@@ -130,4 +130,3 @@ def statsd_task_rejected(sender, **kwargs):
 # Register our tasks
 import mergify_engine.tasks.forward_events  # noqa isort:skip
 import mergify_engine.tasks.github_events  # noqa isort:skip
-import mergify_engine.tasks.mergify_events  # noqa isort:skip

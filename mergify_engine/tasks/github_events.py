@@ -24,7 +24,6 @@ from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.tasks import app
-from mergify_engine.tasks import mergify_events
 
 
 LOG = logs.getLogger(__name__)
@@ -121,7 +120,11 @@ def get_ignore_reason(subscription, event_type, data):
     ):
         return "ignored (comment is not for mergify)"
 
-    if "repository" in data and data["repository"]["archived"]:  # pragma: no cover
+    if (
+        "repository" in data
+        and "archived" in data["repository"]
+        and data["repository"]["archived"]
+    ):  # pragma: no cover
         return "ignored (repository archived)"
 
     elif event_type not in [
@@ -163,17 +166,21 @@ def _get_github_pulls_from_sha(client, sha):
     return []
 
 
-def _extract_pulls_from_event(installation_id, owner, repo, event_type, data):
+def _extract_pulls_from_event(installation, owner, repo, event_type, data):
     if "pull_request" in data and data["pull_request"]:
         return [data["pull_request"]]
 
-    try:
-        installation = github.get_installation(owner, repo, installation_id)
-    except exceptions.MergifyNotInstalled:
-        return []
-
     with github.get_client(owner, repo, installation) as client:
-        if event_type == "issue_comment":
+        if event_type == "refresh":
+            if "ref" in data:
+                branch = data["ref"][11:]  # refs/heads/
+                return list(client.items("pulls", base=branch))
+            else:
+                return list(client.items("pulls"))
+        elif event_type == "push":
+            branch = data["ref"][11:]  # refs/heads/
+            return list(client.items("pulls", base=branch))
+        elif event_type == "issue_comment":
             try:
                 return [client.item(f"pulls/{data['issue']['number']}")]
             except httpx.HTTPNotFound:  # pragma: no cover
@@ -212,14 +219,31 @@ def _filter_event_data(event_type, data):
 def job_filter_and_dispatch(event_type, event_id, data):
     meter_event(event_type, data)
 
+    if "repository" in data:
+        owner = data["repository"]["owner"]["login"]
+        repo = data["repository"]["name"]
+        private = data["repository"].get("private", "<unknown-yet>")
+    else:
+        owner = "Unknown"
+        repo = "Unknown"
+        private = "Unknown"
+
+    installation = None
+
     if "installation" in data:
-        installation_id = data["installation"]["id"]
+        installation = data["installation"]
+    elif event_type == "refresh":
+        try:
+            installation = github.get_installation(owner, repo)
+        except exceptions.MergifyNotInstalled:
+            pass
+
+    if installation:
         r = utils.get_redis_for_cache()
         if event_type in ["installation", "installation_repositories"]:
-            r.delete("subscription-cache-%s" % installation_id)
-        subscription = sub_utils.get_subscription(r, installation_id)
+            r.delete("subscription-cache-%s" % installation["id"])
+        subscription = sub_utils.get_subscription(r, installation["id"])
     else:
-        installation_id = "Unknown"
         subscription = {
             "subscription_active": False,
             "subscription_reason": "No installation for this event",
@@ -229,51 +253,38 @@ def job_filter_and_dispatch(event_type, event_id, data):
     reason = get_ignore_reason(subscription, event_type, data)
     if reason:
         msg_action = reason
-    elif event_type in ["push"]:
-        owner, _, repo = data["repository"]["full_name"].partition("/")
-        branch = data["ref"][11:]
-        msg_action = "run refresh branch %s" % branch
-        mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async()
     else:
-        owner = data["repository"]["owner"]["login"]
-        repo = data["repository"]["name"]
-
-        pulls = _extract_pulls_from_event(
-            installation_id, owner, repo, event_type, data
-        )
+        pulls = _extract_pulls_from_event(installation, owner, repo, event_type, data)
 
         if pulls:
             slim_data = _filter_event_data(event_type, data)
             for pull in pulls:
                 worker.push(
-                    installation_id, owner, repo, pull["number"], event_type, slim_data
+                    installation["id"],
+                    owner,
+                    repo,
+                    pull["number"],
+                    event_type,
+                    slim_data,
                 )
             msg_action = "pushed to backend%s" % get_extra_msg_from_event(
                 event_type, data
             )
         else:  # pragma: no cover
-            msg_action = "ignored (no pull request found in the event %s%s" % (
+            msg_action = "ignored (no pull requests found in the event %s%s" % (
                 event_type,
                 get_extra_msg_from_event(event_type, data),
             )
-
-    if "repository" in data:
-        owner, _, repo_name = data["repository"]["full_name"].partition("/")
-        private = data["repository"]["private"]
-    else:
-        owner = "Unknown"
-        repo_name = "Unknown"
-        private = "Unknown"
 
     LOG.info(
         "GithubApp event %s",
         msg_action,
         event_type=event_type,
         event_id=event_id,
-        install_id=installation_id,
+        install_id=installation["id"],
         sender=data["sender"]["login"],
         gh_owner=owner,
-        gh_repo=repo_name,
+        gh_repo=repo,
         gh_private=private,
         subscription_active=subscription["subscription_active"],
         subscription_reason=subscription["subscription_reason"],
