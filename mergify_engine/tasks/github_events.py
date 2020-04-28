@@ -13,7 +13,6 @@
 # under the License.
 
 from datadog import statsd
-import uhashring
 
 from mergify_engine import config
 from mergify_engine import exceptions
@@ -155,12 +154,6 @@ def meter_event(event_type, data):
     statsd.increment("github.events", tags=tags)
 
 
-# NOTE(sileht): Send 5% of installation to new worker
-RING = uhashring.HashRing()
-RING.add_node("celery", {"weight": 100 - config.AB_TESTING_PERCENTAGE})
-RING.add_node("streams", {"weight": config.AB_TESTING_PERCENTAGE})
-
-
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
     meter_event(event_type, data)
@@ -189,17 +182,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async()
     else:
 
-        if installation_id in config.AB_TESTING_INSTALLATION_IDS:
-            worker = "streams"
-        elif subscription["subscription_active"]:
-            worker = "celery"
-        else:
-            worker = RING.get_node(installation_id)
-
-        if worker == "streams":
-            engine.run(event_type, data, new_worker=True)
-        else:
-            engine.run.s(event_type, data).apply_async(countdown=60)
+        engine.run(event_type, data)
         msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
 
     if "repository" in data:
