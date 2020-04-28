@@ -24,16 +24,19 @@ from mergify_engine import context
 from mergify_engine import rules
 
 
-def test_pull_request_rule():
-    for valid in (
+@pytest.mark.parametrize(
+    "valid",
+    (
         {"name": "hello", "conditions": ["head:master"], "actions": {}},
         {"name": "hello", "conditions": ["base:foo", "base:baz"], "actions": {}},
-    ):
-        rules.load_pull_request_rules_schema([valid])
+    ),
+)
+def test_pull_request_rule(valid):
+    rules.PullRequestRules.from_list([valid])
 
 
 def test_same_names():
-    pull_request_rules = rules.load_pull_request_rules_schema(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {"name": "hello", "conditions": [], "actions": {}},
             {"name": "foobar", "conditions": [], "actions": {}},
@@ -74,8 +77,9 @@ pull_request_rules:
         rules.UserConfigurationSchema("")
 
 
-def test_pull_request_rule_schema_invalid():
-    for invalid, match in (
+@pytest.mark.parametrize(
+    "invalid,match",
+    (
         (
             {"name": "hello", "conditions": ["this is wrong"], "actions": {}},
             "Invalid condition ",
@@ -126,10 +130,11 @@ def test_pull_request_rule_schema_invalid():
             r"expected bool for dictionary value @ "
             r"data\[0\]\['actions'\]\['merge'\]\['strict'\]",
         ),
-    ):
-        with pytest.raises(voluptuous.MultipleInvalid, match=match):
-            print(invalid)
-            rules.PullRequestRules([invalid])
+    ),
+)
+def test_pull_request_rule_schema_invalid(invalid, match):
+    with pytest.raises(voluptuous.MultipleInvalid, match=match):
+        rules.PullRequestRules.from_list([invalid])
 
 
 def test_get_pull_request_rule():
@@ -205,7 +210,7 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [{"name": "hello", "conditions": ["base:master"], "actions": {}}]
     )
 
@@ -216,7 +221,7 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {"name": "hello", "conditions": ["base:master"], "actions": {}},
             {"name": "backport", "conditions": ["base:master"], "actions": {}},
@@ -230,7 +235,7 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {"name": "hello", "conditions": ["#files=3"], "actions": {}},
             {"name": "backport", "conditions": ["base:master"], "actions": {}},
@@ -243,7 +248,7 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {"name": "hello", "conditions": ["#files=2"], "actions": {}},
             {"name": "backport", "conditions": ["base:master"], "actions": {}},
@@ -258,7 +263,7 @@ def test_get_pull_request_rule():
         assert rule["actions"] == {}
 
     # No match
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "merge",
@@ -276,7 +281,7 @@ def test_get_pull_request_rule():
     assert [r["name"] for r in match.rules] == ["merge"]
     assert [r["name"] for r, _ in match.matching_rules] == []
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "merge",
@@ -297,7 +302,7 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule["actions"] == {}
 
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "merge",
@@ -372,7 +377,7 @@ def test_get_pull_request_rule():
     )
 
     # Team conditions with one review missing
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "default",
@@ -405,7 +410,7 @@ def test_get_pull_request_rule():
     del ctxt.__dict__["consolidated_reviews"]
 
     # Team conditions with no review missing
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "default",
@@ -426,7 +431,7 @@ def test_get_pull_request_rule():
     assert len(match.matching_rules[0][1]) == 0
 
     # Forbidden labels, when no label set
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "default",
@@ -464,7 +469,7 @@ def test_get_pull_request_rule():
     assert len(match.matching_rules[0][1]) == 0
 
     # Test team expander
-    pull_request_rules = rules.PullRequestRules(
+    pull_request_rules = rules.PullRequestRules.from_list(
         [
             {
                 "name": "default",

@@ -15,8 +15,9 @@
 # under the License.
 
 import abc
+import dataclasses
+import typing
 
-import attr
 import pkg_resources
 import voluptuous
 
@@ -45,14 +46,15 @@ def get_commands():
     return dict((name, obj) for name, obj in get_classes().items() if obj.is_command)
 
 
-@attr.s
+@dataclasses.dataclass
 class Action(abc.ABC):
     is_action = True
     is_command = False
 
     always_run = False
 
-    config = attr.ib()
+    config: typing.Dict
+
     cancelled_check_report = (
         "neutral",
         "The rule doesn't match anymore, this action has been cancelled",
