@@ -185,6 +185,18 @@ The ``review`` action reviews the pull request.
      -
      - The message to write as a comment.
 
+You can use any available attributes of the pull request in the review message,
+by writing a template using `Jinja2
+<https://jinja.palletsprojects.com/templates/>`_ markup.
+
+For example:
+
+.. code-block:: jinja
+
+    Thank you {{author}} for your contribution!
+
+You can use any of the pull request :ref:`attributes` as variable — replacing
+``-`` with ``_`` in variables names.
 
 .. _close action:
 
@@ -206,6 +218,18 @@ The ``close`` action closes the pull request without merging it.
      - ``This pull request has been automatically closed by Mergify.``
      - The message to write as a comment after closing the pull request.
 
+You can use any available attributes of the pull request in the close message,
+by writing a template using `Jinja2
+<https://jinja.palletsprojects.com/templates/>`_ markup.
+
+For example:
+
+.. code-block:: jinja
+
+    Thank you {{author}} for your contribution!
+
+You can use any of the pull request :ref:`attributes` as variable — replacing
+``-`` with ``_`` in variables names.
 
 .. _delete_head_branch action:
 
@@ -273,6 +297,20 @@ branch is rebased).
      - string
      - ``Pull request has been modified.``
      - The message to post when dismissing the review.
+
+
+You can use any available attributes of the pull request in the comment
+message, by writing a template using `Jinja2
+<https://jinja.palletsprojects.com/templates/>`_ markup.
+
+For example:
+
+.. code-block:: jinja
+
+    Thank you {{author}} for your contribution!
+
+You can use any of the pull request :ref:`attributes` as variable — replacing
+``-`` with ``_`` in variables names.
 
 .. _label action:
 

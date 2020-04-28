@@ -15,7 +15,6 @@
 # under the License.
 
 import httpx
-import jinja2.exceptions
 import voluptuous
 
 from mergify_engine import actions
@@ -40,26 +39,12 @@ class CommentAction(actions.Action):
 
     def run(self, ctxt, missing_conditions):
         try:
-            message = ctxt.pull_request.jinja2_env.from_string(
-                self.config["message"]
-            ).render()
-        except jinja2.exceptions.TemplateSyntaxError as tse:
+            message = ctxt.pull_request.render_message(self.config["message"])
+        except context.RenderMessageFailure as rmf:
             return (
                 "failure",
                 "Invalid comment message",
-                f"There is an error in your comment message: {tse.message} at line {tse.lineno}",
-            )
-        except jinja2.exceptions.TemplateError as te:
-            return (
-                "failure",
-                "Invalid comment message",
-                f"There is an error in your comment message: {te.message}",
-            )
-        except context.PullRequestAttributeError as e:
-            return (
-                "failure",
-                "Invalid comment message",
-                f"There is an error in your comment message, the following variable is unknown: {e.name}",
+                str(rmf),
             )
 
         try:

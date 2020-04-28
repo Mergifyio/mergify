@@ -15,7 +15,6 @@
 # under the License.
 from unittest import mock
 
-import jinja2.exceptions
 import pytest
 
 from mergify_engine import context
@@ -164,13 +163,13 @@ def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
     pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
-    with pytest.raises(context.PullRequestAttributeError) as x:
+    with pytest.raises(context.RenderMessageFailure) as x:
         action.MergeAction._get_commit_message(pr)
-        assert x.name == "foobar"
+        assert str(x) == "foobar"
 
 
 @pytest.mark.parametrize(
-    "body",
+    "body,error",
     [
         (
             """Hello world
@@ -179,13 +178,15 @@ def test_merge_commit_message_undefined(body):
 {{title}}
 
 here is my message {{ and broken template
-"""
+""",
+            "lol",
         ),
     ],
 )
-def test_merge_commit_message_syntax_error(body):
+def test_merge_commit_message_syntax_error(body, error):
     pull = PR.copy()
     pull["body"] = body
     pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
-    with pytest.raises(jinja2.exceptions.TemplateSyntaxError):
+    with pytest.raises(context.RenderMessageFailure) as rmf:
         action.MergeAction._get_commit_message(pr)
+        assert str(rmf) == error

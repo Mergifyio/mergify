@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2019 Mehdi Abaakouk <sileht@mergify.io>
+#  Copyright © 2019—2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -18,6 +18,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import context
 
 
 EVENT_STATE_MAP = {
@@ -39,7 +40,19 @@ class ReviewAction(actions.Action):
 
     def run(self, ctxt, missing_conditions):
         payload = {"event": self.config["type"]}
-        body = self.config["message"]
+
+        if self.config["message"]:
+            try:
+                body = ctxt.pull_request.render_message(self.config["message"])
+            except context.RenderMessageFailure as rmf:
+                return (
+                    "failure",
+                    "Invalid review message",
+                    str(rmf),
+                )
+        else:
+            body = None
+
         if not body and self.config["type"] != "APPROVE":
             body = (
                 "Pull request automatically reviewed by Mergify: %s"

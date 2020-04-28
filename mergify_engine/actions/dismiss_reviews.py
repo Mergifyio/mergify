@@ -19,6 +19,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import utils
 
 
@@ -59,12 +60,24 @@ class DismissReviewsAction(actions.Action):
             if redis.get("branch-update-%s" % ctxt.pull["head"]["sha"]):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
+            try:
+                message = ctxt.pull_request.render_message(self.config["message"])
+            except context.RenderMessageFailure as rmf:
+                return (
+                    "failure",
+                    "Invalid dismiss reviews message",
+                    str(rmf),
+                )
+
             errors = set()
             for review in ctxt.consolidated_reviews[1]:
                 conf = self.config.get(review["state"].lower(), False)
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:
-                        self._dismissal_review(ctxt, review)
+                        ctxt.client.put(
+                            f"pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
+                            json={"message": message},
+                        )
                     except httpx.HTTPClientSideError as e:  # pragma: no cover
                         errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
 
@@ -78,9 +91,3 @@ class DismissReviewsAction(actions.Action):
                 "Nothing to do, pull request have not been synchronized",
                 "",
             )
-
-    def _dismissal_review(self, ctxt, review):
-        ctxt.client.put(
-            f"pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
-            json={"message": self.config["message"]},
-        )

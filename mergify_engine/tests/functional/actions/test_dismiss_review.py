@@ -15,6 +15,7 @@
 # under the License.
 import yaml
 
+from mergify_engine import context
 from mergify_engine.tests.functional import base
 
 
@@ -24,6 +25,76 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
 
     def test_dismiss_reviews_custom_message(self):
         return self._test_dismiss_reviews(message="Loser")
+
+    def _push_for_synchronize(self, branch, filename="unwanted_changes"):
+        open(self.git.tmp + f"/{filename}", "wb").close()
+        self.git("add", self.git.tmp + f"/{filename}")
+        self.git("commit", "--no-edit", "-m", filename)
+        self.git("push", "--quiet", "fork", branch)
+
+    def _test_dismiss_reviews_fail(self, msg):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "dismiss reviews",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {
+                        "dismiss_reviews": {
+                            "message": msg,
+                            "approved": True,
+                            "changes_requested": ["mergify-test1"],
+                        }
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+        p, commits = self.create_pr()
+        branch = self.get_full_branch_name("fork/pr%d" % self.pr_counter)
+        self.create_review(p, commits[-1], "APPROVE")
+
+        self.assertEqual(
+            [("APPROVED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()],
+        )
+
+        self._push_for_synchronize(branch)
+
+        self.wait_for(
+            "check_run",
+            {"check_run": {"name": "Rule: dismiss reviews (dismiss_reviews)"}},
+        )
+
+        ctxt = context.Context(
+            self.cli_integration, {"number": p.raw_data["number"]}, {}
+        )
+        checks = list(
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: dismiss reviews (dismiss_reviews)"
+        )
+
+        assert len(checks) == 1
+        return checks[0]
+
+    def test_dismiss_reviews_custom_message_syntax_error(self):
+        check = self._test_dismiss_reviews_fail("{{Loser")
+        assert "Invalid dismiss reviews message" == check["output"]["title"]
+        assert "failure" == check["conclusion"]
+        assert (
+            "There is an error in your message: unexpected end of template, expected 'end of print statement'. at line 1"
+            == check["output"]["summary"]
+        )
+
+    def test_dismiss_reviews_custom_message_attribute_error(self):
+        check = self._test_dismiss_reviews_fail("{{Loser}}")
+        assert "Invalid dismiss reviews message" == check["output"]["title"]
+        assert "failure" == check["conclusion"]
+        assert (
+            "There is an error in your message, the following variable is unknown: Loser"
+            == check["output"]["summary"]
+        )
 
     def _test_dismiss_reviews(self, message=None):
         rules = {
@@ -56,10 +127,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
-        open(self.git.tmp + "/unwanted_changes", "wb").close()
-        self.git("add", self.git.tmp + "/unwanted_changes")
-        self.git("commit", "--no-edit", "-m", "unwanted_changes")
-        self.git("push", "--quiet", "fork", branch)
+        self._push_for_synchronize(branch)
 
         self.wait_for("pull_request", {"action": "synchronize"})
         self.wait_for("pull_request_review", {"action": "dismissed"})
@@ -77,10 +145,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
-        open(self.git.tmp + "/unwanted_changes2", "wb").close()
-        self.git("add", self.git.tmp + "/unwanted_changes2")
-        self.git("commit", "--no-edit", "-m", "unwanted_changes2")
-        self.git("push", "--quiet", "fork", branch)
+        self._push_for_synchronize(branch, "unwanted_changes2")
 
         self.wait_for("pull_request", {"action": "synchronize"})
         self.wait_for("pull_request_review", {"action": "dismissed"})
@@ -90,3 +155,5 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             [("DISMISSED", "mergify-test1"), ("DISMISSED", "mergify-test1")],
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
+
+        return p

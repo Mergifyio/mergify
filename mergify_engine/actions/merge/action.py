@@ -18,7 +18,6 @@ import itertools
 import re
 
 import httpx
-import jinja2.exceptions
 import voluptuous
 
 from mergify_engine import actions
@@ -166,8 +165,6 @@ class MergeAction(actions.Action):
         )
 
         if found and message_lines:
-            env = pull_request.jinja2_env
-
             title = message_lines.pop(0)
 
             # Remove the empty lines between title and message body
@@ -176,10 +173,10 @@ class MergeAction(actions.Action):
             )
 
             return (
-                env.from_string(title.strip()).render(),
-                env.from_string(
+                pull_request.render_message(title.strip()),
+                pull_request.render_message(
                     "\n".join(line.strip() for line in message_lines)
-                ).render(),
+                ),
             )
 
     def _merge(self, ctxt):
@@ -200,23 +197,11 @@ class MergeAction(actions.Action):
             commit_title_and_message = self._get_commit_message(
                 ctxt.pull_request, self.config["commit_message"],
             )
-        except jinja2.exceptions.TemplateSyntaxError as tse:
+        except context.RenderMessageFailure as rmf:
             return (
                 "action_required",
                 "Invalid commit message",
-                f"There is an error in your commit message: {tse.message} at line {tse.lineno}",
-            )
-        except jinja2.exceptions.TemplateError as te:
-            return (
-                "action_required",
-                "Invalid commit message",
-                f"There is an error in your commit message: {te.message}",
-            )
-        except context.PullRequestAttributeError as e:
-            return (
-                "action_required",
-                "Invalid commit message",
-                f"There is an error in your commit message, the following variable is unknown: {e.name}",
+                str(rmf),
             )
 
         if commit_title_and_message is not None:

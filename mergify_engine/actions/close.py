@@ -18,6 +18,7 @@ import httpx
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import context
 
 
 MSG = "This pull request has been automatically closed by Mergify."
@@ -37,11 +38,19 @@ class CloseAction(actions.Action):
             return ("failure", "Pull request can't be closed", e.message)
 
         try:
+            message = ctxt.pull_request.render_message(self.config["message"])
+        except context.RenderMessageFailure as rmf:
+            return (
+                "failure",
+                "Invalid close message",
+                str(rmf),
+            )
+
+        try:
             ctxt.client.post(
-                f"issues/{ctxt.pull['number']}/comments",
-                json={"body": self.config["message"]},
+                f"issues/{ctxt.pull['number']}/comments", json={"body": message},
             )
         except httpx.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "The close message can't be created", e.message)
 
-        return ("success", "The pull request has been closed", self.config["message"])
+        return ("success", "The pull request has been closed", message)
