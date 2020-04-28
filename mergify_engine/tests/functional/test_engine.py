@@ -202,25 +202,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
         self.assertEqual("WTF?", comments[-1].body)
 
-    def test_close(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "rename label",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"close": {"message": "WTF?"}},
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-
-        p.update()
-        self.assertEqual("closed", p.state)
-        self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
-
     def test_dismiss_reviews(self):
         return self._test_dismiss_reviews()
 
