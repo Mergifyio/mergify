@@ -13,15 +13,17 @@
 # under the License.
 
 from datadog import statsd
+import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine import worker
+from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.tasks import app
-from mergify_engine.tasks import engine
 from mergify_engine.tasks import mergify_events
 
 
@@ -154,6 +156,58 @@ def meter_event(event_type, data):
     statsd.increment("github.events", tags=tags)
 
 
+def _get_github_pulls_from_sha(client, sha):
+    for pull in client.items("pulls"):
+        if pull["head"]["sha"] == sha:
+            return [pull]
+    return []
+
+
+def _extract_pulls_from_event(installation_id, owner, repo, event_type, data):
+    if "pull_request" in data and data["pull_request"]:
+        return [data["pull_request"]]
+
+    try:
+        installation = github.get_installation(owner, repo, installation_id)
+    except exceptions.MergifyNotInstalled:
+        return []
+
+    with github.get_client(owner, repo, installation) as client:
+        if event_type == "issue_comment":
+            try:
+                return [client.item(f"pulls/{data['issue']['number']}")]
+            except httpx.HTTPNotFound:  # pragma: no cover
+                return []
+        elif event_type == "status":
+            return _get_github_pulls_from_sha(client, data["sha"])
+        elif event_type in ["check_suite", "check_run"]:
+            # NOTE(sileht): This list may contains Pull Request from another org/user fork...
+            base_repo_url = str(client.base_url)[:-1]
+            pulls = data[event_type]["pull_requests"]
+            pulls = [p for p in pulls if p["base"]["repo"]["url"] == base_repo_url]
+            if not pulls:
+                sha = data[event_type]["head_sha"]
+                pulls = _get_github_pulls_from_sha(client, sha)
+            return pulls
+
+    return []
+
+
+def _filter_event_data(event_type, data):
+    slim_data = {"sender": data["sender"]}
+
+    # For pull_request opened/synchronise/closed
+    # and refresh event
+    for attr in ("action", "after", "before"):
+        if attr in data:
+            slim_data[attr] = data[attr]
+
+    # For commands runner
+    if event_type == "issue_comment":
+        slim_data["comment"] = data["comment"]
+    return slim_data
+
+
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
     meter_event(event_type, data)
@@ -181,9 +235,27 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action = "run refresh branch %s" % branch
         mergify_events.job_refresh.s(owner, repo, "branch", branch).apply_async()
     else:
+        owner = data["repository"]["owner"]["login"]
+        repo = data["repository"]["name"]
 
-        engine.run(event_type, data)
-        msg_action = "pushed to backend%s" % get_extra_msg_from_event(event_type, data)
+        pulls = _extract_pulls_from_event(
+            installation_id, owner, repo, event_type, data
+        )
+
+        if pulls:
+            slim_data = _filter_event_data(event_type, data)
+            for pull in pulls:
+                worker.push(
+                    installation_id, owner, repo, pull["number"], event_type, slim_data
+                )
+            msg_action = "pushed to backend%s" % get_extra_msg_from_event(
+                event_type, data
+            )
+        else:  # pragma: no cover
+            msg_action = "ignored (no pull request found in the event %s%s" % (
+                event_type,
+                get_extra_msg_from_event(event_type, data),
+            )
 
     if "repository" in data:
         owner, _, repo_name = data["repository"]["full_name"].partition("/")

@@ -20,16 +20,14 @@ from unittest import mock
 
 import httpx
 
-from mergify_engine.tasks import engine
+from mergify_engine.clients import github
+from mergify_engine.tasks import github_events
 
 
 def test_event_to_pull_check_run_forked_repo():
-    client = mock.Mock(
-        base_url=httpx.URL(
-            "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
-        )
-    )
-    client.items.return_value = []
+    installation_id = 12345
+    owner = "CytopiaTeam"
+    repo = "Cytopia"
     event_type = "check_run"
 
     with open(
@@ -37,17 +35,30 @@ def test_event_to_pull_check_run_forked_repo():
     ) as f:
         data = json.loads(f.read())
 
-    pull = engine.get_github_pull_from_event(client, event_type, data)
-    assert pull is None
-
-
-def test_event_to_pull_check_run_same_repo():
     client = mock.Mock(
         base_url=httpx.URL(
             "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
         )
     )
     client.items.return_value = []
+    cm_client = mock.Mock()
+    cm_client.__enter__ = mock.Mock(return_value=client)
+    cm_client.__exit__ = mock.Mock()
+
+    with mock.patch.object(github, "get_client", return_value=cm_client):
+        with mock.patch.object(
+            github, "get_installation", return_value={"id": installation_id}
+        ):
+            pulls = github_events._extract_pulls_from_event(
+                installation_id, owner, repo, event_type, data
+            )
+            assert len(pulls) == 0
+
+
+def test_event_to_pull_check_run_same_repo():
+    installation_id = 12345
+    owner = "CytopiaTeam"
+    repo = "Cytopia"
     event_type = "check_run"
 
     with open(
@@ -55,5 +66,22 @@ def test_event_to_pull_check_run_same_repo():
     ) as f:
         data = json.loads(f.read())
 
-    pull = engine.get_github_pull_from_event(client, event_type, data)
-    assert pull["number"] == 409
+    client = mock.Mock(
+        base_url=httpx.URL(
+            "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
+        )
+    )
+    client.items.return_value = []
+    cm_client = mock.Mock()
+    cm_client.__enter__ = mock.Mock(return_value=client)
+    cm_client.__exit__ = mock.Mock()
+
+    with mock.patch.object(github, "get_client", return_value=cm_client):
+        with mock.patch.object(
+            github, "get_installation", return_value={"id": installation_id}
+        ):
+            pulls = github_events._extract_pulls_from_event(
+                installation_id, owner, repo, event_type, data
+            )
+            assert len(pulls) == 1
+            assert pulls[0]["number"] == 409
