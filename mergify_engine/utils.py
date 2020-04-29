@@ -148,6 +148,8 @@ class Gitter(object):
         except subprocess.CalledProcessError as e:
             self.logger.info("output: %s", e.output)
             raise
+        finally:
+            self.logger.debug("finish: %s", " ".join(args))
 
     def cleanup(self):
         self.logger.info("cleaning: %s", self.tmp)
