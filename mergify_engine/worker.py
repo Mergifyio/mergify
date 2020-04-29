@@ -321,9 +321,12 @@ class Worker:
                                 "worker %d release stream: %s", worker_id, stream_name,
                             )
                     else:
+                        LOG.debug(
+                            "worker %d has nothing to do, sleeping a bit", worker_id
+                        )
                         await asyncio.sleep(self.idle_sleep_time)
             except Exception:
-                LOG.error("worker %d fail", worker_id, exc_info=True)
+                LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
                 await asyncio.sleep(self.idle_sleep_time)
 
         LOG.info("worker %d exited", worker_id)
