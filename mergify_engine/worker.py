@@ -193,7 +193,7 @@ class StreamProcessor:
 
         LOG.debug("read stream", stream_name=stream_name)
         messages_per_streams = await self._redis.xread(
-            block=1, count=1000, **{stream_name: "0"}
+            block=1, count=100, **{stream_name: "0"}
         )
 
         # Groups stream by pull request
