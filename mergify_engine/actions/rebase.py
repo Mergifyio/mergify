@@ -16,6 +16,7 @@
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
+from mergify_engine import utils
 
 
 class RebaseAction(actions.Action):
@@ -26,7 +27,7 @@ class RebaseAction(actions.Action):
     @staticmethod
     def run(pull, missing_conditions):
         try:
-            branch_updater.update_with_git(pull, "rebase")
+            utils.run_in_loop(branch_updater.update_with_git(pull, "rebase"))
         except branch_updater.BranchUpdateFailure as e:
             return "failure", "Branch rebase failed", str(e)
         else:

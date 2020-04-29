@@ -13,6 +13,7 @@
 # under the License.
 
 import argparse
+import asyncio
 import pprint
 
 import httpx
@@ -88,8 +89,8 @@ def report_sub(install_id, slug, sub, title):
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
-def report(url):
-    redis = utils.get_redis_for_cache()
+async def report(url):
+    redis = await utils.get_aredis_for_cache()
     path = url.replace("https://github.com/", "")
     try:
         owner, repo, _, pull_number = path.split("/")
@@ -108,7 +109,7 @@ def report(url):
 
     print("* INSTALLATION ID: %s" % client.installation["id"])
 
-    cached_sub = sub_utils.get_subscription(redis, client.installation["id"])
+    cached_sub = await sub_utils.get_subscription(redis, client.installation["id"])
     db_sub = sub_utils._retrieve_subscription_from_db(client.installation["id"])
     print(
         "* SUBSCRIBED (cache/db): %s / %s"
@@ -173,4 +174,4 @@ def main():
     parser = argparse.ArgumentParser(description="Debugger for mergify")
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
-    report(args.url)
+    asyncio.run_until_complete(report(args.url))

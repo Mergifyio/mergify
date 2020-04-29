@@ -217,6 +217,13 @@ def _filter_event_data(event_type, data):
 
 @app.task
 def job_filter_and_dispatch(event_type, event_id, data):
+    return utils.run_in_loop(
+        _async_job_filter_and_dispatch(event_type, event_id, data),
+    )
+
+
+async def _async_job_filter_and_dispatch(event_type, event_id, data):
+
     meter_event(event_type, data)
 
     if "repository" in data:
@@ -239,10 +246,10 @@ def job_filter_and_dispatch(event_type, event_id, data):
             pass
 
     if installation:
-        r = utils.get_redis_for_cache()
+        r = await utils.get_aredis_for_cache()
         if event_type in ["installation", "installation_repositories"]:
-            r.delete("subscription-cache-%s" % installation["id"])
-        subscription = sub_utils.get_subscription(r, installation["id"])
+            await r.delete("subscription-cache-%s" % installation["id"])
+        subscription = await sub_utils.get_subscription(r, installation["id"])
     else:
         subscription = {
             "subscription_active": False,
