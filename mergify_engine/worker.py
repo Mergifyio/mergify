@@ -161,12 +161,13 @@ class StreamProcessor:
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            await self._loop.run_in_executor(
-                self._executor,
-                functools.partial(
-                    run_engine, installation_id, owner, repo, pull_number, sources,
-                ),
-            )
+            run_engine(installation_id, owner, repo, pull_number, sources)
+            # await self._loop.run_in_executor(
+            #    self._executor,
+            #    functools.partial(
+            #        run_engine, installation_id, owner, repo, pull_number, sources,
+            #    ),
+            # )
             await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
@@ -403,7 +404,6 @@ async def run_forever():
 
 
 def main():
-    # Disable uvloop temporary
-    # uvloop.install()
+    uvloop.install()
     logs.setup_logging(worker="streams")
     asyncio.run(run_forever())
