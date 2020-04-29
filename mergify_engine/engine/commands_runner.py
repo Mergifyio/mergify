@@ -21,7 +21,6 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import logs
-from mergify_engine.tasks.engine import commands_runner
 
 
 LOG = logs.getLogger(__name__)
@@ -47,11 +46,11 @@ def load_action(message):
         return match[1], command_args, action
 
 
-def spawn_pending_commands_tasks(ctxt):
+def run_pending_commands_tasks(ctxt):
     pendings = set()
     for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
         if comment["user"]["id"] != config.BOT_USER_ID:
-            return
+            continue
         match = COMMAND_RESULT_MATCHER.search(comment["body"])
         if match:
             command = match[1]
@@ -62,16 +61,7 @@ def spawn_pending_commands_tasks(ctxt):
                 pendings.remove(command)
 
     for pending in pendings:
-        # TODO(sileht): When pull request will be batched, we can remove
-        # the celery task and just run_command
-        commands_runner.run_command_async.s(
-            ctxt.client.installation["id"],
-            ctxt.pull,
-            ctxt.sources,
-            "@Mergifyio %s" % pending,
-            None,
-            rerun=True,
-        ).apply_async()
+        handle(ctxt, "@Mergifyio %s" % pending, None, rerun=True)
 
 
 def handle(ctxt, comment, user, rerun=False):

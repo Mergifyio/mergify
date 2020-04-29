@@ -162,8 +162,8 @@ def run(client, pull, sources):
         else:
             ctxt.sources.append(source)
 
-    ctxt.log.debug("engine spawn pending commands")
-    commands_runner.spawn_pending_commands_tasks(ctxt)
+    ctxt.log.debug("engine run pending commands")
+    commands_runner.run_pending_commands_tasks(ctxt)
 
     if issue_comment_sources:
         ctxt.log.debug("engine handle commands")

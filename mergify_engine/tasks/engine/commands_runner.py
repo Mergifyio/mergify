@@ -20,6 +20,7 @@ from mergify_engine.engine import commands_runner
 from mergify_engine.tasks import app
 
 
+# TODO(sileht): delete me soon
 @app.task
 def run_command_async(
     installation_id, pull_request_raw, sources, comment, user, rerun=False
