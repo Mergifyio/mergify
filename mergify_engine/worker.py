@@ -106,6 +106,7 @@ def run_engine(installation_id, owner, repo, pull_number, sources):
             installation = github.get_installation(owner, repo, installation_id)
         except exceptions.MergifyNotInstalled:
             return
+        logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
             pull = client.item(f"pulls/{pull_number}")
             engine.run(client, pull, sources)
