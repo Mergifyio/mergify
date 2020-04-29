@@ -136,6 +136,9 @@ _GITHUB_APP_LOCK = threading.Lock()
 
 
 def get_client():
+    # Due to usage of ProcessPoolExecutor temporary always create a new client
+    return _Client()
+
     global _GITHUB_APP
     global _GITHUB_APP_LOCK
 

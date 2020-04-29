@@ -123,7 +123,7 @@ class StreamProcessor:
     _redis: Any = dataclasses.field(init=False, default=None)
 
     def __post_init__(self):
-        self._executor = concurrent.futures.ThreadPoolExecutor(
+        self._executor = concurrent.futures.ProcessPoolExecutor(
             max_workers=self.worker_count
         )
 
@@ -161,13 +161,12 @@ class StreamProcessor:
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            run_engine(installation_id, owner, repo, pull_number, sources)
-            # await self._loop.run_in_executor(
-            #    self._executor,
-            #    functools.partial(
-            #        run_engine, installation_id, owner, repo, pull_number, sources,
-            #    ),
-            # )
+            await self._loop.run_in_executor(
+                self._executor,
+                functools.partial(
+                    run_engine, installation_id, owner, repo, pull_number, sources,
+                ),
+            )
             await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
