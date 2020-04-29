@@ -99,13 +99,18 @@ def push(installation_id, owner, repo, pull_number, event_type, data):
 
 
 def run_engine(installation_id, owner, repo, pull_number, sources):
+    logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
+    logger.debug("engine in thread start")
     try:
-        installation = github.get_installation(owner, repo, installation_id)
-    except exceptions.MergifyNotInstalled:
-        return
-    with github.get_client(owner, repo, installation) as client:
-        pull = client.item(f"pulls/{pull_number}")
-        engine.run(client, pull, sources)
+        try:
+            installation = github.get_installation(owner, repo, installation_id)
+        except exceptions.MergifyNotInstalled:
+            return
+        with github.get_client(owner, repo, installation) as client:
+            pull = client.item(f"pulls/{pull_number}")
+            engine.run(client, pull, sources)
+    finally:
+        logger.debug("engine in thread end")
 
 
 @dataclasses.dataclass
