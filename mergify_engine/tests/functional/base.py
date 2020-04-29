@@ -479,9 +479,9 @@ class FunctionalTestBase(unittest.TestCase):
                     "subscription_reason": "We're just testing",
                 }
 
-        def fake_subscription(r, install_id):
+        async def fake_subscription(r, install_id):
             if int(install_id) == config.INSTALLATION_ID:
-                return real_get_subscription(r, install_id)
+                return await real_get_subscription(r, install_id)
             else:
                 return {
                     "tokens": {},
@@ -500,7 +500,7 @@ class FunctionalTestBase(unittest.TestCase):
         ).start()
 
         mock.patch(
-            "mergify_engine.sub_utils.get_subscription", side_effect=fake_subscription,
+            "mergify_engine.sub_utils.get_subscription", new=fake_subscription,
         ).start()
 
         mock.patch(

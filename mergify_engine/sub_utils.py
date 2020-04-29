@@ -116,8 +116,8 @@ def _retrieve_subscription_from_db(installation_id):
     return sub
 
 
-def _retrieve_subscription_from_cache(r, installation_id):
-    encrypted_sub = r.get("subscription-cache-%s" % installation_id)
+async def _retrieve_subscription_from_cache(r, installation_id):
+    encrypted_sub = await r.get("subscription-cache-%s" % installation_id)
     if encrypted_sub:
         return _decrypt(encrypted_sub)
 
@@ -128,10 +128,10 @@ async def save_subscription_to_cache(installation_id, sub):
     await r.setex("subscription-cache-%s" % installation_id, 3600, encrypted)
 
 
-def get_subscription(r, installation_id):
-    sub = _retrieve_subscription_from_cache(r, installation_id)
+async def get_subscription(r, installation_id):
+    sub = await _retrieve_subscription_from_cache(r, installation_id)
     if sub is None:
         sub = _retrieve_subscription_from_db(installation_id)
         encrypted = _encrypt(sub)
-        r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
+        await r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
     return sub

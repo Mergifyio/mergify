@@ -221,10 +221,12 @@ def update_with_api(ctxt):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(AuthentificationFailure),
 )
-def update_with_git(ctxt, method="merge"):
-    redis = utils.get_redis_for_cache()
+async def update_with_git(ctxt, method="merge"):
+    redis = await utils.get_aredis_for_cache()
 
-    subscription = sub_utils.get_subscription(redis, ctxt.client.installation["id"])
+    subscription = await sub_utils.get_subscription(
+        redis, ctxt.client.installation["id"]
+    )
 
     for login, token in subscription["tokens"].items():
         try:

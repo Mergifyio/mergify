@@ -13,6 +13,7 @@
 # under the License.
 
 from mergify_engine import branch_updater
+from mergify_engine import utils
 from mergify_engine.actions.merge import queue
 
 
@@ -93,7 +94,7 @@ def update_pull_base_branch(pull, method):
         if method == "merge":
             branch_updater.update_with_api(pull)
         else:
-            branch_updater.update_with_git(pull, method)
+            utils.run_in_loop(branch_updater.update_with_git(pull, method))
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status

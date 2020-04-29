@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
+# Copyright © 2018—2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,13 +13,15 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import asyncio
 import datetime
 import hashlib
 import hmac
+import queue
 import shutil
 import subprocess
 import tempfile
+import threading
 
 import aredis
 from billiard import current_process
@@ -179,3 +181,22 @@ class Gitter(object):
                 "url=https://%s:%s@%s/%s\n\n" % (username, password, domain, path)
             ).encode("utf8"),
         )
+
+
+def _run_in_loop(coroutine, result):
+    try:
+        ret = asyncio.new_event_loop().run_until_complete(coroutine)
+    except Exception as e:
+        result.put(e)
+    else:
+        result.put(ret)
+
+
+def run_in_loop(coroutine):
+    result = queue.Queue()
+    t = threading.Thread(target=_run_in_loop, args=(coroutine, result))
+    t.start()
+    ret = result.get()
+    if isinstance(ret, BaseException):
+        raise ret
+    return ret
