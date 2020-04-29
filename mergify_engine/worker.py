@@ -259,6 +259,11 @@ class StreamProcessor:
         message_ids_to_delete = list(
             itertools.chain.from_iterable(message_ids.values())
         )
+        LOG.debug(
+            "cleanup stream start",
+            stream_name=stream_name,
+            message_ids_to_delete_count=len(message_ids_to_delete),
+        )
         score = time.time()
         await self._redis.eval(
             self.ATOMIC_CLEAN_STREAM_SCRIPT,
@@ -268,6 +273,7 @@ class StreamProcessor:
                 + message_ids_to_delete
             ),
         )
+        LOG.debug("cleanup stream end", stream_name=stream_name)
 
     # NOTE(sileht): If the stream still have messages, we update the score to reschedule the
     # pull later
