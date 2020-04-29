@@ -42,7 +42,6 @@ LOG = logs.getLogger(__name__)
 
 MAX_RETRIES = 3
 
-WORKER_PROCESS_TIME_LIMIT = 5 * 60
 WORKER_PROCESSING_DELAY = 30
 
 
@@ -62,10 +61,6 @@ class StreamRetry(Exception):
 
 
 class MaxStreamRetry(StreamRetry):
-    pass
-
-
-class EngineTimeout(Exception):
     pass
 
 
@@ -166,17 +161,12 @@ class StreamProcessor:
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            fut = self._loop.run_in_executor(
+            await self._loop.run_in_executor(
                 self._executor,
                 functools.partial(
                     run_engine, installation_id, owner, repo, pull_number, sources,
                 ),
             )
-            try:
-                await asyncio.wait_for(fut, timeout=WORKER_PROCESS_TIME_LIMIT)
-            except asyncio.TimeoutError:
-                fut.cancel()
-                raise EngineTimeout()
             await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
@@ -269,9 +259,6 @@ class StreamProcessor:
                     exc_info=True,
                 )
                 return
-            except EngineTimeout:
-                # TODO(sileht): change me to info after some monitoring
-                logger.error("failed to process pull request, timeouted", exc_info=True)
             except Exception:
                 logger.error("failed to process pull request", exc_info=True)
 
