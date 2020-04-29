@@ -13,13 +13,13 @@
 
 import asyncio
 import collections
-import concurrent.futures
 import contextlib
 import dataclasses
 import datetime
 import functools
 import itertools
 import signal
+import threading
 import time
 from typing import Any
 from typing import List
@@ -114,18 +114,37 @@ def run_engine(installation_id, owner, repo, pull_number, sources):
         logger.debug("engine in thread end")
 
 
+class EngineRunThread(threading.Thread):
+    """This thread propagate exception to main thread."""
+
+    def __init__(self, *engine_args):
+        super().__init__(daemon=True)
+        self.engine_args = engine_args
+        self.exc = None
+
+    def run(self):
+        try:
+            run_engine(*self.engine_args)
+        except Exception as exc:
+            self.exc = exc
+
+
+async def run_engine_in_thread(*args):
+    t = EngineRunThread(*args)
+    t.start()
+    while t.is_alive():
+        await asyncio.sleep(0.01)
+    t.join()
+    if t.exc:
+        raise t.exc
+
+
 @dataclasses.dataclass
 class StreamProcessor:
     worker_count: int
 
-    _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
     _pending_streams: Set = dataclasses.field(init=False, default_factory=set)
     _redis: Any = dataclasses.field(init=False, default=None)
-
-    def __post_init__(self):
-        self._executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.worker_count
-        )
 
     async def connect(self):
         self._redis = await utils.create_aredis_for_stream()
@@ -161,13 +180,9 @@ class StreamProcessor:
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            run_engine(installation_id, owner, repo, pull_number, sources)
-            # await self._loop.run_in_executor(
-            #    self._executor,
-            #    functools.partial(
-            #        run_engine, installation_id, owner, repo, pull_number, sources,
-            #    ),
-            # )
+            await run_engine_in_thread(
+                installation_id, owner, repo, pull_number, sources
+            )
             await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
