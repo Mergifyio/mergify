@@ -108,9 +108,11 @@ class GithubInstallationClient(http.Client):
 
     def request(self, method, url, *args, **kwargs):
         reply = None
+        LOG.debug("http request start", method=method, url=url)
         try:
             reply = super().request(method, url, *args, **kwargs)
         finally:
+            LOG.debug("http request end", method=method, url=url)
             if reply is None:
                 status_code = "error"
             else:
