@@ -403,6 +403,7 @@ async def run_forever():
 
 
 def main():
-    uvloop.install()
+    # Disable uvloop temporary
+    # uvloop.install()
     logs.setup_logging(worker="streams")
     asyncio.run(run_forever())
