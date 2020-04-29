@@ -67,6 +67,21 @@ def get_github_pull_from_event(client, event_type, data):
             return pulls[0]
 
 
+def filter_event_data(event_type, data):
+    slim_data = {"sender": data["sender"]}
+
+    # For pull_request opened/synchronise/closed
+    # and refresh event
+    for attr in ("action", "after", "before"):
+        if attr in data:
+            slim_data[attr] = data[attr]
+
+    # For commands runner
+    if event_type == "issue_comment":
+        slim_data["comment"] = data["comment"]
+    return slim_data
+
+
 # NOTE(sileht): We keep this as task one hour to ensure all celery tasks are done and then we
 # can remove @app.task
 @app.task
@@ -93,4 +108,7 @@ def run(event_type, data):
             )
             return
 
-        worker.push(installation["id"], owner, repo, pull["number"], event_type, data)
+        slim_data = filter_event_data(event_type, data)
+        worker.push(
+            installation["id"], owner, repo, pull["number"], event_type, slim_data
+        )

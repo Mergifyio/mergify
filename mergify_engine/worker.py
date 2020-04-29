@@ -13,13 +13,13 @@
 
 import asyncio
 import collections
-import concurrent.futures
 import contextlib
 import dataclasses
 import datetime
 import functools
 import itertools
 import signal
+import threading
 import time
 from typing import Any
 from typing import List
@@ -99,27 +99,52 @@ def push(installation_id, owner, repo, pull_number, event_type, data):
 
 
 def run_engine(installation_id, owner, repo, pull_number, sources):
+    logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
+    logger.debug("engine in thread start")
     try:
-        installation = github.get_installation(owner, repo, installation_id)
-    except exceptions.MergifyNotInstalled:
-        return
-    with github.get_client(owner, repo, installation) as client:
-        pull = client.item(f"pulls/{pull_number}")
-        engine.run(client, pull, sources)
+        try:
+            installation = github.get_installation(owner, repo, installation_id)
+        except exceptions.MergifyNotInstalled:
+            return
+        logger.debug("engine get installation")
+        with github.get_client(owner, repo, installation) as client:
+            pull = client.item(f"pulls/{pull_number}")
+            engine.run(client, pull, sources)
+    finally:
+        logger.debug("engine in thread end")
+
+
+class EngineRunThread(threading.Thread):
+    """This thread propagate exception to main thread."""
+
+    def __init__(self, *engine_args):
+        super().__init__(daemon=True)
+        self.engine_args = engine_args
+        self.exc = None
+
+    def run(self):
+        try:
+            run_engine(*self.engine_args)
+        except Exception as exc:
+            self.exc = exc
+
+
+async def run_engine_in_thread(*args):
+    t = EngineRunThread(*args)
+    t.start()
+    while t.is_alive():
+        await asyncio.sleep(0.01)
+    t.join()
+    if t.exc:
+        raise t.exc
 
 
 @dataclasses.dataclass
 class StreamProcessor:
     worker_count: int
 
-    _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
     _pending_streams: Set = dataclasses.field(init=False, default_factory=set)
     _redis: Any = dataclasses.field(init=False, default=None)
-
-    def __post_init__(self):
-        self._executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.worker_count
-        )
 
     async def connect(self):
         self._redis = await utils.create_aredis_for_stream()
@@ -155,11 +180,8 @@ class StreamProcessor:
     async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            await self._loop.run_in_executor(
-                self._executor,
-                functools.partial(
-                    run_engine, installation_id, owner, repo, pull_number, sources,
-                ),
+            await run_engine_in_thread(
+                installation_id, owner, repo, pull_number, sources
             )
             await self._redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
@@ -191,8 +213,9 @@ class StreamProcessor:
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
+        LOG.debug("read stream", stream_name=stream_name)
         messages_per_streams = await self._redis.xread(
-            block=1, count=1000, **{stream_name: "0"}
+            block=1, count=100, **{stream_name: "0"}
         )
 
         # Groups stream by pull request
@@ -207,6 +230,8 @@ class StreamProcessor:
                 pulls[key].append(data["source"])
                 message_ids[key].append(message_id)
 
+        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
+
         for (owner, repo, pull_number), sources in pulls.items():
             statsd.histogram("engine.streams.batch-size", len(sources))
 
@@ -215,9 +240,13 @@ class StreamProcessor:
             )
 
             try:
+                logger.debug("engine start with %s sources", len(sources))
+                start = time.monotonic()
                 await self._run_engine(
                     installation_id, owner, repo, pull_number, sources
                 )
+                end = time.monotonic()
+                logger.debug("engine finished in %s sec", end - start)
             except MaxPullRetry as e:
                 logger.error(
                     "failed to process pull request, abandoning",
@@ -252,6 +281,11 @@ class StreamProcessor:
         message_ids_to_delete = list(
             itertools.chain.from_iterable(message_ids.values())
         )
+        LOG.debug(
+            "cleanup stream start",
+            stream_name=stream_name,
+            message_ids_to_delete_count=len(message_ids_to_delete),
+        )
         score = time.time()
         await self._redis.eval(
             self.ATOMIC_CLEAN_STREAM_SCRIPT,
@@ -261,6 +295,7 @@ class StreamProcessor:
                 + message_ids_to_delete
             ),
         )
+        LOG.debug("cleanup stream end", stream_name=stream_name)
 
     # NOTE(sileht): If the stream still have messages, we update the score to reschedule the
     # pull later
@@ -314,9 +349,12 @@ class Worker:
                                 "worker %d release stream: %s", worker_id, stream_name,
                             )
                     else:
+                        LOG.debug(
+                            "worker %d has nothing to do, sleeping a bit", worker_id
+                        )
                         await asyncio.sleep(self.idle_sleep_time)
             except Exception:
-                LOG.error("worker %d fail", worker_id, exc_info=True)
+                LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
                 await asyncio.sleep(self.idle_sleep_time)
 
         LOG.info("worker %d exited", worker_id)

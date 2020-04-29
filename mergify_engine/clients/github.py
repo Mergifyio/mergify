@@ -15,8 +15,10 @@
 # under the License.
 
 
+import dataclasses
 from datetime import datetime
 import functools
+from urllib import parse
 
 from datadog import statsd
 import httpx
@@ -30,6 +32,12 @@ from mergify_engine.clients import http
 
 LOGGING_REQUESTS_THRESHOLD = 20
 LOG = logs.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class TooManyPages(Exception):
+    last_page: int
+    response: httpx.Response
 
 
 class GithubInstallationAuth(httpx.Auth):
@@ -95,6 +103,14 @@ class GithubInstallationClient(http.Client):
     def items(self, url, api_version=None, list_items=None, **params):
         while True:
             r = self.get(url, api_version=api_version, params=params)
+            last_url = r.links.get("last", {}).get("url")
+            if last_url:
+                last_page = int(
+                    parse.parse_qs(parse.urlparse(last_url).query).get("page")[0]
+                )
+                if last_page > 100:
+                    raise TooManyPages(last_page, r)
+
             items = r.json()
             if list_items:
                 items = items[list_items]
@@ -108,9 +124,11 @@ class GithubInstallationClient(http.Client):
 
     def request(self, method, url, *args, **kwargs):
         reply = None
+        LOG.debug("http request start", method=method, url=url)
         try:
             reply = super().request(method, url, *args, **kwargs)
         finally:
+            LOG.debug("http request end", method=method, url=url)
             if reply is None:
                 status_code = "error"
             else:

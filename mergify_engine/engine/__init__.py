@@ -145,11 +145,14 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
 
 
 def run(client, pull, sources):
+    LOG.debug("engine get sub")
     subscription = sub_utils.get_subscription(
         utils.get_redis_for_cache(), client.installation["id"]
     )
 
+    LOG.debug("engine get context")
     ctxt = context.Context(client, pull, subscription)
+    ctxt.log.debug("engine start processing context")
 
     issue_comment_sources = []
 
@@ -159,9 +162,11 @@ def run(client, pull, sources):
         else:
             ctxt.sources.append(source)
 
+    ctxt.log.debug("engine spawn pending commands")
     commands_runner.spawn_pending_commands_tasks(ctxt)
 
     if issue_comment_sources:
+        ctxt.log.debug("engine handle commands")
         for source in issue_comment_sources:
             commands_runner.handle(
                 ctxt,
@@ -185,15 +190,17 @@ def run(client, pull, sources):
         )
         return
 
+    ctxt.log.debug("engine check configuration change")
     if check_configuration_changes(ctxt):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
+    ctxt.log.debug("engine get configuration")
     # BRANCH CONFIGURATION CHECKING
     try:
         mergify_config = rules.get_mergify_config(ctxt)
     except rules.NoRules:  # pragma: no cover
-        ctxt.log.info("No need to proceed queue (.mergify.yml is missing)",)
+        ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
     except rules.InvalidRules as e:  # pragma: no cover
         # Not configured, post status check with the error message
@@ -246,6 +253,8 @@ def run(client, pull, sources):
         and s["data"]["after"] == ctxt.pull["head"]["sha"]
     ]
     if synchronize_data:
+        ctxt.log.debug("engine synchronize summary")
         copy_summary_from_previous_head_sha(ctxt, synchronize_data[0]["before"])
 
+    ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
