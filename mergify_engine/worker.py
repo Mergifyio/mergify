@@ -191,6 +191,7 @@ class StreamProcessor:
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
+        LOG.debug("read stream", stream_name=stream_name)
         messages_per_streams = await self._redis.xread(
             block=1, count=1000, **{stream_name: "0"}
         )
@@ -207,6 +208,8 @@ class StreamProcessor:
                 pulls[key].append(data["source"])
                 message_ids[key].append(message_id)
 
+        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
+
         for (owner, repo, pull_number), sources in pulls.items():
             statsd.histogram("engine.streams.batch-size", len(sources))
 
@@ -215,9 +218,13 @@ class StreamProcessor:
             )
 
             try:
+                logger.debug("engine start with %s sources", len(sources))
+                start = time.monotonic()
                 await self._run_engine(
                     installation_id, owner, repo, pull_number, sources
                 )
+                end = time.monotonic()
+                logger.debug("engine finished in %s sec", end - start)
             except MaxPullRetry as e:
                 logger.error(
                     "failed to process pull request, abandoning",
