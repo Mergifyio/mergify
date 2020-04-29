@@ -94,9 +94,11 @@ class Client(httpx.Client):
                 exc_class = STATUS_CODE_TO_EXC.get(
                     e.response.status_code, HTTPClientSideError
                 )
+                message = e.args[0]
+                gh_message = e.response.json().get("message")
+                if gh_message:
+                    message = f"{message}\nGithub details: {gh_message}"
                 raise exc_class(
-                    e.response.json().get("message", e.args[0]),
-                    request=e.request,
-                    response=e.response,
+                    message, *e.args[1:], request=e.request, response=e.response,
                 )
             raise
