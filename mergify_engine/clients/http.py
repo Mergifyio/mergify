@@ -94,5 +94,9 @@ class Client(httpx.Client):
                 exc_class = STATUS_CODE_TO_EXC.get(
                     e.response.status_code, HTTPClientSideError
                 )
-                raise exc_class(*e.args, request=e.request, response=e.response)
+                raise exc_class(
+                    e.response.json().get("message", e.args[0]),
+                    request=e.request,
+                    response=e.response,
+                )
             raise
