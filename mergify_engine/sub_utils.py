@@ -101,8 +101,8 @@ def _retrieve_subscription_from_db(installation_id):
                 config.SUBSCRIPTION_URL % installation_id,
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
-        except httpx.HTTPNotFound:
-            reason = resp.json().get("message")
+        except httpx.HTTPNotFound as e:
+            reason = e.response.json().get("message")
             sub = {
                 "tokens": {},
                 "subscription_active": False,
