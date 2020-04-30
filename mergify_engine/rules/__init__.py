@@ -208,13 +208,14 @@ class NoRules(Exception):
         super().__init__("Mergify configuration file is missing")
 
 
+@dataclasses.dataclass
 class InvalidRules(Exception):
-    def __init__(self, error):
-        if isinstance(error, voluptuous.MultipleInvalid):
-            message = "\n".join(map(str, error.errors))
-        else:
-            message = str(error)
-        super().__init__(self, message)
+    error: voluptuous.Invalid
+
+    def __str__(self):
+        if isinstance(self.error, voluptuous.MultipleInvalid):
+            return "* " + "\n* ".join(sorted(map(str, self.error.errors)))
+        return str(self.error)
 
 
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
