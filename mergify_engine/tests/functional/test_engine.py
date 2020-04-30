@@ -26,7 +26,6 @@ from mergify_engine import context
 from mergify_engine import debug
 from mergify_engine import engine
 from mergify_engine import tasks
-from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -167,7 +166,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
-        utils.run_in_loop(debug.report(p.html_url))
+        debug.report(p.html_url)
 
     def test_backport_no_branch(self):
         rules = {

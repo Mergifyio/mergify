@@ -39,7 +39,6 @@ class TestAttributes(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         pr, _ = self.create_pr()
-
         ctxt = context.Context(self.cli_integration, {"number": pr.number}, {})
         assert not ctxt.pull_request.draft
 
