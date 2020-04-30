@@ -70,6 +70,12 @@ pull_request_rules:
         str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
     )
 
+    assert str(rules.InvalidRules(i.value)) == (
+        "* extra keys not allowed @ data['pull_request_rules'][0]['key']\n"
+        "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
+        "* required key not provided @ data['pull_request_rules'][0]['conditions']"
+    )
+
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
