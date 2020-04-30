@@ -201,7 +201,7 @@ def load_conclusions(ctxt, summary_check):
     ctxt.log.warning(
         "previous conclusion not found in summary", summary_check=summary_check,
     )
-    return {"deprecated_summary": True}
+    return {}
 
 
 def serialize_conclusions(conclusions):
@@ -261,17 +261,9 @@ def run_actions(
                 expected_conclusions = ["success", "failure"]
                 actions_ran.add(action)
 
-            # TODO(sileht): Backward compatibility, drop this in 2 months (February 2020)
-            if (
-                previous_conclusions.get("deprecated_summary", False)
-                and action == "comment"
-                and action_obj.deprecated_double_comment_protection(ctxt)
-            ):
-                previous_conclusion = "success"
-            else:
-                previous_conclusion = get_previous_conclusion(
-                    previous_conclusions, check_name, checks
-                )
+            previous_conclusion = get_previous_conclusion(
+                previous_conclusions, check_name, checks
+            )
 
             need_to_be_run = (
                 action_obj.always_run

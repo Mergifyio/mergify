@@ -18,7 +18,6 @@ import httpx
 import voluptuous
 
 from mergify_engine import actions
-from mergify_engine import config
 from mergify_engine import context
 
 
@@ -26,16 +25,6 @@ class CommentAction(actions.Action):
     validator = {voluptuous.Required("message"): str}
 
     silent_report = True
-
-    def deprecated_double_comment_protection(self, ctxt):
-        # TODO(sileht): drop this in 2 months (February 2020)
-        for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
-            if (
-                comment["user"]["id"] == config.BOT_USER_ID
-                and comment["body"] == self.config["message"]
-            ):
-                return True
-        return False
 
     def run(self, ctxt, missing_conditions):
         try:
