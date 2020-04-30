@@ -145,13 +145,9 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
 
 
 def run(client, pull, sources):
-    return utils.run_in_loop(_async_run(client, pull, sources))
-
-
-async def _async_run(client, pull, sources):
     LOG.debug("engine get sub")
-    subscription = await sub_utils.get_subscription(
-        await utils.get_aredis_for_cache(), client.installation["id"]
+    subscription = sub_utils.get_subscription(
+        utils.get_redis_for_cache(), client.installation["id"]
     )
 
     LOG.debug("engine get context")
