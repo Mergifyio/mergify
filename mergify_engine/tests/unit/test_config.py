@@ -53,7 +53,7 @@ def test_same_names():
 def test_user_configuration_schema():
     with pytest.raises(voluptuous.Invalid) as exc_info:
         rules.UserConfigurationSchema("- no\n* way")
-    assert exc_info.value.__class__.__name__, "YamlInvalid"
+    assert exc_info.value.errors[0].__class__ == rules.YamlInvalid
     assert str(exc_info.value.path) == "[at position 2:2]"
     assert exc_info.value.path == [{"line": 2, "column": 2}]
     assert str(exc_info.value) == "Invalid yaml @ data[at position 2:2]"
