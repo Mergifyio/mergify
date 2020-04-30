@@ -170,35 +170,27 @@ class YamlInvalidPath(dict):
         return "at position {line}:{column}".format(**self)
 
 
-class Yaml:
-    def __init__(self, validator, **kwargs):
-        self.validator = validator
-        self._schema = voluptuous.Schema(validator, **kwargs)
-
-    def __call__(self, v):
-        try:
-            v = yaml.safe_load(v)
-        except yaml.YAMLError as e:
-            error_message = str(e)
-            path = None
-            if hasattr(e, "problem_mark"):
-                path = [YamlInvalidPath(e.problem_mark)]
-                error_message += " (%s)" % path[0]
-            raise YamlInvalid(message="Invalid yaml", error_message=str(e), path=path)
-
-        return self._schema(v)
-
-    def __repr__(self):
-        return "Yaml(%s)" % repr(self.validator)
+def YAML(v):
+    try:
+        v = yaml.safe_load(v)
+    except yaml.YAMLError as e:
+        error_message = str(e)
+        path = None
+        if hasattr(e, "problem_mark"):
+            path = [YamlInvalidPath(e.problem_mark)]
+            error_message += " (%s)" % path[0]
+        raise YamlInvalid(message="Invalid yaml", error_message=str(e), path=path)
+    return v
 
 
 UserConfigurationSchema = voluptuous.Schema(
-    Yaml(
+    voluptuous.And(
+        voluptuous.Coerce(YAML),
         {
             voluptuous.Required("pull_request_rules"): voluptuous.Coerce(
                 PullRequestRules.from_list
             )
-        }
+        },
     )
 )
 
