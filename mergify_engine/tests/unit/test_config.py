@@ -56,8 +56,9 @@ def test_user_configuration_schema():
     assert exc_info.value.__class__.__name__, "YamlInvalid"
     assert str(exc_info.value.path) == "[at position 2:2]"
     assert exc_info.value.path == [{"line": 2, "column": 2}]
+    assert str(exc_info.value) == "Invalid yaml @ data[at position 2:2]"
 
-    with pytest.raises(voluptuous.Invalid):
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
 pull_request_rules:
@@ -65,16 +66,24 @@ pull_request_rules:
     key: not really what we expected
 """
         )
+    assert (
+        str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
+    )
 
-    with pytest.raises(voluptuous.Invalid):
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
 pull_request_rules:
 """
         )
+    assert (
+        str(i.value)
+        == "expected a list for dictionary value @ data['pull_request_rules']"
+    )
 
-    with pytest.raises(voluptuous.Invalid):
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema("")
+    assert str(i.value) == "expected a dictionary"
 
 
 @pytest.mark.parametrize(
