@@ -241,8 +241,8 @@ def ensure_no_voluptuous(value):
 def voluptuous_error(error):
     return {
         "type": error.__class__.__name__,
-        "message": str(error),
-        "error": error.msg,
+        "message": error.error_message,
+        "error": str(error),
         "details": list(map(ensure_no_voluptuous, error.path)),
     }
 
@@ -253,7 +253,7 @@ async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
     payload = voluptuous_error(exc)
     payload["errors"] = []
     if isinstance(exc, voluptuous.MultipleInvalid):
-        payload["errors"].extend(map(voluptuous_error, exc.errors))
+        payload["errors"].extend(map(voluptuous_error, sorted(exc.errors, key=str)))
     else:
         payload["errors"].extend(voluptuous_error(exc))
     return responses.JSONResponse(status_code=400, content=payload)

@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2019 Mehdi Abaakouk <sileht@sileht.net>
+# Copyright © 2019–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,7 +15,6 @@
 # under the License.
 
 import operator
-from unittest import mock
 
 import yaml
 
@@ -89,15 +88,29 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.status_code == 400
         assert r.json() == {
             "type": "MultipleInvalid",
-            "error": "Invalid yaml",
-            "details": ["mergify.yml", {"line": 2, "column": 2}],
-            "message": "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+            "message": """while scanning an alias
+  in "<unicode string>", line 2, column 1:
+    * way
+    ^
+expected alphabetic or numeric character, but found ' '
+  in "<unicode string>", line 2, column 2:
+    * way
+     ^""",
+            "details": ["mergify.yml", "line 2, column 2"],
+            "error": "Invalid YAML at ['mergify.yml', line 2, column 2]",
             "errors": [
                 {
-                    "type": "YamlInvalid",
-                    "error": "Invalid yaml",
-                    "details": ["mergify.yml", {"line": 2, "column": 2}],
-                    "message": "Invalid yaml @ data['mergify.yml'][at position 2:2]",
+                    "type": "YAMLInvalid",
+                    "details": ["mergify.yml", "line 2, column 2"],
+                    "error": "Invalid YAML at ['mergify.yml', line 2, column 2]",
+                    "message": """while scanning an alias
+  in "<unicode string>", line 2, column 1:
+    * way
+    ^
+expected alphabetic or numeric character, but found ' '
+  in "<unicode string>", line 2, column 2:
+    * way
+     ^""",
                 }
             ],
         }
@@ -116,27 +129,27 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.json() == {
             "type": "MultipleInvalid",
-            "error": "extra keys not allowed",
+            "error": "extra keys not allowed @ data['invalid']",
             "details": ["invalid"],
-            "message": "extra keys not allowed @ data['invalid']",
-            "errors": mock.ANY,
+            "message": "extra keys not allowed",
+            "errors": [
+                {
+                    "details": ["invalid"],
+                    "error": "extra keys not allowed @ data['invalid']",
+                    "message": "extra keys not allowed",
+                    "type": "Invalid",
+                },
+                {
+                    "details": ["mergify.yml"],
+                    "error": "required key not provided @ data['mergify.yml']",
+                    "message": "required key not provided",
+                    "type": "RequiredFieldInvalid",
+                },
+                {
+                    "details": ["pull_request"],
+                    "error": "required key not provided @ data['pull_request']",
+                    "message": "required key not provided",
+                    "type": "RequiredFieldInvalid",
+                },
+            ],
         }
-        assert len(r.json()["errors"]) == 3
-        assert {
-            "type": "Invalid",
-            "error": "extra keys not allowed",
-            "message": "extra keys not allowed @ data['invalid']",
-            "details": ["invalid"],
-        } in r.json()["errors"]
-        assert {
-            "type": "RequiredFieldInvalid",
-            "error": "required key not provided",
-            "message": "required key not provided @ data['pull_request']",
-            "details": ["pull_request"],
-        } in r.json()["errors"]
-        assert {
-            "type": "RequiredFieldInvalid",
-            "error": "required key not provided",
-            "message": "required key not provided @ data['mergify.yml']",
-            "details": ["mergify.yml"],
-        } in r.json()["errors"]
