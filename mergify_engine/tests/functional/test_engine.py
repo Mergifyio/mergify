@@ -51,6 +51,24 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             )
         super(TestEngineV2Scenario, self).setUp()
 
+    def test_invalid_configuration(self):
+        rules = {
+            "pull_request_rules": [{"name": "foobar", "wrong key": 123,},],
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr()
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["output"]["title"] == "The Mergify configuration is invalid"
+        assert check["output"]["summary"] == (
+            "* extra keys not allowed @ data['pull_request_rules'][0]['wrong key']\n"
+            "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
+            "* required key not provided @ data['pull_request_rules'][0]['conditions']"
+        )
+
     def test_backport_cancelled(self):
         stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {
