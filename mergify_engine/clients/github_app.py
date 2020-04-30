@@ -129,19 +129,11 @@ class _Client(http.Client):
         return installation
 
 
-global _GITHUB_APP
-global _GITHUB_APP_LOCK
-_GITHUB_APP = None
-_GITHUB_APP_LOCK = threading.Lock()
+global GITHUB_APP_CLIENTS
+GITHUB_APP_CLIENTS = threading.local()
 
 
 def get_client():
-    global _GITHUB_APP
-    global _GITHUB_APP_LOCK
-
-    if not _GITHUB_APP:
-        with _GITHUB_APP_LOCK:
-            if not _GITHUB_APP:
-                _GITHUB_APP = _Client()
-
-    return _GITHUB_APP
+    if not hasattr(GITHUB_APP_CLIENTS, "client"):
+        GITHUB_APP_CLIENTS.client = _Client()
+    return GITHUB_APP_CLIENTS.client
