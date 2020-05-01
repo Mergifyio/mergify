@@ -198,7 +198,7 @@ def run(client, pull, sources):
     ctxt.log.debug("engine get configuration")
     # BRANCH CONFIGURATION CHECKING
     try:
-        mergify_config = rules.get_mergify_config(ctxt)
+        filename, mergify_config = rules.get_mergify_config(ctxt)
     except rules.NoRules:  # pragma: no cover
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
