@@ -117,42 +117,56 @@ def run_engine(installation_id, owner, repo, pull_number, sources):
 class EngineRunThread(threading.Thread):
     """This thread propagate exception to main thread."""
 
-    def __init__(self, *engine_args):
+    def __init__(self):
         super().__init__(daemon=True)
-        self.engine_args = engine_args
-        self.exc = None
+        self._running = threading.Event()
+        self._process = threading.Event()
+
+        self._engine_args = None
+        self._exception = None
+
+        self.start()
+
+    async def run_engine(self, *engine_args):
+        self._engine_args = engine_args
+        self._exception = None
+
+        self._process.set()
+        while self._process.is_set() and self._running.is_set():
+            await asyncio.sleep(0.01)
+
+        if not self._running.is_set():
+            return
+
+        if self._exception:
+            raise self._exception
+
+    def close(self):
+        self._running.clear()
+        self._process.set()
+        self.join()
 
     def run(self):
-        try:
-            run_engine(*self.engine_args)
-        except Exception as exc:
-            self.exc = exc
+        self._running.set()
+        while self._running.is_set():
+            self._process.wait()
+            if not self._running.is_set():
+                return
 
-
-async def run_engine_in_thread(*args):
-    t = EngineRunThread(*args)
-    t.start()
-    while t.is_alive():
-        await asyncio.sleep(0.01)
-    t.join()
-    if t.exc:
-        raise t.exc
+            try:
+                run_engine(*self._engine_args)
+            except BaseException as e:
+                self._exception = e
+            finally:
+                self._process.clear()
 
 
 @dataclasses.dataclass
-class StreamProcessor:
+class StreamSelector:
     worker_count: int
+    redis: Any
 
     _pending_streams: Set = dataclasses.field(init=False, default_factory=set)
-    _redis: Any = dataclasses.field(init=False, default=None)
-
-    async def connect(self):
-        self._redis = await utils.create_aredis_for_stream()
-
-    async def close(self):
-        if self._redis:
-            self._redis.connection_pool.disconnect()
-            self._redis = None
 
     @contextlib.asynccontextmanager
     async def next_stream(self):
@@ -163,7 +177,7 @@ class StreamProcessor:
         now = time.time()
         streams = [
             s
-            for s in await self._redis.zrangebyscore(
+            for s in await self.redis.zrangebyscore(
                 "streams", min=0, max=now, start=0, num=self.worker_count * 2
             )
             if s not in self._pending_streams
@@ -177,27 +191,40 @@ class StreamProcessor:
         else:
             yield
 
-    async def _run_engine(self, installation_id, owner, repo, pull_number, sources):
+
+@dataclasses.dataclass
+class StreamProcessor:
+    redis: Any
+    _thread: EngineRunThread = dataclasses.field(
+        init=False, default_factory=EngineRunThread
+    )
+
+    def close(self):
+        self._thread.close()
+
+    async def _run_engine_and_translate_exception_to_retries(
+        self, installation_id, owner, repo, pull_number, sources
+    ):
         attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
         try:
-            await run_engine_in_thread(
+            await self._thread.run_engine(
                 installation_id, owner, repo, pull_number, sources
             )
-            await self._redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
         except exceptions.MergeableStateUnknown as e:
-            attempts = await self._redis.hincrby("attempts", attempts_key)
+            attempts = await self.redis.hincrby("attempts", attempts_key)
             if attempts < MAX_RETRIES:
                 raise PullRetry(attempts) from e
             else:
-                await self._redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", attempts_key)
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
             if exceptions.should_be_ignored(e):
                 LOG.debug("ignored engine error", exc_info=True)
-                await self._redis.hdel("attempts", attempts_key)
-                await self._redis.hdel("attempts", f"stream~{installation_id}")
+                await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", f"stream~{installation_id}")
                 return
 
             backoff = exceptions.need_retry(e)
@@ -205,22 +232,22 @@ class StreamProcessor:
                 raise
 
             stream_name = f"stream~{installation_id}"
-            attempts = await self._redis.hincrby("attempts", stream_name)
+            attempts = await self.redis.hincrby("attempts", stream_name)
             if attempts < MAX_RETRIES:
                 retry_in = 3 ** attempts * backoff
                 retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
                 score = retry_at.timestamp()
-                await self._redis.zaddoption("streams", "XX", **{stream_name: score})
+                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
                 raise StreamRetry(attempts, retry_at) from e
             else:
-                await self._redis.hdel("attempts", stream_name)
+                await self.redis.hdel("attempts", stream_name)
                 raise MaxStreamRetry(attempts, None) from e
 
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
         LOG.debug("read stream", stream_name=stream_name)
-        messages_per_streams = await self._redis.xread(
+        messages_per_streams = await self.redis.xread(
             block=1, count=100, **{stream_name: "0"}
         )
 
@@ -248,7 +275,7 @@ class StreamProcessor:
             try:
                 logger.debug("engine start with %s sources", len(sources))
                 start = time.monotonic()
-                await self._run_engine(
+                await self._run_engine_and_translate_exception_to_retries(
                     installation_id, owner, repo, pull_number, sources
                 )
                 end = time.monotonic()
@@ -293,7 +320,7 @@ class StreamProcessor:
             message_ids_to_delete_count=len(message_ids_to_delete),
         )
         score = time.time()
-        await self._redis.eval(
+        await self.redis.eval(
             self.ATOMIC_CLEAN_STREAM_SCRIPT,
             1,
             *(
@@ -333,7 +360,7 @@ class Worker:
     worker_count: int = config.STREAM_WORKERS
 
     _worker_tasks: List = dataclasses.field(init=False, default_factory=list)
-    _stream_processor: Any = dataclasses.field(init=False, default=None)
+    _redis: Any = dataclasses.field(init=False, default=None)
 
     _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
     _running: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
@@ -342,14 +369,15 @@ class Worker:
     async def stream_worker_task(self, worker_id):
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
+        stream_processor = StreamProcessor(self._redis)
+
         while self._running.is_set():
             try:
-
-                async with self._stream_processor.next_stream() as stream_name:
+                async with self._stream_selector.next_stream() as stream_name:
                     if stream_name:
                         LOG.debug("worker %d take stream: %s", worker_id, stream_name)
                         try:
-                            await self._stream_processor.consume(stream_name)
+                            await stream_processor.consume(stream_name)
                         finally:
                             LOG.debug(
                                 "worker %d release stream: %s", worker_id, stream_name,
@@ -363,13 +391,14 @@ class Worker:
                 LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
                 await asyncio.sleep(self.idle_sleep_time)
 
+        stream_processor.close()
         LOG.info("worker %d exited", worker_id)
 
     async def _run(self):
         self._running.set()
 
-        self._stream_processor = StreamProcessor(self.worker_count)
-        await self._stream_processor.connect()
+        self._redis = await utils.create_aredis_for_stream()
+        self._stream_selector = StreamSelector(self.worker_count, self._redis)
 
         for i in range(self.worker_count):
             self._worker_tasks.append(asyncio.create_task(self.stream_worker_task(i)))
@@ -383,9 +412,9 @@ class Worker:
         await asyncio.wait([self._start_task] + self._worker_tasks)
         self._worker_tasks = []
 
-        if self._stream_processor:
-            await self._stream_processor.close()
-            self._stream_processor = None
+        if self._redis:
+            self._redis.connection_pool.disconnect()
+            self._redis = None
 
         self._tombstone.set()
         LOG.info("exiting")
