@@ -194,6 +194,12 @@ class StreamProcessor:
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
+            if exceptions.should_be_ignored(e):
+                LOG.debug("ignored engine error", exc_info=True)
+                await self._redis.hdel("attempts", attempts_key)
+                await self._redis.hdel("attempts", f"stream~{installation_id}")
+                return
+
             backoff = exceptions.need_retry(e)
             if backoff is None:
                 raise

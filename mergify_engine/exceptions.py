@@ -34,6 +34,16 @@ RATE_LIMIT_RETRY_MIN = 3
 BASE_RETRY_TIMEOUT = 60
 
 
+def should_be_ignored(exception):
+    if (
+        isinstance(exception, httpx.HTTPClientSideError)
+        and exception.status_code == 403
+        and exception.message == "Resource not accessible by integration"
+    ):
+        return True
+    return False
+
+
 def need_retry(exception):  # pragma: no cover
     if isinstance(exception, RateLimited):
         # NOTE(sileht): when we are close to reset date, and since utc time between us and
