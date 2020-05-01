@@ -206,13 +206,7 @@ def duplicate(
         git("init")
         git.configure()
         git.add_cred("x-access-token", token, repo_full_name)
-        git(
-            "remote",
-            "add",
-            "origin",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, repo_full_name),
-        )
-
+        git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
         git("fetch", "--quiet", "origin", "pull/%s/head" % ctxt.pull["number"])
         git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
         git("fetch", "--quiet", "origin", branch_name)

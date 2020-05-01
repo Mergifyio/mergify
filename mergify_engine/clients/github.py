@@ -30,6 +30,7 @@ from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
+RATE_LIMIT_THRESHOLD = 20
 LOGGING_REQUESTS_THRESHOLD = 20
 LOG = logs.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class GithubInstallationClient(http.Client):
         self.installation = installation
         self._requests = []
         super().__init__(
-            base_url=f"https://api.{config.GITHUB_DOMAIN}/repos/{owner}/{repo}/",
+            base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
             auth=GithubInstallationAuth(self.installation["id"]),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
@@ -127,6 +128,15 @@ class GithubInstallationClient(http.Client):
         LOG.debug("http request start", method=method, url=url)
         try:
             reply = super().request(method, url, *args, **kwargs)
+        except httpx.HTTPClientSideError as e:
+            if e.status_code == 403:
+                # TODO(sileht): Maybe we could look at header to avoid a request:
+                # they should be according the doc:
+                #  X-RateLimit-Limit: 60
+                #  X-RateLimit-Remaining: 0
+                #  X-RateLimit-Reset: 1377013266
+                self.check_rate_limit()
+            raise
         finally:
             LOG.debug("http request end", method=method, url=url)
             if reply is None:
@@ -135,7 +145,7 @@ class GithubInstallationClient(http.Client):
                 status_code = reply.status_code
             statsd.increment(
                 "http.client.requests",
-                tags=[f"hostname:{config.GITHUB_DOMAIN}", f"status_code:{status_code}"],
+                tags=[f"hostname:{self.base_url.host}", f"status_code:{status_code}"],
             )
             self._requests.append((method, url))
         return reply
@@ -144,9 +154,7 @@ class GithubInstallationClient(http.Client):
         super().close()
         nb_requests = len(self._requests)
         statsd.histogram(
-            "http.client.session",
-            nb_requests,
-            tags=[f"hostname:{config.GITHUB_DOMAIN}"],
+            "http.client.session", nb_requests, tags=[f"hostname:{self.base_url.host}"],
         )
         if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
             LOG.warning(
@@ -159,21 +167,21 @@ class GithubInstallationClient(http.Client):
             )
         self._requests = []
 
-
-RATE_LIMIT_THRESHOLD = 20
+    def check_rate_limit(self):
+        rate = self.item("/rate_limit")["resources"]
+        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
+            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
+            now = datetime.utcnow()
+            delta = reset - now
+            statsd.increment(
+                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
+            )
+            raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
 def get_client(*args, **kwargs):
     client = GithubInstallationClient(*args, **kwargs)
-    rate = client.item("/rate_limit")["resources"]
-    if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
-        reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-        now = datetime.utcnow()
-        delta = reset - now
-        statsd.increment(
-            "http.client.rate_limited", tags=[f"hostname:{config.GITHUB_DOMAIN}"]
-        )
-        raise exceptions.RateLimited(delta.total_seconds(), rate)
+    client.check_rate_limit()
     return client
 
 

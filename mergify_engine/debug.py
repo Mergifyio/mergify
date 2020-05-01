@@ -30,11 +30,8 @@ from mergify_engine.engine import actions_runner
 
 def get_repositories_setuped(token, install_id):  # pragma: no cover
     repositories = []
-    url = "https://api.%s/user/installations/%s/repositories" % (
-        config.GITHUB_DOMAIN,
-        install_id,
-    )
-    token = "token {}".format(token)
+    url = f"{config.GITHUB_API_URL}/user/installations/{install_id}/repositories"
+    token = f"token {token}"
     session = httpx.Client()
     while True:
         response = session.get(

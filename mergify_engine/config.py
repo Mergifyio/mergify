@@ -63,7 +63,8 @@ Schema = voluptuous.Schema(
         voluptuous.Required("OAUTH_CLIENT_SECRET"): str,
         voluptuous.Required("WEBHOOK_SECRET"): str,
         # Github optional
-        voluptuous.Required("GITHUB_DOMAIN", default="github.com"): str,
+        voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
+        voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
         # Mergify website for subscription
         voluptuous.Required(
             "SUBSCRIPTION_URL", default="http://localhost:5000/engine/installation/%s"
