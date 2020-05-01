@@ -281,7 +281,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
         msg_action,
         event_type=event_type,
         event_id=event_id,
-        install_id=installation["id"],
+        install_id=installation["id"] if installation else "<unknown>",
         sender=data["sender"]["login"],
         gh_owner=owner,
         gh_repo=repo,
