@@ -130,11 +130,12 @@ def report(url):
 
     print("* CONFIGURATION:")
     try:
-        mergify_config_content = rules.get_mergify_config_content(ctxt)
+        filename, mergify_config_content = rules.get_mergify_config_content(ctxt)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
         pull_request_rules = None
     else:
+        print(f"Config filename: {filename}")
         print(mergify_config_content.decode())
         try:
             mergify_config = rules.UserConfigurationSchema(mergify_config_content)
