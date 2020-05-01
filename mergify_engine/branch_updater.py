@@ -117,18 +117,8 @@ def _do_update(ctxt, token, method="merge"):
         git.configure()
         git.add_cred(token, "", head_repo)
         git.add_cred(token, "", base_repo)
-        git(
-            "remote",
-            "add",
-            "origin",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, head_repo),
-        )
-        git(
-            "remote",
-            "add",
-            "upstream",
-            "https://%s/%s" % (config.GITHUB_DOMAIN, base_repo),
-        )
+        git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
+        git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
         depth = len(ctxt.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)

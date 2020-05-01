@@ -85,7 +85,7 @@ class GithubBearerAuth(httpx.Auth):
 class _Client(http.Client):
     def __init__(self):
         super().__init__(
-            base_url=f"https://api.{config.GITHUB_DOMAIN}",
+            base_url=config.GITHUB_API_URL,
             auth=GithubBearerAuth(),
             **http.DEFAULT_CLIENT_OPTIONS,
         )

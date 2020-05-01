@@ -20,6 +20,7 @@ import hmac
 import shutil
 import subprocess
 import tempfile
+import urllib.parse
 
 import aredis
 from billiard import current_process
@@ -171,11 +172,8 @@ class Gitter(object):
         )
 
     def add_cred(self, username, password, path):
-        domain = config.GITHUB_DOMAIN
-        self(
-            "credential",
-            "approve",
-            input=(
-                "url=https://%s:%s@%s/%s\n\n" % (username, password, domain, path)
-            ).encode("utf8"),
-        )
+        parsed = list(urllib.parse.urlparse(config.GITHUB_URL))
+        parsed[1] = f"{username}:{password}@{parsed[1]}"
+        parsed[2] = path
+        url = urllib.parse.urlunparse(parsed)
+        self("credential", "approve", input=f"url={url}\n\n".encode("utf8"))

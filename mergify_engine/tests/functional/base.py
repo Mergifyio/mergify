@@ -425,15 +425,10 @@ class FunctionalTestBase(unittest.TestCase):
             config.INSTALLATION_ID
         ).token
 
-        self.g_integration = pygithub.Github(
-            self.installation_token, base_url="https://api.%s" % config.GITHUB_DOMAIN
-        )
-        self.g_admin = pygithub.Github(
-            config.MAIN_TOKEN, base_url="https://api.%s" % config.GITHUB_DOMAIN
-        )
-        self.g_fork = pygithub.Github(
-            config.FORK_TOKEN, base_url="https://api.%s" % config.GITHUB_DOMAIN
-        )
+        base_url = config.GITHUB_API_URL
+        self.g_integration = pygithub.Github(self.installation_token, base_url=base_url)
+        self.g_admin = pygithub.Github(config.MAIN_TOKEN, base_url=base_url)
+        self.g_fork = pygithub.Github(config.FORK_TOKEN, base_url=base_url)
 
         self.o_admin = self.g_admin.get_organization(config.TESTING_ORGANIZATION)
         self.o_integration = self.g_integration.get_organization(
@@ -452,14 +447,9 @@ class FunctionalTestBase(unittest.TestCase):
         self.r_o_integration = self.o_integration.get_repo(self.name)
         self.r_fork = self.u_fork.get_repo(self.name)
 
-        self.url_main = "https://%s/%s" % (
-            config.GITHUB_DOMAIN,
-            self.r_o_integration.full_name,
-        )
-        self.url_fork = "https://%s/%s/%s" % (
-            config.GITHUB_DOMAIN,
-            self.u_fork.login,
-            self.r_o_integration.name,
+        self.url_main = f"{config.GITHUB_URL}/{self.r_o_integration.full_name}"
+        self.url_fork = (
+            f"{config.GITHUB_URL}/{self.u_fork.login}/{self.r_o_integration.name}"
         )
 
         installation = {"id": config.INSTALLATION_ID}

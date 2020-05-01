@@ -12,7 +12,7 @@ def retring_session_init(self, *args, **kwargs):
 
     adapter = requests.adapters.HTTPAdapter(max_retries=http.RETRY)
 
-    self.mount(f"https://api.{config.GITHUB_DOMAIN}", adapter)
+    self.mount(config.GITHUB_API_URL, adapter)
 
 
 requests.sessions.Session.__init__ = retring_session_init
