@@ -48,9 +48,7 @@ async def run_worker():
     timeout = 10
     started_at = time.monotonic()
     while (
-        w._stream_processor is None
-        or w._stream_processor._redis is None
-        or (await w._stream_processor._redis.zcard("streams")) > 0
+        w._redis is None or (await w._redis.zcard("streams")) > 0
     ) and time.monotonic() - started_at < timeout:
         await asyncio.sleep(0.5)
     w.stop()
@@ -170,11 +168,9 @@ async def test_worker_exception(logger_class, run_engine, redis):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_consume_unexisting_stream(run_engine, logger_checker):
-    p = worker.StreamProcessor(1)
-    await p.connect()
+async def test_consume_unexisting_stream(run_engine, redis, logger_checker):
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~666")
-    await p.close()
     assert len(run_engine.mock_calls) == 0
 
 
@@ -193,10 +189,8 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
     assert 2 == await redis.xlen("stream~12345")
     assert 0 == len(await redis.hgetall("attempts"))
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~12345")
-    await p.close()
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -244,8 +238,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     assert 2 == await redis.xlen("stream~12345")
     assert 0 == len(await redis.hgetall("attempts"))
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~12345")
 
     assert len(run_engine.mock_calls) == 2
@@ -300,8 +293,6 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     assert 0 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
 
-    await p.close()
-
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
@@ -326,8 +317,7 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 2 == await redis.xlen("stream~12345")
     assert 0 == len(await redis.hgetall("attempts"))
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~12345")
 
     assert len(run_engine.mock_calls) == 1
@@ -361,8 +351,6 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 0 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
 
-    await p.close()
-
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
@@ -387,8 +375,7 @@ async def test_stream_processor_retrying_stream_failure(
     assert 2 == await redis.xlen("stream~12345")
     assert 0 == len(await redis.hgetall("attempts"))
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~12345")
 
     assert len(run_engine.mock_calls) == 1
@@ -427,8 +414,6 @@ async def test_stream_processor_retrying_stream_failure(
     assert 0 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
 
-    await p.close()
-
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
@@ -443,11 +428,9 @@ async def test_stream_processor_stream_error(run_engine, logger_class, redis):
         12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    p = worker.StreamProcessor(redis)
     await p.consume("stream~12345")
     await p.consume("stream~12345")
-    await p.close()
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 1
@@ -477,8 +460,8 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     assert 2 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
 
-    p = worker.StreamProcessor(1)
-    await p.connect()
+    s = worker.StreamSelector(1, redis)
+    p = worker.StreamProcessor(redis)
 
     received = []
 
@@ -488,7 +471,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     run_engine.side_effect = fake_engine
 
     with freeze_time("2020-01-14"):
-        async with p.next_stream() as stream_name:
+        async with s.next_stream() as stream_name:
             assert stream_name is not None
             await p.consume(stream_name)
 
@@ -498,7 +481,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     assert received == [wanted_installation_id]
 
     with freeze_time("2030-01-14"):
-        async with p.next_stream() as stream_name:
+        async with s.next_stream() as stream_name:
             assert stream_name is None
 
     assert 1 == (await redis.zcard("streams"))
@@ -508,7 +491,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
 
     # We are in 2041, we have something todo :)
     with freeze_time("2041-01-14"):
-        async with p.next_stream() as stream_name:
+        async with s.next_stream() as stream_name:
             assert stream_name is not None
             await p.consume(stream_name)
 
@@ -516,5 +499,3 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     assert 0 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
     assert received == [wanted_installation_id, unwanted_installation_id]
-
-    await p.close()
