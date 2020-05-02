@@ -88,14 +88,34 @@ while scanning an alias
     ^
 expected alphabetic or numeric character, but found"""
         )
+        check_id = check["id"]
+        annotations = list(
+            ctxt.client.items(
+                f"check-runs/{check_id}/annotations", api_version="antiope",
+            )
+        )
+        assert annotations == [
+            {
+                "path": ".mergify.yml",
+                "blob_href": mock.ANY,
+                "start_line": 3,
+                "start_column": 2,
+                "end_line": 3,
+                "end_column": 2,
+                "annotation_level": "failure",
+                "title": "Invalid YAML",
+                "message": mock.ANY,
+                "raw_details": None,
+            }
+        ]
 
     def test_invalid_new_configuration(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "foobar", "conditions": ["branch=master"],
-                    "actions": {"comment": {"message": "hello"},
-                    },
+                    "name": "foobar",
+                    "conditions": ["branch=master"],
+                    "actions": {"comment": {"message": "hello"},},
                 },
             ],
         }

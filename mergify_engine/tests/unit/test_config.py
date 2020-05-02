@@ -67,11 +67,48 @@ pull_request_rules:
         str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
     )
 
-    assert str(rules.InvalidRules(i.value)) == (
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert str(ir) == (
         "* extra keys not allowed @ data['pull_request_rules'][0]['key']\n"
         "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
         "* required key not provided @ data['pull_request_rules'][0]['conditions']"
     )
+    assert [] == ir.get_annotations(".mergify.yml")
+
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(
+            """invalid:
+- *yaml
+"""
+        )
+    assert str(i.value) == "Invalid YAML at [line 2, column 3]"
+
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert (
+        str(ir)
+        == """Invalid YAML at [line 2, column 3]
+```
+found undefined alias 'yaml'
+  in "<unicode string>", line 2, column 3:
+    - *yaml
+      ^
+```"""
+    )
+    assert [
+        {
+            "annotation_level": "failure",
+            "end_column": 3,
+            "end_line": 2,
+            "message": "found undefined alias 'yaml'\n"
+            '  in "<unicode string>", line 2, column 3:\n'
+            "    - *yaml\n"
+            "      ^",
+            "path": ".mergify.yml",
+            "start_column": 3,
+            "start_line": 2,
+            "title": "Invalid YAML",
+        }
+    ] == ir.get_annotations(".mergify.yml")
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(

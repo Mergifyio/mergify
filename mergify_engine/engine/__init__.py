@@ -92,8 +92,6 @@ def check_configuration_changes(ctxt):
                 rules.get_mergify_config(ctxt, ref=ref)
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
-                # TODO(sileht): we can annotate the .mergify.yml file in Github
-                # UI with that API
                 check_api.set_check_run(
                     ctxt,
                     actions_runner.SUMMARY_NAME,
@@ -102,6 +100,7 @@ def check_configuration_changes(ctxt):
                     output={
                         "title": "The new Mergify configuration is invalid",
                         "summary": str(e),
+                        "annotations": e.get_annotations(e.filename),
                     },
                 )
             else:
@@ -219,6 +218,7 @@ def run(client, pull, sources):
                 output={
                     "title": "The Mergify configuration is invalid",
                     "summary": str(e),
+                    "annotations": e.get_annotations(e.filename),
                 },
             )
         return
