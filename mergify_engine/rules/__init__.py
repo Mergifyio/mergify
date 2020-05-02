@@ -221,20 +221,25 @@ MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
 
 
 def get_mergify_config_content(ctxt, ref=None):
+    """Get the Mergify configuration file content.
+
+    :return: The filename and its content.
+    """
     kwargs = {}
     if ref:
         kwargs["ref"] = ref
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
             content = ctxt.client.item(f"contents/{filename}", **kwargs)["content"]
-            return base64.b64decode(bytearray(content, "utf-8"))
         except httpx.HTTPNotFound:
             continue
+        return filename, base64.b64decode(bytearray(content, "utf-8"))
     raise NoRules()
 
 
-def get_mergify_config(pull, ref=None):
+def get_mergify_config(ctxt, ref=None):
+    filename, content = get_mergify_config_content(ctxt, ref)
     try:
-        return UserConfigurationSchema(get_mergify_config_content(pull, ref))
+        return filename, UserConfigurationSchema(content)
     except voluptuous.Invalid as e:
         raise InvalidRules(e)
