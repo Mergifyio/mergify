@@ -90,7 +90,7 @@ def check_configuration_changes(ctxt):
         if ref is not None:
             try:
                 rules.get_mergify_config(ctxt, ref=ref)
-            except rules.InvalidRules as e:  # pragma: no cover
+            except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
                 # TODO(sileht): we can annotate the .mergify.yml file in Github
                 # UI with that API

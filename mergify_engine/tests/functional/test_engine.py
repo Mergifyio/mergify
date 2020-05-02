@@ -89,6 +89,26 @@ while scanning an alias
 expected alphabetic or numeric character, but found"""
         )
 
+    def test_invalid_new_configuration(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar", "conditions": ["branch=master"],
+                    "actions": {"comment": {"message": "hello"},
+                    },
+                },
+            ],
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr(files={".mergify.yml": "not valid"})
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["output"]["title"] == "The new Mergify configuration is invalid"
+        assert check["output"]["summary"] == "expected a dictionary"
+
     def test_backport_cancelled(self):
         stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {
