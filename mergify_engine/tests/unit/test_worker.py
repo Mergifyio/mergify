@@ -36,9 +36,11 @@ if sys.version_info < (3, 8):
 @pytest.fixture()
 async def redis():
     r = await utils.create_aredis_for_stream()
+    await r.flushdb()
     try:
         yield r
     finally:
+        await r.flushdb()
         r.connection_pool.disconnect()
 
 
@@ -136,34 +138,6 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
             {"event_type": "comment", "data": {"payload": "foobar"}},
         ],
     )
-
-
-@pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.run_engine")
-@mock.patch("mergify_engine.worker.logs.getLogger")
-async def test_worker_exception(logger_class, run_engine, redis):
-    logger = logger_class.return_value
-    run_engine.side_effect = Exception
-
-    logs.setup_logging(worker="streams")
-
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
-    )
-
-    assert 1 == (await redis.zcard("streams"))
-    assert 1 == len(await redis.keys("stream~*"))
-
-    await run_worker()
-
-    # Check redis is empty
-    assert 0 == (await redis.zcard("streams"))
-    assert 0 == len(await redis.keys("stream~*"))
-    assert 0 == len(await redis.hgetall("attempts"))
-
-    assert 1 == len(run_engine.mock_calls)
-
-    assert logger.error.mock_calls[0].args == ("failed to process pull request",)
 
 
 @pytest.mark.asyncio
@@ -404,21 +378,21 @@ async def test_stream_processor_retrying_stream_failure(
     await p.consume("stream~12345")
     assert len(run_engine.mock_calls) == 3
 
-    # Too many retries, everything is gone
-    assert 2 == len(logger.info.mock_calls)
-    assert 1 == len(logger.error.mock_calls)
+    # Still there
+    assert 3 == len(logger.info.mock_calls)
+    assert 0 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
     assert logger.info.mock_calls[1].args == ("failed to process stream, retrying",)
-    assert logger.error.mock_calls[0].args == ("failed to process stream, abandoning",)
-    assert 0 == (await redis.zcard("streams"))
-    assert 0 == len(await redis.keys("stream~*"))
-    assert 0 == len(await redis.hgetall("attempts"))
+    assert logger.info.mock_calls[2].args == ("failed to process stream, retrying",)
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
+    assert 1 == len(await redis.hgetall("attempts"))
 
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_stream_error(run_engine, logger_class, redis):
+async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, redis):
     logs.setup_logging(worker="streams")
     logger = logger_class.return_value
 
@@ -433,10 +407,12 @@ async def test_stream_processor_stream_error(run_engine, logger_class, redis):
     await p.consume("stream~12345")
 
     # Exception have been logged, redis must be clean
-    assert len(run_engine.mock_calls) == 1
+    assert len(run_engine.mock_calls) == 2
+    assert len(logger.error.mock_calls) == 2
     assert logger.error.mock_calls[0].args == ("failed to process pull request",)
-    assert 0 == (await redis.zcard("streams"))
-    assert 0 == len(await redis.keys("stream~*"))
+    assert logger.error.mock_calls[1].args == ("failed to process pull request",)
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
 
 
