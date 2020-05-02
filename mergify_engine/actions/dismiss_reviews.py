@@ -52,7 +52,7 @@ class DismissReviewsAction(actions.Action):
                 return True
         return False
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         if self._have_been_synchronized(ctxt):
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses

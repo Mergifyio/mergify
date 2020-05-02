@@ -28,7 +28,7 @@ class BackportAction(copy.CopyAction):
     def command_to_config(string):
         return {"branches": string.split(" ")}
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         if not ctxt.pull["merged"]:
             return None, "Waiting for the pull request to get merged", ""
-        return super().run(ctxt, missing_conditions)
+        return super().run(ctxt, rule, missing_conditions)

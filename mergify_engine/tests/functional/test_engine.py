@@ -707,9 +707,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
-                    f"will be merged soon.\n\nThe following pull requests are queued: #{p2.number}"
-                    in check["output"]["summary"]
-                )
+                    "will be merged soon.\n\n"
+                    f"The following pull requests are queued: #{p2.number}\n\n"
+                    "The required statuses are:\n\n"
+                    f"- [X] `base={self.master_branch_name}`\n"
+                    "- [ ] `status-success=continuous-integration/fake-ci`\n"
+                    "- [X] `#approved-reviews-by>=1`"
+                ) in check["output"]["summary"]
                 break
         else:
             assert False, "Merge check not found"
@@ -965,7 +969,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "action_required"
         assert (
-            "There is an error in your commit message, the following variable is unknown: invalid"
+            "There is an error in your message, the following variable is unknown: invalid"
             == checks[0]["output"]["summary"]
         )
         assert "Invalid commit message" == checks[0]["output"]["title"]
