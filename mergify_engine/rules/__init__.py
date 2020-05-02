@@ -16,6 +16,7 @@
 
 import base64
 import dataclasses
+import functools
 import itertools
 import operator
 import typing
@@ -162,6 +163,21 @@ class YAMLInvalid(voluptuous.Invalid):
     def __str__(self):
         return f"{self.msg} at {self.path}"
 
+    def get_annotations(self, path):
+        error_path = self.path[0]
+        return [
+            {
+                "path": path,
+                "start_line": error_path.line + 1,
+                "end_line": error_path.line + 1,
+                "start_column": error_path.column + 1,
+                "end_column": error_path.column + 1,
+                "annotation_level": "failure",
+                "message": self.error_message,
+                "title": self.msg,
+            },
+        ]
+
 
 @dataclasses.dataclass
 class YAMLInvalidPath(object):
@@ -208,6 +224,7 @@ class NoRules(Exception):
 @dataclasses.dataclass
 class InvalidRules(Exception):
     error: voluptuous.Invalid
+    filename: str
 
     @staticmethod
     def _format_error(error):
@@ -228,6 +245,17 @@ class InvalidRules(Exception):
         if len(self.errors) >= 2:
             return "* " + "\n* ".join(sorted(map(self._format_error, self.errors)))
         return self._format_error(self.errors[0])
+
+    def get_annotations(self, path):
+        return functools.reduce(
+            operator.add,
+            (
+                error.get_annotations(path)
+                for error in self.errors
+                if hasattr(error, "get_annotations")
+            ),
+            [],
+        )
 
 
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
@@ -255,4 +283,4 @@ def get_mergify_config(ctxt, ref=None):
     try:
         return filename, UserConfigurationSchema(content)
     except voluptuous.Invalid as e:
-        raise InvalidRules(e)
+        raise InvalidRules(e, filename)
