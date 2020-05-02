@@ -17,7 +17,6 @@ import contextlib
 import dataclasses
 import datetime
 import functools
-import itertools
 import signal
 import threading
 import time
@@ -58,10 +57,6 @@ class MaxPullRetry(PullRetry):
 class StreamRetry(Exception):
     attempts: int
     retry_at: datetime.datetime
-
-
-class MaxStreamRetry(StreamRetry):
-    pass
 
 
 def push(installation_id, owner, repo, pull_number, event_type, data):
@@ -178,7 +173,7 @@ class StreamSelector:
         streams = [
             s
             for s in await self.redis.zrangebyscore(
-                "streams", min=0, max=now, start=0, num=self.worker_count * 2
+                "streams", min=0, max=now, start=0, num=self.worker_count * 2,
             )
             if s not in self._pending_streams
         ]
@@ -227,45 +222,46 @@ class StreamProcessor:
                 await self.redis.hdel("attempts", f"stream~{installation_id}")
                 return
 
+            stream_name = f"stream~{installation_id}"
+
             backoff = exceptions.need_retry(e)
             if backoff is None:
+                # NOTE(sileht): This is our fault, so retry until we fix the bug but
+                # without increasing the attempts
                 raise
 
-            stream_name = f"stream~{installation_id}"
+            # TODO(sileht): In case of RateLimit no need to apply expo
             attempts = await self.redis.hincrby("attempts", stream_name)
-            if attempts < MAX_RETRIES:
-                retry_in = 3 ** attempts * backoff
-                retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
-                score = retry_at.timestamp()
-                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-                raise StreamRetry(attempts, retry_at) from e
-            else:
-                await self.redis.hdel("attempts", stream_name)
-                raise MaxStreamRetry(attempts, None) from e
+            retry_in = 3 ** attempts * backoff
+            retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
+            score = retry_at.timestamp()
+            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            raise StreamRetry(attempts, retry_at) from e
 
     async def consume(self, stream_name):
         installation_id = int(stream_name.split("~")[1])
 
         LOG.debug("read stream", stream_name=stream_name)
+        # TODO(sileht): Use XRANGE instead
         messages_per_streams = await self.redis.xread(
             block=1, count=100, **{stream_name: "0"}
         )
 
         # Groups stream by pull request
-        message_ids = collections.defaultdict(list)
-        pulls = collections.defaultdict(list)
+        pulls = collections.defaultdict(lambda: ([], []))
         if messages_per_streams:
             messages = messages_per_streams[stream_name.encode()]
             statsd.histogram("engine.streams.size", len(messages))
             for message_id, message in messages:
                 data = msgpack.unpackb(message[b"event"], raw=False)
                 key = (data["owner"], data["repo"], data["pull_number"])
-                pulls[key].append(data["source"])
-                message_ids[key].append(message_id)
+                pulls[key][0].append(message_id)
+                pulls[key][1].append(data["source"])
 
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
 
-        for (owner, repo, pull_number), sources in pulls.items():
+        for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
+
             statsd.histogram("engine.streams.batch-size", len(sources))
 
             logger = logs.getLogger(
@@ -278,28 +274,22 @@ class StreamProcessor:
                 await self._run_engine_and_translate_exception_to_retries(
                     installation_id, owner, repo, pull_number, sources
                 )
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 end = time.monotonic()
                 logger.debug("engine finished in %s sec", end - start)
             except MaxPullRetry as e:
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 logger.error(
                     "failed to process pull request, abandoning",
                     attempts=e.attempts,
                     exc_info=True,
                 )
-            except MaxStreamRetry as e:
-                logger.error(
-                    "failed to process stream, abandoning",
-                    attempts=e.attempts,
-                    exc_info=True,
-                )
-                break
             except PullRetry as e:
                 logger.info(
                     "failed to process pull request, retrying",
                     attempts=e.attempts,
                     exc_info=True,
                 )
-                del message_ids[(owner, repo, pull_number)]
             except StreamRetry as e:
                 logger.info(
                     "failed to process stream, retrying",
@@ -311,22 +301,10 @@ class StreamProcessor:
             except Exception:
                 logger.error("failed to process pull request", exc_info=True)
 
-        message_ids_to_delete = list(
-            itertools.chain.from_iterable(message_ids.values())
-        )
-        LOG.debug(
-            "cleanup stream start",
-            stream_name=stream_name,
-            message_ids_to_delete_count=len(message_ids_to_delete),
-        )
+        LOG.debug("cleanup stream start", stream_name=stream_name)
         score = time.time()
         await self.redis.eval(
-            self.ATOMIC_CLEAN_STREAM_SCRIPT,
-            1,
-            *(
-                [stream_name.encode(), score, len(message_ids_to_delete)]
-                + message_ids_to_delete
-            ),
+            self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), score
         )
         LOG.debug("cleanup stream end", stream_name=stream_name)
 
@@ -335,12 +313,6 @@ class StreamProcessor:
     ATOMIC_CLEAN_STREAM_SCRIPT = """
 local stream_name = KEYS[1]
 local score = ARGV[1]
-local message_ids_len =  tonumber(ARGV[2])
-local message_ids = {unpack(ARGV, 3, message_ids_len + 3)}
-
-if message_ids_len > 0 then
-    redis.call("XDEL", stream_name, unpack(message_ids))
-end
 
 redis.call("HDEL", "attempts", stream_name)
 
