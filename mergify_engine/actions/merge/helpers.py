@@ -73,19 +73,21 @@ def merge_report(ctxt, strict):
     return conclusion, title, summary
 
 
-def get_wait_for_ci_report(pull):
-    queue_status = ""
+def get_wait_for_ci_report(pull, rule=None, missing_conditions=None):
+    summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
+
     pulls = queue.get_pulls_from_queue(pull)
     if pulls:
         links = ", ".join((f"#{pull}" for pull in pulls))
-        queue_status = f"The following pull requests are queued: {links}"
+        summary += f"\n\nThe following pull requests are queued: {links}"
 
-    return (
-        None,
-        "Base branch updates done",
-        "The pull request has been automatically updated to follow its base branch and "
-        f"will be merged soon.\n\n{queue_status}",
-    )
+    if rule and missing_conditions is not None:
+        summary += "\n\nThe required statuses are:\n"
+        for cond in rule["conditions"]:
+            checked = " " if cond in missing_conditions else "X"
+            summary += f"\n- [{checked}] `{cond}`"
+
+    return None, "Base branch updates done", summary
 
 
 def update_pull_base_branch(pull, method):

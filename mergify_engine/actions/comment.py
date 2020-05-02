@@ -26,7 +26,7 @@ class CommentAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         try:
             message = ctxt.pull_request.render_message(self.config["message"])
         except context.RenderMessageFailure as rmf:

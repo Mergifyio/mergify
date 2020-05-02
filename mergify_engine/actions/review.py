@@ -38,7 +38,7 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         payload = {"event": self.config["type"]}
 
         if self.config["message"]:

@@ -181,7 +181,7 @@ def post_summary(ctxt, match, summary_check, conclusions):
 def exec_action(method_name, rule, action, ctxt, missing_conditions):
     try:
         method = getattr(rule["actions"][action], method_name)
-        return method(ctxt, missing_conditions)
+        return method(ctxt, rule, missing_conditions)
     except Exception:  # pragma: no cover
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so

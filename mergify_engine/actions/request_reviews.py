@@ -16,7 +16,7 @@ class RequestReviewsAction(actions.Action):
 
     always_run = True
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
 
         # Using consolidated data to avoid already done API lookup
         reviews_keys = (
