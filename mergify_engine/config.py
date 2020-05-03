@@ -46,13 +46,16 @@ def CommaSeparatedIntList(value):
 Schema = voluptuous.Schema(
     {
         # Logging
-        voluptuous.Required("DEBUG", default=True): CoercedBool,
+        voluptuous.Required("LOG_LEVEL", default="INFO"): CoercedLoggingLevel,
         voluptuous.Required("LOG_RATELIMIT", default=False): CoercedBool,
         voluptuous.Required("LOG_STDOUT", default=True): CoercedBool,
         voluptuous.Required("LOG_STDOUT_LEVEL", default=None): voluptuous.Any(
             None, CoercedLoggingLevel
         ),
         voluptuous.Required("LOG_DATADOG", default=False): CoercedBool,
+        voluptuous.Required("LOG_DATADOG_LEVEL", default=None): voluptuous.Any(
+            None, CoercedLoggingLevel
+        ),
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_ENVIRONMENT", default="test"): str,
         # Github mandatory
