@@ -18,6 +18,10 @@
 import httpx
 import urllib3
 
+from mergify_engine import logs
+
+
+LOG = logs.getLogger(__name__)
 
 RETRY = urllib3.Retry(
     total=None,
@@ -84,9 +88,10 @@ class Client(httpx.Client):
 
         self.dispatch.pool.urlopen = _mergify_patched_urlopen
 
-    def request(self, *args, **kwargs):
+    def request(self, method, url, *args, **kwargs):
+        LOG.debug("http request start", method=method, url=url)
         try:
-            r = super().request(*args, **kwargs)
+            r = super().request(method, url, *args, **kwargs)
             r.raise_for_status()
             return r
         except httpx.HTTPError as e:
@@ -102,3 +107,5 @@ class Client(httpx.Client):
                     message, *e.args[1:], request=e.request, response=e.response,
                 )
             raise
+        finally:
+            LOG.debug("http request end", method=method, url=url)
