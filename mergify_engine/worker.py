@@ -216,8 +216,22 @@ class StreamProcessor:
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
+            logger = logs.getLogger(
+                __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+            )
+
+            if isinstance(e, github.TooManyPages):
+                # TODO(sileht): Ideally this should be catcher earlier to post an
+                # appropriate check-runs to inform user the PR is too big to be handled
+                # by Mergify, but this need a bit of refactory to do it, so in the
+                # meantimes...
+                logger.warning("too many pages", exc_info=True)
+                await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", f"stream~{installation_id}")
+                return
+
             if exceptions.should_be_ignored(e):
-                LOG.debug("ignored engine error", exc_info=True)
+                logger.debug("ignored engine error", exc_info=True)
                 await self.redis.hdel("attempts", attempts_key)
                 await self.redis.hdel("attempts", f"stream~{installation_id}")
                 return
