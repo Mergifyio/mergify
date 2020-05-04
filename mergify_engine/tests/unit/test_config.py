@@ -53,11 +53,9 @@ def test_same_names():
 def test_user_configuration_schema():
     with pytest.raises(voluptuous.Invalid) as exc_info:
         rules.UserConfigurationSchema("- no\n* way")
-    assert exc_info.value.__class__.__name__, "YamlInvalid"
-    assert str(exc_info.value.path) == "[at position 2:2]"
-    assert exc_info.value.path == [{"line": 2, "column": 2}]
+    assert str(exc_info.value) == "Invalid YAML at [line 2, column 2]"
 
-    with pytest.raises(voluptuous.Invalid):
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
 pull_request_rules:
@@ -65,16 +63,67 @@ pull_request_rules:
     key: not really what we expected
 """
         )
+    assert (
+        str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
+    )
 
-    with pytest.raises(voluptuous.Invalid):
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert str(ir) == (
+        "* extra keys not allowed @ data['pull_request_rules'][0]['key']\n"
+        "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
+        "* required key not provided @ data['pull_request_rules'][0]['conditions']"
+    )
+    assert [] == ir.get_annotations(".mergify.yml")
+
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(
+            """invalid:
+- *yaml
+"""
+        )
+    assert str(i.value) == "Invalid YAML at [line 2, column 3]"
+
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert (
+        str(ir)
+        == """Invalid YAML at [line 2, column 3]
+```
+found undefined alias 'yaml'
+  in "<unicode string>", line 2, column 3:
+    - *yaml
+      ^
+```"""
+    )
+    assert [
+        {
+            "annotation_level": "failure",
+            "end_column": 3,
+            "end_line": 2,
+            "message": "found undefined alias 'yaml'\n"
+            '  in "<unicode string>", line 2, column 3:\n'
+            "    - *yaml\n"
+            "      ^",
+            "path": ".mergify.yml",
+            "start_column": 3,
+            "start_line": 2,
+            "title": "Invalid YAML",
+        }
+    ] == ir.get_annotations(".mergify.yml")
+
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
 pull_request_rules:
 """
         )
+    assert (
+        str(i.value)
+        == "expected a list for dictionary value @ data['pull_request_rules']"
+    )
 
-    with pytest.raises(voluptuous.Invalid):
+    with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema("")
+    assert str(i.value) == "expected a dictionary"
 
 
 @pytest.mark.parametrize(

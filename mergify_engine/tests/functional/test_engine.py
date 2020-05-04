@@ -51,6 +51,84 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             )
         super(TestEngineV2Scenario, self).setUp()
 
+    def test_invalid_configuration(self):
+        rules = {
+            "pull_request_rules": [{"name": "foobar", "wrong key": 123,},],
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr()
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["output"]["title"] == "The Mergify configuration is invalid"
+        assert check["output"]["summary"] == (
+            "* extra keys not allowed @ data['pull_request_rules'][0]['wrong key']\n"
+            "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
+            "* required key not provided @ data['pull_request_rules'][0]['conditions']"
+        )
+
+    def test_invalid_yaml_configuration(self):
+        self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
+        p, _ = self.create_pr()
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["output"]["title"] == "The Mergify configuration is invalid"
+        # Use startswith because the message has some weird \x00 char
+        assert check["output"]["summary"].startswith(
+            """Invalid YAML at [line 3, column 2]
+```
+while scanning an alias
+  in "<byte string>", line 3, column 1:
+    *
+    ^
+expected alphabetic or numeric character, but found"""
+        )
+        check_id = check["id"]
+        annotations = list(
+            ctxt.client.items(
+                f"check-runs/{check_id}/annotations", api_version="antiope",
+            )
+        )
+        assert annotations == [
+            {
+                "path": ".mergify.yml",
+                "blob_href": mock.ANY,
+                "start_line": 3,
+                "start_column": 2,
+                "end_line": 3,
+                "end_column": 2,
+                "annotation_level": "failure",
+                "title": "Invalid YAML",
+                "message": mock.ANY,
+                "raw_details": None,
+            }
+        ]
+
+    def test_invalid_new_configuration(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "conditions": ["branch=master"],
+                    "actions": {"comment": {"message": "hello"},},
+                },
+            ],
+        }
+        self.setup_repo(yaml.dump(rules))
+        p, _ = self.create_pr(files={".mergify.yml": "not valid"})
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["output"]["title"] == "The new Mergify configuration is invalid"
+        assert check["output"]["summary"] == "expected a dictionary"
+
     def test_backport_cancelled(self):
         stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {

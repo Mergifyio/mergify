@@ -16,6 +16,7 @@
 
 import base64
 import dataclasses
+import functools
 import itertools
 import operator
 import typing
@@ -158,47 +159,59 @@ class PullRequestRules:
         return self.PullRequestRuleForPR(self.rules, pull_request)
 
 
-class YamlInvalid(voluptuous.Invalid):
-    pass
+class YAMLInvalid(voluptuous.Invalid):
+    def __str__(self):
+        return f"{self.msg} at {self.path}"
+
+    def get_annotations(self, path):
+        error_path = self.path[0]
+        return [
+            {
+                "path": path,
+                "start_line": error_path.line + 1,
+                "end_line": error_path.line + 1,
+                "start_column": error_path.column + 1,
+                "end_column": error_path.column + 1,
+                "annotation_level": "failure",
+                "message": self.error_message,
+                "title": self.msg,
+            },
+        ]
 
 
-class YamlInvalidPath(dict):
-    def __init__(self, mark):
-        super().__init__({"line": mark.line + 1, "column": mark.column + 1})
-
-    def __repr__(self):
-        return "at position {line}:{column}".format(**self)
-
-
-class Yaml:
-    def __init__(self, validator, **kwargs):
-        self.validator = validator
-        self._schema = voluptuous.Schema(validator, **kwargs)
-
-    def __call__(self, v):
-        try:
-            v = yaml.safe_load(v)
-        except yaml.YAMLError as e:
-            error_message = str(e)
-            path = None
-            if hasattr(e, "problem_mark"):
-                path = [YamlInvalidPath(e.problem_mark)]
-                error_message += " (%s)" % path[0]
-            raise YamlInvalid(message="Invalid yaml", error_message=str(e), path=path)
-
-        return self._schema(v)
+@dataclasses.dataclass
+class YAMLInvalidPath(object):
+    line: int
+    column: int
 
     def __repr__(self):
-        return "Yaml(%s)" % repr(self.validator)
+        return f"line {self.line + 1}, column {self.column + 1}"
+
+
+def YAML(v):
+    try:
+        return yaml.safe_load(v)
+    except yaml.YAMLError as e:
+        error_message = str(e)
+        path = (
+            [YAMLInvalidPath(e.problem_mark.line, e.problem_mark.column)]
+            if hasattr(e, "problem_mark")
+            else None
+        )
+        raise YAMLInvalid(
+            message="Invalid YAML", error_message=error_message, path=path
+        )
+    return v
 
 
 UserConfigurationSchema = voluptuous.Schema(
-    Yaml(
+    voluptuous.And(
+        voluptuous.Coerce(YAML),
         {
             voluptuous.Required("pull_request_rules"): voluptuous.Coerce(
                 PullRequestRules.from_list
             )
-        }
+        },
     )
 )
 
@@ -208,13 +221,41 @@ class NoRules(Exception):
         super().__init__("Mergify configuration file is missing")
 
 
+@dataclasses.dataclass
 class InvalidRules(Exception):
-    def __init__(self, error):
-        if isinstance(error, voluptuous.MultipleInvalid):
-            message = "\n".join(map(str, error.errors))
-        else:
-            message = str(error)
-        super().__init__(self, message)
+    error: voluptuous.Invalid
+    filename: str
+
+    @staticmethod
+    def _format_error(error):
+        msg = str(error)
+        # Only include the error message if it has been provided
+        # voluptuous set it to the `message` otherwise
+        if error.error_message != error.msg:
+            msg += f"\n```\n{error.error_message}\n```"
+        return msg
+
+    @property
+    def errors(self):
+        if isinstance(self.error, voluptuous.MultipleInvalid):
+            return self.error.errors
+        return [self.error]
+
+    def __str__(self):
+        if len(self.errors) >= 2:
+            return "* " + "\n* ".join(sorted(map(self._format_error, self.errors)))
+        return self._format_error(self.errors[0])
+
+    def get_annotations(self, path):
+        return functools.reduce(
+            operator.add,
+            (
+                error.get_annotations(path)
+                for error in self.errors
+                if hasattr(error, "get_annotations")
+            ),
+            [],
+        )
 
 
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
@@ -242,4 +283,4 @@ def get_mergify_config(ctxt, ref=None):
     try:
         return filename, UserConfigurationSchema(content)
     except voluptuous.Invalid as e:
-        raise InvalidRules(e)
+        raise InvalidRules(e, filename)
