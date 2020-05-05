@@ -84,8 +84,8 @@ def get_extra_msg_from_event(event_type, data):
         return ""
 
 
-def get_ignore_reason(subscription, event_type, data):
-    if "installation" not in data:
+def get_ignore_reason(installation, subscription, event_type, data):
+    if not installation:
         return "ignored (no installation id)"
 
     elif not subscription["tokens"]:
@@ -250,7 +250,7 @@ def job_filter_and_dispatch(event_type, event_id, data):
             "tokens": None,
         }
 
-    reason = get_ignore_reason(subscription, event_type, data)
+    reason = get_ignore_reason(installation, subscription, event_type, data)
     if reason:
         msg_action = reason
     else:
