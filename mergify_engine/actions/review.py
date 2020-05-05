@@ -43,8 +43,8 @@ class ReviewAction(actions.Action):
 
         if self.config["message"]:
             try:
-                body = ctxt.pull_request.render_message(self.config["message"])
-            except context.RenderMessageFailure as rmf:
+                body = ctxt.pull_request.render_template(self.config["message"])
+            except context.RenderTemplateFailure as rmf:
                 return (
                     "failure",
                     "Invalid review message",

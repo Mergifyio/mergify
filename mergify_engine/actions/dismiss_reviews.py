@@ -61,8 +61,8 @@ class DismissReviewsAction(actions.Action):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
             try:
-                message = ctxt.pull_request.render_message(self.config["message"])
-            except context.RenderMessageFailure as rmf:
+                message = ctxt.pull_request.render_template(self.config["message"])
+            except context.RenderTemplateFailure as rmf:
                 return (
                     "failure",
                     "Invalid dismiss reviews message",

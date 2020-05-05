@@ -163,7 +163,7 @@ def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
     pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
-    with pytest.raises(context.RenderMessageFailure) as x:
+    with pytest.raises(context.RenderTemplateFailure) as x:
         action.MergeAction._get_commit_message(pr)
         assert str(x) == "foobar"
 
@@ -187,6 +187,6 @@ def test_merge_commit_message_syntax_error(body, error):
     pull = PR.copy()
     pull["body"] = body
     pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
-    with pytest.raises(context.RenderMessageFailure) as rmf:
+    with pytest.raises(context.RenderTemplateFailure) as rmf:
         action.MergeAction._get_commit_message(pr)
         assert str(rmf) == error
