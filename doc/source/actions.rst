@@ -398,16 +398,19 @@ The ``merge`` action merges the pull request into its base branch. The
        * ``merge`` to merge the base branch into the pull request.
        * ``rebase`` to rebase the pull request against its base branch.
 
-       Note that ``rebase`` has many drawbacks due to the change of all commits
-       sha of the pull request. For example:
+       Note that the ``rebase`` method has many drawbacks:
 
-       * Your contributor will need to "force push" its own branch if it adds new commits.
+       * It doesn't work for private forked repositories.
+       * Due to the change of all commits SHA-1 of the pull request, your
+         contributor will need to force-push its own branch if they add new
+         commits.
        * GitHub branch protection of your repository may dismiss approved reviews.
        * GitHub branch protection of the contributor repository may refuse Mergify to
          force push the rebased pull request.
        * GPG signed commits will lost their signatures.
        * Mergify will use a token from one of the repository member to
          force-push the branch (see: :ref:`faq strict rebase`).
+
    * - ``commit_message``
      - string
      - ``default``
