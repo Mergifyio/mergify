@@ -256,21 +256,15 @@ class StreamProcessor:
         installation_id = int(stream_name.split("~")[1])
 
         LOG.debug("read stream", stream_name=stream_name)
-        # TODO(sileht): Use XRANGE instead
-        messages_per_streams = await self.redis.xread(
-            block=1, count=100, **{stream_name: "0"}
-        )
-
+        messages = await self.redis.xrange(stream_name, count=100)
         # Groups stream by pull request
         pulls = collections.defaultdict(lambda: ([], []))
-        if messages_per_streams:
-            messages = messages_per_streams[stream_name.encode()]
-            statsd.histogram("engine.streams.size", len(messages))
-            for message_id, message in messages:
-                data = msgpack.unpackb(message[b"event"], raw=False)
-                key = (data["owner"], data["repo"], data["pull_number"])
-                pulls[key][0].append(message_id)
-                pulls[key][1].append(data["source"])
+        statsd.histogram("engine.streams.size", len(messages))
+        for message_id, message in messages:
+            data = msgpack.unpackb(message[b"event"], raw=False)
+            key = (data["owner"], data["repo"], data["pull_number"])
+            pulls[key][0].append(message_id)
+            pulls[key][1].append(data["source"])
 
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
 
