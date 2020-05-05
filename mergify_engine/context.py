@@ -385,7 +385,7 @@ class Context(object):
         return self.pull["maintainer_can_modify"] or not self.pull_from_fork
 
 
-class RenderMessageFailure(Exception):
+class RenderTemplateFailure(Exception):
     pass
 
 
@@ -441,20 +441,20 @@ class PullRequest:
         PullRequestContext.inject(env, self)
         return env
 
-    def render_message(self, message):
-        """Render a message interpolating variables based on pull request attributes."""
+    def render_template(self, template):
+        """Render a template interpolating variables based on pull request attributes."""
         try:
-            return self.jinja2_env.from_string(message).render()
+            return self.jinja2_env.from_string(template).render()
         except jinja2.exceptions.TemplateSyntaxError as tse:
-            raise RenderMessageFailure(
+            raise RenderTemplateFailure(
                 f"There is an error in your message: {tse.message} at line {tse.lineno}"
             )
         except jinja2.exceptions.TemplateError as te:
-            raise RenderMessageFailure(
+            raise RenderTemplateFailure(
                 f"There is an error in your message: {te.message}",
             )
         except PullRequestAttributeError as e:
-            raise RenderMessageFailure(
+            raise RenderTemplateFailure(
                 f"There is an error in your message, the following variable is unknown: {e.name}",
             )
 

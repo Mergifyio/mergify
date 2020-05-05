@@ -38,8 +38,8 @@ class CloseAction(actions.Action):
             return ("failure", "Pull request can't be closed", e.message)
 
         try:
-            message = ctxt.pull_request.render_message(self.config["message"])
-        except context.RenderMessageFailure as rmf:
+            message = ctxt.pull_request.render_template(self.config["message"])
+        except context.RenderTemplateFailure as rmf:
             return (
                 "failure",
                 "Invalid close message",
