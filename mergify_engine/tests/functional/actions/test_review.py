@@ -95,16 +95,8 @@ class TestReviewAction(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"review": {"type": "APPROVE"}},
-                },
-                {
                     "name": "review",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "#approved-reviews-by>=1",
-                    ],
+                    "conditions": [f"base={self.master_branch_name}",],
                     "actions": {"review": {"message": msg, "type": "REQUEST_CHANGES"}},
                 },
             ]
@@ -114,31 +106,27 @@ class TestReviewAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
-        self.wait_for("pull_request_review", {}),
-
-        p.update()
-
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        checks = list(
-            c
-            for c in ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: review (review)"
-        )
-
-        assert len(checks) == 1
-        return checks[0]
+        return ctxt
 
     def test_review_template_syntax_error(self):
-        check = self._test_review_template_error(msg="Thank you {{",)
-        assert "Invalid review message" == check["output"]["title"]
+        ctxt = self._test_review_template_error(msg="Thank you {{",)
+        assert len(ctxt.pull_engine_check_runs) == 1
+        check = ctxt.pull_engine_check_runs[0]
+        assert "The Mergify configuration is invalid" == check["output"]["title"]
         assert "failure" == check["conclusion"]
         assert (
-            "There is an error in your message: unexpected 'end of template' at line 1"
+            """Template syntax error @ data['pull_request_rules'][0]['actions']['review']['message'][line 1]
+```
+unexpected 'end of template' at line 1
+```"""
             == check["output"]["summary"]
         )
 
     def test_review_template_attribute_error(self):
-        check = self._test_review_template_error(msg="Thank you {{hello}}",)
+        ctxt = self._test_review_template_error(msg="Thank you {{hello}}",)
+        assert len(ctxt.pull_engine_check_runs) == 2
+        check = ctxt.pull_engine_check_runs[0]
         assert "failure" == check["conclusion"]
         assert "Invalid review message" == check["output"]["title"]
         assert (
