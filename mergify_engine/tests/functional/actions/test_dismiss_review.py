@@ -61,38 +61,33 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
 
         self._push_for_synchronize(branch)
 
-        self.wait_for(
-            "check_run",
-            {"check_run": {"name": "Rule: dismiss reviews (dismiss_reviews)"}},
-        )
-
         ctxt = context.Context(
             self.cli_integration, {"number": p.raw_data["number"]}, {}
         )
-        checks = list(
-            c
-            for c in ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: dismiss reviews (dismiss_reviews)"
-        )
 
-        assert len(checks) == 1
-        return checks[0]
+        assert len(ctxt.pull_engine_check_runs) == 1
+        check = ctxt.pull_engine_check_runs[0]
+        assert "failure" == check["conclusion"]
+        assert "The Mergify configuration is invalid" == check["output"]["title"]
+        return check
 
     def test_dismiss_reviews_custom_message_syntax_error(self):
         check = self._test_dismiss_reviews_fail("{{Loser")
-        assert "Invalid dismiss reviews message" == check["output"]["title"]
-        assert "failure" == check["conclusion"]
         assert (
-            "There is an error in your message: unexpected end of template, expected 'end of print statement'. at line 1"
+            """Template syntax error @ data['pull_request_rules'][0]['actions']['dismiss_reviews']['message'][line 1]
+```
+unexpected end of template, expected 'end of print statement'.
+```"""
             == check["output"]["summary"]
         )
 
     def test_dismiss_reviews_custom_message_attribute_error(self):
         check = self._test_dismiss_reviews_fail("{{Loser}}")
-        assert "Invalid dismiss reviews message" == check["output"]["title"]
-        assert "failure" == check["conclusion"]
         assert (
-            "There is an error in your message, the following variable is unknown: Loser"
+            """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['dismiss_reviews']['message']
+```
+Unknown pull request attribute: Loser
+```"""
             == check["output"]["summary"]
         )
 
