@@ -29,10 +29,20 @@ def test_jinja2_invalid():
     with pytest.raises(voluptuous.Invalid) as x:
         types.Jinja2("{{foo")
     assert str(x.value) == "Template syntax error @ data[line 1]"
-    assert str(x.value.error_message) == "unexpected end of template, expected 'end of print statement'. at line 1"
+    assert (
+        str(x.value.error_message)
+        == "unexpected end of template, expected 'end of print statement'."
+    )
 
 
 def test_jinja2_None():
     with pytest.raises(voluptuous.Invalid) as x:
         types.Jinja2(None)
     assert str(x.value) == "Template cannot be null"
+
+
+def test_jinja2_unknown_attr():
+    with pytest.raises(voluptuous.Invalid) as x:
+        types.Jinja2("{{foo}}")
+    assert str(x.value) == "Template syntax error"
+    assert str(x.value.error_message) == "Unknown pull request attribute: foo"

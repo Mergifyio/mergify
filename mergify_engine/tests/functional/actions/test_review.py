@@ -107,14 +107,14 @@ class TestReviewAction(base.FunctionalTestBase):
         p, _ = self.create_pr()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        return ctxt
-
-    def test_review_template_syntax_error(self):
-        ctxt = self._test_review_template_error(msg="Thank you {{",)
         assert len(ctxt.pull_engine_check_runs) == 1
         check = ctxt.pull_engine_check_runs[0]
-        assert "The Mergify configuration is invalid" == check["output"]["title"]
         assert "failure" == check["conclusion"]
+        assert "The Mergify configuration is invalid" == check["output"]["title"]
+        return check
+
+    def test_review_template_syntax_error(self):
+        check = self._test_review_template_error(msg="Thank you {{",)
         assert (
             """Template syntax error @ data['pull_request_rules'][0]['actions']['review']['message'][line 1]
 ```
@@ -124,12 +124,11 @@ unexpected 'end of template' at line 1
         )
 
     def test_review_template_attribute_error(self):
-        ctxt = self._test_review_template_error(msg="Thank you {{hello}}",)
-        assert len(ctxt.pull_engine_check_runs) == 2
-        check = ctxt.pull_engine_check_runs[0]
-        assert "failure" == check["conclusion"]
-        assert "Invalid review message" == check["output"]["title"]
+        check = self._test_review_template_error(msg="Thank you {{hello}}",)
         assert (
-            "There is an error in your message, the following variable is unknown: hello"
+            """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['review']['message']
+```
+Unknown pull request attribute: hello
+```"""
             == check["output"]["summary"]
         )
