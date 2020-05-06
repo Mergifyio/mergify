@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine.rules import types
 
 
 EVENT_STATE_MAP = {
@@ -33,7 +34,9 @@ class ReviewAction(actions.Action):
         voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
             "APPROVE", "REQUEST_CHANGES", "COMMENT"
         ),
-        voluptuous.Required("message", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("message", default=None): voluptuous.Any(
+            types.Jinja2, None
+        ),
     }
 
     silent_report = True
