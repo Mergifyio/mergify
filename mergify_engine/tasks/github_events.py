@@ -88,9 +88,6 @@ def get_ignore_reason(installation, subscription, event_type, data):
     if not installation:
         return "ignored (no installation id)"
 
-    elif not subscription["tokens"]:
-        return "ignored (no token)"
-
     elif event_type in ["installation", "installation_repositories"]:
         return "ignored (action %s)" % data["action"]
 
