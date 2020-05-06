@@ -195,6 +195,14 @@ pull_request_rules:
             },
             r"Template syntax error @ data\[0\]\['actions'\]\['review'\]\['message'\]\[line 1\]",
         ),
+        (
+            {
+                "name": "hello",
+                "conditions": [],
+                "actions": {"review": {"message": "{{unknownattribute}}"}},
+            },
+            r"Template syntax error for dictionary value @ data\[0\]\['actions'\]\['review'\]\['message'\]",
+        ),
     ),
 )
 def test_pull_request_rule_schema_invalid(invalid, match):
