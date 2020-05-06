@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Julien Danjou <jd@mergify.io>
+# Copyright © 2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -102,29 +102,29 @@ class TestCommentAction(base.FunctionalTestBase):
         p.update()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        checks = list(
-            c
-            for c in ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: comment (comment)"
-        )
 
-        assert len(checks) == 1
-        return checks[0]
+        assert len(ctxt.pull_engine_check_runs) == 1
+        check = ctxt.pull_engine_check_runs[0]
+        assert "failure" == check["conclusion"]
+        assert "The Mergify configuration is invalid" == check["output"]["title"]
+        return check
 
     def test_comment_template_syntax_error(self):
         check = self._test_comment_template_error(msg="Thank you {{",)
-        assert "failure" == check["conclusion"]
-        assert "Invalid comment message" == check["output"]["title"]
         assert (
-            "There is an error in your message: unexpected 'end of template' at line 1"
+            """Template syntax error @ data['pull_request_rules'][0]['actions']['comment']['message'][line 1]
+```
+unexpected 'end of template'
+```"""
             == check["output"]["summary"]
         )
 
     def test_comment_template_attribute_error(self):
         check = self._test_comment_template_error(msg="Thank you {{hello}}",)
-        assert "failure" == check["conclusion"]
-        assert "Invalid comment message" == check["output"]["title"]
         assert (
-            "There is an error in your message, the following variable is unknown: hello"
+            """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['comment']['message']
+```
+Unknown pull request attribute: hello
+```"""
             == check["output"]["summary"]
         )

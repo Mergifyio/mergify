@@ -19,10 +19,11 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.rules import types
 
 
 class CommentAction(actions.Action):
-    validator = {voluptuous.Required("message"): str}
+    validator = {voluptuous.Required("message"): types.Jinja2}
 
     silent_report = True
 
