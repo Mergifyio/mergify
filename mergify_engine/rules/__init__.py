@@ -28,6 +28,7 @@ import yaml
 from mergify_engine import actions
 from mergify_engine import context
 from mergify_engine.rules import filter
+from mergify_engine.rules import types
 
 
 def PullRequestRuleCondition(value):
@@ -168,24 +169,15 @@ class YAMLInvalid(voluptuous.Invalid):
         return [
             {
                 "path": path,
-                "start_line": error_path.line + 1,
-                "end_line": error_path.line + 1,
-                "start_column": error_path.column + 1,
-                "end_column": error_path.column + 1,
+                "start_line": error_path.line,
+                "end_line": error_path.line,
+                "start_column": error_path.column,
+                "end_column": error_path.column,
                 "annotation_level": "failure",
                 "message": self.error_message,
                 "title": self.msg,
             },
         ]
-
-
-@dataclasses.dataclass
-class YAMLInvalidPath(object):
-    line: int
-    column: int
-
-    def __repr__(self):
-        return f"line {self.line + 1}, column {self.column + 1}"
 
 
 def YAML(v):
@@ -194,7 +186,7 @@ def YAML(v):
     except yaml.YAMLError as e:
         error_message = str(e)
         path = (
-            [YAMLInvalidPath(e.problem_mark.line, e.problem_mark.column)]
+            [types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)]
             if hasattr(e, "problem_mark")
             else None
         )
