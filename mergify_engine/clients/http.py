@@ -97,7 +97,7 @@ class Client(httpx.Client):
                 message = e.args[0]
                 gh_message = e.response.json().get("message")
                 if gh_message:
-                    message = f"{message}\nGithub details: {gh_message}"
+                    message = f"{message}\nGitHub details: {gh_message}"
                 raise exc_class(
                     message, *e.args[1:], request=e.request, response=e.response,
                 )
