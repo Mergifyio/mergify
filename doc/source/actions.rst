@@ -144,22 +144,9 @@ The ``comment`` action adds a comment to the pull request.
      - Default
      - Value Description
    * - ``message``
-     - string
+     - :ref:`data type template`
      -
      - The message to write as a comment.
-
-You can use any available attributes of the pull request in the comment
-message, by writing a template using `Jinja2
-<https://jinja.palletsprojects.com/templates/>`_ markup.
-
-For example:
-
-.. code-block:: jinja
-
-    Thank you {{author}} for your contribution!
-
-You can use any of the pull request :ref:`attributes` as variable — replacing
-``-`` with ``_`` in variables names.
 
 .. _review action:
 
@@ -181,22 +168,9 @@ The ``review`` action reviews the pull request.
      - ``APPROVE``
      - The kind of review, can be ``APPROVE``, ``REQUEST_CHANGES``, ``COMMENT``
    * - ``message``
-     - string
+     - :ref:`data type template`
      -
      - The message to write as a comment.
-
-You can use any available attributes of the pull request in the review message,
-by writing a template using `Jinja2
-<https://jinja.palletsprojects.com/templates/>`_ markup.
-
-For example:
-
-.. code-block:: jinja
-
-    Thank you {{author}} for your contribution!
-
-You can use any of the pull request :ref:`attributes` as variable — replacing
-``-`` with ``_`` in variables names.
 
 .. _close action:
 
@@ -214,22 +188,9 @@ The ``close`` action closes the pull request without merging it.
      - Default
      - Value Description
    * - ``message``
-     - string
+     - :ref:`data type template`
      - ``This pull request has been automatically closed by Mergify.``
      - The message to write as a comment after closing the pull request.
-
-You can use any available attributes of the pull request in the close message,
-by writing a template using `Jinja2
-<https://jinja.palletsprojects.com/templates/>`_ markup.
-
-For example:
-
-.. code-block:: jinja
-
-    Thank you {{author}} for your contribution!
-
-You can use any of the pull request :ref:`attributes` as variable — replacing
-``-`` with ``_`` in variables names.
 
 .. _delete_head_branch action:
 
@@ -294,23 +255,10 @@ branch is rebased).
        done. If set to a list, each item should be the GitHub login of a user
        whose review will be removed.
    * - ``message``
-     - string
+     - :ref:`data type template`
      - ``Pull request has been modified.``
      - The message to post when dismissing the review.
 
-
-You can use any available attributes of the pull request in the comment
-message, by writing a template using `Jinja2
-<https://jinja.palletsprojects.com/templates/>`_ markup.
-
-For example:
-
-.. code-block:: jinja
-
-    Thank you {{author}} for your contribution!
-
-You can use any of the pull request :ref:`attributes` as variable — replacing
-``-`` with ``_`` in variables names.
 
 .. _label action:
 
@@ -452,8 +400,7 @@ The whole commit message finishes at the end of the pull request body or before
 a new Markdown title.
 
 You can use any available attributes of the pull request in the commit message,
-by writing a template using `Jinja2
-<https://jinja.palletsprojects.com/templates/>`_ markup.
+by writing using the :ref:`templating <data type template>` language:
 
 For example:
 
@@ -471,9 +418,7 @@ For example:
     - {{user}}
     {% endfor %}
 
-
-You can use any of the pull request :ref:`attributes` as variable — replacing
-``-`` with ``_`` in variables names.
+Check the :ref:`data type template` for more details on the format.
 
 .. note::
 

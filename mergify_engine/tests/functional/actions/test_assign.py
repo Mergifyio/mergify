@@ -15,7 +15,6 @@
 # under the License.
 import yaml
 
-
 from mergify_engine.tests.functional import base
 
 
@@ -39,4 +38,25 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]), sorted([l.login for l in pulls[0].assignees])
+        )
+
+    def test_assign_valid_template(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "assign",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"assign": {"users": ["{{author}}"]}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted([self.u_fork.login]), sorted([l.login for l in pulls[0].assignees])
         )
