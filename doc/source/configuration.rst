@@ -56,6 +56,44 @@ and, therefore, the actions are executed in that same order.
 
 See :ref:`Examples` for configuration file examples.
 
+Data Types
+----------
+
+.. _data type template:
+
+Template
+~~~~~~~~
+
+The template data type is a regular string that is rendered using the `Jinja2
+template language <https://jinja.palletsprojects.com/templates/>`_.
+
+If you don't need any of the power coming with this templating language, you
+can just use this as a regular string.
+
+However, those templates allow to use any of the :ref:`pull request attribute
+<attributes>` in the final string.
+
+For example the template string:
+
+.. code-block:: jinja
+
+    Thank you @{{author}} for your contribution!
+
+will render to:
+
+.. code-block:: jinja
+
+    Thank you @jd for your contribution!
+
+when used in your configuration file — considering the pull request author
+login is ``jd``.
+
+.. note::
+
+   You need to replace the ``-`` character by ``_`` from the :ref:`pull request
+   attribute <attributes>` names when using templates. The ``-`` is not a valid
+   character for variable names in Jinja2 template.
+
 Validation
 ----------
 
