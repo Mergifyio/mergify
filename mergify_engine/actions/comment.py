@@ -19,17 +19,18 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.rules import types
 
 
 class CommentAction(actions.Action):
-    validator = {voluptuous.Required("message"): str}
+    validator = {voluptuous.Required("message"): types.Jinja2}
 
     silent_report = True
 
     def run(self, ctxt, missing_conditions):
         try:
-            message = ctxt.pull_request.render_message(self.config["message"])
-        except context.RenderMessageFailure as rmf:
+            message = ctxt.pull_request.render_template(self.config["message"])
+        except context.RenderTemplateFailure as rmf:
             return (
                 "failure",
                 "Invalid comment message",

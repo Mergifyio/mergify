@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine.rules import types
 
 
 EVENT_STATE_MAP = {
@@ -33,7 +34,9 @@ class ReviewAction(actions.Action):
         voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
             "APPROVE", "REQUEST_CHANGES", "COMMENT"
         ),
-        voluptuous.Required("message", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("message", default=None): voluptuous.Any(
+            types.Jinja2, None
+        ),
     }
 
     silent_report = True
@@ -43,8 +46,8 @@ class ReviewAction(actions.Action):
 
         if self.config["message"]:
             try:
-                body = ctxt.pull_request.render_message(self.config["message"])
-            except context.RenderMessageFailure as rmf:
+                body = ctxt.pull_request.render_template(self.config["message"])
+            except context.RenderTemplateFailure as rmf:
                 return (
                     "failure",
                     "Invalid review message",

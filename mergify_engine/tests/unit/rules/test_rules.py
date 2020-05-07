@@ -187,6 +187,22 @@ pull_request_rules:
             r"expected bool for dictionary value @ "
             r"data\[0\]\['actions'\]\['merge'\]\['strict'\]",
         ),
+        (
+            {
+                "name": "hello",
+                "conditions": [],
+                "actions": {"review": {"message": "{{syntax error"}},
+            },
+            r"Template syntax error @ data\[0\]\['actions'\]\['review'\]\['message'\]\[line 1\]",
+        ),
+        (
+            {
+                "name": "hello",
+                "conditions": [],
+                "actions": {"review": {"message": "{{unknownattribute}}"}},
+            },
+            r"Template syntax error for dictionary value @ data\[0\]\['actions'\]\['review'\]\['message'\]",
+        ),
     ),
 )
 def test_pull_request_rule_schema_invalid(invalid, match):
