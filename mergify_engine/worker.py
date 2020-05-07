@@ -1,4 +1,4 @@
-#
+# debug
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -32,7 +32,9 @@ import uvloop
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import github_events
 from mergify_engine import logs
+from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
 
@@ -41,8 +43,11 @@ LOG = logs.getLogger(__name__)
 
 
 MAX_RETRIES = 3
-
 WORKER_PROCESSING_DELAY = 30
+
+
+class IgnoredException(Exception):
+    pass
 
 
 @dataclasses.dataclass
@@ -60,31 +65,29 @@ class StreamRetry(Exception):
     retry_at: datetime.datetime
 
 
-def push(installation_id, owner, repo, pull_number, event_type, data):
-    redis = utils.get_redis_for_stream()
-    stream_name = f"stream~{installation_id}".encode()
+async def push(redis, installation_id, owner, repo, pull_number, event_type, data):
+    stream_name = f"stream~{installation_id}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
-    transaction = redis.pipeline()
+    transaction = await redis.pipeline()
     # NOTE(sileht): Add this event to the pull request stream
-    transaction.xadd(
-        stream_name,
-        {
-            "event": msgpack.packb(
-                {
-                    "owner": owner,
-                    "repo": repo,
-                    "pull_number": pull_number,
-                    "source": {"event_type": event_type, "data": data},
-                },
-                use_bin_type=True,
-            ),
-        },
-    )
+    payload = {
+        b"event": msgpack.packb(
+            {
+                "owner": owner,
+                "repo": repo,
+                "pull_number": pull_number,
+                "source": {"event_type": event_type, "data": data},
+            },
+            use_bin_type=True,
+        ),
+    }
+
+    ret = await redis.xadd(stream_name, payload)
     # NOTE(sileht): Add pull request stream to process to the list, only if it
     # does not exists, to not update the score(date)
-    transaction.zadd("streams", {stream_name: score}, nx=True)
-    transaction.execute()
+    await transaction.zaddoption("streams", "NX", **{stream_name: score})
+    await transaction.execute()
     LOG.debug(
         "pushed to worker",
         gh_owner=owner,
@@ -92,16 +95,15 @@ def push(installation_id, owner, repo, pull_number, event_type, data):
         gh_pull=pull_number,
         event_type=event_type,
     )
+    return (ret, payload)
 
 
-def run_engine(installation_id, owner, repo, pull_number, sources):
+def run_engine(installation, owner, repo, pull_number, sources):
     logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
     logger.debug("engine in thread start")
     try:
-        try:
-            installation = github.get_installation(owner, repo, installation_id)
-        except exceptions.MergifyNotInstalled:
-            return
+        sync_redis = utils.get_redis_for_cache()
+        subscription = sub_utils.get_subscription(sync_redis, installation["id"])
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
             try:
@@ -111,12 +113,22 @@ def run_engine(installation_id, owner, repo, pull_number, sources):
                     logger.debug("pull request doesn't exists, skipping it")
                     return
                 raise
+
+            if (
+                pull["base"]["repo"]["private"]
+                and not subscription["subscription_active"]
+            ):
+                logger.debug(
+                    "pull request on private private repository without subscription, skipping it"
+                )
+                return
+
             engine.run(client, pull, sources)
     finally:
         logger.debug("engine in thread end")
 
 
-class EngineRunThread(threading.Thread):
+class ThreadRunner(threading.Thread):
     """This thread propagate exception to main thread."""
 
     def __init__(self):
@@ -124,13 +136,20 @@ class EngineRunThread(threading.Thread):
         self._running = threading.Event()
         self._process = threading.Event()
 
-        self._engine_args = None
+        self._method = None
+        self._args = None
+        self._kwargs = None
+        self._result = None
         self._exception = None
 
+        self._running.set()
         self.start()
 
-    async def run_engine(self, *engine_args):
-        self._engine_args = engine_args
+    async def exec(self, method, *args, **kwargs):
+        self._method = method
+        self._args = args
+        self._kwargs = kwargs
+        self._result = None
         self._exception = None
 
         self._process.set()
@@ -143,20 +162,24 @@ class EngineRunThread(threading.Thread):
         if self._exception:
             raise self._exception
 
+        return self._result
+
     def close(self):
         self._running.clear()
         self._process.set()
         self.join()
 
     def run(self):
-        self._running.set()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         while self._running.is_set():
             self._process.wait()
             if not self._running.is_set():
                 return
 
             try:
-                run_engine(*self._engine_args)
+                self._result = self._method(*self._args, **self._kwargs)
             except BaseException as e:
                 self._exception = e
             finally:
@@ -197,20 +220,53 @@ class StreamSelector:
 @dataclasses.dataclass
 class StreamProcessor:
     redis: Any
-    _thread: EngineRunThread = dataclasses.field(
-        init=False, default_factory=EngineRunThread
-    )
+    _thread: ThreadRunner = dataclasses.field(init=False, default_factory=ThreadRunner)
 
     def close(self):
         self._thread.close()
 
-    async def _run_engine_and_translate_exception_to_retries(
-        self, installation_id, owner, repo, pull_number, sources
+    async def _translate_exception_to_retries(
+        self, e, installation_id, attempts_key=None,
     ):
-        attempts_key = f"pull~{installation_id}~{owner}~{repo}~{pull_number}"
+        stream_name = f"stream~{installation_id}"
+
+        if isinstance(e, github.TooManyPages):
+            # TODO(sileht): Ideally this should be catcher earlier to post an
+            # appropriate check-runs to inform user the PR is too big to be handled
+            # by Mergify, but this need a bit of refactory to do it, so in the
+            # meantimes...
+            if attempts_key:
+                await self.redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", stream_name)
+            raise IgnoredException()
+
+        if exceptions.should_be_ignored(e):
+            if attempts_key:
+                await self.redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", stream_name)
+            raise IgnoredException()
+
+        backoff = exceptions.need_retry(e)
+        if backoff is None:
+            # NOTE(sileht): This is our fault, so retry until we fix the bug but
+            # without increasing the attempts
+            raise
+
+        # TODO(sileht): In case of RateLimit no need to apply expo
+        attempts = await self.redis.hincrby("attempts", stream_name)
+        retry_in = 3 ** attempts * backoff
+        retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
+        score = retry_at.timestamp()
+        await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+        raise StreamRetry(attempts, retry_at) from e
+
+    async def _run_engine_and_translate_exception_to_retries(
+        self, installation, owner, repo, pull_number, sources
+    ):
+        attempts_key = f"pull~{installation['id']}~{owner}~{repo}~{pull_number}"
         try:
-            await self._thread.run_engine(
-                installation_id, owner, repo, pull_number, sources
+            await self._thread.exec(
+                run_engine, installation, owner, repo, pull_number, sources,
             )
             await self.redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
@@ -223,103 +279,48 @@ class StreamProcessor:
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
-            logger = logs.getLogger(
-                __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+            await self._translate_exception_to_retries(
+                e, installation["id"], attempts_key
             )
 
-            if isinstance(e, github.TooManyPages):
-                # TODO(sileht): Ideally this should be catcher earlier to post an
-                # appropriate check-runs to inform user the PR is too big to be handled
-                # by Mergify, but this need a bit of refactory to do it, so in the
-                # meantimes...
-                logger.warning("too many pages", exc_info=True)
-                await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", f"stream~{installation_id}")
-                return
-
-            if exceptions.should_be_ignored(e):
-                logger.debug("ignored engine error", exc_info=True)
-                await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", f"stream~{installation_id}")
-                return
-
-            stream_name = f"stream~{installation_id}"
-
-            backoff = exceptions.need_retry(e)
-            if backoff is None:
-                # NOTE(sileht): This is our fault, so retry until we fix the bug but
-                # without increasing the attempts
-                raise
-
-            # TODO(sileht): In case of RateLimit no need to apply expo
-            attempts = await self.redis.hincrby("attempts", stream_name)
-            retry_in = 3 ** attempts * backoff
-            retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
-            score = retry_at.timestamp()
-            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-            raise StreamRetry(attempts, retry_at) from e
+    async def get_installation(self, stream_name):
+        installation_id = int(stream_name.split("~")[1])
+        try:
+            return await self._thread.exec(
+                github.get_installation_by_id, installation_id
+            )
+        except Exception as e:
+            await self._translate_exception_to_retries(e, installation_id)
 
     async def consume(self, stream_name):
-        installation_id = int(stream_name.split("~")[1])
-
-        LOG.debug("read stream", stream_name=stream_name)
-        messages = await self.redis.xrange(stream_name, count=100)
-        # Groups stream by pull request
-        pulls = collections.defaultdict(lambda: ([], []))
-        statsd.histogram("engine.streams.size", len(messages))
-        for message_id, message in messages:
-            data = msgpack.unpackb(message[b"event"], raw=False)
-            key = (data["owner"], data["repo"], data["pull_number"])
-            pulls[key][0].append(message_id)
-            pulls[key][1].append(data["source"])
-
-        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
-
-        for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
-
-            statsd.histogram("engine.streams.batch-size", len(sources))
-
-            logger = logs.getLogger(
-                __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+        installation = None
+        try:
+            installation = await self.get_installation(stream_name)
+            pulls = await self._extract_pulls_from_stream(stream_name, installation)
+            await self._consume_pulls(stream_name, installation, pulls)
+        except (exceptions.MergifyNotInstalled, IgnoredException):
+            await self.redis.xtrim(stream_name, 0)
+            return
+        except StreamRetry as e:
+            LOG.info(
+                "failed to process stream, retrying",
+                gh_owner=installation["account"]["login"] if installation else None,
+                attempts=e.attempts,
+                retry_at=e.retry_at,
+                exc_info=True,
+            )
+            return
+        except Exception:
+            # Ignore it, it will retried later
+            LOG.error(
+                "failed to process stream",
+                gh_owner=installation["account"]["login"] if installation else None,
+                exc_info=True,
             )
 
-            try:
-                logger.debug("engine start with %s sources", len(sources))
-                start = time.monotonic()
-                await self._run_engine_and_translate_exception_to_retries(
-                    installation_id, owner, repo, pull_number, sources
-                )
-                await self.redis.execute_command("XDEL", stream_name, *message_ids)
-                end = time.monotonic()
-                logger.debug("engine finished in %s sec", end - start)
-            except MaxPullRetry as e:
-                await self.redis.execute_command("XDEL", stream_name, *message_ids)
-                logger.error(
-                    "failed to process pull request, abandoning",
-                    attempts=e.attempts,
-                    exc_info=True,
-                )
-            except PullRetry as e:
-                logger.info(
-                    "failed to process pull request, retrying",
-                    attempts=e.attempts,
-                    exc_info=True,
-                )
-            except StreamRetry as e:
-                logger.info(
-                    "failed to process stream, retrying",
-                    attempts=e.attempts,
-                    retry_at=e.retry_at,
-                    exc_info=True,
-                )
-                return
-            except Exception:
-                logger.error("failed to process pull request", exc_info=True)
-
         LOG.debug("cleanup stream start", stream_name=stream_name)
-        score = time.time()
         await self.redis.eval(
-            self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), score
+            self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
         )
         LOG.debug("cleanup stream end", stream_name=stream_name)
 
@@ -339,6 +340,116 @@ else
     redis.call("ZADD", "streams", score, stream_name)
 end
 """
+
+    async def _extract_pulls_from_stream(self, stream_name, installation):
+        LOG.debug("read stream", stream_name=stream_name)
+        messages = await self.redis.xrange(stream_name, count=100)
+        statsd.histogram("engine.streams.size", len(messages))
+
+        # Groups stream by pull request
+        pulls = collections.OrderedDict()
+        for message_id, message in messages:
+            data = msgpack.unpackb(message[b"event"], raw=False)
+            owner = data["owner"]
+            repo = data["repo"]
+            source = data["source"]
+            if data["pull_number"] is not None:
+                key = (owner, repo, data["pull_number"])
+                group = pulls.setdefault(key, ([], []))
+                group[0].append(message_id)
+                group[1].append(source)
+            else:
+                logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner)
+                try:
+                    messages.extend(
+                        await self._convert_event_to_messages(
+                            stream_name, installation, owner, repo, source
+                        )
+                    )
+                except IgnoredException:
+                    logger.debug("ignored error", exc_info=True)
+                except StreamRetry:
+                    raise
+                except Exception:
+                    # Ignore it, it will retried later
+                    logger.error("failed to process incomplete event", exc_info=True)
+                    continue
+
+                await self.redis.xdel(stream_name, message_id)
+        return pulls
+
+    async def _convert_event_to_messages(
+        self, stream_name, installation, owner, repo, source
+    ):
+        # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
+        # So we get missing pull numbers, add them to the stream to
+        # handle retry later, add them to message to run engine on them now,
+        # and delete the current message_id as we have unpack this incomplete event into
+        # multiple complete event
+        try:
+            pull_numbers = await self._thread.exec(
+                github_events.extract_pull_numbers_from_event,
+                installation,
+                owner,
+                repo,
+                source["event_type"],
+                source["data"],
+            )
+        except Exception as e:
+            await self._translate_exception_to_retries(e, installation["id"])
+
+        messages = []
+        for pull_number in pull_numbers:
+            messages.append(
+                await push(
+                    self.redis,
+                    installation["id"],
+                    owner,
+                    repo,
+                    pull_number,
+                    source["event_type"],
+                    source["data"],
+                )
+            )
+        return messages
+
+    async def _consume_pulls(self, stream_name, installation, pulls):
+        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
+        for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
+            statsd.histogram("engine.streams.batch-size", len(sources))
+            logger = logs.getLogger(
+                __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+            )
+
+            try:
+                logger.debug("engine start with %s sources", len(sources))
+                start = time.monotonic()
+                await self._run_engine_and_translate_exception_to_retries(
+                    installation, owner, repo, pull_number, sources
+                )
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
+                end = time.monotonic()
+                logger.debug("engine finished in %s sec", end - start)
+            except IgnoredException:
+                logger.debug("failed to process pull request, ignoring", exc_info=True)
+            except MaxPullRetry as e:
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
+                logger.error(
+                    "failed to process pull request, abandoning",
+                    attempts=e.attempts,
+                    exc_info=True,
+                )
+            except PullRetry as e:
+                logger.info(
+                    "failed to process pull request, retrying",
+                    attempts=e.attempts,
+                    exc_info=True,
+                )
+            except StreamRetry:
+                raise
+            except Exception:
+                # Ignore it, it will retried later
+                logger.error("failed to process pull request", exc_info=True)
 
 
 @dataclasses.dataclass

@@ -948,8 +948,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "action_required"
         assert (
-            "There is an error in your message, the following variable is unknown: invalid"
-            == checks[0]["output"]["summary"]
+            "Unknown pull request attribute: invalid" == checks[0]["output"]["summary"]
         )
         assert "Invalid commit message" == checks[0]["output"]["title"]
 

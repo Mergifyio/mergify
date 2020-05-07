@@ -34,13 +34,14 @@ import voluptuous
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
+from mergify_engine import github_events
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.engine import actions_runner
 from mergify_engine.tasks import forward_events
-from mergify_engine.tasks import github_events
+from mergify_engine.tasks import github_events as legacy_github_events
 
 
 LOG = logging.getLogger(__name__)
@@ -126,7 +127,13 @@ app.mount("/validate", config_validator_app)
 
 async def _refresh(owner, repo, action="user", **extra_data):
     event_type = "refresh"
+    try:
+        installation = github.get_installation(owner, repo)
+    except exceptions.MergifyNotInstalled:
+        return responses.Response("Mergify not installed", status_code=404)
+
     data = {
+        "installation": installation,
         "action": action,
         "repository": {
             "name": repo,
@@ -137,13 +144,8 @@ async def _refresh(owner, repo, action="user", **extra_data):
     }
     data.update(extra_data)
 
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        github_events.job_filter_and_dispatch.s(
-            event_type, str(uuid.uuid4()), data
-        ).apply_async,
-    )
+    await github_events.job_filter_and_dispatch(event_type, str(uuid.uuid4()), data)
+
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -291,7 +293,8 @@ async def marketplace_handler(request: requests.Request):  # pragma: no cover
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
-        None, github_events.job_marketplace.s(event_type, event_id, data).apply_async,
+        None,
+        legacy_github_events.job_marketplace.s(event_type, event_id, data).apply_async,
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
@@ -335,15 +338,7 @@ async def event_handler(request: requests.Request):
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        functools.partial(
-            github_events.job_filter_and_dispatch.s(
-                event_type, event_id, data
-            ).apply_async,
-        ),
-    )
+    await github_events.job_filter_and_dispatch(event_type, event_id, data)
 
     if (
         config.WEBHOOK_APP_FORWARD_URL
@@ -352,6 +347,7 @@ async def event_handler(request: requests.Request):
     ):
         raw = await request.body()
 
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
             forward_events.post.s(
