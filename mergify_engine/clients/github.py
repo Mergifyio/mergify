@@ -183,6 +183,10 @@ def get_client(*args, **kwargs):
     return client
 
 
+def get_installation_by_id(installation_id):
+    return github_app.get_client().get_installation_by_id(installation_id)
+
+
 def get_installation(owner, repo, installation_id=None):
     installation = github_app.get_client().get_installation(owner, repo)
     if installation_id is not None and installation["id"] != installation_id:

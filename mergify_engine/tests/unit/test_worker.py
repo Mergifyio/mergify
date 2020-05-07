@@ -57,9 +57,20 @@ async def run_worker():
     await w.wait_shutdown_complete()
 
 
+fake_subscription = {}
+
+
+def fake_install_id(installation_id):
+    return {"id": installation_id, "account": {"login": "testing"}}
+
+
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
+async def test_worker_with_waiting_tasks(
+    run_engine, get_install_by_id, redis, logger_checker
+):
+    get_install_by_id.side_effect = fake_install_id
     stream_names = []
     for installation_id in range(8):
         for pull_number in range(2):
@@ -67,7 +78,8 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
                 stream_names.append(f"stream~{installation_id}")
-                worker.push(
+                await worker.push(
+                    redis,
                     installation_id,
                     owner,
                     repo,
@@ -91,28 +103,93 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
 
     # Check engine have been run with expect data
     assert 16 == len(run_engine.mock_calls)
-    assert run_engine.mock_calls[0] == mock.call(
-        0,
-        "owner-0",
-        "repo-0",
-        0,
-        [
-            {"event_type": "pull_request", "data": {"payload": 0}},
-            {"event_type": "pull_request", "data": {"payload": 1}},
-            {"event_type": "pull_request", "data": {"payload": 2}},
-        ],
+    assert (
+        mock.call(
+            fake_install_id(0),
+            "owner-0",
+            "repo-0",
+            0,
+            [
+                {"event_type": "pull_request", "data": {"payload": 0}},
+                {"event_type": "pull_request", "data": {"payload": 1}},
+                {"event_type": "pull_request", "data": {"payload": 2}},
+            ],
+        )
+        in run_engine.mock_calls
     )
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_one_task(run_engine, redis, logger_checker):
-
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+@mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
+async def test_worker_expanded_events(
+    extract_pull_numbers_from_event,
+    run_engine,
+    get_install_by_id,
+    redis,
+    logger_checker,
+):
+    get_install_by_id.side_effect = fake_install_id
+    extract_pull_numbers_from_event.return_value = [123, 456, 789]
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
-    worker.push(
-        12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
+    await worker.push(
+        redis, 12345, "owner", "repo", None, "comment", {"payload": "foobar"},
+    )
+
+    assert 1 == (await redis.zcard("streams"))
+    assert 1 == len(await redis.keys("stream~*"))
+    assert 2 == (await redis.xlen("stream~12345"))
+
+    await run_worker()
+
+    # Check redis is empty
+    assert 0 == (await redis.zcard("streams"))
+    assert 0 == len(await redis.keys("stream~*"))
+    assert 0 == len(await redis.hgetall("attempts"))
+
+    # Check engine have been run with expect data
+    assert 3 == len(run_engine.mock_calls)
+    assert run_engine.mock_calls[0] == mock.call(
+        fake_install_id(12345),
+        "owner",
+        "repo",
+        123,
+        [
+            {"event_type": "pull_request", "data": {"payload": "whatever"}},
+            {"event_type": "comment", "data": {"payload": "foobar"}},
+        ],
+    )
+    assert run_engine.mock_calls[1] == mock.call(
+        fake_install_id(12345),
+        "owner",
+        "repo",
+        456,
+        [{"event_type": "comment", "data": {"payload": "foobar"}},],
+    )
+    assert run_engine.mock_calls[2] == mock.call(
+        fake_install_id(12345),
+        "owner",
+        "repo",
+        789,
+        [{"event_type": "comment", "data": {"payload": "foobar"}},],
+    )
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_worker_with_one_task(
+    run_engine, get_install_by_id, redis, logger_checker
+):
+    get_install_by_id.side_effect = fake_install_id
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    )
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
     )
 
     assert 1 == (await redis.zcard("streams"))
@@ -129,7 +206,7 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
     # Check engine have been run with expect data
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
-        12345,
+        fake_install_id(12345),
         "owner",
         "repo",
         123,
@@ -141,21 +218,30 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_consume_unexisting_stream(run_engine, redis, logger_checker):
+async def test_consume_unexisting_stream(
+    run_engine, get_install_by_id, redis, logger_checker
+):
+    get_install_by_id.side_effect = fake_install_id
     p = worker.StreamProcessor(redis)
     await p.consume("stream~666")
     assert len(run_engine.mock_calls) == 0
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_consume_good_stream(run_engine, redis, logger_checker):
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+async def test_consume_good_stream(
+    run_engine, get_install_by_id, redis, logger_checker
+):
+    get_install_by_id.side_effect = fake_install_id
+
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
-    worker.push(
-        12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
     )
 
     assert 1 == (await redis.zcard("streams"))
@@ -168,7 +254,7 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        12345,
+        fake_install_id(12345),
         "owner",
         "repo",
         123,
@@ -186,8 +272,12 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
+async def test_stream_processor_retrying_pull(
+    run_engine, get_install_by_id, logger_class, redis
+):
+    get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
     logger = logger_class.return_value
 
@@ -200,11 +290,11 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
         exceptions.MergeableStateUnknown(mock.Mock()),
     ]
 
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
-    worker.push(
-        12345, "owner", "repo", 42, "comment", {"payload": "foobar"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 42, "comment", {"payload": "foobar"},
     )
 
     assert 1 == (await redis.zcard("streams"))
@@ -218,14 +308,14 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
         mock.call(
-            12345,
+            fake_install_id(12345),
             "owner",
             "repo",
             123,
             [{"event_type": "pull_request", "data": {"payload": "whatever"}},],
         ),
         mock.call(
-            12345,
+            fake_install_id(12345),
             "owner",
             "repo",
             42,
@@ -269,21 +359,22 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch.object(worker, "LOG")
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(
-    run_engine, logger_class, redis
+    run_engine, get_install_by_id, logger, redis
 ):
+    get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
-    logger = logger_class.return_value
 
     run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
 
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
-    worker.push(
-        12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
     )
 
     assert 1 == (await redis.zcard("streams"))
@@ -296,7 +387,7 @@ async def test_stream_processor_retrying_stream_recovered(
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        12345,
+        fake_install_id(12345),
         "owner",
         "repo",
         123,
@@ -327,21 +418,22 @@ async def test_stream_processor_retrying_stream_recovered(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch.object(worker, "LOG")
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(
-    run_engine, logger_class, redis
+    run_engine, get_install_by_id, logger, redis
 ):
+    get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
-    logger = logger_class.return_value
 
     run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
 
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
-    worker.push(
-        12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "comment", {"payload": "foobar"},
     )
 
     assert 1 == (await redis.zcard("streams"))
@@ -354,7 +446,7 @@ async def test_stream_processor_retrying_stream_failure(
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        12345,
+        fake_install_id(12345),
         "owner",
         "repo",
         123,
@@ -391,15 +483,19 @@ async def test_stream_processor_retrying_stream_failure(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, redis):
+async def test_stream_processor_pull_unexpected_error(
+    run_engine, get_install_by_id, logger_class, redis
+):
+    get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
     logger = logger_class.return_value
 
     run_engine.side_effect = Exception
 
-    worker.push(
-        12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+    await worker.push(
+        redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
     )
 
     p = worker.StreamProcessor(redis)
@@ -417,20 +513,25 @@ async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, 
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.get_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_date_scheduling(run_engine, redis, logger_checker):
+async def test_stream_processor_date_scheduling(
+    run_engine, get_install_by_id, redis, logger_checker
+):
+    get_install_by_id.side_effect = fake_install_id
+
     # Don't process it before 2040
     with freeze_time("2040-01-01"):
-        worker.push(
-            12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
+        await worker.push(
+            redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
         )
-        unwanted_installation_id = 12345
+        unwanted_installation_id = fake_install_id(12345)
 
     with freeze_time("2020-01-01"):
-        worker.push(
-            54321, "owner", "repo", 321, "pull_request", {"payload": "foobar"},
+        await worker.push(
+            redis, 54321, "owner", "repo", 321, "pull_request", {"payload": "foobar"},
         )
-        wanted_installation_id = 54321
+        wanted_installation_id = fake_install_id(54321)
 
     assert 2 == (await redis.zcard("streams"))
     assert 2 == len(await redis.keys("stream~*"))

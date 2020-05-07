@@ -18,6 +18,8 @@ import os
 from unittest import mock
 import uuid
 
+# TODO(sileht): Replace me by mock.AsyncMock when we drop py37
+import asyncmock
 from starlette import testclient
 
 from mergify_engine import tasks
@@ -31,7 +33,10 @@ tasks.app.conf.task_always_eager = True
 tasks.app.conf.task_eager_propagates = True
 
 
-@mock.patch("mergify_engine.tasks.github_events.job_filter_and_dispatch")
+@mock.patch(
+    "mergify_engine.github_events.job_filter_and_dispatch",
+    new_callable=asyncmock.AsyncMock,
+)
 @mock.patch(
     "mergify_engine.config.WEBHOOK_APP_FORWARD_URL",
     new_callable=mock.PropertyMock(return_value="https://foobar/engine/app"),

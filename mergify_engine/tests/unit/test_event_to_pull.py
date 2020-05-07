@@ -20,8 +20,8 @@ from unittest import mock
 
 import httpx
 
+from mergify_engine import github_events
 from mergify_engine.clients import github
-from mergify_engine.tasks import github_events
 
 
 def test_event_to_pull_check_run_forked_repo():
@@ -49,7 +49,7 @@ def test_event_to_pull_check_run_forked_repo():
         with mock.patch.object(
             github, "get_installation", return_value={"id": installation_id}
         ):
-            pulls = github_events._extract_pulls_from_event(
+            pulls = github_events.extract_pull_numbers_from_event(
                 installation_id, owner, repo, event_type, data
             )
             assert len(pulls) == 0
@@ -80,8 +80,8 @@ def test_event_to_pull_check_run_same_repo():
         with mock.patch.object(
             github, "get_installation", return_value={"id": installation_id}
         ):
-            pulls = github_events._extract_pulls_from_event(
+            pulls = github_events.extract_pull_numbers_from_event(
                 installation_id, owner, repo, event_type, data
             )
             assert len(pulls) == 1
-            assert pulls[0]["number"] == 409
+            assert pulls[0] == 409

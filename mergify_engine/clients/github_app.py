@@ -90,6 +90,17 @@ class _Client(http.Client):
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
+    def get_installation_by_id(self, installation_id):
+        try:
+            return self._get_installation(f"/app/installations/{installation_id}")
+        except httpx.HTTPNotFound as e:
+            LOG.debug(
+                "mergify not installed",
+                installation_id=installation_id,
+                error_message=e.message,
+            )
+            raise exceptions.MergifyNotInstalled()
+
     def get_installation(self, owner, repo=None, account_type=None):
         if not account_type and not repo:
             raise RuntimeError("repo or account_type must be passed")
@@ -101,7 +112,7 @@ class _Client(http.Client):
             url = f"/{account_type}/{owner}/installation"
 
         try:
-            installation = self.get(url).json()
+            return self._get_installation(url)
         except httpx.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
@@ -111,14 +122,15 @@ class _Client(http.Client):
             )
             raise exceptions.MergifyNotInstalled()
 
+    def _get_installation(self, url):
+        installation = self.get(url).json()
         installation["permissions_need_to_be_updated"] = False
         expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
         for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
                 LOG.debug(
                     "mergify installation doesn't have required permissions",
-                    gh_owner=owner,
-                    gh_repo=repo,
+                    gh_owner=installation["account"]["login"],
                     permissions=installation["permissions"],
                 )
                 installation["permissions_need_to_be_updated"] = True

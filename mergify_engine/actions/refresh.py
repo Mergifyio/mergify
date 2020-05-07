@@ -12,10 +12,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
 import uuid
 
 from mergify_engine import actions
-from mergify_engine.tasks import github_events
+from mergify_engine import github_events
 
 
 class RefreshAction(actions.Action):
@@ -31,6 +32,7 @@ class RefreshAction(actions.Action):
             "pull_request": ctxt.pull,
             "sender": {"login": "<internal>"},
         }
-        github_events.job_filter_and_dispatch.s(
-            "refresh", str(uuid.uuid4()), data
-        ).apply_async()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            github_events.job_filter_and_dispatch("refresh", str(uuid.uuid4()), data)
+        )

@@ -36,6 +36,7 @@ def test_client_401_raise_ratelimit(httpserver):
                 "contents": "write",
                 "pull_requests": "write",
             },
+            "account": {"login": "testing"},
         }
     )
     httpserver.expect_request(
