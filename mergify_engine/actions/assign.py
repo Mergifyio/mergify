@@ -29,16 +29,17 @@ class AssignAction(actions.Action):
         wanted = set(self.config["users"])
         already = set((user["login"] for user in ctxt.pull["assignees"]))
         assignees = list(wanted - already)
-        try:
-            ctxt.client.post(
-                f"issues/{ctxt.pull['number']}/assignees",
-                json={"assignees": assignees},
-            )
-        except httpx.HTTPClientSideError as e:  # pragma: no cover
-            return (
-                None,
-                "Unable to add assignees",
-                f"GitHub error: [{e.status_code}] `{e.message}`",
-            )
+        if assignees:
+            try:
+                ctxt.client.post(
+                    f"issues/{ctxt.pull['number']}/assignees",
+                    json={"assignees": assignees},
+                )
+            except httpx.HTTPClientSideError as e:  # pragma: no cover
+                return (
+                    None,
+                    "Unable to add assignees",
+                    f"GitHub error: [{e.status_code}] `{e.message}`",
+                )
 
         return ("success", "Assignees added", ", ".join(self.config["users"]))
