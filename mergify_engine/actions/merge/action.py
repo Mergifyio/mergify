@@ -175,8 +175,8 @@ class MergeAction(actions.Action):
             )
 
             return (
-                pull_request.render_message(title.strip()),
-                pull_request.render_message(
+                pull_request.render_template(title.strip()),
+                pull_request.render_template(
                     "\n".join(line.strip() for line in message_lines)
                 ),
             )
@@ -199,7 +199,7 @@ class MergeAction(actions.Action):
             commit_title_and_message = self._get_commit_message(
                 ctxt.pull_request, self.config["commit_message"],
             )
-        except context.RenderMessageFailure as rmf:
+        except context.RenderTemplateFailure as rmf:
             return (
                 "action_required",
                 "Invalid commit message",

@@ -19,6 +19,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.rules import types
 
 
 MSG = "This pull request has been automatically closed by Mergify."
@@ -26,7 +27,7 @@ MSG = "This pull request has been automatically closed by Mergify."
 
 class CloseAction(actions.Action):
     only_once = True
-    validator = {voluptuous.Required("message", default=MSG): str}
+    validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
     def run(self, ctxt, rule, missing_conditions):
         if ctxt.pull["state"] == "close":
@@ -38,8 +39,8 @@ class CloseAction(actions.Action):
             return ("failure", "Pull request can't be closed", e.message)
 
         try:
-            message = ctxt.pull_request.render_message(self.config["message"])
-        except context.RenderMessageFailure as rmf:
+            message = ctxt.pull_request.render_template(self.config["message"])
+        except context.RenderTemplateFailure as rmf:
             return (
                 "failure",
                 "Invalid close message",

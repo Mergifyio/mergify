@@ -13,7 +13,6 @@
 # under the License.
 
 
-import logging
 import re
 import sys
 
@@ -100,10 +99,10 @@ def setup_logging(**kwargs):
         )
 
     if config.LOG_DATADOG:
-        outputs.append(daiquiri.output.Datadog())
+        outputs.append(daiquiri.output.Datadog(level=config.LOG_DATADOG_LEVEL))
 
     daiquiri.setup(
-        outputs=outputs, level=(logging.DEBUG if config.DEBUG else logging.INFO),
+        outputs=outputs, level=config.LOG_LEVEL,
     )
     daiquiri.set_default_log_levels(
         [

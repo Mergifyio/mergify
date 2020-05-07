@@ -21,6 +21,7 @@ from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import utils
+from mergify_engine.rules import types
 
 
 class DismissReviewsAction(actions.Action):
@@ -31,7 +32,9 @@ class DismissReviewsAction(actions.Action):
         voluptuous.Required("changes_requested", default=True): voluptuous.Any(
             True, False, [str]
         ),
-        voluptuous.Required("message", default="Pull request has been modified."): str,
+        voluptuous.Required(
+            "message", default="Pull request has been modified."
+        ): types.Jinja2,
     }
 
     always_run = True
@@ -61,8 +64,8 @@ class DismissReviewsAction(actions.Action):
                 return ("success", "Rebased/Updated by us, nothing to do", "")
 
             try:
-                message = ctxt.pull_request.render_message(self.config["message"])
-            except context.RenderMessageFailure as rmf:
+                message = ctxt.pull_request.render_template(self.config["message"])
+            except context.RenderTemplateFailure as rmf:
                 return (
                     "failure",
                     "Invalid dismiss reviews message",

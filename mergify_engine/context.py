@@ -385,8 +385,13 @@ class Context(object):
         return self.pull["maintainer_can_modify"] or not self.pull_from_fork
 
 
-class RenderMessageFailure(Exception):
-    pass
+@dataclasses.dataclass
+class RenderTemplateFailure(Exception):
+    message: str
+    lineno: int = None
+
+    def __str__(self):
+        return self.message
 
 
 @dataclasses.dataclass
@@ -398,7 +403,7 @@ class PullRequest:
 
     context: Context
 
-    _ATTRIBUTES = {
+    ATTRIBUTES = {
         "assignee",
         "label",
         "review-requested",
@@ -428,7 +433,7 @@ class PullRequest:
         return self.context._get_consolidated_data(name.replace("_", "-"))
 
     def __iter__(self):
-        return iter(self._ATTRIBUTES)
+        return iter(self.ATTRIBUTES)
 
     def items(self):
         for k in self:
@@ -441,22 +446,16 @@ class PullRequest:
         PullRequestContext.inject(env, self)
         return env
 
-    def render_message(self, message):
-        """Render a message interpolating variables based on pull request attributes."""
+    def render_template(self, template):
+        """Render a template interpolating variables based on pull request attributes."""
         try:
-            return self.jinja2_env.from_string(message).render()
+            return self.jinja2_env.from_string(template).render()
         except jinja2.exceptions.TemplateSyntaxError as tse:
-            raise RenderMessageFailure(
-                f"There is an error in your message: {tse.message} at line {tse.lineno}"
-            )
+            raise RenderTemplateFailure(tse.message, tse.lineno)
         except jinja2.exceptions.TemplateError as te:
-            raise RenderMessageFailure(
-                f"There is an error in your message: {te.message}",
-            )
+            raise RenderTemplateFailure(te.message)
         except PullRequestAttributeError as e:
-            raise RenderMessageFailure(
-                f"There is an error in your message, the following variable is unknown: {e.name}",
-            )
+            raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
 
 
 class PullRequestContext(jinja2.runtime.Context):
