@@ -15,6 +15,7 @@
 
 import re
 import sys
+import weakref
 
 import celery.app.log
 import daiquiri
@@ -24,7 +25,7 @@ from mergify_engine import config
 
 global GLOBAL_EXTRAS, LOGGERS
 GLOBAL_EXTRAS = {}
-LOGGERS = []
+LOGGERS = weakref.WeakSet()
 
 
 class CustomFormatter(
@@ -46,7 +47,7 @@ def getLogger(name, **kwargs):
     extras.update(GLOBAL_EXTRAS)
     extras.update(kwargs)
     logger = daiquiri.getLogger(name, **extras)
-    LOGGERS.append(logger)
+    LOGGERS.add(logger)
     return logger
 
 
