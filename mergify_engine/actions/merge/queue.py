@@ -188,8 +188,7 @@ def process_queue(queue):
         try:
             ctxt = context.Context(client, data, subscription)
         except exceptions.RateLimited as e:
-            log = ctxt.log if ctxt else queue_log
-            log.debug("rate limited", remaining_seconds=e.countdown)
+            queue_log.debug("rate limited", remaining_seconds=e.countdown)
             return
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             e.ctxt.log.warning(
