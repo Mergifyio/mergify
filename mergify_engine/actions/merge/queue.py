@@ -100,8 +100,7 @@ def _delete_queue(queue):
     redis.delete(queue)
 
 
-def _handle_first_pull_in_queue(queue, ctxt):
-    _, installation_id, owner, reponame, branch = queue.split("~")
+def _handle_first_pull_in_queue(ctxt):
     old_checks = [
         c for c in ctxt.pull_engine_check_runs if c["name"].endswith(" (merge)")
     ]
@@ -189,8 +188,7 @@ def process_queue(queue):
         try:
             ctxt = context.Context(client, data, subscription)
         except exceptions.RateLimited as e:
-            log = ctxt.log if ctxt else queue_log
-            log.debug("rate limited", remaining_seconds=e.countdown)
+            queue_log.debug("rate limited", remaining_seconds=e.countdown)
             return
         except exceptions.MergeableStateUnknown as e:  # pragma: no cover
             e.ctxt.log.warning(
@@ -212,7 +210,7 @@ def process_queue(queue):
                 ctxt.log.info(
                     "pull request needs to be updated again or has been closed",
                 )
-                _handle_first_pull_in_queue(queue, ctxt)
+                _handle_first_pull_in_queue(ctxt)
             else:
                 # NOTE(sileht): Pull request has not been merged or cancelled
                 # yet wait next loop
