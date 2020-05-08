@@ -25,7 +25,7 @@ class AssignAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         wanted = set(self.config["users"])
         already = set((user["login"] for user in ctxt.pull["assignees"]))
         assignees = list(wanted - already)

@@ -55,7 +55,7 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         ctxt.log.info("process merge", config=self.config)
 
         output = helpers.merge_report(ctxt, self.config["strict"])
@@ -73,14 +73,14 @@ class MergeAction(actions.Action):
                 if self.config["strict"] == "smart":
                     queue.remove_pull(ctxt)
 
-    def cancel(self, ctxt, missing_conditions):
+    def cancel(self, ctxt, rule, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
         if self.config["strict"] and self._required_statuses_in_progress(
             ctxt, missing_conditions
         ):
-            return helpers.get_wait_for_ci_report(ctxt)
+            return helpers.get_wait_for_ci_report(ctxt, rule, missing_conditions)
 
         if self.config["strict"] == "smart":
             queue.remove_pull(ctxt)
@@ -96,6 +96,8 @@ class MergeAction(actions.Action):
         need_look_at_checks = []
         for condition in missing_conditions:
             if condition.attribute_name.startswith("status-"):
+                # TODO(sileht): Just return True here, no need to checks
+                # checks anymore, this method is no more use by merge queue
                 need_look_at_checks.append(condition)
             else:
                 # something else does not match anymore
@@ -173,8 +175,8 @@ class MergeAction(actions.Action):
             )
 
             return (
-                pull_request.render_message(title.strip()),
-                pull_request.render_message(
+                pull_request.render_template(title.strip()),
+                pull_request.render_template(
                     "\n".join(line.strip() for line in message_lines)
                 ),
             )
@@ -197,7 +199,7 @@ class MergeAction(actions.Action):
             commit_title_and_message = self._get_commit_message(
                 ctxt.pull_request, self.config["commit_message"],
             )
-        except context.RenderMessageFailure as rmf:
+        except context.RenderTemplateFailure as rmf:
             return (
                 "action_required",
                 "Invalid commit message",

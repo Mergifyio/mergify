@@ -104,7 +104,7 @@ class CopyAction(actions.Action):
             f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         branches = self.config["branches"]
         if self.config["regexes"]:
             regexes = list(map(re.compile, self.config["regexes"]))

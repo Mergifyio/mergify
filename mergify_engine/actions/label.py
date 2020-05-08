@@ -32,7 +32,7 @@ class LabelAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         if self.config["add"]:
             all_label = [l["name"] for l in ctxt.client.items("labels")]
             for label in self.config["add"]:

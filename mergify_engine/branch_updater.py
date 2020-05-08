@@ -227,4 +227,4 @@ def update_with_git(ctxt, method="merge"):
             )
 
     ctxt.log.warning("unable to update branch: no tokens are valid")
-    raise AuthentificationFailure("No oauth valid tokens")
+    raise AuthentificationFailure("No valid OAuth tokens")

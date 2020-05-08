@@ -13,9 +13,9 @@
 # under the License.
 
 
-import logging
 import re
 import sys
+import weakref
 
 import celery.app.log
 import daiquiri
@@ -25,7 +25,7 @@ from mergify_engine import config
 
 global GLOBAL_EXTRAS, LOGGERS
 GLOBAL_EXTRAS = {}
-LOGGERS = []
+LOGGERS = weakref.WeakSet()
 
 
 class CustomFormatter(
@@ -47,7 +47,7 @@ def getLogger(name, **kwargs):
     extras.update(GLOBAL_EXTRAS)
     extras.update(kwargs)
     logger = daiquiri.getLogger(name, **extras)
-    LOGGERS.append(logger)
+    LOGGERS.add(logger)
     return logger
 
 
@@ -100,10 +100,10 @@ def setup_logging(**kwargs):
         )
 
     if config.LOG_DATADOG:
-        outputs.append(daiquiri.output.Datadog())
+        outputs.append(daiquiri.output.Datadog(level=config.LOG_DATADOG_LEVEL))
 
     daiquiri.setup(
-        outputs=outputs, level=(logging.DEBUG if config.DEBUG else logging.INFO),
+        outputs=outputs, level=config.LOG_LEVEL,
     )
     daiquiri.set_default_log_levels(
         [
