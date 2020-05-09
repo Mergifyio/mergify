@@ -25,6 +25,7 @@ from typing import List
 from typing import Set
 
 from datadog import statsd
+import httpx
 import msgpack
 import uvloop
 
@@ -103,7 +104,13 @@ def run_engine(installation_id, owner, repo, pull_number, sources):
             return
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
-            pull = client.item(f"pulls/{pull_number}")
+            try:
+                pull = client.item(f"pulls/{pull_number}")
+            except httpx.HTTPClientSideError as e:
+                if e.status_code == 404:
+                    logger.debug("pull request doesn't exists, skipping it")
+                    return
+                raise
             engine.run(client, pull, sources)
     finally:
         logger.debug("engine in thread end")
