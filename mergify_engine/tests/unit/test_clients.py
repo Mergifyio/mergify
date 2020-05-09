@@ -28,7 +28,15 @@ def test_client_401_raise_ratelimit(httpserver):
     repo = "repo"
 
     httpserver.expect_request("/repos/owner/repo/installation").respond_with_json(
-        {"id": 12345, "target_type": "User", "permissions": {}}
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+        }
     )
     httpserver.expect_request(
         "/app/installations/12345/access_tokens"
