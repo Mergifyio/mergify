@@ -35,12 +35,19 @@ BASE_RETRY_TIMEOUT = 60
 
 
 def should_be_ignored(exception):
-    if (
-        isinstance(exception, httpx.HTTPClientSideError)
-        and exception.status_code == 403
-        and exception.message == "Resource not accessible by integration"
-    ):
-        return True
+    if isinstance(exception, httpx.HTTPClientSideError):
+        if (
+            exception.status_code == 403
+            and exception.message == "Resource not accessible by integration"
+        ):
+            return True
+
+        # NOTE(sileht): a repository return 404 for /pulls..., so can't do much
+        elif exception.status_code == 404 and str(exception.request.url).endswith(
+            "/pulls"
+        ):
+            return True
+
     return False
 
 
