@@ -103,7 +103,11 @@ def _extract_source_data(event_type, data):
         slim_data[event_type] = {
             "head_sha": data[event_type]["head_sha"],
             "pull_requests": [
-                {"number": p["number"]} for p in data[event_type]["pull_requests"]
+                {
+                    "number": p["number"],
+                    "base": {"repo": {"url": p["base"]["repo"]["url"]}},
+                }
+                for p in data[event_type]["pull_requests"]
             ],
         }
 
@@ -182,8 +186,12 @@ def extract_pull_numbers_from_event(installation, owner, repo, event_type, data)
             # NOTE(sileht): This list may contains Pull Request from another org/user fork...
             base_repo_url = str(client.base_url)[:-1]
             pulls = data[event_type]["pull_requests"]
+            # TODO(sileht): remove `"base" in p and`
+            # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing
             pulls = [
-                p["number"] for p in pulls if p["base"]["repo"]["url"] == base_repo_url
+                p["number"]
+                for p in pulls
+                if "base" in p and p["base"]["repo"]["url"] == base_repo_url
             ]
             if not pulls:
                 sha = data[event_type]["head_sha"]
