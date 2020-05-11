@@ -73,10 +73,10 @@ def merge_report(ctxt, strict):
     return conclusion, title, summary
 
 
-def get_wait_for_ci_report(pull, rule=None, missing_conditions=None):
+def get_wait_for_ci_report(ctxt, rule=None, missing_conditions=None):
     summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
 
-    pulls = queue.get_pulls_from_queue(pull)
+    pulls = queue.Queue.from_context(ctxt).get_pulls()
     if pulls:
         links = ", ".join((f"#{pull}" for pull in pulls))
         summary += f"\n\nThe following pull requests are queued: {links}"
@@ -90,20 +90,20 @@ def get_wait_for_ci_report(pull, rule=None, missing_conditions=None):
     return None, "Base branch updates done", summary
 
 
-def update_pull_base_branch(pull, method):
+def update_pull_base_branch(ctxt, method):
     try:
         if method == "merge":
-            branch_updater.update_with_api(pull)
+            branch_updater.update_with_api(ctxt)
         else:
-            branch_updater.update_with_git(pull, method)
+            branch_updater.update_with_git(ctxt, method)
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status
-        pull.update()
-        output = merge_report(pull, True)
+        ctxt.update()
+        output = merge_report(ctxt, True)
         if output:
             return output
         else:
             return ("failure", "Base branch update has failed", e.message)
     else:
-        return get_wait_for_ci_report(pull)
+        return get_wait_for_ci_report(ctxt)

@@ -59,7 +59,7 @@ def celery_logging(**kwargs):  # pragma: no cover
 
 @app.task
 def smart_strict_workflow_periodic_task():
-    queue.process_queues()
+    queue.Queue.process_queues()
 
 
 @app.on_after_configure.connect
