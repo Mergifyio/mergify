@@ -73,10 +73,22 @@ class Queue:
         redis = utils.get_redis_for_cache()
         return redis.get(self._method_cache_key(pull_number)) or default
 
-    def add_pull(self, pull_number, method):
+    def _add_pull(self, pull_number, update=False):
+        """Add a pull without setting its method.
+
+        :param update: If update is True, don't create PR if it's not there.
+        """
         redis = utils.get_redis_for_cache()
         score = utils.utcnow().timestamp()
-        redis.zadd(self._cache_key, {pull_number: score}, nx=True)
+        if update:
+            flags = dict(xx=True)
+        else:
+            flags = dict(nx=True)
+        redis.zadd(self._cache_key, {pull_number: score}, **flags)
+
+    def add_pull(self, pull_number, method):
+        redis = utils.get_redis_for_cache()
+        self._add_pull(pull_number)
         redis.set(self._method_cache_key(pull_number), method)
         self.log.info("pull request added to merge queue", gh_pull=pull_number)
 
@@ -87,9 +99,7 @@ class Queue:
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
-        redis = utils.get_redis_for_cache()
-        score = utils.utcnow().timestamp()
-        redis.zadd(self._cache_key, {pull_number: score}, xx=True)
+        self._add_pull(pull_number, update=True)
         self.log.info(
             "pull request moved at the end of the merge queue", gh_pull=pull_number
         )
@@ -100,9 +110,7 @@ class Queue:
             self.installation_id, self.owner, self.repo, old_base_branch, pull_number
         )
         redis.zrem(old_queue._cache_key, pull_number)
-        # FIXME do not get method to set it back again
-        method = self.get_merge_method(pull_number)
-        self.add_pull(pull_number, method)
+        self._add_pull(pull_number)
         self.log.info(
             "pull request moved from queue %s to this queue",
             old_queue,
