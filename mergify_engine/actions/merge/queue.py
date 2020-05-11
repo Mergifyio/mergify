@@ -33,6 +33,8 @@ class Queue:
     repo: str
     ref: str
 
+    DEFAULT_MERGE_METHOD = "merge"
+
     @property
     def log(self):
         return logs.getLogger(
@@ -59,6 +61,17 @@ class Queue:
 
     def _method_cache_key(self, pull_number):
         return f"strict-merge-method~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
+
+    def get_merge_method(
+        self, pull_number: int, default: str = DEFAULT_MERGE_METHOD
+    ) -> str:
+        """Return merge method for a pull request.
+
+        :param pull_number: The pull request number.
+        :param default: The default method to return if not found.
+        """
+        redis = utils.get_redis_for_cache()
+        return redis.get(self._method_cache_key(pull_number)) or default
 
     def add_pull(self, pull_number, method):
         redis = utils.get_redis_for_cache()
@@ -88,7 +101,7 @@ class Queue:
         )
         redis.zrem(old_queue._cache_key, pull_number)
         # FIXME do not get method to set it back again
-        method = redis.get(self._method_cache_key(pull_number)) or "merge"
+        method = self.get_merge_method(pull_number)
         self.add_pull(pull_number, method)
         self.log.info(
             "pull request moved from queue %s to this queue",
@@ -121,8 +134,7 @@ class Queue:
             self.remove_pull(ctxt.pull["number"])
         else:
             ctxt.log.info("updating base branch of pull request")
-            redis = utils.get_redis_for_cache()
-            method = redis.get(self._method_cache_key(ctxt.pull["number"])) or "merge"
+            method = self.get_merge_method(ctxt.pull["number"])
             conclusion, title, summary = helpers.update_pull_base_branch(ctxt, method)
 
             if ctxt.pull["state"] == "closed":
