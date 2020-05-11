@@ -91,11 +91,19 @@ class Context(object):
     def _get_valid_users(self):
         bots = list(
             set(
-                [r["user"]["login"] for r in self.reviews if r["user"]["type"] == "Bot"]
+                [
+                    r["user"]["login"]
+                    for r in self.reviews
+                    if r["user"] and r["user"]["type"] == "Bot"
+                ]
             )
         )
         collabs = set(
-            [r["user"]["login"] for r in self.reviews if r["user"]["type"] != "Bot"]
+            [
+                r["user"]["login"]
+                for r in self.reviews
+                if r["user"] and r["user"]["type"] != "Bot"
+            ]
         )
         valid_collabs = [
             login for login in collabs if self.has_write_permissions(login)
@@ -110,7 +118,7 @@ class Context(object):
         approvals = dict()
         valid_users = self._get_valid_users()
         for review in self.reviews:
-            if review["user"]["login"] not in valid_users:
+            if not review["user"] or review["user"]["login"] not in valid_users:
                 continue
             # Only keep latest review of an user
             if review["state"] == "COMMENTED":
