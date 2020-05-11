@@ -58,10 +58,12 @@ class MergeAction(actions.Action):
     def run(self, ctxt, rule, missing_conditions):
         ctxt.log.info("process merge", config=self.config)
 
+        q = queue.Queue.from_context(ctxt)
+
         output = helpers.merge_report(ctxt, self.config["strict"])
         if output:
             if self.config["strict"] == "smart":
-                queue.remove_pull(ctxt)
+                q.remove_pull(ctxt.pull["number"])
             return output
 
         if self.config["strict"] and ctxt.is_behind:
@@ -71,7 +73,7 @@ class MergeAction(actions.Action):
                 return self._merge(ctxt)
             finally:
                 if self.config["strict"] == "smart":
-                    queue.remove_pull(ctxt)
+                    q.remove_pull(ctxt.pull["number"])
 
     def cancel(self, ctxt, rule, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
@@ -83,7 +85,7 @@ class MergeAction(actions.Action):
             return helpers.get_wait_for_ci_report(ctxt, rule, missing_conditions)
 
         if self.config["strict"] == "smart":
-            queue.remove_pull(ctxt)
+            queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
 
         return self.cancelled_check_report
 
@@ -132,7 +134,9 @@ class MergeAction(actions.Action):
                 "",
             )
         elif self.config["strict"] == "smart":
-            queue.add_pull(ctxt, self.config["strict_method"])
+            queue.Queue.from_context(ctxt).add_pull(
+                ctxt.pull["number"], self.config["strict_method"]
+            )
             return (
                 None,
                 "Base branch will be updated soon",
