@@ -27,7 +27,13 @@ LOG = logs.getLogger(__name__)
 
 
 def get_ignore_reason(event_type, data):
-    if event_type in ["installation", "installation_repositories"]:
+    if "installation" not in data:
+        return "ignored, no installation found"
+
+    elif "repository" not in data:
+        return "ignored, no repository found"
+
+    elif event_type in ["installation", "installation_repositories"]:
         return "ignored (action %s)" % data["action"]
 
     elif event_type in ["push"] and not data["ref"].startswith("refs/heads/"):
@@ -127,9 +133,17 @@ async def job_filter_and_dispatch(event_type, event_id, data):
     # TODO(sileht): is statsd async ?
     meter_event(event_type, data)
 
-    installation_id = data["installation"]["id"]
-    owner = data["repository"]["owner"]["login"]
-    repo = data["repository"]["name"]
+    if "installation" in data:
+        installation_id = data["installation"]["id"]
+    else:
+        installation_id = "<unknown>"
+
+    if "repository" in data:
+        owner = data["repository"]["owner"]["login"]
+        repo = data["repository"]["name"]
+    else:
+        owner = "<unknown>"
+        repo = "<unknown>"
 
     reason = get_ignore_reason(event_type, data)
     if reason:
