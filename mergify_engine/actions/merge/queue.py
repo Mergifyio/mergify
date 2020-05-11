@@ -13,6 +13,8 @@
 # under the License.
 import dataclasses
 
+import redis
+
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import exceptions
@@ -28,6 +30,7 @@ LOG = logs.getLogger(__name__)
 
 @dataclasses.dataclass
 class Queue:
+    redis: redis.Redis
     installation_id: int
     owner: str
     repo: str
@@ -42,13 +45,14 @@ class Queue:
         )
 
     @classmethod
-    def from_queue_name(cls, name):
+    def from_queue_name(cls, redis, name):
         _, installation_id, owner, repo, branch = name.split("~")
-        return cls(int(installation_id), owner, repo, branch)
+        return cls(redis, int(installation_id), owner, repo, branch)
 
     @classmethod
     def from_context(cls, ctxt):
         return cls(
+            utils.get_redis_for_cache(),
             ctxt.client.installation["id"],
             ctxt.pull["base"]["repo"]["owner"]["login"],
             ctxt.pull["base"]["repo"]["name"],
@@ -70,32 +74,28 @@ class Queue:
         :param pull_number: The pull request number.
         :param default: The default method to return if not found.
         """
-        redis = utils.get_redis_for_cache()
-        return redis.get(self._method_cache_key(pull_number)) or default
+        return self.redis.get(self._method_cache_key(pull_number)) or default
 
     def _add_pull(self, pull_number, update=False):
         """Add a pull without setting its method.
 
         :param update: If update is True, don't create PR if it's not there.
         """
-        redis = utils.get_redis_for_cache()
         score = utils.utcnow().timestamp()
         if update:
             flags = dict(xx=True)
         else:
             flags = dict(nx=True)
-        redis.zadd(self._cache_key, {pull_number: score}, **flags)
+        self.redis.zadd(self._cache_key, {pull_number: score}, **flags)
 
     def add_pull(self, pull_number, method):
-        redis = utils.get_redis_for_cache()
         self._add_pull(pull_number)
-        redis.set(self._method_cache_key(pull_number), method)
+        self.redis.set(self._method_cache_key(pull_number), method)
         self.log.info("pull request added to merge queue", gh_pull=pull_number)
 
     def remove_pull(self, pull_number):
-        redis = utils.get_redis_for_cache()
-        redis.zrem(self._cache_key, pull_number)
-        redis.delete(self._method_cache_key(pull_number))
+        self.redis.zrem(self._cache_key, pull_number)
+        self.redis.delete(self._method_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
@@ -105,11 +105,10 @@ class Queue:
         )
 
     def _move_pull_to_new_base_branch(self, pull_number, old_base_branch):
-        redis = utils.get_redis_for_cache()
         old_queue = self.__class__(
             self.installation_id, self.owner, self.repo, old_base_branch, pull_number
         )
-        redis.zrem(old_queue._cache_key, pull_number)
+        self.redis.zrem(old_queue._cache_key, pull_number)
         self._add_pull(pull_number)
         self.log.info(
             "pull request moved from queue %s to this queue",
@@ -118,12 +117,10 @@ class Queue:
         )
 
     def get_pulls(self):
-        redis = utils.get_redis_for_cache()
-        return redis.zrange(self._cache_key, 0, -1)
+        return self.redis.zrange(self._cache_key, 0, -1)
 
     def delete_queue(self):
-        redis = utils.get_redis_for_cache()
-        redis.delete(self._cache_key)
+        self.redis.delete(self._cache_key)
 
     def handle_first_pull_in_queue(self, ctxt):
         old_checks = [
@@ -175,7 +172,7 @@ class Queue:
         redis = utils.get_redis_for_cache()
         LOG.info("smart strict workflow loop start")
         for queue_name in redis.keys("strict-merge-queues~*"):
-            queue = cls.from_queue_name(queue_name)
+            queue = cls.from_queue_name(redis, queue_name)
             queue.log.info("handling queue")
             try:
                 queue.process()
