@@ -43,7 +43,8 @@ class TestLabelAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted(["unstable", "foobar"]), sorted([l.name for l in pulls[0].labels])
+            sorted(["unstable", "foobar"]),
+            sorted([label.name for label in pulls[0].labels]),
         )
 
     def test_label_empty(self):
@@ -64,7 +65,9 @@ class TestLabelAction(base.FunctionalTestBase):
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
-        self.assertEqual(sorted(["stable"]), sorted([l.name for l in pulls[0].labels]))
+        self.assertEqual(
+            sorted(["stable"]), sorted([label.name for label in pulls[0].labels])
+        )
 
     def test_label_remove_all(self):
         rules = {
