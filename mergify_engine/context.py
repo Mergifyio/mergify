@@ -132,7 +132,7 @@ class Context(object):
             return [a["login"] for a in self.pull["assignees"]]
 
         elif name == "label":
-            return [l["name"] for l in self.pull["labels"]]
+            return [label["name"] for label in self.pull["labels"]]
 
         elif name == "review-requested":
             return [u["login"] for u in self.pull["requested_reviewers"]] + [

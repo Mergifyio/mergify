@@ -37,7 +37,8 @@ class TestAssignAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted(["mergify-test1"]), sorted([l.login for l in pulls[0].assignees])
+            sorted(["mergify-test1"]),
+            sorted([user.login for user in pulls[0].assignees]),
         )
 
     def test_assign_valid_template(self):
@@ -58,5 +59,6 @@ class TestAssignAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted([self.u_fork.login]), sorted([l.login for l in pulls[0].assignees])
+            sorted([self.u_fork.login]),
+            sorted([user.login for user in pulls[0].assignees]),
         )

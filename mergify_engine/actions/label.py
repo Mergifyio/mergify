@@ -34,7 +34,7 @@ class LabelAction(actions.Action):
 
     def run(self, ctxt, rule, missing_conditions):
         if self.config["add"]:
-            all_label = [l["name"] for l in ctxt.client.items("labels")]
+            all_label = [label["name"] for label in ctxt.client.items("labels")]
             for label in self.config["add"]:
                 if label not in all_label:
                     color = "%06x" % random.randrange(16 ** 6)
@@ -51,7 +51,7 @@ class LabelAction(actions.Action):
         if self.config["remove_all"]:
             ctxt.client.delete(f"issues/{ctxt.pull['number']}/labels")
         elif self.config["remove"]:
-            pull_labels = [l["name"] for l in ctxt.pull["labels"]]
+            pull_labels = [label["name"] for label in ctxt.pull["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
                     label_escaped = parse.quote(label, safe="")

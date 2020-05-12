@@ -183,7 +183,7 @@ expected alphabetic or numeric character, but found"""
         self.assertEqual(1, len(pulls))
         requests = pulls[0].get_review_requests()
         self.assertEqual(
-            sorted(["mergify-test1"]), sorted([l.login for l in requests[0]])
+            sorted(["mergify-test1"]), sorted([user.login for user in requests[0]])
         )
 
     def test_request_reviews_teams(self):
@@ -208,7 +208,9 @@ expected alphabetic or numeric character, but found"""
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         requests = pulls[0].get_review_requests()
-        self.assertEqual(sorted([team.slug]), sorted([l.slug for l in requests[1]]))
+        self.assertEqual(
+            sorted([team.slug]), sorted([team.slug for team in requests[1]])
+        )
 
     def test_debugger(self):
         rules = {
@@ -263,7 +265,7 @@ expected alphabetic or numeric character, but found"""
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
-            "* Backport to branch `crashme` failed: Branch not found" % ()
+            "* Backport to branch `crashme` failed: Branch not found"
             == checks[0]["output"]["summary"]
         )
 
@@ -373,7 +375,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             % (pull.number, pull.title, pull.html_url,)
             == checks[0]["output"]["summary"]
         )
-        assert [l.name for l in pull.labels] == ["conflicts"]
+        assert [label.name for label in pull.labels] == ["conflicts"]
 
     def _do_test_backport(self, method, config=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
