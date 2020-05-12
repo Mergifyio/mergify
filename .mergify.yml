@@ -51,7 +51,8 @@ pull_request_rules:
         strict: "smart"
         method: rebase
   - name: dismiss reviews
-    conditions: []
+    conditions:
+      - author!=@devs
     actions:
       dismiss_reviews: {}
   - name: auto add wip
