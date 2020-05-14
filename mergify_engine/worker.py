@@ -504,11 +504,32 @@ class Worker:
         stream_processor.close()
         LOG.info("worker %d exited", worker_id)
 
-    async def _sleep_or_stop(self):
+    async def _sleep_or_stop(self, timeout=None):
+        if timeout is None:
+            timeout = self.idle_sleep_time
         try:
-            await asyncio.wait_for(self._stopping.wait(), timeout=self.idle_sleep_time)
+            await asyncio.wait_for(self._stopping.wait(), timeout=timeout)
         except asyncio.TimeoutError:
             pass
+
+    async def monitoring_task(self):
+        while not self._stopping.is_set():
+            now = time.time()
+            streams = await self._redis.zrangebyscore(
+                "streams",
+                min=0,
+                max=-1,
+                start=self.worker_count,
+                num=1,
+                withscores=True,
+            )
+            if streams:
+                latency = now - streams[0][1]
+                statsd.timing("engine.streams.latency", latency)
+            else:
+                statsd.timing("engine.streams.latency", 0)
+
+            await self._sleep_or_stop(60)
 
     async def _run(self):
         self._stopping.clear()
@@ -519,13 +540,17 @@ class Worker:
         for i in range(self.worker_count):
             self._worker_tasks.append(asyncio.create_task(self.stream_worker_task(i)))
 
+        self._monitoring_task = asyncio.create_task(self.monitoring_task())
+
         LOG.info("%d workers spawned", self.worker_count)
 
     async def _shutdown(self):
         LOG.info("wait for workers to exit")
         self._stopping.set()
 
-        await asyncio.wait([self._start_task] + self._worker_tasks)
+        await asyncio.wait(
+            [self._start_task, self._monitoring_task] + self._worker_tasks
+        )
         self._worker_tasks = []
 
         if self._redis:
