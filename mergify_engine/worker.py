@@ -354,7 +354,7 @@ end
 
     async def _extract_pulls_from_stream(self, stream_name, installation):
         LOG.debug("read stream", stream_name=stream_name)
-        messages = await self.redis.xrange(stream_name, count=100)
+        messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
