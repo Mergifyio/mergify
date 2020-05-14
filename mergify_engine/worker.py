@@ -473,7 +473,7 @@ class Worker:
     _redis: Any = dataclasses.field(init=False, default=None)
 
     _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
-    _running: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
+    _stopping: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
     _tombstone: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
 
     async def stream_worker_task(self, worker_id):
@@ -481,7 +481,7 @@ class Worker:
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis)
 
-        while self._running.is_set():
+        while not self._stopping.is_set():
             try:
                 async with self._stream_selector.next_stream() as stream_name:
                     if stream_name:
@@ -496,16 +496,22 @@ class Worker:
                         LOG.debug(
                             "worker %d has nothing to do, sleeping a bit", worker_id
                         )
-                        await asyncio.sleep(self.idle_sleep_time)
+                        await self._sleep_or_stop()
             except Exception:
                 LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
-                await asyncio.sleep(self.idle_sleep_time)
+                await self._sleep_or_stop()
 
         stream_processor.close()
         LOG.info("worker %d exited", worker_id)
 
+    async def _sleep_or_stop(self):
+        try:
+            await asyncio.wait_for(self._stopping.wait(), timeout=self.idle_sleep_time)
+        except asyncio.TimeoutError:
+            pass
+
     async def _run(self):
-        self._running.set()
+        self._stopping.clear()
 
         self._redis = await utils.create_aredis_for_stream()
         self._stream_selector = StreamSelector(self.worker_count, self._redis)
@@ -517,7 +523,7 @@ class Worker:
 
     async def _shutdown(self):
         LOG.info("wait for workers to exit")
-        self._running.clear()
+        self._stopping.set()
 
         await asyncio.wait([self._start_task] + self._worker_tasks)
         self._worker_tasks = []
@@ -540,7 +546,7 @@ class Worker:
         await asyncio.wait([self._stop_task])
 
     def stop_with_signal(self, signame):
-        if self._running.is_set():
+        if not self._stopping.is_set():
             LOG.info("got signal %s: cleanly shutdown worker", signame)
             self.stop()
         else:
