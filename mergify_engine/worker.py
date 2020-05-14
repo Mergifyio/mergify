@@ -443,6 +443,7 @@ end
                 end = time.monotonic()
                 logger.debug("engine finished in %s sec", end - start)
             except IgnoredException:
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
