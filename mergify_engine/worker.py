@@ -133,16 +133,14 @@ class ThreadRunner(threading.Thread):
 
     def __init__(self):
         super().__init__(daemon=True)
-        self._running = threading.Event()
-        self._process = threading.Event()
-
         self._method = None
         self._args = None
         self._kwargs = None
         self._result = None
         self._exception = None
 
-        self._running.set()
+        self._stopping = threading.Event()
+        self._process = threading.Event()
         self.start()
 
     async def exec(self, method, *args, **kwargs):
@@ -153,10 +151,10 @@ class ThreadRunner(threading.Thread):
         self._exception = None
 
         self._process.set()
-        while self._process.is_set() and self._running.is_set():
+        while self._process.is_set():
             await asyncio.sleep(0.01)
 
-        if not self._running.is_set():
+        if self._stopping.is_set():
             return
 
         if self._exception:
@@ -165,7 +163,7 @@ class ThreadRunner(threading.Thread):
         return self._result
 
     def close(self):
-        self._running.clear()
+        self._stopping.set()
         self._process.set()
         self.join()
 
@@ -173,9 +171,10 @@ class ThreadRunner(threading.Thread):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        while self._running.is_set():
+        while not self._stopping.is_set():
             self._process.wait()
-            if not self._running.is_set():
+            if self._stopping.is_set():
+                self._process.clear()
                 return
 
             try:
