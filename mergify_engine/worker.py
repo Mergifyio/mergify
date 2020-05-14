@@ -529,6 +529,8 @@ class Worker:
             else:
                 statsd.timing("engine.streams.latency", 0)
 
+            statsd.gauge("engine.workers.count", self.worker_count)
+
             await self._sleep_or_stop(60)
 
     async def _run(self):
