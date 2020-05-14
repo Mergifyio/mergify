@@ -50,21 +50,22 @@ class GithubInstallationAuth(httpx.Auth):
         self._access_token_expiration = None
 
     def auth_flow(self, request):
-        request.headers["Authorization"] = f"token {self.get_access_token()}"
+        request.headers["Authorization"] = f"token {self.get_access_token(request)}"
         response = yield request
         if response.status_code == 401:
             LOG.info(
                 "Token expired",
                 gh_owner=self.owner,
                 gh_repo=self.repo,
+                url=str(request.url),
                 expire_at=self._access_token_expiration,
             )
             self._access_token = None
             self._access_token_expiration = None
-            request.headers["Authorization"] = f"token {self.get_access_token()}"
+            request.headers["Authorization"] = f"token {self.get_access_token(request)}"
             yield request
 
-    def get_access_token(self):
+    def get_access_token(self, request):
         now = datetime.utcnow()
         if self._access_token is None or self._access_token_expiration <= now:
             r = github_app.get_client().post(
@@ -78,6 +79,7 @@ class GithubInstallationAuth(httpx.Auth):
                 "New token acquired",
                 gh_owner=self.owner,
                 gh_repo=self.repo,
+                url=str(request.url),
                 expire_at=self._access_token_expiration,
             )
         return self._access_token
