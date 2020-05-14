@@ -518,7 +518,7 @@ class Worker:
             streams = await self._redis.zrangebyscore(
                 "streams",
                 min=0,
-                max=-1,
+                max=now,
                 start=self.worker_count,
                 num=1,
                 withscores=True,
