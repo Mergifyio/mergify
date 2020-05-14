@@ -41,13 +41,31 @@ class TooManyPages(Exception):
     response: httpx.Response
 
 
+@dataclasses.dataclass
+class CachedToken:
+    STORAGE = {}
+
+    installation_id: int
+    token: dict
+    expiration: datetime
+
+    def __post_init__(self):
+        CachedToken.STORAGE[self.installation_id] = self
+
+    @classmethod
+    def get(cls, installation_id):
+        return cls.STORAGE.get(installation_id)
+
+    def invalidate(self):
+        CachedToken.STORAGE.pop(self.installation_id, None)
+
+
 class GithubInstallationAuth(httpx.Auth):
     def __init__(self, installation_id, owner, repo):
         self.installation_id = installation_id
         self.owner = owner
         self.repo = repo
-        self._access_token = None
-        self._access_token_expiration = None
+        self._cached_token = CachedToken.get(self.installation_id)
 
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {self.get_access_token()}"
@@ -57,30 +75,31 @@ class GithubInstallationAuth(httpx.Auth):
                 "Token expired",
                 gh_owner=self.owner,
                 gh_repo=self.repo,
-                expire_at=self._access_token_expiration,
+                expire_at=self._cached_token.expiration,
             )
-            self._access_token = None
-            self._access_token_expiration = None
+            self._cached_token.invalidate()
+            self._cached_token = None
             request.headers["Authorization"] = f"token {self.get_access_token()}"
             yield request
 
     def get_access_token(self):
         now = datetime.utcnow()
-        if self._access_token is None or self._access_token_expiration <= now:
+        if self._cached_token is None or self._cached_token.expiration <= now:
             r = github_app.get_client().post(
                 f"/app/installations/{self.installation_id}/access_tokens",
             )
-            self._access_token = r.json()["token"]
-            self._access_token_expiration = datetime.fromisoformat(
-                r.json()["expires_at"][:-1]
-            )  # Remove the Z
+            self._cached_token = CachedToken(
+                self.installation_id,
+                r.json()["token"],
+                datetime.fromisoformat(r.json()["expires_at"][:-1]),  # Remove the Z
+            )
             LOG.info(
                 "New token acquired",
                 gh_owner=self.owner,
                 gh_repo=self.repo,
-                expire_at=self._access_token_expiration,
+                expire_at=self._cached_token.expiration,
             )
-        return self._access_token
+        return self._cached_token.token
 
 
 class GithubInstallationClient(http.Client):
