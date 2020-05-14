@@ -246,13 +246,21 @@ class StreamProcessor:
             await self.redis.hdel("attempts", stream_name)
             raise IgnoredException()
 
+        if isinstance(e, exceptions.RateLimited):
+            retry_at = utils.utcnow() + datetime.timedelta(seconds=e.countdown)
+            score = retry_at.timestamp()
+            if attempts_key:
+                await self.redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", stream_name)
+            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            raise StreamRetry(0, retry_at) from e
+
         backoff = exceptions.need_retry(e)
         if backoff is None:
             # NOTE(sileht): This is our fault, so retry until we fix the bug but
             # without increasing the attempts
             raise
 
-        # TODO(sileht): In case of RateLimit no need to apply expo
         attempts = await self.redis.hincrby("attempts", stream_name)
         retry_in = 3 ** attempts * backoff
         retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
