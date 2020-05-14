@@ -227,4 +227,14 @@ def update_with_git(ctxt, method="merge"):
             )
 
     ctxt.log.warning("unable to update branch: no tokens are valid")
+
+    if (
+        ctxt.pull["head"]["repo"]["owner"]["login"]
+        != ctxt.pull["base"]["repo"]["owner"]["login"]
+        and ctxt.pull["base"]["repo"]["private"]
+    ):
+        raise BranchUpdateFailure(
+            "Rebasing a branch for a forked private repository is not supported by GitHub"
+        )
+
     raise AuthentificationFailure("No valid OAuth tokens")
