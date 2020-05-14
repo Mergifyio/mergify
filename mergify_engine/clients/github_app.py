@@ -70,6 +70,7 @@ class GithubBearerAuth(httpx.Auth):
             }
             encrypted = jwt.encode(payload, key=config.PRIVATE_KEY, algorithm="RS256")
             self.jwt = encrypted.decode("utf-8")
+            LOG.info("New JWT created", expire_at=self.jwt_expiration)
 
         return self.jwt
 
@@ -77,6 +78,7 @@ class GithubBearerAuth(httpx.Auth):
         request.headers["Authorization"] = f"Bearer {self.get_or_create_jwt()}"
         response = yield request
         if response.status_code == 401:
+            LOG.info("JWT expired", expire_at=self.jwt_expiration)
             self.jwt = None
             request.headers["Authorization"] = f"Bearer {self.get_or_create_jwt()}"
             yield request

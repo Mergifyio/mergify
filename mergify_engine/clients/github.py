@@ -42,8 +42,10 @@ class TooManyPages(Exception):
 
 
 class GithubInstallationAuth(httpx.Auth):
-    def __init__(self, installation_id):
+    def __init__(self, installation_id, owner, repo):
         self.installation_id = installation_id
+        self.owner = owner
+        self.repo = repo
         self._access_token = None
         self._access_token_expiration = None
 
@@ -51,6 +53,12 @@ class GithubInstallationAuth(httpx.Auth):
         request.headers["Authorization"] = f"token {self.get_access_token()}"
         response = yield request
         if response.status_code == 401:
+            LOG.info(
+                "Token expired",
+                gh_owner=self.owner,
+                gh_repo=self.repo,
+                expire_at=self._access_token_expiration,
+            )
             self._access_token = None
             self._access_token_expiration = None
             request.headers["Authorization"] = f"token {self.get_access_token()}"
@@ -66,6 +74,12 @@ class GithubInstallationAuth(httpx.Auth):
             self._access_token_expiration = datetime.fromisoformat(
                 r.json()["expires_at"][:-1]
             )  # Remove the Z
+            LOG.info(
+                "New token acquired",
+                gh_owner=self.owner,
+                gh_repo=self.repo,
+                expire_at=self._access_token_expiration,
+            )
         return self._access_token
 
 
@@ -77,7 +91,7 @@ class GithubInstallationClient(http.Client):
         self._requests = []
         super().__init__(
             base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=GithubInstallationAuth(self.installation["id"]),
+            auth=GithubInstallationAuth(self.installation["id"], owner, repo),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
