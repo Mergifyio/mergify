@@ -306,9 +306,13 @@ class StreamProcessor:
             installation = await self.get_installation(stream_name)
             pulls = await self._extract_pulls_from_stream(stream_name, installation)
             await self._consume_pulls(stream_name, installation, pulls)
-        except (exceptions.MergifyNotInstalled, IgnoredException):
-            await self.redis.xtrim(stream_name, 0)
-            return
+        except exceptions.MergifyNotInstalled:
+            LOG.debug(
+                "mergify not installed",
+                gh_owner=installation["account"]["login"] if installation else None,
+                exc_info=True,
+            )
+            await self.redis.delete(stream_name)
         except StreamRetry as e:
             LOG.info(
                 "failed to process stream, retrying",
