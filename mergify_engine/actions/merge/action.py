@@ -38,6 +38,7 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 class MergeAction(actions.Action):
     only_once = True
+    always_run = True
 
     validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
@@ -56,7 +57,6 @@ class MergeAction(actions.Action):
     }
 
     def run(self, ctxt, rule, missing_conditions):
-        ctxt.log.info("process merge", config=self.config)
 
         q = queue.Queue.from_context(ctxt)
 
@@ -67,8 +67,10 @@ class MergeAction(actions.Action):
             return output
 
         if self.config["strict"] and ctxt.is_behind:
+            ctxt.log.info("process base branch sync", config=self.config)
             return self._sync_with_base_branch(ctxt)
         else:
+            ctxt.log.info("process merge", config=self.config)
             try:
                 return self._merge(ctxt)
             finally:
