@@ -27,10 +27,12 @@ The ``assign`` action assigns users to the pull request.
      - Default
      - Value Description
    * - ``users``
-     - list of string
+     - list of :ref:`data type template`
      -
      - The users to assign to the pull request.
 
+As the list of ``users`` is based on :ref:`data type template`, you can use
+e.g. ``{{author}}`` to assign the pull request to its author.
 
 .. _backport action:
 
