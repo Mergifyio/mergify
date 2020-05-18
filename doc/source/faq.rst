@@ -38,18 +38,7 @@ therefore decides to automatically marks pull request A as merged.
 Be sure that Mergify did nothing on the pull request A if it told you so in the
 `Checks` tab. Dont't be fooled by GitHub UI.
 
-.. _`faq strict rebase`:
-
 I see a rebase and force-push done by a member of the repository, but Mergify actually did it.
 ----------------------------------------------------------------------------------------------
 
-If you are using :ref:`strict merge` with ``strict_method`` set to ``rebase``,
-Mergify will rebase your pull request to get it up-to-date with its base
-branch. The branch needs to be then force-pushed to the pull request owner
-branch.
-
-GitHub Applications are not allowed to do that so. This is a GitHub limitation
-that we already have reported.
-
-In order to make this works, Mergify borrows a token from one of your
-repository member and uses it to force-push the rebased branch.
+See :ref:`strict rebase`.
