@@ -348,18 +348,8 @@ The ``merge`` action merges the pull request into its base branch. The
        * ``merge`` to merge the base branch into the pull request.
        * ``rebase`` to rebase the pull request against its base branch.
 
-       Note that the ``rebase`` method has many drawbacks:
-
-       * It doesn't work for private forked repositories.
-       * Due to the change of all commits SHA-1 of the pull request, your
-         contributor will need to force-push its own branch if they add new
-         commits.
-       * GitHub branch protection of your repository may dismiss approved reviews.
-       * GitHub branch protection of the contributor repository may refuse Mergify to
-         force push the rebased pull request.
-       * GPG signed commits will lost their signatures.
-       * Mergify will use a token from one of the repository member to
-         force-push the branch (see: :ref:`faq strict rebase`).
+       Note that the ``rebase`` method has many drawbacks, see :ref:`strict
+       rebase`.
 
    * - ``commit_message``
      - string
@@ -425,6 +415,34 @@ Check the :ref:`data type template` for more details on the format.
 .. note::
 
    This feature only works when ``commit_message`` is set to ``default``.
+
+.. _strict rebase:
+
+Strict Rebase
+-------------
+
+Using the ``rebase`` method for the strict merge has many drawbacks:
+
+* It doesn't work for private forked repositories.
+
+* Due to the change of all commits SHA-1 of the pull request, your
+  contributor will need to force-push its own branch if they add new
+  commits.
+
+* GitHub branch protection of your repository may dismiss approved reviews.
+
+* GitHub branch protection of the contributor repository may refuse Mergify to
+  force push the rebased pull request.
+
+* GPG signed commits will lost their signatures.
+
+* Mergify will use a token from one of the repository member to force-push the
+  branch. GitHub Applications are not allowed to do that so. This is a GitHub
+  limitation that we already have reported — there is not much Mergify can do
+  about that. In order to make this works, Mergify randomly picks and borrows a
+  token from one of your repository member and uses it to force-push the
+  rebased branch. The GitHub UI will show your collaborator as the author of
+  the push, while it actually has been executed by Mergify.
 
 .. _request_reviews action:
 
