@@ -648,6 +648,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.create_status(p2)
         self.create_review(p2, commits[0])
 
+        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        for check in ctxt.pull_check_runs:
+            if check["name"] == "Rule: strict merge on master (merge)":
+                assert (
+                    "will be merged soon.\n\n"
+                    f"The following pull requests are queued: #{p2.number}"
+                ) in check["output"]["summary"]
+                break
+        else:
+            assert False, "Merge check not found"
+
         r = self.app.get(
             "/queues/%s" % (config.INSTALLATION_ID),
             headers={
@@ -692,7 +703,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 assert (
                     "will be merged soon.\n\n"
                     f"The following pull requests are queued: #{p2.number}\n\n"
-                    "The required statuses are:\n\n"
+                    "Required conditions for merge:\n\n"
                     f"- [X] `base={self.master_branch_name}`\n"
                     "- [ ] `status-success=continuous-integration/fake-ci`\n"
                     "- [X] `#approved-reviews-by>=1`"

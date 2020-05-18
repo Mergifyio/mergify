@@ -82,7 +82,9 @@ class MergeAction(actions.Action):
         if self.config["strict"] and self._required_statuses_in_progress(
             ctxt, missing_conditions
         ):
-            return helpers.get_wait_for_ci_report(ctxt, rule, missing_conditions)
+            return helpers.get_strict_status(
+                ctxt, rule, missing_conditions, need_update=ctxt.is_behind
+            )
 
         if self.config["strict"] == "smart":
             queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
@@ -137,12 +139,7 @@ class MergeAction(actions.Action):
             queue.Queue.from_context(ctxt).add_pull(
                 ctxt.pull["number"], self.config["strict_method"]
             )
-            return (
-                None,
-                "Base branch will be updated soon",
-                "The pull request base branch will "
-                "be updated soon, and then merged.",
-            )
+            return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
 
