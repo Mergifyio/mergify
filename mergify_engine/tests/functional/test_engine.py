@@ -656,7 +656,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
         )
         assert r.json() == {
-            "mergifyio-testing/%s" % self.name: {self.master_branch_name: [p2.number]}
+            "mergifyio-testing/%s"
+            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
         }
 
         # We can run celery beat inside tests, so run the task manually
@@ -670,7 +671,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
         )
         assert r.json() == {
-            "mergifyio-testing/%s" % self.name: {self.master_branch_name: [p2.number]}
+            "mergifyio-testing/%s"
+            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
         }
 
         self.wait_for("pull_request", {"action": "synchronize"})
@@ -1368,55 +1370,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.wait_for(
             "issue_comment", {"action": "created", "comment": {"body": "It conflict!"}},
         )
-
-    def test_command_update(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-rebase-on-conflict",
-                    "conditions": ["conflict"],
-                    "actions": {"comment": {"message": "nothing"}},
-                }
-            ]
-        }
-        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = self.create_pr(files={"TESTING2": "foobar"})
-        p2, _ = self.create_pr(files={"TESTING3": "foobar"})
-        p1.merge()
-
-        self.wait_for("pull_request", {"action": "closed"})
-
-        self.create_message(p2, "@mergifyio update")
-
-        oldsha = p2.head.sha
-        p2.update()
-        assert p2.commits == 2
-        assert oldsha != p2.head.sha
-
-    def test_command_rebase_ok(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-rebase-on-label",
-                    "conditions": ["label=rebase"],
-                    "actions": {"comment": {"message": "@mergifyio rebase it please"}},
-                }
-            ]
-        }
-        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar\n"})
-        p1, _ = self.create_pr(files={"TESTING": "foobar\n\n\np1"})
-        p2, _ = self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
-        p1.merge()
-        self.add_label(p2, "rebase")
-
-        self.wait_for("pull_request", {"action": "synchronize"})
-
-        oldsha = p2.head.sha
-        p2.merge()
-        p2.update()
-        assert oldsha != p2.head.sha
-        f = p2.base.repo.get_contents("TESTING")
-        assert f.decoded_content == b"p2\n\nfoobar\n\n\np1"
 
     def test_requested_reviews(self):
         team = list(self.o_admin.get_teams())[0]
