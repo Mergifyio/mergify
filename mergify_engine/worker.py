@@ -133,16 +133,14 @@ class ThreadRunner(threading.Thread):
 
     def __init__(self):
         super().__init__(daemon=True)
-        self._running = threading.Event()
-        self._process = threading.Event()
-
         self._method = None
         self._args = None
         self._kwargs = None
         self._result = None
         self._exception = None
 
-        self._running.set()
+        self._stopping = threading.Event()
+        self._process = threading.Event()
         self.start()
 
     async def exec(self, method, *args, **kwargs):
@@ -153,10 +151,10 @@ class ThreadRunner(threading.Thread):
         self._exception = None
 
         self._process.set()
-        while self._process.is_set() and self._running.is_set():
+        while self._process.is_set():
             await asyncio.sleep(0.01)
 
-        if not self._running.is_set():
+        if self._stopping.is_set():
             return
 
         if self._exception:
@@ -165,7 +163,7 @@ class ThreadRunner(threading.Thread):
         return self._result
 
     def close(self):
-        self._running.clear()
+        self._stopping.set()
         self._process.set()
         self.join()
 
@@ -173,9 +171,10 @@ class ThreadRunner(threading.Thread):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        while self._running.is_set():
+        while not self._stopping.is_set():
             self._process.wait()
-            if not self._running.is_set():
+            if self._stopping.is_set():
+                self._process.clear()
                 return
 
             try:
@@ -246,15 +245,23 @@ class StreamProcessor:
             await self.redis.hdel("attempts", stream_name)
             raise IgnoredException()
 
+        if isinstance(e, exceptions.RateLimited):
+            retry_at = utils.utcnow() + datetime.timedelta(seconds=e.countdown)
+            score = retry_at.timestamp()
+            if attempts_key:
+                await self.redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", stream_name)
+            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            raise StreamRetry(0, retry_at) from e
+
         backoff = exceptions.need_retry(e)
         if backoff is None:
             # NOTE(sileht): This is our fault, so retry until we fix the bug but
             # without increasing the attempts
             raise
 
-        # TODO(sileht): In case of RateLimit no need to apply expo
         attempts = await self.redis.hincrby("attempts", stream_name)
-        retry_in = 3 ** attempts * backoff
+        retry_in = 3 ** min(attempts, 3) * backoff
         retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
         score = retry_at.timestamp()
         await self.redis.zaddoption("streams", "XX", **{stream_name: score})
@@ -298,9 +305,13 @@ class StreamProcessor:
             installation = await self.get_installation(stream_name)
             pulls = await self._extract_pulls_from_stream(stream_name, installation)
             await self._consume_pulls(stream_name, installation, pulls)
-        except (exceptions.MergifyNotInstalled, IgnoredException):
-            await self.redis.xtrim(stream_name, 0)
-            return
+        except exceptions.MergifyNotInstalled:
+            LOG.debug(
+                "mergify not installed",
+                gh_owner=installation["account"]["login"] if installation else None,
+                exc_info=True,
+            )
+            await self.redis.delete(stream_name)
         except StreamRetry as e:
             LOG.info(
                 "failed to process stream, retrying",
@@ -343,7 +354,7 @@ end
 
     async def _extract_pulls_from_stream(self, stream_name, installation):
         LOG.debug("read stream", stream_name=stream_name)
-        messages = await self.redis.xrange(stream_name, count=100)
+        messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
@@ -431,6 +442,7 @@ end
                 end = time.monotonic()
                 logger.debug("engine finished in %s sec", end - start)
             except IgnoredException:
+                await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
@@ -461,7 +473,7 @@ class Worker:
     _redis: Any = dataclasses.field(init=False, default=None)
 
     _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
-    _running: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
+    _stopping: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
     _tombstone: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
 
     async def stream_worker_task(self, worker_id):
@@ -469,7 +481,7 @@ class Worker:
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis)
 
-        while self._running.is_set():
+        while not self._stopping.is_set():
             try:
                 async with self._stream_selector.next_stream() as stream_name:
                     if stream_name:
@@ -484,16 +496,45 @@ class Worker:
                         LOG.debug(
                             "worker %d has nothing to do, sleeping a bit", worker_id
                         )
-                        await asyncio.sleep(self.idle_sleep_time)
+                        await self._sleep_or_stop()
             except Exception:
                 LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
-                await asyncio.sleep(self.idle_sleep_time)
+                await self._sleep_or_stop()
 
         stream_processor.close()
         LOG.info("worker %d exited", worker_id)
 
+    async def _sleep_or_stop(self, timeout=None):
+        if timeout is None:
+            timeout = self.idle_sleep_time
+        try:
+            await asyncio.wait_for(self._stopping.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+
+    async def monitoring_task(self):
+        while not self._stopping.is_set():
+            now = time.time()
+            streams = await self._redis.zrangebyscore(
+                "streams",
+                min=0,
+                max=now,
+                start=self.worker_count,
+                num=1,
+                withscores=True,
+            )
+            if streams:
+                latency = now - streams[0][1]
+                statsd.timing("engine.streams.latency", latency)
+            else:
+                statsd.timing("engine.streams.latency", 0)
+
+            statsd.gauge("engine.workers.count", self.worker_count)
+
+            await self._sleep_or_stop(60)
+
     async def _run(self):
-        self._running.set()
+        self._stopping.clear()
 
         self._redis = await utils.create_aredis_for_stream()
         self._stream_selector = StreamSelector(self.worker_count, self._redis)
@@ -501,13 +542,17 @@ class Worker:
         for i in range(self.worker_count):
             self._worker_tasks.append(asyncio.create_task(self.stream_worker_task(i)))
 
+        self._monitoring_task = asyncio.create_task(self.monitoring_task())
+
         LOG.info("%d workers spawned", self.worker_count)
 
     async def _shutdown(self):
         LOG.info("wait for workers to exit")
-        self._running.clear()
+        self._stopping.set()
 
-        await asyncio.wait([self._start_task] + self._worker_tasks)
+        await asyncio.wait(
+            [self._start_task, self._monitoring_task] + self._worker_tasks
+        )
         self._worker_tasks = []
 
         if self._redis:
@@ -528,7 +573,7 @@ class Worker:
         await asyncio.wait([self._stop_task])
 
     def stop_with_signal(self, signame):
-        if self._running.is_set():
+        if not self._stopping.is_set():
             LOG.info("got signal %s: cleanly shutdown worker", signame)
             self.stop()
         else:

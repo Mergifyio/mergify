@@ -32,13 +32,17 @@ class MergeableStateUnknown(Exception):
 
 RATE_LIMIT_RETRY_MIN = 3
 BASE_RETRY_TIMEOUT = 60
+NOT_ACCESSIBLE_REPOSITORY_MESSAGES = [
+    "Repository access blocked",  # Blocked Github Account or Repo
+    "Resource not accessible by integration",  # missing permission
+]
 
 
 def should_be_ignored(exception):
     if isinstance(exception, httpx.HTTPClientSideError):
         if (
             exception.status_code == 403
-            and exception.message == "Resource not accessible by integration"
+            and exception.message in NOT_ACCESSIBLE_REPOSITORY_MESSAGES
         ):
             return True
 
