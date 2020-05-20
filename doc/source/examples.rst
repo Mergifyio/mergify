@@ -5,7 +5,7 @@
 ===============
 
 Mergify allows you to define a lot of specific rules. There is a large number
-of criterias available to define rues: pull request author, base branch,
+of criterias available to define rules: pull request author, base branch,
 labels, files, etc.
 
 In this section, we build a few examples that should help you getting started
