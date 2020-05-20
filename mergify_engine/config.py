@@ -99,10 +99,19 @@ Schema = voluptuous.Schema(
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
         voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,
-        voluptuous.Required("MAIN_TOKEN", default="<MAIN_TOKEN>"): str,
-        voluptuous.Required("FORK_TOKEN", default="<FORK_TOKEN>"): str,
-        voluptuous.Required("MAIN_TOKEN_DELETE", default="<unused>"): str,
-        voluptuous.Required("FORK_TOKEN_DELETE", default="<unused>"): str,
+        voluptuous.Required(
+            "ORG_ADMIN_PERSONAL_TOKEN", default="<ORG_ADMIN_PERSONAL_TOKEN>",
+        ): str,
+        voluptuous.Required(
+            "EXTERNAL_USER_PERSONAL_TOKEN", default="<EXTERNAL_USER_TOKEN>"
+        ): str,
+        voluptuous.Required(
+            "ORG_USER_PERSONAL_TOKEN", default="<EXTERNAL_USER_TOKEN>"
+        ): str,
+        voluptuous.Required(
+            "ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN",
+            default="ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
+        ): str,
     }
 )
 
