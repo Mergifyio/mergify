@@ -61,8 +61,6 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
 
         self._push_for_synchronize(branch)
 
-        self.wait_for("pull_request", {"action": "synchronize"})
-
         ctxt = context.Context(
             self.cli_integration, {"number": p.raw_data["number"]}, {}
         )
