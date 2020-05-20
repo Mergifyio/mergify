@@ -817,6 +817,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "sileht",
                 "jd",
                 "mergify-test1",
+                "mergify-test3",
             ]
         )
 
@@ -860,6 +861,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "jd",
                 "sileht",
                 "mergify-test1",
+                "mergify-test3",
             ]
         )
 
