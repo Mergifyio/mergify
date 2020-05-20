@@ -22,7 +22,6 @@ import queue
 import re
 import shutil
 import subprocess
-import threading
 import time
 import unittest
 from unittest import mock
@@ -143,34 +142,6 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
-class WorkerThread(threading.Thread):
-    def __init__(self):
-        super().__init__()
-        self.daemon = True
-        self._running = threading.Event()
-
-    async def async_run(self):
-        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
-        w.start()
-        while self._running.is_set():
-            await asyncio.sleep(0.42 if RECORD else 0.02)
-        w.stop()
-        await w.wait_shutdown_complete()
-
-    def run(self):
-        self._running.set()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(self.async_run())
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        loop.close()
-
-    def stop(self):
-        if self._running.is_set():
-            self._running.clear()
-            self.join()
-
-
 class EventReader:
     def __init__(self, app):
         self._app = app
@@ -204,7 +175,7 @@ class EventReader:
                 for event in self._get_events():
                     self._forward_to_engine_api(event)
                     self._handled_events.put(event)
-                    self._wait_all_streams_proceed(started_at, timeout)
+                    self._run_workers()
                 else:
                     if RECORD:
                         time.sleep(1)
@@ -241,12 +212,24 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()
 
-    def _wait_all_streams_proceed(self, started_at, timeout):
-        streams = self._redis.zrange("streams", start=0, end=-1)
-        while time.monotonic() - started_at < timeout and streams:
-            time.sleep(1 if RECORD else 0.01)
-            streams = self._redis.zrange("streams", start=0, end=-1)
-            LOG.debug("Remaining streams: %s", streams)
+    @staticmethod
+    async def _async_run_workers():
+        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
+        w.start()
+        timeout = 10
+        started_at = time.monotonic()
+        while (
+            w._redis is None or (await w._redis.zcard("streams")) > 0
+        ) and time.monotonic() - started_at < timeout:
+            await asyncio.sleep(0.42 if RECORD else 0.02)
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    @classmethod
+    def _run_workers(cls):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cls._async_run_workers())
+        loop.run_until_complete(loop.shutdown_asyncgens())
 
     def _forward_to_engine_api(self, event):
         payload = event["payload"]
@@ -502,8 +485,6 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
-        self._worker_thread = WorkerThread()
-        self._worker_thread.start()
 
     def tearDown(self):
         super(FunctionalTestBase, self).tearDown()
@@ -544,7 +525,6 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader.drain()
         self._event_reader.close()
-        self._worker_thread.stop()
         mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):
