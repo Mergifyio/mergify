@@ -151,7 +151,8 @@ class MergeAction(actions.Action):
     @staticmethod
     def _get_commit_message(pull_request, mode="default"):
         if mode == "title+body":
-            return pull_request.title, pull_request.body
+            # Include PR number to mimic default GitHub format
+            return f"{pull_request.title} (#{pull_request.number})", pull_request.body
 
         if not pull_request.body:
             return

@@ -1007,7 +1007,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.assertEqual(True, pulls[0].merged)
 
         commit = self.r_o_admin.get_commits()[0].commit
-        self.assertEqual(f"Pull request n1 from fork\n\n{msg}", commit.message)
+        self.assertEqual(
+            f"Pull request n1 from fork (#{p.number})\n\n{msg}", commit.message
+        )
 
     def test_merge_and_closes_issues(self):
         rules = {
