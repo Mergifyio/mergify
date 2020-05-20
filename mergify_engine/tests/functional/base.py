@@ -345,9 +345,7 @@ class FunctionalTestBase(unittest.TestCase):
             ),
         )
 
-        if RECORD:
-            github.CachedToken.STORAGE = {}
-        else:
+        if not RECORD:
             # Never expire token during replay
             mock.patch.object(
                 github_app.GithubBearerAuth, "get_or_create_jwt", return_value="<TOKEN>"
@@ -355,14 +353,16 @@ class FunctionalTestBase(unittest.TestCase):
             mock.patch.object(
                 github.GithubInstallationAuth,
                 "get_access_token",
-                return_value="<TOKEN>",
+                return_value={
+                    "access_token": "<TOKEN>",
+                    "expires_at": (
+                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                    ).isoformat()
+                    + "Z",
+                },
             ).start()
-            github.CachedToken.STORAGE = {}
-            github.CachedToken(
-                installation_id=config.INSTALLATION_ID,
-                token="<TOKEN>",
-                expiration=datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
-            )
+
+        github.CachedToken.STORAGE = {}
 
         with open(engine.mergify_rule_path, "r") as f:
             engine.MERGIFY_RULE = yaml.safe_load(
