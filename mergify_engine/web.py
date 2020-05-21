@@ -49,6 +49,16 @@ LOG = logging.getLogger(__name__)
 app = fastapi.FastAPI()
 
 
+@app.on_event("startup")
+async def startup():
+    app.redis = await utils.create_aredis_for_stream()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    app.redis.connection_pool.disconnect()
+
+
 async def authentification(request: requests.Request):
     # Only SHA1 is supported
     header_signature = request.headers.get("X-Hub-Signature")
@@ -144,7 +154,9 @@ async def _refresh(owner, repo, action="user", **extra_data):
     }
     data.update(extra_data)
 
-    await github_events.job_filter_and_dispatch(event_type, str(uuid.uuid4()), data)
+    await github_events.job_filter_and_dispatch(
+        app.redis, event_type, str(uuid.uuid4()), data
+    )
 
     return responses.Response("Refresh queued", status_code=202)
 
@@ -338,7 +350,7 @@ async def event_handler(request: requests.Request):
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    await github_events.job_filter_and_dispatch(event_type, event_id, data)
+    await github_events.job_filter_and_dispatch(app.redis, event_type, event_id, data)
 
     if (
         config.WEBHOOK_APP_FORWARD_URL

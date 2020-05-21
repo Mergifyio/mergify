@@ -18,7 +18,6 @@ from datadog import statsd
 
 from mergify_engine import config
 from mergify_engine import logs
-from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import github
 
@@ -129,7 +128,7 @@ def _extract_source_data(event_type, data):
     return slim_data
 
 
-async def job_filter_and_dispatch(event_type, event_id, data):
+async def job_filter_and_dispatch(redis, event_type, event_id, data):
     # TODO(sileht): is statsd async ?
     meter_event(event_type, data)
 
@@ -159,7 +158,6 @@ async def job_filter_and_dispatch(event_type, event_id, data):
         else:
             pull_number = None
 
-        redis = await utils.get_aredis_for_stream()
         await worker.push(
             redis, installation_id, owner, repo, pull_number, event_type, source_data,
         )

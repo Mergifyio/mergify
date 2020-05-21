@@ -63,35 +63,11 @@ def get_redis_for_cache():
     return REDIS_CONNECTION_CACHE
 
 
-global REDIS_CONNECTION_STREAM
-REDIS_CONNECTION_STREAM = None
-
-
-def get_redis_for_stream():
-    global REDIS_CONNECTION_STREAM
-    if REDIS_CONNECTION_STREAM is None:
-        REDIS_CONNECTION_STREAM = redis.StrictRedis.from_url(config.STREAM_URL)
-        p = current_process()
-        REDIS_CONNECTION_STREAM.client_setname("stream:%s" % p.name)
-    return REDIS_CONNECTION_STREAM
-
-
-global AREDIS_CONNECTION_STREAM
-AREDIS_CONNECTION_STREAM = None
-
-
 async def create_aredis_for_stream():
     r = aredis.StrictRedis.from_url(config.STREAM_URL)
     p = current_process()
     await r.client_setname("stream:%s" % p.name)
     return r
-
-
-async def get_aredis_for_stream():
-    global AREDIS_CONNECTION_STREAM
-    if AREDIS_CONNECTION_STREAM is None:
-        AREDIS_CONNECTION_STREAM = await create_aredis_for_stream()
-    return AREDIS_CONNECTION_STREAM
 
 
 def utcnow():
