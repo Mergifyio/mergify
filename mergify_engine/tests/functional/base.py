@@ -381,6 +381,8 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(web.startup())
         self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
@@ -523,6 +525,8 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.close()
 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(web.shutdown())
         self._event_reader.drain()
         self._event_reader.close()
         mock.patch.stopall()

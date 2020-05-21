@@ -17,6 +17,7 @@ import uuid
 
 from mergify_engine import actions
 from mergify_engine import github_events
+from mergify_engine import utils
 
 
 class RefreshAction(actions.Action):
@@ -33,6 +34,14 @@ class RefreshAction(actions.Action):
             "sender": {"login": "<internal>"},
         }
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(
-            github_events.job_filter_and_dispatch("refresh", str(uuid.uuid4()), data)
-        )
+        loop.run_until_complete(self.send_refresh(data))
+
+    @staticmethod
+    async def send_refresh(data):
+        redis = await utils.create_aredis_for_stream()
+        try:
+            await github_events.job_filter_and_dispatch(
+                redis, "refresh", str(uuid.uuid4()), data
+            )
+        finally:
+            redis.connection_pool.disconnect()
