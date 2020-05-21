@@ -28,7 +28,6 @@ from datadog import statsd
 import httpx
 import msgpack
 import uvloop
-import vcr
 
 from mergify_engine import config
 from mergify_engine import engine
@@ -38,6 +37,18 @@ from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+
+
+try:
+    import vcr
+
+    vcr_errors_CannotOverwriteExistingCassetteException = (
+        vcr.errors.CannotOverwriteExistingCassetteException
+    )
+except ImportError:
+
+    class vcr_errors_CannotOverwriteExistingCassetteException(Exception):
+        pass
 
 
 LOG = logs.getLogger(__name__)
@@ -322,7 +333,7 @@ class StreamProcessor:
                 exc_info=True,
             )
             return
-        except vcr.errors.CannotOverwriteExistingCassetteException:
+        except vcr_errors_CannotOverwriteExistingCassetteException:
             messages = await self.redis.xrange(
                 stream_name, count=config.STREAM_MAX_BATCH
             )
