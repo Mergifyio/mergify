@@ -83,11 +83,11 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
         ),
     }
 
-    ret = await redis.xadd(stream_name, payload)
+    await transaction.xadd(stream_name, payload)
     # NOTE(sileht): Add pull request stream to process to the list, only if it
     # does not exists, to not update the score(date)
     await transaction.zaddoption("streams", "NX", **{stream_name: score})
-    await transaction.execute()
+    ret = await transaction.execute()
     LOG.debug(
         "pushed to worker",
         gh_owner=owner,
@@ -95,7 +95,7 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
         gh_pull=pull_number,
         event_type=event_type,
     )
-    return (ret, payload)
+    return (ret[0], payload)
 
 
 def run_engine(installation, owner, repo, pull_number, sources):
@@ -353,8 +353,8 @@ end
 """
 
     async def _extract_pulls_from_stream(self, stream_name, installation):
-        LOG.debug("read stream", stream_name=stream_name)
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
+        LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
