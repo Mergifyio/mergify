@@ -28,6 +28,7 @@ from datadog import statsd
 import httpx
 import msgpack
 import uvloop
+import vcr
 
 from mergify_engine import config
 from mergify_engine import engine
@@ -321,6 +322,14 @@ class StreamProcessor:
                 exc_info=True,
             )
             return
+        except vcr.errors.CannotOverwriteExistingCassetteException:
+            messages = await self.redis.xrange(
+                stream_name, count=config.STREAM_MAX_BATCH
+            )
+            for message_id, message in messages:
+                LOG.info(msgpack.unpackb(message[b"event"], raw=False))
+                await self.redis.execute_command("XDEL", stream_name, message_id)
+
         except Exception:
             # Ignore it, it will retried later
             LOG.error(
