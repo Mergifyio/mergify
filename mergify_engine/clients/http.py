@@ -119,3 +119,29 @@ class Client(httpx.Client):
             raise
         finally:
             LOG.debug("http request end", method=method, url=url)
+
+
+class AsyncClient(httpx.AsyncClient):
+    # TODO(sileht): Handle retries like we do with urllib3
+
+    async def request(self, method, url, *args, **kwargs):
+        LOG.debug("http request start", method=method, url=url)
+        try:
+            r = await super().request(method, url, *args, **kwargs)
+            r.raise_for_status()
+            return r
+        except httpx.HTTPError as e:
+            if e.response and 400 <= e.response.status_code < 500:
+                exc_class = STATUS_CODE_TO_EXC.get(
+                    e.response.status_code, HTTPClientSideError
+                )
+                message = e.args[0]
+                gh_message = e.response.json().get("message")
+                if gh_message:
+                    message = f"{message}\nGitHub details: {gh_message}"
+                raise exc_class(
+                    message, *e.args[1:], request=e.request, response=e.response,
+                )
+            raise
+        finally:
+            LOG.debug("http request end", method=method, url=url)
