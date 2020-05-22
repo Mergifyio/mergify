@@ -17,6 +17,7 @@
 import itertools
 import re
 
+import daiquiri
 import httpx
 import voluptuous
 
@@ -25,6 +26,8 @@ from mergify_engine import context
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
+
+LOG = daiquiri.getLogger(__name__)
 
 BRANCH_PROTECTION_FAQ_URL = (
     "https://doc.mergify.io/faq.html#"
@@ -46,7 +49,9 @@ class MergeAction(actions.Action):
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
             "merge", "squash", None
         ),
-        voluptuous.Required("strict", default=False): voluptuous.Any(bool, "smart"),
+        voluptuous.Required("strict", default=False): voluptuous.Any(
+            bool, "smart", "smart+ordered"
+        ),
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
@@ -62,18 +67,30 @@ class MergeAction(actions.Action):
 
         output = helpers.merge_report(ctxt, self.config["strict"])
         if output:
-            if self.config["strict"] == "smart":
-                q.remove_pull(ctxt.pull["number"])
+            q.remove_pull(ctxt.pull["number"])
             return output
 
-        if self.config["strict"] and ctxt.is_behind:
-            return self._sync_with_base_branch(ctxt)
-        else:
+        if self._should_be_merged(ctxt):
             try:
                 return self._merge(ctxt)
             finally:
-                if self.config["strict"] == "smart":
-                    q.remove_pull(ctxt.pull["number"])
+                q.remove_pull(ctxt.pull["number"])
+        else:
+            return self._sync_with_base_branch(ctxt)
+
+    def _should_be_merged(self, ctxt):
+        q = queue.Queue.from_context(ctxt)
+        if self.config["strict"] in ("smart", "smart+ordered"):
+            if self.config["strict"] == "smart+ordered":
+                return not ctxt.is_behind and q.is_first_pull(ctxt.pull["number"])
+            elif self.config["strict"] == "smart":
+                return not ctxt.is_behind
+            else:
+                raise RuntimeError("Unexpected strict_smart_behavior")
+        elif self.config["strict"]:
+            return not ctxt.is_behind
+        else:
+            return True
 
     def cancel(self, ctxt, rule, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
@@ -86,8 +103,7 @@ class MergeAction(actions.Action):
                 ctxt, rule, missing_conditions, need_update=ctxt.is_behind
             )
 
-        if self.config["strict"] == "smart":
-            queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
+        queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
 
         return self.cancelled_check_report
 
@@ -139,7 +155,7 @@ class MergeAction(actions.Action):
                 "modification",
                 "",
             )
-        elif self.config["strict"] == "smart":
+        elif self.config["strict"] in ("smart", "smart+ordered"):
             queue.Queue.from_context(ctxt).add_pull(
                 ctxt.pull["number"], self.config["strict_method"]
             )

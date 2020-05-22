@@ -317,6 +317,7 @@ class FunctionalTestBase(unittest.TestCase):
 
     def setUp(self):
         super(FunctionalTestBase, self).setUp()
+        self.existing_labels = []
         self.pr_counter = 0
         self.git_counter = 0
         self.cassette_library_dir = os.path.join(
@@ -721,7 +722,10 @@ class FunctionalTestBase(unittest.TestCase):
         return comment
 
     def add_label(self, pr, label):
-        self.r_o_admin.create_label(label, "000000")
+        if label not in self.existing_labels:
+            self.r_o_admin.create_label(label, "000000")
+            self.existing_labels.append(label)
+
         pr.add_to_labels(label)
         self.wait_for("pull_request", {"action": "labeled"})
 
