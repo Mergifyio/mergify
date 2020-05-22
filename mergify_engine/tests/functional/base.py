@@ -217,7 +217,9 @@ class EventReader:
 
     @staticmethod
     async def _async_run_workers():
-        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
+        w = worker.Worker(
+            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
+        )
         w.start()
         timeout = 10
         started_at = time.monotonic()
