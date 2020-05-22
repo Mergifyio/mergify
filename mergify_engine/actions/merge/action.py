@@ -93,6 +93,13 @@ class MergeAction(actions.Action):
             return True
 
     def cancel(self, ctxt, rule, missing_conditions):
+        q = queue.Queue.from_context(ctxt)
+        if ctxt.pull["state"] == "closed":
+            output = helpers.merge_report(ctxt, self.config["strict"])
+            if output:
+                q.remove_pull(ctxt.pull["number"])
+                return output
+
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
@@ -103,7 +110,7 @@ class MergeAction(actions.Action):
                 ctxt, rule, missing_conditions, need_update=ctxt.is_behind
             )
 
-        queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
+        q.remove_pull(ctxt.pull["number"])
 
         return self.cancelled_check_report
 

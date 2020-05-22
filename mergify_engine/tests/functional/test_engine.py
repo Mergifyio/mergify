@@ -460,6 +460,40 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p = self._do_test_backport("rebase")
         assert 2 == p.commits
 
+    def test_merge_with_not_merged_attribute(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on master",
+                    "conditions": [f"base={self.master_branch_name}", "-merged"],
+                    "actions": {"merge": {}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p.update()
+        self.assertEqual(True, p.merged)
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        for check in ctxt.pull_check_runs:
+            if check["name"] == "Rule: merge on master (merge)":
+                assert (
+                    "The pull request has been merged automatically"
+                    == check["output"]["title"]
+                )
+                assert (
+                    f"The pull request has been merged automatically at *{ctxt.pull['merge_commit_sha']}*"
+                    == check["output"]["summary"]
+                )
+                break
+        else:
+            assert False, "Merge check not found"
+
     def test_merge_squash(self):
         rules = {
             "pull_request_rules": [
