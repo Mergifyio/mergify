@@ -127,7 +127,11 @@ class MergeAction(actions.Action):
         return False
 
     def _sync_with_base_branch(self, ctxt):
-        if not ctxt.pull_base_is_modifiable:
+        if (
+            ctxt.pull_from_fork
+            and not ctxt.pull["base"]["repo"]["private"]
+            and not ctxt.pull_base_is_modifiable
+        ):
             return (
                 "failure",
                 "Pull request can't be updated with latest "

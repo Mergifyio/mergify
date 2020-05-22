@@ -652,9 +652,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
-                    "will be merged soon.\n\n"
+                    "The pull request base branch will be updated soon and then merged.\n\n"
                     f"The following pull requests are queued: #{p2.number}"
-                ) in check["output"]["summary"]
+                ) == check["output"]["summary"]
                 break
         else:
             assert False, "Merge check not found"
