@@ -118,14 +118,6 @@ if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
 fi
 
 
-if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
-    if [[ $MERGIFYENGINE_CELERY_BROKER_URL =~ $REDIS_REGEX ]]; then
-        sed -i "s/<CELERY HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-    fi
-fi
-
 if [ -n "$MERGIFYENGINE_STREAM_URL" ]; then
     if [[ $MERGIFYENGINE_STREAM_URL =~ $REDIS_REGEX ]]; then
         sed -i "s/<STREAM HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"

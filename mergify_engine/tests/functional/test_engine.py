@@ -25,7 +25,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import debug
 from mergify_engine import engine
-from mergify_engine import tasks
+from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__)
 
 
 def run_smart_strict_workflow_periodic_task():
-    tasks.smart_strict_workflow_periodic_task.apply_async()
+    queue.Queue.process_queues()
 
 
 class TestEngineV2Scenario(base.FunctionalTestBase):

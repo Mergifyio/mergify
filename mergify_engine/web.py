@@ -20,10 +20,10 @@ import collections
 import functools
 import hmac
 import json
-import logging
 from urllib.parse import urlsplit
 import uuid
 
+import daiquiri
 import fastapi
 import httpx
 from starlette import requests
@@ -43,7 +43,7 @@ from mergify_engine.clients import github_app
 from mergify_engine.engine import actions_runner
 
 
-LOG = logging.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 app = fastapi.FastAPI()
 
@@ -312,7 +312,7 @@ def sync_job_marketplace(event_type, event_id, data):
     except exceptions.MergifyNotInstalled:
         return
 
-    r = utils.get_aredis_for_cache()
+    r = utils.get_redis_for_cache()
     r.delete("subscription-cache-%s" % installation["id"])
 
     LOG.info(
@@ -335,7 +335,7 @@ async def marketplace_handler(
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
-        None, sync_job_marketplace(event_type, event_id, data),
+        None, functools.partial(sync_job_marketplace, event_type, event_id, data),
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
