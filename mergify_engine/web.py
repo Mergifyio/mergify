@@ -39,9 +39,8 @@ from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import github_app
 from mergify_engine.engine import actions_runner
-from mergify_engine.tasks import forward_events
-from mergify_engine.tasks import github_events as legacy_github_events
 
 
 LOG = logging.getLogger(__name__)
@@ -51,12 +50,12 @@ app = fastapi.FastAPI()
 
 @app.on_event("startup")
 async def startup():
-    app.redis = await utils.create_aredis_for_stream()
+    app.aredis_stream = await utils.create_aredis_for_stream()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    app.redis.connection_pool.disconnect()
+    app.aredis_stream.connection_pool.disconnect()
 
 
 async def authentification(request: requests.Request):
@@ -80,6 +79,11 @@ async def authentification(request: requests.Request):
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         raise fastapi.HTTPException(status_code=403)
+
+
+async def http_post(*args, **kwargs):
+    async with httpx.AsyncClient() as client:
+        await client.post(*args, **kwargs)
 
 
 def _get_badge_url(owner, repo, ext, style):
@@ -155,7 +159,7 @@ async def _refresh(owner, repo, action="user", **extra_data):
     data.update(extra_data)
 
     await github_events.job_filter_and_dispatch(
-        app.redis, event_type, str(uuid.uuid4()), data
+        app.aredis_stream, event_type, str(uuid.uuid4()), data
     )
 
     return responses.Response("Refresh queued", status_code=202)
@@ -297,33 +301,56 @@ async def simulator(request: requests.Request):
     )
 
 
+def sync_job_marketplace(event_type, event_id, data):
+
+    owner = data["marketplace_purchase"]["account"]["login"]
+    account_type = data["marketplace_purchase"]["account"]["type"]
+    try:
+        installation = github_app.get_client().get_installation(
+            owner, account_type=account_type
+        )
+    except exceptions.MergifyNotInstalled:
+        return
+
+    r = utils.get_aredis_for_cache()
+    r.delete("subscription-cache-%s" % installation["id"])
+
+    LOG.info(
+        "Marketplace event",
+        event_type=event_type,
+        event_id=event_id,
+        install_id=installation["id"],
+        sender=data["sender"]["login"],
+        gh_owner=owner,
+    )
+
+
 @app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
-async def marketplace_handler(request: requests.Request):  # pragma: no cover
+async def marketplace_handler(
+    request: requests.Request, background_tasks: fastapi.BackgroundTasks
+):  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
-        None,
-        legacy_github_events.job_marketplace.s(event_type, event_id, data).apply_async,
+        None, sync_job_marketplace(event_type, event_id, data),
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()
-        await loop.run_in_executor(
-            None,
-            forward_events.post.s(
-                config.WEBHOOK_MARKETPLACE_FORWARD_URL,
-                data=raw.decode(),
-                headers={
-                    "X-GitHub-Event": event_type,
-                    "X-GitHub-Delivery": event_id,
-                    "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                    "User-Agent": request.headers.get("User-Agent"),
-                    "Content-Type": request.headers.get("Content-Type"),
-                },
-            ).delay,
+        background_tasks.add_task(
+            http_post,
+            config.WEBHOOK_MARKETPLACE_FORWARD_URL,
+            data=raw.decode(),
+            headers={
+                "X-GitHub-Event": event_type,
+                "X-GitHub-Delivery": event_id,
+                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                "User-Agent": request.headers.get("User-Agent"),
+                "Content-Type": request.headers.get("Content-Type"),
+            },
         )
 
     return responses.Response("Event queued", status_code=202)
@@ -345,12 +372,16 @@ async def queues(installation_id):
 
 
 @app.post("/event", dependencies=[fastapi.Depends(authentification)])
-async def event_handler(request: requests.Request):
+async def event_handler(
+    request: requests.Request, background_tasks: fastapi.BackgroundTasks
+):
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    await github_events.job_filter_and_dispatch(app.redis, event_type, event_id, data)
+    await github_events.job_filter_and_dispatch(
+        app.aredis_stream, event_type, event_id, data
+    )
 
     if (
         config.WEBHOOK_APP_FORWARD_URL
@@ -358,21 +389,17 @@ async def event_handler(request: requests.Request):
         and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
     ):
         raw = await request.body()
-
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None,
-            forward_events.post.s(
-                config.WEBHOOK_APP_FORWARD_URL,
-                data=raw.decode(),
-                headers={
-                    "X-GitHub-Event": event_type,
-                    "X-GitHub-Delivery": event_id,
-                    "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                    "User-Agent": request.headers.get("User-Agent"),
-                    "Content-Type": request.headers.get("Content-Type"),
-                },
-            ).delay,
+        background_tasks.add_task(
+            http_post,
+            config.WEBHOOK_APP_FORWARD_URL,
+            data=raw.decode(),
+            headers={
+                "X-GitHub-Event": event_type,
+                "X-GitHub-Delivery": event_id,
+                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                "User-Agent": request.headers.get("User-Agent"),
+                "Content-Type": request.headers.get("Content-Type"),
+            },
         )
 
     return responses.Response("Event queued", status_code=202)

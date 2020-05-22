@@ -125,8 +125,3 @@ def statsd_task_unknown(sender, **kwargs):
 @celery.signals.task_rejected.connect
 def statsd_task_rejected(sender, **kwargs):
     statsd.increment("engine.task_rejected")
-
-
-# Register our tasks
-import mergify_engine.tasks.forward_events  # noqa isort:skip
-import mergify_engine.tasks.github_events  # noqa isort:skip

@@ -38,15 +38,10 @@ tasks.app.conf.task_eager_propagates = True
     new_callable=asyncmock.AsyncMock,
 )
 @mock.patch(
-    "mergify_engine.config.WEBHOOK_APP_FORWARD_URL",
-    new_callable=mock.PropertyMock(return_value="https://foobar/engine/app"),
-)
-@mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["push"]),
 )
-@mock.patch("mergify_engine.clients.http.Client")
-def test_app_event_forward(mocked_http_client, _, __, ___):
+def test_app_event_forward(_, __, httpserver):
 
     with open(os.path.dirname(__file__) + "/push_event.json", "rb") as f:
         data = f.read()
@@ -58,25 +53,23 @@ def test_app_event_forward(mocked_http_client, _, __, ___):
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    with testclient.TestClient(web.app) as client:
-        client.post("/event", data=data, headers=headers)
+    httpserver.expect_request("/", method="POST", data=data, headers=headers)
 
-    mocked_http_client.return_value.__enter__.return_value.post.assert_called_with(
-        "https://foobar/engine/app", data=data, headers=headers
-    )
+    with mock.patch(
+        "mergify_engine.config.WEBHOOK_APP_FORWARD_URL", httpserver.url_for("/"),
+    ):
+        with testclient.TestClient(web.app) as client:
+            client.post("/event", data=data, headers=headers)
+
+    httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.tasks.github_events.job_marketplace")
-@mock.patch(
-    "mergify_engine.config.WEBHOOK_MARKETPLACE_FORWARD_URL",
-    new_callable=mock.PropertyMock(return_value="https://foobar/engine/market"),
-)
+@mock.patch("mergify_engine.web.sync_job_marketplace")
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["purchased"]),
 )
-@mock.patch("mergify_engine.clients.http.Client")
-def test_market_event_forward(mocked_http_client, _, __, ___):
+def test_market_event_forward(_, __, httpserver):
 
     with open(os.path.dirname(__file__) + "/market_event.json", "rb") as f:
         data = f.read()
@@ -88,9 +81,13 @@ def test_market_event_forward(mocked_http_client, _, __, ___):
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    with testclient.TestClient(web.app) as client:
-        client.post("/marketplace", data=data, headers=headers)
+    httpserver.expect_request("/", method="POST", data=data, headers=headers)
 
-    mocked_http_client.return_value.__enter__.return_value.post.assert_called_with(
-        "https://foobar/engine/market", data=data, headers=headers
-    )
+    with mock.patch(
+        "mergify_engine.config.WEBHOOK_MARKETPLACE_FORWARD_URL",
+        httpserver.url_for("/"),
+    ):
+        with testclient.TestClient(web.app) as client:
+            client.post("/marketplace", data=data, headers=headers)
+
+    httpserver.check_assertions()
