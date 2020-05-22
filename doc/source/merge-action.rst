@@ -243,4 +243,3 @@ There is a lot of different ways to merge pull requests. You can replicate many
            method: merge
 
        `(not yet implemented)`
-

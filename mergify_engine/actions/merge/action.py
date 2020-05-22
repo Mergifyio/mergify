@@ -38,6 +38,16 @@ BRANCH_PROTECTION_FAQ_URL = (
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
+PRIORITY_ALIASES = {
+    "low": 1000,
+    "medium": 2000,
+    "high": 3000,
+}
+
+
+def Priority(v):
+    return PRIORITY_ALIASES.get(v, v)
+
 
 class MergeAction(actions.Action):
     only_once = True
@@ -60,6 +70,14 @@ class MergeAction(actions.Action):
         ),
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
             "default", "title+body"
+        ),
+        voluptuous.Required(
+            "priority", default=PRIORITY_ALIASES["medium"]
+        ): voluptuous.All(
+            voluptuous.Any("low", "medium", "high", int),
+            voluptuous.Coerce(Priority),
+            int,
+            voluptuous.Range(min=1, max=10000),
         ),
     }
 
@@ -167,7 +185,9 @@ class MergeAction(actions.Action):
             )
         elif self.config["strict"] in ("smart+fastpath", "smart+ordered"):
             queue.Queue.from_context(ctxt).add_pull(
-                ctxt.pull["number"], self.config["strict_method"]
+                ctxt.pull["number"],
+                self.config["priority"],
+                self.config["strict_method"],
             )
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:

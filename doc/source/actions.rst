@@ -355,6 +355,13 @@ The ``merge`` action merges the pull request into its base branch. The
        Note that the ``rebase`` method has many drawbacks, see :ref:`strict
        rebase`.
 
+   * - ``priority``
+     - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
+     - ``medium``
+     - This set the priority of the pull request in the queue when ``smart``
+       :ref:`strict merge` is enabled. The pull request with the highest priority is merged first.
+       ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
+
    * - ``commit_message``
      - string
      - ``default``

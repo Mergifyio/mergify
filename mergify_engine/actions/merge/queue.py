@@ -76,22 +76,27 @@ class Queue:
         """
         return self.redis.get(self._method_cache_key(pull_number)) or default
 
-    def _add_pull(self, pull_number, update=False):
+    def _add_pull(self, pull_number, priority, update=False):
         """Add a pull without setting its method.
 
         :param update: If update is True, don't create PR if it's not there.
         """
-        score = utils.utcnow().timestamp()
+        score = utils.utcnow().timestamp() / priority
         if update:
             flags = dict(xx=True)
         else:
             flags = dict(nx=True)
         self.redis.zadd(self._cache_key, {pull_number: score}, **flags)
 
-    def add_pull(self, pull_number, method):
-        self._add_pull(pull_number)
+    def add_pull(self, pull_number, priority, method):
+        self._add_pull(pull_number, priority)
         self.redis.set(self._method_cache_key(pull_number), method)
-        self.log.info("pull request added to merge queue", gh_pull=pull_number)
+        self.log.info(
+            "pull request added to merge queue",
+            gh_pull=pull_number,
+            priority=priority,
+            method=method,
+        )
 
     def remove_pull(self, pull_number):
         self.redis.zrem(self._cache_key, pull_number)
@@ -99,7 +104,9 @@ class Queue:
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
-        self._add_pull(pull_number, update=True)
+        # FIXME(sileht): in case of failure we loose the priority, we should store in
+        # redis strict_smart_priorities to be able to set the priority here.
+        self._add_pull(pull_number, priority=0, update=True)
         self.log.info(
             "pull request moved at the end of the merge queue", gh_pull=pull_number
         )
@@ -123,7 +130,10 @@ class Queue:
         return pull_requests[0] == pull_number
 
     def get_pulls(self):
-        return [int(pull) for pull in self.redis.zrange(self._cache_key, 0, -1)]
+        return [
+            int(pull)
+            for pull in self.redis.zrangebyscore(self._cache_key, "-inf", "+inf")
+        ]
 
     def delete_queue(self):
         self.redis.delete(self._cache_key)
