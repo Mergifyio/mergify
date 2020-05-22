@@ -116,8 +116,14 @@ class Queue:
             gh_pull=pull_number,
         )
 
+    def is_first_pull(self, pull_number):
+        pull_requests = self.get_pulls()
+        if not pull_requests:
+            return True
+        return pull_requests[0] == pull_number
+
     def get_pulls(self):
-        return self.redis.zrange(self._cache_key, 0, -1)
+        return [int(pull) for pull in self.redis.zrange(self._cache_key, 0, -1)]
 
     def delete_queue(self):
         self.redis.delete(self._cache_key)
@@ -188,7 +194,7 @@ class Queue:
         if not pull_numbers:
             return
 
-        pull_number = int(pull_numbers[0])
+        pull_number = pull_numbers[0]
 
         try:
             installation = github.get_installation(

@@ -333,6 +333,12 @@ The ``merge`` action merges the pull request into its base branch. The
          against its base branch at a time.
          This allows you to e.g., save CI time, as Mergify will queue the
          mergeable pull requests and update them serially, one at a time.
+         If the pull request is already in sync with its base branch, the queue
+         is bypassed and the pull request is directly merged.
+
+       * ``smart+ordered`` enables :ref:`strict merge` with the same behavior as ``smart``,
+         except that the queue is never bypassed. Pull requests are always added to the
+         end of the queue, even if they are ready to be merged.
 
        * ``false`` disables :ref:`strict merge` and merge pull requests as soon
          as possible, without bringing the pull request up-to-date with its
