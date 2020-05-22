@@ -66,7 +66,7 @@ def get_already_merged_summary(ctxt, match):
         )
     else:
         return (
-            "⚠️ The pull request has been merged manually by "
+            "⚠️ The pull request has been merged by "
             "@%s\n\n" % ctxt.pull["merged_by"]["login"]
         )
 
