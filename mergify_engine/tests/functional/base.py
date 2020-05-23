@@ -22,7 +22,6 @@ import queue
 import re
 import shutil
 import subprocess
-import threading
 import time
 import unittest
 from unittest import mock
@@ -33,11 +32,13 @@ import pytest
 import redis
 from starlette import testclient
 import vcr
+import yaml
 
 from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import engine
 from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import tasks
@@ -143,34 +144,6 @@ class GitterRecorder(utils.Gitter):
             self.save_records()
 
 
-class WorkerThread(threading.Thread):
-    def __init__(self):
-        super().__init__()
-        self.daemon = True
-        self._running = threading.Event()
-
-    async def async_run(self):
-        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
-        w.start()
-        while self._running.is_set():
-            await asyncio.sleep(0.42 if RECORD else 0.02)
-        w.stop()
-        await w.wait_shutdown_complete()
-
-    def run(self):
-        self._running.set()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(self.async_run())
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        loop.close()
-
-    def stop(self):
-        if self._running.is_set():
-            self._running.clear()
-            self.join()
-
-
 class EventReader:
     def __init__(self, app):
         self._app = app
@@ -204,7 +177,7 @@ class EventReader:
                 for event in self._get_events():
                     self._forward_to_engine_api(event)
                     self._handled_events.put(event)
-                    self._wait_all_streams_proceed(started_at, timeout)
+                    self._run_workers()
                 else:
                     if RECORD:
                         time.sleep(1)
@@ -241,12 +214,24 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()
 
-    def _wait_all_streams_proceed(self, started_at, timeout):
-        streams = self._redis.zrange("streams", start=0, end=-1)
-        while time.monotonic() - started_at < timeout and streams:
-            time.sleep(1 if RECORD else 0.01)
-            streams = self._redis.zrange("streams", start=0, end=-1)
-            LOG.debug("Remaining streams: %s", streams)
+    @staticmethod
+    async def _async_run_workers():
+        w = worker.Worker(idle_sleep_time=0.42 if RECORD else 0.01)
+        w.start()
+        timeout = 10
+        started_at = time.monotonic()
+        while (
+            w._redis is None or (await w._redis.zcard("streams")) > 0
+        ) and time.monotonic() - started_at < timeout:
+            await asyncio.sleep(0.42 if RECORD else 0.02)
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    @classmethod
+    def _run_workers(cls):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cls._async_run_workers())
+        loop.run_until_complete(loop.shutdown_asyncgens())
 
     def _forward_to_engine_api(self, event):
         payload = event["payload"]
@@ -318,6 +303,17 @@ class EventReader:
 
 @pytest.mark.usefixtures("logger_checker")
 class FunctionalTestBase(unittest.TestCase):
+    # NOTE(sileht): The repository have been manually created in mergifyio-testing
+    # organization and then forked in mergify-test2 user account
+    REPO_NAME = "functional-testing-repo"
+    FORK_PERSONAL_TOKEN = config.EXTERNAL_USER_PERSONAL_TOKEN
+    SUBSCRIPTION_ACTIVE = False
+
+    # To run tests on private repository, you can use:
+    # REPO_NAME = "functional-testing-repo-private"
+    # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
+    # SUBSCRIPTION_ACTIVE = True
+
     def setUp(self):
         super(FunctionalTestBase, self).setUp()
         self.pr_counter = 0
@@ -368,6 +364,11 @@ class FunctionalTestBase(unittest.TestCase):
                 expiration=datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
             )
 
+        with open(engine.mergify_rule_path, "r") as f:
+            engine.MERGIFY_RULE = yaml.safe_load(
+                f.read().replace("mergify[bot]", "mergify-test[bot]")
+            )
+
         github_app_client = github_app._Client()
 
         mock.patch.object(github_app, "get_client", lambda: github_app_client).start()
@@ -398,14 +399,16 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(web.startup())
         self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
         self.subscription = {
-            "tokens": {"mergifyio-testing": config.MAIN_TOKEN},
-            "subscription_active": False,
+            "tokens": {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
+            "subscription_active": self.SUBSCRIPTION_ACTIVE,
             "subscription_reason": "You're not nice",
         }
         loop = asyncio.get_event_loop()
@@ -429,8 +432,10 @@ class FunctionalTestBase(unittest.TestCase):
 
         base_url = config.GITHUB_API_URL
         self.g_integration = pygithub.Github(self.installation_token, base_url=base_url)
-        self.g_admin = pygithub.Github(config.MAIN_TOKEN, base_url=base_url)
-        self.g_fork = pygithub.Github(config.FORK_TOKEN, base_url=base_url)
+        self.g_admin = pygithub.Github(
+            config.ORG_ADMIN_PERSONAL_TOKEN, base_url=base_url
+        )
+        self.g_fork = pygithub.Github(self.FORK_PERSONAL_TOKEN, base_url=base_url)
 
         self.o_admin = self.g_admin.get_organization(config.TESTING_ORGANIZATION)
         self.o_integration = self.g_integration.get_organization(
@@ -439,15 +444,11 @@ class FunctionalTestBase(unittest.TestCase):
         self.u_fork = self.g_fork.get_user()
         assert self.o_admin.login == "mergifyio-testing"
         assert self.o_integration.login == "mergifyio-testing"
-        assert self.u_fork.login == "mergify-test2"
+        assert self.u_fork.login in ["mergify-test2", "mergify-test3"]
 
-        # NOTE(sileht): The repository have been manually created in mergifyio-testing
-        # organization and then forked in mergify-test2 user account
-        self.name = "functional-testing-repo"
-
-        self.r_o_admin = self.o_admin.get_repo(self.name)
-        self.r_o_integration = self.o_integration.get_repo(self.name)
-        self.r_fork = self.u_fork.get_repo(self.name)
+        self.r_o_admin = self.o_admin.get_repo(self.REPO_NAME)
+        self.r_o_integration = self.o_integration.get_repo(self.REPO_NAME)
+        self.r_fork = self.u_fork.get_repo(self.REPO_NAME)
 
         self.url_main = f"{config.GITHUB_URL}/{self.r_o_integration.full_name}"
         self.url_fork = (
@@ -456,7 +457,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         installation = {"id": config.INSTALLATION_ID}
         self.cli_integration = github.get_client(
-            config.TESTING_ORGANIZATION, self.name, installation
+            config.TESTING_ORGANIZATION, self.REPO_NAME, installation
         )
 
         real_get_subscription = sub_utils.get_subscription
@@ -502,8 +503,6 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
-        self._worker_thread = WorkerThread()
-        self._worker_thread.start()
 
     def tearDown(self):
         super(FunctionalTestBase, self).tearDown()
@@ -542,9 +541,10 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.close()
 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(web.shutdown())
         self._event_reader.drain()
         self._event_reader.close()
-        self._worker_thread.stop()
         mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):
@@ -557,9 +557,11 @@ class FunctionalTestBase(unittest.TestCase):
     def setup_repo(self, mergify_config, test_branches=[], files=[]):
         self.git("init")
         self.git.configure()
-        self.git.add_cred(config.MAIN_TOKEN, "", self.r_o_integration.full_name)
         self.git.add_cred(
-            config.FORK_TOKEN,
+            config.ORG_ADMIN_PERSONAL_TOKEN, "", self.r_o_integration.full_name
+        )
+        self.git.add_cred(
+            self.FORK_PERSONAL_TOKEN,
             "",
             "%s/%s" % (self.u_fork.login, self.r_o_integration.name),
         )

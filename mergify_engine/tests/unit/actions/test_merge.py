@@ -22,6 +22,7 @@ from mergify_engine.actions.merge import action
 
 
 PR = {
+    "number": 43,
     "state": "unknown",
     "mergeable_state": "ok",
     "merged_by": "me",
@@ -123,7 +124,7 @@ my title
             "",
             "default",
         ),
-        ("Here's my message", "My PR title", "Here's my message", "title+body"),
+        ("Here's my message", "My PR title (#43)", "Here's my message", "title+body"),
     ],
 )
 def test_merge_commit_message(body, title, message, mode):

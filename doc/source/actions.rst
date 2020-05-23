@@ -361,7 +361,8 @@ The ``merge`` action merges the pull request into its base branch. The
          or defined in the pull request body (see :ref:`commit message`).
 
        * ``title+body`` means to use the title and body from the pull request
-         itself as the commit message.
+         itself as the commit message. The pull request number will be added to
+         end of the title.
 
 Branch Protection Settings
 --------------------------

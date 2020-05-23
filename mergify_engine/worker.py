@@ -25,7 +25,6 @@ from typing import List
 from typing import Set
 
 from datadog import statsd
-import httpx
 import msgpack
 import uvloop
 
@@ -37,6 +36,19 @@ from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import http
+
+
+try:
+    import vcr
+
+    vcr_errors_CannotOverwriteExistingCassetteException = (
+        vcr.errors.CannotOverwriteExistingCassetteException
+    )
+except ImportError:
+
+    class vcr_errors_CannotOverwriteExistingCassetteException(Exception):
+        pass
 
 
 LOG = logs.getLogger(__name__)
@@ -83,11 +95,11 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
         ),
     }
 
-    ret = await redis.xadd(stream_name, payload)
+    await transaction.xadd(stream_name, payload)
     # NOTE(sileht): Add pull request stream to process to the list, only if it
     # does not exists, to not update the score(date)
     await transaction.zaddoption("streams", "NX", **{stream_name: score})
-    await transaction.execute()
+    ret = await transaction.execute()
     LOG.debug(
         "pushed to worker",
         gh_owner=owner,
@@ -95,7 +107,7 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
         gh_pull=pull_number,
         event_type=event_type,
     )
-    return (ret, payload)
+    return (ret[0], payload)
 
 
 def run_engine(installation, owner, repo, pull_number, sources):
@@ -106,13 +118,9 @@ def run_engine(installation, owner, repo, pull_number, sources):
         subscription = sub_utils.get_subscription(sync_redis, installation["id"])
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
-            try:
+            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            with contextlib.suppress(http.HTTPNotFound):
                 pull = client.item(f"pulls/{pull_number}")
-            except httpx.HTTPClientSideError as e:
-                if e.status_code == 404:
-                    logger.debug("pull request doesn't exists, skipping it")
-                    return
-                raise
 
             if (
                 pull["base"]["repo"]["private"]
@@ -321,6 +329,14 @@ class StreamProcessor:
                 exc_info=True,
             )
             return
+        except vcr_errors_CannotOverwriteExistingCassetteException:
+            messages = await self.redis.xrange(
+                stream_name, count=config.STREAM_MAX_BATCH
+            )
+            for message_id, message in messages:
+                LOG.info(msgpack.unpackb(message[b"event"], raw=False))
+                await self.redis.execute_command("XDEL", stream_name, message_id)
+
         except Exception:
             # Ignore it, it will retried later
             LOG.error(
@@ -353,8 +369,8 @@ end
 """
 
     async def _extract_pulls_from_stream(self, stream_name, installation):
-        LOG.debug("read stream", stream_name=stream_name)
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
+        LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
@@ -502,7 +518,7 @@ class Worker:
                 await self._sleep_or_stop()
 
         stream_processor.close()
-        LOG.info("worker %d exited", worker_id)
+        LOG.debug("worker %d exited", worker_id)
 
     async def _sleep_or_stop(self, timeout=None):
         if timeout is None:
@@ -544,10 +560,10 @@ class Worker:
 
         self._monitoring_task = asyncio.create_task(self.monitoring_task())
 
-        LOG.info("%d workers spawned", self.worker_count)
+        LOG.debug("%d workers spawned", self.worker_count)
 
     async def _shutdown(self):
-        LOG.info("wait for workers to exit")
+        LOG.debug("wait for workers to exit")
         self._stopping.set()
 
         await asyncio.wait(
@@ -560,7 +576,7 @@ class Worker:
             self._redis = None
 
         self._tombstone.set()
-        LOG.info("exiting")
+        LOG.debug("exiting")
 
     def start(self):
         self._start_task = asyncio.create_task(self._run())

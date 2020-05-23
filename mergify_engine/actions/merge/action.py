@@ -38,7 +38,6 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 class MergeAction(actions.Action):
     only_once = True
-    always_run = True
 
     validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
@@ -57,6 +56,7 @@ class MergeAction(actions.Action):
     }
 
     def run(self, ctxt, rule, missing_conditions):
+        ctxt.log.info("process merge", config=self.config)
 
         q = queue.Queue.from_context(ctxt)
 
@@ -67,10 +67,8 @@ class MergeAction(actions.Action):
             return output
 
         if self.config["strict"] and ctxt.is_behind:
-            ctxt.log.info("process base branch sync", config=self.config)
             return self._sync_with_base_branch(ctxt)
         else:
-            ctxt.log.info("process merge", config=self.config)
             try:
                 return self._merge(ctxt)
             finally:
@@ -84,7 +82,9 @@ class MergeAction(actions.Action):
         if self.config["strict"] and self._required_statuses_in_progress(
             ctxt, missing_conditions
         ):
-            return helpers.get_wait_for_ci_report(ctxt, rule, missing_conditions)
+            return helpers.get_strict_status(
+                ctxt, rule, missing_conditions, need_update=ctxt.is_behind
+            )
 
         if self.config["strict"] == "smart":
             queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
@@ -127,7 +127,11 @@ class MergeAction(actions.Action):
         return False
 
     def _sync_with_base_branch(self, ctxt):
-        if not ctxt.pull_base_is_modifiable:
+        if (
+            ctxt.pull_from_fork
+            and not ctxt.pull["base"]["repo"]["private"]
+            and not ctxt.pull_base_is_modifiable
+        ):
             return (
                 "failure",
                 "Pull request can't be updated with latest "
@@ -139,19 +143,15 @@ class MergeAction(actions.Action):
             queue.Queue.from_context(ctxt).add_pull(
                 ctxt.pull["number"], self.config["strict_method"]
             )
-            return (
-                None,
-                "Base branch will be updated soon",
-                "The pull request base branch will "
-                "be updated soon, and then merged.",
-            )
+            return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
 
     @staticmethod
     def _get_commit_message(pull_request, mode="default"):
         if mode == "title+body":
-            return pull_request.title, pull_request.body
+            # Include PR number to mimic default GitHub format
+            return f"{pull_request.title} (#{pull_request.number})", pull_request.body
 
         if not pull_request.body:
             return
