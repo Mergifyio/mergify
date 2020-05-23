@@ -27,11 +27,11 @@ import unittest
 from unittest import mock
 
 import github as pygithub
-import httpx
 import pytest
 import redis
 from starlette import testclient
 import vcr
+import vcr.stubs.urllib3_stubs
 import yaml
 
 from mergify_engine import branch_updater
@@ -47,6 +47,7 @@ from mergify_engine import web
 from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
+from mergify_engine.clients import http
 
 
 LOG = logs.getLogger(__name__)
@@ -147,7 +148,7 @@ class GitterRecorder(utils.Gitter):
 class EventReader:
     def __init__(self, app):
         self._app = app
-        self._session = httpx.Client(trust_env=False)
+        self._session = http.Client()
         self._handled_events = queue.Queue()
         self._counter = 0
         self._redis = redis.StrictRedis.from_url(

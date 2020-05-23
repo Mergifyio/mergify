@@ -25,6 +25,7 @@ from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 
 
@@ -32,7 +33,7 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
     repositories = []
     url = f"{config.GITHUB_API_URL}/user/installations/{install_id}/repositories"
     token = f"token {token}"
-    session = httpx.Client()
+    session = http.Client()
     while True:
         response = session.get(
             url,
