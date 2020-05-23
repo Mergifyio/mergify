@@ -60,3 +60,5 @@ def test_client_401_raise_ratelimit(httpserver):
         client = github.get_client(owner, repo, installation)
         with pytest.raises(exceptions.RateLimited):
             client.item("pull/1")
+
+    httpserver.check_assertions()
