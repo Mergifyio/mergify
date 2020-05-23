@@ -22,6 +22,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 
@@ -58,12 +59,13 @@ class MergeAction(actions.Action):
     def run(self, ctxt, rule, missing_conditions):
         ctxt.log.info("process merge", config=self.config)
 
-        q = queue.Queue.from_context(ctxt)
-
         output = helpers.merge_report(ctxt, self.config["strict"])
         if output:
             if self.config["strict"] == "smart":
-                q.remove_pull(ctxt.pull["number"])
+                with utils.get_redis_for_cache() as redis:
+                    queue.Queue.from_context(redis, ctxt).remove_pull(
+                        ctxt.pull["number"]
+                    )
             return output
 
         if self.config["strict"] and ctxt.is_behind:
@@ -73,7 +75,10 @@ class MergeAction(actions.Action):
                 return self._merge(ctxt)
             finally:
                 if self.config["strict"] == "smart":
-                    q.remove_pull(ctxt.pull["number"])
+                    with utils.get_redis_for_cache() as redis:
+                        queue.Queue.from_context(redis, ctxt).remove_pull(
+                            ctxt.pull["number"]
+                        )
 
     def cancel(self, ctxt, rule, missing_conditions):
         # We just rebase the pull request, don't cancel it yet if CIs are
@@ -87,7 +92,8 @@ class MergeAction(actions.Action):
             )
 
         if self.config["strict"] == "smart":
-            queue.Queue.from_context(ctxt).remove_pull(ctxt.pull["number"])
+            with utils.get_redis_for_cache() as redis:
+                queue.Queue.from_context(redis, ctxt).remove_pull(ctxt.pull["number"])
 
         return self.cancelled_check_report
 
@@ -140,9 +146,10 @@ class MergeAction(actions.Action):
                 "",
             )
         elif self.config["strict"] == "smart":
-            queue.Queue.from_context(ctxt).add_pull(
-                ctxt.pull["number"], self.config["strict_method"]
-            )
+            with utils.get_redis_for_cache() as redis:
+                queue.Queue.from_context(redis, ctxt).add_pull(
+                    ctxt.pull["number"], self.config["strict_method"]
+                )
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])

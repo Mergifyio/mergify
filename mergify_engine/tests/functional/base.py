@@ -400,8 +400,8 @@ class FunctionalTestBase(unittest.TestCase):
         self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
-        self.redis = utils.get_redis_for_cache()
-        self.redis.flushall()
+        self.redis_for_cache = utils.get_redis_for_cache()
+        self.redis_for_cache.flushall()
         self.subscription = {
             "tokens": {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
             "subscription_active": self.SUBSCRIPTION_ACTIVE,
@@ -537,6 +537,7 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.close()
 
+        self.redis_for_cache.close()
         loop = asyncio.get_event_loop()
         loop.run_until_complete(web.shutdown())
         self._event_reader.drain()

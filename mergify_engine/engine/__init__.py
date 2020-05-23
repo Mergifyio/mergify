@@ -145,9 +145,8 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
 
 def run(client, pull, sources):
     LOG.debug("engine get sub")
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), client.installation["id"]
-    )
+    with utils.get_redis_for_cache() as redis:
+        subscription = sub_utils.get_subscription(redis, client.installation["id"])
 
     LOG.debug("engine get context")
     ctxt = context.Context(client, pull, subscription)

@@ -50,9 +50,9 @@ class Queue:
         return cls(redis, int(installation_id), owner, repo, branch)
 
     @classmethod
-    def from_context(cls, ctxt):
+    def from_context(cls, redis, ctxt):
         return cls(
-            utils.get_redis_for_cache(),
+            redis,
             ctxt.client.installation["id"],
             ctxt.pull["base"]["repo"]["owner"]["login"],
             ctxt.pull["base"]["repo"]["name"],
@@ -169,15 +169,17 @@ class Queue:
         # NOTE(sileht): Don't use the celery retry mechanism here, the
         # periodic tasks already retries. This ensure a repo can't block
         # another one.
-        redis = utils.get_redis_for_cache()
         LOG.info("smart strict workflow loop start")
-        for queue_name in redis.keys("strict-merge-queues~*"):
-            queue = cls.from_queue_name(redis, queue_name)
-            queue.log.info("handling queue")
-            try:
-                queue.process()
-            except Exception:
-                queue.log.error("Fail to process merge queue", exc_info=True)
+
+        with utils.get_redis_for_cache() as redis:
+            for queue_name in redis.keys("strict-merge-queues~*"):
+                queue = cls.from_queue_name(redis, queue_name)
+                queue.log.info("handling queue")
+                try:
+                    queue.process()
+                except Exception:
+                    queue.log.error("Fail to process merge queue", exc_info=True)
+
         LOG.info("smart strict workflow loop end")
 
     def process(self):
@@ -198,9 +200,7 @@ class Queue:
             self.delete_queue()
             return
 
-        subscription = sub_utils.get_subscription(
-            utils.get_redis_for_cache(), self.installation_id,
-        )
+        subscription = sub_utils.get_subscription(self.redis, self.installation_id,)
 
         with github.get_client(self.owner, self.repo, installation) as client:
             data = client.item(f"pulls/{pull_number}")

@@ -13,6 +13,7 @@
 # under the License.
 
 from mergify_engine import branch_updater
+from mergify_engine import utils
 from mergify_engine.actions.merge import queue
 
 
@@ -81,7 +82,8 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
         title = "Base branch update done"
         summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
 
-    pulls = queue.Queue.from_context(ctxt).get_pulls()
+    with utils.get_redis_for_cache() as redis:
+        pulls = queue.Queue.from_context(redis, ctxt).get_pulls()
     if pulls:
         links = ", ".join((f"#{pull}" for pull in pulls))
         summary += f"\n\nThe following pull requests are queued: {links}"
