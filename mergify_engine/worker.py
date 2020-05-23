@@ -25,7 +25,6 @@ from typing import List
 from typing import Set
 
 from datadog import statsd
-import httpx
 import msgpack
 import uvloop
 
@@ -37,6 +36,7 @@ from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 
 
 try:
@@ -118,13 +118,9 @@ def run_engine(installation, owner, repo, pull_number, sources):
         subscription = sub_utils.get_subscription(sync_redis, installation["id"])
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
-            try:
+            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            with contextlib.suppress(http.HTTPNotFound):
                 pull = client.item(f"pulls/{pull_number}")
-            except httpx.HTTPClientSideError as e:
-                if e.status_code == 404:
-                    logger.debug("pull request doesn't exists, skipping it")
-                    return
-                raise
 
             if (
                 pull["base"]["repo"]["private"]
