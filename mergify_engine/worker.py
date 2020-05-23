@@ -522,7 +522,7 @@ class Worker:
                 await self._sleep_or_stop()
 
         stream_processor.close()
-        LOG.info("worker %d exited", worker_id)
+        LOG.debug("worker %d exited", worker_id)
 
     async def _sleep_or_stop(self, timeout=None):
         if timeout is None:
@@ -564,10 +564,10 @@ class Worker:
 
         self._monitoring_task = asyncio.create_task(self.monitoring_task())
 
-        LOG.info("%d workers spawned", self.worker_count)
+        LOG.debug("%d workers spawned", self.worker_count)
 
     async def _shutdown(self):
-        LOG.info("wait for workers to exit")
+        LOG.debug("wait for workers to exit")
         self._stopping.set()
 
         await asyncio.wait(
@@ -580,7 +580,7 @@ class Worker:
             self._redis = None
 
         self._tombstone.set()
-        LOG.info("exiting")
+        LOG.debug("exiting")
 
     def start(self):
         self._start_task = asyncio.create_task(self._run())
