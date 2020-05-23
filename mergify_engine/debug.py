@@ -82,7 +82,6 @@ def report_sub(install_id, slug, sub, title):
 
 
 def report(url):
-    redis = utils.get_redis_for_cache()
     path = url.replace("https://github.com/", "")
     try:
         owner, repo, _, pull_number = path.split("/")
@@ -101,7 +100,8 @@ def report(url):
 
     print("* INSTALLATION ID: %s" % client.installation["id"])
 
-    cached_sub = sub_utils.get_subscription(redis, client.installation["id"])
+    with utils.get_redis_for_cache() as redis:
+        cached_sub = sub_utils.get_subscription(redis, client.installation["id"])
     db_sub = sub_utils._retrieve_subscription_from_db(client.installation["id"])
     print(
         "* SUBSCRIBED (cache/db): %s / %s"

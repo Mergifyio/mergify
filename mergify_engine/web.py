@@ -315,8 +315,8 @@ def sync_job_marketplace(event_type, event_id, data):
     except exceptions.MergifyNotInstalled:
         return
 
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation["id"])
+    with utils.get_redis_for_cache() as r:
+        r.delete("subscription-cache-%s" % installation["id"])
 
     LOG.info(
         "Marketplace event",

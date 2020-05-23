@@ -115,8 +115,8 @@ def run_engine(installation, owner, repo, pull_number, sources):
     logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
     logger.debug("engine in thread start")
     try:
-        sync_redis = utils.get_redis_for_cache()
-        subscription = sub_utils.get_subscription(sync_redis, installation["id"])
+        with utils.get_redis_for_cache() as sync_redis:
+            subscription = sub_utils.get_subscription(sync_redis, installation["id"])
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
             try:
