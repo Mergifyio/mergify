@@ -118,9 +118,12 @@ def run_engine(installation, owner, repo, pull_number, sources):
         subscription = sub_utils.get_subscription(sync_redis, installation["id"])
         logger.debug("engine get installation")
         with github.get_client(owner, repo, installation) as client:
-            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
-            with contextlib.suppress(http.HTTPNotFound):
+            try:
                 pull = client.item(f"pulls/{pull_number}")
+            except http.HTTPNotFound:
+                # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+                logger.debug("pull request doesn't exists, skipping it")
+                return
 
             if (
                 pull["base"]["repo"]["private"]
