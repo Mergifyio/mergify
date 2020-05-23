@@ -14,12 +14,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import contextlib
+
 from datadog import statsd
 
 from mergify_engine import config
 from mergify_engine import logs
 from mergify_engine import worker
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 
 
 LOG = logs.getLogger(__name__)
@@ -183,31 +186,32 @@ def _get_github_pulls_from_sha(client, sha):
 
 def extract_pull_numbers_from_event(installation, owner, repo, event_type, data):
     with github.get_client(owner, repo, installation) as client:
-        if event_type == "refresh":
-            if "ref" in data:
+        # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
+        with contextlib.suppress(http.HTTPNotFound):
+            if event_type == "refresh":
+                if "ref" in data:
+                    branch = data["ref"][11:]  # refs/heads/
+                    return [p["number"] for p in client.items("pulls", base=branch)]
+                else:
+                    return [p["number"] for p in client.items("pulls")]
+            elif event_type == "push":
                 branch = data["ref"][11:]  # refs/heads/
                 return [p["number"] for p in client.items("pulls", base=branch)]
-            else:
-                return [p["number"] for p in client.items("pulls")]
-        elif event_type == "push":
-            branch = data["ref"][11:]  # refs/heads/
-            return [p["number"] for p in client.items("pulls", base=branch)]
-        elif event_type == "status":
-            return _get_github_pulls_from_sha(client, data["sha"])
-        elif event_type in ["check_suite", "check_run"]:
-            # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-            base_repo_url = str(client.base_url)[:-1]
-            pulls = data[event_type]["pull_requests"]
-            # TODO(sileht): remove `"base" in p and`
-            # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing
-            pulls = [
-                p["number"]
-                for p in pulls
-                if "base" in p and p["base"]["repo"]["url"] == base_repo_url
-            ]
-            if not pulls:
-                sha = data[event_type]["head_sha"]
-                pulls = _get_github_pulls_from_sha(client, sha)
-            return pulls
-
+            elif event_type == "status":
+                return _get_github_pulls_from_sha(client, data["sha"])
+            elif event_type in ["check_suite", "check_run"]:
+                # NOTE(sileht): This list may contains Pull Request from another org/user fork...
+                base_repo_url = str(client.base_url)[:-1]
+                pulls = data[event_type]["pull_requests"]
+                # TODO(sileht): remove `"base" in p and`
+                # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing
+                pulls = [
+                    p["number"]
+                    for p in pulls
+                    if "base" in p and p["base"]["repo"]["url"] == base_repo_url
+                ]
+                if not pulls:
+                    sha = data[event_type]["head_sha"]
+                    pulls = _get_github_pulls_from_sha(client, sha)
+                return pulls
     return []
