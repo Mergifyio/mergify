@@ -50,12 +50,16 @@ app = fastapi.FastAPI()
 
 @app.on_event("startup")
 async def startup():
-    app.aredis_stream = await utils.create_aredis_for_stream()
+    app.aredis_for_stream = await utils.create_aredis_for_stream()
+    app.aredis_for_cache = await utils.create_aredis_for_cache()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    app.aredis_stream.connection_pool.disconnect()
+    app.aredis_for_cache.connection_pool.disconnect()
+    app.aredis_for_cache = None
+    app.aredis_for_stream.connection_pool.disconnect()
+    app.aredis_for_stream = None
 
 
 async def authentification(request: requests.Request):
@@ -159,7 +163,7 @@ async def _refresh(owner, repo, action="user", **extra_data):
     data.update(extra_data)
 
     await github_events.job_filter_and_dispatch(
-        app.aredis_stream, event_type, str(uuid.uuid4()), data
+        app.aredis_for_stream, event_type, str(uuid.uuid4()), data
     )
 
     return responses.Response("Refresh queued", status_code=202)
@@ -209,8 +213,7 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(authentification)],
 )
 async def subscription_cache_delete(installation_id):  # pragma: no cover
-    r = await utils.get_aredis_for_cache()
-    await r.delete("subscription-cache-%s" % installation_id)
+    await app.aredis_for_cache.delete("subscription-cache-%s" % installation_id)
     return responses.Response("Cache cleaned", status_code=200)
 
 
@@ -358,14 +361,13 @@ async def marketplace_handler(
 
 @app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(authentification)])
 async def queues(installation_id):
-    redis = await utils.get_aredis_for_cache()
     queues = collections.defaultdict(dict)
-    async for queue in redis.scan_iter(
+    async for queue in app.aredis_for_cache.scan_iter(
         match=f"strict-merge-queues~{installation_id}~*"
     ):
         _, _, owner, repo, branch = queue.split("~")
         queues[owner + "/" + repo][branch] = [
-            int(pull) async for pull, _ in redis.zscan_iter(queue)
+            int(pull) async for pull, _ in app.aredis_for_cache.zscan_iter(queue)
         ]
 
     return responses.JSONResponse(status_code=200, content=queues)
@@ -380,7 +382,7 @@ async def event_handler(
     data = await request.json()
 
     await github_events.job_filter_and_dispatch(
-        app.aredis_stream, event_type, event_id, data
+        app.aredis_for_stream, event_type, event_id, data
     )
 
     if (
@@ -409,18 +411,16 @@ async def event_handler(
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.delete("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_delete():  # pragma: no cover
-    r = await utils.get_aredis_for_cache()
-    await r.delete("events-testing")
+    await app.aredis_for_cache.delete("events-testing")
     return responses.Response("Event queued", status_code=202)
 
 
 @app.post("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_post(request: requests.Request):  # pragma: no cover
-    r = await utils.get_aredis_for_cache()
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
-    await r.rpush(
+    await app.aredis_for_cache.rpush(
         "events-testing",
         json.dumps({"id": event_id, "type": event_type, "payload": data}),
     )
@@ -429,8 +429,7 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
 
 @app.get("/events-testing", dependencies=[fastapi.Depends(authentification)])
 async def event_testing_handler_get(number: int = None):  # pragma: no cover
-    r = await utils.get_aredis_for_cache()
-    async with await r.pipeline() as p:
+    async with await app.aredis_for_cache.pipeline() as p:
         if number is None:
             await p.lrange("events-testing", 0, -1)
             await p.delete("events-testing")

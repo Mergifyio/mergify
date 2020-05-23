@@ -33,19 +33,11 @@ from mergify_engine import logs
 LOG = logs.getLogger(__name__)
 
 
-global AREDIS_CONNECTION_CACHE
-AREDIS_CONNECTION_CACHE = None
-
-
-async def get_aredis_for_cache():
-    global AREDIS_CONNECTION_CACHE
-    if AREDIS_CONNECTION_CACHE is None:
-        AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
-            config.STORAGE_URL, decode_responses=True
-        )
-        p = current_process()
-        await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
-    return AREDIS_CONNECTION_CACHE
+async def create_aredis_for_cache():
+    r = aredis.StrictRedis.from_url(config.STORAGE_URL, decode_responses=True)
+    p = current_process()
+    await r.client_setname("cache:%s" % p.name)
+    return r
 
 
 global REDIS_CONNECTION_CACHE
