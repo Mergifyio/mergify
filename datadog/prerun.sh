@@ -42,44 +42,6 @@ instances:
       - service:web
 EOF
         ;;
-    engine)
-        cat > "$DATADOG_CONF" <<EOF
-process_config:
-  enabled: "true"
-confd_path: $DD_CONF_DIR/conf.d
-logs_enabled: true
-additional_checksd: $DD_CONF_DIR/checks.d
-tags:
-  - dyno:$DYNO
-  - dynotype:$DYNOTYPE
-  - buildpackversion:$BUILDPACKVERSION
-  - appname:$HEROKU_APP_NAME
-  - service:celery
-EOF
-        cat > "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
-init_config:
-
-instances:
-  - name: celery-main
-    # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:MainProcess] -active- (worker --beat --app mergifyio.synchronizator --concurrency 4 --queues schedule,github.accounts,github.events,celery)
-    search_string: ['\[celeryd: .+:MainProcess\]']
-    exact_match: false
-    tags:
-      - service:celery
-  - name: celery-worker
-    # [celeryd: celery@aeade076-e94d-452f-8af0-ad8d5850fa4c:ForkPoolWorker-2]
-    search_string: ['\[celeryd: .+:ForkPoolWorker']
-    exact_match: false
-    tags:
-      - service:celery
-  - name: celery-beat
-    # [celery beat] beat -A mergify_engine.worker
-    search_string: ['\[celery beat\]']
-    exact_match: false
-    tags:
-      - service:celery
-EOF
-        ;;
     worker)
         cat > "$DATADOG_CONF" <<EOF
 process_config:
@@ -92,7 +54,7 @@ tags:
   - dynotype:$DYNOTYPE
   - buildpackversion:$BUILDPACKVERSION
   - appname:$HEROKU_APP_NAME
-  - service:celery
+  - service:worker
 EOF
         cat > "$DD_CONF_DIR/conf.d/process.d/conf.yaml" <<EOF
 init_config:
@@ -102,7 +64,7 @@ instances:
     search_string: ['bin/mergify-engine-worker']
     exact_match: false
     tags:
-      - service:mergify-engine
+      - service:worker
 EOF
         ;;
 esac
@@ -114,15 +76,6 @@ if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
         sed -i "s/<CACHE HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CACHE PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CACHE PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-    fi
-fi
-
-
-if [ -n "$MERGIFYENGINE_CELERY_BROKER_URL" ]; then
-    if [[ $MERGIFYENGINE_CELERY_BROKER_URL =~ $REDIS_REGEX ]]; then
-        sed -i "s/<CELERY HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
-        sed -i "s/<CELERY PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
     fi
 fi
 

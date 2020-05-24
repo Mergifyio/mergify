@@ -22,15 +22,8 @@ import uuid
 import asyncmock
 from starlette import testclient
 
-from mergify_engine import tasks
 from mergify_engine import utils
 from mergify_engine import web
-
-
-# NOTE(sileht): Celery magic, this just skip amqp and execute tasks directly
-# So all REST API calls will block and execute celery tasks directly
-tasks.app.conf.task_always_eager = True
-tasks.app.conf.task_eager_propagates = True
 
 
 @mock.patch(

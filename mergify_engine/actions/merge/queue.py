@@ -172,9 +172,6 @@ class Queue:
 
     @classmethod
     def process_queues(cls):
-        # NOTE(sileht): Don't use the celery retry mechanism here, the
-        # periodic tasks already retries. This ensure a repo can't block
-        # another one.
         redis = utils.get_redis_for_cache()
         LOG.info("smart strict workflow loop start")
         for queue_name in redis.keys("strict-merge-queues~*"):

@@ -243,7 +243,7 @@ def run(client, pull, sources):
 
     # CheckRun are attached to head sha, so when user add commits or force push
     # we can't directly get the previous Mergify Summary. So we copy it here, then
-    # anything that looks at it in next celery tasks will find it.
+    # anything that looks at it in next engine runs will find it.
 
     synchronize_data = [
         s["data"]

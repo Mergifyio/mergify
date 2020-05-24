@@ -7,16 +7,6 @@ instances:
    tags:
      - role:cache
 
- - host: <CELERY HOST>
-   port: <CELERY PORT>
-   password: <CELERY PASSWORD>
-   keys:
-     - celery
-     - schedule
-     - mergify
-   tags:
-     - role:celery
-
  - host: <STREAM HOST>
    port: <STREAM PORT>
    password: <STREAM PASSWORD>

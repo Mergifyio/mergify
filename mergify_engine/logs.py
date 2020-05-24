@@ -17,7 +17,6 @@ import re
 import sys
 import weakref
 
-import celery.app.log
 import daiquiri
 
 from mergify_engine import config
@@ -26,19 +25,6 @@ from mergify_engine import config
 global GLOBAL_EXTRAS, LOGGERS
 GLOBAL_EXTRAS = {}
 LOGGERS = weakref.WeakSet()
-
-
-class CustomFormatter(
-    daiquiri.formatter.ColorExtrasFormatter, celery.app.log.TaskFormatter
-):
-    pass
-
-
-CELERY_EXTRAS_FORMAT = (
-    "%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s "
-    "[%(task_id)s] "
-    "%(name)s%(extras)s: %(message)s%(color_stop)s"
-)
 
 
 def getLogger(name, **kwargs):
@@ -92,11 +78,7 @@ def setup_logging(**kwargs):
 
     if config.LOG_STDOUT:
         outputs.append(
-            daiquiri.output.Stream(
-                sys.stdout,
-                formatter=CustomFormatter(fmt=CELERY_EXTRAS_FORMAT),
-                level=config.LOG_STDOUT_LEVEL,
-            )
+            daiquiri.output.Stream(sys.stdout, level=config.LOG_STDOUT_LEVEL,)
         )
 
     if config.LOG_DATADOG:
@@ -107,8 +89,6 @@ def setup_logging(**kwargs):
     )
     daiquiri.set_default_log_levels(
         [
-            ("celery", "INFO"),
-            ("kombu", "WARN"),
             ("github.Requester", "WARN"),
             ("urllib3.connectionpool", "WARN"),
             ("urllib3.util.retry", "WARN"),
