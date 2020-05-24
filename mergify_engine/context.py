@@ -291,7 +291,7 @@ class Context(object):
     UNUSABLE_STATES = ["unknown", None]
 
     # NOTE(sileht): quickly retry, if we don't get the status on time
-    # the exception is recatch in worker.py, so celery will retry it later
+    # the exception is recatch in worker.py, so worker will retry it later
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=0.2),
         stop=tenacity.stop_after_attempt(5),

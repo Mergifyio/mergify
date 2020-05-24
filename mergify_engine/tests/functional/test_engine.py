@@ -698,7 +698,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
             % self.REPO_NAME: {self.master_branch_name: [p2.number]}
         }
 
-        # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
         r = self.app.get(
@@ -778,7 +777,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
 
-        # We can run celery beat inside tests, so run the task manually
         run_smart_strict_workflow_periodic_task()
 
         self.wait_for("pull_request", {"action": "synchronize"})
@@ -1397,7 +1395,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, _ = self.create_pr(files={"TESTING": "p2"})
         p1.merge()
 
-        # Since we use celery eager system for testing, countdown= are ignored.
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
