@@ -246,8 +246,14 @@ def run_actions(
 
     actions_ran = set()
     conclusions = {}
-    # Run actions
-    for rule, missing_conditions in match.matching_rules:
+
+    # NOTE(sileht): We put first rules with missing conditions to do cancellation first.
+    # In case of a canceled merge action and another that need to be run. We want first
+    # to remove the PR from the queue and then add it back with the new config and not the
+    # reverse
+    matching_rules = sorted(match.matching_rules, key=lambda value: len(value[1]) == 0)
+
+    for rule, missing_conditions in matching_rules:
         for action, action_obj in rule["actions"].items():
             check_name = "Rule: %s (%s)" % (rule["name"], action)
 
