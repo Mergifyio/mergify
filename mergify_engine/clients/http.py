@@ -76,17 +76,27 @@ STATUS_CODE_TO_EXC = {404: HTTPNotFound}
 
 class Client(httpx.Client):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # httpx doesn't support retries yet, but the sync client uses urllib3 like request
-        # https://github.com/encode/httpx/blob/master/httpx/_dispatch/urllib3.py#L105
+        # TODO(sileht): Due to our retries config, we have to use URLLIB3 transport
+        # instead of the httpx default. It doesn't looks like httpx/httpcore will ever
+        # retry themself
+        #
+        # So, the plan is to use tenacity around `request()` to mimic urllib3 retry,
+        # so Sync and Async client will share the exact same code for retrying
 
-        real_urlopen = self.dispatch.pool.urlopen
+        # https://github.com/encode/httpx/blob/master/httpx/_transports/urllib3.py#L100
+        transport = httpx.URLLib3Transport()
+
+        real_urlopen = transport.pool.urlopen
 
         def _mergify_patched_urlopen(*args, **kwargs):
             kwargs["retries"] = RETRY
             return real_urlopen(*args, **kwargs)
 
-        self.dispatch.pool.urlopen = _mergify_patched_urlopen
+        transport.pool.urlopen = _mergify_patched_urlopen
+
+        kwargs["transport"] = transport
+        kwargs["trust_env"] = False
+        super().__init__(*args, **kwargs)
 
     def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)

@@ -20,10 +20,9 @@ import logging
 import os
 import time
 
-import httpx
-
 from mergify_engine import logs
 from mergify_engine import utils
+from mergify_engine.clients import http
 
 
 LOG = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ def run():
 
     logs.setup_logging()
 
-    session = httpx.Client(trust_env=False)
+    session = http.Client()
 
     payload_data = os.urandom(250)
     payload_hmac = utils.compute_hmac(payload_data)
