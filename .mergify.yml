@@ -51,11 +51,18 @@ pull_request_rules:
       merge:
         strict: "smart"
         method: rebase
-  - name: dismiss reviews
+  - name: dismiss reviews except for core devs
     conditions:
       - author!=@devs
     actions:
       dismiss_reviews: {}
+  - name: dismiss reviews for core devs
+    conditions:
+      - author=@devs
+    actions:
+      dismiss_reviews:
+          # Do not remove approval for core devs
+          approved: False
   - name: auto add wip
     conditions:
       - title~=^(wip|WIP).*
