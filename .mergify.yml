@@ -16,17 +16,18 @@ pull_request_rules:
       merge:
         strict: "smart"
         method: rebase
-  - name: automatic merge without review
+  - name: automatic merge for hotfix
     conditions:
       - base=master
       - status-success=Semantic Pull Request
+      - body~=^Fixes MERGIFY-ENGINE-
       - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
       - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: py38"
       - "status-success=ci/circleci: docs"
-      - label=no-review-needed
+      - label=hotfix
       - "#changes-requested-reviews-by=0"
       - label!=work-in-progress
       - label!=manual merge
@@ -71,6 +72,13 @@ pull_request_rules:
       request_reviews:
         teams:
           - devs
+  - name: warn on no Sentry
+    conditions:
+      - -body~=^Fixes MERGIFY-ENGINE-
+      - label=hotfix
+    actions:
+      comment:
+        message: Your pull request is a hotfix but does not fix a Sentry issue.
   - name: warn on conflicts
     conditions:
       - conflict
