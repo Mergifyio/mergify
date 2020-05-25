@@ -14,11 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
@@ -35,7 +35,7 @@ class CloseAction(actions.Action):
 
         try:
             ctxt.client.patch(f"pulls/{ctxt.pull['number']}", json={"state": "close"})
-        except httpx.HTTPClientSideError as e:  # pragma: no cover
+        except http.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "Pull request can't be closed", e.message)
 
         try:
@@ -51,7 +51,7 @@ class CloseAction(actions.Action):
             ctxt.client.post(
                 f"issues/{ctxt.pull['number']}/comments", json={"body": message},
             )
-        except httpx.HTTPClientSideError as e:  # pragma: no cover
+        except http.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "The close message can't be created", e.message)
 
         return ("success", "The pull request has been closed", message)

@@ -15,10 +15,10 @@
 # under the License.
 
 
-import httpx
 import yaml
 
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 from mergify_engine.tests.functional import base
 
 
@@ -67,7 +67,7 @@ class TestGithubClient(base.FunctionalTestBase):
         pull = client.item(f"pulls/{p2.number}")
         self.assertEqual(p2.number, pull["number"])
 
-        with self.assertRaises(httpx.HTTPError) as ctxt:
+        with self.assertRaises(http.HTTPError) as ctxt:
             client.item("pulls/10000000000")
 
         self.assertEqual(404, ctxt.exception.response.status_code)
