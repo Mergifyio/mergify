@@ -18,6 +18,7 @@ import time
 from unittest import mock
 
 from freezegun import freeze_time
+import httpx
 import pytest
 
 from mergify_engine import exceptions
@@ -368,7 +369,10 @@ async def test_stream_processor_retrying_stream_recovered(
     get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
 
-    run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
+    response = mock.Mock()
+    response.json.return_value = {"message": "boom"}
+    response.status_code = 401
+    run_engine.side_effect = httpx.HTTPClientSideError(response=response)
 
     await worker.push(
         redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
@@ -427,7 +431,10 @@ async def test_stream_processor_retrying_stream_failure(
     get_install_by_id.side_effect = fake_install_id
     logs.setup_logging(worker="streams")
 
-    run_engine.side_effect = exceptions.RateLimited(123, {"what": "ever"})
+    response = mock.Mock()
+    response.json.return_value = {"message": "boom"}
+    response.status_code = 401
+    run_engine.side_effect = httpx.HTTPClientSideError(response=response)
 
     await worker.push(
         redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
