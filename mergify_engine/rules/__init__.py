@@ -21,12 +21,12 @@ import itertools
 import operator
 import typing
 
-import httpx
 import voluptuous
 import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import types
 
@@ -264,7 +264,7 @@ def get_mergify_config_content(ctxt, ref=None):
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
             content = ctxt.client.item(f"contents/{filename}", **kwargs)["content"]
-        except httpx.HTTPNotFound:
+        except http.HTTPNotFound:
             continue
         return filename, base64.b64decode(bytearray(content, "utf-8"))
     raise NoRules()

@@ -20,6 +20,7 @@ import pytest
 
 from mergify_engine import exceptions
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 
 
 @mock.patch("mergify_engine.clients.http.RETRY", None)
@@ -62,3 +63,48 @@ def test_client_401_raise_ratelimit(httpserver):
             client.item("pull/1")
 
     httpserver.check_assertions()
+
+
+@mock.patch("mergify_engine.clients.http.RETRY", None)
+def test_client_HTTP_400(httpserver):
+
+    httpserver.expect_oneshot_request("/").respond_with_json(
+        {"message": "This is an 4XX error"}, status=400
+    )
+
+    with http.Client() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            client.get(httpserver.url_for("/"))
+
+    assert exc_info.value.message == "This is an 4XX error"
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.response.status_code == 400
+    assert str(exc_info.value.request.url) == httpserver.url_for("/")
+
+    httpserver.check_assertions()
+
+
+@mock.patch("mergify_engine.clients.http.RETRY", None)
+def test_client_HTTP_500(httpserver):
+
+    httpserver.expect_oneshot_request("/").respond_with_data(
+        "This is an 5XX error", status=500
+    )
+
+    with http.Client() as client:
+        with pytest.raises(http.HTTPServerSideError) as exc_info:
+            client.get(httpserver.url_for("/"))
+
+    assert exc_info.value.message == "This is an 5XX error"
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.response.status_code == 500
+    assert str(exc_info.value.request.url) == httpserver.url_for("/")
+
+    httpserver.check_assertions()
+
+
+@mock.patch("mergify_engine.clients.http.RETRY", None)
+def test_client_connection_error():
+    with http.Client() as client:
+        with pytest.raises(http.ConnectionErrors):
+            client.get("http://localhost:12345")

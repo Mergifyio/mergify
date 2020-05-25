@@ -160,7 +160,7 @@ class GithubInstallationClient(http.Client):
         reply = None
         try:
             reply = super().request(method, url, *args, **kwargs)
-        except httpx.HTTPClientSideError as e:
+        except http.HTTPClientSideError as e:
             if e.status_code == 403:
                 # TODO(sileht): Maybe we could look at header to avoid a request:
                 # they should be according the doc:

@@ -18,12 +18,12 @@
 import subprocess
 import uuid
 
-import httpx
 import tenacity
 
 from mergify_engine import config
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.clients import http
 
 
 UNRECOVERABLE_ERROR = ["head repository does not exist"]
@@ -186,7 +186,7 @@ def update_with_api(ctxt):
             api_version="lydian",
             json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
-    except httpx.HTTPClientSideError as e:
+    except http.HTTPClientSideError as e:
         if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:
             ctxt.log.info(
                 "branch updated in the meantime", status=e.status_code, error=e.message,
@@ -197,7 +197,7 @@ def update_with_api(ctxt):
                 "update branch failed", status=e.status_code, error=e.message,
             )
             raise BranchUpdateFailure(e.message)
-    except httpx.HTTPError as e:
+    except http.HTTPError as e:
         ctxt.log.info(
             "update branch failed",
             status=(e.response.status_code if e.response else None),

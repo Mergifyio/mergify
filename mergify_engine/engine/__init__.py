@@ -11,7 +11,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import httpx
 import pkg_resources
 import yaml
 
@@ -22,6 +21,7 @@ from mergify_engine import logs
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
 
@@ -49,7 +49,7 @@ def get_github_pull_from_event(client, event_type, data):
     elif event_type == "issue_comment":
         try:
             return client.item(f"pulls/{data['issue']['number']}")
-        except httpx.HTTPNotFound:  # pragma: no cover
+        except http.HTTPNotFound:  # pragma: no cover
             return
 
     elif event_type == "status":
