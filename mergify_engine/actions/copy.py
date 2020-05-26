@@ -17,11 +17,11 @@
 import re
 from urllib import parse
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import duplicate_pull
+from mergify_engine.clients import http
 
 
 def Regex(value):
@@ -54,7 +54,7 @@ class CopyAction(actions.Action):
         escaped_branch_name = parse.quote(branch_name, safe="")
         try:
             ctxt.client.item(f"branches/{escaped_branch_name}")
-        except httpx.HTTPError as e:
+        except http.HTTPError as e:
             if not e.response:
                 raise
             detail = "%s to branch `%s` failed: " % (

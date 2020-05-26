@@ -14,11 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
@@ -46,7 +46,7 @@ class AssignAction(actions.Action):
                     f"issues/{ctxt.pull['number']}/assignees",
                     json={"assignees": assignees},
                 )
-            except httpx.HTTPClientSideError as e:  # pragma: no cover
+            except http.HTTPClientSideError as e:  # pragma: no cover
                 return (
                     None,
                     "Unable to add assignees",

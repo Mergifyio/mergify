@@ -1,9 +1,9 @@
 import itertools
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine.clients import http
 
 
 class RequestReviewsAction(actions.Action):
@@ -47,7 +47,7 @@ class RequestReviewsAction(actions.Action):
                         "team_reviewers": list(team_reviews_to_request),
                     },
                 )
-            except httpx.HTTPClientSideError as e:  # pragma: no cover
+            except http.HTTPClientSideError as e:  # pragma: no cover
                 return (
                     None,
                     "Unable to create review request",

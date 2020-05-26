@@ -20,7 +20,6 @@ from datadog import statsd
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import logs
-from mergify_engine.actions.merge import queue
 
 
 LOG = logs.getLogger(__name__)
@@ -55,18 +54,6 @@ app.conf.task_acks_late = True
 @signals.setup_logging.connect
 def celery_logging(**kwargs):  # pragma: no cover
     logs.setup_logging(worker="celery")
-
-
-@app.task
-def smart_strict_workflow_periodic_task():
-    queue.Queue.process_queues()
-
-
-@app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(
-        60.0, smart_strict_workflow_periodic_task.s(), name="smart strict workflow",
-    )
 
 
 @signals.task_failure.connect

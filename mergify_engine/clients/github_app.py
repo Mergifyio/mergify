@@ -95,7 +95,7 @@ class _Client(http.Client):
     def get_installation_by_id(self, installation_id):
         try:
             return self._get_installation(f"/app/installations/{installation_id}")
-        except httpx.HTTPNotFound as e:
+        except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
                 installation_id=installation_id,
@@ -115,7 +115,7 @@ class _Client(http.Client):
 
         try:
             return self._get_installation(url)
-        except httpx.HTTPNotFound as e:
+        except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
                 gh_owner=owner,

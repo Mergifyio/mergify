@@ -15,12 +15,12 @@
 import re
 
 from datadog import statsd
-import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
 from mergify_engine import logs
+from mergify_engine.clients import http
 
 
 LOG = logs.getLogger(__name__)
@@ -110,7 +110,7 @@ def handle(ctxt, comment, user, rerun=False):
         ctxt.client.post(
             f"issues/{ctxt.pull['number']}/comments", json={"body": result}
         )
-    except httpx.HTTPClientSideError as e:  # pragma: no cover
+    except http.HTTPClientSideError as e:  # pragma: no cover
         ctxt.log.error(
             "fail to post comment on the pull request",
             status=e.status_code,

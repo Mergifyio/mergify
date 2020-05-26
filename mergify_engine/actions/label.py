@@ -17,10 +17,10 @@
 import random
 from urllib import parse
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine.clients import http
 
 
 class LabelAction(actions.Action):
@@ -40,7 +40,7 @@ class LabelAction(actions.Action):
                     color = "%06x" % random.randrange(16 ** 6)
                     try:
                         ctxt.client.post("labels", json={"name": label, "color": color})
-                    except httpx.HTTPClientSideError:
+                    except http.HTTPClientSideError:
                         continue
 
             ctxt.client.post(
@@ -59,7 +59,7 @@ class LabelAction(actions.Action):
                         ctxt.client.delete(
                             f"issues/{ctxt.pull['number']}/labels/{label_escaped}"
                         )
-                    except httpx.HTTPClientSideError:
+                    except http.HTTPClientSideError:
                         continue
 
         return ("success", "Labels added/removed", "")

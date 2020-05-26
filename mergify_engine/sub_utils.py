@@ -21,7 +21,6 @@ import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
-import httpx
 
 from mergify_engine import config
 from mergify_engine import logs
@@ -101,12 +100,11 @@ def _retrieve_subscription_from_db(installation_id):
                 config.SUBSCRIPTION_URL % installation_id,
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
-        except httpx.HTTPNotFound as e:
-            reason = e.response.json().get("message")
+        except http.HTTPNotFound as e:
             sub = {
                 "tokens": {},
                 "subscription_active": False,
-                "subscription_reason": reason,
+                "subscription_reason": e.message,
             }
         else:
             sub = resp.json()

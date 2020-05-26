@@ -16,12 +16,12 @@ import dataclasses
 import functools
 import subprocess
 
-import httpx
 import tenacity
 
 from mergify_engine import config
 from mergify_engine import doc
 from mergify_engine import utils
+from mergify_engine.clients import http
 
 
 class DuplicateNeedRetry(Exception):
@@ -279,7 +279,7 @@ def duplicate(
                 "head": bp_branch,
             },
         ).json()
-    except httpx.HTTPClientSideError as e:
+    except http.HTTPClientSideError as e:
         if e.status_code == 422 and "No commits between" in e.message:
             return
         raise
