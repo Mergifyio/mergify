@@ -18,13 +18,13 @@ import itertools
 import re
 
 import daiquiri
-import httpx
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import context
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
+from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -240,7 +240,7 @@ class MergeAction(actions.Action):
 
         try:
             ctxt.client.put(f"pulls/{ctxt.pull['number']}/merge", json=data)
-        except httpx.HTTPClientSideError as e:  # pragma: no cover
+        except http.HTTPClientSideError as e:  # pragma: no cover
             ctxt.update()
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")

@@ -12,7 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import httpx
+from mergify_engine.clients import http
 
 
 class MergifyNotInstalled(Exception):
@@ -39,7 +39,7 @@ NOT_ACCESSIBLE_REPOSITORY_MESSAGES = [
 
 
 def should_be_ignored(exception):
-    if isinstance(exception, httpx.HTTPClientSideError):
+    if isinstance(exception, http.HTTPClientSideError):
         if (
             exception.status_code == 403
             and exception.message in NOT_ACCESSIBLE_REPOSITORY_MESSAGES
@@ -62,15 +62,14 @@ def need_retry(exception):  # pragma: no cover
         return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
     elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
-    elif isinstance(exception, httpx.HTTPError) and (
-        exception.response is None or exception.response.status_code >= 500
-    ):
+
+    elif isinstance(exception, http.ConnectionErrors + (http.HTTPServerSideError,)):
         # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
         # is in a really bad shape...
         return BASE_RETRY_TIMEOUT * 5
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
-    elif isinstance(exception, httpx.HTTPError):
+    elif isinstance(exception, http.HTTPClientSideError):
         # Bad creds or token expired, we can't really known
         if exception.response.status_code == 401:
             return BASE_RETRY_TIMEOUT

@@ -16,10 +16,10 @@
 
 from urllib import parse
 
-import httpx
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine.clients import http
 
 
 class DeleteHeadBranchAction(actions.Action):
@@ -53,7 +53,7 @@ class DeleteHeadBranchAction(actions.Action):
             ref_to_delete = parse.quote(ctxt.pull["head"]["ref"], safe="")
             try:
                 ctxt.client.delete(f"git/refs/heads/{ref_to_delete}")
-            except httpx.HTTPClientSideError as e:
+            except http.HTTPClientSideError as e:
                 if e.status_code not in [422, 404]:
                     return (
                         "failure",

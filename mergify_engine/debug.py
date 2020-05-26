@@ -15,8 +15,6 @@
 import argparse
 import pprint
 
-import httpx
-
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
@@ -61,17 +59,14 @@ def report_sub(install_id, slug, sub, title):
     for login, token in sub["tokens"].items():
         try:
             repos = get_repositories_setuped(token, install_id)
-        except httpx.HTTPError as e:
-            if not e.response or e.response.status_code >= 500:
-                raise
-            if e.response.status_code == 404:
-                print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
-                return
-            else:
-                print(
-                    f"* {title} SUB: token for {login} is invalid "
-                    f"({e.response.status_code}: {e.response.json()['message']})"
-                )
+        except http.HTTPNotFound:
+            print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
+            return
+        except http.HTTPClientSideError as e:
+            print(
+                f"* {title} SUB: token for {login} is invalid "
+                f"({e.status_code}: {e.message})"
+            )
         else:
             if any((r["full_name"] == slug) for r in repos):
                 print(

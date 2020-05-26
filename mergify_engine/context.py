@@ -21,7 +21,6 @@ from typing import List
 from urllib import parse
 
 import cachetools
-import httpx
 import jinja2.exceptions
 import jinja2.runtime
 import jinja2.sandbox
@@ -272,7 +271,7 @@ class Context(object):
                     f"/orgs/{organization}/teams/{team_slug}/members"
                 )
             ]
-        except httpx.HTTPClientSideError as e:
+        except http.HTTPClientSideError as e:
             self.log.warning(
                 "fail to get the organization, team or members",
                 team=name,

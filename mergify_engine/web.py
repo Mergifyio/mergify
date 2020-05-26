@@ -25,7 +25,6 @@ import uuid
 
 import daiquiri
 import fastapi
-import httpx
 from starlette import requests
 from starlette import responses
 from starlette.middleware import cors
@@ -40,6 +39,7 @@ from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
+from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 
 
@@ -82,7 +82,7 @@ async def authentification(request: requests.Request):
 
 
 async def http_post(*args, **kwargs):
-    async with httpx.AsyncClient() as client:
+    async with http.AsyncClient() as client:
         await client.post(*args, **kwargs)
 
 
@@ -233,7 +233,7 @@ def PullRequestUrl(v):
     with github.get_client(owner, repo, installation) as client:
         try:
             data = client.item(f"pulls/{pull_number}")
-        except httpx.HTTPNotFound:
+        except http.HTTPNotFound:
             raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
         return context.Context(

@@ -43,17 +43,19 @@ tasks.app.conf.task_eager_propagates = True
 )
 def test_app_event_forward(_, __, httpserver):
 
-    with open(os.path.dirname(__file__) + "/push_event.json", "rb") as f:
+    with open(os.path.dirname(__file__) + "/push_event.json", "r") as f:
         data = f.read()
 
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "push",
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
+        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data.encode()),
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    httpserver.expect_request("/", method="POST", data=data, headers=headers)
+    httpserver.expect_request(
+        "/", method="POST", data=data, headers=headers
+    ).respond_with_data("")
 
     with mock.patch(
         "mergify_engine.config.WEBHOOK_APP_FORWARD_URL", httpserver.url_for("/"),
@@ -71,17 +73,19 @@ def test_app_event_forward(_, __, httpserver):
 )
 def test_market_event_forward(_, __, httpserver):
 
-    with open(os.path.dirname(__file__) + "/market_event.json", "rb") as f:
+    with open(os.path.dirname(__file__) + "/market_event.json", "r") as f:
         data = f.read()
 
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "purchased",
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
+        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data.encode()),
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
-    httpserver.expect_request("/", method="POST", data=data, headers=headers)
+    httpserver.expect_request(
+        "/", method="POST", data=data, headers=headers
+    ).respond_with_data("")
 
     with mock.patch(
         "mergify_engine.config.WEBHOOK_MARKETPLACE_FORWARD_URL",
