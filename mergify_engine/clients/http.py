@@ -15,43 +15,24 @@
 # under the License.
 
 
+import datetime
 import json
 
 import httpcore
 import httpx
-import urllib3
+import tenacity
+from werkzeug.http import parse_date
 
 from mergify_engine import logs
 
 
 LOG = logs.getLogger(__name__)
 
-RETRY = urllib3.Retry(
-    total=None,
-    redirect=3,
-    connect=5,
-    read=5,
-    status=5,
-    backoff_factor=0.2,
-    status_forcelist=list(range(500, 599)) + [429],
-    method_whitelist=[
-        "HEAD",
-        "TRACE",
-        "GET",
-        "PUT",
-        "OPTIONS",
-        "DELETE",
-        "POST",
-        "PATCH",
-    ],
-    raise_on_status=False,
-)
 DEFAULT_CLIENT_OPTIONS = {
     "headers": {
         "Accept": "application/vnd.github.machine-man-preview+json",
         "User-Agent": "Mergify/Python",
     },
-    "trust_env": False,
 }
 
 HTTPError = httpx.HTTPError
@@ -94,56 +75,81 @@ class HTTPNotFound(HTTPClientSideError):
     pass
 
 
-STATUS_CODE_TO_EXC = {404: HTTPNotFound}
+class HTTPTooManyRequests(HTTPClientSideError):
+    pass
+
+
+class HTTPServiceUnavailable(HTTPServerSideError):
+    pass
+
+
+STATUS_CODE_TO_EXC = {
+    404: HTTPNotFound,
+    429: HTTPTooManyRequests,
+    503: HTTPServiceUnavailable,
+}
+
+
+def wait_retry_after_header(retry_state):
+    exc = retry_state.outcome.exception()
+    if exc is None or not getattr(exc, "response", None):
+        return 0
+
+    value = exc.response.headers.get("retry-after")
+    if value is None:
+        return 0
+    elif value.isdigit():
+        return int(value)
+
+    d = parse_date(value)
+    if d is None:
+        return 0
+    return max(0, (d - datetime.datetime.utcnow()).total_seconds())
 
 
 class ClientMixin:
+    connectivity_issue_retry = tenacity.retry(
+        reraise=True,
+        retry=tenacity.retry_if_exception_type(
+            ConnectionErrors + (HTTPServerSideError, HTTPTooManyRequests)
+        ),
+        wait=tenacity.wait_combine(
+            wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
+        ),
+        stop=tenacity.stop_after_attempt(5),
+    )
+
     @staticmethod
     def raise_for_status(resp):
-        message = "{0.status_code} {error_type}: {0.reason_phrase} for url: {0.url}"
         if httpx.StatusCode.is_client_error(resp.status_code):
-            message = message.format(resp, error_type="Client Error")
-            try:
-                gh_message = resp.json().get("message")
-            except json.JSONDecodeError:
-                gh_message = None
-            if gh_message:
-                message += f"\nGitHub details: {gh_message}"
-            elif resp.text:
-                message += f"\nDetails: {resp.text}"
-            exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, HTTPClientSideError)
-            raise exc_class(message, response=resp)
+            error_type = "Client Error"
+            default_exception = HTTPClientSideError
         elif httpx.StatusCode.is_server_error(resp.status_code):
-            message = message.format(resp, error_type="Server Error")
-            if resp.text:
-                message += f"\nDetails: {resp.text}"
-            raise HTTPServerSideError(message, response=resp)
+            error_type = "Server Error"
+            default_exception = HTTPServerSideError
+        else:
+            return
+
+        try:
+            details = resp.json().get("message")
+        except json.JSONDecodeError:
+            details = None
+
+        if details is None:
+            details = resp.text if resp.text else "<empty-response>"
+
+        message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
+        exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, default_exception)
+        raise exc_class(message, response=resp)
 
 
 class Client(httpx.Client, ClientMixin):
     def __init__(self, *args, **kwargs):
-        # TODO(sileht): Due to our retries config, we have to use URLLIB3 transport
-        # instead of the httpx default. It doesn't looks like httpx/httpcore will ever
-        # retry themself
-        #
-        # So, the plan is to use tenacity around `request()` to mimic urllib3 retry,
-        # so Sync and Async client will share the exact same code for retrying
-
-        # https://github.com/encode/httpx/blob/master/httpx/_transports/urllib3.py#L100
-        transport = httpx.URLLib3Transport()
-
-        real_urlopen = transport.pool.urlopen
-
-        def _mergify_patched_urlopen(*args, **kwargs):
-            kwargs["retries"] = RETRY
-            return real_urlopen(*args, **kwargs)
-
-        transport.pool.urlopen = _mergify_patched_urlopen
-
-        kwargs["transport"] = transport
-        kwargs["trust_env"] = False
+        # We have to use urllib3 because pyvcr does not support httpx/httpcore/h11/he
+        kwargs["transport"] = httpx.URLLib3Transport()
         super().__init__(*args, **kwargs)
 
+    @ClientMixin.connectivity_issue_retry
     def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
         resp = super().request(method, url, *args, **kwargs)
@@ -153,8 +159,7 @@ class Client(httpx.Client, ClientMixin):
 
 
 class AsyncClient(httpx.AsyncClient, ClientMixin):
-    # TODO(sileht): Handle retries like we do with urllib3
-
+    @ClientMixin.connectivity_issue_retry
     async def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
         resp = await super().request(method, url, *args, **kwargs)
