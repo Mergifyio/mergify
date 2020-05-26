@@ -14,16 +14,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 from unittest import mock
 
 import pytest
+from werkzeug.http import http_date
+from werkzeug.wrappers import Response
 
 from mergify_engine import exceptions
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
-@mock.patch("mergify_engine.clients.http.RETRY", None)
 def test_client_401_raise_ratelimit(httpserver):
     owner = "owner"
     repo = "repo"
@@ -65,9 +67,7 @@ def test_client_401_raise_ratelimit(httpserver):
     httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.clients.http.RETRY", None)
 def test_client_HTTP_400(httpserver):
-
     httpserver.expect_oneshot_request("/").respond_with_json(
         {"message": "This is an 4XX error"}, status=400
     )
@@ -84,16 +84,15 @@ def test_client_HTTP_400(httpserver):
     httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.clients.http.RETRY", None)
 def test_client_HTTP_500(httpserver):
-
-    httpserver.expect_oneshot_request("/").respond_with_data(
-        "This is an 5XX error", status=500
-    )
+    httpserver.expect_request("/").respond_with_data("This is an 5XX error", status=500)
 
     with http.Client() as client:
         with pytest.raises(http.HTTPServerSideError) as exc_info:
             client.get(httpserver.url_for("/"))
+
+    # 5 retries
+    assert len(httpserver.log) == 5
 
     assert exc_info.value.message == "This is an 5XX error"
     assert exc_info.value.status_code == 500
@@ -103,8 +102,59 @@ def test_client_HTTP_500(httpserver):
     httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.clients.http.RETRY", None)
+def test_client_temporary_HTTP_500(httpserver):
+    httpserver.expect_oneshot_request("/").respond_with_data(
+        "This is an 5XX error", status=500
+    )
+    httpserver.expect_oneshot_request("/").respond_with_data(
+        "This is an 5XX error", status=500
+    )
+    httpserver.expect_oneshot_request("/").respond_with_data(
+        "This is an 5XX error", status=500
+    )
+    httpserver.expect_request("/").respond_with_data("It works now !", status=200)
+
+    with http.Client() as client:
+        client.get(httpserver.url_for("/"))
+
+    # 4 retries
+    assert len(httpserver.log) == 4
+
+    httpserver.check_assertions()
+
+
 def test_client_connection_error():
     with http.Client() as client:
         with pytest.raises(http.ConnectionErrors):
             client.get("http://localhost:12345")
+
+
+def _do_test_client_retry_429(httpserver, retry_after, expected_seconds):
+    records = []
+
+    def record_date(_):
+        records.append(datetime.datetime.utcnow())
+        return Response("It works now !", 200)
+
+    httpserver.expect_oneshot_request("/").respond_with_data(
+        "This is an 429 error", status=429, headers={"Retry-After": retry_after}
+    )
+    httpserver.expect_request("/").respond_with_handler(record_date)
+
+    with http.Client() as client:
+        now = datetime.datetime.utcnow()
+        client.get(httpserver.url_for("/"))
+
+    assert len(httpserver.log) == 2
+    elapsed_seconds = round((records[0] - now).total_seconds())
+    assert elapsed_seconds == expected_seconds
+    httpserver.check_assertions()
+
+
+def test_client_retry_429_retry_after_as_seconds(httpserver):
+    _do_test_client_retry_429(httpserver, 3, 3)
+
+
+def test_client_retry_429_retry_after_as_absolute_date(httpserver):
+    retry_after = http_date(datetime.datetime.utcnow() + datetime.timedelta(seconds=3))
+    _do_test_client_retry_429(httpserver, retry_after, 3)
