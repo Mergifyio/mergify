@@ -301,6 +301,43 @@ least one positive review, obviously.
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
+🌀Using RegEx
+~~~~~~~~~~~~~~
+
+Using regular expressions in conditions section, with the objective to validate a
+pull request which contains the “WIP” statement in its title with ignorecase.
+
+.. code-block:: yaml
+
+	pull_request_rules:
+		- name: automatic merge for master when the title contains “WIP” with ignorecase.
+			conditions:
+				- base=master
+				- title~=(?iLmsux)wip
+			actions:
+				merge:
+					method: merge
+
+You can also merge your pull request if only the Python files are updated and if it passes Circle CI’s validation tests :
+pull_request_rules:
+
+.. code-block:: yaml
+
+	pull_request_rules:
+  		- name: automatic merge for master when CI passes and if only the Python files are updated
+    		conditions:
+      			- "status-success=ci/circleci: validate"
+      			- files~=\.py$
+    		actions:
+      			merge:
+        			method: merge
+
+.. tip::
+
+	You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
+	<https://pythex.org/>`_ to test your regular expression.
+
+
 💌 Welcoming your Contributors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
