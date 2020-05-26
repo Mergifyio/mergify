@@ -62,10 +62,17 @@ class TestMergeAction(base.FunctionalTestBase):
         assert pulls_in_queue == [p_need_rebase.number, p_ready.number]
 
     def test_merge_smart_unordered(self):
-        p_need_rebase, p_ready = self._do_test_smart_order("smart")
+        p_need_rebase, p_ready = self._do_test_smart_order("smart+fastpath")
         ctxt = context.Context(self.cli_integration, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number]
         p_ready.update()
         assert p_ready.merged
+
+    def test_merge_smart_legacy(self):
+        p_need_rebase, p_ready = self._do_test_smart_order("smart")
+        ctxt = context.Context(self.cli_integration, p_need_rebase.raw_data, {})
+        q = queue.Queue.from_context(ctxt)
+        pulls_in_queue = q.get_pulls()
+        assert pulls_in_queue == [p_need_rebase.number, p_ready.number]
