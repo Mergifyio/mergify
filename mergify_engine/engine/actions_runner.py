@@ -61,8 +61,8 @@ def get_already_merged_summary(ctxt, match):
     # it automatically and put as merged_by the merger of the other one.
     if ctxt.pull["merged_by"]["login"] in ["mergify[bot]", "mergify-test[bot]"]:
         return (
-            "⚠️ The pull request has been closed by GitHub"
-            "because its commits are also part of another pull request"
+            "⚠️ The pull request has been closed by GitHub "
+            "because its commits are also part of another pull request\n\n"
         )
     else:
         return (
