@@ -94,7 +94,7 @@ def handle(ctxt, comment, user, rerun=False):
                     command=command_full,
                     conclusion=conclusion,
                     title=title,
-                    summary=("\n> ".join(summary.split("\n"))).strip(),
+                    summary="> " + "\n> ".join(summary.split("\n")).strip(),
                 )
             else:
                 result = f"**Command `{command_full}`: success**"

@@ -1447,37 +1447,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "review-requested user" == list(p1.get_issue_comments())[0].body
         assert "review-requested team" == list(p2.get_issue_comments())[0].body
 
-    def test_command_backport(self):
-        stable_branch = self.get_full_branch_name("stable/#3.1")
-        feature_branch = self.get_full_branch_name("feature/one")
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-backport",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {
-                        "comment": {
-                            "message": f"@mergifyio backport {stable_branch} {feature_branch}"
-                        }
-                    },
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch, feature_branch])
-        p, _ = self.create_pr()
-
-        self.wait_for("issue_comment", {"action": "created"})
-
-        p.merge()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("issue_comment", {"action": "created"})
-
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
-        assert 1 == len(pulls)
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=feature_branch))
-        assert 1 == len(pulls)
-
     def test_truncated_check_output(self):
         # not used anyhow
         rules = {
