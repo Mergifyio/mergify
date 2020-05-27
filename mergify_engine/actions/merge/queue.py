@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import json
 
 import redis
 
@@ -35,8 +36,6 @@ class Queue:
     owner: str
     repo: str
     ref: str
-
-    DEFAULT_MERGE_METHOD = "merge"
 
     @property
     def log(self):
@@ -63,18 +62,34 @@ class Queue:
     def _cache_key(self):
         return f"strict-merge-queues~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{self.ref}"
 
+    def _config_cache_key(self, pull_number):
+        return f"strict-merge-config~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
+
+    # TODO(sileht): To delete in a couple of days when redis will not have keys like this
+    # anymore
     def _method_cache_key(self, pull_number):
         return f"strict-merge-method~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
-    def get_merge_method(
-        self, pull_number: int, default: str = DEFAULT_MERGE_METHOD
-    ) -> str:
+    def get_merge_method(self, pull_number: int) -> str:
         """Return merge method for a pull request.
 
         :param pull_number: The pull request number.
         :param default: The default method to return if not found.
         """
-        return self.redis.get(self._method_cache_key(pull_number)) or default
+        return self.get_config(pull_number)["strict_method"]
+
+    def get_config(self, pull_number: int) -> dict:
+        """Return merge config for a pull request.
+
+        :param pull_number: The pull request number.
+        """
+        config = self.redis.get(self._config_cache_key(pull_number))
+        if config is None:
+            return {
+                "strict_method": self.redis.get(self._method_cache_key(pull_number)),
+                "priority": 2000,
+            }
+        return json.loads(config)
 
     def _add_pull(self, pull_number, priority, update=False):
         """Add a pull without setting its method.
@@ -88,25 +103,24 @@ class Queue:
             flags = dict(nx=True)
         self.redis.zadd(self._cache_key, {pull_number: score}, **flags)
 
-    def add_pull(self, pull_number, priority, method):
-        self._add_pull(pull_number, priority)
-        self.redis.set(self._method_cache_key(pull_number), method)
+    def add_pull(self, pull_number, config):
+        self._add_pull(pull_number, config["priority"])
+        self.redis.set(
+            self._config_cache_key(pull_number), json.dumps(config),
+        )
         self.log.info(
-            "pull request added to merge queue",
-            gh_pull=pull_number,
-            priority=priority,
-            method=method,
+            "pull request added to merge queue", gh_pull=pull_number, config=config,
         )
 
     def remove_pull(self, pull_number):
         self.redis.zrem(self._cache_key, pull_number)
         self.redis.delete(self._method_cache_key(pull_number))
+        self.redis.delete(self._config_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
-        # FIXME(sileht): in case of failure we loose the priority, we should store in
-        # redis strict_smart_priorities to be able to set the priority here.
-        self._add_pull(pull_number, priority=0, update=True)
+        priority = self.get_config(pull_number)["priority"]
+        self._add_pull(pull_number, priority=priority, update=True)
         self.log.info(
             "pull request moved at the end of the merge queue", gh_pull=pull_number
         )
@@ -116,7 +130,8 @@ class Queue:
             self.installation_id, self.owner, self.repo, old_base_branch, pull_number
         )
         self.redis.zrem(old_queue._cache_key, pull_number)
-        self._add_pull(pull_number)
+        priority = self.get_config(pull_number)["priority"]
+        self._add_pull(pull_number, priority)
         self.log.info(
             "pull request moved from queue %s to this queue",
             old_queue,
