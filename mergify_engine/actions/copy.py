@@ -34,8 +34,8 @@ def Regex(value):
 
 class CopyAction(actions.Action):
     KIND = "copy"
-    SUCCESS_MESSAGE = "Pull request copies have been created"
-    FAILURE_MESSAGE = "No copy have been created"
+    SUCCESS_MESSAGE = "Pull request copies have been created:"
+    FAILURE_MESSAGE = "No copy have been created."
 
     validator = {
         voluptuous.Required("branches", default=[]): [str],
