@@ -144,11 +144,6 @@ class ClientMixin:
 
 
 class Client(httpx.Client, ClientMixin):
-    def __init__(self, *args, **kwargs):
-        # We have to use urllib3 because pyvcr does not support httpx/httpcore/h11/he
-        kwargs["transport"] = httpx.URLLib3Transport()
-        super().__init__(*args, **kwargs)
-
     @ClientMixin.connectivity_issue_retry
     def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)

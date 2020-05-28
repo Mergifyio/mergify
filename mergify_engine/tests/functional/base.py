@@ -27,6 +27,7 @@ import unittest
 from unittest import mock
 
 import github as pygithub
+import httpx
 import pytest
 import redis
 from starlette import testclient
@@ -332,6 +333,13 @@ class FunctionalTestBase(unittest.TestCase):
                 shutil.rmtree(self.cassette_library_dir)
             os.makedirs(self.cassette_library_dir)
 
+        real_httpx_client_init = httpx.Client.__init__
+
+        def patched_httpx_client_init(self, *args, **kwargs):
+            kwargs["transport"] = httpx.URLLib3Transport()
+            real_httpx_client_init(self, *args, **kwargs)
+
+        mock.patch.object(httpx.Client, "__init__", patched_httpx_client_init).start()
         self.recorder = vcr.VCR(
             cassette_library_dir=self.cassette_library_dir,
             record_mode="all" if RECORD else "none",
