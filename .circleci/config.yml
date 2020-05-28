@@ -38,6 +38,7 @@ jobs:
     steps:
       - tox: {target: requirements}
       - run: |
+          tox -e missing-imports
           tox -e genreqs
           git diff --exit-code
 
