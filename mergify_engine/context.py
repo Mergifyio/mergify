@@ -30,7 +30,6 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import functools_bp
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -109,7 +108,7 @@ class Context(object):
         ]
         return bots + valid_collabs
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def consolidated_reviews(self):
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
@@ -221,7 +220,7 @@ class Context(object):
         ]
         self.pull_check_runs.append(check)
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def pull_check_runs(self):
         return check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
 
@@ -231,7 +230,7 @@ class Context(object):
             c for c in self.pull_check_runs if c["app"]["id"] == config.INTEGRATION_ID
         ]
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def checks(self):
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
@@ -348,7 +347,7 @@ class Context(object):
         except KeyError:
             pass
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def is_behind(self):
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
         branch = self.client.item(f"branches/{branch_name_escaped}")
@@ -371,15 +370,15 @@ class Context(object):
             ),
         }
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def reviews(self):
         return list(self.client.items(f"pulls/{self.pull['number']}/reviews"))
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def commits(self):
         return list(self.client.items(f"pulls/{self.pull['number']}/commits"))
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def files(self):
         return list(self.client.items(f"pulls/{self.pull['number']}/files"))
 
@@ -446,7 +445,7 @@ class PullRequest:
         for k in self:
             yield k, getattr(self, k)
 
-    @functools_bp.cached_property
+    @functools.cached_property
     def jinja2_env(self):
         """A Jinja2 environment to render your templates."""
         env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
