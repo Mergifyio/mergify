@@ -16,3 +16,7 @@ def test_unicode_truncate():
     assert utils.unicode_truncate(s, 22) == "hé ho! how are you√"
     assert utils.unicode_truncate(s, 23) == "hé ho! how are you√2"
     assert utils.unicode_truncate(s, 50) == s
+
+
+def test_process_identifier():
+    assert isinstance(utils._PROCESS_IDENTIFIER, str)
