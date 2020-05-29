@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -17,13 +15,14 @@
 import datetime
 import hashlib
 import hmac
+import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import urllib.parse
 
 import aredis
-from billiard import current_process
 import redis
 
 from mergify_engine import config
@@ -31,6 +30,9 @@ from mergify_engine import logs
 
 
 LOG = logs.getLogger(__name__)
+
+
+_PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 
 
 global AREDIS_CONNECTION_CACHE
@@ -43,8 +45,7 @@ async def get_aredis_for_cache():
         AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
             config.STORAGE_URL, decode_responses=True
         )
-        p = current_process()
-        await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
+        await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
     return AREDIS_CONNECTION_CACHE
 
 
@@ -58,15 +59,13 @@ def get_redis_for_cache():
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
             config.STORAGE_URL, decode_responses=True,
         )
-        p = current_process()
-        REDIS_CONNECTION_CACHE.client_setname("cache:%s" % p.name)
+        REDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
     return REDIS_CONNECTION_CACHE
 
 
 async def create_aredis_for_stream():
     r = aredis.StrictRedis.from_url(config.STREAM_URL)
-    p = current_process()
-    await r.client_setname("stream:%s" % p.name)
+    await r.client_setname("stream:%s" % _PROCESS_IDENTIFIER)
     return r
 
 
