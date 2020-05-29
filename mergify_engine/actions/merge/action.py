@@ -40,7 +40,10 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 
 def Priority(v):
-    return helpers.PRIORITY_ALIASES.get(v, v)
+    try:
+        return helpers.PriorityAliases[v].value
+    except KeyError:
+        return v
 
 
 class MergeAction(actions.Action):
@@ -66,7 +69,7 @@ class MergeAction(actions.Action):
             "default", "title+body"
         ),
         voluptuous.Required(
-            "priority", default=helpers.PRIORITY_ALIASES["medium"]
+            "priority", default=helpers.PriorityAliases.medium.value
         ): voluptuous.All(
             voluptuous.Any("low", "medium", "high", int),
             voluptuous.Coerce(Priority),

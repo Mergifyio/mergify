@@ -12,18 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import enum
 import itertools
 
 from mergify_engine import branch_updater
 from mergify_engine.actions.merge import queue
 
 
-PRIORITY_ALIASES = {
-    "low": 1000,
-    "medium": 2000,
-    "high": 3000,
-}
-PRIORITY_ALIASES_BY_VALUES = dict((v, k) for k, v in PRIORITY_ALIASES.items())
+class PriorityAliases(enum.Enum):
+    low = 1000
+    medium = 2000
+    high = 3000
 
 
 def merge_report(ctxt, strict):
@@ -92,7 +91,10 @@ def get_queue_summary(q):
     for priority, grouped_pulls in itertools.groupby(
         pulls, key=lambda v: q.get_config(v)["priority"]
     ):
-        fancy_priority = PRIORITY_ALIASES_BY_VALUES.get(priority, priority)
+        try:
+            fancy_priority = PriorityAliases(priority).name
+        except ValueError:
+            fancy_priority = priority
         formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
         summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
     return summary
