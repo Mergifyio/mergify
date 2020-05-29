@@ -146,8 +146,8 @@ def _do_test_client_retry_429(httpserver, retry_after, expected_seconds):
         client.get(httpserver.url_for("/"))
 
     assert len(httpserver.log) == 2
-    elapsed_seconds = round((records[0] - now).total_seconds())
-    assert elapsed_seconds == expected_seconds
+    elapsed_seconds = (records[0] - now).total_seconds()
+    assert expected_seconds - 1 < elapsed_seconds <= expected_seconds + 1
     httpserver.check_assertions()
 
 
