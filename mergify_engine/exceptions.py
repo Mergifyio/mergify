@@ -37,12 +37,20 @@ NOT_ACCESSIBLE_REPOSITORY_MESSAGES = [
     "Resource not accessible by integration",  # missing permission
 ]
 
+MISSING_REPOSITORY_DATA_MESSAGE = "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
+
 
 def should_be_ignored(exception):
     if isinstance(exception, http.HTTPClientSideError):
         if (
             exception.status_code == 403
             and exception.message in NOT_ACCESSIBLE_REPOSITORY_MESSAGES
+        ):
+            return True
+
+        elif (
+            exception.status_code == 422
+            and exception.message == MISSING_REPOSITORY_DATA_MESSAGE
         ):
             return True
 
