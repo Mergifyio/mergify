@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2019 Mehdi Abaakouk <sileht@mergify.io>
+# Copyright © 2019–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -18,8 +18,6 @@ import os
 from unittest import mock
 import uuid
 
-# TODO(sileht): Replace me by mock.AsyncMock when we drop py37
-import asyncmock
 from starlette import testclient
 
 from mergify_engine import utils
@@ -27,8 +25,7 @@ from mergify_engine import web
 
 
 @mock.patch(
-    "mergify_engine.github_events.job_filter_and_dispatch",
-    new_callable=asyncmock.AsyncMock,
+    "mergify_engine.github_events.job_filter_and_dispatch", new_callable=mock.AsyncMock,
 )
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",

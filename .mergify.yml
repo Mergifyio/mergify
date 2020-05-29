@@ -6,7 +6,6 @@ pull_request_rules:
       - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: py38"
       - "status-success=ci/circleci: docs"
       - "#approved-reviews-by>=1"
@@ -24,7 +23,6 @@ pull_request_rules:
       - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: py38"
       - "status-success=ci/circleci: docs"
       - label=hotfix
@@ -44,7 +42,6 @@ pull_request_rules:
       - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py37"
       - "status-success=ci/circleci: py38"
       - "status-success=ci/circleci: docs"
     actions:
