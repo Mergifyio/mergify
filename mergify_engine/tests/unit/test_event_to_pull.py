@@ -31,9 +31,12 @@ def test_event_to_pull_check_run_forked_repo():
     event_type = "check_run"
 
     with open(
-        os.path.dirname(__file__) + "/check_run_event_from_forked_repo.json", "rb"
+        os.path.join(
+            os.path.dirname(__file__), "events", "check_run_event_from_forked_repo.json"
+        ),
+        "rb",
     ) as f:
-        data = json.loads(f.read())
+        data = json.load(f)
 
     client = mock.Mock(
         base_url=httpx.URL(
@@ -62,9 +65,12 @@ def test_event_to_pull_check_run_same_repo():
     event_type = "check_run"
 
     with open(
-        os.path.dirname(__file__) + "/check_run_event_from_same_repo.json", "rb"
+        os.path.join(
+            os.path.dirname(__file__), "events", "check_run_event_from_same_repo.json",
+        ),
+        "rb",
     ) as f:
-        data = json.loads(f.read())
+        data = json.load(f)
 
     client = mock.Mock(
         base_url=httpx.URL(
