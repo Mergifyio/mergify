@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
+# Copyright © 2019–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -377,9 +377,16 @@ async def event_handler(request: requests.Request,):
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    await github_events.job_filter_and_dispatch(
-        app.aredis_stream, event_type, event_id, data
-    )
+    try:
+        await github_events.job_filter_and_dispatch(
+            app.aredis_stream, event_type, event_id, data
+        )
+    except github_events.IgnoredEvent as ie:
+        status_code = 200
+        reason = f"Event ignored: {ie.reason}"
+    else:
+        status_code = 202
+        reason = "Event queued"
 
     if (
         config.WEBHOOK_APP_FORWARD_URL
@@ -399,7 +406,7 @@ async def event_handler(request: requests.Request,):
             },
         )
 
-    return responses.Response("Event queued", status_code=202)
+    return responses.Response(reason, status_code=status_code)
 
 
 # NOTE(sileht): These endpoints are used for recording cassetes, we receive

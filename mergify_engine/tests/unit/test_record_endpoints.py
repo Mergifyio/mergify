@@ -23,7 +23,9 @@ from mergify_engine import web
 
 
 def test_app_event_testing():
-    with open(os.path.dirname(__file__) + "/push_event.json", "rb") as f:
+    with open(
+        os.path.join(os.path.dirname(__file__), "events", "push_event.json"), "rb"
+    ) as f:
         data = f.read()
 
     headers = {
