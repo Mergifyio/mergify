@@ -82,7 +82,10 @@ async def authentification(request: requests.Request):
 
 
 async def http_post(*args, **kwargs):
-    async with http.AsyncClient() as client:
+    # Set the maximum timeout to 3 seconds: GitHub is not going to wait for
+    # more than 10 seconds for us to accept an event, so if we're unable to
+    # forward an event in 3 seconds, just drop it.
+    async with http.AsyncClient(timeout=5) as client:
         await client.post(*args, **kwargs)
 
 
@@ -326,9 +329,7 @@ def sync_job_marketplace(event_type, event_id, data):
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
-async def marketplace_handler(
-    request: requests.Request, background_tasks: fastapi.BackgroundTasks
-):  # pragma: no cover
+async def marketplace_handler(request: requests.Request,):  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -340,8 +341,7 @@ async def marketplace_handler(
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()
-        background_tasks.add_task(
-            http_post,
+        await http_post(
             config.WEBHOOK_MARKETPLACE_FORWARD_URL,
             data=raw.decode(),
             headers={
@@ -372,9 +372,7 @@ async def queues(installation_id):
 
 
 @app.post("/event", dependencies=[fastapi.Depends(authentification)])
-async def event_handler(
-    request: requests.Request, background_tasks: fastapi.BackgroundTasks
-):
+async def event_handler(request: requests.Request,):
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -389,8 +387,7 @@ async def event_handler(
         and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
     ):
         raw = await request.body()
-        background_tasks.add_task(
-            http_post,
+        await http_post(
             config.WEBHOOK_APP_FORWARD_URL,
             data=raw.decode(),
             headers={
