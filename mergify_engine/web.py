@@ -304,7 +304,13 @@ async def simulator(request: requests.Request):
     )
 
 
-def sync_job_marketplace(event_type, event_id, data):
+@app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
+async def marketplace_handler(
+    request: requests.Request, background_tasks: fastapi.BackgroundTasks
+):  # pragma: no cover
+    event_type = request.headers.get("X-GitHub-Event")
+    event_id = request.headers.get("X-GitHub-Delivery")
+    data = await request.json()
 
     owner = data["marketplace_purchase"]["account"]["login"]
     account_type = data["marketplace_purchase"]["account"]["type"]
@@ -315,8 +321,8 @@ def sync_job_marketplace(event_type, event_id, data):
     except exceptions.MergifyNotInstalled:
         return
 
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation["id"])
+    r = await utils.get_aredis_for_cache()
+    await r.delete(f"subscription-cache-{installation['id']}")
 
     LOG.info(
         "Marketplace event",
@@ -325,18 +331,6 @@ def sync_job_marketplace(event_type, event_id, data):
         install_id=installation["id"],
         sender=data["sender"]["login"],
         gh_owner=owner,
-    )
-
-
-@app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
-async def marketplace_handler(request: requests.Request,):  # pragma: no cover
-    event_type = request.headers.get("X-GitHub-Event")
-    event_id = request.headers.get("X-GitHub-Delivery")
-    data = await request.json()
-
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None, functools.partial(sync_job_marketplace, event_type, event_id, data),
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
