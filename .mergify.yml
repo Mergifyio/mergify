@@ -91,3 +91,13 @@ pull_request_rules:
     actions:
       comment:
         message: This pull request is now in conflict :(
+      label:
+        add:
+          - conflict
+  - name: remove conflict label if not needed
+    conditions:
+      - -conflict
+    actions:
+      label:
+        remove:
+          - conflict
