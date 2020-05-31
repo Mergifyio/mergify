@@ -356,7 +356,7 @@ class FunctionalTestBase(unittest.TestCase):
         else:
             # Never expire token during replay
             mock.patch.object(
-                github_app.GithubBearerAuth, "get_or_create_jwt", return_value="<TOKEN>"
+                github_app, "get_or_create_jwt", return_value="<TOKEN>"
             ).start()
             mock.patch.object(
                 github.GithubInstallationAuth,

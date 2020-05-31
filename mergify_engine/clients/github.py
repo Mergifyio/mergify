@@ -15,6 +15,7 @@
 # under the License.
 
 
+import contextlib
 import dataclasses
 from datetime import datetime
 import functools
@@ -67,10 +68,60 @@ class GithubInstallationAuth(httpx.Auth):
         self.repo = repo
         self._cached_token = CachedToken.get(self.installation_id)
 
+    @contextlib.contextmanager
+    def response_body_read(self):
+        self.requires_response_body = True
+        try:
+            yield
+        finally:
+            self.requires_response_body = False
+
     def auth_flow(self, request):
-        request.headers["Authorization"] = f"token {self.get_access_token()}"
-        response = yield request
-        if response.status_code == 401:
+        token = self._get_access_token()
+
+        if token:
+            request.headers["Authorization"] = f"token {token}"
+            response = yield request
+            if response.status_code != 401:  # due to access_token
+                return
+
+        with self.response_body_read():
+            auth_response = yield self.build_access_token_request()
+            if auth_response.status_code == 401:  # due to jwt
+                auth_response = yield self.build_access_token_request(force=True)
+            token = self._set_access_token(auth_response.json())
+
+        request.headers["Authorization"] = f"token {token}"
+        yield request
+
+    def build_access_token_request(self, force=False):
+        headers = http.DEFAULT_CLIENT_OPTIONS["headers"].copy()
+        headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"
+        return httpx.Request(
+            "POST",
+            f"{config.GITHUB_API_URL}/app/installations/{self.installation_id}/access_tokens",
+            headers=headers,
+        )
+
+    def _set_access_token(self, data):
+        self._cached_token = CachedToken(
+            self.installation_id,
+            data["token"],
+            datetime.fromisoformat(data["expires_at"][:-1]),  # Remove the Z
+        )
+        LOG.info(
+            "New token acquired",
+            gh_owner=self.owner,
+            gh_repo=self.repo,
+            expire_at=self._cached_token.expiration,
+        )
+        return self._cached_token.token
+
+    def _get_access_token(self):
+        now = datetime.utcnow()
+        if not self._cached_token:
+            return None
+        elif self._cached_token.expiration <= now:
             LOG.info(
                 "Token expired",
                 gh_owner=self.owner,
@@ -79,27 +130,19 @@ class GithubInstallationAuth(httpx.Auth):
             )
             self._cached_token.invalidate()
             self._cached_token = None
-            request.headers["Authorization"] = f"token {self.get_access_token()}"
-            yield request
+            return None
+        else:
+            return self._cached_token.token
 
     def get_access_token(self):
-        now = datetime.utcnow()
-        if self._cached_token is None or self._cached_token.expiration <= now:
-            r = github_app.get_client().post(
-                f"/app/installations/{self.installation_id}/access_tokens",
-            )
-            self._cached_token = CachedToken(
-                self.installation_id,
-                r.json()["token"],
-                datetime.fromisoformat(r.json()["expires_at"][:-1]),  # Remove the Z
-            )
-            LOG.info(
-                "New token acquired",
-                gh_owner=self.owner,
-                gh_repo=self.repo,
-                expire_at=self._cached_token.expiration,
-            )
-        return self._cached_token.token
+        """Legacy method for backport/copy actions"""
+        token = self._get_access_token()
+        if token:
+            return token
+        r = github_app.get_client().post(
+            f"/app/installations/{self.installation_id}/access_tokens"
+        )
+        return self._set_access_token(r.json())
 
 
 class GithubInstallationClient(http.Client):
