@@ -151,8 +151,74 @@ class _Client(http.Client):
         return installation
 
 
+class _AsyncClient(http.AsyncClient):
+    def __init__(self):
+        super().__init__(
+            base_url=config.GITHUB_API_URL,
+            auth=GithubBearerAuth(),
+            **http.DEFAULT_CLIENT_OPTIONS,
+        )
+
+    async def get_installation_by_id(self, installation_id):
+        try:
+            return await self._get_installation(f"/app/installations/{installation_id}")
+        except http.HTTPNotFound as e:
+            LOG.debug(
+                "mergify not installed",
+                installation_id=installation_id,
+                error_message=e.message,
+            )
+            raise exceptions.MergifyNotInstalled()
+
+    async def get_installation(self, owner, repo=None, account_type=None):
+        if not account_type and not repo:
+            raise RuntimeError("repo or account_type must be passed")
+
+        if repo:
+            url = f"/repos/{owner}/{repo}/installation"
+        else:
+            account_type = "users" if account_type.lower() == "user" else "orgs"
+            url = f"/{account_type}/{owner}/installation"
+
+        try:
+            return await self._get_installation(url)
+        except http.HTTPNotFound as e:
+            LOG.debug(
+                "mergify not installed",
+                gh_owner=owner,
+                gh_repo=repo,
+                error_message=e.message,
+            )
+            raise exceptions.MergifyNotInstalled()
+
+    async def _get_installation(self, url):
+        installation = (await self.get(url)).json()
+        installation["permissions_need_to_be_updated"] = False
+        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
+        for perm_name, perm_level in expected_permissions.items():
+            if installation["permissions"].get(perm_name) != perm_level:
+                LOG.debug(
+                    "mergify installation doesn't have required permissions",
+                    gh_owner=installation["account"]["login"],
+                    permissions=installation["permissions"],
+                )
+                installation["permissions_need_to_be_updated"] = True
+                # FIXME(sileht): Looks like ton of people have not all permissions
+                # Or this is buggy, so disable it for now.
+                if perm_name in ["checks", "pull_requests", "contents"]:
+                    raise exceptions.MergifyNotInstalled()
+
+        return installation
+
+
 global GITHUB_APP_CLIENTS
 GITHUB_APP_CLIENTS = threading.local()
+
+
+def aget_client():
+    if not hasattr(GITHUB_APP_CLIENTS, "async_client"):
+        GITHUB_APP_CLIENTS.async_client = _AsyncClient()
+    return GITHUB_APP_CLIENTS.async_client
 
 
 def get_client():

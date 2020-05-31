@@ -145,6 +145,141 @@ class GithubInstallationAuth(httpx.Auth):
         return self._set_access_token(r.json())
 
 
+class AsyncGithubInstallationClient(http.AsyncClient):
+    def __init__(self, owner, repo, installation):
+        self.owner = owner
+        self.repo = repo
+        self.installation = installation
+        self._requests = []
+        super().__init__(
+            base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
+            auth=GithubInstallationAuth(self.installation["id"], owner, repo),
+            **http.DEFAULT_CLIENT_OPTIONS,
+        )
+
+        for method in ("get", "post", "put", "patch", "delete", "head"):
+            setattr(self, method, self._inject_api_version(getattr(self, method)))
+
+    def __repr__(self):
+        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation['id']}>"
+
+    @staticmethod
+    def _inject_api_version(func):
+        @functools.wraps(func)
+        async def wrapper(url, api_version=None, **kwargs):
+            headers = kwargs.pop("headers", {})
+            if api_version:
+                headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+            return await func(url, headers=headers, **kwargs)
+
+        return wrapper
+
+    async def item(self, url, api_version=None, **params):
+        response = await self.get(url, api_version=api_version, params=params)
+        return response.json()
+
+    async def items(self, url, api_version=None, list_items=None, **params):
+        while True:
+            response = await self.get(url, api_version=api_version, params=params)
+            last_url = response.links.get("last", {}).get("url")
+            if last_url:
+                last_page = int(
+                    parse.parse_qs(parse.urlparse(last_url).query).get("page")[0]
+                )
+                if last_page > 100:
+                    raise TooManyPages(last_page, response)
+
+            items = response.json()
+            if list_items:
+                items = items[list_items]
+            for item in items:
+                yield item
+            if "next" in response.links:
+                url = response.links["next"]["url"]
+                params = None
+            else:
+                break
+
+    async def request(self, method, url, *args, **kwargs):
+        reply = None
+        try:
+            reply = await super().request(method, url, *args, **kwargs)
+        except http.HTTPClientSideError as e:
+            if e.status_code == 403:
+                # TODO(sileht): Maybe we could look at header to avoid a request:
+                # they should be according the doc:
+                #  X-RateLimit-Limit: 60
+                #  X-RateLimit-Remaining: 0
+                #  X-RateLimit-Reset: 1377013266
+                self.check_rate_limit()
+            raise
+        finally:
+            if reply is None:
+                status_code = "error"
+            else:
+                status_code = reply.status_code
+            statsd.increment(
+                "http.client.requests",
+                tags=[f"hostname:{self.base_url.host}", f"status_code:{status_code}"],
+            )
+            self._requests.append((method, url))
+        return reply
+
+    async def aclose(self):
+        await super().aclose()
+        nb_requests = len(self._requests)
+        statsd.histogram(
+            "http.client.session", nb_requests, tags=[f"hostname:{self.base_url.host}"],
+        )
+        if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
+            LOG.warning(
+                "number of GitHub requests for this session crossed the threshold (%s): %s",
+                LOGGING_REQUESTS_THRESHOLD,
+                nb_requests,
+                gh_owner=self.owner,
+                gh_repo=self.repo,
+                requests=self._requests,
+            )
+        self._requests = []
+
+    async def check_rate_limit(self):
+        response = await self.item("/rate_limit")
+        rate = response["resources"]
+        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
+            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
+            now = datetime.utcnow()
+            delta = reset - now
+            statsd.increment(
+                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
+            )
+            raise exceptions.RateLimited(delta.total_seconds(), rate)
+
+
+async def aget_client(*args, **kwargs):
+    client = AsyncGithubInstallationClient(*args, **kwargs)
+    await client.check_rate_limit()
+    return client
+
+
+async def aget_installation_by_id(installation_id):
+    client = github_app.aget_client()
+    return await client.get_installation_by_id(installation_id)
+
+
+async def aget_installation(owner, repo, installation_id=None):
+    client = github_app.aget_client()
+    installation = await client.get_installation(owner, repo)
+    if installation_id is not None and installation["id"] != installation_id:
+        LOG.error(
+            "installation id for repository diff from event installation id",
+            gh_owner=owner,
+            gh_repo=repo,
+            installation_id=installation["id"],
+            expected_installation_id=installation_id,
+        )
+    return installation
+
+
 class GithubInstallationClient(http.Client):
     def __init__(self, owner, repo, installation):
         self.owner = owner
