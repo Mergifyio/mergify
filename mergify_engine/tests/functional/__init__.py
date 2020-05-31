@@ -2,7 +2,10 @@ import requests
 import urllib3
 
 from mergify_engine import config
+from mergify_engine.tests.functional import httpx_vcr_stubs  # noqa
 
+
+httpx_vcr_stubs.monkeypatch()
 
 real_session_init = requests.sessions.Session.__init__
 
