@@ -51,36 +51,43 @@ EXPECTED_MINIMAL_PERMISSIONS = {
 }
 
 
-class GithubBearerAuth(httpx.Auth):
+class JwtHandler:
     JWT_EXPIRATION = 60
 
     def __init__(self):
         self.jwt = None
         self.jwt_expiration = None
+        self.lock = threading.Lock()
 
-    def get_or_create_jwt(self):
+    def get_or_create(self, force=False):
         now = int(time.time())
-
-        if self.jwt is None or self.jwt_expiration <= now:
-            self.jwt_expiration = now + self.JWT_EXPIRATION
-            payload = {
-                "iat": now,
-                "exp": self.jwt_expiration,
-                "iss": config.INTEGRATION_ID,
-            }
-            encrypted = jwt.encode(payload, key=config.PRIVATE_KEY, algorithm="RS256")
-            self.jwt = encrypted.decode("utf-8")
-            LOG.info("New JWT created", expire_at=self.jwt_expiration)
-
+        with self.lock:
+            if force or self.jwt is None or self.jwt_expiration <= now:
+                self.jwt_expiration = now + self.JWT_EXPIRATION
+                payload = {
+                    "iat": now,
+                    "exp": self.jwt_expiration,
+                    "iss": config.INTEGRATION_ID,
+                }
+                encrypted = jwt.encode(
+                    payload, key=config.PRIVATE_KEY, algorithm="RS256"
+                )
+                self.jwt = encrypted.decode("utf-8")
+                LOG.info("New JWT created", expire_at=self.jwt_expiration)
         return self.jwt
 
+
+get_or_create_jwt = JwtHandler().get_or_create
+
+
+class GithubBearerAuth(httpx.Auth):
     def auth_flow(self, request):
-        request.headers["Authorization"] = f"Bearer {self.get_or_create_jwt()}"
+        bearer = get_or_create_jwt()
+        request.headers["Authorization"] = f"Bearer {bearer}"
         response = yield request
         if response.status_code == 401:
-            LOG.info("JWT expired", expire_at=self.jwt_expiration)
-            self.jwt = None
-            request.headers["Authorization"] = f"Bearer {self.get_or_create_jwt()}"
+            bearer = get_or_create_jwt(force=True)
+            request.headers["Authorization"] = f"Bearer {bearer}"
             yield request
 
 
@@ -131,7 +138,7 @@ class _Client(http.Client):
         for perm_name, perm_level in expected_permissions.items():
             if installation["permissions"].get(perm_name) != perm_level:
                 LOG.debug(
-                    "mergify installation doesn't have required permissions",
+                    "The Mergify installation doesn't have the required permissions",
                     gh_owner=installation["account"]["login"],
                     permissions=installation["permissions"],
                 )
