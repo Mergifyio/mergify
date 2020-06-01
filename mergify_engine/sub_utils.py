@@ -92,11 +92,11 @@ def _decrypt(value):
         return
 
 
-def _retrieve_subscription_from_db(installation_id):
+async def _retrieve_subscription_from_db(installation_id):
     LOG.info("Subscription not cached, retrieving it...", install_id=installation_id)
-    with http.Client() as client:
+    async with http.AsyncClient() as client:
         try:
-            resp = client.get(
+            resp = await client.get(
                 config.SUBSCRIPTION_URL % installation_id,
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
@@ -114,8 +114,9 @@ def _retrieve_subscription_from_db(installation_id):
     return sub
 
 
-def _retrieve_subscription_from_cache(r, installation_id):
-    encrypted_sub = r.get("subscription-cache-%s" % installation_id)
+async def _retrieve_subscription_from_cache(installation_id):
+    r = await utils.get_aredis_for_cache()
+    encrypted_sub = await r.get("subscription-cache-%s" % installation_id)
     if encrypted_sub:
         return _decrypt(encrypted_sub)
 
@@ -126,10 +127,9 @@ async def save_subscription_to_cache(installation_id, sub):
     await r.setex("subscription-cache-%s" % installation_id, 3600, encrypted)
 
 
-def get_subscription(r, installation_id):
-    sub = _retrieve_subscription_from_cache(r, installation_id)
+async def get_subscription(installation_id):
+    sub = await _retrieve_subscription_from_cache(installation_id)
     if sub is None:
-        sub = _retrieve_subscription_from_db(installation_id)
-        encrypted = _encrypt(sub)
-        r.set("subscription-cache-%s" % installation_id, encrypted, ex=3600)
+        sub = await _retrieve_subscription_from_db(installation_id)
+        await save_subscription_to_cache(installation_id, sub)
     return sub

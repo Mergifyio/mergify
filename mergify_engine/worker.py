@@ -111,31 +111,40 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
     return (ret[0], payload)
 
 
+async def get_pull_for_engine(
+    subscription, installation, owner, repo, pull_number, logger
+):
+    logger.debug("engine get installation")
+    async with await github.aget_client(owner, repo, installation) as client:
+        try:
+            pull = await client.item(f"pulls/{pull_number}")
+        except http.HTTPNotFound:
+            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            logger.debug("pull request doesn't exists, skipping it")
+            return
+
+        if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
+            logger.debug(
+                "pull request on private private repository without subscription, skipping it"
+            )
+            return
+
+        return pull
+
+
 def run_engine(installation, owner, repo, pull_number, sources):
     logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
     logger.debug("engine in thread start")
     try:
-        sync_redis = utils.get_redis_for_cache()
-        subscription = sub_utils.get_subscription(sync_redis, installation["id"])
-        logger.debug("engine get installation")
-        with github.get_client(owner, repo, installation) as client:
-            try:
-                pull = client.item(f"pulls/{pull_number}")
-            except http.HTTPNotFound:
-                # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
-                logger.debug("pull request doesn't exists, skipping it")
-                return
-
-            if (
-                pull["base"]["repo"]["private"]
-                and not subscription["subscription_active"]
-            ):
-                logger.debug(
-                    "pull request on private private repository without subscription, skipping it"
-                )
-                return
-
-            engine.run(client, pull, sources)
+        subscription = asyncio.run(sub_utils.get_subscription(installation["id"]))
+        pull = asyncio.run(
+            get_pull_for_engine(
+                subscription, installation, owner, repo, pull_number, logger
+            )
+        )
+        if pull:
+            with github.get_client(owner, repo, installation) as client:
+                engine.run(client, pull, subscription, sources)
     finally:
         logger.debug("engine in thread end")
 
@@ -180,9 +189,6 @@ class ThreadRunner(threading.Thread):
         self.join()
 
     def run(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         while not self._stopping.is_set():
             self._process.wait()
             if self._stopping.is_set():

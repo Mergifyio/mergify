@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import argparse
 import pprint
 
@@ -82,7 +81,6 @@ def report_sub(install_id, slug, sub, title):
 
 
 def report(url):
-    redis = utils.get_redis_for_cache()
     path = url.replace("https://github.com/", "")
     try:
         owner, repo, _, pull_number = path.split("/")
@@ -101,8 +99,10 @@ def report(url):
 
     print("* INSTALLATION ID: %s" % client.installation["id"])
 
-    cached_sub = sub_utils.get_subscription(redis, client.installation["id"])
-    db_sub = sub_utils._retrieve_subscription_from_db(client.installation["id"])
+    cached_sub, db_sub = utils.async_run(
+        sub_utils.get_subscription(client.installation["id"]),
+        sub_utils._retrieve_subscription_from_db(client.installation["id"]),
+    )
     print(
         "* SUBSCRIBED (cache/db): %s / %s"
         % (cached_sub["subscription_active"], db_sub["subscription_active"])

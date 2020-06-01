@@ -468,7 +468,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         real_get_subscription = sub_utils.get_subscription
 
-        def fake_retrieve_subscription_from_db(install_id):
+        async def fake_retrieve_subscription_from_db(install_id):
             if int(install_id) == config.INSTALLATION_ID:
                 return self.subscription
             else:
@@ -478,9 +478,9 @@ class FunctionalTestBase(unittest.TestCase):
                     "subscription_reason": "We're just testing",
                 }
 
-        def fake_subscription(r, install_id):
+        async def fake_subscription(install_id):
             if int(install_id) == config.INSTALLATION_ID:
-                return real_get_subscription(r, install_id)
+                return await real_get_subscription(install_id)
             else:
                 return {
                     "tokens": {},

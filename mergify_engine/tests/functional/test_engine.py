@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from concurrent import futures
 import logging
 import os.path
 import time
@@ -158,11 +159,8 @@ expected alphabetic or numeric character, but found"""
             for c in ctxt.pull_engine_check_runs
             if c["name"] == "Rule: backport (backport)"
         )
-        assert "neutral" == checks[0]["conclusion"]
-        assert (
-            "The rule doesn't match anymore, this action has been cancelled"
-            == checks[0]["output"]["title"]
-        )
+        assert "cancelled" == checks[0]["conclusion"]
+        assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
 
     def test_debugger(self):
         rules = {
@@ -177,7 +175,10 @@ expected alphabetic or numeric character, but found"""
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
-        debug.report(p.html_url)
+
+        # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
+        with futures.ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(debug.report, p.html_url).result()
 
     def test_backport_no_branch(self):
         rules = {
@@ -636,7 +637,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "The pull request base branch will be updated soon and then merged.\n\n"
-                    f"The following pull requests are queued: #{p2.number}"
+                    "The following pull requests are queued:\n"
+                    f"* #{p2.number} (priority: medium)"
                 ) == check["output"]["summary"]
                 break
         else:
@@ -684,7 +686,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "will be merged soon.\n\n"
-                    f"The following pull requests are queued: #{p2.number}\n\n"
+                    "The following pull requests are queued:\n"
+                    f"* #{p2.number} (priority: medium)\n\n"
                     "Required conditions for merge:\n\n"
                     f"- [X] `base={self.master_branch_name}`\n"
                     "- [ ] `status-success=continuous-integration/fake-ci`\n"
@@ -751,7 +754,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         # FIXME(sileht): Previous actions tracker was posting a "Rule XXXX (merge)" with
         # neutral status saying the Merge doesn't match anymore, the new one doesn't
         # It's not a big deal as the the rule doesn't match anymore anyways.:w
-        self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
+        self.wait_for("check_run", {"check_run": {"conclusion": "cancelled"}})
 
         # Should got to the next PR
         run_smart_strict_workflow_periodic_task()

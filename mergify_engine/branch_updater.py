@@ -15,6 +15,7 @@
 # under the License.
 
 
+import asyncio
 import collections
 import subprocess
 import uuid
@@ -216,9 +217,9 @@ def update_with_api(ctxt):
     retry=tenacity.retry_if_exception_type(AuthentificationFailure),
 )
 def update_with_git(ctxt, method="merge"):
-    redis = utils.get_redis_for_cache()
-
-    subscription = sub_utils.get_subscription(redis, ctxt.client.installation["id"])
+    subscription = asyncio.run(
+        sub_utils.get_subscription(ctxt.client.installation["id"])
+    )
 
     for login, token in subscription["tokens"].items():
         try:
