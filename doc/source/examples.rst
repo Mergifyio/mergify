@@ -311,7 +311,7 @@ To match a pull request title which contains the "WIP" statement, ignoring the c
 .. code-block:: yaml
 
 	pull_request_rules:
-		- name: automatic merge for master when the title contains “WIP” with ignorecase.
+		- name: automatic merge for master when the title contains "WIP" (ignoring case)
 			conditions:
 				- base=master
 				- title~=(?iLmsux)wip
