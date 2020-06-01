@@ -19,75 +19,47 @@ import os
 from unittest import mock
 
 import httpx
+import pytest
 
 from mergify_engine import github_events
 from mergify_engine.clients import github
 
 
-def test_event_to_pull_check_run_forked_repo():
+async def _do_test_event_to_pull_check_run(filename, expected_pulls):
+
     installation_id = 12345
     owner = "CytopiaTeam"
     repo = "Cytopia"
     event_type = "check_run"
 
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "events", "check_run_event_from_forked_repo.json"
-        ),
-        "rb",
-    ) as f:
+    with open(os.path.join(os.path.dirname(__file__), "events", filename), "rb",) as f:
         data = json.load(f)
 
     client = mock.Mock(
         base_url=httpx.URL(
             "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
-        )
-    )
-    client.items.return_value = []
-    cm_client = mock.Mock()
-    cm_client.__enter__ = mock.Mock(return_value=client)
-    cm_client.__exit__ = mock.Mock()
-
-    with mock.patch.object(github, "get_client", return_value=cm_client):
-        with mock.patch.object(
-            github, "get_installation", return_value={"id": installation_id}
-        ):
-            pulls = github_events.extract_pull_numbers_from_event(
-                installation_id, owner, repo, event_type, data
-            )
-            assert len(pulls) == 0
-
-
-def test_event_to_pull_check_run_same_repo():
-    installation_id = 12345
-    owner = "CytopiaTeam"
-    repo = "Cytopia"
-    event_type = "check_run"
-
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "events", "check_run_event_from_same_repo.json",
         ),
-        "rb",
-    ) as f:
-        data = json.load(f)
-
-    client = mock.Mock(
-        base_url=httpx.URL(
-            "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
-        )
+        name="foo",
     )
+    client.__aenter__ = mock.AsyncMock(return_value=client)
+    client.__aexit__ = mock.AsyncMock()
     client.items.return_value = []
-    cm_client = mock.Mock()
-    cm_client.__enter__ = mock.Mock(return_value=client)
-    cm_client.__exit__ = mock.Mock()
 
-    with mock.patch.object(github, "get_client", return_value=cm_client):
+    with mock.patch.object(github, "aget_client", return_value=client):
         with mock.patch.object(
-            github, "get_installation", return_value={"id": installation_id}
+            github, "aget_installation", return_value={"id": installation_id},
         ):
-            pulls = github_events.extract_pull_numbers_from_event(
+            pulls = await github_events.extract_pull_numbers_from_event(
                 installation_id, owner, repo, event_type, data
             )
-            assert len(pulls) == 1
-            assert pulls[0] == 409
+            assert pulls == expected_pulls
+
+
+@pytest.mark.asyncio
+async def test_event_to_pull_check_run_forked_repo():
+    await _do_test_event_to_pull_check_run("check_run_event_from_forked_repo.json", [])
+
+
+@pytest.mark.asyncio
+async def test_event_to_pull_check_run_same_repo():
+    await _do_test_event_to_pull_check_run("check_run_event_from_same_repo.json", [409])
