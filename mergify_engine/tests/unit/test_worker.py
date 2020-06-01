@@ -66,7 +66,7 @@ def fake_install_id(installation_id):
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_waiting_tasks(
     run_engine, get_install_by_id, redis, logger_checker
@@ -121,7 +121,7 @@ async def test_worker_with_waiting_tasks(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 @mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
 async def test_worker_expanded_events(
@@ -180,7 +180,7 @@ async def test_worker_expanded_events(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_one_task(
     run_engine, get_install_by_id, redis, logger_checker
@@ -219,7 +219,7 @@ async def test_worker_with_one_task(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_unexisting_stream(
     run_engine, get_install_by_id, redis, logger_checker
@@ -231,7 +231,7 @@ async def test_consume_unexisting_stream(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_good_stream(
     run_engine, get_install_by_id, redis, logger_checker
@@ -273,7 +273,7 @@ async def test_consume_good_stream(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_pull(
     run_engine, get_install_by_id, logger_class, redis
@@ -361,7 +361,7 @@ async def test_stream_processor_retrying_pull(
 
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(
     run_engine, get_install_by_id, logger, redis
@@ -423,7 +423,7 @@ async def test_stream_processor_retrying_stream_recovered(
 
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(
     run_engine, get_install_by_id, logger, redis
@@ -490,7 +490,7 @@ async def test_stream_processor_retrying_stream_failure(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.logs.getLogger")
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_pull_unexpected_error(
     run_engine, get_install_by_id, logger_class, redis
@@ -520,7 +520,7 @@ async def test_stream_processor_pull_unexpected_error(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.clients.github.get_installation_by_id")
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_date_scheduling(
     run_engine, get_install_by_id, redis, logger_checker
