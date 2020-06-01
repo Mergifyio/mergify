@@ -410,13 +410,8 @@ end
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
         try:
-            pull_numbers = await self._thread.exec(
-                github_events.extract_pull_numbers_from_event,
-                installation,
-                owner,
-                repo,
-                source["event_type"],
-                source["data"],
+            pull_numbers = await github_events.extract_pull_numbers_from_event(
+                installation, owner, repo, source["event_type"], source["data"],
             )
         except Exception as e:
             await self._translate_exception_to_retries(e, installation["id"])

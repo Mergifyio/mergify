@@ -190,28 +190,30 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
         raise IgnoredEvent(event_type, event_id, reason)
 
 
-def _get_github_pulls_from_sha(client, sha):
-    for pull in client.items("pulls"):
+async def _get_github_pulls_from_sha(client, sha):
+    async for pull in client.items("pulls"):
         if pull["head"]["sha"] == sha:
             return [pull["number"]]
     return []
 
 
-def extract_pull_numbers_from_event(installation, owner, repo, event_type, data):
-    with github.get_client(owner, repo, installation) as client:
+async def extract_pull_numbers_from_event(installation, owner, repo, event_type, data):
+    async with await github.aget_client(owner, repo, installation) as client:
         # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
         with contextlib.suppress(http.HTTPNotFound):
             if event_type == "refresh":
                 if "ref" in data:
                     branch = data["ref"][11:]  # refs/heads/
-                    return [p["number"] for p in client.items("pulls", base=branch)]
+                    return [
+                        p["number"] async for p in client.items("pulls", base=branch)
+                    ]
                 else:
-                    return [p["number"] for p in client.items("pulls")]
+                    return [p["number"] async for p in client.items("pulls")]
             elif event_type == "push":
                 branch = data["ref"][11:]  # refs/heads/
-                return [p["number"] for p in client.items("pulls", base=branch)]
+                return [p["number"] async for p in client.items("pulls", base=branch)]
             elif event_type == "status":
-                return _get_github_pulls_from_sha(client, data["sha"])
+                return await _get_github_pulls_from_sha(client, data["sha"])
             elif event_type in ["check_suite", "check_run"]:
                 # NOTE(sileht): This list may contains Pull Request from another org/user fork...
                 base_repo_url = str(client.base_url)[:-1]
@@ -225,6 +227,6 @@ def extract_pull_numbers_from_event(installation, owner, repo, event_type, data)
                 ]
                 if not pulls:
                     sha = data[event_type]["head_sha"]
-                    pulls = _get_github_pulls_from_sha(client, sha)
+                    pulls = await _get_github_pulls_from_sha(client, sha)
                 return pulls
     return []
