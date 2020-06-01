@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
 import datetime
 import hashlib
 import hmac
@@ -105,6 +106,18 @@ def get_pull_logger(pull):
             else (pull.get("mergeable_state", "unknown") or "none")
         ),
     )
+
+
+async def async_main(*awaitables):
+    # NOTE(sileht): This looks useless but
+    #   asyncio.run(asyncio.gather(...))
+    # does not work, because when the gather() coroutine is created, it need the current
+    # loop but asyncio.run() haven't create it yet, so it doesn't work.
+    return await asyncio.gather(*awaitables, return_exceptions=True)
+
+
+def async_run(*awaitables):
+    return asyncio.run(async_main(*awaitables))
 
 
 class Gitter(object):

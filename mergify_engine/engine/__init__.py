@@ -19,8 +19,6 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import logs
 from mergify_engine import rules
-from mergify_engine import sub_utils
-from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
@@ -143,12 +141,7 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
     )
 
 
-def run(client, pull, sources):
-    LOG.debug("engine get sub")
-    subscription = sub_utils.get_subscription(
-        utils.get_redis_for_cache(), client.installation["id"]
-    )
-
+def run(client, pull, subscription, sources):
     LOG.debug("engine get context")
     ctxt = context.Context(client, pull, subscription)
     ctxt.log.debug("engine start processing context")

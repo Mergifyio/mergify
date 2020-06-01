@@ -33,8 +33,7 @@ class RefreshAction(actions.Action):
             "pull_request": ctxt.pull,
             "sender": {"login": "<internal>"},
         }
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.send_refresh(data))
+        asyncio.run(self.send_refresh(data))
 
     @staticmethod
     async def send_refresh(data):

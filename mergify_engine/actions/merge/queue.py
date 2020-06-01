@@ -11,6 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import dataclasses
 import json
 
@@ -240,9 +241,7 @@ class Queue:
             self.delete_queue()
             return
 
-        subscription = sub_utils.get_subscription(
-            utils.get_redis_for_cache(), self.installation_id,
-        )
+        subscription = asyncio.run(sub_utils.get_subscription(self.installation_id,))
 
         with github.get_client(self.owner, self.repo, installation) as client:
             data = client.item(f"pulls/{pull_number}")
