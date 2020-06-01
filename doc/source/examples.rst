@@ -301,7 +301,7 @@ least one positive review, obviously.
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
-🌀Using RegEx
+🌀 Using Regular Expressions
 ~~~~~~~~~~~~~~
 
 Using regular expressions in conditions section, with the objective to validate a
