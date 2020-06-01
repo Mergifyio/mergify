@@ -302,19 +302,11 @@ class StreamProcessor:
                 e, installation["id"], attempts_key
             )
 
-    async def get_installation(self, stream_name):
-        installation_id = int(stream_name.split("~")[1])
-        try:
-            return await self._thread.exec(
-                github.get_installation_by_id, installation_id
-            )
-        except Exception as e:
-            await self._translate_exception_to_retries(e, installation_id)
-
     async def consume(self, stream_name):
         installation = None
         try:
-            installation = await self.get_installation(stream_name)
+            installation_id = int(stream_name.split("~")[1])
+            installation = await github.aget_installation_by_id(installation_id)
             pulls = await self._extract_pulls_from_stream(stream_name, installation)
             await self._consume_pulls(stream_name, installation, pulls)
         except exceptions.MergifyNotInstalled:
