@@ -319,8 +319,7 @@ To match a pull request title which contains the "WIP" statement, ignoring the c
 				merge:
 					method: merge
 
-You can also merge your pull request if only the Python files are updated and if it passes Circle CI’s validation tests :
-pull_request_rules:
+You can also use regular expressions to match filenames. For example, to merge your pull request if a Python file is modified and if it passes Circle CI’s validation tests:
 
 .. code-block:: yaml
 
