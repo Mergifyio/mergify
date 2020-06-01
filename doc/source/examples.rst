@@ -304,8 +304,9 @@ that would prevent the merge.
 🌀 Using Regular Expressions
 ~~~~~~~~~~~~~~
 
-Using regular expressions in conditions section, with the objective to validate a
-pull request which contains the “WIP” statement in its title with ignorecase.
+You can use regular expressions in the conditions section, associated with flags to enhance it.
+
+To match a pull request title which contains the "WIP" statement, ignoring the case, you can write:
 
 .. code-block:: yaml
 
