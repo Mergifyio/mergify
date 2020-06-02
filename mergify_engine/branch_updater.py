@@ -15,6 +15,7 @@
 # under the License.
 
 
+import collections
 import subprocess
 import uuid
 
@@ -44,20 +45,23 @@ class AuthentificationFailure(Exception):
     pass
 
 
-GIT_MESSAGE_TO_EXCEPTION = {
-    b"Invalid username or password": AuthentificationFailure,
-    b"Repository not found": AuthentificationFailure,
-    b"The requested URL returned error: 403": AuthentificationFailure,
-    b"Patch failed at": BranchUpdateFailure,
-    b"remote contains work that you do": BranchUpdateNeedRetry,
-    b"remote end hung up unexpectedly": BranchUpdateNeedRetry,
-    b"cannot lock ref 'refs/heads/": BranchUpdateNeedRetry,
-    b"Could not resolve host": BranchUpdateNeedRetry,
-    b"Operation timed out": BranchUpdateNeedRetry,
-    b"No such device or address": BranchUpdateNeedRetry,
-    b"Protected branch update failed": BranchUpdateFailure,
-    b"Couldn't find remote ref": BranchUpdateFailure,
-}
+GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
+    [
+        (b"organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
+        (b"Invalid username or password", AuthentificationFailure),
+        (b"Repository not found", AuthentificationFailure),
+        (b"The requested URL returned error, 403", AuthentificationFailure),
+        (b"Patch failed at", BranchUpdateFailure),
+        (b"remote contains work that you do", BranchUpdateNeedRetry),
+        (b"remote end hung up unexpectedly", BranchUpdateNeedRetry),
+        (b"cannot lock ref 'refs/heads/", BranchUpdateNeedRetry),
+        (b"Could not resolve host", BranchUpdateNeedRetry),
+        (b"Operation timed out", BranchUpdateNeedRetry),
+        (b"No such device or address", BranchUpdateNeedRetry),
+        (b"Protected branch update failed", BranchUpdateFailure),
+        (b"Couldn't find remote ref", BranchUpdateFailure),
+    ]
+)
 
 GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
 
