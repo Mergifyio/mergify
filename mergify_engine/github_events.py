@@ -15,6 +15,7 @@
 # under the License.
 
 import contextlib
+import dataclasses
 
 from datadog import statsd
 
@@ -30,42 +31,42 @@ LOG = logs.getLogger(__name__)
 
 def get_ignore_reason(event_type, data):
     if "installation" not in data:
-        return "ignored, no installation found"
+        return "no installation found"
 
     elif "repository" not in data:
-        return "ignored, no repository found"
+        return "no repository found"
 
     elif event_type in ["installation", "installation_repositories"]:
-        return "ignored (action %s)" % data["action"]
+        return f"action {data['action']}"
 
     elif event_type in ["push"] and not data["ref"].startswith("refs/heads/"):
-        return "ignored (push on %s)" % data["ref"]
+        return f"push on {data['ref']}"
 
     elif event_type == "status" and data["state"] == "pending":
-        return "ignored (state pending)"
+        return "state pending"
 
     elif event_type == "check_suite" and data["action"] != "rerequested":
-        return "ignored (check_suite/%s)" % data["action"]
+        return f"check_suite/{data['action']}"
 
     elif (
         event_type in ["check_run", "check_suite"]
         and data[event_type]["app"]["id"] == config.INTEGRATION_ID
         and data["action"] != "rerequested"
     ):
-        return "ignored (mergify %s)" % event_type
+        return f"mergify {event_type}"
 
     elif event_type == "issue_comment" and data["action"] != "created":
-        return "ignored (comment have been %s)" % data["action"]
+        return f"comment has been {data['action']}"
 
     elif (
         event_type == "issue_comment"
         and "@mergify " not in data["comment"]["body"].lower()
         and "@mergifyio " not in data["comment"]["body"].lower()
     ):
-        return "ignored (comment is not for mergify)"
+        return "comment is not for Mergify"
 
     if data["repository"].get("archived"):  # pragma: no cover
-        return "ignored (repository archived)"
+        return "repository archived"
 
     elif event_type not in [
         "issue_comment",
@@ -77,7 +78,7 @@ def get_ignore_reason(event_type, data):
         "check_run",
         "refresh",
     ]:
-        return "ignored (unexpected event_type)"
+        return "unexpected event_type"
 
 
 def meter_event(event_type, data):
@@ -131,6 +132,15 @@ def _extract_source_data(event_type, data):
     return slim_data
 
 
+@dataclasses.dataclass
+class IgnoredEvent(Exception):
+    """Raised when an is ignored."""
+
+    event_type: str
+    event_id: str
+    reason: str
+
+
 async def job_filter_and_dispatch(redis, event_type, event_id, data):
     # TODO(sileht): is statsd async ?
     meter_event(event_type, data)
@@ -149,7 +159,7 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
 
     reason = get_ignore_reason(event_type, data)
     if reason:
-        msg_action = reason
+        msg_action = f"ignored: {reason}"
     else:
         msg_action = "pushed to worker"
         source_data = _extract_source_data(event_type, data)
@@ -175,6 +185,9 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
         gh_owner=owner,
         gh_repo=repo,
     )
+
+    if reason:
+        raise IgnoredEvent(event_type, event_id, reason)
 
 
 def _get_github_pulls_from_sha(client, sha):
