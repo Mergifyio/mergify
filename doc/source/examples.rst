@@ -250,6 +250,8 @@ passing.
 ⚡️ Using Labels to Prioritize Merge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+|pro plan tag|
+
 When ``smart`` :ref:`strict merge` is enabled and many pull requests are
 waiting to be merged, some of them might be more urgent. In that case, you
 could add a condition using a `label
@@ -462,3 +464,4 @@ request.
 
 
 .. include:: examples/bots.rst
+.. include:: global-substitutions.rst

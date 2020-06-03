@@ -184,7 +184,7 @@ class MergeAction(actions.Action):
                 "",
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            queue.Queue.from_context(ctxt).add_pull(ctxt.pull["number"], self.config)
+            queue.Queue.from_context(ctxt).add_pull(ctxt, self.config)
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
