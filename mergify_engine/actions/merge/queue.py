@@ -90,8 +90,12 @@ class Queue:
                     self._method_cache_key(pull_number), "merge"
                 ),
                 "priority": 2000,
+                "effective_priority": 2000,
             }
-        return json.loads(config)
+        config = json.loads(config)
+        # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
+        config.setdefault("effective_priority", config["priority"])
+        return config
 
     def _add_pull(self, pull_number, priority, update=False):
         """Add a pull without setting its method.
@@ -105,13 +109,21 @@ class Queue:
             flags = dict(nx=True)
         self.redis.zadd(self._cache_key, {pull_number: score}, **flags)
 
-    def add_pull(self, pull_number, config):
-        self._add_pull(pull_number, config["priority"])
+    def add_pull(self, ctxt, config):
+        config = config.copy()
+        config["effective_priority"] = config["priority"]
+
+        if not ctxt.subscription["subscription_active"]:
+            config["effective_priority"] = helpers.PriorityAliases.medium.value
+
         self.redis.set(
-            self._config_cache_key(pull_number), json.dumps(config),
+            self._config_cache_key(ctxt.pull["number"]), json.dumps(config),
         )
+        self._add_pull(ctxt.pull["number"], config["effective_priority"])
         self.log.info(
-            "pull request added to merge queue", gh_pull=pull_number, config=config,
+            "pull request added to merge queue",
+            gh_pull=ctxt.pull["number"],
+            config=config,
         )
 
     def remove_pull(self, pull_number):
@@ -121,7 +133,7 @@ class Queue:
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
-        priority = self.get_config(pull_number)["priority"]
+        priority = self.get_config(pull_number)["effective_priority"]
         self._add_pull(pull_number, priority=priority, update=True)
         self.log.info(
             "pull request moved at the end of the merge queue", gh_pull=pull_number
@@ -132,7 +144,7 @@ class Queue:
             self.installation_id, self.owner, self.repo, old_base_branch, pull_number
         )
         self.redis.zrem(old_queue._cache_key, pull_number)
-        priority = self.get_config(pull_number)["priority"]
+        priority = self.get_config(pull_number)["effective_priority"]
         self._add_pull(pull_number, priority)
         self.log.info(
             "pull request moved from queue %s to this queue",

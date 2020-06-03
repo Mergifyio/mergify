@@ -91,6 +91,7 @@ automatically delete the backport head branch that it created.
 
    If the repository is bigger than 512 MB, the ``backport`` action is only
    available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
+   |pro plan tag|
 
 copy
 ====
@@ -129,6 +130,7 @@ The ``copy`` action creates a copy of the pull request targetting other branches
 
    If the repository is bigger than 512 MB, the ``copy`` action is only
    available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
+   |pro plan tag|
 
 .. _comment action:
 
@@ -362,6 +364,8 @@ The ``merge`` action merges the pull request into its base branch. The
        :ref:`strict merge` is enabled. The pull request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
 
+       |pro plan tag|
+
    * - ``commit_message``
      - string
      - ``default``
@@ -498,3 +502,5 @@ update
 ======
 
 The ``update`` action updates the pull request against its base branch.
+
+.. include:: global-substitutions.rst

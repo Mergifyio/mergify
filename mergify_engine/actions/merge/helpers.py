@@ -82,21 +82,33 @@ def merge_report(ctxt, strict):
     return conclusion, title, summary
 
 
-def get_queue_summary(q):
+def get_queue_summary(ctxt):
+    q = queue.Queue.from_context(ctxt)
     pulls = q.get_pulls()
     if not pulls:
         return ""
+
+    # NOTE(sileht): It would be better to get that from configuration, but we
+    # don't have it here, so just guess it.
+    priorities_configured = False
 
     summary = "\n\nThe following pull requests are queued:"
     for priority, grouped_pulls in itertools.groupby(
         pulls, key=lambda v: q.get_config(v)["priority"]
     ):
+        if priority != PriorityAliases.medium.value:
+            priorities_configured = True
+
         try:
             fancy_priority = PriorityAliases(priority).name
         except ValueError:
             fancy_priority = priority
         formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
         summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
+
+    if priorities_configured and not ctxt.subscription["subscription_active"]:
+        summary += f"\n\n⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/{q.installation_id}/subscription) needed"
+
     return summary
 
 
@@ -108,7 +120,7 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
         title = "Base branch update done"
         summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
 
-    summary += get_queue_summary(queue.Queue.from_context(ctxt))
+    summary += get_queue_summary(ctxt)
 
     if not need_update and rule and missing_conditions is not None:
         summary += "\n\nRequired conditions for merge:\n"

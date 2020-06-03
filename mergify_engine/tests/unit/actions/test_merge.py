@@ -198,13 +198,21 @@ def gen_config(priorities):
     return [{"priority": priority} for priority in priorities]
 
 
-def test_queue_summary():
-    q = mock.Mock()
+def test_queue_summary_subscription_active():
+    ctxt = mock.Mock(
+        subscription={
+            "tokens": {},
+            "subscription_active": True,
+            "subscription_reason": "We're just testing",
+        }
+    )
+    q = mock.Mock(installation_id=12345)
     q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     q.get_config.side_effect = gen_config(
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
-    summary = helpers.get_queue_summary(q)
+    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
+        summary = helpers.get_queue_summary(ctxt)
 
     assert (
         summary
@@ -215,4 +223,34 @@ The following pull requests are queued:
 * #2, #3, #4 (priority: high)
 * #5, #6 (priority: medium)
 * #7, #8, #9 (priority: low)"""
+    )
+
+
+def test_queue_summary_subscription_not_active():
+    ctxt = mock.Mock(
+        subscription={
+            "tokens": {},
+            "subscription_active": False,
+            "subscription_reason": "We're just testing",
+        }
+    )
+    q = mock.Mock(installation_id=12345)
+    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    q.get_config.side_effect = gen_config(
+        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
+    )
+    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
+        summary = helpers.get_queue_summary(ctxt)
+
+    assert (
+        summary
+        == """
+
+The following pull requests are queued:
+* #1 (priority: 4000)
+* #2, #3, #4 (priority: high)
+* #5, #6 (priority: medium)
+* #7, #8, #9 (priority: low)
+
+⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/12345/subscription) needed"""
     )
