@@ -45,18 +45,28 @@ div.highlight > pre {
 
 /* Navbar Class styles */
 .navbar .navbar-brand {
-    background-size: contain;
-    height: 37px;
+    height: 40px;
 }
 
-.navbar-nav > .nav-item {
-    /* needed so the links in the navbar are aligned with top-left logo */
-    padding-top: 0.6em;
+nav.navbar {
+    padding-top: 1.1em;
+    padding-bottom: 1.1em;
+}
+
+#exCollapsingNavbar2 {
+    /* So the links are stuck to the logo */
+    padding-left: 2em;
 }
 
 .navbar .navbar-brand img.logo {
-    margin-top: -4px;
-    height: 37px;
+    /* needed so the links in the navbar are aligned with top-left logo */
+    margin-top: -8px;
+    height: 42px;
+}
+
+.navbar-light .navbar-nav .nav-link {
+    font-variant: all-small-caps;
+    font-size: 1.3rem;
 }
 
 /* Fix headers for scrolling */

@@ -247,6 +247,56 @@ In that case, if a pull request gets labelled with ``work-in-progress``, it
 won't be merged, even if approved by 2 contributors and having Travis CI
 passing.
 
+⚡️ Using Labels to Prioritize Merge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``smart`` :ref:`strict merge` is enabled and many pull requests are
+waiting to be merged, some of them might be more urgent. In that case, you
+could add a condition using a `label
+<https://help.github.com/articles/labeling-issues-and-pull-requests/>`_ and
+configure the priority option of :ref:`merge action`:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge of 🚑 hotfix (high priority)
+        conditions:
+          - status-success=Travis CI - Pull Request
+          - "#approved-reviews-by>=2"
+          - base=master
+          - label=🚑 hotfix
+        actions:
+          merge:
+            method: merge
+            strict: smart
+            priority: high
+      - name: automatic merge of bot 🤖 (low priority)
+        conditions:
+          - author~=^dependabot(|-preview)\[bot\]$
+          - status-success=Travis CI - Pull Request
+          - "#approved-reviews-by>=2"
+          - base=master
+        actions:
+          merge:
+            method: merge
+            strict: smart
+            priority: low
+      - name: automatic merge for master when reviewed and CI passes
+        conditions:
+          - status-success=Travis CI - Pull Request
+          - "#approved-reviews-by>=2"
+          - base=master
+        actions:
+          merge:
+            method: merge
+            strict: smart
+            priority: medium
+
+As soon as the pull request has been approved by 2 contributors, the pull
+request will be added to the merge queue. Within the merge queue, the pull
+requests with the label ``🚑 hotfix`` will be merged first. The pull requests
+from `dependabot` will always be merged last.
+
 🥶 Removing Stale Reviews
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -76,3 +76,113 @@ class TestMergeAction(base.FunctionalTestBase):
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number, p_ready.number]
+
+    def test_merge_priority(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [f"base={self.master_branch_name}", "label=high"],
+                    "actions": {
+                        "merge": {"strict": "smart+ordered", "priority": "high"}
+                    },
+                },
+                {
+                    "name": "Merge priority default",
+                    "conditions": [f"base={self.master_branch_name}", "label=medium"],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+                {
+                    "name": "Merge priority low",
+                    "conditions": [f"base={self.master_branch_name}", "label=low"],
+                    "actions": {"merge": {"strict": "smart+ordered", "priority": 1}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p_high, _ = self.create_pr()
+        p_medium, _ = self.create_pr()
+        p_low, _ = self.create_pr()
+
+        # To force others to be rebased
+        p, _ = self.create_pr()
+        p.merge()
+        self.wait_for("pull_request", {"action": "closed"}),
+
+        # Merge them in reverse priority to ensure there are reordered
+        self.add_label(p_low, "low")
+        self.add_label(p_medium, "medium")
+        self.add_label(p_high, "high")
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        q = queue.Queue.from_context(ctxt)
+        pulls_in_queue = q.get_pulls()
+        assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
+
+        queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p_low.update()
+        p_medium.update()
+        p_high.update()
+        self.assertEqual(True, p_low.merged)
+        self.assertEqual(True, p_high.merged)
+        self.assertEqual(True, p_medium.merged)
+        assert p_low.merged_at > p_medium.merged_at > p_high.merged_at
+
+    def test_merge_rule_switch(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [f"base={self.master_branch_name}", "label=high"],
+                    "actions": {
+                        "merge": {"strict": "smart+ordered", "priority": "high"}
+                    },
+                },
+                {
+                    "name": "Merge priority medium",
+                    "conditions": [f"base={self.master_branch_name}", "label=medium"],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+                {
+                    "name": "Merge priority low",
+                    "conditions": [f"base={self.master_branch_name}", "label=low"],
+                    "actions": {"merge": {"strict": "smart+ordered", "priority": 1}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr()
+        p2, _ = self.create_pr()
+
+        # To force others to be rebased
+        p, _ = self.create_pr()
+        p.merge()
+        self.wait_for("pull_request", {"action": "closed"}),
+
+        # Merge them in reverse priority to ensure there are reordered
+        self.add_label(p1, "medium")
+        self.add_label(p2, "low")
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        q = queue.Queue.from_context(ctxt)
+        pulls_in_queue = q.get_pulls()
+        assert pulls_in_queue == [p1.number, p2.number]
+
+        # NOTE(sileht): The removal and the add must be part of the same batch to make the
+        # test useful
+        p2.remove_from_labels("low")
+        self.add_label(p2, "high")
+        pulls_in_queue = q.get_pulls()
+        assert pulls_in_queue == [p2.number, p1.number]

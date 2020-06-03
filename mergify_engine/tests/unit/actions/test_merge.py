@@ -19,6 +19,7 @@ import pytest
 
 from mergify_engine import context
 from mergify_engine.actions.merge import action
+from mergify_engine.actions.merge import helpers
 
 
 PR = {
@@ -191,3 +192,27 @@ def test_merge_commit_message_syntax_error(body, error):
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         action.MergeAction._get_commit_message(pr)
         assert str(rmf) == error
+
+
+def gen_config(priorities):
+    return [{"priority": priority} for priority in priorities]
+
+
+def test_queue_summary():
+    q = mock.Mock()
+    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    q.get_config.side_effect = gen_config(
+        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
+    )
+    summary = helpers.get_queue_summary(q)
+
+    assert (
+        summary
+        == """
+
+The following pull requests are queued:
+* #1 (priority: 4000)
+* #2, #3, #4 (priority: high)
+* #5, #6 (priority: medium)
+* #7, #8, #9 (priority: low)"""
+    )
