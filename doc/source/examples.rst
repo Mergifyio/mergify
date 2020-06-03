@@ -93,7 +93,7 @@ You can also remove the branch limitation so it'd work on any branch:
 🌀 Using Regular Expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use regular expressions in the conditions section, associated with flags to enhance it.
+You can use regular expressions in the :ref:`configuration file format` section, associated with flags to enhance it.
 To match a pull request title which contains the "WIP" statement, ignoring the case, you can write:
 
 .. code-block:: yaml
