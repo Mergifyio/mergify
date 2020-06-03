@@ -12,8 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import enum
+import itertools
+
 from mergify_engine import branch_updater
 from mergify_engine.actions.merge import queue
+
+
+class PriorityAliases(enum.Enum):
+    low = 1000
+    medium = 2000
+    high = 3000
 
 
 def merge_report(ctxt, strict):
@@ -73,6 +82,24 @@ def merge_report(ctxt, strict):
     return conclusion, title, summary
 
 
+def get_queue_summary(q):
+    pulls = q.get_pulls()
+    if not pulls:
+        return ""
+
+    summary = "\n\nThe following pull requests are queued:"
+    for priority, grouped_pulls in itertools.groupby(
+        pulls, key=lambda v: q.get_config(v)["priority"]
+    ):
+        try:
+            fancy_priority = PriorityAliases(priority).name
+        except ValueError:
+            fancy_priority = priority
+        formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+        summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
+    return summary
+
+
 def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=False):
     if need_update:
         title = "Base branch will be updated soon"
@@ -81,10 +108,7 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
         title = "Base branch update done"
         summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
 
-    pulls = queue.Queue.from_context(ctxt).get_pulls()
-    if pulls:
-        links = ", ".join((f"#{pull}" for pull in pulls))
-        summary += f"\n\nThe following pull requests are queued: {links}"
+    summary += get_queue_summary(queue.Queue.from_context(ctxt))
 
     if not need_update and rule and missing_conditions is not None:
         summary += "\n\nRequired conditions for merge:\n"
