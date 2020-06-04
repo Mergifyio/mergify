@@ -86,7 +86,9 @@ class Queue:
         config = self.redis.get(self._config_cache_key(pull_number))
         if config is None:
             return {
-                "strict_method": self.redis.get(self._method_cache_key(pull_number)),
+                "strict_method": self.redis.get(
+                    self._method_cache_key(pull_number), "merge"
+                ),
                 "priority": 2000,
                 "effective_priority": 2000,
             }
