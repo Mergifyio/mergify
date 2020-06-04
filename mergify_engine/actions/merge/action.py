@@ -59,7 +59,10 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict", default=False): voluptuous.Any(
             bool,
             voluptuous.All("smart", voluptuous.Coerce(lambda _: "smart+ordered")),
-            "smart+fastpath",
+            voluptuous.All(
+                "smart+fastpath", voluptuous.Coerce(lambda _: "smart+fasttrack")
+            ),
+            "smart+fasttrack",
             "smart+ordered",
         ),
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
@@ -98,10 +101,10 @@ class MergeAction(actions.Action):
 
     def _should_be_merged(self, ctxt):
         q = queue.Queue.from_context(ctxt)
-        if self.config["strict"] in ("smart+fastpath", "smart+ordered"):
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self.config["strict"] == "smart+ordered":
                 return not ctxt.is_behind and q.is_first_pull(ctxt.pull["number"])
-            elif self.config["strict"] == "smart+fastpath":
+            elif self.config["strict"] == "smart+fasttrack":
                 return not ctxt.is_behind
             else:
                 raise RuntimeError("Unexpected strict_smart_behavior")
@@ -180,7 +183,7 @@ class MergeAction(actions.Action):
                 "modification",
                 "",
             )
-        elif self.config["strict"] in ("smart+fastpath", "smart+ordered"):
+        elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             queue.Queue.from_context(ctxt).add_pull(ctxt.pull["number"], self.config)
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
