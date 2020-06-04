@@ -334,7 +334,7 @@ The ``merge`` action merges the pull request into its base branch. The
          This allows you to e.g., save CI time, as Mergify will queue the
          mergeable pull requests and update them serially, one at a time.
 
-       * ``smart+fastpath`` enables :ref:`strict merge` with the same behavior as ``smart``,
+       * ``smart+fasttrack`` enables :ref:`strict merge` with the same behavior as ``smart``,
          except if the pull request is already in sync with its base branch,
          the queue is bypassed and the pull request is directly merged.
 
