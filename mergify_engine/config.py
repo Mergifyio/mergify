@@ -88,9 +88,6 @@ Schema = voluptuous.Schema(
         voluptuous.Required("STREAM_WORKERS", default=7): voluptuous.Coerce(int),
         voluptuous.Required("STREAM_MAX_BATCH", default=100): voluptuous.Coerce(int),
         voluptuous.Required("CACHE_TOKEN_SECRET"): str,
-        voluptuous.Required(
-            "CELERY_BROKER_URL", default="redis://localhost:6379/9"
-        ): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
         voluptuous.Required(
