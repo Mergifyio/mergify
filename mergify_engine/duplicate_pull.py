@@ -177,26 +177,18 @@ def duplicate(
 
     git = utils.Gitter(ctxt.log)
 
-    # FIXME(sileht): Temporary disable backport/copy on big repository
-    if ctxt.pull["base"]["repo"]["owner"]["login"] not in [
-        "mergifyio-testing",
-        "mergify-test1",
-        "mergify-test2",
-        "mergify-test3",
-        "mergify-test4",
-    ]:
-        repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
-        if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE:
-            if ctxt.subscription["subscription_active"]:
-                ctxt.log.warning(
-                    "repository too big and no subscription active, refusing to %s",
-                    kind,
-                    size=repo_info["size"],
-                )
-                raise DuplicateFailed(
-                    f"{kind} fail: repository is too big and no subscription is active"
-                )
-            ctxt.log.info("running %s on large repository", kind)
+    repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
+    if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE:
+        if ctxt.subscription["subscription_active"]:
+            ctxt.log.warning(
+                "repository too big and no subscription active, refusing to %s",
+                kind,
+                size=repo_info["size"],
+            )
+            raise DuplicateFailed(
+                f"{kind} fail: repository is too big and no subscription is active"
+            )
+        ctxt.log.info("running %s on large repository", kind)
 
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
