@@ -164,50 +164,6 @@ expected alphabetic or numeric character, but found"""
             == checks[0]["output"]["title"]
         )
 
-    def test_request_reviews_users(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "request_reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"request_reviews": {"users": ["mergify-test1"]}},
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 1 == len(pulls)
-        requests = pulls[0].get_review_requests()
-        assert sorted(["mergify-test1"]) == sorted([user.login for user in requests[0]])
-
-    def test_request_reviews_teams(self):
-        # Add a team to the repo with write permissions  so it can review
-        team = list(self.o_admin.get_teams())[0]
-        team.set_repo_permission(self.r_o_admin, "push")
-
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "request_reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"request_reviews": {"teams": [team.slug]}},
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-
-        p, _ = self.create_pr()
-
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 1 == len(pulls)
-        requests = pulls[0].get_review_requests()
-        assert sorted([team.slug]) == sorted([team.slug for team in requests[1]])
-
     def test_debugger(self):
         rules = {
             "pull_request_rules": [
