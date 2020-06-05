@@ -71,7 +71,7 @@ def test_regexp():
 
 def test_regexp_invalid():
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({"~=": ("foo", "([^\s\w])(\s*\1+")})  # noqa
+        filter.Filter({"~=": ("foo", r"([^\s\w])(\s*\1+")})
 
 
 def test_set_value_expanders():
