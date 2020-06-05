@@ -56,9 +56,9 @@ class Action(abc.ABC):
     config: typing.Dict
 
     cancelled_check_report = (
-        "neutral",
-        "The rule doesn't match anymore, this action has been cancelled",
-        "",
+        "cancelled",
+        "The rule doesn't match anymore",
+        "This action has been cancelled.",
     )
 
     # If an action can't be twice in a rule this must be set to true

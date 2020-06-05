@@ -308,7 +308,7 @@ def run_actions(
                 conclusion, title, summary = report
                 status = "completed" if conclusion else "in_progress"
                 if need_to_be_run and (
-                    not action_obj.silent_report or conclusion == "failure"
+                    not action_obj.silent_report or conclusion not in ("success", None)
                 ):
                     try:
                         check_api.set_check_run(
