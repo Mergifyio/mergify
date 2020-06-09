@@ -34,7 +34,7 @@ class AssignAction(actions.Action):
                 user = ctxt.pull_request.render_template(user)
             except context.RenderTemplateFailure as rmf:
                 # NOTE: this should never happen since the template is validated when parsing the config 🤷
-                return ("failed", "Invalid assignee", str(rmf))
+                return ("failure", "Invalid assignee", str(rmf))
             else:
                 wanted.add(user)
 
