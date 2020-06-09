@@ -61,6 +61,21 @@ Data Types
 
 .. _data type template:
 
+
+Regular Expression
+~~~~~~~~~~~~~~~~~~
+
+Mergify uses Python regular expression to enhance your rules.
+
+More precisly, in the sub-section 'Conditions' you can use with :ref:`Operators` some regular expressions associated with flags.
+
+See the specific :ref:`Examples` for configuration file examples.
+
+.. tip::
+
+  You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your regular expression.
+
+
 Template
 ~~~~~~~~
 

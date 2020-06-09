@@ -90,6 +90,39 @@ You can also remove the branch limitation so it'd work on any branch:
           merge:
             method: merge
 
+🌀 Using Regular Expressions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can use regular expressions in the :ref:`configuration file format`, associated with flags to enhance it.
+To match a pull request title which contains the "WIP" statement, ignoring the case, you can write:
+
+.. code-block:: yaml
+
+
+    pull_request_rules:
+      - name: automatic merge for master when the title contains “WIP” (ignoring case)
+        conditions:
+          - base=master
+          - title~=(?i)wip
+        actions:
+          merge:
+            method: merge
+
+You can also use regular expressions to match filenames. For example, to merge your pull request
+if at least one Python file is modified and if it passes Circle CI’s validation tests:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for master when CI passes and if at least one Python file is modified
+        conditions:
+          - "status-success=ci/circleci: validate"
+          - files~=\.py$
+        actions:
+          merge:
+            method: merge
+
+
 🗂 Merging based on Modified Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -249,8 +282,6 @@ passing.
 
 ⚡️ Using Labels to Prioritize Merge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-|pro plan tag|
 
 When ``smart`` :ref:`strict merge` is enabled and many pull requests are
 waiting to be merged, some of them might be more urgent. In that case, you
@@ -464,4 +495,3 @@ request.
 
 
 .. include:: examples/bots.rst
-.. include:: global-substitutions.rst
