@@ -61,6 +61,20 @@ Data Types
 
 .. _data type template:
 
+Regular Expression
+~~~~~~~~~~~~~~~~~~
+
+In :ref:`Conditions` you can use regular expression with matching :ref:`Operators`.
+
+Mergify leverages `Python regular expression <https://docs.python.org/3/library/re.html>`_ to match rules.
+
+See the specific :ref:`Examples` for configuration file examples.
+
+.. tip::
+
+  You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your regular expression.
+
+
 Template
 ~~~~~~~~
 
