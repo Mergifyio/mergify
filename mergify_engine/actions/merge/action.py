@@ -21,6 +21,7 @@ import daiquiri
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
@@ -82,6 +83,15 @@ class MergeAction(actions.Action):
     }
 
     def run(self, ctxt, rule, missing_conditions):
+        if not config.GITHUB_APP:
+            if self.config["strict_method"] == "rebase":
+                return (
+                    "failure",
+                    "Misconfigured for GitHub Action",
+                    "Due to GitHub Action limitation, `strict_method: rebase` "
+                    "is only available with the Mergify GitHub App",
+                )
+
         ctxt.log.info("process merge", config=self.config)
 
         q = queue.Queue.from_context(ctxt)

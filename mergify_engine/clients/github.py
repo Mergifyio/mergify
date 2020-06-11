@@ -61,9 +61,15 @@ class CachedToken:
         CachedToken.STORAGE.pop(self.installation_id, None)
 
 
-class GithubInstallationAuth(httpx.Auth):
-    def __init__(self, installation_id, owner, repo):
-        self.installation_id = installation_id
+class GithubActionAccessTokenAuth(httpx.Auth):
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
+        yield request
+
+
+class GithubAppInstallationAuth(httpx.Auth):
+    def __init__(self, installation, owner, repo):
+        self.installation_id = installation["id"]
         self.owner = owner
         self.repo = repo
         self._cached_token = CachedToken.get(self.installation_id)
@@ -145,15 +151,23 @@ class GithubInstallationAuth(httpx.Auth):
         return self._set_access_token(r.json())
 
 
+def get_auth(installation, owner, repo):
+    if config.GITHUB_APP:
+        return GithubAppInstallationAuth(installation, owner, repo)
+    else:
+        return GithubActionAccessTokenAuth()
+
+
 class AsyncGithubInstallationClient(http.AsyncClient):
     def __init__(self, owner, repo, installation):
         self.owner = owner
         self.repo = repo
         self.installation = installation
         self._requests = []
+
         super().__init__(
             base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=GithubInstallationAuth(self.installation["id"], owner, repo),
+            auth=get_auth(installation, owner, repo),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -288,7 +302,7 @@ class GithubInstallationClient(http.Client):
         self._requests = []
         super().__init__(
             base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=GithubInstallationAuth(self.installation["id"], owner, repo),
+            auth=get_auth(installation, owner, repo),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -394,18 +408,36 @@ def get_client(*args, **kwargs):
     return client
 
 
+def get_github_action_installation():
+    return {
+        "id": config.ACTION_ID,
+        "permissions_need_to_be_updated": False,
+    }
+
+
 def get_installation_by_id(installation_id):
-    return github_app.get_client().get_installation_by_id(installation_id)
+    if config.GITHUB_APP:
+        return github_app.get_client().get_installation_by_id(installation_id)
+    elif installation_id == config.ACTION_ID:
+        return {
+            "id": config.ACTION_ID,
+            "permissions_need_to_be_updated": False,
+        }
+    else:
+        raise RuntimeError("Unexpected installation id")
 
 
 def get_installation(owner, repo, installation_id=None):
-    installation = github_app.get_client().get_installation(owner, repo)
-    if installation_id is not None and installation["id"] != installation_id:
-        LOG.error(
-            "installation id for repository diff from event installation id",
-            gh_owner=owner,
-            gh_repo=repo,
-            installation_id=installation["id"],
-            expected_installation_id=installation_id,
-        )
-    return installation
+    if config.GITHUB_APP:
+        installation = github_app.get_client().get_installation(owner, repo)
+        if installation_id is not None and installation["id"] != installation_id:
+            LOG.error(
+                "installation id for repository diff from event installation id",
+                gh_owner=owner,
+                gh_repo=repo,
+                installation_id=installation["id"],
+                expected_installation_id=installation_id,
+            )
+        return installation
+    else:
+        return get_github_action_installation()

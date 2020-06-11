@@ -359,7 +359,7 @@ class FunctionalTestBase(unittest.TestCase):
                 github_app, "get_or_create_jwt", return_value="<TOKEN>"
             ).start()
             mock.patch.object(
-                github.GithubInstallationAuth,
+                github.GithubAppInstallationAuth,
                 "get_access_token",
                 return_value="<TOKEN>",
             ).start()

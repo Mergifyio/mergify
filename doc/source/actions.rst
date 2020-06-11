@@ -39,6 +39,8 @@ e.g. ``{{author}}`` to assign the pull request to its author.
 backport
 =========
 
+|not enterprise plan tag|
+
 It is common for software to have (some of) their major versions maintained
 over an extended period. Developers usually create stable branches that are
 maintained for a while by cherry-picking patches from the development branch.
@@ -95,6 +97,8 @@ automatically delete the backport head branch that it created.
 
 copy
 ====
+
+|not enterprise plan tag|
 
 The ``copy`` action creates a copy of the pull request targetting other branches.
 
@@ -440,6 +444,8 @@ Strict Rebase
 Using the ``rebase`` method for the strict merge has many drawbacks:
 
 * It doesn't work for private forked repositories.
+
+* It doesn't work if Mergify is used as a GitHub Action.
 
 * Due to the change of all commits SHA-1 of the pull request, your
   contributor will need to force-push its own branch if they add new
