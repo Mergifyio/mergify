@@ -19,6 +19,8 @@ The list of available commands is listed below, with their parameters:
 rebase
 ======
 
+|not enterprise plan tag|
+
    Runs the :ref:`rebase action` action.
 
 .. list-table::
@@ -50,6 +52,8 @@ update
 
 backport
 ========
+
+|not enterprise plan tag|
 
 Runs the :ref:`backport action` action.
 

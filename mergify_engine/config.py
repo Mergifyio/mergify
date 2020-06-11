@@ -23,7 +23,16 @@ import dotenv
 import voluptuous
 
 
-# NOTE(sileht) we coerce bool and int in case their are loaded from environment
+GITHUB_APP = os.environ.get("MERGIFYENGINE_MODE", "github_app") == "github_app"
+if GITHUB_APP:
+    GitHubAppRequired = voluptuous.Required
+    GitHubActionRequired = voluptuous.Optional
+else:
+    GitHubAppRequired = voluptuous.Optional
+    GitHubActionRequired = voluptuous.Required
+
+
+# NOTE(sileht) we coerce bool and int in case they are loaded from the environment
 def CoercedBool(value):
     return bool(distutils.util.strtobool(str(value)))
 
@@ -58,14 +67,18 @@ Schema = voluptuous.Schema(
         ),
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_ENVIRONMENT", default="test"): str,
-        # Github mandatory
-        voluptuous.Required("INTEGRATION_ID"): voluptuous.Coerce(int),
-        voluptuous.Required("PRIVATE_KEY"): str,
+        # GitHub App mandatory
+        GitHubAppRequired("INTEGRATION_ID"): voluptuous.Coerce(int),
+        GitHubAppRequired("PRIVATE_KEY"): str,
+        GitHubAppRequired("OAUTH_CLIENT_ID"): str,
+        GitHubAppRequired("OAUTH_CLIENT_SECRET"): str,
+        GitHubAppRequired("WEBHOOK_SECRET"): str,
+        # GitHub Action mandatory
+        GitHubActionRequired("ACTION_ID"): voluptuous.Coerce(int),
+        GitHubActionRequired("GITHUB_TOKEN"): str,
+        # GitHub common
         voluptuous.Required("BOT_USER_ID"): voluptuous.Coerce(int),
-        voluptuous.Required("OAUTH_CLIENT_ID"): str,
-        voluptuous.Required("OAUTH_CLIENT_SECRET"): str,
-        voluptuous.Required("WEBHOOK_SECRET"): str,
-        # Github optional
+        # GitHub optional
         voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
         voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
         # Mergify website for subscription
@@ -87,7 +100,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required("STREAM_URL", default="redis://localhost:6379?db=7"): str,
         voluptuous.Required("STREAM_WORKERS", default=7): voluptuous.Coerce(int),
         voluptuous.Required("STREAM_MAX_BATCH", default=100): voluptuous.Coerce(int),
-        voluptuous.Required("CACHE_TOKEN_SECRET"): str,
+        GitHubAppRequired("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
         voluptuous.Required(

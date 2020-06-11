@@ -16,6 +16,7 @@
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
+from mergify_engine import config
 
 
 class RebaseAction(actions.Action):
@@ -25,6 +26,14 @@ class RebaseAction(actions.Action):
 
     @staticmethod
     def run(ctxt, rule, missing_conditions):
+        if not config.GITHUB_APP:
+            return (
+                "failure",
+                "Unavailable with GitHub Action",
+                "Due to GitHub Action limitation, the `rebase` command is only available "
+                "with the Mergify GitHub App.",
+            )
+
         try:
             branch_updater.update_with_git(ctxt, "rebase")
         except branch_updater.BranchUpdateFailure as e:

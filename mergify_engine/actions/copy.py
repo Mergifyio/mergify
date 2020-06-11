@@ -20,6 +20,7 @@ from urllib import parse
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import config
 from mergify_engine import duplicate_pull
 from mergify_engine.clients import http
 
@@ -105,6 +106,14 @@ class CopyAction(actions.Action):
         )
 
     def run(self, ctxt, rule, missing_conditions):
+        if not config.GITHUB_APP:
+            return (
+                "failure",
+                "Unavailable with the GitHub Action",
+                "Due to GitHub Action limitation, the `copy` action/command is only "
+                "available with the Mergify GitHub App.",
+            )
+
         branches = self.config["branches"]
         if self.config["regexes"]:
             regexes = list(map(re.compile, self.config["regexes"]))
