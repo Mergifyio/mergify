@@ -91,6 +91,9 @@ class MergeAction(actions.Action):
             q.remove_pull(ctxt.pull["number"])
             return output
 
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
+            q.add_pull(ctxt, self.config)
+
         if self._should_be_merged(ctxt):
             try:
                 return self._merge(ctxt)
@@ -103,7 +106,7 @@ class MergeAction(actions.Action):
         q = queue.Queue.from_context(ctxt)
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self.config["strict"] == "smart+ordered":
-                return not ctxt.is_behind and q.is_first_pull(ctxt.pull["number"])
+                return not ctxt.is_behind and q.is_first_pull(ctxt)
             elif self.config["strict"] == "smart+fasttrack":
                 return not ctxt.is_behind
             else:
@@ -200,7 +203,6 @@ class MergeAction(actions.Action):
                 "You cannot use strict mode with a pull request from a private fork.",
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            queue.Queue.from_context(ctxt).add_pull(ctxt, self.config)
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
