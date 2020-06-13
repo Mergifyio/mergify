@@ -95,7 +95,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         p1.merge()
         self.wait_for("pull_request", {"action": "closed"})
         self.add_label(p1, "merge")
-        self.wait_for("check_run", {"check_run": {"conclusion": "success"}})
+        self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
