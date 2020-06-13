@@ -7,6 +7,12 @@ from mergify_engine.clients import http
 
 
 class RequestReviewsAction(actions.Action):
+
+    # This is the maximum number of review you can request on a PR.
+    # It's not documented in the API, but it is shown in GitHub UI.
+    # Any review passed that number is ignored by GitHub API.
+    GITHUB_MAXIMUM_REVIEW_REQUEST = 15
+
     validator = {
         voluptuous.Required("users", default=[]): [str],
         voluptuous.Required("teams", default=[]): [str],
@@ -17,7 +23,6 @@ class RequestReviewsAction(actions.Action):
     always_run = True
 
     def run(self, ctxt, rule, missing_conditions):
-
         # Using consolidated data to avoid already done API lookup
         reviews_keys = (
             "approved-reviews-by",
@@ -39,20 +44,39 @@ class RequestReviewsAction(actions.Action):
             {e[1:] for e in existing_reviews if e.startswith("@")}
         )
         if user_reviews_to_request or team_reviews_to_request:
-            try:
-                ctxt.client.post(
-                    f"pulls/{ctxt.pull['number']}/requested_reviewers",
-                    json={
-                        "reviewers": list(user_reviews_to_request),
-                        "team_reviewers": list(team_reviews_to_request),
-                    },
-                )
-            except http.HTTPClientSideError as e:  # pragma: no cover
+            requested_reviews_nb = len(ctxt.pull_request.review_requested)
+
+            already_at_max = requested_reviews_nb == self.GITHUB_MAXIMUM_REVIEW_REQUEST
+            will_exceed_max = (
+                len(user_reviews_to_request)
+                + len(team_reviews_to_request)
+                + requested_reviews_nb
+                > self.GITHUB_MAXIMUM_REVIEW_REQUEST
+            )
+
+            if not already_at_max:
+                try:
+                    ctxt.client.post(
+                        f"pulls/{ctxt.pull['number']}/requested_reviewers",
+                        json={
+                            "reviewers": list(user_reviews_to_request),
+                            "team_reviewers": list(team_reviews_to_request),
+                        },
+                    )
+                except http.HTTPClientSideError as e:  # pragma: no cover
+                    return (
+                        None,
+                        "Unable to create review request",
+                        f"GitHub error: [{e.status_code}] `{e.message}`",
+                    )
+            if already_at_max or will_exceed_max:
                 return (
-                    None,
-                    "Unable to create review request",
-                    f"GitHub error: [{e.status_code}] `{e.message}`",
+                    "neutral",
+                    "Maximum number of reviews already requested",
+                    f"The maximum number of {self.GITHUB_MAXIMUM_REVIEW_REQUEST} reviews has been reached.\n"
+                    "Unable to request reviews for additional users.",
                 )
+
             return ("success", "New reviews requested", "")
         else:
             return ("success", "No new reviewers to request", "")
