@@ -386,10 +386,6 @@ class Context(object):
     def pull_from_fork(self):
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
-    @property
-    def pull_base_is_modifiable(self):
-        return self.pull["maintainer_can_modify"] or not self.pull_from_fork
-
 
 @dataclasses.dataclass
 class RenderTemplateFailure(Exception):

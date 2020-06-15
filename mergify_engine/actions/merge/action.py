@@ -91,6 +91,9 @@ class MergeAction(actions.Action):
             q.remove_pull(ctxt.pull["number"])
             return output
 
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
+            q.add_pull(ctxt, self.config)
+
         if self._should_be_merged(ctxt):
             try:
                 return self._merge(ctxt)
@@ -103,7 +106,7 @@ class MergeAction(actions.Action):
         q = queue.Queue.from_context(ctxt)
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self.config["strict"] == "smart+ordered":
-                return not ctxt.is_behind and q.is_first_pull(ctxt.pull["number"])
+                return not ctxt.is_behind and q.is_first_pull(ctxt)
             elif self.config["strict"] == "smart+fasttrack":
                 return not ctxt.is_behind
             else:
@@ -171,20 +174,35 @@ class MergeAction(actions.Action):
         return False
 
     def _sync_with_base_branch(self, ctxt):
+        # If PR from a public fork but cannot be edited
         if (
             ctxt.pull_from_fork
             and not ctxt.pull["base"]["repo"]["private"]
-            and not ctxt.pull_base_is_modifiable
+            and not ctxt.pull["maintainer_can_modify"]
         ):
             return (
                 "failure",
-                "Pull request can't be updated with latest "
-                "base branch changes, owner doesn't allow "
-                "modification",
-                "",
+                "Pull request can't be updated with latest base branch changes",
+                "Mergify needs the permission to update the base branch of the pull request.\n"
+                f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
+                "[authorize modification on its base branch]"
+                "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
+            )
+        # If PR from a private fork but cannot be edited:
+        # NOTE(jd): GitHub removed the ability to configure `maintainer_can_modify` on private fork we which make strict mode broken
+        elif (
+            ctxt.pull_from_fork
+            and ctxt.pull["base"]["repo"]["private"]
+            and not ctxt.pull["maintainer_can_modify"]
+        ):
+            return (
+                "failure",
+                "Pull request can't be updated with latest base branch changes",
+                "Mergify needs the permission to update the base branch of the pull request.\n"
+                "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
+                "You cannot use strict mode with a pull request from a private fork.",
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            queue.Queue.from_context(ctxt).add_pull(ctxt, self.config)
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])

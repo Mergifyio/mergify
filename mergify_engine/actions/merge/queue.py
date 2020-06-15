@@ -151,11 +151,12 @@ class Queue:
             gh_pull=pull_number,
         )
 
-    def is_first_pull(self, pull_number):
+    def is_first_pull(self, ctxt):
         pull_requests = self.get_pulls()
         if not pull_requests:
+            ctxt.log.error("is_first_pull() called on empty queues")
             return True
-        return pull_requests[0] == pull_number
+        return pull_requests[0] == ctxt.pull["number"]
 
     def get_pulls(self):
         return [
