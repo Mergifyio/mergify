@@ -112,7 +112,7 @@ def report(url):
 
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = context.Context(
-        client, pull_raw, [{"event_type": "mergify-debugger", "data": {}}]
+        client, pull_raw, cached_sub, [{"event_type": "mergify-debugger", "data": {}}]
     )
 
     print(
