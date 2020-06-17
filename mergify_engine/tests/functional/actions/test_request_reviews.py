@@ -82,7 +82,9 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
                 {
                     "name": "request_reviews",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"request_reviews": {"users": ["mergify-test1"]}},
+                    "actions": {
+                        "request_reviews": {"users": ["mergify-test1", "mergify-test"]}
+                    },
                 },
             ]
         }
