@@ -66,6 +66,7 @@ Runs the :ref:`backport action` action.
 
    If the repository is bigger than 512 MB, the ``backport`` action is only
    available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
+   |pro plan tag|
 
 refresh
 ========
@@ -80,3 +81,5 @@ Re-evalutes your Mergify rules on this pull request.
     - ``@Mergifyio refresh``
   * - Example
     - ``@Mergifyio refresh``
+
+.. include:: global-substitutions.rst
