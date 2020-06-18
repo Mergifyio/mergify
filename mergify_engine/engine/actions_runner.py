@@ -336,6 +336,7 @@ def run_actions(
                 report=report,
                 previous_conclusion=previous_conclusion,
                 conclusion=conclusions[check_name],
+                action=action,
                 check_name=check_name,
                 missing_conditions=missing_conditions,
                 event_types=[se["event_type"] for se in ctxt.sources],
