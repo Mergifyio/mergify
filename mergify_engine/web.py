@@ -233,6 +233,8 @@ def PullRequestUrl(v):
             message="Mergify not installed on repository '%s'" % owner
         )
 
+    subscription = asyncio.run(sub_utils.get_subscription(installation["id"]))
+
     with github.get_client(owner, repo, installation) as client:
         try:
             data = client.item(f"pulls/{pull_number}")
@@ -240,7 +242,10 @@ def PullRequestUrl(v):
             raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
         return context.Context(
-            client, data, [{"event_type": "mergify-simulator", "data": []}]
+            client,
+            data,
+            subscription,
+            [{"event_type": "mergify-simulator", "data": []}],
         )
 
 
