@@ -91,6 +91,14 @@ def gen_summary(ctxt, match):
     summary += gen_summary_rules(match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x[0]["hidden"], match.ignored_rules)))
 
+    if not ctxt.subscription["subscription_active"]:
+        summary += (
+            "<hr />\n"
+            ":sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service "
+            "for free to open source projects.\n\n"
+            ":rocket:&nbsp;&nbsp;You can help us by [becoming a sponsor](/sponsors/Mergifyio)!\n"
+        )
+
     summary += "<hr />\n"
 
     if ignored_rules > 0:
@@ -336,6 +344,7 @@ def run_actions(
                 report=report,
                 previous_conclusion=previous_conclusion,
                 conclusion=conclusions[check_name],
+                action=action,
                 check_name=check_name,
                 missing_conditions=missing_conditions,
                 event_types=[se["event_type"] for se in ctxt.sources],
