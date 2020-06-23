@@ -388,7 +388,10 @@ end
                 group[0].append(message_id)
                 group[1].append(source)
             else:
-                logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner)
+                logger = logs.getLogger(
+                    __name__, gh_repo=repo, gh_owner=owner, source=source
+                )
+                logger.debug("unpacking event")
                 try:
                     messages.extend(
                         await self._convert_event_to_messages(
@@ -424,6 +427,11 @@ end
 
         messages = []
         for pull_number in pull_numbers:
+            if pull_number is None:
+                # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
+                # we didn't generate a ending loop of events, because when pull_number is
+                # None, this method got called again and again.
+                raise RuntimeError("Got an empty pull number")
             messages.append(
                 await push(
                     self.redis,
