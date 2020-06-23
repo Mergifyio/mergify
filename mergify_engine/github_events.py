@@ -21,6 +21,7 @@ from datadog import statsd
 
 from mergify_engine import config
 from mergify_engine import logs
+from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import http
@@ -190,11 +191,25 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
         raise IgnoredEvent(event_type, event_id, reason)
 
 
+SHA_EXPIRATION = 60
+
+
 async def _get_github_pulls_from_sha(client, sha):
-    async for pull in client.items("pulls"):
-        if pull["head"]["sha"] == sha:
-            return [pull["number"]]
-    return []
+    redis = await utils.get_aredis_for_cache()
+    cache_key = f"sha~{client.owner}~{client.repo}~{sha}"
+    pull_number = await redis.get(cache_key)
+    if pull_number is None:
+        async for pull in client.items("pulls"):
+            if pull["head"]["sha"] == sha:
+                await redis.set(cache_key, pull["number"], ex=SHA_EXPIRATION)
+                return [pull["number"]]
+
+        await redis.set(cache_key, -1, ex=SHA_EXPIRATION)
+        return []
+    elif pull_number == -1:
+        return []
+    else:
+        return [int(pull_number)]
 
 
 async def extract_pull_numbers_from_event(installation, owner, repo, event_type, data):
