@@ -6,8 +6,10 @@ Mergify is unable to merge my pull request due to my branch protection settings
 -------------------------------------------------------------------------------
 
 This happens usually if you limit the people that have the authorization to
-merge pull requests. To make it works with Mergify you must add it to the
+merge pull requests. To make it works with Mergify you must add ``Mergify`` to the
 branch protection settings in the "`Restrict who can push to matching branches`" list.
+
+.. image:: _static/mergify-push-user.png
 
 Why did Mergify seem to have merged my pull request whereas all conditions were not true?
 -----------------------------------------------------------------------------------------
