@@ -393,12 +393,11 @@ end
                 )
                 logger.debug("unpacking event")
                 try:
-                    messages.extend(
-                        await self._convert_event_to_messages(
-                            stream_name, installation, owner, repo, source
-                        )
+                    converted_messages = await self._convert_event_to_messages(
+                        stream_name, installation, owner, repo, source
                     )
                 except IgnoredException:
+                    converted_messages = []
                     logger.debug("ignored error", exc_info=True)
                 except StreamRetry:
                     raise
@@ -407,6 +406,8 @@ end
                     logger.error("failed to process incomplete event", exc_info=True)
                     continue
 
+                logger.debug("event unpacked into %s messages", len(converted_messages))
+                messages.extend(converted_messages)
                 await self.redis.xdel(stream_name, message_id)
         return pulls
 
