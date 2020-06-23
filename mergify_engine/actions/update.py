@@ -21,6 +21,8 @@ from mergify_engine import branch_updater
 class UpdateAction(actions.Action):
     is_command = True
 
+    always_run = True
+
     validator = {}
 
     @staticmethod
