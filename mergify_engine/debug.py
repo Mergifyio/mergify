@@ -91,7 +91,7 @@ async def report_worker_status(installation):
         print("WORKER: Installation not queued to process")
         return
 
-    print(f"WORKER: Installation queues at {pos}/{len(streams)}")
+    print(f"WORKER: Installation queued at {pos}/{len(streams)}")
 
     size = r.xlen(stream_name)
     print(f"WORKER PENDING EVENTS for this installation: {size}")
