@@ -27,9 +27,12 @@ class UpdateAction(actions.Action):
 
     @staticmethod
     def run(ctxt, rule, missing_conditions):
-        try:
-            branch_updater.update_with_api(ctxt)
-        except branch_updater.BranchUpdateFailure as e:
-            return "failure", "Branch update failed", str(e)
+        if ctxt.is_behind:
+            try:
+                branch_updater.update_with_api(ctxt)
+            except branch_updater.BranchUpdateFailure as e:
+                return "failure", "Branch update failed", str(e)
+            else:
+                return "success", "Branch has been successfully updated", ""
         else:
-            return "success", "Branch has been successfully updated", ""
+            return "success", "Branch already up to date", ""
