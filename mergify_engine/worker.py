@@ -408,7 +408,11 @@ end
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
                 messages.extend(converted_messages)
-                await self.redis.xdel(stream_name, message_id)
+                deleted = await self.redis.xdel(stream_name, message_id)
+                if deleted != 1:
+                    logger.error(
+                        "message `%s` have not been deleted has expected", message_id
+                    )
         return pulls
 
     async def _convert_event_to_messages(
