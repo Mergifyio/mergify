@@ -127,7 +127,7 @@ def report(url):
     report_sub(client.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.installation["id"], slug, db_sub, "DASHBOARD")
 
-    report_worker_status(installation)
+    utils.async_run(report_worker_status(installation))
 
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = context.Context(
