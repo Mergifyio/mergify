@@ -21,6 +21,7 @@ from mergify_engine import exceptions
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
@@ -80,6 +81,22 @@ def report_sub(install_id, slug, sub, title):
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
+async def report_worker_status(installation):
+    stream_name = f"stream~{installation['id']}".encode()
+    r = await utils.create_aredis_for_stream()
+    streams = await r.zrangebyscore("streams", min=0, max="+inf")
+    try:
+        pos = streams.index(stream_name)
+    except IndexError:
+        print("WORKER: Installation not queued to process")
+        return
+
+    print(f"WORKER: Installation queues at {pos}/{len(streams)}")
+
+    size = r.xlen(stream_name)
+    print(f"WORKER PENDING EVENTS for this installation: {size}")
+
+
 def report(url):
     path = url.replace("https://github.com/", "")
     try:
@@ -110,10 +127,15 @@ def report(url):
     report_sub(client.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.installation["id"], slug, db_sub, "DASHBOARD")
 
+    report_worker_status(installation)
+
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = context.Context(
         client, pull_raw, cached_sub, [{"event_type": "mergify-debugger", "data": {}}]
     )
+
+    q = queue.Queue.from_context(ctxt)
+    print("QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
 
     print(
         "* REPOSITORY IS %s" % "PRIVATE"
