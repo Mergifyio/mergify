@@ -23,6 +23,8 @@ class UpdateAction(actions.Action):
 
     always_run = True
 
+    silent_report = True
+
     validator = {}
 
     @staticmethod
