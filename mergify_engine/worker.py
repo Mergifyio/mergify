@@ -410,8 +410,15 @@ end
                 messages.extend(converted_messages)
                 deleted = await self.redis.xdel(stream_name, message_id)
                 if deleted != 1:
+                    contents = await self.redis.xrange(
+                        stream_name, start=message_id, end=message_id
+                    )
                     logger.error(
-                        "message `%s` have not been deleted has expected", message_id
+                        "message `%s` have not been deleted has expected, "
+                        "(result: %s), content of current message id: %s",
+                        message_id,
+                        deleted,
+                        contents,
                     )
         return pulls
 
