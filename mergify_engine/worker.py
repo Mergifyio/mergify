@@ -665,3 +665,18 @@ def main():
     uvloop.install()
     logs.setup_logging(worker="streams")
     asyncio.run(run_forever())
+
+
+async def async_status():
+    redis = await utils.create_aredis_for_stream()
+    streams = await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True)
+
+    for stream, score in streams:
+        installation_id = int(stream.split(b"~")[1])
+        date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
+        items = await redis.xlen(stream)
+        print(f"[{date}] {installation_id}: {items} events")
+
+
+def status():
+    asyncio.run(async_status())

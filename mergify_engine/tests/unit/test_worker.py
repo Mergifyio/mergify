@@ -583,3 +583,27 @@ async def test_stream_processor_date_scheduling(
     assert 0 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
     assert received == [wanted_installation_id, unwanted_installation_id]
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.clients.github.aget_installation_by_id")
+async def test_worker_debug_report(get_install_by_id, redis, logger_checker):
+    get_install_by_id.side_effect = fake_install_id
+    stream_names = []
+    for installation_id in range(8):
+        for pull_number in range(2):
+            for data in range(3):
+                owner = f"owner-{installation_id}"
+                repo = f"repo-{installation_id}"
+                stream_names.append(f"stream~{installation_id}")
+                await worker.push(
+                    redis,
+                    installation_id,
+                    owner,
+                    repo,
+                    pull_number,
+                    "pull_request",
+                    {"payload": data},
+                )
+
+    await worker.async_status()
