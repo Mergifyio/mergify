@@ -1,4 +1,5 @@
-# debug
+# -*- encoding: utf-8 -*-
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -26,7 +27,6 @@ from typing import Set
 
 from datadog import statsd
 import msgpack
-import uvloop
 
 from mergify_engine import config
 from mergify_engine import engine
@@ -668,7 +668,6 @@ async def run_forever():
 
 
 def main():
-    uvloop.install()
     logs.setup_logging(worker="streams")
     asyncio.run(run_forever())
 
