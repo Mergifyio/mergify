@@ -410,16 +410,22 @@ end
                 messages.extend(converted_messages)
                 deleted = await self.redis.xdel(stream_name, message_id)
                 if deleted != 1:
+                    # FIXME(sileht): During shutdown, heroku may have already started
+                    # another worker that have already take the lead of this stream_name
+                    # This can create duplicate events in the streams but that should not
+                    # be a big deal as the engine will not been ran by the worker that's
+                    # shutdowning.
                     contents = await self.redis.xrange(
                         stream_name, start=message_id, end=message_id
                     )
-                    logger.error(
-                        "message `%s` have not been deleted has expected, "
-                        "(result: %s), content of current message id: %s",
-                        message_id,
-                        deleted,
-                        contents,
-                    )
+                    if contents:
+                        logger.error(
+                            "message `%s` have not been deleted has expected, "
+                            "(result: %s), content of current message id: %s",
+                            message_id,
+                            deleted,
+                            contents,
+                        )
         return pulls
 
     async def _convert_event_to_messages(
