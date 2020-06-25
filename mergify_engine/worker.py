@@ -331,17 +331,14 @@ class StreamProcessor:
             pulls = await self._extract_pulls_from_stream(stream_name)
             await self._consume_pulls(stream_name, pulls)
         except StreamUnused:
-            # TODO(sileht): put back gh_owner when stream name have owner instead of
-            # install id
-            LOG.info("unused stream, dropping it", exc_info=True)
+            LOG.info("unused stream, dropping it", gh_owner=owner, exc_info=True)
             await self.redis.delete(stream_name)
         except StreamRetry as e:
-            # TODO(sileht): put back gh_owner when stream name have owner instead of
-            # install id
             LOG.info(
                 "failed to process stream, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
+                gh_owner=owner,
                 exc_info=True,
             )
             return
@@ -355,9 +352,7 @@ class StreamProcessor:
 
         except Exception:
             # Ignore it, it will retried later
-            # TODO(sileht): put back gh_owner when stream name have owner instead of
-            # install id
-            LOG.error("failed to process stream", exc_info=True)
+            LOG.error("failed to process stream", gh_owner=owner, exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
         await self.redis.eval(
