@@ -288,7 +288,7 @@ class StreamProcessor:
     async def _run_engine_and_translate_exception_to_retries(
         self, installation, owner, repo, pull_number, sources
     ):
-        attempts_key = f"pull~{installation['id']}~{owner}~{repo}~{pull_number}"
+        attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
             await self._thread.exec(
                 run_engine, installation, owner, repo, pull_number, sources,

@@ -328,8 +328,8 @@ async def test_stream_processor_retrying_pull(
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
     assert {
-        b"pull~12345~owner~repo~42": b"1",
-        b"pull~12345~owner~repo~123": b"1",
+        b"pull~owner~repo~42": b"1",
+        b"pull~owner~repo~123": b"1",
     } == await redis.hgetall("attempts")
 
     await p.consume("stream~12345")
@@ -337,7 +337,7 @@ async def test_stream_processor_retrying_pull(
     assert 1 == len(await redis.keys("stream~*"))
     assert 1 == len(await redis.hgetall("attempts"))
     assert len(run_engine.mock_calls) == 4
-    assert {b"pull~12345~owner~repo~42": b"2"} == await redis.hgetall("attempts")
+    assert {b"pull~owner~repo~42": b"2"} == await redis.hgetall("attempts")
 
     await p.consume("stream~12345")
     assert len(run_engine.mock_calls) == 5
