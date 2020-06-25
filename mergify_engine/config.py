@@ -83,7 +83,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
         # Mergify website for subscription
         voluptuous.Required(
-            "SUBSCRIPTION_URL", default="http://localhost:5000/engine/installation/%s"
+            "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
         voluptuous.Required("WEBHOOK_APP_FORWARD_URL", default=None): voluptuous.Any(
             None, str
@@ -108,6 +108,9 @@ Schema = voluptuous.Schema(
         ): voluptuous.Coerce(int),
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
+        voluptuous.Required(
+            "TESTING_ORGANIZATION_ID", default=40527191
+        ): voluptuous.Coerce(int),
         voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,
         voluptuous.Required(
             "ORG_ADMIN_PERSONAL_TOKEN", default="<ORG_ADMIN_PERSONAL_TOKEN>",

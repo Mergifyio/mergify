@@ -227,9 +227,7 @@ def PullRequestUrl(v):
             except http.HTTPNotFound:
                 raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
 
-            subscription = asyncio.run(
-                sub_utils.get_subscription(client.auth.installation["id"])
-            )
+            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
 
             return context.Context(
                 client,

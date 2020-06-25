@@ -115,8 +115,8 @@ def report(url):
     print("* INSTALLATION ID: %s" % client.auth.installation["id"])
 
     cached_sub, db_sub = utils.async_run(
-        sub_utils.get_subscription(client.auth.installation["id"]),
-        sub_utils._retrieve_subscription_from_db(client.auth.installation["id"]),
+        sub_utils.get_subscription(client.auth.owner_id),
+        sub_utils._retrieve_subscription_from_db(client.auth.owner_id),
     )
     print(
         "* SUBSCRIBED (cache/db): %s / %s"

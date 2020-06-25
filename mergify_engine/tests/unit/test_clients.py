@@ -40,7 +40,7 @@ def test_client_401_raise_ratelimit(httpserver):
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing"},
+            "account": {"login": "testing", "id": 12345},
         }
     )
     httpserver.expect_request(
@@ -171,7 +171,7 @@ def test_client_access_token_HTTP_500(httpserver):
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing"},
+            "account": {"login": "testing", "id": 12345},
         }
     )
     httpserver.expect_request(

@@ -92,12 +92,12 @@ def _decrypt(value):
         return
 
 
-async def _retrieve_subscription_from_db(installation_id):
-    LOG.info("Subscription not cached, retrieving it...", install_id=installation_id)
+async def _retrieve_subscription_from_db(owner_id):
+    LOG.info("Subscription not cached, retrieving it...", gh_owner=owner_id)
     async with http.AsyncClient() as client:
         try:
             resp = await client.get(
-                config.SUBSCRIPTION_URL % installation_id,
+                f"{config.SUBSCRIPTION_URL_BASE}/engine/github-account/{owner_id}",
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
         except http.HTTPNotFound as e:
@@ -114,22 +114,22 @@ async def _retrieve_subscription_from_db(installation_id):
     return sub
 
 
-async def _retrieve_subscription_from_cache(installation_id):
+async def _retrieve_subscription_from_cache(owner_id):
     r = await utils.get_aredis_for_cache()
-    encrypted_sub = await r.get("subscription-cache-%s" % installation_id)
+    encrypted_sub = await r.get("subscription-cache-owner-%s" % owner_id)
     if encrypted_sub:
         return _decrypt(encrypted_sub)
 
 
-async def save_subscription_to_cache(installation_id, sub):
+async def save_subscription_to_cache(owner_id, sub):
     r = await utils.get_aredis_for_cache()
     encrypted = _encrypt(sub)
-    await r.setex("subscription-cache-%s" % installation_id, 3600, encrypted)
+    await r.setex("subscription-cache-owner-%s" % owner_id, 3600, encrypted)
 
 
-async def get_subscription(installation_id):
-    sub = await _retrieve_subscription_from_cache(installation_id)
+async def get_subscription(owner_id):
+    sub = await _retrieve_subscription_from_cache(owner_id)
     if sub is None:
-        sub = await _retrieve_subscription_from_db(installation_id)
-        await save_subscription_to_cache(installation_id, sub)
+        sub = await _retrieve_subscription_from_db(owner_id)
+        await save_subscription_to_cache(owner_id, sub)
     return sub

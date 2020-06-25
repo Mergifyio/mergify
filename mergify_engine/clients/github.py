@@ -64,10 +64,12 @@ class CachedToken:
 
 class GithubActionAccessTokenAuth(httpx.Auth):
     def __init__(self):
-        self._installation = {
+        self.installation = {
             "id": config.ACTION_ID,
             "permissions_need_to_be_updated": False,
         }
+        # TODO(sileht): To be defined when we handle subscription for GitHub Action
+        self.owner_id = 0
 
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
@@ -81,6 +83,7 @@ class GithubAppInstallationAuth(httpx.Auth):
 
         self._cached_token = None
         self.installation = None
+        self.owner_id = None
 
     @contextlib.contextmanager
     def response_body_read(self):
@@ -153,6 +156,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         self.installation = github_app.validate_installation(
             installation_response.json()
         )
+        self.owner_id = self.installation["account"]["id"]
         self._cached_token = CachedToken.get(self.installation["id"])
 
     def _set_access_token(self, data):
