@@ -113,10 +113,23 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.run_engine")
+@mock.patch("mergify_engine.clients.github.aget_client")
 @mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
 async def test_worker_expanded_events(
-    extract_pull_numbers_from_event, run_engine, redis, logger_checker,
+    extract_pull_numbers_from_event, aget_client, run_engine, redis, logger_checker,
 ):
+    client = mock.Mock(
+        name="foo",
+        owner="owner",
+        repo="repo",
+        auth=mock.Mock(installation={"id": 12345}, owner="owner", repo="repo"),
+    )
+    client.__aenter__ = mock.AsyncMock(return_value=client)
+    client.__aexit__ = mock.AsyncMock()
+    client.items.return_value = mock.AsyncMock()
+
+    aget_client.return_value = client
+
     extract_pull_numbers_from_event.return_value = [123, 456, 789]
     await worker.push(
         redis, 12345, "owner", "repo", 123, "pull_request", {"payload": "whatever"},

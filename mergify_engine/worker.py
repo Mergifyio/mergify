@@ -415,38 +415,38 @@ end
         return pulls
 
     async def _convert_event_to_messages(self, stream_name, owner, repo, source):
-        installation_id = int(stream_name.split("~")[1])
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
-        try:
-            pull_numbers = await github_events.extract_pull_numbers_from_event(
-                owner, repo, source["event_type"], source["data"],
-            )
-        except Exception as e:
-            await self._translate_exception_to_retries(e, stream_name)
-
-        messages = []
-        for pull_number in pull_numbers:
-            if pull_number is None:
-                # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
-                # we didn't generate a ending loop of events, because when pull_number is
-                # None, this method got called again and again.
-                raise RuntimeError("Got an empty pull number")
-            messages.append(
-                await push(
-                    self.redis,
-                    installation_id,
-                    owner,
-                    repo,
-                    pull_number,
-                    source["event_type"],
-                    source["data"],
+        async with await github.aget_client(owner, repo) as client:
+            try:
+                pull_numbers = await github_events.extract_pull_numbers_from_event(
+                    client, source["event_type"], source["data"],
                 )
-            )
-        return messages
+            except Exception as e:
+                await self._translate_exception_to_retries(e, stream_name)
+
+            messages = []
+            for pull_number in pull_numbers:
+                if pull_number is None:
+                    # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
+                    # we didn't generate a ending loop of events, because when pull_number is
+                    # None, this method got called again and again.
+                    raise RuntimeError("Got an empty pull number")
+                messages.append(
+                    await push(
+                        self.redis,
+                        client.auth.installation["id"],
+                        client.owner,
+                        client.repo,
+                        pull_number,
+                        source["event_type"],
+                        source["data"],
+                    )
+                )
+            return messages
 
     async def _consume_pulls(self, stream_name, pulls):
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)

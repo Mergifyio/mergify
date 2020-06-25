@@ -22,7 +22,6 @@ import httpx
 import pytest
 
 from mergify_engine import github_events
-from mergify_engine.clients import github
 
 
 async def _do_test_event_to_pull_check_run(filename, expected_pulls):
@@ -40,17 +39,18 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
             "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
         ),
         name="foo",
-        auth=mock.Mock(installation={"id": installation_id}),
+        owner=owner,
+        repo=repo,
+        auth=mock.Mock(installation={"id": installation_id}, owner=owner, repo=repo),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
     client.__aexit__ = mock.AsyncMock()
-    client.items.return_value = []
+    client.items.return_value = mock.AsyncMock()
 
-    with mock.patch.object(github, "aget_client", return_value=client):
-        pulls = await github_events.extract_pull_numbers_from_event(
-            owner, repo, event_type, data
-        )
-        assert pulls == expected_pulls
+    pulls = await github_events.extract_pull_numbers_from_event(
+        client, event_type, data
+    )
+    assert pulls == expected_pulls
 
 
 @pytest.mark.asyncio
