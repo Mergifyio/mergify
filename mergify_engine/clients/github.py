@@ -321,20 +321,6 @@ async def aget_installation_by_id(installation_id):
     return await client.get_installation_by_id(installation_id)
 
 
-async def aget_installation(owner, repo, installation_id=None):
-    client = github_app.aget_client()
-    installation = await client.get_installation(owner, repo)
-    if installation_id is not None and installation["id"] != installation_id:
-        LOG.error(
-            "installation id for repository diff from event installation id",
-            gh_owner=owner,
-            gh_repo=repo,
-            installation_id=installation["id"],
-            expected_installation_id=installation_id,
-        )
-    return installation
-
-
 class GithubInstallationClient(http.Client):
     def __init__(self, owner, repo):
         self.owner = owner
@@ -465,19 +451,3 @@ def get_installation_by_id(installation_id):
         }
     else:
         raise RuntimeError("Unexpected installation id")
-
-
-def get_installation(owner, repo, installation_id=None):
-    if config.GITHUB_APP:
-        installation = github_app.get_client().get_installation(owner, repo)
-        if installation_id is not None and installation["id"] != installation_id:
-            LOG.error(
-                "installation id for repository diff from event installation id",
-                gh_owner=owner,
-                gh_repo=repo,
-                installation_id=installation["id"],
-                expected_installation_id=installation_id,
-            )
-        return installation
-    else:
-        return get_github_action_installation()
