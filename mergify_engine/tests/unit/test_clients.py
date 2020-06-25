@@ -59,8 +59,7 @@ def test_client_401_raise_ratelimit(httpserver):
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/"),
     ):
-        installation = github.get_installation(owner, repo, 12345)
-        client = github.get_client(owner, repo, installation)
+        client = github.get_client(owner, repo)
         with pytest.raises(exceptions.RateLimited):
             client.item("pull/1")
 

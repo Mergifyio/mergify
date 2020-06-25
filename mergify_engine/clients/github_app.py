@@ -80,6 +80,24 @@ class JwtHandler:
 get_or_create_jwt = JwtHandler().get_or_create
 
 
+def validate_installation(installation):
+    installation["permissions_need_to_be_updated"] = False
+    expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
+    for perm_name, perm_level in expected_permissions.items():
+        if installation["permissions"].get(perm_name) != perm_level:
+            LOG.debug(
+                "The Mergify installation doesn't have the required permissions",
+                gh_owner=installation["account"]["login"],
+                permissions=installation["permissions"],
+            )
+            installation["permissions_need_to_be_updated"] = True
+            # FIXME(sileht): Looks like ton of people have not all permissions
+            # Or this is buggy, so disable it for now.
+            if perm_name in ["checks", "pull_requests", "contents"]:
+                raise exceptions.MergifyNotInstalled()
+    return installation
+
+
 class GithubBearerAuth(httpx.Auth):
     def auth_flow(self, request):
         bearer = get_or_create_jwt()
@@ -101,7 +119,9 @@ class _Client(http.Client):
 
     def get_installation_by_id(self, installation_id):
         try:
-            return self._get_installation(f"/app/installations/{installation_id}")
+            return validate_installation(
+                self.get(f"/app/installations/{installation_id}").json()
+            )
         except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
@@ -121,7 +141,7 @@ class _Client(http.Client):
             url = f"/{account_type}/{owner}/installation"
 
         try:
-            return self._get_installation(url)
+            return validate_installation(self.get(url).json())
         except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
@@ -130,25 +150,6 @@ class _Client(http.Client):
                 error_message=e.message,
             )
             raise exceptions.MergifyNotInstalled()
-
-    def _get_installation(self, url):
-        installation = self.get(url).json()
-        installation["permissions_need_to_be_updated"] = False
-        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
-        for perm_name, perm_level in expected_permissions.items():
-            if installation["permissions"].get(perm_name) != perm_level:
-                LOG.debug(
-                    "The Mergify installation doesn't have the required permissions",
-                    gh_owner=installation["account"]["login"],
-                    permissions=installation["permissions"],
-                )
-                installation["permissions_need_to_be_updated"] = True
-                # FIXME(sileht): Looks like ton of people have not all permissions
-                # Or this is buggy, so disable it for now.
-                if perm_name in ["checks", "pull_requests", "contents"]:
-                    raise exceptions.MergifyNotInstalled()
-
-        return installation
 
 
 class _AsyncClient(http.AsyncClient):
@@ -161,7 +162,9 @@ class _AsyncClient(http.AsyncClient):
 
     async def get_installation_by_id(self, installation_id):
         try:
-            return await self._get_installation(f"/app/installations/{installation_id}")
+            return validate_installation(
+                (await self.get(f"/app/installations/{installation_id}")).json()
+            )
         except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
@@ -181,7 +184,7 @@ class _AsyncClient(http.AsyncClient):
             url = f"/{account_type}/{owner}/installation"
 
         try:
-            return await self._get_installation(url)
+            return validate_installation((await self.get(url)).json())
         except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed",
@@ -190,25 +193,6 @@ class _AsyncClient(http.AsyncClient):
                 error_message=e.message,
             )
             raise exceptions.MergifyNotInstalled()
-
-    async def _get_installation(self, url):
-        installation = (await self.get(url)).json()
-        installation["permissions_need_to_be_updated"] = False
-        expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
-        for perm_name, perm_level in expected_permissions.items():
-            if installation["permissions"].get(perm_name) != perm_level:
-                LOG.debug(
-                    "mergify installation doesn't have required permissions",
-                    gh_owner=installation["account"]["login"],
-                    permissions=installation["permissions"],
-                )
-                installation["permissions_need_to_be_updated"] = True
-                # FIXME(sileht): Looks like ton of people have not all permissions
-                # Or this is buggy, so disable it for now.
-                if perm_name in ["checks", "pull_requests", "contents"]:
-                    raise exceptions.MergifyNotInstalled()
-
-        return installation
 
 
 global GITHUB_APP_CLIENTS

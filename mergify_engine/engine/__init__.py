@@ -169,7 +169,7 @@ def run(client, pull, subscription, sources):
     if not ctxt.sources:
         return
 
-    if ctxt.client.installation["permissions_need_to_be_updated"]:
+    if ctxt.client.auth.installation["permissions_need_to_be_updated"]:
         check_api.set_check_run(
             ctxt,
             "Summary",

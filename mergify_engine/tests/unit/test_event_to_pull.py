@@ -40,19 +40,17 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
             "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
         ),
         name="foo",
+        auth=mock.Mock(installation={"id": installation_id}),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
     client.__aexit__ = mock.AsyncMock()
     client.items.return_value = []
 
     with mock.patch.object(github, "aget_client", return_value=client):
-        with mock.patch.object(
-            github, "aget_installation", return_value={"id": installation_id},
-        ):
-            pulls = await github_events.extract_pull_numbers_from_event(
-                installation_id, owner, repo, event_type, data
-            )
-            assert pulls == expected_pulls
+        pulls = await github_events.extract_pull_numbers_from_event(
+            owner, repo, event_type, data
+        )
+        assert pulls == expected_pulls
 
 
 @pytest.mark.asyncio

@@ -111,11 +111,9 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
     return (ret[0], payload)
 
 
-async def get_pull_for_engine(
-    subscription, installation, owner, repo, pull_number, logger
-):
+async def get_pull_for_engine(subscription, owner, repo, pull_number, logger):
     logger.debug("engine get installation")
-    async with await github.aget_client(owner, repo, installation) as client:
+    async with await github.aget_client(owner, repo) as client:
         try:
             pull = await client.item(f"pulls/{pull_number}")
         except http.HTTPNotFound:
@@ -138,12 +136,10 @@ def run_engine(installation, owner, repo, pull_number, sources):
     try:
         subscription = asyncio.run(sub_utils.get_subscription(installation["id"]))
         pull = asyncio.run(
-            get_pull_for_engine(
-                subscription, installation, owner, repo, pull_number, logger
-            )
+            get_pull_for_engine(subscription, owner, repo, pull_number, logger)
         )
         if pull:
-            with github.get_client(owner, repo, installation) as client:
+            with github.get_client(owner, repo) as client:
                 engine.run(client, pull, subscription, sources)
     finally:
         logger.debug("engine in thread end")
@@ -311,9 +307,10 @@ class StreamProcessor:
     async def consume(self, stream_name):
         installation = None
         try:
+            # TODO(sileht): create just one async client for the installation here.
             installation_id = int(stream_name.split("~")[1])
             installation = await github.aget_installation_by_id(installation_id)
-            pulls = await self._extract_pulls_from_stream(stream_name, installation)
+            pulls = await self._extract_pulls_from_stream(stream_name)
             await self._consume_pulls(stream_name, installation, pulls)
         except exceptions.MergifyNotInstalled:
             LOG.debug(
@@ -370,7 +367,7 @@ else
 end
 """
 
-    async def _extract_pulls_from_stream(self, stream_name, installation):
+    async def _extract_pulls_from_stream(self, stream_name):
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
@@ -394,7 +391,7 @@ end
                 logger.debug("unpacking event")
                 try:
                     converted_messages = await self._convert_event_to_messages(
-                        stream_name, installation, owner, repo, source
+                        stream_name, owner, repo, source
                     )
                 except IgnoredException:
                     converted_messages = []
@@ -428,9 +425,8 @@ end
                         )
         return pulls
 
-    async def _convert_event_to_messages(
-        self, stream_name, installation, owner, repo, source
-    ):
+    async def _convert_event_to_messages(self, stream_name, owner, repo, source):
+        installation_id = int(stream_name.split("~")[1])
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
@@ -438,10 +434,10 @@ end
         # multiple complete event
         try:
             pull_numbers = await github_events.extract_pull_numbers_from_event(
-                installation, owner, repo, source["event_type"], source["data"],
+                owner, repo, source["event_type"], source["data"],
             )
         except Exception as e:
-            await self._translate_exception_to_retries(e, installation["id"])
+            await self._translate_exception_to_retries(e, installation_id)
 
         messages = []
         for pull_number in pull_numbers:
@@ -453,7 +449,7 @@ end
             messages.append(
                 await push(
                     self.redis,
-                    installation["id"],
+                    installation_id,
                     owner,
                     repo,
                     pull_number,

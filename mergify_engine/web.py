@@ -227,25 +227,25 @@ def PullRequestUrl(v):
     pull_number = int(pull_number)
 
     try:
-        installation = github.get_installation(owner, repo)
+        with github.get_client(owner, repo) as client:
+            try:
+                data = client.item(f"pulls/{pull_number}")
+            except http.HTTPNotFound:
+                raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
+
+            subscription = asyncio.run(
+                sub_utils.get_subscription(client.auth.installation["id"])
+            )
+
+            return context.Context(
+                client,
+                data,
+                subscription,
+                [{"event_type": "mergify-simulator", "data": []}],
+            )
     except exceptions.MergifyNotInstalled:
         raise PullRequestUrlInvalid(
             message="Mergify not installed on repository '%s'" % owner
-        )
-
-    subscription = asyncio.run(sub_utils.get_subscription(installation["id"]))
-
-    with github.get_client(owner, repo, installation) as client:
-        try:
-            data = client.item(f"pulls/{pull_number}")
-        except http.HTTPNotFound:
-            raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
-
-        return context.Context(
-            client,
-            data,
-            subscription,
-            [{"event_type": "mergify-simulator", "data": []}],
         )
 
 

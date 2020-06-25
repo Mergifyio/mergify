@@ -218,7 +218,7 @@ def update_with_api(ctxt):
 )
 def update_with_git(ctxt, method="merge"):
     subscription = asyncio.run(
-        sub_utils.get_subscription(ctxt.client.installation["id"])
+        sub_utils.get_subscription(ctxt.client.auth.installation["id"])
     )
 
     for login, token in subscription["tokens"].items():
