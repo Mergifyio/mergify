@@ -158,18 +158,43 @@ def async_vcr_send(cassette, real_send):
     return _inner_send
 
 
+def _sync_vcr_send(cassette, real_send, *args, **kwargs):
+    vcr_request, response = _shared_vcr_send(cassette, real_send, *args, **kwargs)
+    if response:
+        # add cookies from response to session cookie store
+        args[0].cookies.extract_cookies(response)
+        return response
+
+    real_response = real_send(*args, **kwargs)
+    real_response.read()
+    return _record_responses(cassette, vcr_request, real_response)
+
+
+def sync_vcr_send(cassette, real_send):
+    @functools.wraps(real_send)
+    def _inner_send(*args, **kwargs):
+        return _sync_vcr_send(cassette, real_send, *args, **kwargs)
+
+    return _inner_send
+
+
 # Inject stub into vcr
 
 
 def monkeypatch():
     @CassettePatcherBuilder._build_patchers_from_mock_triples_decorator
-    def _httpx(self):
+    def _async_httpx(self):
         new_async_client_send = async_vcr_send(self._cassette, httpx.AsyncClient.send)
         yield httpx.AsyncClient, "send", new_async_client_send
+
+    @CassettePatcherBuilder._build_patchers_from_mock_triples_decorator
+    def _sync_httpx(self):
+        new_sync_client_send = sync_vcr_send(self._cassette, httpx.Client.send)
+        yield httpx.Client, "send", new_sync_client_send
 
     real_build = CassettePatcherBuilder.build
 
     def patched_build(self):
-        return itertools.chain(real_build(self), _httpx(self))
+        return itertools.chain(real_build(self), _sync_httpx(self), _async_httpx(self))
 
     CassettePatcherBuilder.build = patched_build
