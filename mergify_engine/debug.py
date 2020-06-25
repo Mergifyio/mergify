@@ -93,7 +93,7 @@ async def report_worker_status(installation):
 
     print(f"WORKER: Installation queued at {pos}/{len(streams)}")
 
-    size = r.xlen(stream_name)
+    size = await r.xlen(stream_name)
     print(f"WORKER PENDING EVENTS for this installation: {size}")
 
 
