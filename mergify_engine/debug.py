@@ -81,8 +81,8 @@ def report_sub(install_id, slug, sub, title):
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
-async def report_worker_status(installation):
-    stream_name = f"stream~{installation['id']}".encode()
+async def report_worker_status(owner):
+    stream_name = f"stream~{owner}".encode()
     r = await utils.create_aredis_for_stream()
     streams = await r.zrangebyscore("streams", min=0, max="+inf")
     try:
@@ -125,7 +125,7 @@ def report(url):
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 
-    utils.async_run(report_worker_status(client.auth.installation))
+    utils.async_run(report_worker_status(client.owner))
 
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = context.Context(
