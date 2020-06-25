@@ -111,7 +111,7 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
     return (ret[0], payload)
 
 
-async def get_pull_for_engine(subscription, owner, repo, pull_number, logger):
+async def get_pull_for_engine(owner, repo, pull_number, logger):
     logger.debug("engine get installation")
     async with await github.aget_client(owner, repo) as client:
         try:
@@ -121,24 +121,24 @@ async def get_pull_for_engine(subscription, owner, repo, pull_number, logger):
             logger.debug("pull request doesn't exists, skipping it")
             return
 
+        subscription = await sub_utils.get_subscription(client.auth.installation["id"])
+
         if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
             logger.debug(
                 "pull request on private private repository without subscription, skipping it"
             )
             return
 
-        return pull
+        return subscription, pull
 
 
-def run_engine(installation, owner, repo, pull_number, sources):
+def run_engine(owner, repo, pull_number, sources):
     logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
     logger.debug("engine in thread start")
     try:
-        subscription = asyncio.run(sub_utils.get_subscription(installation["id"]))
-        pull = asyncio.run(
-            get_pull_for_engine(subscription, owner, repo, pull_number, logger)
-        )
-        if pull:
+        result = asyncio.run(get_pull_for_engine(owner, repo, pull_number, logger))
+        if result:
+            subscription, pull = result
             with github.get_client(owner, repo) as client:
                 engine.run(client, pull, subscription, sources)
     finally:
@@ -239,10 +239,8 @@ class StreamProcessor:
         self._thread.close()
 
     async def _translate_exception_to_retries(
-        self, e, installation_id, attempts_key=None,
+        self, e, stream_name, attempts_key=None,
     ):
-        stream_name = f"stream~{installation_id}"
-
         if isinstance(e, github.TooManyPages):
             # TODO(sileht): Ideally this should be catcher earlier to post an
             # appropriate check-runs to inform user the PR is too big to be handled
@@ -282,12 +280,12 @@ class StreamProcessor:
         raise StreamRetry(attempts, retry_at) from e
 
     async def _run_engine_and_translate_exception_to_retries(
-        self, installation, owner, repo, pull_number, sources
+        self, stream_name, owner, repo, pull_number, sources
     ):
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
             await self._thread.exec(
-                run_engine, installation, owner, repo, pull_number, sources,
+                run_engine, owner, repo, pull_number, sources,
             )
             await self.redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
@@ -300,9 +298,7 @@ class StreamProcessor:
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
-            await self._translate_exception_to_retries(
-                e, installation["id"], attempts_key
-            )
+            await self._translate_exception_to_retries(e, stream_name, attempts_key)
 
     async def consume(self, stream_name):
         installation = None
@@ -311,7 +307,7 @@ class StreamProcessor:
             installation_id = int(stream_name.split("~")[1])
             installation = await github.aget_installation_by_id(installation_id)
             pulls = await self._extract_pulls_from_stream(stream_name)
-            await self._consume_pulls(stream_name, installation, pulls)
+            await self._consume_pulls(stream_name, pulls)
         except exceptions.MergifyNotInstalled:
             LOG.debug(
                 "mergify not installed",
@@ -437,7 +433,7 @@ end
                 owner, repo, source["event_type"], source["data"],
             )
         except Exception as e:
-            await self._translate_exception_to_retries(e, installation_id)
+            await self._translate_exception_to_retries(e, stream_name)
 
         messages = []
         for pull_number in pull_numbers:
@@ -459,7 +455,7 @@ end
             )
         return messages
 
-    async def _consume_pulls(self, stream_name, installation, pulls):
+    async def _consume_pulls(self, stream_name, pulls):
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
             statsd.histogram("engine.streams.batch-size", len(sources))
@@ -471,7 +467,7 @@ end
                 logger.debug("engine start with %s sources", len(sources))
                 start = time.monotonic()
                 await self._run_engine_and_translate_exception_to_retries(
-                    installation, owner, repo, pull_number, sources
+                    stream_name, owner, repo, pull_number, sources
                 )
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 end = time.monotonic()
