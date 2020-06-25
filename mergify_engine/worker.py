@@ -301,24 +301,19 @@ class StreamProcessor:
             await self._translate_exception_to_retries(e, stream_name, attempts_key)
 
     async def consume(self, stream_name):
-        installation = None
         try:
-            # TODO(sileht): create just one async client for the installation here.
-            installation_id = int(stream_name.split("~")[1])
-            installation = await github.aget_installation_by_id(installation_id)
             pulls = await self._extract_pulls_from_stream(stream_name)
             await self._consume_pulls(stream_name, pulls)
         except exceptions.MergifyNotInstalled:
-            LOG.debug(
-                "mergify not installed",
-                gh_owner=installation["account"]["login"] if installation else None,
-                exc_info=True,
-            )
+            # TODO(sileht): put back gh_owner when stream name have owner instead of
+            # install id
+            LOG.debug("mergify not installed", exc_info=True)
             await self.redis.delete(stream_name)
         except StreamRetry as e:
+            # TODO(sileht): put back gh_owner when stream name have owner instead of
+            # install id
             LOG.info(
                 "failed to process stream, retrying",
-                gh_owner=installation["account"]["login"] if installation else None,
                 attempts=e.attempts,
                 retry_at=e.retry_at,
                 exc_info=True,
@@ -334,11 +329,9 @@ class StreamProcessor:
 
         except Exception:
             # Ignore it, it will retried later
-            LOG.error(
-                "failed to process stream",
-                gh_owner=installation["account"]["login"] if installation else None,
-                exc_info=True,
-            )
+            # TODO(sileht): put back gh_owner when stream name have owner instead of
+            # install id
+            LOG.error("failed to process stream", exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
         await self.redis.eval(
