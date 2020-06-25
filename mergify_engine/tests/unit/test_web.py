@@ -39,7 +39,7 @@ with open(
             {"sender": {"login": "JD",}, "event_type": "foobar",},
             None,
             200,
-            b"Event ignored: no installation found",
+            b"Event ignored: no repository found",
         ),
         (push_event, "push", 200, b"Event ignored: push on refs/tags/simple-tag",),
         (pull_request_event, "pull_request", 202, b"Event queued",),

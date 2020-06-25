@@ -144,13 +144,7 @@ app.mount("/validate", config_validator_app)
 
 async def _refresh(owner, repo, action="user", **extra_data):
     event_type = "refresh"
-    try:
-        installation = await github_app.aget_client().get_installation(owner, repo)
-    except exceptions.MergifyNotInstalled:
-        return responses.Response("Mergify not installed", status_code=404)
-
     data = {
-        "installation": installation,
         "action": action,
         "repository": {
             "name": repo,
