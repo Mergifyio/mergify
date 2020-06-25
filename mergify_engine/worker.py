@@ -132,7 +132,7 @@ async def get_pull_for_engine(owner, repo, pull_number, logger):
             logger.debug("pull request doesn't exists, skipping it")
             return
 
-        subscription = await sub_utils.get_subscription(client.auth.installation["id"])
+        subscription = await sub_utils.get_subscription(client.auth.owner_id)
 
         if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
             logger.debug(

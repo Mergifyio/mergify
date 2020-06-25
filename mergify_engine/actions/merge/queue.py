@@ -235,9 +235,9 @@ class Queue:
 
         pull_number = pull_numbers[0]
 
-        subscription = asyncio.run(sub_utils.get_subscription(self.installation_id))
-
         with github.get_client(self.owner, self.repo) as client:
+            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
+
             data = client.item(f"pulls/{pull_number}")
 
             ctxt = None

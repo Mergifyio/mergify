@@ -364,6 +364,7 @@ class FunctionalTestBase(unittest.TestCase):
                     "id": config.INSTALLATION_ID,
                     "permissions_need_to_be_updated": False,
                 }
+                client.auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return client
 
             def github_client(*args, **kwargs):
@@ -372,6 +373,7 @@ class FunctionalTestBase(unittest.TestCase):
                     "id": config.INSTALLATION_ID,
                     "permissions_need_to_be_updated": False,
                 }
+                client.auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return client
 
             mock.patch.object(github, "get_client", github_client).start()
@@ -474,8 +476,8 @@ class FunctionalTestBase(unittest.TestCase):
 
         real_get_subscription = sub_utils.get_subscription
 
-        async def fake_retrieve_subscription_from_db(install_id):
-            if int(install_id) == config.INSTALLATION_ID:
+        async def fake_retrieve_subscription_from_db(owner_id):
+            if owner_id == config.TESTING_ORGANIZATION_ID:
                 return self.subscription
             else:
                 return {
@@ -484,9 +486,9 @@ class FunctionalTestBase(unittest.TestCase):
                     "subscription_reason": "We're just testing",
                 }
 
-        async def fake_subscription(install_id):
-            if int(install_id) == config.INSTALLATION_ID:
-                return await real_get_subscription(install_id)
+        async def fake_subscription(owner_id):
+            if owner_id == config.TESTING_ORGANIZATION_ID:
+                return await real_get_subscription(owner_id)
             else:
                 return {
                     "tokens": {},

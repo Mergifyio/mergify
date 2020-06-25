@@ -217,9 +217,7 @@ def update_with_api(ctxt):
     retry=tenacity.retry_if_exception_type(AuthentificationFailure),
 )
 def update_with_git(ctxt, method="merge"):
-    subscription = asyncio.run(
-        sub_utils.get_subscription(ctxt.client.auth.installation["id"])
-    )
+    subscription = asyncio.run(sub_utils.get_subscription(ctxt.client.auth.owner_id))
 
     for login, token in subscription["tokens"].items():
         try:
