@@ -78,8 +78,8 @@ class StreamRetry(Exception):
     retry_at: datetime.datetime
 
 
-async def push(redis, installation_id, owner, repo, pull_number, event_type, data):
-    stream_name = f"stream~{installation_id}"
+async def push(redis, owner, repo, pull_number, event_type, data):
+    stream_name = f"stream~{owner}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
     transaction = await redis.pipeline()
@@ -112,7 +112,6 @@ async def push(redis, installation_id, owner, repo, pull_number, event_type, dat
 
 
 async def get_pull_for_engine(owner, repo, pull_number, logger):
-    logger.debug("engine get installation")
     async with await github.aget_client(owner, repo) as client:
         try:
             pull = await client.item(f"pulls/{pull_number}")
@@ -438,7 +437,6 @@ end
                 messages.append(
                     await push(
                         self.redis,
-                        client.auth.installation["id"],
                         client.owner,
                         client.repo,
                         pull_number,
@@ -662,10 +660,10 @@ async def async_status():
     streams = await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True)
 
     for stream, score in streams:
-        installation_id = int(stream.split(b"~")[1])
+        owner = stream.split(b"~")[1]
         date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
         items = await redis.xlen(stream)
-        print(f"[{date}] {installation_id}: {items} events")
+        print(f"[{date}] {owner}: {items} events")
 
 
 def status():

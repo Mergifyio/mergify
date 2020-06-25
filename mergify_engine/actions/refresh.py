@@ -29,7 +29,6 @@ class RefreshAction(actions.Action):
         data = {
             "action": "user",
             "repository": ctxt.pull["base"]["repo"],
-            "installation": {"id": ctxt.client.auth.installation["id"]},
             "pull_request": ctxt.pull,
             "sender": {"login": "<internal>"},
         }

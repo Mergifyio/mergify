@@ -30,10 +30,7 @@ LOG = logs.getLogger(__name__)
 
 
 def get_ignore_reason(event_type, data):
-    if "installation" not in data:
-        return "no installation found"
-
-    elif "repository" not in data:
+    if "repository" not in data:
         return "no repository found"
 
     elif event_type in ["installation", "installation_repositories"]:
@@ -145,11 +142,6 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
     # TODO(sileht): is statsd async ?
     meter_event(event_type, data)
 
-    if "installation" in data:
-        installation_id = data["installation"]["id"]
-    else:
-        installation_id = "<unknown>"
-
     if "repository" in data:
         owner = data["repository"]["owner"]["login"]
         repo = data["repository"]["name"]
@@ -172,7 +164,7 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
             pull_number = None
 
         await worker.push(
-            redis, installation_id, owner, repo, pull_number, event_type, source_data,
+            redis, owner, repo, pull_number, event_type, source_data,
         )
 
     LOG.info(
@@ -180,7 +172,6 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
         msg_action,
         event_type=event_type,
         event_id=event_id,
-        install_id=installation_id,
         sender=data["sender"]["login"],
         gh_owner=owner,
         gh_repo=repo,
