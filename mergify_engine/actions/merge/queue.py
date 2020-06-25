@@ -53,7 +53,7 @@ class Queue:
     def from_context(cls, ctxt):
         return cls(
             utils.get_redis_for_cache(),
-            ctxt.client.installation["id"],
+            ctxt.client.auth.installation["id"],
             ctxt.pull["base"]["repo"]["owner"]["login"],
             ctxt.pull["base"]["repo"]["name"],
             ctxt.pull["base"]["ref"],
@@ -165,7 +165,7 @@ class Queue:
             for pull in self.redis.zrangebyscore(self._cache_key, "-inf", "+inf")
         ]
 
-    def delete_queue(self):
+    def delete(self):
         self.redis.delete(self._cache_key)
 
     def handle_first_pull_in_queue(self, ctxt):
@@ -219,6 +219,8 @@ class Queue:
             queue.log.info("handling queue")
             try:
                 queue.process()
+            except exceptions.MergifyNotInstalled:
+                queue.delete()
             except Exception:
                 queue.log.error("Fail to process merge queue", exc_info=True)
         LOG.info("smart strict workflow loop end")
@@ -233,17 +235,9 @@ class Queue:
 
         pull_number = pull_numbers[0]
 
-        try:
-            installation = github.get_installation(
-                self.owner, self.repo, self.installation_id
-            )
-        except exceptions.MergifyNotInstalled:
-            self.delete_queue()
-            return
+        subscription = asyncio.run(sub_utils.get_subscription(self.installation_id))
 
-        subscription = asyncio.run(sub_utils.get_subscription(self.installation_id,))
-
-        with github.get_client(self.owner, self.repo, installation) as client:
+        with github.get_client(self.owner, self.repo) as client:
             data = client.item(f"pulls/{pull_number}")
 
             try:

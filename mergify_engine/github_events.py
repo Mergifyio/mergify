@@ -212,8 +212,8 @@ async def _get_github_pulls_from_sha(client, sha):
         return [int(pull_number)]
 
 
-async def extract_pull_numbers_from_event(installation, owner, repo, event_type, data):
-    async with await github.aget_client(owner, repo, installation) as client:
+async def extract_pull_numbers_from_event(owner, repo, event_type, data):
+    async with await github.aget_client(owner, repo) as client:
         # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
         with contextlib.suppress(http.HTTPNotFound):
             if event_type == "refresh":

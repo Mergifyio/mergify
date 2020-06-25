@@ -62,17 +62,24 @@ class CachedToken:
 
 
 class GithubActionAccessTokenAuth(httpx.Auth):
+    def __init__(self):
+        self._installation = {
+            "id": config.ACTION_ID,
+            "permissions_need_to_be_updated": False,
+        }
+
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
         yield request
 
 
 class GithubAppInstallationAuth(httpx.Auth):
-    def __init__(self, installation, owner, repo):
-        self.installation_id = installation["id"]
+    def __init__(self, owner, repo):
         self.owner = owner
         self.repo = repo
-        self._cached_token = CachedToken.get(self.installation_id)
+
+        self._cached_token = None
+        self.installation = None
 
     @contextlib.contextmanager
     def response_body_read(self):
@@ -83,8 +90,17 @@ class GithubAppInstallationAuth(httpx.Auth):
             self.requires_response_body = False
 
     def auth_flow(self, request):
-        token = self._get_access_token()
+        if self.installation is None:
+            with self.response_body_read():
+                installation_response = yield self.build_installation_request()
+                if installation_response.status_code == 401:  # due to jwt
+                    installation_response = yield self.build_installation_request(
+                        force=True
+                    )
 
+                self._set_installation(installation_response)
+
+        token = self._get_access_token()
         if token:
             request.headers["Authorization"] = f"token {token}"
             response = yield request
@@ -100,18 +116,42 @@ class GithubAppInstallationAuth(httpx.Auth):
         request.headers["Authorization"] = f"token {token}"
         yield request
 
+    def build_installation_request(self, force=False):
+        return self.build_github_app_request(
+            "GET",
+            f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
+            force=force,
+        )
+
     def build_access_token_request(self, force=False):
+        return self.build_github_app_request(
+            "POST",
+            f"{config.GITHUB_API_URL}/app/installations/{self.installation['id']}/access_tokens",
+            force=force,
+        )
+
+    def build_github_app_request(self, method, url, force=False):
         headers = http.DEFAULT_CLIENT_OPTIONS["headers"].copy()
         headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"
-        return httpx.Request(
-            "POST",
-            f"{config.GITHUB_API_URL}/app/installations/{self.installation_id}/access_tokens",
-            headers=headers,
+        return httpx.Request(method, url, headers=headers)
+
+    def _set_installation(self, installation_response):
+        if installation_response.status_code == 404:
+            LOG.debug(
+                "mergify not installed",
+                gh_owner=self.owner,
+                gh_repo=self.repo,
+                error_message=installation_response.json()["message"],
+            )
+            raise exceptions.MergifyNotInstalled()
+        self.installation = github_app.validate_installation(
+            installation_response.json()
         )
+        self._cached_token = CachedToken.get(self.installation["id"])
 
     def _set_access_token(self, data):
         self._cached_token = CachedToken(
-            self.installation_id,
+            self.installation["id"],
             data["token"],
             datetime.fromisoformat(data["expires_at"][:-1]),  # Remove the Z
         )
@@ -146,28 +186,27 @@ class GithubAppInstallationAuth(httpx.Auth):
         if token:
             return token
         r = github_app.get_client().post(
-            f"/app/installations/{self.installation_id}/access_tokens"
+            f"/app/installations/{self.installation['id']}/access_tokens"
         )
         return self._set_access_token(r.json())
 
 
-def get_auth(installation, owner, repo):
+def get_auth(owner, repo):
     if config.GITHUB_APP:
-        return GithubAppInstallationAuth(installation, owner, repo)
+        return GithubAppInstallationAuth(owner, repo)
     else:
         return GithubActionAccessTokenAuth()
 
 
 class AsyncGithubInstallationClient(http.AsyncClient):
-    def __init__(self, owner, repo, installation):
+    def __init__(self, owner, repo):
         self.owner = owner
         self.repo = repo
-        self.installation = installation
         self._requests = []
 
         super().__init__(
             base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=get_auth(installation, owner, repo),
+            auth=get_auth(owner, repo),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -175,7 +214,9 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation['id']}>"
+        return (
+            f"<AsyncGithubInstallationClient owner='{self.owner}' repo='{self.repo}'>"
+        )
 
     @staticmethod
     def _inject_api_version(func):
@@ -295,14 +336,13 @@ async def aget_installation(owner, repo, installation_id=None):
 
 
 class GithubInstallationClient(http.Client):
-    def __init__(self, owner, repo, installation):
+    def __init__(self, owner, repo):
         self.owner = owner
         self.repo = repo
-        self.installation = installation
         self._requests = []
         super().__init__(
             base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=get_auth(installation, owner, repo),
+            auth=get_auth(owner, repo),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -310,7 +350,7 @@ class GithubInstallationClient(http.Client):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}' installation_id={self.installation['id']}>"
+        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}'>"
 
     @staticmethod
     def _inject_api_version(func):
