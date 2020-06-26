@@ -416,7 +416,7 @@ request happen, you could write a rule that says something about it.
     pull_request_rules:
       - name: ask to resolve conflict
         conditions:
-          - conflicts
+          - conflict
         actions:
             comment:
               message: This pull request is now in conflicts. Could you fix it? 🙏
