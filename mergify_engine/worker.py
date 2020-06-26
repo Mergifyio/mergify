@@ -112,23 +112,31 @@ async def push(redis, owner, repo, pull_number, event_type, data):
 
 
 async def get_pull_for_engine(owner, repo, pull_number, logger):
-    async with await github.aget_client(owner, repo) as client:
-        try:
-            pull = await client.item(f"pulls/{pull_number}")
-        except http.HTTPNotFound:
-            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
-            logger.debug("pull request doesn't exists, skipping it")
-            return
+    try:
+        async with await github.aget_client(owner, repo) as client:
+            try:
+                pull = await client.item(f"pulls/{pull_number}")
+            except http.HTTPNotFound:
+                # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+                logger.debug("pull request doesn't exists, skipping it")
+                return
 
-        subscription = await sub_utils.get_subscription(client.auth.installation["id"])
-
-        if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
-            logger.debug(
-                "pull request on private private repository without subscription, skipping it"
+            subscription = await sub_utils.get_subscription(
+                client.auth.installation["id"]
             )
-            return
 
-        return subscription, pull
+            if (
+                pull["base"]["repo"]["private"]
+                and not subscription["subscription_active"]
+            ):
+                logger.debug(
+                    "pull request on private private repository without subscription, skipping it"
+                )
+                return
+
+            return subscription, pull
+    except exceptions.MergifyNotInstalled:
+        LOG.debug("Mergify is not installed", exc_info=True)
 
 
 def run_engine(owner, repo, pull_number, sources):
