@@ -42,11 +42,8 @@ class TestGithubClient(base.FunctionalTestBase):
         self.create_pr(base=other_branch)
 
         async def _test_github_async_client():
-            installation = await github.aget_installation(
-                self.o_integration.login, self.r_o_integration.name
-            )
             client = await github.aget_client(
-                self.o_integration.login, self.r_o_integration.name, installation
+                self.o_integration.login, self.r_o_integration.name
             )
 
             pulls = [p async for p in client.items("pulls")]

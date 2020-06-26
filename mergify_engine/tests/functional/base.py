@@ -355,12 +355,27 @@ class FunctionalTestBase(unittest.TestCase):
                 "get_access_token",
                 return_value="<TOKEN>",
             ).start()
-            github.CachedToken.STORAGE = {}
-            github.CachedToken(
-                installation_id=config.INSTALLATION_ID,
-                token="<TOKEN>",
-                expiration=datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
-            )
+
+            # NOTE(sileht): httpx pyvcr stubs does not replay auth_flow as it directly patch client.send()
+            # So anything occurring during auth_flow have to be mocked during replay
+            async def github_aclient(*args, **kwargs):
+                client = github.AsyncGithubInstallationClient(*args, **kwargs)
+                client.auth.installation = {
+                    "id": config.INSTALLATION_ID,
+                    "permissions_need_to_be_updated": False,
+                }
+                return client
+
+            def github_client(*args, **kwargs):
+                client = github.GithubInstallationClient(*args, **kwargs)
+                client.auth.installation = {
+                    "id": config.INSTALLATION_ID,
+                    "permissions_need_to_be_updated": False,
+                }
+                return client
+
+            mock.patch.object(github, "get_client", github_client).start()
+            mock.patch.object(github, "aget_client", github_aclient).start()
 
         with open(engine.mergify_rule_path, "r") as f:
             engine.MERGIFY_RULE = yaml.safe_load(
@@ -453,9 +468,8 @@ class FunctionalTestBase(unittest.TestCase):
             f"{config.GITHUB_URL}/{self.u_fork.login}/{self.r_o_integration.name}"
         )
 
-        installation = {"id": config.INSTALLATION_ID}
         self.cli_integration = github.get_client(
-            config.TESTING_ORGANIZATION, self.REPO_NAME, installation
+            config.TESTING_ORGANIZATION, self.REPO_NAME,
         )
 
         real_get_subscription = sub_utils.get_subscription

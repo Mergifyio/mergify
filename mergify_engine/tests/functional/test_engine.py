@@ -796,8 +796,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        installation = {"id": config.INSTALLATION_ID}
-        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
+        client = github.get_client(p.base.user.login, p.base.repo.name)
         pull = context.Context(client, p.raw_data, {})
 
         logins = pull.resolve_teams(
@@ -835,8 +834,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = self.create_pr()
 
-        installation = {"id": config.INSTALLATION_ID}
-        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
+        client = github.get_client(p.base.user.login, p.base.repo.name)
         pull = context.Context(client, p.raw_data, {})
 
         logins = pull.resolve_teams(
@@ -1426,8 +1424,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
-        installation = {"id": config.INSTALLATION_ID}
-        client = github.get_client(p.base.user.login, p.base.repo.name, installation)
+        client = github.get_client(p.base.user.login, p.base.repo.name)
         ctxt = context.Context(client, {"number": p.number}, {})
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]

@@ -36,6 +36,7 @@ def test_app_event_testing():
         "Content-Type": "application/json",
     }
     with testclient.TestClient(web.app) as client:
+        client.delete("/events-testing", data=data, headers=headers)
         client.post("/events-testing", data=data, headers=headers)
         client.post("/events-testing", data=data, headers=headers)
         client.post("/events-testing", data=data, headers=headers)
