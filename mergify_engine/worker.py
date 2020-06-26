@@ -394,6 +394,8 @@ end
                     logger.debug("ignored error", exc_info=True)
                 except StreamRetry:
                     raise
+                except exceptions.MergifyNotInstalled:
+                    raise
                 except Exception:
                     # Ignore it, it will retried later
                     logger.error("failed to process incomplete event", exc_info=True)
