@@ -76,8 +76,13 @@ class MaxPullRetry(PullRetry):
 
 @dataclasses.dataclass
 class StreamRetry(Exception):
+    stream_name: str
     attempts: int
     retry_at: datetime.datetime
+
+
+class StreamUnused(Exception):
+    stream_name: str
 
 
 async def push(redis, owner, repo, pull_number, event_type, data):
@@ -119,31 +124,23 @@ async def push(redis, owner, repo, pull_number, event_type, data):
 
 
 async def get_pull_for_engine(owner, repo, pull_number, logger):
-    try:
-        async with await github.aget_client(owner, repo) as client:
-            try:
-                pull = await client.item(f"pulls/{pull_number}")
-            except http.HTTPNotFound:
-                # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
-                logger.debug("pull request doesn't exists, skipping it")
-                return
+    async with await github.aget_client(owner, repo) as client:
+        try:
+            pull = await client.item(f"pulls/{pull_number}")
+        except http.HTTPNotFound:
+            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            logger.debug("pull request doesn't exists, skipping it")
+            return
 
-            subscription = await sub_utils.get_subscription(
-                client.auth.installation["id"]
+        subscription = await sub_utils.get_subscription(client.auth.installation["id"])
+
+        if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
+            logger.debug(
+                "pull request on private private repository without subscription, skipping it"
             )
+            return
 
-            if (
-                pull["base"]["repo"]["private"]
-                and not subscription["subscription_active"]
-            ):
-                logger.debug(
-                    "pull request on private private repository without subscription, skipping it"
-                )
-                return
-
-            return subscription, pull
-    except exceptions.MergifyNotInstalled:
-        LOG.debug("Mergify is not installed", exc_info=True)
+        return subscription, pull
 
 
 def run_engine(owner, repo, pull_number, sources):
@@ -257,6 +254,12 @@ class StreamProcessor:
     async def _translate_exception_to_retries(
         self, e, stream_name, attempts_key=None,
     ):
+        if isinstance(e, exceptions.MergifyNotInstalled):
+            if attempts_key:
+                await self.redis.hdel("attempts", attempts_key)
+            await self.redis.hdel("attempts", stream_name)
+            raise StreamUnused(stream_name) from e
+
         if isinstance(e, github.TooManyPages):
             # TODO(sileht): Ideally this should be catcher earlier to post an
             # appropriate check-runs to inform user the PR is too big to be handled
@@ -265,13 +268,13 @@ class StreamProcessor:
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
-            raise IgnoredException()
+            raise IgnoredException() from e
 
         if exceptions.should_be_ignored(e):
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
-            raise IgnoredException()
+            raise IgnoredException() from e
 
         if isinstance(e, exceptions.RateLimited):
             retry_at = utils.utcnow() + datetime.timedelta(seconds=e.countdown)
@@ -280,7 +283,7 @@ class StreamProcessor:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
             await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-            raise StreamRetry(0, retry_at) from e
+            raise StreamRetry(stream_name, 0, retry_at) from e
 
         backoff = exceptions.need_retry(e)
         if backoff is None:
@@ -293,7 +296,7 @@ class StreamProcessor:
         retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
         score = retry_at.timestamp()
         await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-        raise StreamRetry(attempts, retry_at) from e
+        raise StreamRetry(stream_name, attempts, retry_at) from e
 
     async def _run_engine_and_translate_exception_to_retries(
         self, stream_name, owner, repo, pull_number, sources
@@ -327,10 +330,10 @@ class StreamProcessor:
         try:
             pulls = await self._extract_pulls_from_stream(stream_name)
             await self._consume_pulls(stream_name, pulls)
-        except exceptions.MergifyNotInstalled:
+        except StreamUnused:
             # TODO(sileht): put back gh_owner when stream name have owner instead of
             # install id
-            LOG.debug("mergify not installed", exc_info=True)
+            LOG.info("unused stream, dropping it", exc_info=True)
             await self.redis.delete(stream_name)
         except StreamRetry as e:
             # TODO(sileht): put back gh_owner when stream name have owner instead of
@@ -410,7 +413,7 @@ end
                     logger.debug("ignored error", exc_info=True)
                 except StreamRetry:
                     raise
-                except exceptions.MergifyNotInstalled:
+                except StreamUnused:
                     raise
                 except Exception:
                     # Ignore it, it will retried later
@@ -506,6 +509,8 @@ end
                     exc_info=True,
                 )
             except StreamRetry:
+                raise
+            except StreamUnused:
                 raise
             except Exception:
                 # Ignore it, it will retried later
