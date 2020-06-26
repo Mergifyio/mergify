@@ -438,10 +438,10 @@ to your contributor:
                 Please adjust title before merge.
 
 
-👀 Flexible Reviewers Assignement
+👀 Flexible Reviewers Assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can assigne people for review based on any criteria you like. A classic is
+You can assign people for review based on any criteria you like. A classic is
 to use the name of modified files to do it:
 
 .. code-block:: yaml
