@@ -97,6 +97,10 @@ class GithubAppInstallationAuth(httpx.Auth):
                     installation_response = yield self.build_installation_request(
                         force=True
                     )
+                if installation_response.is_redirect:
+                    installation_response = yield self.build_installation_request(
+                        url=installation_response.headers["Location"],
+                    )
 
                 self._set_installation(installation_response)
 
@@ -116,7 +120,11 @@ class GithubAppInstallationAuth(httpx.Auth):
         request.headers["Authorization"] = f"token {token}"
         yield request
 
-    def build_installation_request(self, force=False):
+    def build_installation_request(self, url=None, force=False):
+        if url is None:
+            url = (
+                f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
+            )
         return self.build_github_app_request(
             "GET",
             f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
