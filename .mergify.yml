@@ -19,7 +19,7 @@ pull_request_rules:
     conditions:
       - base=master
       - status-success=Semantic Pull Request
-      - body~=^Fixes MERGIFY-ENGINE-
+      - body~=(?m)^Fixes MERGIFY-ENGINE-
       - "status-success=ci/circleci: requirements"
       - "status-success=ci/circleci: datadog"
       - "status-success=ci/circleci: pep8"
@@ -80,7 +80,7 @@ pull_request_rules:
           - devs
   - name: warn on no Sentry
     conditions:
-      - -body~=^Fixes MERGIFY-ENGINE-
+      - -body~=(?m)^Fixes MERGIFY-ENGINE-
       - label=hotfix
     actions:
       comment:
