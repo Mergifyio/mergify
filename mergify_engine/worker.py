@@ -429,32 +429,32 @@ end
         # handle retry later, add them to message to run engine on them now,
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
-        async with await github.aget_client(owner, repo) as client:
-            try:
+        try:
+            async with await github.aget_client(owner, repo) as client:
                 pull_numbers = await github_events.extract_pull_numbers_from_event(
                     client, source["event_type"], source["data"],
                 )
-            except Exception as e:
-                await self._translate_exception_to_retries(e, stream_name)
+        except Exception as e:
+            await self._translate_exception_to_retries(e, stream_name)
 
-            messages = []
-            for pull_number in pull_numbers:
-                if pull_number is None:
-                    # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
-                    # we didn't generate a ending loop of events, because when pull_number is
-                    # None, this method got called again and again.
-                    raise RuntimeError("Got an empty pull number")
-                messages.append(
-                    await push(
-                        self.redis,
-                        client.owner,
-                        client.repo,
-                        pull_number,
-                        source["event_type"],
-                        source["data"],
-                    )
+        messages = []
+        for pull_number in pull_numbers:
+            if pull_number is None:
+                # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
+                # we didn't generate a ending loop of events, because when pull_number is
+                # None, this method got called again and again.
+                raise RuntimeError("Got an empty pull number")
+            messages.append(
+                await push(
+                    self.redis,
+                    owner,
+                    repo,
+                    pull_number,
+                    source["event_type"],
+                    source["data"],
                 )
-            return messages
+            )
+        return messages
 
     async def _consume_pulls(self, stream_name, pulls):
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
