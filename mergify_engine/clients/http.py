@@ -18,11 +18,13 @@
 import datetime
 import json
 
+from datadog import statsd
 import httpcore
 import httpx
 import tenacity
 from werkzeug.http import parse_date
 
+from mergify_engine import exceptions
 from mergify_engine import logs
 
 
@@ -34,6 +36,7 @@ DEFAULT_CLIENT_OPTIONS = {
         "User-Agent": "Mergify/Python",
     },
 }
+RATE_LIMIT_THRESHOLD = 20
 
 HTTPError = httpx.HTTPError
 
@@ -141,6 +144,14 @@ class ClientMixin:
         message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
         exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, default_exception)
         raise exc_class(message, response=resp)
+
+    def raise_for_rate_limit(self, limit, remaining, reset):
+        if remaining < RATE_LIMIT_THRESHOLD:
+            delta = datetime.utcfromtimestamp(reset) - datetime.utcnow()
+            statsd.increment(
+                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
+            )
+            raise exceptions.RateLimited(delta.total_seconds(), limit, remaining, reset)
 
 
 class Client(httpx.Client, ClientMixin):

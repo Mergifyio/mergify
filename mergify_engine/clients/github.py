@@ -31,7 +31,6 @@ from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
-RATE_LIMIT_THRESHOLD = 20
 LOGGING_REQUESTS_THRESHOLD = 20
 LOG = logs.getLogger(__name__)
 
@@ -268,19 +267,20 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         try:
             reply = await super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403:
-                # TODO(sileht): Maybe we could look at header to avoid a request:
-                # they should be according the doc:
-                #  X-RateLimit-Limit: 60
-                #  X-RateLimit-Remaining: 0
-                #  X-RateLimit-Reset: 1377013266
-                self.check_rate_limit()
+            reply = e.response
             raise
         finally:
             if reply is None:
                 status_code = "error"
             else:
                 status_code = reply.status_code
+
+                self.raise_for_rate_limit(
+                    reply.headers["X-RateLimit-Limit"],
+                    reply.headers["X-RateLimit-Remaining"],
+                    reply.headers["X-RateLimit-Reset"],
+                )
+
             statsd.increment(
                 "http.client.requests",
                 tags=[f"hostname:{self.base_url.host}", f"status_code:{status_code}"],
@@ -305,23 +305,9 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             )
         self._requests = []
 
-    async def check_rate_limit(self):
-        response = await self.item("/rate_limit")
-        rate = response["resources"]
-        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
-            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-            now = datetime.utcnow()
-            delta = reset - now
-            statsd.increment(
-                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
-            )
-            raise exceptions.RateLimited(delta.total_seconds(), rate)
-
 
 async def aget_client(*args, **kwargs):
-    client = AsyncGithubInstallationClient(*args, **kwargs)
-    await client.check_rate_limit()
-    return client
+    return AsyncGithubInstallationClient(*args, **kwargs)
 
 
 async def aget_installation_by_id(installation_id):
@@ -387,19 +373,20 @@ class GithubInstallationClient(http.Client):
         try:
             reply = super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403:
-                # TODO(sileht): Maybe we could look at header to avoid a request:
-                # they should be according the doc:
-                #  X-RateLimit-Limit: 60
-                #  X-RateLimit-Remaining: 0
-                #  X-RateLimit-Reset: 1377013266
-                self.check_rate_limit()
+            reply = e.response
             raise
         finally:
             if reply is None:
                 status_code = "error"
             else:
                 status_code = reply.status_code
+
+                self.raise_for_rate_limit(
+                    reply.headers["X-RateLimit-Limit"],
+                    reply.headers["X-RateLimit-Remaining"],
+                    reply.headers["X-RateLimit-Reset"],
+                )
+
             statsd.increment(
                 "http.client.requests",
                 tags=[f"hostname:{self.base_url.host}", f"status_code:{status_code}"],
@@ -424,22 +411,9 @@ class GithubInstallationClient(http.Client):
             )
         self._requests = []
 
-    def check_rate_limit(self):
-        rate = self.item("/rate_limit")["resources"]
-        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
-            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-            now = datetime.utcnow()
-            delta = reset - now
-            statsd.increment(
-                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
-            )
-            raise exceptions.RateLimited(delta.total_seconds(), rate)
-
 
 def get_client(*args, **kwargs):
-    client = GithubInstallationClient(*args, **kwargs)
-    client.check_rate_limit()
-    return client
+    return GithubInstallationClient(*args, **kwargs)
 
 
 def get_github_action_installation():

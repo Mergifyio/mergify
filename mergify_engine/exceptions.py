@@ -11,6 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import dataclasses
 
 from mergify_engine.clients import http
 
@@ -19,10 +20,12 @@ class MergifyNotInstalled(Exception):
     pass
 
 
+@dataclasses.dataclass
 class RateLimited(Exception):
-    def __init__(self, countdown, raw_data):
-        self.countdown = countdown
-        self.raw_data = raw_data
+    countdown = float
+    limit = int
+    remaining = int
+    reset = int
 
 
 class MergeableStateUnknown(Exception):
