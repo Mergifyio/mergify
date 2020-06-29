@@ -107,57 +107,56 @@ def wait_retry_after_header(retry_state):
     return max(0, (d - datetime.datetime.utcnow()).total_seconds())
 
 
-class ClientMixin:
-    connectivity_issue_retry = tenacity.retry(
-        reraise=True,
-        retry=tenacity.retry_if_exception_type(
-            ConnectionErrors + (HTTPServerSideError, HTTPTooManyRequests)
-        ),
-        wait=tenacity.wait_combine(
-            wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
-        ),
-        stop=tenacity.stop_after_attempt(5),
-    )
-
-    @staticmethod
-    def raise_for_status(resp):
-        if httpx.StatusCode.is_client_error(resp.status_code):
-            error_type = "Client Error"
-            default_exception = HTTPClientSideError
-        elif httpx.StatusCode.is_server_error(resp.status_code):
-            error_type = "Server Error"
-            default_exception = HTTPServerSideError
-        else:
-            return
-
-        try:
-            details = resp.json().get("message")
-        except json.JSONDecodeError:
-            details = None
-
-        if details is None:
-            details = resp.text if resp.text else "<empty-response>"
-
-        message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
-        exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, default_exception)
-        raise exc_class(message, response=resp)
+connectivity_issue_retry = tenacity.retry(
+    reraise=True,
+    retry=tenacity.retry_if_exception_type(
+        ConnectionErrors + (HTTPServerSideError, HTTPTooManyRequests)
+    ),
+    wait=tenacity.wait_combine(
+        wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
+    ),
+    stop=tenacity.stop_after_attempt(5),
+)
 
 
-class Client(httpx.Client, ClientMixin):
-    @ClientMixin.connectivity_issue_retry
+def raise_for_status(resp):
+    if httpx.StatusCode.is_client_error(resp.status_code):
+        error_type = "Client Error"
+        default_exception = HTTPClientSideError
+    elif httpx.StatusCode.is_server_error(resp.status_code):
+        error_type = "Server Error"
+        default_exception = HTTPServerSideError
+    else:
+        return
+
+    try:
+        details = resp.json().get("message")
+    except json.JSONDecodeError:
+        details = None
+
+    if details is None:
+        details = resp.text if resp.text else "<empty-response>"
+
+    message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
+    exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, default_exception)
+    raise exc_class(message, response=resp)
+
+
+class Client(httpx.Client):
+    @connectivity_issue_retry
     def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
         resp = super().request(method, url, *args, **kwargs)
         LOG.debug("http request end", method=method, url=url)
-        self.raise_for_status(resp)
+        raise_for_status(resp)
         return resp
 
 
-class AsyncClient(httpx.AsyncClient, ClientMixin):
-    @ClientMixin.connectivity_issue_retry
+class AsyncClient(httpx.AsyncClient):
+    @connectivity_issue_retry
     async def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
         resp = await super().request(method, url, *args, **kwargs)
         LOG.debug("http request end", method=method, url=url)
-        self.raise_for_status(resp)
+        raise_for_status(resp)
         return resp

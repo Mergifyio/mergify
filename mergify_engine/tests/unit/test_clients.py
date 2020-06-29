@@ -26,6 +26,7 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
+@mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_401_raise_ratelimit(httpserver):
     owner = "owner"
     repo = "repo"
@@ -57,7 +58,7 @@ def test_client_401_raise_ratelimit(httpserver):
     )
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/"),
+        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
     ):
         client = github.get_client(owner, repo)
         with pytest.raises(exceptions.RateLimited):
@@ -157,3 +158,66 @@ def test_client_retry_429_retry_after_as_seconds(httpserver):
 def test_client_retry_429_retry_after_as_absolute_date(httpserver):
     retry_after = http_date(datetime.datetime.utcnow() + datetime.timedelta(seconds=3))
     _do_test_client_retry_429(httpserver, retry_after, 3)
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+def test_client_access_token_HTTP_500(httpserver):
+    httpserver.expect_request("/repos/owner/repo/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing"},
+        }
+    )
+    httpserver.expect_request(
+        "/app/installations/12345/access_tokens"
+    ).respond_with_data("This is an 5XX error", status=500)
+
+    with mock.patch(
+        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+    ):
+        with github.GithubInstallationClient("owner", "repo") as client:
+            with pytest.raises(http.HTTPServerSideError) as exc_info:
+                client.get(httpserver.url_for("/"))
+
+    # installation request + 5 retries
+    assert len(httpserver.log) == 6
+
+    assert exc_info.value.message == "This is an 5XX error"
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.response.status_code == 500
+    assert str(exc_info.value.request.url) == httpserver.url_for(
+        "/app/installations/12345/access_tokens"
+    )
+
+    httpserver.check_assertions()
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+def test_client_installation_HTTP_500(httpserver):
+    httpserver.expect_request("/repos/owner/repo/installation").respond_with_data(
+        "This is an 5XX error", status=500
+    )
+    with mock.patch(
+        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+    ):
+        with github.GithubInstallationClient("owner", "repo") as client:
+            with pytest.raises(http.HTTPServerSideError) as exc_info:
+                client.get(httpserver.url_for("/"))
+
+    # 5 retries
+    assert len(httpserver.log) == 5
+
+    assert exc_info.value.message == "This is an 5XX error"
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.response.status_code == 500
+    assert str(exc_info.value.request.url) == httpserver.url_for(
+        "/repos/owner/repo/installation"
+    )
+
+    httpserver.check_assertions()

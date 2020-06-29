@@ -101,6 +101,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                     installation_response = yield self.build_installation_request(
                         url=installation_response.headers["Location"],
                     )
+                http.raise_for_status(installation_response)
 
                 self._set_installation(installation_response)
 
@@ -115,6 +116,7 @@ class GithubAppInstallationAuth(httpx.Auth):
             auth_response = yield self.build_access_token_request()
             if auth_response.status_code == 401:  # due to jwt
                 auth_response = yield self.build_access_token_request(force=True)
+            http.raise_for_status(auth_response)
             token = self._set_access_token(auth_response.json())
 
         request.headers["Authorization"] = f"token {token}"
