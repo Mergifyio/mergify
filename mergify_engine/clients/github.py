@@ -103,7 +103,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                     )
                 if installation_response.status_code == 404:
                     LOG.debug(
-                        "mergify not installed or repository not found",
+                        "Mergify not installed or repository not found",
                         gh_owner=self.owner,
                         gh_repo=self.repo,
                         error_message=installation_response.json()["message"],
