@@ -133,14 +133,8 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     def build_installation_request(self, url=None, force=False):
         if url is None:
-            url = (
-                f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
-            )
-        return self.build_github_app_request(
-            "GET",
-            f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
-            force=force,
-        )
+            url = f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation"
+        return self.build_github_app_request("GET", url, force=force)
 
     def build_access_token_request(self, force=False):
         return self.build_github_app_request(
