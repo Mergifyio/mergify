@@ -240,18 +240,9 @@ class Queue:
         with github.get_client(self.owner, self.repo) as client:
             data = client.item(f"pulls/{pull_number}")
 
+            ctxt = None
             try:
                 ctxt = context.Context(client, data, subscription)
-            except exceptions.RateLimited as e:
-                self.log.debug("rate limited", remaining_seconds=e.countdown)
-                return
-            except exceptions.MergeableStateUnknown as e:  # pragma: no cover
-                e.ctxt.log.warning(
-                    "pull request with mergeable_state unknown retrying later",
-                )
-                self._move_pull_at_end(pull_number)
-                return
-            try:
                 if ctxt.pull["base"]["ref"] != self.ref:
                     ctxt.log.info(
                         "pull request base branch have changed",
@@ -270,6 +261,24 @@ class Queue:
                     # NOTE(sileht): Pull request has not been merged or cancelled
                     # yet wait next loop
                     ctxt.log.info("pull request checks are still in progress")
-            except Exception:  # pragma: no cover
-                ctxt.log.error("Fail to process merge queue", exc_info=True)
-                self._move_pull_at_end(pull_number)
+
+            except Exception as exc:  # pragma: no cover
+                log = self.log if ctxt is None else ctxt.log
+
+                if exceptions.should_be_ignored(exc):
+                    log.info(
+                        "Fail to process merge queue, remove the pull request from the queue",
+                        exc_info=True,
+                    )
+                    self.remove_pull(ctxt.pull["number"])
+
+                elif exceptions.need_retry(exc):
+                    log.info("Fail to process merge queue, need retry", exc_info=True)
+                    if isinstance(exc, exceptions.MergeableStateUnknown):
+                        # NOTE(sileht): We need GitHub to recompute the state here (by
+                        # merging something else for example), so move it to the end
+                        self._move_pull_at_end(pull_number)
+
+                else:
+                    log.error("Fail to process merge queue", exc_info=True)
+                    self._move_pull_at_end(pull_number)
