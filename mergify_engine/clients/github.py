@@ -21,19 +21,20 @@ from datetime import datetime
 import functools
 from urllib import parse
 
+import daiquiri
 from datadog import statsd
 import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import logs
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
 RATE_LIMIT_THRESHOLD = 20
 LOGGING_REQUESTS_THRESHOLD = 20
-LOG = logs.getLogger(__name__)
+
+LOG = daiquiri.getLogger(__name__)
 
 
 @dataclasses.dataclass

@@ -24,13 +24,10 @@ import tempfile
 import urllib.parse
 
 import aredis
+import daiquiri
 import redis
 
 from mergify_engine import config
-from mergify_engine import logs
-
-
-LOG = logs.getLogger(__name__)
 
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
@@ -90,7 +87,7 @@ def compute_hmac(data):
 
 
 def get_pull_logger(pull):
-    return logs.getLogger(
+    return daiquiri.getLogger(
         __name__,
         gh_owner=pull["base"]["user"]["login"] if "user" in pull else "<unknown-yet>",
         gh_repo=(pull["base"]["repo"]["name"] if "base" in pull else "<unknown-yet>"),

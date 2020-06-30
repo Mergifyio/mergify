@@ -17,15 +17,12 @@ import sentry_sdk
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
-from mergify_engine import logs
-
-
-LOG = logs.getLogger(__name__)
 
 
 if config.SENTRY_URL:  # pragma: no cover
     sentry_sdk.init(
         config.SENTRY_URL,
+        max_breadcrumbs=10,
         release=os.environ.get("HEROKU_RELEASE_VERSION"),
         environment=config.SENTRY_ENVIRONMENT,
         integrations=[RedisIntegration()],
