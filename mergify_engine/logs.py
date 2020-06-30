@@ -15,29 +15,13 @@
 
 import re
 import sys
-import weakref
 
 import daiquiri
 
 from mergify_engine import config
 
 
-global GLOBAL_EXTRAS, LOGGERS
-GLOBAL_EXTRAS = {}
-LOGGERS = weakref.WeakSet()
-
-
-def getLogger(name, **kwargs):
-    global GLOBAL_EXTRAS, LOGGERS
-    extras = {}
-    extras.update(GLOBAL_EXTRAS)
-    extras.update(kwargs)
-    logger = daiquiri.getLogger(name, **extras)
-    LOGGERS.add(logger)
-    return logger
-
-
-LOG = getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 def config_log():
@@ -66,14 +50,7 @@ def config_log():
     LOG.info("##########################################################")
 
 
-def setup_logging(**kwargs):
-    global GLOBAL_EXTRAS, LOGGERS
-    GLOBAL_EXTRAS.update(kwargs)
-
-    # NOTE(sileht): Some loggers may have been created before the setup update them now.
-    for logger in LOGGERS:
-        logger.extra.update(kwargs)
-
+def setup_logging():
     outputs = []
 
     if config.LOG_STDOUT:

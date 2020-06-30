@@ -22,4 +22,4 @@ from mergify_engine.web import app as application  # noqa
 if config.SENTRY_URL:
     application = SentryAsgiMiddleware(application)
 
-logs.setup_logging(worker="asgi")
+logs.setup_logging()

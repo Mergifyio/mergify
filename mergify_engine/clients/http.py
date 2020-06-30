@@ -18,15 +18,14 @@
 import datetime
 import json
 
+import daiquiri
 import httpcore
 import httpx
 import tenacity
 from werkzeug.http import parse_date
 
-from mergify_engine import logs
 
-
-LOG = logs.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 DEFAULT_CLIENT_OPTIONS = {
     "headers": {

@@ -21,14 +21,14 @@ import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
+import daiquiri
 
 from mergify_engine import config
-from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine.clients import http
 
 
-LOG = logs.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
 digest.update(config.CACHE_TOKEN_SECRET.encode())
