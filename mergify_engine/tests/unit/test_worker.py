@@ -246,10 +246,10 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
-    logs.setup_logging(worker="streams")
+    logs.setup_logging()
     logger = logger_class.return_value
 
     # One retries once, the other reaches max_retry
@@ -331,7 +331,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(run_engine, logger, redis):
-    logs.setup_logging(worker="streams")
+    logs.setup_logging()
 
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
@@ -388,7 +388,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(run_engine, logger, redis):
-    logs.setup_logging(worker="streams")
+    logs.setup_logging()
 
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
@@ -447,10 +447,10 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.logs.getLogger")
+@mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, redis):
-    logs.setup_logging(worker="streams")
+    logs.setup_logging()
     logger = logger_class.return_value
 
     run_engine.side_effect = Exception

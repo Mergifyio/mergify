@@ -17,16 +17,16 @@
 import contextlib
 import dataclasses
 
+import daiquiri
 from datadog import statsd
 
 from mergify_engine import config
-from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import http
 
 
-LOG = logs.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 def get_ignore_reason(event_type, data):
