@@ -15,19 +15,19 @@ import asyncio
 import dataclasses
 import json
 
+import daiquiri
 import redis
 
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import logs
 from mergify_engine import sub_utils
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.clients import github
 
 
-LOG = logs.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -40,7 +40,7 @@ class Queue:
 
     @property
     def log(self):
-        return logs.getLogger(
+        return daiquiri.getLogger(
             __name__, gh_owner=self.owner, gh_repo=self.repo, gh_branch=self.ref
         )
 
