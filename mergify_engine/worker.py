@@ -25,8 +25,10 @@ from typing import Any
 from typing import List
 from typing import Set
 
+import daiquiri
 from datadog import statsd
 import msgpack
+import sentry_sdk
 
 from mergify_engine import config
 from mergify_engine import engine
@@ -52,7 +54,7 @@ except ImportError:
         pass
 
 
-LOG = logs.getLogger(__name__)
+LOG = daiquiri.getLogger(__name__)
 
 
 MAX_RETRIES = 3
@@ -84,6 +86,11 @@ class StreamUnused(Exception):
 
 
 async def push(redis, owner, repo, pull_number, event_type, data):
+    with sentry_sdk.configure_scope() as scope:
+        scope.user = {
+            "username": owner,
+        }
+
     stream_name = f"stream~{owner}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
@@ -137,7 +144,9 @@ async def get_pull_for_engine(owner, repo, pull_number, logger):
 
 
 def run_engine(owner, repo, pull_number, sources):
-    logger = logs.getLogger(__name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number)
+    logger = daiquiri.getLogger(
+        __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+    )
     logger.debug("engine in thread start")
     try:
         result = asyncio.run(get_pull_for_engine(owner, repo, pull_number, logger))
@@ -311,6 +320,13 @@ class StreamProcessor:
             await self._translate_exception_to_retries(e, stream_name, attempts_key)
 
     async def consume(self, stream_name):
+        owner = stream_name.split("~", 1)[1]
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.user = {
+                "username": owner,
+            }
+
         try:
             pulls = await self._extract_pulls_from_stream(stream_name)
             await self._consume_pulls(stream_name, pulls)
@@ -384,7 +400,7 @@ end
                 group[0].append(message_id)
                 group[1].append(source)
             else:
-                logger = logs.getLogger(
+                logger = daiquiri.getLogger(
                     __name__, gh_repo=repo, gh_owner=owner, source=source
                 )
                 logger.debug("unpacking event")
@@ -463,7 +479,7 @@ end
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
             statsd.histogram("engine.streams.batch-size", len(sources))
-            logger = logs.getLogger(
+            logger = daiquiri.getLogger(
                 __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
             )
 
@@ -666,7 +682,7 @@ async def run_forever():
 
 
 def main():
-    logs.setup_logging(worker="streams")
+    logs.setup_logging()
     asyncio.run(run_forever())
 
 

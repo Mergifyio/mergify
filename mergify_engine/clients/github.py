@@ -21,19 +21,20 @@ from datetime import datetime
 import functools
 from urllib import parse
 
+import daiquiri
 from datadog import statsd
 import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import logs
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
 RATE_LIMIT_THRESHOLD = 20
 LOGGING_REQUESTS_THRESHOLD = 20
-LOG = logs.getLogger(__name__)
+
+LOG = daiquiri.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -133,14 +134,8 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     def build_installation_request(self, url=None, force=False):
         if url is None:
-            url = (
-                f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
-            )
-        return self.build_github_app_request(
-            "GET",
-            f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation",
-            force=force,
-        )
+            url = f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation"
+        return self.build_github_app_request("GET", url, force=force)
 
     def build_access_token_request(self, force=False):
         return self.build_github_app_request(

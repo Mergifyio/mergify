@@ -238,3 +238,24 @@ def test_client_installation_HTTP_404(httpserver):
     assert len(httpserver.log) == 1
 
     httpserver.check_assertions()
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+def test_client_installation_HTTP_301(httpserver):
+    httpserver.expect_request("/repos/owner/repo/installation").respond_with_data(
+        status=301,
+        headers={"Location": httpserver.url_for("/repositories/12345/installation")},
+    )
+    httpserver.expect_request("/repositories/12345/installation").respond_with_json(
+        {"message": "Repository not found"}, status=404
+    )
+    with mock.patch(
+        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+    ):
+        with github.GithubInstallationClient("owner", "repo") as client:
+            with pytest.raises(exceptions.MergifyNotInstalled):
+                client.get(httpserver.url_for("/"))
+
+    assert len(httpserver.log) == 2
+
+    httpserver.check_assertions()
