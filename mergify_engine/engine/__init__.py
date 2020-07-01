@@ -67,8 +67,8 @@ def get_github_pull_from_event(client, event_type, data):
             # NOTE(sileht): It's that technically possible, but really ?
             LOG.warning(
                 "check_suite/check_run attached on multiple pulls",
-                gh_owner=client.owner,
-                gh_repo=client.repo,
+                gh_owner=client.auth.owner,
+                gh_repo=client.auth.repo,
                 event_type=event_type,
             )
 

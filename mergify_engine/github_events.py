@@ -186,7 +186,7 @@ SHA_EXPIRATION = 60
 
 async def _get_github_pulls_from_sha(client, sha):
     redis = await utils.get_aredis_for_cache()
-    cache_key = f"sha~{client.owner}~{client.repo}~{sha}"
+    cache_key = f"sha~{client.auth.owner}~{client.auth.repo}~{sha}"
     pull_number = await redis.get(cache_key)
     if pull_number is None:
         async for pull in client.items("pulls"):

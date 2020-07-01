@@ -181,7 +181,9 @@ def test_client_access_token_HTTP_500(httpserver):
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient("owner", "repo") as client:
+        with github.GithubInstallationClient(
+            github.get_auth("owner", "repo")
+        ) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -206,7 +208,9 @@ def test_client_installation_HTTP_500(httpserver):
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient("owner", "repo") as client:
+        with github.GithubInstallationClient(
+            github.get_auth("owner", "repo")
+        ) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -231,7 +235,9 @@ def test_client_installation_HTTP_404(httpserver):
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient("owner", "repo") as client:
+        with github.GithubInstallationClient(
+            github.get_auth("owner", "repo")
+        ) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 
@@ -252,7 +258,9 @@ def test_client_installation_HTTP_301(httpserver):
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient("owner", "repo") as client:
+        with github.GithubInstallationClient(
+            github.get_auth("owner", "repo")
+        ) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 

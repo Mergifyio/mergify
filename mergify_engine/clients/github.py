@@ -209,14 +209,11 @@ def get_auth(owner, repo):
 
 
 class AsyncGithubInstallationClient(http.AsyncClient):
-    def __init__(self, owner, repo):
-        self.owner = owner
-        self.repo = repo
+    def __init__(self, auth):
         self._requests = []
-
         super().__init__(
-            base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=get_auth(owner, repo),
+            base_url=f"{config.GITHUB_API_URL}/repos/{auth.owner}/{auth.repo}/",
+            auth=auth,
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -224,9 +221,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return (
-            f"<AsyncGithubInstallationClient owner='{self.owner}' repo='{self.repo}'>"
-        )
+        return f"<AsyncGithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
 
     @staticmethod
     def _inject_api_version(func):
@@ -301,8 +296,8 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 "number of GitHub requests for this session crossed the threshold (%s): %s",
                 LOGGING_REQUESTS_THRESHOLD,
                 nb_requests,
-                gh_owner=self.owner,
-                gh_repo=self.repo,
+                gh_owner=self.auth.owner,
+                gh_repo=self.auth.repo,
                 requests=self._requests,
             )
         self._requests = []
@@ -320,20 +315,18 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-async def aget_client(*args, **kwargs):
-    client = AsyncGithubInstallationClient(*args, **kwargs)
+async def aget_client(owner=None, repo=None, auth=None):
+    client = AsyncGithubInstallationClient(auth or get_auth(owner, repo))
     await client.check_rate_limit()
     return client
 
 
 class GithubInstallationClient(http.Client):
-    def __init__(self, owner, repo):
-        self.owner = owner
-        self.repo = repo
+    def __init__(self, auth):
         self._requests = []
         super().__init__(
-            base_url=f"{config.GITHUB_API_URL}/repos/{owner}/{repo}/",
-            auth=get_auth(owner, repo),
+            base_url=f"{config.GITHUB_API_URL}/repos/{auth.owner}/{auth.repo}/",
+            auth=auth,
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
@@ -341,7 +334,7 @@ class GithubInstallationClient(http.Client):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<GithubInstallationClient owner='{self.owner}' repo='{self.repo}'>"
+        return f"<GithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
 
     @staticmethod
     def _inject_api_version(func):
@@ -415,8 +408,8 @@ class GithubInstallationClient(http.Client):
                 "number of GitHub requests for this session crossed the threshold (%s): %s",
                 LOGGING_REQUESTS_THRESHOLD,
                 nb_requests,
-                gh_owner=self.owner,
-                gh_repo=self.repo,
+                gh_owner=self.auth.owner,
+                gh_repo=self.auth.repo,
                 requests=self._requests,
             )
         self._requests = []
@@ -433,7 +426,7 @@ class GithubInstallationClient(http.Client):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-def get_client(*args, **kwargs):
-    client = GithubInstallationClient(*args, **kwargs)
+def get_client(owner=None, repo=None, auth=None):
+    client = GithubInstallationClient(auth or get_auth(owner, repo))
     client.check_rate_limit()
     return client
