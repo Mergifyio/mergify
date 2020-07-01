@@ -117,19 +117,6 @@ class _Client(http.Client):
             **http.DEFAULT_CLIENT_OPTIONS,
         )
 
-    def get_installation_by_id(self, installation_id):
-        try:
-            return validate_installation(
-                self.get(f"/app/installations/{installation_id}").json()
-            )
-        except http.HTTPNotFound as e:
-            LOG.debug(
-                "mergify not installed",
-                installation_id=installation_id,
-                error_message=e.message,
-            )
-            raise exceptions.MergifyNotInstalled()
-
     def get_installation(self, owner, repo=None, account_type=None):
         if not account_type and not repo:
             raise RuntimeError("repo or account_type must be passed")
@@ -159,19 +146,6 @@ class _AsyncClient(http.AsyncClient):
             auth=GithubBearerAuth(),
             **http.DEFAULT_CLIENT_OPTIONS,
         )
-
-    async def get_installation_by_id(self, installation_id):
-        try:
-            return validate_installation(
-                (await self.get(f"/app/installations/{installation_id}")).json()
-            )
-        except http.HTTPNotFound as e:
-            LOG.debug(
-                "mergify not installed",
-                installation_id=installation_id,
-                error_message=e.message,
-            )
-            raise exceptions.MergifyNotInstalled()
 
     async def get_installation(self, owner, repo=None, account_type=None):
         if not account_type and not repo:
