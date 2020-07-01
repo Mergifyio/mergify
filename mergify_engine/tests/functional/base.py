@@ -358,8 +358,10 @@ class FunctionalTestBase(unittest.TestCase):
 
             # NOTE(sileht): httpx pyvcr stubs does not replay auth_flow as it directly patch client.send()
             # So anything occurring during auth_flow have to be mocked during replay
-            async def github_aclient(*args, **kwargs):
-                client = github.AsyncGithubInstallationClient(*args, **kwargs)
+            async def github_aclient(owner=None, repo=None, auth=None):
+                client = github.AsyncGithubInstallationClient(
+                    auth or github.get_auth(owner, repo)
+                )
                 client.auth.installation = {
                     "id": config.INSTALLATION_ID,
                     "permissions_need_to_be_updated": False,
@@ -367,8 +369,10 @@ class FunctionalTestBase(unittest.TestCase):
                 client.auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return client
 
-            def github_client(*args, **kwargs):
-                client = github.GithubInstallationClient(*args, **kwargs)
+            def github_client(owner=None, repo=None, auth=None):
+                client = github.GithubInstallationClient(
+                    auth or github.get_auth(owner, repo)
+                )
                 client.auth.installation = {
                     "id": config.INSTALLATION_ID,
                     "permissions_need_to_be_updated": False,

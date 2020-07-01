@@ -125,7 +125,7 @@ def report(url):
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 
-    utils.async_run(report_worker_status(client.owner))
+    utils.async_run(report_worker_status(client.auth.owner))
 
     pull_raw = client.item(f"pulls/{pull_number}")
     ctxt = context.Context(
