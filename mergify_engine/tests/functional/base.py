@@ -364,8 +364,8 @@ class FunctionalTestBase(unittest.TestCase):
                 )
                 client.auth.installation = {
                     "id": config.INSTALLATION_ID,
-                    "permissions_need_to_be_updated": False,
                 }
+                client.auth.permissions_need_to_be_updated = False
                 client.auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return client
 
@@ -375,8 +375,8 @@ class FunctionalTestBase(unittest.TestCase):
                 )
                 client.auth.installation = {
                     "id": config.INSTALLATION_ID,
-                    "permissions_need_to_be_updated": False,
                 }
+                client.auth.permissions_need_to_be_updated = False
                 client.auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return client
 
