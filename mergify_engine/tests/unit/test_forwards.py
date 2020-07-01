@@ -58,7 +58,7 @@ def test_app_event_forward(_, __, httpserver):
     httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.web.sync_job_marketplace")
+@mock.patch("mergify_engine.web.cleanup_subscription")
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["purchased"]),

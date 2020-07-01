@@ -388,9 +388,6 @@ class FunctionalTestBase(unittest.TestCase):
                 f.read().replace("mergify[bot]", "mergify-test[bot]")
             )
 
-        github_app_client = github_app._Client()
-
-        mock.patch.object(github_app, "get_client", lambda: github_app_client).start()
         mock.patch.object(branch_updater.utils, "Gitter", self.get_gitter).start()
         mock.patch.object(duplicate_pull.utils, "Gitter", self.get_gitter).start()
 
