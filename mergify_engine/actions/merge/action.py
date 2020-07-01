@@ -69,6 +69,7 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(None, str),
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
             "default", "title+body"
         ),
@@ -215,7 +216,9 @@ class MergeAction(actions.Action):
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
-            return helpers.update_pull_base_branch(ctxt, self.config["strict_method"])
+            return helpers.update_pull_base_branch(
+                ctxt, self.config["strict_method"], self.config["bot_account"],
+            )
 
     @staticmethod
     def _get_commit_message(pull_request, mode="default"):
