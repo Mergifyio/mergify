@@ -195,10 +195,8 @@ class GithubAppInstallationAuth(httpx.Auth):
         token = self._get_access_token()
         if token:
             return token
-        r = github_app.get_client().post(
-            f"/app/installations/{self.installation['id']}/access_tokens"
-        )
-        return self._set_access_token(r.json())
+        else:
+            raise RuntimeError("get_access_token() call on an unused client")
 
 
 def get_auth(owner, repo):

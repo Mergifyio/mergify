@@ -305,28 +305,16 @@ async def simulator(request: requests.Request):
     )
 
 
-def sync_job_marketplace(event_type, event_id, data):
-
-    owner = data["marketplace_purchase"]["account"]["login"]
-    account_type = data["marketplace_purchase"]["account"]["type"]
+async def cleanup_subscription(data):
     try:
-        installation = github_app.get_client().get_installation(
-            owner, account_type=account_type
+        installation = await github_app.get_installation(
+            data["marketplace_purchase"]["account"]
         )
     except exceptions.MergifyNotInstalled:
         return
 
-    r = utils.get_redis_for_cache()
-    r.delete("subscription-cache-%s" % installation["id"])
-
-    LOG.info(
-        "Marketplace event",
-        event_type=event_type,
-        event_id=event_id,
-        install_id=installation["id"],
-        sender=data["sender"]["login"],
-        gh_owner=owner,
-    )
+    redis = await utils.get_aredis_for_cache()
+    await redis.delete("subscription-cache-%s" % installation["id"])
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
@@ -335,10 +323,15 @@ async def marketplace_handler(request: requests.Request,):  # pragma: no cover
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None, functools.partial(sync_job_marketplace, event_type, event_id, data),
+    LOG.info(
+        "Marketplace event",
+        event_type=event_type,
+        event_id=event_id,
+        sender=data["sender"]["login"],
+        gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
+
+    await cleanup_subscription(data)
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()

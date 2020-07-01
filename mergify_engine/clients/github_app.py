@@ -109,77 +109,17 @@ class GithubBearerAuth(httpx.Auth):
             yield request
 
 
-class _Client(http.Client):
-    def __init__(self):
-        super().__init__(
-            base_url=config.GITHUB_API_URL,
-            auth=GithubBearerAuth(),
-            **http.DEFAULT_CLIENT_OPTIONS,
-        )
-
-    def get_installation(self, owner, repo=None, account_type=None):
-        if not account_type and not repo:
-            raise RuntimeError("repo or account_type must be passed")
-
-        if repo:
-            url = f"/repos/{owner}/{repo}/installation"
-        else:
-            account_type = "users" if account_type.lower() == "user" else "orgs"
-            url = f"/{account_type}/{owner}/installation"
-
+async def get_installation(account):
+    owner = account["login"]
+    account_type = "users" if account["type"].lower() == "user" else "orgs"
+    url = f"{config.GITHUB_API_URL}/{account_type}/{owner}/installation"
+    async with http.AsyncClient(
+        auth=GithubBearerAuth(), **http.DEFAULT_CLIENT_OPTIONS
+    ) as client:
         try:
-            return validate_installation(self.get(url).json())
+            return validate_installation((await client.get(url)).json())
         except http.HTTPNotFound as e:
             LOG.debug(
-                "mergify not installed",
-                gh_owner=owner,
-                gh_repo=repo,
-                error_message=e.message,
+                "mergify not installed", gh_owner=owner, error_message=e.message,
             )
             raise exceptions.MergifyNotInstalled()
-
-
-class _AsyncClient(http.AsyncClient):
-    def __init__(self):
-        super().__init__(
-            base_url=config.GITHUB_API_URL,
-            auth=GithubBearerAuth(),
-            **http.DEFAULT_CLIENT_OPTIONS,
-        )
-
-    async def get_installation(self, owner, repo=None, account_type=None):
-        if not account_type and not repo:
-            raise RuntimeError("repo or account_type must be passed")
-
-        if repo:
-            url = f"/repos/{owner}/{repo}/installation"
-        else:
-            account_type = "users" if account_type.lower() == "user" else "orgs"
-            url = f"/{account_type}/{owner}/installation"
-
-        try:
-            return validate_installation((await self.get(url)).json())
-        except http.HTTPNotFound as e:
-            LOG.debug(
-                "mergify not installed",
-                gh_owner=owner,
-                gh_repo=repo,
-                error_message=e.message,
-            )
-            raise exceptions.MergifyNotInstalled()
-
-
-global GITHUB_APP_CLIENTS
-GITHUB_APP_CLIENTS = threading.local()
-
-
-def aget_client():
-    if not hasattr(GITHUB_APP_CLIENTS, "async_client"):
-        GITHUB_APP_CLIENTS.async_client = _AsyncClient()
-    return GITHUB_APP_CLIENTS.async_client
-
-
-def get_client():
-    if not hasattr(GITHUB_APP_CLIENTS, "client"):
-        GITHUB_APP_CLIENTS.client = _Client()
-    return GITHUB_APP_CLIENTS.client
