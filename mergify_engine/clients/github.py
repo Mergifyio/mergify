@@ -326,11 +326,6 @@ async def aget_client(*args, **kwargs):
     return client
 
 
-async def aget_installation_by_id(installation_id):
-    client = github_app.aget_client()
-    return await client.get_installation_by_id(installation_id)
-
-
 class GithubInstallationClient(http.Client):
     def __init__(self, owner, repo):
         self.owner = owner
@@ -442,22 +437,3 @@ def get_client(*args, **kwargs):
     client = GithubInstallationClient(*args, **kwargs)
     client.check_rate_limit()
     return client
-
-
-def get_github_action_installation():
-    return {
-        "id": config.ACTION_ID,
-        "permissions_need_to_be_updated": False,
-    }
-
-
-def get_installation_by_id(installation_id):
-    if config.GITHUB_APP:
-        return github_app.get_client().get_installation_by_id(installation_id)
-    elif installation_id == config.ACTION_ID:
-        return {
-            "id": config.ACTION_ID,
-            "permissions_need_to_be_updated": False,
-        }
-    else:
-        raise RuntimeError("Unexpected installation id")
