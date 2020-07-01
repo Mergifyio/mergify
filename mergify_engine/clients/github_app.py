@@ -80,8 +80,7 @@ class JwtHandler:
 get_or_create_jwt = JwtHandler().get_or_create
 
 
-def validate_installation(installation):
-    installation["permissions_need_to_be_updated"] = False
+def permissions_need_to_be_updated(installation):
     expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
     for perm_name, perm_level in expected_permissions.items():
         if installation["permissions"].get(perm_name) != perm_level:
@@ -90,12 +89,12 @@ def validate_installation(installation):
                 gh_owner=installation["account"]["login"],
                 permissions=installation["permissions"],
             )
-            installation["permissions_need_to_be_updated"] = True
             # FIXME(sileht): Looks like ton of people have not all permissions
             # Or this is buggy, so disable it for now.
             if perm_name in ["checks", "pull_requests", "contents"]:
                 raise exceptions.MergifyNotInstalled()
-    return installation
+            return True
+    return False
 
 
 class GithubBearerAuth(httpx.Auth):
@@ -117,7 +116,9 @@ async def get_installation(account):
         auth=GithubBearerAuth(), **http.DEFAULT_CLIENT_OPTIONS
     ) as client:
         try:
-            return validate_installation((await client.get(url)).json())
+            installation = (await client.get(url)).json()
+            permissions_need_to_be_updated(installation)
+            return installation
         except http.HTTPNotFound as e:
             LOG.debug(
                 "mergify not installed", gh_owner=owner, error_message=e.message,
