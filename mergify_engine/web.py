@@ -219,26 +219,7 @@ class PullRequestUrlInvalid(voluptuous.Invalid):
 def PullRequestUrl(v):
     _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
     pull_number = int(pull_number)
-
-    try:
-        with github.get_client(owner, repo) as client:
-            try:
-                data = client.item(f"pulls/{pull_number}")
-            except http.HTTPNotFound:
-                raise PullRequestUrlInvalid(message=("Pull request '%s' not found" % v))
-
-            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
-
-            return context.Context(
-                client,
-                data,
-                subscription,
-                [{"event_type": "mergify-simulator", "data": []}],
-            )
-    except exceptions.MergifyNotInstalled:
-        raise PullRequestUrlInvalid(
-            message="Mergify not installed on repository '%s'" % owner
-        )
+    return owner, repo, pull_number
 
 
 SimulatorSchema = voluptuous.Schema(
@@ -277,25 +258,48 @@ async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
     return responses.JSONResponse(status_code=400, content=payload)
 
 
-def _sync_simulator(payload):
-    data = SimulatorSchema(payload)
-    ctxt = data["pull_request"]
-    if ctxt:
-        with ctxt.client:
-            pull_request_rules = data["mergify.yml"]["pull_request_rules"]
+def _sync_simulator(pull_request_rules, owner, repo, pull_number):
+    try:
+        with github.get_client(owner, repo) as client:
+            try:
+                data = client.item(f"pulls/{pull_number}")
+            except http.HTTPNotFound:
+                raise PullRequestUrlInvalid(
+                    message=f"Pull request '{owner}/{repo}/pull/{pull_number}%s' not found"
+                )
+
+            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
+
+            ctxt = context.Context(
+                client,
+                data,
+                subscription,
+                [{"event_type": "mergify-simulator", "data": []}],
+            )
             match = pull_request_rules.get_pull_request_rule(ctxt)
             return actions_runner.gen_summary(ctxt, match)
-    else:
-        return ("The configuration is valid", None)
+    except exceptions.MergifyNotInstalled:
+        raise PullRequestUrlInvalid(
+            message="Mergify not installed on repository '%s'" % owner
+        )
 
 
 @app.post("/simulator", dependencies=[fastapi.Depends(authentification)])
 async def simulator(request: requests.Request):
-    payload = await request.json()
-    loop = asyncio.get_running_loop()
-    title, summary = await loop.run_in_executor(
-        None, functools.partial(_sync_simulator, payload)
-    )
+    data = SimulatorSchema(await request.json())
+    if data["pull_request"]:
+        loop = asyncio.get_running_loop()
+        title, summary = await loop.run_in_executor(
+            None,
+            functools.partial(
+                _sync_simulator,
+                data["mergify.yml"]["pull_request_rules"],
+                *data["pull_request"],
+            ),
+        )
+    else:
+        title, summary = ("The configuration is valid", None)
+
     return responses.JSONResponse(
         status_code=200, content={"title": title, "summary": summary}
     )
