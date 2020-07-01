@@ -552,6 +552,97 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
+    def test_merge_strict_rebase_with_user(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "smart strict merge on master",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "#approved-reviews-by>=1",
+                    ],
+                    "actions": {
+                        "merge": {
+                            "strict": True,
+                            "strict_method": "rebase",
+                            "bot_account": "mergify-test-1",
+                        }
+                    },
+                }
+            ]
+        }
+
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
+
+        p.merge()
+        self.wait_for("pull_request", {"action": "closed"}),
+
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
+
+        self.wait_for("pull_request", {"action": "synchronize"})
+
+        p2 = self.r_o_admin.get_pull(p2.number)
+        commits2 = list(p2.get_commits())
+        events2 = list(p2.get_issue_events())
+
+        assert 1 == len(commits2)
+        assert commits[0].sha != commits2[0].sha
+        assert commits[0].commit.message == commits2[0].commit.message
+        assert events2[0].actor.login == "mergify-test1"
+
+    def test_merge_strict_rebase_with_invalid_user(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "smart strict merge on master",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "#approved-reviews-by>=1",
+                    ],
+                    "actions": {
+                        "merge": {
+                            "strict": True,
+                            "strict_method": "rebase",
+                            "bot_account": "not-exists",
+                        }
+                    },
+                }
+            ]
+        }
+
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+
+        p, _ = self.create_pr()
+        p2, commits = self.create_pr()
+
+        p.merge()
+        self.wait_for("pull_request", {"action": "closed"}),
+
+        self.create_status(p2)
+        self.create_review(p2, commits[0])
+
+        self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+
+        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        checks = list(
+            c
+            for c in ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: smart strict merge on master (merge)"
+        )
+        assert checks[0]["output"]["title"] == "Base branch update has failed"
+        assert checks[0]["output"]["summary"].startswith(
+            "Unable to rebase: user `not-exists` is unknown. "
+            "Please make sure `not-exists` has logged in Mergify dashboard"
+        )
+
     def test_merge_strict_default(self):
         rules = {
             "pull_request_rules": [

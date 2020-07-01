@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import voluptuous
+
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import config
@@ -22,10 +24,13 @@ from mergify_engine import config
 class RebaseAction(actions.Action):
     is_command = True
 
-    validator = {}
+    validator = {
+        voluptuous.Required("prefered_user_login", default=None): voluptuous.Any(
+            None, str
+        ),
+    }
 
-    @staticmethod
-    def run(ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions):
         if not config.GITHUB_APP:
             return (
                 "failure",
@@ -36,7 +41,9 @@ class RebaseAction(actions.Action):
 
         if ctxt.is_behind:
             try:
-                branch_updater.update_with_git(ctxt, "rebase")
+                branch_updater.update_with_git(
+                    ctxt, "rebase", self.config["prefered_user_login"]
+                )
             except branch_updater.BranchUpdateFailure as e:
                 return "failure", "Branch rebase failed", str(e)
         else:

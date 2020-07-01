@@ -71,14 +71,6 @@ class Queue:
     def _method_cache_key(self, pull_number):
         return f"strict-merge-method~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
-    def get_merge_method(self, pull_number: int) -> str:
-        """Return merge method for a pull request.
-
-        :param pull_number: The pull request number.
-        :param default: The default method to return if not found.
-        """
-        return self.get_config(pull_number)["strict_method"]
-
     def get_config(self, pull_number: int) -> dict:
         """Return merge config for a pull request.
 
@@ -185,8 +177,10 @@ class Queue:
             self.remove_pull(ctxt.pull["number"])
         else:
             ctxt.log.info("updating base branch of pull request")
-            method = self.get_merge_method(ctxt.pull["number"])
-            conclusion, title, summary = helpers.update_pull_base_branch(ctxt, method)
+            config = self.get_config(ctxt.pull["number"])
+            conclusion, title, summary = helpers.update_pull_base_branch(
+                ctxt, config["strict_method"], config["bot_account"],
+            )
 
             if ctxt.pull["state"] == "closed":
                 ctxt.log.info(

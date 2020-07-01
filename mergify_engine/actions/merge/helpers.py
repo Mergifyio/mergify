@@ -131,12 +131,12 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
     return None, title, summary
 
 
-def update_pull_base_branch(ctxt, method):
+def update_pull_base_branch(ctxt, method, user):
     try:
         if method == "merge":
             branch_updater.update_with_api(ctxt)
         else:
-            branch_updater.update_with_git(ctxt, method)
+            branch_updater.update_with_git(ctxt, method, user)
     except branch_updater.BranchUpdateFailure as e:
         # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
         # in the meantime. So double check that to not report a wrong status

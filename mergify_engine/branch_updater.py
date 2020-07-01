@@ -216,10 +216,22 @@ def update_with_api(ctxt):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(AuthentificationFailure),
 )
-def update_with_git(ctxt, method="merge"):
+def update_with_git(ctxt, method="merge", user=None):
     subscription = asyncio.run(sub_utils.get_subscription(ctxt.client.auth.owner_id))
 
-    for login, token in subscription["tokens"].items():
+    creds = dict(
+        (login.lower(), token) for login, token in subscription["tokens"].items()
+    )
+    if user:
+        if user.lower() in creds:
+            creds = {user: creds[user]}
+        else:
+            raise BranchUpdateFailure(
+                f"Unable to rebase: user `{user}` is unknown. "
+                f"Please make sure `{user}` has logged in Mergify dashboard."
+            )
+
+    for login, token in creds.items():
         try:
             return _do_update(ctxt, token, method)
         except AuthentificationFailure as e:  # pragma: no cover
