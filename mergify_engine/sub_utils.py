@@ -97,7 +97,7 @@ async def _retrieve_subscription_from_db(owner_id):
     async with http.AsyncClient() as client:
         try:
             resp = await client.get(
-                f"{config.SUBSCRIPTION_URL_BASE}/engine/github-account/{owner_id}",
+                f"{config.SUBSCRIPTION_BASE_URL}/engine/github-account/{owner_id}",
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
         except http.HTTPNotFound as e:
