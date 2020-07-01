@@ -76,6 +76,46 @@ class GithubActionAccessTokenAuth(httpx.Auth):
         yield request
 
 
+class GithubTokenAuth(httpx.Auth):
+    def __init__(self, owner, repo, token):
+        self._token = token
+        self.owner = owner
+        self.repo = repo
+        self.permissions_need_to_be_updated = False
+
+        self.owner_id = None
+
+    @property
+    def installation(self):
+        raise RuntimeError(
+            f"{self.__class__.__name__} must not be used for installation dependent code"
+        )
+
+    @contextlib.contextmanager
+    def response_body_read(self):
+        self.requires_response_body = True
+        try:
+            yield
+        finally:
+            self.requires_response_body = False
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"token {self._token}"
+        if self.owner_id is None:
+            with self.response_body_read():
+                user_response = yield self.build_request(
+                    "GET", f"{config.GITHUB_API_URL}/users/{self.owner}"
+                )
+                http.raise_for_status(user_response)
+                self.owner_id = user_response.json()["login"]
+        yield request
+
+    def build_request(self, method, url):
+        headers = http.DEFAULT_CLIENT_OPTIONS["headers"].copy()
+        headers["Authorization"] = f"token {self._token}"
+        return httpx.Request(method, url, headers=headers)
+
+
 class GithubAppInstallationAuth(httpx.Auth):
     def __init__(self, owner, repo):
         self.owner = owner
