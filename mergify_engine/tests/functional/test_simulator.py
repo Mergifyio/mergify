@@ -18,6 +18,7 @@ import operator
 
 import yaml
 
+from mergify_engine import config
 from mergify_engine.tests.functional import base
 
 
@@ -28,7 +29,56 @@ class TestSimulator(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
-    def test_simulator(self):
+    def test_simulator_with_token(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "simulator",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        mergify_yaml = f"""pull_request_rules:
+  - name: assign
+    conditions:
+      - base={self.master_branch_name}
+    actions:
+      assign:
+        users:
+          - mergify-test1
+"""
+
+        r = self.app.post(
+            "/simulator",
+            json={"pull_request": None, "mergify.yml": mergify_yaml},
+            headers={
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200, r.json()
+        assert r.json()["title"] == "The configuration is valid"
+        assert r.json()["summary"] is None
+
+        r = self.app.post(
+            "/simulator",
+            json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
+            headers={
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.json()["title"] == "1 rule matches"
+        assert r.json()["summary"].startswith(
+            f"#### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
+        )
+
+    def test_simulator_with_signature(self):
         rules = {
             "pull_request_rules": [
                 {

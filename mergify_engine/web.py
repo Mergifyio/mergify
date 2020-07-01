@@ -81,6 +81,25 @@ async def authentification(request: requests.Request):
         raise fastapi.HTTPException(status_code=403)
 
 
+async def simulator_authentification(request: requests.Request):
+    authorization = request.headers.get("Authorization")
+    if authorization:
+        if authorization.startswith("token "):
+            try:
+                options = http.DEFAULT_CLIENT_OPTIONS.copy()
+                options["headers"]["Authorization"] = authorization
+                async with http.AsyncClient(
+                    base_url=config.GITHUB_API_URL, **options
+                ) as client:
+                    await client.get("/user")
+            except http.HTTPError as e:
+                raise fastapi.HTTPException(status_code=e.response.status_code)
+        else:
+            raise fastapi.HTTPException(status_code=403)
+    else:
+        await authentification(request)
+
+
 async def http_post(*args, **kwargs):
     # Set the maximum timeout to 3 seconds: GitHub is not going to wait for
     # more than 10 seconds for us to accept an event, so if we're unable to
@@ -258,9 +277,14 @@ async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
     return responses.JSONResponse(status_code=400, content=payload)
 
 
-def _sync_simulator(pull_request_rules, owner, repo, pull_number):
+def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
     try:
-        with github.get_client(owner, repo) as client:
+        if token:
+            auth = github.GithubTokenAuth(owner, repo, token)
+        else:
+            auth = github.get_auth(owner, repo)
+
+        with github.get_client(auth=auth) as client:
             try:
                 data = client.item(f"pulls/{pull_number}")
             except http.HTTPNotFound:
@@ -284,8 +308,12 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number):
         )
 
 
-@app.post("/simulator", dependencies=[fastapi.Depends(authentification)])
+@app.post("/simulator", dependencies=[fastapi.Depends(simulator_authentification)])
 async def simulator(request: requests.Request):
+    token = request.headers.get("Authorization")
+    if token:
+        token = token[6:]  # Drop 'token '
+
     data = SimulatorSchema(await request.json())
     if data["pull_request"]:
         loop = asyncio.get_running_loop()
@@ -295,6 +323,7 @@ async def simulator(request: requests.Request):
                 _sync_simulator,
                 data["mergify.yml"]["pull_request_rules"],
                 *data["pull_request"],
+                token=token,
             ),
         )
     else:
