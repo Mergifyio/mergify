@@ -216,7 +216,6 @@ class Queue:
         LOG.info("smart strict workflow loop start")
         for queue_name in redis.keys("strict-merge-queues~*"):
             queue = cls.from_queue_name(redis, queue_name)
-            queue.log.info("handling queue")
             try:
                 queue.process()
             except exceptions.MergifyNotInstalled:
