@@ -34,9 +34,10 @@ class RebaseAction(actions.Action):
                 "with the Mergify GitHub App.",
             )
 
-        try:
-            branch_updater.update_with_git(ctxt, "rebase")
-        except branch_updater.BranchUpdateFailure as e:
-            return "failure", "Branch rebase failed", str(e)
+        if ctxt.is_behind:
+            try:
+                branch_updater.update_with_git(ctxt, "rebase")
+            except branch_updater.BranchUpdateFailure as e:
+                return "failure", "Branch rebase failed", str(e)
         else:
-            return "success", "Branch has been successfully rebased", ""
+            return "success", "Branch already up to date", ""
