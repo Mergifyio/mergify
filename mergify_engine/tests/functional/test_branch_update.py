@@ -51,7 +51,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
                 {
                     "name": "auto-rebase-on-label",
                     "conditions": ["label=rebase"],
-                    "actions": {"comment": {"message": "@mergifyio rebase it please"}},
+                    "actions": {"comment": {"message": "nothing"}},
                 }
             ]
         }
@@ -59,7 +59,9 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         p1, _ = self.create_pr(files={"TESTING": "foobar\n\n\np1"})
         p2, _ = self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
         p1.merge()
-        self.add_label(p2, "rebase")
+        self.wait_for("pull_request", {"action": "closed"})
+
+        self.create_message(p2, "@mergifyio rebase")
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
