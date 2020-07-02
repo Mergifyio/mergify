@@ -123,22 +123,20 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
         ctxt, sha, check_name=actions_runner.SUMMARY_NAME,
     )
     checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
-
-    if not checks:
-        ctxt.log.warning(
-            "Got synchronize event but didn't find Summary on previous head sha",
+    if checks:
+        check_api.set_check_run(
+            ctxt,
+            actions_runner.SUMMARY_NAME,
+            "completed",
+            "success",
+            output={
+                "title": checks[0]["output"]["title"],
+                "summary": checks[0]["output"]["summary"],
+            },
         )
-        return
-    check_api.set_check_run(
-        ctxt,
-        actions_runner.SUMMARY_NAME,
-        "completed",
-        "success",
-        output={
-            "title": checks[0]["output"]["title"],
-            "summary": checks[0]["output"]["summary"],
-        },
-    )
+        return True
+    else:
+        return False
 
 
 def run(client, pull, subscription, sources):
@@ -238,16 +236,32 @@ def run(client, pull, subscription, sources):
     # we can't directly get the previous Mergify Summary. So we copy it here, then
     # anything that looks at it in next engine runs will find it.
 
-    synchronize_data = [
-        s["data"]
-        for s in ctxt.sources
-        if s["event_type"] == "pull_request"
-        and s["data"]["action"] == "synchronize"
-        and s["data"]["after"] == ctxt.pull["head"]["sha"]
-    ]
-    if synchronize_data:
+    synchronize_events = dict(
+        (
+            (s["data"]["after"], s["data"])
+            for s in ctxt.sources
+            if s["event_type"] == "pull_request"
+            and s["data"]["action"] == "synchronize"
+        )
+    )
+    if synchronize_events:
         ctxt.log.debug("engine synchronize summary")
-        copy_summary_from_previous_head_sha(ctxt, synchronize_data[0]["before"])
+
+        # NOTE(sileht): We sometimes got many synchronize in a row, that not always the
+        # last one that have the Summary, so we also looks in older one if necessary.
+        after_sha = ctxt.pull["head"]["sha"]
+        while synchronize_events:
+            sync_event = synchronize_events.pop(after_sha, None)
+            if sync_event:
+                if copy_summary_from_previous_head_sha(ctxt, sync_event["before"]):
+                    break
+                else:
+                    after_sha = sync_event["before"]
+            else:
+                ctxt.log.warning(
+                    "Got synchronize event but didn't find Summary on previous head sha",
+                )
+                break
 
     ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
