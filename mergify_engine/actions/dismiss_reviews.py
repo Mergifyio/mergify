@@ -27,10 +27,10 @@ from mergify_engine.rules import types
 class DismissReviewsAction(actions.Action):
     validator = {
         voluptuous.Required("approved", default=True): voluptuous.Any(
-            True, False, [str]
+            True, False, [types.GitHubLogin]
         ),
         voluptuous.Required("changes_requested", default=True): voluptuous.Any(
-            True, False, [str]
+            True, False, [types.GitHubLogin]
         ),
         voluptuous.Required(
             "message", default="Pull request has been modified."

@@ -68,3 +68,45 @@ def Jinja2(value):
             "Template syntax error", error_message=str(rtf), path=path
         )
     return value
+
+
+def _check_GitHubLogin_format(value, type="login"):
+    # GitHub says login cannot:
+    # - start with an hyphen
+    # - ends with an hyphen
+    # - contains something else than hyphen and alpha numericals characters
+    if not value:
+        raise voluptuous.Invalid(f"A GitHub {type} cannot be an empty string")
+    if (
+        value[0] == "-"
+        or value[-1] == "-"
+        or not value.isascii()
+        or not value.replace("-", "").isalnum()
+    ):
+        raise voluptuous.Invalid(f"GitHub {type} contains invalid characters")
+    return value
+
+
+GitHubLogin = voluptuous.All(str, _check_GitHubLogin_format)
+
+
+def _check_GitHubTeam_format(value):
+    if not value:
+        raise voluptuous.Invalid("A GitHub team cannot be an empty string")
+
+    # Remove leading @ if any:
+    # This format is accepted in conditions so we're happy to accept it here too.
+    if value[0] == "@":
+        value = value[1:]
+
+    org, sep, team = value.partition("/")
+
+    if sep == "" and team == "":
+        # Just a slug
+        return _check_GitHubLogin_format(org, "team")
+
+    _check_GitHubLogin_format(org, "organization")
+    return _check_GitHubLogin_format(team, "team")
+
+
+GitHubTeam = voluptuous.All(str, _check_GitHubTeam_format)
