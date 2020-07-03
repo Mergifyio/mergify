@@ -23,7 +23,11 @@ from mergify_engine.rules import types
 
 
 class AssignAction(actions.Action):
-    validator = {voluptuous.Required("users", default=[]): [types.Jinja2]}
+    validator = {
+        voluptuous.Required("users", default=[]): [
+            voluptuous.Coerce(types.Jinja2, types.GitHubLogin)
+        ]
+    }
 
     silent_report = True
 

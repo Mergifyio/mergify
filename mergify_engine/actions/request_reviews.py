@@ -4,6 +4,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine.clients import http
+from mergify_engine.rules import types
 
 
 class RequestReviewsAction(actions.Action):
@@ -14,8 +15,8 @@ class RequestReviewsAction(actions.Action):
     GITHUB_MAXIMUM_REVIEW_REQUEST = 15
 
     validator = {
-        voluptuous.Required("users", default=[]): [str],
-        voluptuous.Required("teams", default=[]): [str],
+        voluptuous.Required("users", default=[]): [types.GitHubLogin],
+        voluptuous.Required("teams", default=[]): [types.GitHubTeam],
     }
 
     silent_report = True
