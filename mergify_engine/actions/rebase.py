@@ -25,9 +25,7 @@ class RebaseAction(actions.Action):
     is_command = True
 
     validator = {
-        voluptuous.Required("prefered_user_login", default=None): voluptuous.Any(
-            None, str
-        ),
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(None, str),
     }
 
     def run(self, ctxt, rule, missing_conditions):
@@ -42,7 +40,7 @@ class RebaseAction(actions.Action):
         if ctxt.is_behind:
             try:
                 branch_updater.update_with_git(
-                    ctxt, "rebase", self.config["prefered_user_login"]
+                    ctxt, "rebase", self.config["bot_account"]
                 )
             except branch_updater.BranchUpdateFailure as e:
                 return "failure", "Branch rebase failed", str(e)
