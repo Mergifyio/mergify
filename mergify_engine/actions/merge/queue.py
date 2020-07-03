@@ -87,6 +87,7 @@ class Queue:
         config = json.loads(config)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
         config.setdefault("effective_priority", config["priority"])
+        config.setdefault("bot_account", None)
         return config
 
     def _add_pull(self, pull_number, priority, update=False):
