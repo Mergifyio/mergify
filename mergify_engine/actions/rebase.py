@@ -19,13 +19,16 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import config
+from mergify_engine.rules import types
 
 
 class RebaseAction(actions.Action):
     is_command = True
 
     validator = {
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
     }
 
     def run(self, ctxt, rule, missing_conditions):

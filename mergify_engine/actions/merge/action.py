@@ -26,6 +26,7 @@ from mergify_engine import context
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import http
+from mergify_engine.rules import types
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -69,7 +70,9 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
             "default", "title+body"
         ),
