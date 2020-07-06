@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Julien Danjou <jd@mergify.io>
+# Copyright © 2018—2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -34,6 +34,9 @@ from mergify_engine.rules import parser
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
         ("#assignee=3", {"=": ("#assignee", 3)}),
         ("#assignee>1", {">": ("#assignee", 1)}),
+        ("author=jd", {"=": ("author", "jd")}),
+        ("author=mergify[bot]", {"=": ("author", "mergify[bot]")}),
+        ("author=foo-bar", {"=": ("author", "foo-bar")}),
         ("#assignee>=2", {">=": ("#assignee", 2)}),
         ("number>=2", {">=": ("number", 2)}),
         ("assignee=@org/team", {"=": ("assignee", "@org/team")}),
@@ -54,7 +57,16 @@ def test_search(line, result):
 
 @pytest.mark.parametrize(
     "line",
-    ("arf", "-heyo", "locked=1", "++head=master", "foo=bar", "#foo=bar", "number=foo"),
+    (
+        "arf",
+        "-heyo",
+        "locked=1",
+        "++head=master",
+        "foo=bar",
+        "#foo=bar",
+        "number=foo",
+        "author=%foobar",
+    ),
 )
 def test_invalid(line):
     with pytest.raises(pyparsing.ParseException):

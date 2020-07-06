@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Julien Danjou <jd@mergify.io>
+# Copyright © 2018—2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,7 +19,7 @@ import pyparsing
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
 integer = pyparsing.Word(pyparsing.nums).setParseAction(lambda toks: int(toks[0]))
-github_login = pyparsing.CharsNotIn(" /@")
+github_login = pyparsing.Word(pyparsing.alphanums + "-[]")
 github_team = pyparsing.Combine(
     pyparsing.Literal("@") + github_login + pyparsing.Literal("/") + github_login
 ) | pyparsing.Combine(pyparsing.Literal("@") + github_login)
