@@ -1,8 +1,8 @@
 .. _examples:
 
-===============
- Example Rules
-===============
+=================
+🧪 Example Rules
+=================
 
 Mergify allows you to define a lot of specific rules. There is a large number
 of criterias available to define rules: pull request author, base branch,

@@ -1,6 +1,6 @@
-===
-FAQ
-===
+======
+💬 FAQ
+======
 
 Mergify is unable to merge my pull request due to my branch protection settings
 -------------------------------------------------------------------------------
