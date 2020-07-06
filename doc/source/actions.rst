@@ -1,8 +1,8 @@
 .. _Actions:
 
-=========
- Actions
-=========
+==========
+🚀 Actions
+==========
 
 When a pull request matches the list of :ref:`Conditions` of a rule, the
 actions configured in that rule are executed by Mergify. The actions should be
