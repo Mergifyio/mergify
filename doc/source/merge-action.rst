@@ -1,8 +1,8 @@
 .. _mastering merge:
 
-===============================
- Delving into the Merge Action
-===============================
+=================================
+🔀 Delving into the Merge Action
+=================================
 
 Mergify comes with some powerful options when it comes to merging your pull
 requests. While all the options are listed in the :ref:`merge action` action
