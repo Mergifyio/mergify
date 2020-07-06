@@ -364,9 +364,11 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``bot_account``
      - string
      -
-     - For certain actions, such as rebasing branches, Mergify has to impersonate a GitHub user.
-       If no ``bot_account`` is set, Mergify picks randomly one of the organization users instead.
-       The user **must** have already been logged in the dashboard once.
+     - For certain actions, such as rebasing branches, Mergify has to
+       impersonate a GitHub user. You can specify the account to use with this
+       option. If no ``bot_account`` is set, Mergify picks randomly one of the
+       organization users instead. The user account **must** have already been
+       logged in Mergify dashboard once.
 
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
@@ -516,9 +518,11 @@ The ``rebase`` action will rebase the pull request against its base branch.
   * - ``bot_account``
     - string
     -
-    - For rebasing branches, Mergify has to impersonate a GitHub user.
-      If no ``bot_account`` is set, Mergify picks randomly one of the organization users instead.
-      The user **must** have already been logged in the dashboard once.
+    - For certain actions, such as rebasing branches, Mergify has to
+      impersonate a GitHub user. You can specify the account to use with this
+      option. If no ``bot_account`` is set, Mergify picks randomly one of the
+      organization users instead. The user account **must** have already been
+      logged in Mergify dashboard once.
 
 .. warning::
 
