@@ -1,8 +1,8 @@
 .. _Commands:
 
-==========
- Commands
-==========
+============
+ ⚙️ Commands
+============
 
 Mergify is able to run some :ref:`Actions` directly without leveraging the rule
 system. By commenting on a pull request, you can ask Mergify to executes some

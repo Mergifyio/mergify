@@ -1,8 +1,8 @@
 .. _configuration file format:
 
-====================
- Configuration File
-====================
+=====================
+🔖 Configuration File
+=====================
 
 File Used
 ---------

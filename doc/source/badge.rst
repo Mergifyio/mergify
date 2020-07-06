@@ -1,8 +1,8 @@
 .. _Badge:
 
-======
- Badge
-======
+=======
+🎖 Badge
+=======
 
 Mergify offers badges that you can use in your project to inform contributors
 that your repository is managed by Mergify.

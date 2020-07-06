@@ -1,8 +1,8 @@
 .. _Conditions:
 
-============
- Conditions
-============
+=============
+🎯 Conditions
+=============
 
 Conditions are used in pull request rules to check if a pull request matches a
 certain rule. If a pull request matches all of the listed conditions in a rule,
