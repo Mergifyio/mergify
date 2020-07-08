@@ -28,9 +28,6 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
-UNRECOVERABLE_ERROR = ["head repository does not exist"]
-
-
 class BranchUpdateFailure(Exception):
     def __init__(self, msg=""):
         error_code = "err-code: %s" % uuid.uuid4().hex[-5:].upper()
@@ -192,16 +189,19 @@ def update_with_api(ctxt):
             json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
     except http.HTTPClientSideError as e:
-        if e.status_code == 422 and e.message not in UNRECOVERABLE_ERROR:
-            ctxt.log.info(
-                "branch updated in the meantime", status=e.status_code, error=e.message,
-            )
-            return
-        else:
-            ctxt.log.info(
-                "update branch failed", status=e.status_code, error=e.message,
-            )
-            raise BranchUpdateFailure(e.message)
+        if e.status_code == 422:
+            refreshed_pull = ctxt.client.item(f"pulls/{ctxt.pull['pull_number']}")
+            if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
+                ctxt.log.info(
+                    "branch updated in the meantime",
+                    status=e.status_code,
+                    error=e.message,
+                )
+                return
+        ctxt.log.info(
+            "update branch failed", status=e.status_code, error=e.message,
+        )
+        raise BranchUpdateFailure(e.message)
     except http.HTTPError as e:
         ctxt.log.info(
             "update branch failed",
