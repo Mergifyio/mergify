@@ -190,7 +190,7 @@ def update_with_api(ctxt):
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422:
-            refreshed_pull = ctxt.client.item(f"pulls/{ctxt.pull['pull_number']}")
+            refreshed_pull = ctxt.client.item(f"pulls/{ctxt.pull['number']}")
             if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
                 ctxt.log.info(
                     "branch updated in the meantime",
