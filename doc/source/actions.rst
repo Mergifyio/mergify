@@ -325,7 +325,7 @@ The ``merge`` action merges the pull request into its base branch. The
        rebased, the method defined in ``rebase_fallback`` will be used instead.
        Possible values are ``merge``, ``squash``, ``null``.
    * - ``strict``
-     - Boolean or ``smart``
+     - Boolean, ``smart`` or ``smart+fasttrack``
      - ``false``
      - Determines whether to use :ref:`strict merge`:
 
