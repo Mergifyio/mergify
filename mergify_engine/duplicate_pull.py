@@ -179,7 +179,7 @@ def duplicate(
 
     repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
     if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
-        if ctxt.subscription["subscription_active"]:
+        if not ctxt.subscription["subscription_active"]:
             ctxt.log.warning(
                 "repository too big and no subscription active, refusing to %s",
                 kind,
