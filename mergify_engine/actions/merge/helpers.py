@@ -51,7 +51,7 @@ def merge_report(ctxt, strict):
 
     # NOTE(sileht): Take care of all branch protection state
     elif ctxt.pull["mergeable_state"] == "dirty":
-        conclusion = "failure"
+        conclusion = "cancelled"
         title = "Merge conflict needs to be solved"
         summary = ""
     elif ctxt.pull["mergeable_state"] == "unknown":
