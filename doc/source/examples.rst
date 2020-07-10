@@ -419,7 +419,7 @@ request happen, you could write a rule that says something about it.
           - conflict
         actions:
             comment:
-              message: This pull request is now in conflicts. Could you fix it? 🙏
+              message: This pull request is now in conflicts. Could you fix it @{{author}}? 🙏
 
 The same goes if one of your check fails. It might be good to give a few hints
 to your contributor:
