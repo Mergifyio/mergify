@@ -207,26 +207,24 @@ async def refresh_branch(owner, repo, branch):
 
 
 @app.put(
-    "/subscription-cache/{installation_id}",
-    dependencies=[fastapi.Depends(authentification)],
+    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(authentification)],
 )
 async def subscription_cache_update(
-    installation_id, request: requests.Request
+    owner_id, request: requests.Request
 ):  # pragma: no cover
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
-    await sub_utils.save_subscription_to_cache(installation_id, sub)
+    await sub_utils.save_subscription_to_cache(owner_id, sub)
     return responses.Response("Cache updated", status_code=200)
 
 
 @app.delete(
-    "/subscription-cache/{installation_id}",
-    dependencies=[fastapi.Depends(authentification)],
+    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(authentification)],
 )
-async def subscription_cache_delete(installation_id):  # pragma: no cover
+async def subscription_cache_delete(owner_id):  # pragma: no cover
     r = await utils.get_aredis_for_cache()
-    await r.delete("subscription-cache-%s" % installation_id)
+    await r.delete("subscription-cache-owner-%s" % owner_id)
     return responses.Response("Cache cleaned", status_code=200)
 
 
