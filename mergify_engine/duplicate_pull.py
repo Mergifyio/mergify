@@ -36,7 +36,7 @@ class DuplicateFailed(Exception):
 GIT_MESSAGE_TO_EXCEPTION = {
     b"No such device or address": DuplicateNeedRetry,
     b"Could not resolve host": DuplicateNeedRetry,
-    b"the remote end hung up unexpectedly": DuplicateNeedRetry,
+    b"remote end hung up unexpectedly": DuplicateNeedRetry,
     b"Operation timed out": DuplicateNeedRetry,
     b"reference already exists": None,
     b"Aborting commit due to empty commit message": None,
