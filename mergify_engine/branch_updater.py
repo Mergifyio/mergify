@@ -223,8 +223,9 @@ def update_with_git(ctxt, method="merge", user=None):
         (login.lower(), token) for login, token in subscription["tokens"].items()
     )
     if user:
-        if user.lower() in creds:
-            creds = {user: creds[user]}
+        token = creds.get(user.lower())
+        if token:
+            creds = {user: token}
         else:
             raise BranchUpdateFailure(
                 f"Unable to rebase: user `{user}` is unknown. "
