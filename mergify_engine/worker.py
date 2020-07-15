@@ -28,7 +28,6 @@ from typing import Set
 import daiquiri
 from datadog import statsd
 import msgpack
-import sentry_sdk
 
 from mergify_engine import config
 from mergify_engine import engine
@@ -86,11 +85,6 @@ class StreamUnused(Exception):
 
 
 async def push(redis, owner, repo, pull_number, event_type, data):
-    with sentry_sdk.configure_scope() as scope:
-        scope.user = {
-            "username": owner,
-        }
-
     stream_name = f"stream~{owner}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
@@ -321,11 +315,6 @@ class StreamProcessor:
 
     async def consume(self, stream_name):
         owner = stream_name.split("~", 1)[1]
-
-        with sentry_sdk.configure_scope() as scope:
-            scope.user = {
-                "username": owner,
-            }
 
         try:
             pulls = await self._extract_pulls_from_stream(stream_name)
