@@ -15,9 +15,9 @@
 import base64
 import copy
 
-from datadog import statsd
 import yaml
 
+from datadog import statsd
 from mergify_engine import check_api
 from mergify_engine import doc
 
@@ -42,19 +42,11 @@ def get_already_merged_summary(ctxt, match):
     ):
         return ""
 
-    action_merge_found = False
-    action_merge_found_in_active_rule = False
-
     for rule, missing_conditions in match.matching_rules:
-        if "merge" in rule["actions"]:
-            action_merge_found = True
-            if not missing_conditions:
-                action_merge_found_in_active_rule = True
-
-    # We already have a fully detailled status in the rule associated with the
-    # action merge
-    if not action_merge_found or action_merge_found_in_active_rule:
-        return ""
+        if "merge" in rule["actions"] and not missing_conditions:
+            # We already have a fully detailled status in the rule associated with the
+            # action merge, it have been merge by us
+            return ""
 
     # NOTE(sileht): While this looks impossible because the pull request haven't been
     # merged by our engine. If this pull request was a slice of another one, Github close
