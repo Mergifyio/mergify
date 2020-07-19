@@ -82,7 +82,6 @@ def run():
                         "Content-type": "application/json",
                     },
                     data=data,
-                    verify=False,
                 )
         except Exception:
             LOG.error("event handling failure", exc_info=True)
