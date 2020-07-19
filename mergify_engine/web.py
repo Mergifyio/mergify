@@ -287,7 +287,7 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
                 data = client.item(f"pulls/{pull_number}")
             except http.HTTPNotFound:
                 raise PullRequestUrlInvalid(
-                    message=f"Pull request '{owner}/{repo}/pull/{pull_number}%s' not found"
+                    message=f"Pull request '{owner}/{repo}/pull/{pull_number}' not found"
                 )
 
             subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
@@ -302,7 +302,7 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
             return actions_runner.gen_summary(ctxt, match)
     except exceptions.MergifyNotInstalled:
         raise PullRequestUrlInvalid(
-            message="Mergify not installed on repository '%s'" % owner
+            message=f"Mergify not installed on repository '{owner}/{repo}'"
         )
 
 
