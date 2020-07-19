@@ -280,8 +280,8 @@ modified files:
   the ``src`` directory.
 
 
-Impementing Or Conditions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Implementing Or Conditions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The `conditions` do not support the `or` operation. As Mergify evaluates and
 apply every matching rules from your configuration, you can implement multiple
