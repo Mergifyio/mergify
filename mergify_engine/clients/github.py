@@ -107,7 +107,7 @@ class GithubTokenAuth(httpx.Auth):
                     "GET", f"{config.GITHUB_API_URL}/users/{self.owner}"
                 )
                 http.raise_for_status(user_response)
-                self.owner_id = user_response.json()["login"]
+                self.owner_id = user_response.json()["id"]
         yield request
 
     def build_request(self, method, url):
