@@ -53,7 +53,7 @@ class TestSimulator(base.FunctionalTestBase):
 """
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
                 "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
@@ -65,7 +65,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.json()["summary"] is None
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
             headers={
                 "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
@@ -102,7 +102,7 @@ class TestSimulator(base.FunctionalTestBase):
 """
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
@@ -114,7 +114,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.json()["summary"] is None
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
@@ -128,7 +128,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": "- no\n* way"},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
@@ -166,7 +166,7 @@ expected alphabetic or numeric character, but found ' '
         }
 
         r = self.app.post(
-            "/simulator",
+            "/simulator/",
             json={"invalid": "json"},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
