@@ -306,7 +306,17 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
         )
 
 
-@app.post("/simulator", dependencies=[fastapi.Depends(simulator_authentification)])
+simulator_app = fastapi.FastAPI()
+simulator_app.add_middleware(
+    cors.CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@simulator_app.post("/", dependencies=[fastapi.Depends(simulator_authentification)])
 async def simulator(request: requests.Request):
     token = request.headers.get("Authorization")
     if token:
@@ -330,6 +340,9 @@ async def simulator(request: requests.Request):
     return responses.JSONResponse(
         status_code=200, content={"title": title, "summary": summary}
     )
+
+
+app.mount("/simulator", simulator_app)
 
 
 async def cleanup_subscription(data):
