@@ -15,37 +15,35 @@
 # under the License.
 
 
-import asyncio
 import collections
-import functools
-import hmac
 import json
-from urllib.parse import urlsplit
 import uuid
 
 import daiquiri
 import fastapi
 from starlette import requests
 from starlette import responses
-from starlette.middleware import cors
 import voluptuous
 
 from mergify_engine import config
-from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_events
-from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
-from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
-from mergify_engine.engine import actions_runner
+from mergify_engine.web import auth
+from mergify_engine.web import badges
+from mergify_engine.web import config_validator
+from mergify_engine.web import simulator
 
 
 LOG = daiquiri.getLogger(__name__)
 
 app = fastapi.FastAPI()
+app.mount("/simulator", simulator.app)
+app.mount("/validate", config_validator.app)
+app.mount("/badges", badges.app)
 
 
 @app.on_event("startup")
@@ -58,107 +56,12 @@ async def shutdown():
     app.aredis_stream.connection_pool.disconnect()
 
 
-async def authentification(request: requests.Request):
-    # Only SHA1 is supported
-    header_signature = request.headers.get("X-Hub-Signature")
-    if header_signature is None:
-        LOG.warning("Webhook without signature")
-        raise fastapi.HTTPException(status_code=403)
-
-    try:
-        sha_name, signature = header_signature.split("=")
-    except ValueError:
-        sha_name = None
-
-    if sha_name != "sha1":
-        LOG.warning("Webhook signature malformed")
-        raise fastapi.HTTPException(status_code=403)
-
-    body = await request.body()
-    mac = utils.compute_hmac(body)
-    if not hmac.compare_digest(mac, str(signature)):
-        LOG.warning("Webhook signature invalid")
-        raise fastapi.HTTPException(status_code=403)
-
-
-async def simulator_authentification(request: requests.Request):
-    authorization = request.headers.get("Authorization")
-    if authorization:
-        if authorization.startswith("token "):
-            try:
-                options = http.DEFAULT_CLIENT_OPTIONS.copy()
-                options["headers"]["Authorization"] = authorization
-                async with http.AsyncClient(
-                    base_url=config.GITHUB_API_URL, **options
-                ) as client:
-                    await client.get("/user")
-            except http.HTTPError as e:
-                raise fastapi.HTTPException(status_code=e.response.status_code)
-        else:
-            raise fastapi.HTTPException(status_code=403)
-    else:
-        await authentification(request)
-
-
 async def http_post(*args, **kwargs):
     # Set the maximum timeout to 3 seconds: GitHub is not going to wait for
     # more than 10 seconds for us to accept an event, so if we're unable to
     # forward an event in 3 seconds, just drop it.
     async with http.AsyncClient(timeout=5) as client:
         await client.post(*args, **kwargs)
-
-
-def _get_badge_url(owner, repo, ext, style):
-    return responses.RedirectResponse(
-        url=f"https://img.shields.io/endpoint.{ext}?url=https://dashboard.mergify.io/badges/{owner}/{repo}&style={style}",
-        status_code=302,
-    )
-
-
-@app.get("/badges/{owner}/{repo}.png")
-async def badge_png(owner, repo, style: str = "flat"):  # pragma: no cover
-    return _get_badge_url(owner, repo, "png", style)
-
-
-@app.get("/badges/{owner}/{repo}.svg")
-async def badge_svg(owner, repo, style: str = "flat"):  # pragma: no cover
-    return _get_badge_url(owner, repo, "svg", style)
-
-
-@app.get("/badges/{owner}/{repo}")
-async def badge(owner, repo):
-    return responses.RedirectResponse(
-        url=f"https://dashboard.mergify.io/badges/{owner}/{repo}"
-    )
-
-
-config_validator_app = fastapi.FastAPI()
-config_validator_app.add_middleware(
-    cors.CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@config_validator_app.post("/")
-async def config_validator(
-    data: fastapi.UploadFile = fastapi.File(...),
-):  # pragma: no cover
-    try:
-        rules.UserConfigurationSchema(await data.read())
-    except Exception as e:
-        status = 400
-        message = str(e)
-    else:
-        status = 200
-        message = "The configuration is valid"
-
-    return responses.PlainTextResponse(message, status_code=status)
-
-
-app.mount("/validate", config_validator_app)
 
 
 async def _refresh(owner, repo, action="user", **extra_data):
@@ -181,7 +84,7 @@ async def _refresh(owner, repo, action="user", **extra_data):
     return responses.Response("Refresh queued", status_code=202)
 
 
-@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(authentification)])
+@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(auth.signature)])
 async def refresh_repo(owner, repo):
     return await _refresh(owner, repo)
 
@@ -191,7 +94,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 
 @app.post(
     "/refresh/{owner}/{repo}/pull/{pull}",
-    dependencies=[fastapi.Depends(authentification)],
+    dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(owner, repo, pull: int, action="user"):
     action = RefreshActionSchema(action)
@@ -200,14 +103,14 @@ async def refresh_pull(owner, repo, pull: int, action="user"):
 
 @app.post(
     "/refresh/{owner}/{repo}/branch/{branch}",
-    dependencies=[fastapi.Depends(authentification)],
+    dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_branch(owner, repo, branch):
     return await _refresh(owner, repo, ref=f"refs/heads/{branch}")
 
 
 @app.put(
-    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(authentification)],
+    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_update(
     owner_id, request: requests.Request
@@ -220,129 +123,12 @@ async def subscription_cache_update(
 
 
 @app.delete(
-    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(authentification)],
+    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
     r = await utils.get_aredis_for_cache()
     await r.delete("subscription-cache-owner-%s" % owner_id)
     return responses.Response("Cache cleaned", status_code=200)
-
-
-class PullRequestUrlInvalid(voluptuous.Invalid):
-    pass
-
-
-@voluptuous.message("expected a Pull Request URL", cls=PullRequestUrlInvalid)
-def PullRequestUrl(v):
-    _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
-    pull_number = int(pull_number)
-    return owner, repo, pull_number
-
-
-SimulatorSchema = voluptuous.Schema(
-    {
-        voluptuous.Required("pull_request"): voluptuous.Any(None, PullRequestUrl()),
-        voluptuous.Required("mergify.yml"): rules.UserConfigurationSchema,
-    }
-)
-
-
-def ensure_no_voluptuous(value):
-    if isinstance(value, (dict, list, str)):
-        return value
-    else:
-        return str(value)
-
-
-def voluptuous_error(error):
-    return {
-        "type": error.__class__.__name__,
-        "message": error.error_message,
-        "error": str(error),
-        "details": list(map(ensure_no_voluptuous, error.path)),
-    }
-
-
-@app.exception_handler(voluptuous.Invalid)
-async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
-    # FIXME(sileht): remove error at payload root
-    payload = voluptuous_error(exc)
-    payload["errors"] = []
-    if isinstance(exc, voluptuous.MultipleInvalid):
-        payload["errors"].extend(map(voluptuous_error, sorted(exc.errors, key=str)))
-    else:
-        payload["errors"].extend(voluptuous_error(exc))
-    return responses.JSONResponse(status_code=400, content=payload)
-
-
-def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
-    try:
-        if token:
-            auth = github.GithubTokenAuth(owner, repo, token)
-        else:
-            auth = github.get_auth(owner, repo)
-
-        with github.get_client(auth=auth) as client:
-            try:
-                data = client.item(f"pulls/{pull_number}")
-            except http.HTTPNotFound:
-                raise PullRequestUrlInvalid(
-                    message=f"Pull request '{owner}/{repo}/pull/{pull_number}' not found"
-                )
-
-            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
-
-            ctxt = context.Context(
-                client,
-                data,
-                subscription,
-                [{"event_type": "mergify-simulator", "data": []}],
-            )
-            match = pull_request_rules.get_pull_request_rule(ctxt)
-            return actions_runner.gen_summary(ctxt, match)
-    except exceptions.MergifyNotInstalled:
-        raise PullRequestUrlInvalid(
-            message=f"Mergify not installed on repository '{owner}/{repo}'"
-        )
-
-
-simulator_app = fastapi.FastAPI()
-simulator_app.add_middleware(
-    cors.CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@simulator_app.post("/", dependencies=[fastapi.Depends(simulator_authentification)])
-async def simulator(request: requests.Request):
-    token = request.headers.get("Authorization")
-    if token:
-        token = token[6:]  # Drop 'token '
-
-    data = SimulatorSchema(await request.json())
-    if data["pull_request"]:
-        loop = asyncio.get_running_loop()
-        title, summary = await loop.run_in_executor(
-            None,
-            functools.partial(
-                _sync_simulator,
-                data["mergify.yml"]["pull_request_rules"],
-                *data["pull_request"],
-                token=token,
-            ),
-        )
-    else:
-        title, summary = ("The configuration is valid", None)
-
-    return responses.JSONResponse(
-        status_code=200, content={"title": title, "summary": summary}
-    )
-
-
-app.mount("/simulator", simulator_app)
 
 
 async def cleanup_subscription(data):
@@ -357,7 +143,7 @@ async def cleanup_subscription(data):
     await redis.delete("subscription-cache-%s" % installation["id"])
 
 
-@app.post("/marketplace", dependencies=[fastapi.Depends(authentification)])
+@app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
 async def marketplace_handler(request: requests.Request,):  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
@@ -390,7 +176,7 @@ async def marketplace_handler(request: requests.Request,):  # pragma: no cover
     return responses.Response("Event queued", status_code=202)
 
 
-@app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(authentification)])
+@app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(auth.signature)])
 async def queues(installation_id):
     redis = await utils.get_aredis_for_cache()
     queues = collections.defaultdict(dict)
@@ -405,7 +191,7 @@ async def queues(installation_id):
     return responses.JSONResponse(status_code=200, content=queues)
 
 
-@app.post("/event", dependencies=[fastapi.Depends(authentification)])
+@app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(request: requests.Request,):
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
@@ -445,14 +231,14 @@ async def event_handler(request: requests.Request,):
 
 # NOTE(sileht): These endpoints are used for recording cassetes, we receive
 # Github event on POST, we store them is redis, GET to retreive and delete
-@app.delete("/events-testing", dependencies=[fastapi.Depends(authentification)])
+@app.delete("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_delete():  # pragma: no cover
     r = await utils.get_aredis_for_cache()
     await r.delete("events-testing")
     return responses.Response("Event queued", status_code=202)
 
 
-@app.post("/events-testing", dependencies=[fastapi.Depends(authentification)])
+@app.post("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_post(request: requests.Request):  # pragma: no cover
     r = await utils.get_aredis_for_cache()
     event_type = request.headers.get("X-GitHub-Event")
@@ -465,7 +251,7 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
     return responses.Response("Event queued", status_code=202)
 
 
-@app.get("/events-testing", dependencies=[fastapi.Depends(authentification)])
+@app.get("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_get(number: int = None):  # pragma: no cover
     r = await utils.get_aredis_for_cache()
     async with await r.pipeline() as p:
