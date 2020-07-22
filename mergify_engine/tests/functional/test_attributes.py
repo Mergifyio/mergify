@@ -60,7 +60,9 @@ class TestAttributes(base.FunctionalTestBase):
             assert ctxt.pull_request.foobar
 
         # Test items
-        assert list(ctxt.pull_request) == list(context.PullRequest.ATTRIBUTES)
+        assert list(ctxt.pull_request) == list(
+            context.PullRequest.ATTRIBUTES | context.PullRequest.LIST_ATTRIBUTES
+        )
         assert dict(ctxt.pull_request.items()) == {
             "number": pr.number,
             "closed": False,

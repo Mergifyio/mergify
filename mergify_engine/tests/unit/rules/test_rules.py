@@ -58,7 +58,6 @@ def test_same_names():
     ]
 
 
-@pytest.mark.skip(reason="the dummy context is not yet perfect")
 def test_jinja_with_list_attribute():
     pull_request_rules = rules.UserConfigurationSchema(
         """

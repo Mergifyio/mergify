@@ -408,7 +408,6 @@ class PullRequest:
     ATTRIBUTES = {
         "assignee",
         "label",
-        "review-requested",
         "author",
         "merged-by",
         "merged",
@@ -422,6 +421,10 @@ class PullRequest:
         "title",
         "body",
         "files",
+    }
+
+    LIST_ATTRIBUTES = {
+        "review-requested",
         "approved-reviews-by",
         "dismissed-reviews-by",
         "changes-requested-reviews-by",
@@ -435,7 +438,7 @@ class PullRequest:
         return self.context._get_consolidated_data(name.replace("_", "-"))
 
     def __iter__(self):
-        return iter(self.ATTRIBUTES)
+        return iter(self.ATTRIBUTES | self.LIST_ATTRIBUTES)
 
     def items(self):
         for k in self:
