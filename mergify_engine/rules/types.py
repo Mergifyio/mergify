@@ -41,7 +41,11 @@ class DummyContext(context.Context):
     # This is only used to check Jinja2 syntax validity
     @staticmethod
     def _get_consolidated_data(key):
-        if key not in context.PullRequest.ATTRIBUTES:
+        if key in context.PullRequest.ATTRIBUTES:
+            return None
+        elif key in context.PullRequest.LIST_ATTRIBUTES:
+            return []
+        else:
             raise context.PullRequestAttributeError(key)
 
     @staticmethod
@@ -49,7 +53,7 @@ class DummyContext(context.Context):
         pass
 
 
-_DUMMY_PR = context.PullRequest(DummyContext(None, {}, {}))
+_DUMMY_PR = context.PullRequest(DummyContext(None, {}, {}, [],))
 
 
 def Jinja2(value):
