@@ -58,6 +58,30 @@ def test_same_names():
     ]
 
 
+@pytest.mark.skip(reason="the dummy context is not yet perfect")
+def test_jinja_with_list_attribute():
+    pull_request_rules = rules.UserConfigurationSchema(
+        """
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+        message: |
+          This pull request has been approved by:
+          {% for name in approved_reviews_by %}
+          @{{name}}
+          {% endfor %}
+          Thank you @{{author}} for your contributions!
+
+"""
+    )["pull_request_rules"]
+    assert [rule["name"] for rule in pull_request_rules] == [
+        "ahah",
+    ]
+
+
 def test_user_configuration_schema():
     with pytest.raises(voluptuous.Invalid) as exc_info:
         rules.UserConfigurationSchema("- no\n* way")
