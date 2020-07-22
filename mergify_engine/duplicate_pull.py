@@ -112,17 +112,22 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
                     p["base"]["repo"]["full_name"]
                     == ctxt.pull["base"]["repo"]["full_name"]
                 )
-            ] + [
-                p["number"]
-                for p in ctxt.client.items(
-                    f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
-                    api_version="groot",
-                )
-                if (
-                    p["base"]["repo"]["full_name"]
-                    == ctxt.pull["base"]["repo"]["full_name"]
-                )
             ]
+
+            # Head repo can be known if deleted in the meantime
+            if ctxt.pull["head"]["repo"] is not None:
+                pull_numbers += [
+                    p["number"]
+                    for p in ctxt.client.items(
+                        f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
+                        api_version="groot",
+                    )
+                    if (
+                        p["base"]["repo"]["full_name"]
+                        == ctxt.pull["base"]["repo"]["full_name"]
+                    )
+                ]
+
             if ctxt.pull["number"] not in pull_numbers:
                 if len(out_commits) == 1:
                     ctxt.log.debug(
