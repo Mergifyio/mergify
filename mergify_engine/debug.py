@@ -54,7 +54,9 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
 
 def report_sub(install_id, slug, sub, title):
     print(f"* {title} SUB DETAIL: {sub['subscription_reason']}")
-    print(f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])}")
+    print(
+        f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])} ({', '.join(sub['tokens'])}"
+    )
 
     for login, token in sub["tokens"].items():
         try:
