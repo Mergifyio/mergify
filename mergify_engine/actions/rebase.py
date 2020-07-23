@@ -25,6 +25,10 @@ from mergify_engine.rules import types
 class RebaseAction(actions.Action):
     is_command = True
 
+    always_run = True
+
+    silent_report = True
+
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
             None, types.GitHubLogin
