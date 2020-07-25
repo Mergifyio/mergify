@@ -243,7 +243,7 @@ class Queue:
                         old_branch=self.ref,
                         new_branch=ctxt.pull["base"]["ref"],
                     )
-                    self._move_pull_to_new_base_branch(ctxt, self.ref)
+                    self._move_pull_to_new_base_branch(ctxt.pull["number"], self.ref)
                 elif ctxt.pull["state"] == "closed" or ctxt.is_behind:
                     # NOTE(sileht): Pick up this pull request and rebase it again
                     # or update its status and remove it from the queue
