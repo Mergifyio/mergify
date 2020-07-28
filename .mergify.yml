@@ -33,21 +33,21 @@ pull_request_rules:
       merge:
         strict: "smart"
         method: rebase
-  - name: automatic merge from dependabot
-    conditions:
-      - status-success=Semantic Pull Request
-      - author~=^dependabot(|-preview)\[bot\]$
-      - label!=work-in-progress
-      - label!=manual merge
-      - "status-success=ci/circleci: requirements"
-      - "status-success=ci/circleci: datadog"
-      - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py38"
-      - "status-success=ci/circleci: docs"
-    actions:
-      merge:
-        strict: "smart"
-        method: rebase
+  # - name: automatic merge from dependabot
+  #   conditions:
+  #     - status-success=Semantic Pull Request
+  #     - author~=^dependabot(|-preview)\[bot\]$
+  #     - label!=work-in-progress
+  #     - label!=manual merge
+  #     - "status-success=ci/circleci: requirements"
+  #     - "status-success=ci/circleci: datadog"
+  #     - "status-success=ci/circleci: pep8"
+  #     - "status-success=ci/circleci: py38"
+  #     - "status-success=ci/circleci: docs"
+  #   actions:
+  #     merge:
+  #       strict: "smart"
+  #       method: rebase
   - name: dismiss reviews except for core devs
     conditions:
       - author!=@devs
