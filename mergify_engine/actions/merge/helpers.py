@@ -25,6 +25,13 @@ class PriorityAliases(enum.Enum):
     high = 3000
 
 
+def github_workflow_changed(ctxt):
+    for f in ctxt.files:
+        if f["filename"].startswith(".github/workflows"):
+            return True
+    return False
+
+
 def merge_report(ctxt, strict):
     if ctxt.pull["draft"]:
         conclusion = None
@@ -73,6 +80,11 @@ def merge_report(ctxt, strict):
             "Branch protection setting 'strict' conflicts with Mergify configuration"
         )
         summary = ""
+
+    elif github_workflow_changed(ctxt):
+        conclusion = "action_required"
+        title = "Pull request must be merged manually."
+        summary = "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
 
     # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
     # are OK for us

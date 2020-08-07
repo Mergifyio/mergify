@@ -679,6 +679,12 @@ class FunctionalTestBase(unittest.TestCase):
         self.git("checkout", "--quiet", "%s/%s" % (base_repo, base), "-b", branch)
         if files:
             for name, content in files.items():
+                directory = name.rpartition("/")[0]
+                if directory:
+                    try:
+                        os.makedirs(self.git.tmp + "/" + directory)
+                    except FileExistsError:
+                        pass
                 with open(self.git.tmp + "/" + name, "w") as f:
                     f.write(content)
                 self.git("add", name)
