@@ -24,6 +24,7 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
         "number": 6,
         "base": {
             "ref": "ref",
+            "sha": "sha",
             "repo": {"full_name": "user/ref", "name": "name", "private": False},
         },
         "head": {
@@ -59,6 +60,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
             "state": "closed",
             "html_url": "<html_url>",
             "base": {
+                "sha": "sha",
                 "user": {"login": "user"},
                 "ref": "ref",
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},
@@ -104,6 +106,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
             "state": "closed",
             "html_url": "<html_url>",
             "base": {
+                "sha": "sha",
                 "ref": "ref",
                 "user": {"login": "user"},
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},

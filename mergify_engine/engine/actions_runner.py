@@ -153,7 +153,7 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
-def post_summary(ctxt, match, summary_check, conclusions):
+def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     summary_title, summary = gen_summary(ctxt, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
@@ -170,6 +170,8 @@ def post_summary(ctxt, match, summary_check, conclusions):
             "summary changed",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(ctxt.sources),
+            conclusions=conclusions,
+            previous_conclusions=previous_conclusions,
         )
         check_api.set_check_run(
             ctxt,
@@ -183,6 +185,8 @@ def post_summary(ctxt, match, summary_check, conclusions):
             "summary unchanged",
             summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
             sources=_filterred_sources_for_logging(ctxt.sources),
+            conclusions=conclusions,
+            previous_conclusions=previous_conclusions,
         )
 
 
@@ -361,4 +365,4 @@ def handle(pull_request_rules, ctxt):
     previous_conclusions = load_conclusions(ctxt, summary_check)
 
     conclusions = run_actions(ctxt, match, checks, previous_conclusions)
-    post_summary(ctxt, match, summary_check, conclusions)
+    post_summary(ctxt, match, summary_check, conclusions, previous_conclusions)
