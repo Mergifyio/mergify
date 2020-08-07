@@ -627,27 +627,28 @@ class FunctionalTestBase(unittest.TestCase):
             "X-XSS-Protection",
         ]:
             response["headers"].pop(h, None)
+
+        if "body" in response:
+            # Urllib3 vcrpy format
+            try:
+                data = json.loads(response["body"]["string"].decode())
+            except ValueError:
+                data = None
+        else:
+            # httpx vcrpy format
+            try:
+                data = json.loads(response["content"])
+            except ValueError:
+                data = None
+
+        if data and "token" in data:
+            data["token"] = "<TOKEN>"
             if "body" in response:
                 # Urllib3 vcrpy format
-                try:
-                    data = json.loads(response["body"]["string"].decode())
-                except ValueError:
-                    continue
+                response["body"]["string"] = json.dumps(data).encode()
             else:
                 # httpx vcrpy format
-                try:
-                    data = json.loads(response["content"])
-                except ValueError:
-                    continue
-
-            if "token" in data:
-                data["token"] = "<TOKEN>"
-                if "body" in response:
-                    # Urllib3 vcrpy format
-                    response["body"]["string"] = json.dumps(data).encode()
-                else:
-                    # httpx vcrpy format
-                    response["content"] = json.dumps(data)
+                response["content"] = json.dumps(data)
 
         return response
 
