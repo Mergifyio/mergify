@@ -20,6 +20,7 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import doc
+from mergify_engine import utils
 
 
 SUMMARY_NAME = "Summary"
@@ -153,6 +154,35 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
+def _redis_last_summary_head_sha_key(ctxt):
+    installation_id = ctxt.client.auth.installation["id"]
+    owner = ctxt.pull["base"]["repo"]["owner"]["id"]
+    repo = ctxt.pull["base"]["repo"]["id"]
+    pull_number = ctxt.pull["number"]
+    return f"summary-sha~{installation_id}~{owner}~{repo}~{pull_number}"
+
+
+def delete_last_summary_head_sha(ctxt):
+    redis = utils.get_redis_for_cache()
+    return redis.delete(_redis_last_summary_head_sha_key(ctxt))
+
+
+def get_last_summary_head_sha(ctxt):
+    redis = utils.get_redis_for_cache()
+    return redis.get(_redis_last_summary_head_sha_key(ctxt))
+
+
+def save_last_summary_head_sha(ctxt):
+    redis = utils.get_redis_for_cache()
+    # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
+    # to avoid race conditions when too many synchronize events occur in a short period of time
+    redis.set(
+        _redis_last_summary_head_sha_key(ctxt),
+        ctxt.pull["head"]["sha"],
+        ex=60 * 60 * 24 * 31,  # 1 month
+    )
+
+
 def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     summary_title, summary = gen_summary(ctxt, match)
 
@@ -173,6 +203,7 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
+
         check_api.set_check_run(
             ctxt,
             SUMMARY_NAME,
@@ -180,6 +211,7 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
             "success",
             output={"title": summary_title, "summary": summary},
         )
+        save_last_summary_head_sha(ctxt)
     else:
         ctxt.log.info(
             "summary unchanged",

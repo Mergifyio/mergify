@@ -119,9 +119,8 @@ def _extract_source_data(event_type, data):
 
     # For pull_request opened/synchronise/closed
     # and refresh event
-    for attr in ("action", "after", "before"):
-        if attr in data:
-            slim_data[attr] = data[attr]
+    if "action" in data:
+        slim_data["action"] = data["action"]
 
     # For commands runner
     if event_type == "issue_comment":

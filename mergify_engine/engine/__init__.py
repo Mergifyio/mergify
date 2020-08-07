@@ -121,7 +121,7 @@ def check_configuration_changes(ctxt):
     return False
 
 
-def copy_summary_from_previous_head_sha(ctxt, sha):
+def get_summary_from_sha(ctxt, sha):
     checks = check_api.get_checks_for_ref(
         ctxt,
         sha,
@@ -129,19 +129,78 @@ def copy_summary_from_previous_head_sha(ctxt, sha):
     )
     checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
     if checks:
+        return checks[0]
+
+
+def get_summary_from_synchronize_event(ctxt):
+    # NOTE(sileht): This solution has some design race, rare but present. Example:
+    # * we receive /whatever/ event
+    # * engine run for a PR
+    # * github send synchronize in the meantime
+    # * engine GET /pull/123
+    #   here the head_sha is the new one (after synchronize occurs), but ctxt.sources does not
+    #   have the synchronize event, so it can't retrieve the previous summary.
+    #   Mergify thinks it's the first time it sees the PR, this introduces some bugs like:
+    #   * PR not cleanup from queue
+    #   * Comment posted twice
+    #
+    # Github does not offer API to retrieve previous PR head sha, the issues/123/events
+    # have events for "synchronize" event coming from "force-push" only and not when new commits
+    # are added.
+
+    synchronize_events = dict(
+        (
+            (s["data"]["after"], s["data"])
+            for s in ctxt.sources
+            if s["event_type"] == "pull_request"
+            and s["data"]["action"] == "synchronize"
+        )
+    )
+    if synchronize_events:
+        ctxt.log.debug("engine synchronize summary")
+
+        # NOTE(sileht): We sometimes got multiple synchronize events in a row, that's not
+        # always the last one that have the Summary, so we also looks in older ones if
+        # necessary.
+        after_sha = ctxt.pull["head"]["sha"]
+        while synchronize_events:
+            sync_event = synchronize_events.pop(after_sha, None)
+            if sync_event:
+                previous_summary = get_summary_from_sha(ctxt, sync_event["before"])
+                if previous_summary:
+                    return previous_summary
+
+                after_sha = sync_event["before"]
+            else:
+                ctxt.log.warning(
+                    "Got synchronize event but didn't find Summary on previous head sha",
+                )
+                break
+
+
+def ensure_summary_on_head_sha(ctxt):
+    for check in ctxt.pull_engine_check_runs:
+        if check["name"] == actions_runner.SUMMARY_NAME:
+            return
+
+    sha = actions_runner.get_last_summary_head_sha(ctxt)
+    if sha:
+        previous_summary = get_summary_from_sha(ctxt, sha)
+    else:
+        previous_summary = get_summary_from_synchronize_event(ctxt)
+
+    if previous_summary:
         check_api.set_check_run(
             ctxt,
             actions_runner.SUMMARY_NAME,
             "completed",
             "success",
             output={
-                "title": checks[0]["output"]["title"],
-                "summary": checks[0]["output"]["summary"],
+                "title": previous_summary["output"]["title"],
+                "summary": previous_summary["output"]["summary"],
             },
         )
-        return True
-    else:
-        return False
+        actions_runner.save_last_summary_head_sha(ctxt)
 
 
 def run(client, pull, subscription, sources):
@@ -235,36 +294,16 @@ def run(client, pull, subscription, sources):
         )
         return
 
-    # CheckRun are attached to head sha, so when user add commits or force push
-    # we can't directly get the previous Mergify Summary. So we copy it here, then
-    # anything that looks at it in next engine runs will find it.
+    ensure_summary_on_head_sha(ctxt)
 
-    synchronize_events = dict(
-        (
-            (s["data"]["after"], s["data"])
-            for s in ctxt.sources
-            if s["event_type"] == "pull_request"
-            and s["data"]["action"] == "synchronize"
-        )
-    )
-    if synchronize_events:
-        ctxt.log.debug("engine synchronize summary")
-
-        # NOTE(sileht): We sometimes got many synchronize in a row, that not always the
-        # last one that have the Summary, so we also looks in older one if necessary.
-        after_sha = ctxt.pull["head"]["sha"]
-        while synchronize_events:
-            sync_event = synchronize_events.pop(after_sha, None)
-            if sync_event:
-                if copy_summary_from_previous_head_sha(ctxt, sync_event["before"]):
-                    break
-                else:
-                    after_sha = sync_event["before"]
-            else:
-                ctxt.log.warning(
-                    "Got synchronize event but didn't find Summary on previous head sha",
-                )
-                break
+    # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
+    # to have such things run properly. Like hooks based on events that you could
+    # register. It feels hackish otherwise.
+    if any(
+        s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
+        for s in ctxt.sources
+    ):
+        actions_runner.delete_last_summary_head_sha(ctxt)
 
     ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
