@@ -25,13 +25,6 @@ class PriorityAliases(enum.Enum):
     high = 3000
 
 
-def github_workflow_changed(ctxt):
-    for f in ctxt.files:
-        if f["filename"].startswith(".github/workflows"):
-            return True
-    return False
-
-
 def merge_report(ctxt, strict):
     if ctxt.pull["draft"]:
         conclusion = None
@@ -61,6 +54,7 @@ def merge_report(ctxt, strict):
         conclusion = "cancelled"
         title = "Merge conflict needs to be solved"
         summary = ""
+
     elif ctxt.pull["mergeable_state"] == "unknown":
         conclusion = "failure"
         title = "Pull request state reported as `unknown` by GitHub"
@@ -81,7 +75,7 @@ def merge_report(ctxt, strict):
         )
         summary = ""
 
-    elif github_workflow_changed(ctxt):
+    elif ctxt.github_workflow_changed():
         conclusion = "action_required"
         title = "Pull request must be merged manually."
         summary = "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
