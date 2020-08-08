@@ -96,6 +96,7 @@ def get_pull_logger(pull):
         ),
         gh_branch=pull["base"]["ref"] if "base" in pull else "<unknown-yet>",
         gh_pull=pull["number"],
+        gh_pull_sha=pull["base"]["sha"] if "base" in pull else "<unknown-yet>",
         gh_pull_url=pull.get("html_url", "<unknown-yet>"),
         gh_pull_state=(
             "merged"
