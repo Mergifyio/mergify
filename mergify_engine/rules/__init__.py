@@ -44,18 +44,20 @@ def PullRequestRuleCondition(value):
         )
 
 
-PullRequestRulesSchema = voluptuous.All(
-    [
-        {
-            voluptuous.Required("name"): str,
-            voluptuous.Required("hidden", default=False): bool,
-            voluptuous.Required("conditions"): [
-                voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
-            ],
-            voluptuous.Required("actions"): actions.get_action_schemas(),
-        }
-    ],
-    voluptuous.Length(min=1),
+PullRequestRulesSchema = voluptuous.Schema(
+    voluptuous.All(
+        [
+            {
+                voluptuous.Required("name"): str,
+                voluptuous.Required("hidden", default=False): bool,
+                voluptuous.Required("conditions"): [
+                    voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+                ],
+                voluptuous.Required("actions"): actions.get_action_schemas(),
+            }
+        ],
+        voluptuous.Length(min=1),
+    )
 )
 
 
@@ -198,8 +200,8 @@ UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         voluptuous.Coerce(YAML),
         {
-            voluptuous.Required("pull_request_rules"): voluptuous.And(
-                PullRequestRulesSchema, voluptuous.Coerce(PullRequestRules),
+            voluptuous.Required("pull_request_rules"): voluptuous.Coerce(
+                PullRequestRules.from_list
             )
         },
     )
