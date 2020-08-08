@@ -41,6 +41,13 @@ class RebaseAction(actions.Action):
             )
 
         if ctxt.is_behind:
+            if ctxt.github_workflow_changed():
+                return (
+                    "action_required",
+                    "Pull request must be rebased manually.",
+                    "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.",
+                )
+
             try:
                 branch_updater.update_with_git(
                     ctxt, "rebase", self.config["bot_account"]
