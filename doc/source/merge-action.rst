@@ -163,7 +163,7 @@ There is a lot of different ways to merge pull requests. You can replicate many
      - ::
 
          merge:
-           method: rehead
+           method: rebase
 
    * - ::
 
