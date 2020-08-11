@@ -17,6 +17,7 @@
 
 import datetime
 import json
+import time
 
 import daiquiri
 import httpx
@@ -130,29 +131,49 @@ def raise_for_status(resp):
     raise exc_class(message, request=resp.request, response=resp)
 
 
-class Client(httpx.Client):
-    @connectivity_issue_retry
-    def request(self, method, url, *args, **kwargs):
-        LOG.debug("http request start", method=method, url=url)
-        try:
-            resp = super().request(method, url, *args, **kwargs)
-            raise_for_status(resp)
-            LOG.debug("http request end", method=method, url=url, response=str(resp))
-            return resp
-        except Exception:
-            LOG.debug("http request end", method=method, url=url, exc_info=True)
-            raise
+class RequestTracing:
+    def __init__(self, method, url):
+        self.url = url
+        self.method = method
+        self.start = None
+        self.resp = None
+
+    def set_response(self, resp):
+        self.resp = resp
+
+    def __enter__(self):
+        LOG.debug("http request start", method=self.method, url=self.url)
+        self.start = time.monotonic()
+        return self
+
+    def __exit__(self, *exc):
+        # TODO(sileht): Add datadog metric ?
+        elasped = time.monotonic() - self.start
+        LOG.debug(
+            "http request end",
+            method=self.method,
+            url=self.url,
+            response=str(self.resp),
+            elapsed_seconds=elasped,
+            exc_info=bool(exc),
+        )
 
 
 class AsyncClient(httpx.AsyncClient):
     @connectivity_issue_retry
     async def request(self, method, url, *args, **kwargs):
-        LOG.debug("http request start", method=method, url=url)
-        try:
+        with RequestTracing(method, url) as rt:
             resp = await super().request(method, url, *args, **kwargs)
             raise_for_status(resp)
-            LOG.debug("http request end", method=method, url=url, response=str(resp))
+            rt.set_response(resp)
             return resp
-        except Exception:
-            LOG.debug("http request end", method=method, url=url, exc_info=True)
-            raise
+
+
+class Client(httpx.Client):
+    @connectivity_issue_retry
+    def request(self, method, url, *args, **kwargs):
+        with RequestTracing(method, url) as rt:
+            resp = super().request(method, url, *args, **kwargs)
+            raise_for_status(resp)
+            rt.set_response(resp)
+            return resp
