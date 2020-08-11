@@ -134,17 +134,25 @@ class Client(httpx.Client):
     @connectivity_issue_retry
     def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
-        resp = super().request(method, url, *args, **kwargs)
-        LOG.debug("http request end", method=method, url=url)
-        raise_for_status(resp)
-        return resp
+        try:
+            resp = super().request(method, url, *args, **kwargs)
+            raise_for_status(resp)
+            LOG.debug("http request end", method=method, url=url, response=str(resp))
+            return resp
+        except Exception:
+            LOG.debug("http request end", method=method, url=url, exc_info=True)
+            raise
 
 
 class AsyncClient(httpx.AsyncClient):
     @connectivity_issue_retry
     async def request(self, method, url, *args, **kwargs):
         LOG.debug("http request start", method=method, url=url)
-        resp = await super().request(method, url, *args, **kwargs)
-        LOG.debug("http request end", method=method, url=url)
-        raise_for_status(resp)
-        return resp
+        try:
+            resp = await super().request(method, url, *args, **kwargs)
+            raise_for_status(resp)
+            LOG.debug("http request end", method=method, url=url, response=str(resp))
+            return resp
+        except Exception:
+            LOG.debug("http request end", method=method, url=url, exc_info=True)
+            raise
