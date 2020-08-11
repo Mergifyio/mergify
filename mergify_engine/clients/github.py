@@ -252,9 +252,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
     def __init__(self, auth):
         self._requests = []
         super().__init__(
-            base_url=f"{config.GITHUB_API_URL}/repos/{auth.owner}/{auth.repo}/",
-            auth=auth,
-            **http.DEFAULT_CLIENT_OPTIONS,
+            base_url=config.GITHUB_API_URL, auth=auth, **http.DEFAULT_CLIENT_OPTIONS,
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -263,13 +261,22 @@ class AsyncGithubInstallationClient(http.AsyncClient):
     def __repr__(self):
         return f"<AsyncGithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
 
-    @staticmethod
-    def _inject_api_version(func):
+    def _inject_api_version(self, func):
         @functools.wraps(func)
         async def wrapper(url, api_version=None, **kwargs):
             headers = kwargs.pop("headers", {})
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+
+            # FIXME(sileht): httpx 0.14 have changed the behavior of base_url, we used the
+            # old behavior that removed the path with url start with a /, that was in fact
+            # a bug.
+            if not (
+                url.startswith("/")
+                or url.startswith("http://")
+                or url.startswith("https://")
+            ):
+                url = f"/repos/{self.auth.owner}/{self.auth.repo}/{url}"
             return await func(url, headers=headers, **kwargs)
 
         return wrapper
@@ -365,9 +372,7 @@ class GithubInstallationClient(http.Client):
     def __init__(self, auth):
         self._requests = []
         super().__init__(
-            base_url=f"{config.GITHUB_API_URL}/repos/{auth.owner}/{auth.repo}/",
-            auth=auth,
-            **http.DEFAULT_CLIENT_OPTIONS,
+            base_url=config.GITHUB_API_URL, auth=auth, **http.DEFAULT_CLIENT_OPTIONS,
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -376,13 +381,22 @@ class GithubInstallationClient(http.Client):
     def __repr__(self):
         return f"<GithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
 
-    @staticmethod
-    def _inject_api_version(func):
+    def _inject_api_version(self, func):
         @functools.wraps(func)
         def wrapper(url, api_version=None, **kwargs):
             headers = kwargs.pop("headers", {})
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+
+            # FIXME(sileht): httpx 0.14 have changed the behavior of base_url, we used the
+            # old behavior that removed the path with url start with a /, that was in fact
+            # a bug.
+            if not (
+                url.startswith("/")
+                or url.startswith("http://")
+                or url.startswith("https://")
+            ):
+                url = f"/repos/{self.auth.owner}/{self.auth.repo}/{url}"
             return func(url, headers=headers, **kwargs)
 
         return wrapper

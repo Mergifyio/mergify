@@ -336,7 +336,9 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
-    run_engine.side_effect = http.HTTPClientSideError(response=response)
+    run_engine.side_effect = http.HTTPClientSideError(
+        message="foobar", request=response.request, response=response
+    )
 
     await worker.push(
         redis, "owner", "repo", 123, "pull_request", {"payload": "whatever"},
@@ -393,7 +395,9 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
-    run_engine.side_effect = http.HTTPClientSideError(response=response)
+    run_engine.side_effect = http.HTTPClientSideError(
+        message="foobar", request=response.request, response=response
+    )
 
     await worker.push(
         redis, "owner", "repo", 123, "pull_request", {"payload": "whatever"},

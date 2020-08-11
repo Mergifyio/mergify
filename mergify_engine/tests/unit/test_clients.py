@@ -125,7 +125,7 @@ def test_client_temporary_HTTP_500(httpserver):
 
 def test_client_connection_error():
     with http.Client() as client:
-        with pytest.raises(http.ConnectionErrors):
+        with pytest.raises(http.RequestError):
             client.get("http://localhost:12345")
 
 

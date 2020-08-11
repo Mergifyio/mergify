@@ -71,7 +71,7 @@ def need_retry(exception):  # pragma: no cover
     elif isinstance(exception, MergeableStateUnknown):
         return BASE_RETRY_TIMEOUT
 
-    elif isinstance(exception, http.ConnectionErrors + (http.HTTPServerSideError,)):
+    elif isinstance(exception, (http.RequestError, http.HTTPServerSideError)):
         # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
         # is in a really bad shape...
         return BASE_RETRY_TIMEOUT * 5

@@ -69,7 +69,7 @@ class TestGithubClient(base.FunctionalTestBase):
             pull = await client.item(f"pulls/{p2.number}")
             self.assertEqual(p2.number, pull["number"])
 
-            with self.assertRaises(http.HTTPError) as ctxt:
+            with self.assertRaises(http.HTTPStatusError) as ctxt:
                 await client.item("pulls/10000000000")
 
             self.assertEqual(404, ctxt.exception.response.status_code)

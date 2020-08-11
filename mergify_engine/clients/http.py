@@ -19,7 +19,6 @@ import datetime
 import json
 
 import daiquiri
-import httpcore
 import httpx
 import tenacity
 from werkzeug.http import parse_date
@@ -34,21 +33,11 @@ DEFAULT_CLIENT_OPTIONS = {
     },
 }
 
-HTTPError = httpx.HTTPError
-
-# WARNING(sileht): httpx completly mess up exception handling of version 0.13.1, most
-# of them doesn't inherit anymore from HTTPError, they are aware of that and plan to
-# change/break it again before the 1.0 release
-# cf: https://github.com/encode/httpx/issues/949
-ConnectionErrors = (
-    httpcore.TimeoutException,
-    httpcore.NetworkError,
-    httpcore.ProtocolError,
-    httpcore.ProxyError,
-)
+HTTPStatusError = httpx.HTTPStatusError
+RequestError = httpx.RequestError
 
 
-class HTTPServerSideError(httpx.HTTPError):
+class HTTPServerSideError(httpx.HTTPStatusError):
     @property
     def message(self):
         return self.response.text
@@ -58,7 +47,7 @@ class HTTPServerSideError(httpx.HTTPError):
         return self.response.status_code
 
 
-class HTTPClientSideError(httpx.HTTPError):
+class HTTPClientSideError(httpx.HTTPStatusError):
     @property
     def message(self):
         # TODO(sileht): do something with errors and documentation_url when present
@@ -109,7 +98,7 @@ def wait_retry_after_header(retry_state):
 connectivity_issue_retry = tenacity.retry(
     reraise=True,
     retry=tenacity.retry_if_exception_type(
-        ConnectionErrors + (HTTPServerSideError, HTTPTooManyRequests)
+        (RequestError, HTTPServerSideError, HTTPTooManyRequests)
     ),
     wait=tenacity.wait_combine(
         wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
@@ -119,10 +108,10 @@ connectivity_issue_retry = tenacity.retry(
 
 
 def raise_for_status(resp):
-    if httpx.StatusCode.is_client_error(resp.status_code):
+    if httpx.codes.is_client_error(resp.status_code):
         error_type = "Client Error"
         default_exception = HTTPClientSideError
-    elif httpx.StatusCode.is_server_error(resp.status_code):
+    elif httpx.codes.is_server_error(resp.status_code):
         error_type = "Server Error"
         default_exception = HTTPServerSideError
     else:
@@ -138,7 +127,7 @@ def raise_for_status(resp):
 
     message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
     exc_class = STATUS_CODE_TO_EXC.get(resp.status_code, default_exception)
-    raise exc_class(message, response=resp)
+    raise exc_class(message, request=resp.request, response=resp)
 
 
 class Client(httpx.Client):

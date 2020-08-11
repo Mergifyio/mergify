@@ -55,9 +55,7 @@ class CopyAction(actions.Action):
         escaped_branch_name = parse.quote(branch_name, safe="")
         try:
             ctxt.client.item(f"branches/{escaped_branch_name}")
-        except http.HTTPError as e:
-            if not e.response:
-                raise
+        except http.HTTPStatusError as e:
             detail = "%s to branch `%s` failed: " % (
                 self.KIND.capitalize(),
                 branch_name,

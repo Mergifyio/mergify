@@ -202,7 +202,7 @@ def update_with_api(ctxt):
             "update branch failed", status=e.status_code, error=e.message,
         )
         raise BranchUpdateFailure(e.message)
-    except http.HTTPError as e:
+    except (http.RequestError, http.HTTPStatusError) as e:
         ctxt.log.info(
             "update branch failed",
             status=(e.response.status_code if e.response else None),

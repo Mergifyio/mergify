@@ -64,7 +64,7 @@ async def token(request: requests.Request):
                 ) as client:
                     await client.get("/user")
                     return
-            except http.HTTPError as e:
+            except http.HTTPStatusError as e:
                 raise fastapi.HTTPException(status_code=e.response.status_code)
 
     raise fastapi.HTTPException(status_code=403)
