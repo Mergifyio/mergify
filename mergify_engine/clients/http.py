@@ -17,7 +17,6 @@
 
 import datetime
 import json
-import time
 
 import daiquiri
 import httpx
@@ -96,6 +95,58 @@ def wait_retry_after_header(retry_state):
     return max(0, (d - datetime.datetime.utcnow()).total_seconds())
 
 
+def extract_github_extra(client):
+    if client.auth and hasattr(client.auth, "owner"):
+        return client.auth.owner, client.auth.repo
+    return (None, None)
+
+
+def before_log(retry_state):
+    client = retry_state.args[0]
+    method = retry_state.args[1]
+    gh_owner, gh_repo = extract_github_extra(client)
+    url = retry_state.args[2]
+    LOG.debug(
+        "http request starts",
+        method=method,
+        url=url,
+        gh_owner=gh_owner,
+        gh_repo=gh_repo,
+        attempts=retry_state.attempt_number,
+    )
+
+
+def after_log(retry_state):
+    client = retry_state.args[0]
+    method = retry_state.args[1]
+    url = retry_state.args[2]
+    gh_owner, gh_repo = extract_github_extra(client)
+    error_message = None
+    response = None
+    exc_info = None
+    if retry_state.outcome.failed:
+        exc_info = retry_state.outcome.exception()
+        if isinstance(exc_info, httpx.HTTPStatusError):
+            response = exc_info.response
+            error_message = exc_info.response.text
+    else:
+        response = retry_state.outcome.result()
+
+    LOG.debug(
+        "http request ends",
+        method=method,
+        url=url,
+        gh_owner=gh_owner,
+        gh_repo=gh_repo,
+        error_message=error_message,
+        attempts=retry_state.attempt_number,
+        seconds_since_start=retry_state.seconds_since_start,
+        idle_sinde_start=retry_state.idle_for,
+        response=response,
+        exc_info=exc_info,
+    )
+
+
 connectivity_issue_retry = tenacity.retry(
     reraise=True,
     retry=tenacity.retry_if_exception_type(
@@ -105,6 +156,8 @@ connectivity_issue_retry = tenacity.retry(
         wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
     ),
     stop=tenacity.stop_after_attempt(5),
+    before=before_log,
+    after=after_log,
 )
 
 
@@ -131,49 +184,17 @@ def raise_for_status(resp):
     raise exc_class(message, request=resp.request, response=resp)
 
 
-class RequestTracing:
-    def __init__(self, method, url):
-        self.url = url
-        self.method = method
-        self.start = None
-        self.resp = None
-
-    def set_response(self, resp):
-        self.resp = resp
-
-    def __enter__(self):
-        LOG.debug("http request start", method=self.method, url=self.url)
-        self.start = time.monotonic()
-        return self
-
-    def __exit__(self, *exc):
-        # TODO(sileht): Add datadog metric ?
-        elasped = time.monotonic() - self.start
-        LOG.debug(
-            "http request end",
-            method=self.method,
-            url=self.url,
-            response=str(self.resp),
-            elapsed_seconds=elasped,
-            exc_info=bool(exc),
-        )
-
-
 class AsyncClient(httpx.AsyncClient):
     @connectivity_issue_retry
     async def request(self, method, url, *args, **kwargs):
-        with RequestTracing(method, url) as rt:
-            resp = await super().request(method, url, *args, **kwargs)
-            raise_for_status(resp)
-            rt.set_response(resp)
-            return resp
+        resp = await super().request(method, url, *args, **kwargs)
+        raise_for_status(resp)
+        return resp
 
 
 class Client(httpx.Client):
     @connectivity_issue_retry
     def request(self, method, url, *args, **kwargs):
-        with RequestTracing(method, url) as rt:
-            resp = super().request(method, url, *args, **kwargs)
-            raise_for_status(resp)
-            rt.set_response(resp)
-            return resp
+        resp = super().request(method, url, *args, **kwargs)
+        raise_for_status(resp)
+        return resp
