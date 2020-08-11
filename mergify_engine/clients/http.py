@@ -19,7 +19,6 @@ import datetime
 import json
 
 import daiquiri
-import httpcore
 import httpx
 import tenacity
 from werkzeug.http import parse_date
@@ -35,17 +34,7 @@ DEFAULT_CLIENT_OPTIONS = {
 }
 
 HTTPError = httpx.HTTPError
-
-# WARNING(sileht): httpx completly mess up exception handling of version 0.13.1, most
-# of them doesn't inherit anymore from HTTPError, they are aware of that and plan to
-# change/break it again before the 1.0 release
-# cf: https://github.com/encode/httpx/issues/949
-ConnectionErrors = (
-    httpcore.TimeoutException,
-    httpcore.NetworkError,
-    httpcore.ProtocolError,
-    httpcore.ProxyError,
-)
+RequestError = httpx.RequestError
 
 
 class HTTPServerSideError(httpx.HTTPError):
@@ -109,7 +98,7 @@ def wait_retry_after_header(retry_state):
 connectivity_issue_retry = tenacity.retry(
     reraise=True,
     retry=tenacity.retry_if_exception_type(
-        ConnectionErrors + (HTTPServerSideError, HTTPTooManyRequests)
+        (RequestError, HTTPServerSideError, HTTPTooManyRequests)
     ),
     wait=tenacity.wait_combine(
         wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)
