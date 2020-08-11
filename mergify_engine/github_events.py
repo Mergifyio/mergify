@@ -218,7 +218,9 @@ async def extract_pull_numbers_from_event(client, event_type, data):
             return await _get_github_pulls_from_sha(client, data["sha"])
         elif event_type in ["check_suite", "check_run"]:
             # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-            base_repo_url = str(client.base_url)[:-1]
+            base_repo_url = (
+                f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{client.auth.repo}"
+            )
             pulls = data[event_type]["pull_requests"]
             # TODO(sileht): remove `"base" in p and`
             # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing

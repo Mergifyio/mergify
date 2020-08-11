@@ -35,9 +35,7 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
         data = json.load(f)
 
     client = mock.Mock(
-        base_url=httpx.URL(
-            "https://api.github.com/repos/CytopiaTeam/Cytopia/", allow_relative=False,
-        ),
+        base_url=httpx.URL("https://api.github.com/"),
         name="foo",
         owner=owner,
         repo=repo,
