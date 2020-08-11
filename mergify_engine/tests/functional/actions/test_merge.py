@@ -189,6 +189,32 @@ class TestMergeAction(base.FunctionalTestBase):
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p2.number, p1.number]
 
+    def test_merge_github_workflow(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(files={".github/workflows/foo.yml": "whatever"})
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] == "action_required"
+        assert check["output"]["title"] == "Pull request must be merged manually."
+        assert (
+            check["output"]["summary"]
+            == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
+        )
+
 
 class TestMergeNoSubAction(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = False
