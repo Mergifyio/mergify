@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import argparse
+import datetime
 import pprint
 
 from mergify_engine import config
@@ -86,14 +87,24 @@ def report_sub(install_id, slug, sub, title):
 async def report_worker_status(owner):
     stream_name = f"stream~{owner}".encode()
     r = await utils.create_aredis_for_stream()
-    streams = await r.zrangebyscore("streams", min=0, max="+inf")
-    try:
-        pos = streams.index(stream_name)
-    except IndexError:
+    streams = await r.zrangebyscore("streams", min=0, max="+inf", withscores=True)
+
+    for pos, item in enumerate(streams):
+        if item[0] == stream_name:
+            break
+    else:
         print("WORKER: Installation not queued to process")
         return
 
-    print(f"WORKER: Installation queued at {pos}/{len(streams)}")
+    planned = datetime.datetime.utcfromtimestamp(streams[pos]).isoformat()
+
+    attempts = await r.hget("attempts", stream_name) or 0
+    print(
+        "WORKER: Installation queued, pos:"
+        f" {pos}/{len(streams)},"
+        f" next_run: {planned},"
+        f" attempts: {attempts}"
+    )
 
     size = await r.xlen(stream_name)
     print(f"WORKER PENDING EVENTS for this installation: {size}")
@@ -106,6 +117,7 @@ def report(url):
     except ValueError:
         print(f"Wrong URL: {url}")
         return
+
     slug = owner + "/" + repo
 
     try:
