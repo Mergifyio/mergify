@@ -56,6 +56,7 @@ class RebaseAction(actions.Action):
                 branch_updater.update_with_git(
                     ctxt, "rebase", self.config["bot_account"]
                 )
+                return "success", "Branch has been successfully rebased", ""
             except branch_updater.BranchUpdateFailure as e:
                 return "failure", "Branch rebase failed", str(e)
         else:
