@@ -13,6 +13,7 @@
 # under the License.
 import argparse
 import datetime
+import itertools
 import pprint
 
 from mergify_engine import config
@@ -22,6 +23,7 @@ from mergify_engine import exceptions
 from mergify_engine import rules
 from mergify_engine import sub_utils
 from mergify_engine import utils
+from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
 from mergify_engine.clients import http
@@ -56,7 +58,7 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
 def report_sub(install_id, slug, sub, title):
     print(f"* {title} SUB DETAIL: {sub['subscription_reason']}")
     print(
-        f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])} ({', '.join(sub['tokens'])}"
+        f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])} ({', '.join(sub['tokens'])})"
     )
 
     for login, token in sub["tokens"].items():
@@ -93,21 +95,21 @@ async def report_worker_status(owner):
         if item[0] == stream_name:
             break
     else:
-        print("WORKER: Installation not queued to process")
+        print("* WORKER: Installation not queued to process")
         return
 
     planned = datetime.datetime.utcfromtimestamp(streams[pos]).isoformat()
 
     attempts = await r.hget("attempts", stream_name) or 0
     print(
-        "WORKER: Installation queued, pos:"
-        f" {pos}/{len(streams)},"
+        "* WORKER: Installation queued, "
+        f" pos: {pos}/{len(streams)},"
         f" next_run: {planned},"
         f" attempts: {attempts}"
     )
 
     size = await r.xlen(stream_name)
-    print(f"WORKER PENDING EVENTS for this installation: {size}")
+    print(f"* WORKER PENDING EVENTS for this installation: {size}")
 
 
 def report(url):
@@ -115,8 +117,12 @@ def report(url):
     try:
         owner, repo, _, pull_number = path.split("/")
     except ValueError:
-        print(f"Wrong URL: {url}")
-        return
+        pull_number = None
+        try:
+            owner, repo = path.split("/")
+        except ValueError:
+            print(f"Wrong URL: {url}")
+            return
 
     slug = owner + "/" + repo
 
@@ -139,25 +145,51 @@ def report(url):
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 
+    repo = client.item(f"/repos/{owner}/{repo}")
+    print(f"* REPOSITORY IS {'PRIVATE' if repo['private'] else 'PUBLIC'}")
+
     utils.async_run(report_worker_status(client.auth.owner))
 
-    pull_raw = client.item(f"pulls/{pull_number}")
-    ctxt = context.Context(
-        client, pull_raw, cached_sub, [{"event_type": "mergify-debugger", "data": {}}]
-    )
+    if pull_number:
+        pull_raw = client.item(f"pulls/{pull_number}")
+        ctxt = context.Context(
+            client,
+            pull_raw,
+            cached_sub,
+            [{"event_type": "mergify-debugger", "data": {}}],
+        )
 
-    q = queue.Queue.from_context(ctxt)
-    print("QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
+        q = queue.Queue.from_context(ctxt)
+        print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
 
-    print(
-        "* REPOSITORY IS %s" % "PRIVATE"
-        if ctxt.pull["base"]["repo"]["private"]
-        else "PUBLIC"
-    )
+    else:
+        for branch in client.items("branches"):
+            q = queue.Queue(
+                utils.get_redis_for_cache(),
+                client.auth.installation["id"],
+                client.auth.owner,
+                client.auth.repo,
+                branch["name"],
+            )
+            pulls = q.get_pulls()
+            if not pulls:
+                continue
+
+            print(f"* QUEUES {branch['name']}:")
+
+            for priority, grouped_pulls in itertools.groupby(
+                pulls, key=lambda v: q.get_config(v)["priority"]
+            ):
+                try:
+                    fancy_priority = helpers.PriorityAliases(priority).name
+                except ValueError:
+                    fancy_priority = priority
+                formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+                print(f"** {formatted_pulls} (priority: {fancy_priority})")
 
     print("* CONFIGURATION:")
     try:
-        filename, mergify_config_content = rules.get_mergify_config_content(ctxt)
+        filename, mergify_config_content = rules.get_mergify_config_content(client)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
         pull_request_rules = None
@@ -174,27 +206,32 @@ def report(url):
                 pull_request_rules_raw["rules"] + engine.MERGIFY_RULE["rules"]
             )
 
-    print("* PULL REQUEST:")
-    pr_data = dict(ctxt.pull_request.items())
-    pprint.pprint(pr_data, width=160)
+    if pull_number:
+        print("* PULL REQUEST:")
+        pr_data = dict(ctxt.pull_request.items())
+        pprint.pprint(pr_data, width=160)
 
-    print("is_behind: %s" % ctxt.is_behind)
+        print("is_behind: %s" % ctxt.is_behind)
 
-    print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
+        print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
 
-    print("* MERGIFY LAST CHECKS:")
-    for c in ctxt.pull_engine_check_runs:
-        print("[%s]: %s | %s" % (c["name"], c["conclusion"], c["output"].get("title")))
-        print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
+        print("* MERGIFY LAST CHECKS:")
+        for c in ctxt.pull_engine_check_runs:
+            print(
+                "[%s]: %s | %s" % (c["name"], c["conclusion"], c["output"].get("title"))
+            )
+            print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
 
-    if pull_request_rules is not None:
-        print("* MERGIFY LIVE MATCHES:")
-        match = pull_request_rules.get_pull_request_rule(ctxt)
-        summary_title, summary = actions_runner.gen_summary(ctxt, match)
-        print("> %s" % summary_title)
-        print(summary)
+        if pull_request_rules is not None:
+            print("* MERGIFY LIVE MATCHES:")
+            match = pull_request_rules.get_pull_request_rule(ctxt)
+            summary_title, summary = actions_runner.gen_summary(ctxt, match)
+            print("> %s" % summary_title)
+            print(summary)
 
-    return ctxt
+        return ctxt
+    else:
+        return client
 
 
 def main():

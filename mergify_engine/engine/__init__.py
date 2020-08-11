@@ -87,7 +87,7 @@ def check_configuration_changes(ctxt):
 
         if ref is not None:
             try:
-                rules.get_mergify_config(ctxt, ref=ref)
+                rules.get_mergify_config(ctxt.client, ref=ref)
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
                 check_api.set_check_run(
@@ -188,7 +188,7 @@ def run(client, pull, subscription, sources):
     ctxt.log.debug("engine get configuration")
     # BRANCH CONFIGURATION CHECKING
     try:
-        filename, mergify_config = rules.get_mergify_config(ctxt)
+        filename, mergify_config = rules.get_mergify_config(ctxt.client)
     except rules.NoRules:  # pragma: no cover
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
