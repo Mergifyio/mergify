@@ -54,6 +54,7 @@ def merge_report(ctxt, strict):
         conclusion = "cancelled"
         title = "Merge conflict needs to be solved"
         summary = ""
+
     elif ctxt.pull["mergeable_state"] == "unknown":
         conclusion = "failure"
         title = "Pull request state reported as `unknown` by GitHub"
@@ -73,6 +74,11 @@ def merge_report(ctxt, strict):
             "Branch protection setting 'strict' conflicts with Mergify configuration"
         )
         summary = ""
+
+    elif ctxt.github_workflow_changed():
+        conclusion = "action_required"
+        title = "Pull request must be merged manually."
+        summary = "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
 
     # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
     # are OK for us

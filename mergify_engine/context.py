@@ -386,6 +386,12 @@ class Context(object):
     def pull_from_fork(self):
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
+    def github_workflow_changed(self):
+        for f in self.files:
+            if f["filename"].startswith(".github/workflows"):
+                return True
+        return False
+
 
 @dataclasses.dataclass
 class RenderTemplateFailure(Exception):

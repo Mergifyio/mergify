@@ -496,6 +496,8 @@ end
                 raise
             except StreamUnused:
                 raise
+            except vcr_errors_CannotOverwriteExistingCassetteException:
+                raise
             except Exception:
                 # Ignore it, it will retried later
                 logger.error("failed to process pull request", exc_info=True)

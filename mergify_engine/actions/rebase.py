@@ -25,6 +25,10 @@ from mergify_engine.rules import types
 class RebaseAction(actions.Action):
     is_command = True
 
+    always_run = True
+
+    silent_report = True
+
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
             None, types.GitHubLogin
@@ -41,10 +45,18 @@ class RebaseAction(actions.Action):
             )
 
         if ctxt.is_behind:
+            if ctxt.github_workflow_changed():
+                return (
+                    "action_required",
+                    "Pull request must be rebased manually.",
+                    "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.",
+                )
+
             try:
                 branch_updater.update_with_git(
                     ctxt, "rebase", self.config["bot_account"]
                 )
+                return "success", "Branch has been successfully rebased", ""
             except branch_updater.BranchUpdateFailure as e:
                 return "failure", "Branch rebase failed", str(e)
         else:
