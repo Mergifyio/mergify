@@ -129,12 +129,6 @@ async def get_pull_for_engine(owner, repo, pull_number, logger):
 
         subscription = await sub_utils.get_subscription(client.auth.owner_id)
 
-        if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
-            logger.debug(
-                "pull request on private private repository without subscription, skipping it"
-            )
-            return
-
         return subscription, pull
 
 
