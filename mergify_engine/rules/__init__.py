@@ -253,7 +253,7 @@ class InvalidRules(Exception):
 MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
 
 
-def get_mergify_config_content(ctxt, ref=None):
+def get_mergify_config_content(client, ref=None):
     """Get the Mergify configuration file content.
 
     :return: The filename and its content.
@@ -263,15 +263,15 @@ def get_mergify_config_content(ctxt, ref=None):
         kwargs["ref"] = ref
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
-            content = ctxt.client.item(f"contents/{filename}", **kwargs)["content"]
+            content = client.item(f"contents/{filename}", **kwargs)["content"]
         except http.HTTPNotFound:
             continue
         return filename, base64.b64decode(bytearray(content, "utf-8"))
     raise NoRules()
 
 
-def get_mergify_config(ctxt, ref=None):
-    filename, content = get_mergify_config_content(ctxt, ref)
+def get_mergify_config(client, ref=None):
+    filename, content = get_mergify_config_content(client, ref)
     try:
         return filename, UserConfigurationSchema(content)
     except voluptuous.Invalid as e:

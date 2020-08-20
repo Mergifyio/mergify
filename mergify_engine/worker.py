@@ -58,6 +58,7 @@ LOG = daiquiri.getLogger(__name__)
 
 MAX_RETRIES = 3
 WORKER_PROCESSING_DELAY = 30
+STREAM_ATTEMPTS_LOGGING_THRESHOLD = 20
 
 
 class IgnoredException(Exception):
@@ -127,12 +128,6 @@ async def get_pull_for_engine(owner, repo, pull_number, logger):
             return
 
         subscription = await sub_utils.get_subscription(client.auth.owner_id)
-
-        if pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
-            logger.debug(
-                "pull request on private private repository without subscription, skipping it"
-            )
-            return
 
         return subscription, pull
 
@@ -323,7 +318,12 @@ class StreamProcessor:
             LOG.info("unused stream, dropping it", gh_owner=owner, exc_info=True)
             await self.redis.delete(stream_name)
         except StreamRetry as e:
-            LOG.info(
+            log_method = (
+                LOG.error
+                if e.attempts >= STREAM_ATTEMPTS_LOGGING_THRESHOLD
+                else LOG.info
+            )
+            log_method(
                 "failed to process stream, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
