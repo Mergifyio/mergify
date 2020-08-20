@@ -180,6 +180,9 @@ expected alphabetic or numeric character, but found"""
         with futures.ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(debug.report, p.html_url).result()
 
+        with futures.ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(debug.report, p.base.repo.html_url).result()
+
     def test_backport_no_branch(self):
         rules = {
             "pull_request_rules": [
