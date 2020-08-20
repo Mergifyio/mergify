@@ -9,7 +9,7 @@ File Used
 
 Mergify uses the configuration file that is:
 
-- The file named ``.mergify.yml``, or, as a fallback, ``.mergify/config.yml``
+- The file named ``.mergify.yml``, or, as a fallback, ``.mergify/config.yml`` or ``.github/mergify.yml``
   from the root directory.
 
 - In the the default repository branch configured on GitHub — usually
