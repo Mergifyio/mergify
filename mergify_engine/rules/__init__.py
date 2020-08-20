@@ -250,7 +250,11 @@ class InvalidRules(Exception):
         )
 
 
-MERGIFY_CONFIG_FILENAMES = (".mergify.yml", ".mergify/config.yml")
+MERGIFY_CONFIG_FILENAMES = (
+    ".mergify.yml",
+    ".mergify/config.yml",
+    ".github/mergify.yml",
+)
 
 
 def get_mergify_config_content(ctxt, ref=None):
