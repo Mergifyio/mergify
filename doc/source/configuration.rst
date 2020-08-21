@@ -59,8 +59,6 @@ See :ref:`Examples` for configuration file examples.
 Data Types
 ----------
 
-.. _data type template:
-
 Regular Expression
 ~~~~~~~~~~~~~~~~~~
 
@@ -74,6 +72,7 @@ See the specific :ref:`Examples` for configuration file examples.
 
   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your regular expression.
 
+.. _data type template:
 
 Template
 ~~~~~~~~
