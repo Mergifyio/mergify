@@ -58,7 +58,7 @@ Mergify applies rules to your pull requests. To do that, you need to create a
 Mergify configuration in each repository where Mergify is used.
 
 The configuration file should be created in the root directory of the
-repository and named either ``.mergify.yml`` or ``.mergify/config.yml``.
+repository and named either ``.mergify.yml`` or ``.mergify/config.yml`` or ``.github/mergify.yml``.
 
 As the file name implies, the configuration file format is based on `YAML
 <https://yaml.org/>`_, a simplistic file format for data. The configuration
