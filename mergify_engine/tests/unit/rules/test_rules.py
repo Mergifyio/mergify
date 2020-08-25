@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from base64 import encodebytes
 from unittest import mock
 
 import pytest
@@ -20,6 +21,8 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine.rules import InvalidRules
+from mergify_engine.rules import get_mergify_config
 
 
 def pull_request_rule_from_list(lst):
@@ -65,24 +68,142 @@ def test_same_names():
 def test_jinja_with_list_attribute():
     pull_request_rules = rules.UserConfigurationSchema(
         """
-pull_request_rules:
-  - name: ahah
-    conditions:
-    - base=master
-    actions:
-      comment:
-        message: |
-          This pull request has been approved by:
-          {% for name in approved_reviews_by %}
-          @{{name}}
-          {% endfor %}
-          Thank you @{{author}} for your contributions!
-
-"""
+        pull_request_rules:
+          - name: ahah
+            conditions:
+            - base=master
+            actions:
+              comment:
+                message: |
+                  This pull request has been approved by:
+                  {% for name in approved_reviews_by %}
+                  @{{name}}
+                  {% endfor %}
+                  Thank you @{{author}} for your contributions!
+        """
     )["pull_request_rules"]
     assert [rule["name"] for rule in pull_request_rules] == [
         "ahah",
     ]
+
+
+def test_jinja_with_wrong_syntax():
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by:
+                      {% for name in approved_reviews_by %}
+                      Thank you @{{author}} for your contributions!
+            """
+        )
+    assert str(i.value) == (
+        "Template syntax error @ data['pull_request_rules']"
+        "[0]['actions']['comment']['message'][line 3]"
+    )
+
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by:
+                      {% for name in approved_reviews_by %}
+                      @{{ name }}
+                      {% endfor %}
+                      Thank you @{{foo}} for your contributions!
+            """
+        )
+    assert str(i.value) == (
+        "Template syntax error for dictionary value @ data['pull_request_rules']"
+        "[0]['actions']['comment']['message']"
+    )
+
+
+@pytest.mark.parametrize(
+    "valid",
+    (
+        (
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by
+            """
+        ),
+        (
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by
+                      {% for name in approved_reviews_by %}
+                      @{{ name }}
+                      {% endfor %}
+            """
+        ),
+    ),
+)
+def test_get_mergify_config(valid):
+    client = mock.Mock()
+    client.item.return_value = {"content": encodebytes(valid.encode()).decode()}
+    filename, schema = get_mergify_config(client)
+    assert isinstance(schema, dict)
+    assert "pull_request_rules" in schema
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    (
+        (
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+            """
+        ),
+        (
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                actions:
+                  coment:
+                    message: |
+                      This pull request has been approved by
+                      {% for name in approved_reviews_by %}
+                      @{{ name }}
+            """
+        ),
+    ),
+)
+def test_get_mergify_config_invalid(invalid):
+    with pytest.raises(InvalidRules):
+        client = mock.Mock()
+        client.item.return_value = {"content": encodebytes(invalid.encode()).decode()}
+        filename, schema = get_mergify_config(client)
 
 
 def test_user_configuration_schema():
@@ -93,10 +214,10 @@ def test_user_configuration_schema():
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             """
-pull_request_rules:
-  - name: ahah
-    key: not really what we expected
-"""
+            pull_request_rules:
+              - name: ahah
+                key: not really what we expected
+            """
         )
     assert (
         str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
