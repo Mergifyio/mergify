@@ -39,16 +39,16 @@ class BranchUpdateNeedRetry(Exception):
     pass
 
 
-class AuthentificationFailure(Exception):
+class AuthenticationFailure(Exception):
     pass
 
 
 GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     [
         (b"organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
-        (b"Invalid username or password", AuthentificationFailure),
-        (b"Repository not found", AuthentificationFailure),
-        (b"The requested URL returned error, 403", AuthentificationFailure),
+        (b"Invalid username or password", AuthenticationFailure),
+        (b"Repository not found", AuthenticationFailure),
+        (b"The requested URL returned error, 403", AuthenticationFailure),
         (b"Patch failed at", BranchUpdateFailure),
         (b"remote contains work that you do", BranchUpdateNeedRetry),
         (b"remote end hung up unexpectedly", BranchUpdateNeedRetry),
@@ -218,7 +218,7 @@ def update_with_api(ctxt):
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(AuthentificationFailure),
+    retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
 def update_with_git(ctxt, method="merge", user=None):
     subscription = asyncio.run(sub_utils.get_subscription(ctxt.client.auth.owner_id))
@@ -239,7 +239,7 @@ def update_with_git(ctxt, method="merge", user=None):
     for login, token in creds.items():
         try:
             return _do_update(ctxt, token, method)
-        except AuthentificationFailure as e:  # pragma: no cover
+        except AuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
                 e,
@@ -253,4 +253,4 @@ def update_with_git(ctxt, method="merge", user=None):
             "Rebasing a branch for a forked private repository is not supported by GitHub"
         )
 
-    raise AuthentificationFailure("No valid OAuth tokens")
+    raise AuthenticationFailure("No valid OAuth tokens")
