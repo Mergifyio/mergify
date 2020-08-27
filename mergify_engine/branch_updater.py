@@ -48,7 +48,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
         (b"organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
         (b"Invalid username or password", AuthenticationFailure),
         (b"Repository not found", AuthenticationFailure),
-        (b"The requested URL returned error, 403", AuthenticationFailure),
+        (b"The requested URL returned error: 403", AuthenticationFailure),
         (b"Patch failed at", BranchUpdateFailure),
         (b"remote contains work that you do", BranchUpdateNeedRetry),
         (b"remote end hung up unexpectedly", BranchUpdateNeedRetry),
