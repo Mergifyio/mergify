@@ -45,6 +45,7 @@ class AuthenticationFailure(Exception):
 
 GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     [
+        (b"This repository was archived so it is read-only.", BranchUpdateFailure),
         (b"organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
         (b"Invalid username or password", AuthenticationFailure),
         (b"Repository not found", AuthenticationFailure),
