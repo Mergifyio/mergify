@@ -53,7 +53,12 @@ class TestLabelAction(base.FunctionalTestBase):
                 {
                     "name": "rename label",
                     "conditions": [f"base={self.master_branch_name}", "label=stable"],
-                    "actions": {"label": {"add": [], "remove": [],}},
+                    "actions": {
+                        "label": {
+                            "add": [],
+                            "remove": [],
+                        }
+                    },
                 }
             ]
         }
@@ -88,5 +93,6 @@ class TestLabelAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            [], pulls[0].labels,
+            [],
+            pulls[0].labels,
         )

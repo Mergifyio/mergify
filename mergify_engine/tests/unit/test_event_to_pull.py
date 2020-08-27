@@ -31,7 +31,10 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
     repo = "Cytopia"
     event_type = "check_run"
 
-    with open(os.path.join(os.path.dirname(__file__), "events", filename), "rb",) as f:
+    with open(
+        os.path.join(os.path.dirname(__file__), "events", filename),
+        "rb",
+    ) as f:
         data = json.load(f)
 
     client = mock.Mock(

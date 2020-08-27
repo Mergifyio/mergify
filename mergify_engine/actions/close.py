@@ -49,7 +49,8 @@ class CloseAction(actions.Action):
 
         try:
             ctxt.client.post(
-                f"issues/{ctxt.pull['number']}/comments", json={"body": message},
+                f"issues/{ctxt.pull['number']}/comments",
+                json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "The close message can't be created", e.message)

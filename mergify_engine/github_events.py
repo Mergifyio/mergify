@@ -164,7 +164,12 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
             pull_number = None
 
         await worker.push(
-            redis, owner, repo, pull_number, event_type, source_data,
+            redis,
+            owner,
+            repo,
+            pull_number,
+            event_type,
+            source_data,
         )
 
     LOG.info(

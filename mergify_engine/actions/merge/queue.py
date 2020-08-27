@@ -110,7 +110,8 @@ class Queue:
             config["effective_priority"] = helpers.PriorityAliases.medium.value
 
         self.redis.set(
-            self._config_cache_key(ctxt.pull["number"]), json.dumps(config),
+            self._config_cache_key(ctxt.pull["number"]),
+            json.dumps(config),
         )
         self._add_pull(ctxt.pull["number"], config["effective_priority"])
         self.log.info(
@@ -180,7 +181,9 @@ class Queue:
             ctxt.log.info("updating base branch of pull request")
             config = self.get_config(ctxt.pull["number"])
             conclusion, title, summary = helpers.update_pull_base_branch(
-                ctxt, config["strict_method"], config["bot_account"],
+                ctxt,
+                config["strict_method"],
+                config["bot_account"],
             )
 
             if ctxt.pull["state"] == "closed":

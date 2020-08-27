@@ -282,7 +282,10 @@ def test_get_pull_request_rule():
             "assignees": [],
             "labels": [],
             "author": "jd",
-            "base": {"ref": "master", "repo": {"name": "name", "private": False},},
+            "base": {
+                "ref": "master",
+                "repo": {"name": "name", "private": False},
+            },
             "head": {"ref": "myfeature", "sha": "<sha>"},
             "locked": False,
             "requested_reviewers": [],

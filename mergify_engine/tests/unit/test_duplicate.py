@@ -41,7 +41,8 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
 
 
 @mock.patch(
-    "mergify_engine.context.Context.commits", new_callable=mock.PropertyMock,
+    "mergify_engine.context.Context.commits",
+    new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_rebase(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}
@@ -88,7 +89,8 @@ def test_get_commits_to_cherry_pick_rebase(commits):
 
 
 @mock.patch(
-    "mergify_engine.context.Context.commits", new_callable=mock.PropertyMock,
+    "mergify_engine.context.Context.commits",
+    new_callable=mock.PropertyMock,
 )
 def test_get_commits_to_cherry_pick_merge(commits):
     c1 = {"sha": "c1f", "parents": [], "commit": {"message": "foobar"}}

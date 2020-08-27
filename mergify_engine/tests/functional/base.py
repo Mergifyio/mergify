@@ -424,7 +424,8 @@ class FunctionalTestBase(unittest.TestCase):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(
             sub_utils.save_subscription_to_cache(
-                config.INSTALLATION_ID, self.subscription,
+                config.INSTALLATION_ID,
+                self.subscription,
             )
         )
 
@@ -466,7 +467,8 @@ class FunctionalTestBase(unittest.TestCase):
         )
 
         self.cli_integration = github.get_client(
-            config.TESTING_ORGANIZATION, self.REPO_NAME,
+            config.TESTING_ORGANIZATION,
+            self.REPO_NAME,
         )
 
         real_get_subscription = sub_utils.get_subscription
@@ -502,7 +504,8 @@ class FunctionalTestBase(unittest.TestCase):
         ).start()
 
         mock.patch(
-            "mergify_engine.sub_utils.get_subscription", side_effect=fake_subscription,
+            "mergify_engine.sub_utils.get_subscription",
+            side_effect=fake_subscription,
         ).start()
 
         mock.patch(

@@ -110,7 +110,9 @@ class TestCommentAction(base.FunctionalTestBase):
         return check
 
     def test_comment_template_syntax_error(self):
-        check = self._test_comment_template_error(msg="Thank you {{",)
+        check = self._test_comment_template_error(
+            msg="Thank you {{",
+        )
         assert (
             """Template syntax error @ data['pull_request_rules'][0]['actions']['comment']['message'][line 1]
 ```
@@ -120,7 +122,9 @@ unexpected 'end of template'
         )
 
     def test_comment_template_attribute_error(self):
-        check = self._test_comment_template_error(msg="Thank you {{hello}}",)
+        check = self._test_comment_template_error(
+            msg="Thank you {{hello}}",
+        )
         assert (
             """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['comment']['message']
 ```

@@ -113,7 +113,8 @@ Schema = voluptuous.Schema(
         ): voluptuous.Coerce(int),
         voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,
         voluptuous.Required(
-            "ORG_ADMIN_PERSONAL_TOKEN", default="<ORG_ADMIN_PERSONAL_TOKEN>",
+            "ORG_ADMIN_PERSONAL_TOKEN",
+            default="<ORG_ADMIN_PERSONAL_TOKEN>",
         ): str,
         voluptuous.Required(
             "EXTERNAL_USER_PERSONAL_TOKEN", default="<EXTERNAL_USER_TOKEN>"

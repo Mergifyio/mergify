@@ -110,7 +110,8 @@ async def refresh_branch(owner, repo, branch):
 
 
 @app.put(
-    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(auth.signature)],
+    "/subscription-cache/{owner_id}",
+    dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_update(
     owner_id, request: requests.Request
@@ -123,7 +124,8 @@ async def subscription_cache_update(
 
 
 @app.delete(
-    "/subscription-cache/{owner_id}", dependencies=[fastapi.Depends(auth.signature)],
+    "/subscription-cache/{owner_id}",
+    dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
     r = await utils.get_aredis_for_cache()
@@ -144,7 +146,9 @@ async def cleanup_subscription(data):
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
-async def marketplace_handler(request: requests.Request,):  # pragma: no cover
+async def marketplace_handler(
+    request: requests.Request,
+):  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -192,7 +196,9 @@ async def queues(installation_id):
 
 
 @app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
-async def event_handler(request: requests.Request,):
+async def event_handler(
+    request: requests.Request,
+):
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()

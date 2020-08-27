@@ -121,6 +121,8 @@ async def get_installation(account):
             return installation
         except http.HTTPNotFound as e:
             LOG.debug(
-                "Mergify not installed", gh_owner=owner, error_message=e.message,
+                "Mergify not installed",
+                gh_owner=owner,
+                error_message=e.message,
             )
             raise exceptions.MergifyNotInstalled()
