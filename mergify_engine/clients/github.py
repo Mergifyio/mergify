@@ -252,7 +252,9 @@ class AsyncGithubInstallationClient(http.AsyncClient):
     def __init__(self, auth):
         self._requests = []
         super().__init__(
-            base_url=config.GITHUB_API_URL, auth=auth, **http.DEFAULT_CLIENT_OPTIONS,
+            base_url=config.GITHUB_API_URL,
+            auth=auth,
+            **http.DEFAULT_CLIENT_OPTIONS,
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -336,7 +338,9 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         await super().aclose()
         nb_requests = len(self._requests)
         statsd.histogram(
-            "http.client.session", nb_requests, tags=[f"hostname:{self.base_url.host}"],
+            "http.client.session",
+            nb_requests,
+            tags=[f"hostname:{self.base_url.host}"],
         )
         if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
             LOG.warning(
@@ -372,7 +376,9 @@ class GithubInstallationClient(http.Client):
     def __init__(self, auth):
         self._requests = []
         super().__init__(
-            base_url=config.GITHUB_API_URL, auth=auth, **http.DEFAULT_CLIENT_OPTIONS,
+            base_url=config.GITHUB_API_URL,
+            auth=auth,
+            **http.DEFAULT_CLIENT_OPTIONS,
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -455,7 +461,9 @@ class GithubInstallationClient(http.Client):
         super().close()
         nb_requests = len(self._requests)
         statsd.histogram(
-            "http.client.session", nb_requests, tags=[f"hostname:{self.base_url.host}"],
+            "http.client.session",
+            nb_requests,
+            tags=[f"hostname:{self.base_url.host}"],
         )
         if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
             LOG.warning(

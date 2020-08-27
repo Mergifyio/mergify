@@ -25,7 +25,8 @@ from mergify_engine import web
 
 
 @mock.patch(
-    "mergify_engine.github_events.job_filter_and_dispatch", new_callable=mock.AsyncMock,
+    "mergify_engine.github_events.job_filter_and_dispatch",
+    new_callable=mock.AsyncMock,
 )
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
@@ -50,7 +51,8 @@ def test_app_event_forward(_, __, httpserver):
     ).respond_with_data("")
 
     with mock.patch(
-        "mergify_engine.config.WEBHOOK_APP_FORWARD_URL", httpserver.url_for("/"),
+        "mergify_engine.config.WEBHOOK_APP_FORWARD_URL",
+        httpserver.url_for("/"),
     ):
         with testclient.TestClient(web.app) as client:
             client.post("/event", data=data, headers=headers)

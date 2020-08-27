@@ -55,14 +55,18 @@ def setup_logging():
 
     if config.LOG_STDOUT:
         outputs.append(
-            daiquiri.output.Stream(sys.stdout, level=config.LOG_STDOUT_LEVEL,)
+            daiquiri.output.Stream(
+                sys.stdout,
+                level=config.LOG_STDOUT_LEVEL,
+            )
         )
 
     if config.LOG_DATADOG:
         outputs.append(daiquiri.output.Datadog(level=config.LOG_DATADOG_LEVEL))
 
     daiquiri.setup(
-        outputs=outputs, level=config.LOG_LEVEL,
+        outputs=outputs,
+        level=config.LOG_LEVEL,
     )
     daiquiri.set_default_log_levels(
         [

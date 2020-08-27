@@ -69,7 +69,9 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
 
     if not checks:
         check = ctxt.client.post(
-            "check-runs", api_version="antiope", json=post_parameters,
+            "check-runs",
+            api_version="antiope",
+            json=post_parameters,
         ).json()
         ctxt.update_pull_check_runs(check)
         return check
@@ -103,7 +105,9 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
                 continue
 
         check = ctxt.client.patch(
-            f"check-runs/{check['id']}", api_version="antiope", json=post_parameters,
+            f"check-runs/{check['id']}",
+            api_version="antiope",
+            json=post_parameters,
         ).json()
 
     ctxt.update_pull_check_runs(check)

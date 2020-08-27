@@ -53,7 +53,14 @@ class DummyContext(context.Context):
         pass
 
 
-_DUMMY_PR = context.PullRequest(DummyContext(None, {}, {}, [],))
+_DUMMY_PR = context.PullRequest(
+    DummyContext(
+        None,
+        {},
+        {},
+        [],
+    )
+)
 
 
 def Jinja2(value):

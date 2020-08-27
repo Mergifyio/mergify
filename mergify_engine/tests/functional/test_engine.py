@@ -54,7 +54,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
     def test_invalid_configuration(self):
         rules = {
-            "pull_request_rules": [{"name": "foobar", "wrong key": 123,},],
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "wrong key": 123,
+                },
+            ],
         }
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
@@ -92,7 +97,8 @@ expected alphabetic or numeric character, but found"""
         check_id = check["id"]
         annotations = list(
             ctxt.client.items(
-                f"check-runs/{check_id}/annotations", api_version="antiope",
+                f"check-runs/{check_id}/annotations",
+                api_version="antiope",
             )
         )
         assert annotations == [
@@ -116,7 +122,9 @@ expected alphabetic or numeric character, but found"""
                 {
                     "name": "foobar",
                     "conditions": ["branch=master"],
-                    "actions": {"comment": {"message": "hello"},},
+                    "actions": {
+                        "comment": {"message": "hello"},
+                    },
                 },
             ],
         }
@@ -328,7 +336,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
-            % (pull.number, pull.title, pull.html_url,)
+            % (
+                pull.number,
+                pull.title,
+                pull.html_url,
+            )
             == checks[0]["output"]["summary"]
         )
         assert [label.name for label in pull.labels] == ["conflicts"]
@@ -392,7 +404,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
-            % (bp_pull.number, bp_pull.title, bp_pull.html_url,)
+            % (
+                bp_pull.number,
+                bp_pull.title,
+                bp_pull.html_url,
+            )
             == checks[0]["output"]["summary"]
         )
 
@@ -1196,7 +1212,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr()
 
         self.wait_for(
-            "check_run", {"check_run": {"conclusion": None, "status": "in_progress"}},
+            "check_run",
+            {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -1453,7 +1470,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for(
-            "issue_comment", {"action": "created", "comment": {"body": "It conflict!"}},
+            "issue_comment",
+            {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
     def test_requested_reviews(self):

@@ -165,7 +165,9 @@ def _do_update(ctxt, token, method="merge"):
                 raise out_exception(in_exception.output.decode())
         else:
             ctxt.log.error(
-                "update branch failed: %s", in_exception.output.decode(), exc_info=True,
+                "update branch failed: %s",
+                in_exception.output.decode(),
+                exc_info=True,
             )
             raise BranchUpdateFailure()
 
@@ -199,7 +201,9 @@ def update_with_api(ctxt):
                 )
                 return
         ctxt.log.info(
-            "update branch failed", status=e.status_code, error=e.message,
+            "update branch failed",
+            status=e.status_code,
+            error=e.message,
         )
         raise BranchUpdateFailure(e.message)
     except (http.RequestError, http.HTTPStatusError) as e:

@@ -211,7 +211,8 @@ def load_conclusions(ctxt, summary_check):
             return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
 
     ctxt.log.warning(
-        "previous conclusion not found in summary", summary_check=summary_check,
+        "previous conclusion not found in summary",
+        summary_check=summary_check,
     )
     return {}
 
@@ -233,7 +234,10 @@ def get_previous_conclusion(previous_conclusions, name, checks):
 
 
 def run_actions(
-    ctxt, match, checks, previous_conclusions,
+    ctxt,
+    match,
+    checks,
+    previous_conclusions,
 ):
     """
     What action.run() and action.cancel() return should be reworked a bit. Currently the
@@ -309,7 +313,11 @@ def run_actions(
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
                 report = exec_action(
-                    method_name, rule, action, ctxt, missing_conditions,
+                    method_name,
+                    rule,
+                    action,
+                    ctxt,
+                    missing_conditions,
                 )
                 message = "`%s` executed" % method_name
 

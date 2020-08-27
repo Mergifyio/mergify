@@ -58,7 +58,8 @@ def test_client_401_raise_ratelimit(httpserver):
     )
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
     ):
         client = github.get_client(owner, repo)
         with pytest.raises(exceptions.RateLimited):
@@ -179,7 +180,8 @@ def test_client_access_token_HTTP_500(httpserver):
     ).respond_with_data("This is an 5XX error", status=500)
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
     ):
         with github.GithubInstallationClient(
             github.get_auth("owner", "repo")
@@ -206,7 +208,8 @@ def test_client_installation_HTTP_500(httpserver):
         "This is an 5XX error", status=500
     )
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
     ):
         with github.GithubInstallationClient(
             github.get_auth("owner", "repo")
@@ -233,7 +236,8 @@ def test_client_installation_HTTP_404(httpserver):
         {"message": "Repository not found"}, status=404
     )
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
     ):
         with github.GithubInstallationClient(
             github.get_auth("owner", "repo")
@@ -256,7 +260,8 @@ def test_client_installation_HTTP_301(httpserver):
         {"message": "Repository not found"}, status=404
     )
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL", httpserver.url_for("/")[:-1],
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
     ):
         with github.GithubInstallationClient(
             github.get_auth("owner", "repo")

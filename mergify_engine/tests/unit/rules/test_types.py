@@ -19,7 +19,11 @@ from mergify_engine.rules import types
 
 
 @pytest.mark.parametrize(
-    "s", ("hello", "{{author}}",),
+    "s",
+    (
+        "hello",
+        "{{author}}",
+    ),
 )
 def test_jinja2_valid(s):
     assert types.Jinja2(s) == s
@@ -49,7 +53,8 @@ def test_jinja2_unknown_attr():
 
 
 @pytest.mark.parametrize(
-    "login", ("foobar", "foobaz", "foo-baz", "f123", "123foo"),
+    "login",
+    ("foobar", "foobaz", "foo-baz", "f123", "123foo"),
 )
 def test_github_login_ok(login):
     types.GitHubLogin(login)

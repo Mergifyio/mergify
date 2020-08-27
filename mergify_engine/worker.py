@@ -218,7 +218,11 @@ class StreamSelector:
         streams = [
             s
             for s in await self.redis.zrangebyscore(
-                "streams", min=0, max=now, start=0, num=self.worker_count * 2,
+                "streams",
+                min=0,
+                max=now,
+                start=0,
+                num=self.worker_count * 2,
             )
             if s not in self._pending_streams
         ]
@@ -241,7 +245,10 @@ class StreamProcessor:
         self._thread.close()
 
     async def _translate_exception_to_retries(
-        self, e, stream_name, attempts_key=None,
+        self,
+        e,
+        stream_name,
+        attempts_key=None,
     ):
         if isinstance(e, exceptions.MergifyNotInstalled):
             if attempts_key:
@@ -293,7 +300,11 @@ class StreamProcessor:
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
             await self._thread.exec(
-                run_engine, owner, repo, pull_number, sources,
+                run_engine,
+                owner,
+                repo,
+                pull_number,
+                sources,
             )
             await self.redis.hdel("attempts", attempts_key)
         # Translate in more understandable exception
@@ -435,7 +446,9 @@ end
         try:
             async with await github.aget_client(owner, repo) as client:
                 pull_numbers = await github_events.extract_pull_numbers_from_event(
-                    client, source["event_type"], source["data"],
+                    client,
+                    source["event_type"],
+                    source["data"],
                 )
         except Exception as e:
             await self._translate_exception_to_retries(e, stream_name)
@@ -536,7 +549,9 @@ class Worker:
                             await stream_processor.consume(stream_name)
                         finally:
                             LOG.debug(
-                                "worker %d release stream: %s", worker_id, stream_name,
+                                "worker %d release stream: %s",
+                                worker_id,
+                                stream_name,
                             )
                     else:
                         LOG.debug(

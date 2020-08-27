@@ -220,7 +220,9 @@ class MergeAction(actions.Action):
             return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
         else:
             return helpers.update_pull_base_branch(
-                ctxt, self.config["strict_method"], self.config["bot_account"],
+                ctxt,
+                self.config["strict_method"],
+                self.config["bot_account"],
             )
 
     @staticmethod
@@ -279,7 +281,8 @@ class MergeAction(actions.Action):
 
         try:
             commit_title_and_message = self._get_commit_message(
-                ctxt.pull_request, self.config["commit_message"],
+                ctxt.pull_request,
+                self.config["commit_message"],
             )
         except context.RenderTemplateFailure as rmf:
             return (

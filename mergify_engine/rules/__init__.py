@@ -141,7 +141,8 @@ class PullRequestRules:
                 for condition in rule["conditions"]:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
-                            attrib, self.context.resolve_teams,
+                            attrib,
+                            self.context.resolve_teams,
                         )
 
                     name = condition.get_attribute_name()

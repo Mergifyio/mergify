@@ -96,7 +96,9 @@ class TestReviewAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "review",
-                    "conditions": [f"base={self.master_branch_name}",],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                    ],
                     "actions": {"review": {"message": msg, "type": "REQUEST_CHANGES"}},
                 },
             ]
@@ -114,7 +116,9 @@ class TestReviewAction(base.FunctionalTestBase):
         return check
 
     def test_review_template_syntax_error(self):
-        check = self._test_review_template_error(msg="Thank you {{",)
+        check = self._test_review_template_error(
+            msg="Thank you {{",
+        )
         assert (
             """Template syntax error @ data['pull_request_rules'][0]['actions']['review']['message'][line 1]
 ```
@@ -124,7 +128,9 @@ unexpected 'end of template'
         )
 
     def test_review_template_attribute_error(self):
-        check = self._test_review_template_error(msg="Thank you {{hello}}",)
+        check = self._test_review_template_error(
+            msg="Thank you {{hello}}",
+        )
         assert (
             """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['review']['message']
 ```

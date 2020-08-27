@@ -36,13 +36,28 @@ with open(
     "event,event_type,status_code,reason",
     (
         (
-            {"sender": {"login": "JD",}, "event_type": "foobar",},
+            {
+                "sender": {
+                    "login": "JD",
+                },
+                "event_type": "foobar",
+            },
             None,
             200,
             b"Event ignored: no repository found",
         ),
-        (push_event, "push", 200, b"Event ignored: push on refs/tags/simple-tag",),
-        (pull_request_event, "pull_request", 202, b"Event queued",),
+        (
+            push_event,
+            "push",
+            200,
+            b"Event ignored: push on refs/tags/simple-tag",
+        ),
+        (
+            pull_request_event,
+            "pull_request",
+            202,
+            b"Event queued",
+        ),
     ),
 )
 def test_push_event(event, event_type, status_code, reason):
@@ -54,6 +69,10 @@ def test_push_event(event, event_type, status_code, reason):
             "X-GitHub-Event": event_type,
             "Content-Type": f"application/json; charset={charset}",
         }
-        reply = client.post("/event", data=data, headers=headers,)
+        reply = client.post(
+            "/event",
+            data=data,
+            headers=headers,
+        )
         assert reply.content == reason
         assert reply.status_code == status_code
