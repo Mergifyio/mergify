@@ -74,6 +74,7 @@ def get_ignore_reason(event_type, data):
         "check_suite",
         "check_run",
         "refresh",
+        "github_app_authorization",
     ]:
         return "unexpected event_type"
 
