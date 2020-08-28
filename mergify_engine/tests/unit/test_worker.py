@@ -18,6 +18,7 @@ import time
 from unittest import mock
 
 from freezegun import freeze_time
+import httpx
 import pytest
 
 from mergify_engine import exceptions
@@ -651,3 +652,22 @@ async def test_worker_debug_report(redis, logger_checker):
                 )
 
     await worker.async_status()
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_stream_processor_retrying_after_read_error(run_engine, redis):
+    response = mock.Mock()
+    response.json.return_value = {"message": "boom"}
+    response.status_code = 503
+    run_engine.side_effect = httpx.ReadError(
+        "Server disconnected while attempting read",
+        request=mock.Mock(),
+    )
+
+    p = worker.StreamProcessor(redis)
+
+    with pytest.raises(worker.StreamRetry):
+        await p._run_engine_and_translate_exception_to_retries(
+            "stream-owner", "owner", "repo", 1234, []
+        )
