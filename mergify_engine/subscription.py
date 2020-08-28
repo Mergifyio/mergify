@@ -34,6 +34,7 @@ class Features(enum.Enum):
     PRIVATE_REPOSITORY = "private_repository"
     LARGE_REPOSITORY = "large_repository"
     PRIORITY_QUEUES = "priority_queues"
+    CUSTOM_CHECKS = "custom_checks"
 
 
 @dataclasses.dataclass

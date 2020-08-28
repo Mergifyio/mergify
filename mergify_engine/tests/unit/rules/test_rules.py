@@ -708,3 +708,42 @@ def test_get_pull_request_rule():
     assert [r["name"] for r, _ in match.matching_rules] == ["default"]
     assert match.matching_rules[0][0]["name"] == "default"
     assert len(match.matching_rules[0][1]) == 0
+
+
+def test_check_runs_custom():
+    pull_request_rules = rules.UserConfigurationSchema(
+        """
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      check-runs:
+        title: '{{ check_rule_name }} whatever'
+        summary: |
+          This pull request has been checked!
+          Thank you @{{author}} for your contributions!
+
+          {{ check_conditions }}
+
+"""
+    )["pull_request_rules"]
+    assert [rule["name"] for rule in pull_request_rules] == [
+        "ahah",
+    ]
+
+
+def test_check_runs_default():
+    pull_request_rules = rules.UserConfigurationSchema(
+        """
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      check-runs: {}
+"""
+    )["pull_request_rules"]
+    assert [rule["name"] for rule in pull_request_rules] == [
+        "ahah",
+    ]

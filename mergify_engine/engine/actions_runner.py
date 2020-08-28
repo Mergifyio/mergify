@@ -363,12 +363,18 @@ def run_actions(
                     not action_obj.silent_report
                     or conclusion not in ("success", "cancelled", None)
                 ):
+                    external_id = (
+                        check_api.USER_CREATED_CHECKS
+                        if action_obj.allow_retrigger_mergify
+                        else None
+                    )
                     try:
                         check_api.set_check_run(
                             ctxt,
                             check_name,
                             status,
                             conclusion,
+                            external_id=external_id,
                             output={"title": title, "summary": summary},
                         )
                     except Exception:

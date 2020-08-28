@@ -52,6 +52,11 @@ def test_jinja2_unknown_attr():
     assert str(x.value.error_message) == "Unknown pull request attribute: foo"
 
 
+def test_jinja2_custom_attr():
+    s = "{{ role_status }}"
+    assert types.Jinja2(s, {"role_status": "passed"}) == s
+
+
 @pytest.mark.parametrize(
     "login",
     ("foobar", "foobaz", "foo-baz", "f123", "123foo"),
