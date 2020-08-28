@@ -78,11 +78,21 @@ class Queue:
         """
         config = self.redis.get(self._config_cache_key(pull_number))
         if config is None:
+            # FIXME(sileht): We should never ever pass here in theory, but
+            # Currently we can have race condition like:
+            # * smart queue coro: get next PR
+            # * engine coro: get merge event
+            # * engine coro: cleanup queue with 3 redis cmds without transaction
+            # * smart queue coro: get merge config (get_config()), and got None.
+            # That's not a huge deal
+            # TODO(sileht): Everything about queue should be done in redis transaction
+            # e.g.: add/update/get/del of a pull in queue
             return {
                 "strict_method": self.redis.get(self._method_cache_key(pull_number))
                 or "merge",
                 "priority": 2000,
                 "effective_priority": 2000,
+                "bot_account": None,
             }
         config = json.loads(config)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
