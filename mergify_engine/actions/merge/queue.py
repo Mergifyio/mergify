@@ -233,12 +233,13 @@ class Queue:
         pull_number = pull_numbers[0]
 
         with github.get_client(self.owner, self.repo) as client:
-            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
-
-            data = client.item(f"pulls/{pull_number}")
-
             ctxt = None
             try:
+                subscription = asyncio.run(
+                    sub_utils.get_subscription(client.auth.owner_id)
+                )
+                data = client.item(f"pulls/{pull_number}")
+
                 ctxt = context.Context(client, data, subscription)
                 if ctxt.pull["base"]["ref"] != self.ref:
                     ctxt.log.info(
