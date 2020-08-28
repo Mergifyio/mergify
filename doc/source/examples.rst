@@ -494,6 +494,35 @@ request.
           comments:
             message: /AzurePipelines run mypipeline
 
+📜 Enforcing Pull Request Guidelines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   |premium plan tag|
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: Guidelines
+        conditions:
+          - "#title<50"
+          - "#body<4096"
+          - "#files<100"
+          - "body~=(?m)^(Fixes|Related|Closes) (MERGIFY-ENGINE|MRGFY)-"
+          - -label=ignore-guidelines
+        actions:
+          check-runs:
+            title: Pull request #{{ number }} does{% if not check_succeed %} not{% endif %} follow our guidelines
+            summary: |
+              My awesome pull request guidelines:
+
+              * The tile must be at least 50 chars long
+              * The body must be no longer than 4k chars
+              * The PR can't modify more than 100 files
+              * Please explain what you're trying to achieve by linking to an issue
+
+              Conditions:
+
+              {{ check_conditions }}
 
 
 .. include:: examples/bots.rst

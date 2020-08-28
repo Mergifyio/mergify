@@ -20,6 +20,7 @@ import dataclasses
 import daiquiri
 from datadog import statsd
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine import worker
@@ -49,6 +50,7 @@ def get_ignore_reason(event_type, data):
         event_type in ["check_run", "check_suite"]
         and data[event_type]["app"]["id"] == config.INTEGRATION_ID
         and data["action"] != "rerequested"
+        and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
     ):
         return f"mergify {event_type}"
 
