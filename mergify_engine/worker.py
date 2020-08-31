@@ -584,22 +584,25 @@ class Worker:
 
     async def monitoring_task(self):
         while not self._stopping.is_set():
-            now = time.time()
-            streams = await self._redis.zrangebyscore(
-                "streams",
-                min=0,
-                max=now,
-                start=self.worker_count,
-                num=1,
-                withscores=True,
-            )
-            if streams:
-                latency = now - streams[0][1]
-                statsd.timing("engine.streams.latency", latency)
-            else:
-                statsd.timing("engine.streams.latency", 0)
+            try:
+                now = time.time()
+                streams = await self._redis.zrangebyscore(
+                    "streams",
+                    min=0,
+                    max=now,
+                    start=self.worker_count,
+                    num=1,
+                    withscores=True,
+                )
+                if streams:
+                    latency = now - streams[0][1]
+                    statsd.timing("engine.streams.latency", latency)
+                else:
+                    statsd.timing("engine.streams.latency", 0)
 
-            statsd.gauge("engine.workers.count", self.worker_count)
+                statsd.gauge("engine.workers.count", self.worker_count)
+            except Exception:
+                LOG.warning("monitoring task failed", exc_info=True)
 
             await self._sleep_or_stop(60)
 
