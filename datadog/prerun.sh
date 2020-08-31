@@ -69,7 +69,7 @@ EOF
         ;;
 esac
 
-REDIS_REGEX='^redis://([^:]+):([^@]+)@([^:]+):([^/]+)$'
+REDIS_REGEX='^redis://([^:]*):([^@]+)@([^:]+):([^/]+)$'
 
 if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
     if [[ $MERGIFYENGINE_STORAGE_URL =~ $REDIS_REGEX ]]; then
