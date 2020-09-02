@@ -285,7 +285,6 @@ def test_get_pull_request_rule():
             "mergeable_state": "unstable",
             "assignees": [],
             "labels": [],
-            "author": "jd",
             "base": {
                 "ref": "master",
                 "repo": {"name": "name", "private": False},
@@ -340,7 +339,7 @@ def test_get_pull_request_rule():
 
     pull_request_rules = pull_request_rule_from_list(
         [
-            {"name": "hello", "conditions": ["#files=3"], "actions": {}},
+            {"name": "hello", "conditions": ["author:foobar"], "actions": {}},
             {"name": "backport", "conditions": ["base:master"], "actions": {}},
         ]
     )
@@ -353,7 +352,7 @@ def test_get_pull_request_rule():
 
     pull_request_rules = pull_request_rule_from_list(
         [
-            {"name": "hello", "conditions": ["#files=2"], "actions": {}},
+            {"name": "hello", "conditions": ["author:another-jd"], "actions": {}},
             {"name": "backport", "conditions": ["base:master"], "actions": {}},
         ]
     )
