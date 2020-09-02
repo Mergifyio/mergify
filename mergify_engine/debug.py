@@ -188,11 +188,11 @@ def report(url):
                 print(f"** {formatted_pulls} (priority: {fancy_priority})")
 
     print("* CONFIGURATION:")
+    mergify_config = None
     try:
         filename, mergify_config_content = rules.get_mergify_config_content(client)
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
-        pull_request_rules = None
     else:
         print(f"Config filename: {filename}")
         print(mergify_config_content.decode())
@@ -201,9 +201,8 @@ def report(url):
         except rules.InvalidRules as e:  # pragma: no cover
             print("configuration is invalid %s" % str(e))
         else:
-            pull_request_rules_raw = mergify_config["pull_request_rules"].as_dict()
-            pull_request_rules = rules.PullRequestRules.from_list(
-                pull_request_rules_raw["rules"] + engine.MERGIFY_RULE["rules"]
+            mergify_config["pull_request_rules"].rules.extend(
+                engine.DEFAULT_PULL_REQUEST_RULES.rules
             )
 
     if pull_number:
@@ -222,9 +221,9 @@ def report(url):
             )
             print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
 
-        if pull_request_rules is not None:
+        if mergify_config is not None:
             print("* MERGIFY LIVE MATCHES:")
-            match = pull_request_rules.get_pull_request_rule(ctxt)
+            match = mergify_config["pull_request_rules"].get_pull_request_rule(ctxt)
             summary_title, summary = actions_runner.gen_summary(ctxt, match)
             print("> %s" % summary_title)
             print(summary)
