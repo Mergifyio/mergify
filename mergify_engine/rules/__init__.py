@@ -44,23 +44,6 @@ def PullRequestRuleCondition(value):
         )
 
 
-PullRequestRulesSchema = voluptuous.Schema(
-    voluptuous.All(
-        [
-            {
-                voluptuous.Required("name"): str,
-                voluptuous.Required("hidden", default=False): bool,
-                voluptuous.Required("conditions"): [
-                    voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
-                ],
-                voluptuous.Required("actions"): actions.get_action_schemas(),
-            }
-        ],
-        voluptuous.Length(min=1),
-    )
-)
-
-
 @dataclasses.dataclass
 class PullRequestRules:
     rules: typing.List
@@ -77,10 +60,6 @@ class PullRequestRules:
 
     def __iter__(self):
         return iter(self.rules)
-
-    @classmethod
-    def from_list(cls, lst):
-        return cls(PullRequestRulesSchema(lst))
 
     def as_dict(self):
         return {
@@ -197,14 +176,26 @@ def YAML(v):
     return v
 
 
+PullRequestRulesSchema = voluptuous.All(
+    [
+        {
+            voluptuous.Required("name"): str,
+            voluptuous.Required("hidden", default=False): bool,
+            voluptuous.Required("conditions"): [
+                voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+            ],
+            voluptuous.Required("actions"): actions.get_action_schemas(),
+        }
+    ],
+    voluptuous.Length(min=1),
+    voluptuous.Coerce(PullRequestRules),
+)
+
+
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         voluptuous.Coerce(YAML),
-        {
-            voluptuous.Required("pull_request_rules"): voluptuous.Coerce(
-                PullRequestRules.from_list
-            )
-        },
+        {voluptuous.Required("pull_request_rules"): PullRequestRulesSchema},
     )
 )
 

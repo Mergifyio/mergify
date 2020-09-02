@@ -13,6 +13,7 @@
 
 import daiquiri
 import pkg_resources
+import voluptuous
 import yaml
 
 from mergify_engine import check_api
@@ -31,7 +32,9 @@ mergify_rule_path = pkg_resources.resource_filename(
 )
 
 with open(mergify_rule_path, "r") as f:
-    MERGIFY_RULE = yaml.safe_load(f.read())
+    DEFAULT_PULL_REQUEST_RULES = voluptuous.Schema(rules.PullRequestRulesSchema)(
+        yaml.safe_load(f.read())["rules"]
+    )
 
 
 def get_github_pull_from_sha(client, sha):
@@ -217,9 +220,7 @@ def run(client, pull, subscription, sources):
         return
 
     # Add global and mandatory rules
-    mergify_config["pull_request_rules"].rules.extend(
-        rules.PullRequestRules.from_list(MERGIFY_RULE["rules"]).rules
-    )
+    mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
 
     if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
         check_api.set_check_run(
