@@ -110,9 +110,13 @@ class MergeAction(actions.Action):
 
         if self._should_be_merged(ctxt):
             try:
-                return self._merge(ctxt)
-            finally:
+                conclusion, title, summary = self._merge(ctxt)
+                if conclusion is not None:
+                    q.remove_pull(ctxt.pull["number"])
+                return conclusion, title, summary
+            except Exception:
                 q.remove_pull(ctxt.pull["number"])
+                raise
         else:
             return self._sync_with_base_branch(ctxt)
 
