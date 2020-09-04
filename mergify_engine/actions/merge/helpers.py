@@ -78,7 +78,9 @@ def merge_report(ctxt, strict):
     elif ctxt.github_workflow_changed():
         conclusion = "action_required"
         title = "Pull request must be merged manually."
-        summary = "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
+        summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
+<br />
+This pull request must be merged manually."""
 
     # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
     # are OK for us
