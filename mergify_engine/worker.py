@@ -34,7 +34,7 @@ from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import logs
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
@@ -127,9 +127,9 @@ async def get_pull_for_engine(owner, repo, pull_number, logger):
             logger.debug("pull request doesn't exists, skipping it")
             return
 
-        subscription = await sub_utils.get_subscription(client.auth.owner_id)
+        sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
 
-        return subscription, pull
+        return sub, pull
 
 
 def run_engine(owner, repo, pull_number, sources):

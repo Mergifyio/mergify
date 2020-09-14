@@ -28,7 +28,7 @@ import voluptuous
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import rules
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
@@ -107,12 +107,14 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
                     message=f"Pull request '{owner}/{repo}/pull/{pull_number}' not found"
                 )
 
-            subscription = asyncio.run(sub_utils.get_subscription(client.auth.owner_id))
+            sub = asyncio.run(
+                subscription.Subscription.get_subscription(client.auth.owner_id)
+            )
 
             ctxt = context.Context(
                 client,
                 data,
-                subscription,
+                sub,
                 [{"event_type": "mergify-simulator", "data": []}],
             )
             match = pull_request_rules.get_pull_request_rule(ctxt)

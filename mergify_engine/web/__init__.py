@@ -28,7 +28,7 @@ import voluptuous
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_events
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
@@ -119,7 +119,9 @@ async def subscription_cache_update(
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
-    await sub_utils.save_subscription_to_cache(owner_id, sub)
+    await subscription.Subscription.from_dict(
+        owner_id, sub
+    ).save_subscription_to_cache()
     return responses.Response("Cache updated", status_code=200)
 
 

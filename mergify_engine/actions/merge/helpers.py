@@ -114,7 +114,7 @@ def get_queue_summary(ctxt):
         formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
         summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
 
-    if priorities_configured and not ctxt.subscription["subscription_active"]:
+    if priorities_configured and not ctxt.subscription.active:
         summary += f"\n\n⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/{q.installation_id}/subscription) needed"
 
     return summary
