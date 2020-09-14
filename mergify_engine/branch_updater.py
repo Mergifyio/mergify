@@ -23,7 +23,7 @@ import uuid
 import tenacity
 
 from mergify_engine import config
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -222,11 +222,11 @@ def update_with_api(ctxt):
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
 def update_with_git(ctxt, method="merge", user=None):
-    subscription = asyncio.run(sub_utils.get_subscription(ctxt.client.auth.owner_id))
-
-    creds = dict(
-        (login.lower(), token) for login, token in subscription["tokens"].items()
+    sub = asyncio.run(
+        subscription.Subscription.get_subscription(ctxt.client.auth.owner_id)
     )
+
+    creds = dict((login.lower(), token) for login, token in sub.tokens.items())
     if user:
         token = creds.get(user.lower())
         if token:

@@ -21,7 +21,7 @@ from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import rules
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
@@ -56,12 +56,12 @@ def get_repositories_setuped(token, install_id):  # pragma: no cover
 
 
 def report_sub(install_id, slug, sub, title):
-    print(f"* {title} SUB DETAIL: {sub['subscription_reason']}")
+    print(f"* {title} SUB DETAIL: {sub.reason}")
     print(
-        f"* {title} SUB NUMBER OF TOKENS: {len(sub['tokens'])} ({', '.join(sub['tokens'])})"
+        f"* {title} SUB NUMBER OF TOKENS: {len(sub.tokens)} ({', '.join(sub.tokens)})"
     )
 
-    for login, token in sub["tokens"].items():
+    for login, token in sub.tokens.items():
         try:
             repos = get_repositories_setuped(token, install_id)
         except http.HTTPNotFound:
@@ -135,13 +135,10 @@ def report(url):
     print("* INSTALLATION ID: %s" % client.auth.installation["id"])
 
     cached_sub, db_sub = utils.async_run(
-        sub_utils.get_subscription(client.auth.owner_id),
-        sub_utils._retrieve_subscription_from_db(client.auth.owner_id),
+        subscription.Subscription.get_subscription(client.auth.owner_id),
+        subscription.Subscription._retrieve_subscription_from_db(client.auth.owner_id),
     )
-    print(
-        "* SUBSCRIBED (cache/db): %s / %s"
-        % (cached_sub["subscription_active"], db_sub["subscription_active"])
-    )
+    print("* SUBSCRIBED (cache/db): %s / %s" % (cached_sub.active, db_sub.active))
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 

@@ -18,6 +18,7 @@ from unittest import mock
 import pytest
 
 from mergify_engine import context
+from mergify_engine import subscription
 from mergify_engine.actions.merge import action
 from mergify_engine.actions.merge import helpers
 
@@ -214,53 +215,22 @@ def gen_config(priorities):
     return [{"priority": priority} for priority in priorities]
 
 
-def test_queue_summary_subscription_active():
-    ctxt = mock.Mock(
-        subscription={
-            "tokens": {},
-            "subscription_active": True,
-            "subscription_reason": "We're just testing",
-        }
-    )
-    q = mock.Mock(installation_id=12345)
-    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    q.get_config.side_effect = gen_config(
-        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
-    )
-    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
-        summary = helpers.get_queue_summary(ctxt)
-
-    assert (
-        summary
-        == """
+@pytest.mark.parametrize(
+    "active,summary",
+    (
+        (
+            True,
+            """
 
 The following pull requests are queued:
 * #1 (priority: 4000)
 * #2, #3, #4 (priority: high)
 * #5, #6 (priority: medium)
-* #7, #8, #9 (priority: low)"""
-    )
-
-
-def test_queue_summary_subscription_not_active():
-    ctxt = mock.Mock(
-        subscription={
-            "tokens": {},
-            "subscription_active": False,
-            "subscription_reason": "We're just testing",
-        }
-    )
-    q = mock.Mock(installation_id=12345)
-    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    q.get_config.side_effect = gen_config(
-        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
-    )
-    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
-        summary = helpers.get_queue_summary(ctxt)
-
-    assert (
-        summary
-        == """
+* #7, #8, #9 (priority: low)""",
+        ),
+        (
+            False,
+            """
 
 The following pull requests are queued:
 * #1 (priority: 4000)
@@ -268,5 +238,24 @@ The following pull requests are queued:
 * #5, #6 (priority: medium)
 * #7, #8, #9 (priority: low)
 
-⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/12345/subscription) needed"""
+⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/12345/subscription) needed""",
+        ),
+    ),
+)
+def test_queue_summary_subscription(active, summary):
+    ctxt = mock.Mock(
+        subscription=subscription.Subscription(
+            123,
+            active,
+            "We're just testing",
+            {},
+            [],
+        )
     )
+    q = mock.Mock(installation_id=12345)
+    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    q.get_config.side_effect = gen_config(
+        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
+    )
+    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
+        assert summary == helpers.get_queue_summary(ctxt)

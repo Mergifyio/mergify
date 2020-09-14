@@ -21,7 +21,7 @@ import redis
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions.merge import helpers
 from mergify_engine.clients import github
@@ -110,7 +110,7 @@ class Queue:
         config = config.copy()
         config["effective_priority"] = config["priority"]
 
-        if not ctxt.subscription["subscription_active"]:
+        if not ctxt.subscription.active:
             config["effective_priority"] = helpers.PriorityAliases.medium.value
 
         self.redis.set(
@@ -249,12 +249,12 @@ class Queue:
         with github.get_client(self.owner, self.repo) as client:
             ctxt = None
             try:
-                subscription = asyncio.run(
-                    sub_utils.get_subscription(client.auth.owner_id)
+                sub = asyncio.run(
+                    subscription.Subscription.get_subscription(client.auth.owner_id)
                 )
                 data = client.item(f"pulls/{pull_number}")
 
-                ctxt = context.Context(client, data, subscription)
+                ctxt = context.Context(client, data, sub)
                 if ctxt.pull["base"]["ref"] != self.ref:
                     ctxt.log.info(
                         "pull request base branch have changed",

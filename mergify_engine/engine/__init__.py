@@ -222,7 +222,7 @@ def run(client, pull, subscription, sources):
     # Add global and mandatory rules
     mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
 
-    if ctxt.pull["base"]["repo"]["private"] and not subscription["subscription_active"]:
+    if ctxt.pull["base"]["repo"]["private"] and not subscription.active:
         check_api.set_check_run(
             ctxt,
             actions_runner.SUMMARY_NAME,
@@ -230,7 +230,7 @@ def run(client, pull, subscription, sources):
             "failure",
             output={
                 "title": "Mergify is disabled",
-                "summary": subscription["subscription_reason"],
+                "summary": subscription.reason,
             },
         )
         return

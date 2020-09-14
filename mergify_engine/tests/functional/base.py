@@ -40,7 +40,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import engine
-from mergify_engine import sub_utils
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
@@ -416,18 +416,17 @@ class FunctionalTestBase(unittest.TestCase):
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
-        self.subscription = {
-            "tokens": {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
-            "subscription_active": self.SUBSCRIPTION_ACTIVE,
-            "subscription_reason": "You're not nice",
-        }
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(
-            sub_utils.save_subscription_to_cache(
-                config.INSTALLATION_ID,
-                self.subscription,
-            )
+        self.subscription = subscription.Subscription.from_dict(
+            config.INSTALLATION_ID,
+            {
+                "tokens": {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
+                "subscription_active": self.SUBSCRIPTION_ACTIVE,
+                "subscription_reason": "You're not nice",
+                "features": [],
+            },
         )
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.subscription.save_subscription_to_cache())
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -471,40 +470,42 @@ class FunctionalTestBase(unittest.TestCase):
             self.REPO_NAME,
         )
 
-        real_get_subscription = sub_utils.get_subscription
+        real_get_subscription = subscription.Subscription.get_subscription
 
         async def fake_retrieve_subscription_from_db(owner_id):
             if owner_id == config.TESTING_ORGANIZATION_ID:
                 return self.subscription
-            else:
-                return {
-                    "tokens": {},
-                    "subscription_active": False,
-                    "subscription_reason": "We're just testing",
-                }
+            return subscription.Subscription(
+                owner_id,
+                False,
+                "We're just testing",
+                {},
+                set(),
+            )
 
         async def fake_subscription(owner_id):
             if owner_id == config.TESTING_ORGANIZATION_ID:
                 return await real_get_subscription(owner_id)
-            else:
-                return {
-                    "tokens": {},
-                    "subscription_active": False,
-                    "subscription_reason": "We're just testing",
-                }
+            return subscription.Subscription(
+                owner_id,
+                False,
+                "We're just testing",
+                {},
+                set(),
+            )
 
         mock.patch(
-            "mergify_engine.branch_updater.sub_utils.get_subscription",
+            "mergify_engine.branch_updater.subscription.Subscription.get_subscription",
             side_effect=fake_subscription,
         ).start()
 
         mock.patch(
-            "mergify_engine.branch_updater.sub_utils._retrieve_subscription_from_db",
+            "mergify_engine.branch_updater.subscription.Subscription._retrieve_subscription_from_db",
             side_effect=fake_retrieve_subscription_from_db,
         ).start()
 
         mock.patch(
-            "mergify_engine.sub_utils.get_subscription",
+            "mergify_engine.subscription.Subscription.get_subscription",
             side_effect=fake_subscription,
         ).start()
 

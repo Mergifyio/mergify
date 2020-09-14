@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2019 Julien Danjou <jd@mergify.io>
+# Copyright © 2019–2020 Julien Danjou <jd@mergify.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -40,7 +40,14 @@ def test_subscription_cache_update():
     installation_id = 123
     charset = "utf-8"
 
-    data = json.dumps({}).encode(charset)  # for this test the content does not matter
+    data = json.dumps(
+        {
+            "subscription_active": True,
+            "subscription_reason": "Customer",
+            "tokens": {},
+            "features": [],
+        }
+    ).encode(charset)
     headers = {
         "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
         "Content-Type": f"application/json; charset={charset}",
