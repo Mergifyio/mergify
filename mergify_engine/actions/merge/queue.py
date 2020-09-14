@@ -66,11 +66,6 @@ class Queue:
     def _config_cache_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
-    # TODO(sileht): To delete in a couple of days when redis will not have keys like this
-    # anymore
-    def _method_cache_key(self, pull_number):
-        return f"strict-merge-method~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
-
     def get_config(self, pull_number: int) -> dict:
         """Return merge config for a pull request.
 
@@ -88,8 +83,7 @@ class Queue:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
             return {
-                "strict_method": self.redis.get(self._method_cache_key(pull_number))
-                or "merge",
+                "strict_method": "merge",
                 "priority": 2000,
                 "effective_priority": 2000,
                 "bot_account": None,
@@ -136,7 +130,6 @@ class Queue:
 
     def remove_pull(self, pull_number):
         self._remove_pull(pull_number)
-        self.redis.delete(self._method_cache_key(pull_number))
         self.redis.delete(self._config_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
