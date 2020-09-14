@@ -145,7 +145,11 @@ class Queue:
 
     def _move_pull_to_new_base_branch(self, pull_number, old_base_branch):
         old_queue = self.__class__(
-            self.installation_id, self.owner, self.repo, old_base_branch, pull_number
+            self.redis,
+            self.installation_id,
+            self.owner,
+            self.repo,
+            old_base_branch,
         )
         self.redis.zrem(old_queue._cache_key, pull_number)
         priority = self.get_config(pull_number)["effective_priority"]
