@@ -130,8 +130,12 @@ class Queue:
             config=config,
         )
 
-    def remove_pull(self, pull_number):
+    def _remove_pull(self, pull_number):
+        """Remove the pull request from the queue, leaving the config."""
         self.redis.zrem(self._cache_key, pull_number)
+
+    def remove_pull(self, pull_number):
+        self._remove_pull(pull_number)
         self.redis.delete(self._method_cache_key(pull_number))
         self.redis.delete(self._config_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
@@ -143,20 +147,23 @@ class Queue:
             "pull request moved at the end of the merge queue", gh_pull=pull_number
         )
 
-    def _move_pull_to_new_base_branch(self, pull_number, old_base_branch):
-        old_queue = self.__class__(
+    def get_queue(self, ref):
+        """Get a queue for another ref of this repository."""
+        return self.__class__(
             self.redis,
             self.installation_id,
             self.owner,
             self.repo,
-            old_base_branch,
+            ref,
         )
-        self.redis.zrem(old_queue._cache_key, pull_number)
+
+    def move_pull_to_new_base_branch(self, pull_number, new_queue):
+        self._remove_pull(pull_number)
         priority = self.get_config(pull_number)["effective_priority"]
-        self._add_pull(pull_number, priority)
+        new_queue._add_pull(pull_number, priority)
         self.log.info(
-            "pull request moved from queue %s to this queue",
-            old_queue,
+            "pull request moved from this queue to %s",
+            new_queue,
             gh_pull=pull_number,
         )
 
@@ -261,7 +268,10 @@ class Queue:
                         old_branch=self.ref,
                         new_branch=ctxt.pull["base"]["ref"],
                     )
-                    self._move_pull_to_new_base_branch(ctxt.pull["number"], self.ref)
+                    self.move_pull_to_new_base_branch(
+                        ctxt.pull["number"],
+                        self.get_queue(ctxt.pull["base"]["ref"]),
+                    )
                 elif ctxt.pull["state"] == "closed" or ctxt.is_behind:
                     # NOTE(sileht): Pick up this pull request and rebase it again
                     # or update its status and remove it from the queue
