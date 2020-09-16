@@ -39,6 +39,7 @@ BRANCH_PROTECTION_FAQ_URL = (
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
+REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
 
 
 def Priority(v):
@@ -343,19 +344,35 @@ class MergeAction(actions.Action):
             return self._sync_with_base_branch(ctxt)
 
         elif e.status_code == 405:
-            ctxt.log.info(
-                "Waiting for the Branch Protection to be validated",
-                status=e.status_code,
-                error_message=e.message,
-            )
-            return (
-                None,
-                "Waiting for the Branch Protection to be validated",
-                "Branch Protection is enabled and is preventing Mergify "
-                "to merge the pull request. Mergify will merge when "
-                "branch protection settings validate the pull request. "
-                f"(detail: {e.message})",
-            )
+            if REQUIRED_STATUS_RE.match(e.message):
+                ctxt.log.info(
+                    "Waiting for the branch protection required status checks to be validated",
+                    status=e.status_code,
+                    error_message=e.message,
+                )
+                return (
+                    None,
+                    "Waiting for the branch protection required status checks to be validated",
+                    "[Branch protection](https://docs.github.com/en/github/administering-a-repository/about-protected-branches) is enabled and is preventing Mergify "
+                    "to merge the pull request. Mergify will merge when "
+                    "the [required status check](https://docs.github.com/en/github/administering-a-repository/about-required-status-checks) "
+                    f"validate the pull request. (detail: {e.message})",
+                )
+            else:
+                ctxt.log.info(
+                    "Branch protection settings are not validated anymore",
+                    status=e.status_code,
+                    error_message=e.message,
+                )
+
+                return (
+                    "cancelled",
+                    "Branch protection settings are not validated anymore",
+                    "[Branch protection](https://docs.github.com/en/github/administering-a-repository/about-protected-branches) is enabled and is preventing Mergify "
+                    "to merge the pull request. Mergify will merge when "
+                    "branch protection settings validate the pull request once again. "
+                    f"(detail: {e.message})",
+                )
         else:
             message = "Mergify failed to merge the pull request"
             ctxt.log.info(
