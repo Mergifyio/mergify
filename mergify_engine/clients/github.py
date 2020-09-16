@@ -336,6 +336,13 @@ class AsyncGithubInstallationClient(http.AsyncClient):
 
     async def aclose(self):
         await super().aclose()
+        self._generate_metrics()
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await super().__aexit__(exc_type, exc_value, traceback)
+        self._generate_metrics()
+
+    def _generate_metrics(self):
         nb_requests = len(self._requests)
         statsd.histogram(
             "http.client.session",
@@ -459,6 +466,13 @@ class GithubInstallationClient(http.Client):
 
     def close(self):
         super().close()
+        self._generate_metrics()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        super().__exit__(exc_type, exc_value, traceback)
+        self._generate_metrics()
+
+    def _generate_metrics(self):
         nb_requests = len(self._requests)
         statsd.histogram(
             "http.client.session",
