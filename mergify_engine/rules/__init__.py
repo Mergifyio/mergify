@@ -87,9 +87,6 @@ class PullRequestRules:
             "base",
             "author",
             "merged_by",
-            "body",
-            "title",
-            "files",
         )
         TEAM_ATTRIBUTES = (
             "author",

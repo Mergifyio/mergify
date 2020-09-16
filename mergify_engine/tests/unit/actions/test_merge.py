@@ -26,12 +26,19 @@ PR = {
     "number": 43,
     "state": "unknown",
     "mergeable_state": "ok",
-    "merged_by": "me",
+    "merged_by": {"login": "me"},
     "merged": False,
     "merged_at": None,
     "title": "My PR title",
     "user": {"login": "jd"},
-    "head": {"sha": "shasha"},
+    "head": {"ref": "fork", "sha": "shasha"},
+    "base": {"ref": "master"},
+    "assignees": [],
+    "locked": False,
+    "labels": [],
+    "requested_reviewers": [],
+    "requested_teams": [],
+    "milestone": None,
 }
 
 
@@ -131,7 +138,7 @@ my title
 def test_merge_commit_message(body, title, message, mode):
     pull = PR.copy()
     pull["body"] = body
-    client = mock.Mock()
+    client = mock.MagicMock()
     ctxt = context.Context(client=client, pull=pull, subscription={})
     ctxt.checks = {"my CI": "success"}
     pr = ctxt.pull_request
@@ -164,7 +171,9 @@ on two lines"""
 def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
+    pr = context.Context(
+        client=mock.MagicMock(), pull=pull, subscription={}
+    ).pull_request
     with pytest.raises(context.RenderTemplateFailure) as x:
         action.MergeAction._get_commit_message(pr)
         assert str(x) == "foobar"
@@ -188,7 +197,9 @@ here is my message {{ and broken template
 def test_merge_commit_message_syntax_error(body, error):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(client=mock.Mock(), pull=pull, subscription={}).pull_request
+    pr = context.Context(
+        client=mock.MagicMock(), pull=pull, subscription={}
+    ).pull_request
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         action.MergeAction._get_commit_message(pr)
         assert str(rmf) == error
