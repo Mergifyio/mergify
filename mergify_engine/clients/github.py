@@ -32,7 +32,7 @@ from mergify_engine.clients import http
 
 
 RATE_LIMIT_THRESHOLD = 20
-LOGGING_REQUESTS_THRESHOLD = 20
+LOGGING_REQUESTS_THRESHOLD = 10
 
 LOG = daiquiri.getLogger(__name__)
 
