@@ -16,11 +16,13 @@
 import dataclasses
 import functools
 import itertools
+import logging
 import operator
 from typing import List
 from urllib import parse
 
 import cachetools
+import daiquiri
 import jinja2.exceptions
 import jinja2.runtime
 import jinja2.sandbox
@@ -30,7 +32,6 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
-from mergify_engine import utils
 from mergify_engine.clients import http
 
 
@@ -64,17 +65,44 @@ class Context(object):
     _write_permission_cache: cachetools.LRUCache = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
+    log: logging.LoggerAdapter = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        self._ensure_complete()
+
+        self.log = daiquiri.getLogger(
+            self.__class__.__qualname__,
+            gh_owner=self.pull["base"]["user"]["login"]
+            if "base" in self.pull
+            else "<unknown-yet>",
+            gh_repo=(
+                self.pull["base"]["repo"]["name"]
+                if "base" in self.pull
+                else "<unknown-yet>"
+            ),
+            gh_private=(
+                self.pull["base"]["repo"]["private"]
+                if "base" in self.pull
+                else "<unknown-yet>"
+            ),
+            gh_branch=self.pull["base"]["ref"]
+            if "base" in self.pull
+            else "<unknown-yet>",
+            gh_pull=self.pull["number"],
+            gh_pull_sha=self.pull["base"]["sha"]
+            if "base" in self.pull
+            else "<unknown-yet>",
+            gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
+            gh_pull_state=(
+                "merged"
+                if self.pull.get("merged")
+                else (self.pull.get("mergeable_state", "unknown") or "none")
+            ),
+        )
 
     @property
     def pull_request(self):
         return PullRequest(self)
-
-    @property
-    def log(self):
-        return utils.get_pull_logger(self.pull)
-
-    def __post_init__(self):
-        self._ensure_complete()
 
     @cachetools.cachedmethod(
         cache=operator.attrgetter("_write_permission_cache"),

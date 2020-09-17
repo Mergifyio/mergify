@@ -68,7 +68,12 @@ def test_pull_behind(commits_tree_generator):
             "merged": False,
             "merged_at": None,
             "merged_by": None,
-            "base": {"ref": "#foo"},
+            "base": {
+                "ref": "#foo",
+                "repo": {"name": "foobar", "private": False},
+                "sha": "miaou",
+                "user": {"login": "jd"},
+            },
         },
         {},
     )

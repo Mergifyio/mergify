@@ -409,6 +409,8 @@ def test_get_pull_request_rule():
             "base": {
                 "ref": "master",
                 "repo": {"name": "name", "private": False},
+                "user": {"login": "another-jd"},
+                "sha": "mew",
             },
             "head": {"ref": "myfeature", "sha": "<sha>"},
             "locked": False,
