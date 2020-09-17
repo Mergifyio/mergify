@@ -32,7 +32,12 @@ PR = {
     "title": "My PR title",
     "user": {"login": "jd"},
     "head": {"ref": "fork", "sha": "shasha"},
-    "base": {"ref": "master"},
+    "base": {
+        "ref": "master",
+        "user": {"login": "jd"},
+        "repo": {"name": "repo", "private": False},
+        "sha": "miaou",
+    },
     "assignees": [],
     "locked": False,
     "labels": [],

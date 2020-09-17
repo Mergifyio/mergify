@@ -24,7 +24,6 @@ import tempfile
 import urllib.parse
 
 import aredis
-import daiquiri
 import redis
 
 from mergify_engine import config
@@ -85,26 +84,6 @@ def compute_hmac(data):
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
     return str(mac.hexdigest())
-
-
-def get_pull_logger(pull):
-    return daiquiri.getLogger(
-        __name__,
-        gh_owner=pull["base"]["user"]["login"] if "user" in pull else "<unknown-yet>",
-        gh_repo=(pull["base"]["repo"]["name"] if "base" in pull else "<unknown-yet>"),
-        gh_private=(
-            pull["base"]["repo"]["private"] if "base" in pull else "<unknown-yet>"
-        ),
-        gh_branch=pull["base"]["ref"] if "base" in pull else "<unknown-yet>",
-        gh_pull=pull["number"],
-        gh_pull_sha=pull["base"]["sha"] if "base" in pull else "<unknown-yet>",
-        gh_pull_url=pull.get("html_url", "<unknown-yet>"),
-        gh_pull_state=(
-            "merged"
-            if pull.get("merged")
-            else (pull.get("mergeable_state", "unknown") or "none")
-        ),
-    )
 
 
 async def async_main(*awaitables):
