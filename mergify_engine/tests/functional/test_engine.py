@@ -1223,7 +1223,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert checks[0]["conclusion"] is None
         assert "in_progress" == checks[0]["status"]
         assert (
-            "Waiting for the Branch Protection to be validated"
+            "Waiting for the Branch Protection required status checks to be validated"
             in checks[0]["output"]["title"]
         )
 
