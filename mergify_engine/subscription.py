@@ -102,18 +102,14 @@ class Subscription:
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
             except http.HTTPNotFound as e:
-                sub = {
-                    "tokens": {},
-                    "subscription_active": False,
-                    "subscription_reason": e.message,
-                }
+                return cls(owner_id, False, e.message, {}, frozenset())
             else:
                 sub = resp.json()
                 sub["tokens"] = dict(
                     (login, token["access_token"])
                     for login, token in sub["tokens"].items()
                 )
-        return cls.from_dict(owner_id, sub)
+                return cls.from_dict(owner_id, sub)
 
     @classmethod
     async def _retrieve_subscription_from_cache(cls, owner_id):
