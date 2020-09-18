@@ -139,6 +139,9 @@ def report(url):
         subscription.Subscription._retrieve_subscription_from_db(client.auth.owner_id),
     )
     print("* SUBSCRIBED (cache/db): %s / %s" % (cached_sub.active, db_sub.active))
+    print("* Features (cache):")
+    for f in cached_sub.features:
+        print(f"  - {f.value}")
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 

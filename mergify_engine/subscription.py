@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import enum
 import json
 import typing
 
@@ -28,13 +29,32 @@ from mergify_engine.clients import http
 LOG = daiquiri.getLogger(__name__)
 
 
+@enum.unique
+class Features(enum.Enum):
+    PRIVATE_REPOSITORY = "private_repository"
+    LARGE_REPOSITORY = "large_repository"
+    PRIORITY_QUEUES = "priority_queues"
+
+
 @dataclasses.dataclass
 class Subscription:
     owner_id: int
     active: bool
     reason: str
     tokens: typing.Dict[str, str]
-    features: typing.FrozenSet[str]
+    features: typing.FrozenSet[enum.Enum]
+
+    @staticmethod
+    def _to_features(feature_list):
+        features = []
+        for f in feature_list:
+            try:
+                feature = Features(f)
+            except ValueError:
+                LOG.error("Unknown subscription feature %s", f)
+            else:
+                features.append(feature)
+        return frozenset(features)
 
     @classmethod
     def from_dict(cls, owner_id, sub):
@@ -43,7 +63,7 @@ class Subscription:
             sub["subscription_active"],
             sub["subscription_reason"],
             sub["tokens"],
-            frozenset(sub.get("features", [])),
+            cls._to_features(sub["features"]),
         )
 
     def to_dict(self):
@@ -51,7 +71,7 @@ class Subscription:
             "subscription_active": self.active,
             "subscription_reason": self.reason,
             "tokens": self.tokens,
-            "features": list(self.features),
+            "features": list(f.value for f in self.features),
         }
 
     @classmethod
