@@ -154,6 +154,7 @@ def get_summary_from_synchronize_event(ctxt):
             for s in ctxt.sources
             if s["event_type"] == "pull_request"
             and s["data"]["action"] == "synchronize"
+            and "after" in s["data"]
         )
     )
     if synchronize_events:
