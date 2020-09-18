@@ -32,6 +32,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import subscription
 from mergify_engine.clients import http
 
 
@@ -60,7 +61,7 @@ class PullRequestAttributeError(AttributeError):
 class Context(object):
     client: http.Client
     pull: dict
-    subscription: dict
+    subscription: subscription.Subscription
     sources: List = dataclasses.field(default_factory=list)
     _write_permission_cache: cachetools.LRUCache = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
