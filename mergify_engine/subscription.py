@@ -43,7 +43,7 @@ class Subscription:
             sub["subscription_active"],
             sub["subscription_reason"],
             sub["tokens"],
-            frozenset(sub["features"]),
+            frozenset(sub.get("features", [])),
         )
 
     def to_dict(self):
