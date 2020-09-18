@@ -1426,7 +1426,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     def test_marketplace_event(self):
         with mock.patch(
-            "mergify_engine.branch_updater.subscription.Subscription.get_subscription"
+            "mergify_engine.subscription.Subscription.get_subscription"
         ) as get_sub:
             get_sub.return_value = self.subscription
             r = self.app.post(
