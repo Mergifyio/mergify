@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+# Copyright © 2018–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from concurrent import futures
 import logging
 import os.path
 import time
@@ -24,7 +23,6 @@ import yaml
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import debug
 from mergify_engine import engine
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
@@ -169,27 +167,6 @@ expected alphabetic or numeric character, but found"""
         )
         assert "cancelled" == checks[0]["conclusion"]
         assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
-
-    def test_debugger(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"comment": {"message": "WTF?"}},
-                }
-            ]
-        }
-
-        self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
-
-        # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
-        with futures.ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(debug.report, p.html_url).result()
-
-        with futures.ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(debug.report, p.base.repo.html_url).result()
 
     def test_backport_no_branch(self):
         rules = {

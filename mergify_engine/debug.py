@@ -158,10 +158,6 @@ def report(url):
             cached_sub,
             [{"event_type": "mergify-debugger", "data": {}}],
         )
-
-        q = queue.Queue.from_context(ctxt)
-        print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
-
     else:
         for branch in client.items("branches"):
             q = queue.Queue(
@@ -206,6 +202,9 @@ def report(url):
             )
 
     if pull_number:
+        # FIXME queues could also be printed if no pull number given
+        q = queue.Queue.from_context(ctxt)
+        print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
         print("* PULL REQUEST:")
         pr_data = dict(ctxt.pull_request.items())
         pprint.pprint(pr_data, width=160)
