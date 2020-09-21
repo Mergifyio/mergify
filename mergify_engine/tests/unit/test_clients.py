@@ -31,7 +31,7 @@ def test_client_401_raise_ratelimit(httpserver):
     owner = "owner"
     repo = "repo"
 
-    httpserver.expect_request("/repos/owner/repo/installation").respond_with_json(
+    httpserver.expect_request("/users/owner/installation").respond_with_json(
         {
             "id": 12345,
             "target_type": "User",
@@ -163,7 +163,7 @@ def test_client_retry_429_retry_after_as_absolute_date(httpserver):
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_access_token_HTTP_500(httpserver):
-    httpserver.expect_request("/repos/owner/repo/installation").respond_with_json(
+    httpserver.expect_request("/users/owner/installation").respond_with_json(
         {
             "id": 12345,
             "target_type": "User",
@@ -204,7 +204,7 @@ def test_client_access_token_HTTP_500(httpserver):
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_installation_HTTP_500(httpserver):
-    httpserver.expect_request("/repos/owner/repo/installation").respond_with_data(
+    httpserver.expect_request("/users/owner/installation").respond_with_data(
         "This is an 5XX error", status=500
     )
     with mock.patch(
@@ -224,7 +224,7 @@ def test_client_installation_HTTP_500(httpserver):
     assert exc_info.value.status_code == 500
     assert exc_info.value.response.status_code == 500
     assert str(exc_info.value.request.url) == httpserver.url_for(
-        "/repos/owner/repo/installation"
+        "/users/owner/installation"
     )
 
     httpserver.check_assertions()
@@ -232,7 +232,7 @@ def test_client_installation_HTTP_500(httpserver):
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_installation_HTTP_404(httpserver):
-    httpserver.expect_request("/repos/owner/repo/installation").respond_with_json(
+    httpserver.expect_request("/users/owner/installation").respond_with_json(
         {"message": "Repository not found"}, status=404
     )
     with mock.patch(
@@ -252,7 +252,7 @@ def test_client_installation_HTTP_404(httpserver):
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_installation_HTTP_301(httpserver):
-    httpserver.expect_request("/repos/owner/repo/installation").respond_with_data(
+    httpserver.expect_request("/users/owner/installation").respond_with_data(
         status=301,
         headers={"Location": httpserver.url_for("/repositories/12345/installation")},
     )
