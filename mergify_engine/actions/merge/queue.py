@@ -110,7 +110,7 @@ class Queue:
         config = config.copy()
         config["effective_priority"] = config["priority"]
 
-        if not ctxt.subscription.active:
+        if not ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
             config["effective_priority"] = helpers.PriorityAliases.medium.value
 
         self.redis.set(
