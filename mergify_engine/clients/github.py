@@ -148,9 +148,8 @@ class GithubAppInstallationAuth(httpx.Auth):
                     )
                 if installation_response.status_code == 404:
                     LOG.debug(
-                        "Mergify not installed or repository not found",
+                        "Mergify not installed",
                         gh_owner=self.owner,
-                        gh_repo=self.repo,
                         error_message=installation_response.json()["message"],
                     )
                     raise exceptions.MergifyNotInstalled()
@@ -178,7 +177,7 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     def build_installation_request(self, url=None, force=False):
         if url is None:
-            url = f"{config.GITHUB_API_URL}/repos/{self.owner}/{self.repo}/installation"
+            url = f"{config.GITHUB_API_URL}/users/{self.owner}/installation"
         return self.build_github_app_request("GET", url, force=force)
 
     def build_access_token_request(self, force=False):
