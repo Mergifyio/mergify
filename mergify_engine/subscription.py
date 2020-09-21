@@ -63,7 +63,7 @@ class Subscription:
             sub["subscription_active"],
             sub["subscription_reason"],
             sub["tokens"],
-            cls._to_features(sub["features"]),
+            cls._to_features(sub.get("features", [])),
         )
 
     def to_dict(self):
