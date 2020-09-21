@@ -4,6 +4,7 @@ from unittest import mock
 import yaml
 
 from mergify_engine import debug
+from mergify_engine import subscription
 from mergify_engine.tests.functional import base
 
 
@@ -18,6 +19,9 @@ class TestDebugger(base.FunctionalTestBase):
                 }
             ]
         }
+
+        # Enable one feature to see the debug output
+        self.subscription.features = frozenset([subscription.Features.PRIORITY_QUEUES])
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
@@ -42,6 +46,7 @@ class TestDebugger(base.FunctionalTestBase):
             == """* INSTALLATION ID: 499592
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
+  - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 1 (mergify-test-1)
 * ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
