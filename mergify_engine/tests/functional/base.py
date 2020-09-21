@@ -495,12 +495,7 @@ class FunctionalTestBase(unittest.TestCase):
             )
 
         mock.patch(
-            "mergify_engine.branch_updater.subscription.Subscription.get_subscription",
-            side_effect=fake_subscription,
-        ).start()
-
-        mock.patch(
-            "mergify_engine.branch_updater.subscription.Subscription._retrieve_subscription_from_db",
+            "mergify_engine.subscription.Subscription._retrieve_subscription_from_db",
             side_effect=fake_retrieve_subscription_from_db,
         ).start()
 

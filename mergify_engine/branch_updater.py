@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
+# Copyright © 2018–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,9 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-
-import asyncio
 import collections
 import subprocess
 import uuid
@@ -23,7 +20,6 @@ import uuid
 import tenacity
 
 from mergify_engine import config
-from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -222,11 +218,9 @@ def update_with_api(ctxt):
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
 def update_with_git(ctxt, method="merge", user=None):
-    sub = asyncio.run(
-        subscription.Subscription.get_subscription(ctxt.client.auth.owner_id)
+    creds = dict(
+        (login.lower(), token) for login, token in ctxt.subscription.tokens.items()
     )
-
-    creds = dict((login.lower(), token) for login, token in sub.tokens.items())
     if user:
         token = creds.get(user.lower())
         if token:
