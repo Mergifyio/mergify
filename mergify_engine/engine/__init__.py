@@ -282,7 +282,9 @@ def run(client, pull, subscription, sources):
     # Add global and mandatory rules
     mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
 
-    if ctxt.pull["base"]["repo"]["private"] and not subscription.active:
+    if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
+        subscription.Features.PRIVATE_REPOSITORY
+    ):
         check_api.set_check_run(
             ctxt,
             actions_runner.SUMMARY_NAME,

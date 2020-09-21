@@ -65,3 +65,30 @@ def test_from_dict_unknown_features():
         {},
         frozenset(),
     )
+
+
+def test_active_feature():
+    sub = subscription.Subscription(
+        123,
+        True,
+        "friend",
+        {},
+        frozenset(),
+    )
+    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
+    sub = subscription.Subscription(
+        123,
+        False,
+        "friend",
+        {},
+        frozenset([subscription.Features.PRIORITY_QUEUES]),
+    )
+    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
+    sub = subscription.Subscription(
+        123,
+        True,
+        "friend",
+        {},
+        frozenset([subscription.Features.PRIORITY_QUEUES]),
+    )
+    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True

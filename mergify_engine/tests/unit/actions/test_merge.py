@@ -249,7 +249,7 @@ def test_queue_summary_subscription(active, summary):
             active,
             "We're just testing",
             {},
-            [],
+            frozenset({subscription.Features.PRIORITY_QUEUES}),
         )
     )
     q = mock.Mock(installation_id=12345)

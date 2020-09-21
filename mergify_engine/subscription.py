@@ -56,6 +56,10 @@ class Subscription:
                 features.append(feature)
         return frozenset(features)
 
+    def has_feature(self, feature: Features):
+        """Return if the feature for a plan is available."""
+        return self.active and feature in self.features
+
     @classmethod
     def from_dict(cls, owner_id, sub):
         return cls(
