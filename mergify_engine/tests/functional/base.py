@@ -416,14 +416,17 @@ class FunctionalTestBase(unittest.TestCase):
         # NOTE(sileht): Prepare a fresh redis
         self.redis = utils.get_redis_for_cache()
         self.redis.flushall()
-        self.subscription = subscription.Subscription.from_dict(
+        self.subscription = subscription.Subscription(
             config.INSTALLATION_ID,
-            {
-                "tokens": {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
-                "subscription_active": self.SUBSCRIPTION_ACTIVE,
-                "subscription_reason": "You're not nice",
-                "features": [],
-            },
+            self.SUBSCRIPTION_ACTIVE,
+            "You're not nice",
+            {"mergify-test-1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
+            frozenset(
+                getattr(subscription.Features, f)
+                for f in subscription.Features.__members__
+            )
+            if self.SUBSCRIPTION_ACTIVE
+            else frozenset(),
         )
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.subscription.save_subscription_to_cache())
