@@ -20,6 +20,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
@@ -204,9 +205,9 @@ def ensure_summary_on_head_sha(ctxt):
         actions_runner.save_last_summary_head_sha(ctxt)
 
 
-def run(client, pull, subscription, sources):
+def run(client, pull, sub, sources):
     LOG.debug("engine get context")
-    ctxt = context.Context(client, pull, subscription)
+    ctxt = context.Context(client, pull, sub)
     ctxt.log.debug("engine start processing context")
 
     issue_comment_sources = []
@@ -292,7 +293,7 @@ def run(client, pull, subscription, sources):
             "failure",
             output={
                 "title": "Mergify is disabled",
-                "summary": subscription.reason,
+                "summary": sub.reason,
             },
         )
         return
