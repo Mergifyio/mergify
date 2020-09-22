@@ -1518,3 +1518,29 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]
         assert "clean" == ctxt.pull["mergeable_state"]
+
+    def test_pull_refreshed_after_config_change(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "default",
+                    "conditions": ["base=other"],
+                    "actions": {"comment": {"message": "it works"}},
+                }
+            ]
+        }
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(files={"foo": "bar"})
+
+        rules["pull_request_rules"][0]["conditions"][
+            0
+        ] = f"base={self.master_branch_name}"
+        p_config, _ = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        p_config.merge()
+
+        self.wait_for("issue_comment", {"action": "created"})
+
+        p.update()
+        comments = list(p.get_issue_comments())
+        assert "it works" == comments[-1].body
