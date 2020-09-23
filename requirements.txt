@@ -10,14 +10,13 @@ datadog==0.39.0
 decorator==4.4.2
 fastapi==0.61.1
 gunicorn==20.0.4
-h11==0.9.0
+h11==0.11.0
 h2==3.2.0
 hiredis==1.1.0
 honcho==1.0.1
 hpack==3.0.0
-httpcore==0.10.2
-httptools==0.1.1
-httpx==0.14.3
+httpcore==0.12.0
+httpx==0.16.1
 hyperframe==5.2.0
 idna==2.10
 Jinja2==2.11.2
@@ -42,8 +41,6 @@ starlette==0.13.6
 tenacity==6.2.0
 urllib3==1.25.10
 uvicorn==0.12.1
-uvloop==0.14.0
 voluptuous==0.12.0
-websockets==8.1
 Werkzeug==1.0.1
 -e .
