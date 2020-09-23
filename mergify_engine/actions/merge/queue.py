@@ -61,9 +61,12 @@ class Queue:
 
     @property
     def _cache_key(self):
-        return f"strict-merge-queues~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{self.ref}"
+        return f"strict-merge-queues~{self.installation_id}~{self.owner}~{self.repo}~{self.ref}"
 
     def _config_cache_key(self, pull_number):
+        return f"strict-merge-config~{self.installation_id}~{self.owner}~{self.repo}~{pull_number}"
+
+    def _old_config_cache_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
     def get_config(self, pull_number: int) -> dict:
@@ -72,6 +75,8 @@ class Queue:
         :param pull_number: The pull request number.
         """
         config = self.redis.get(self._config_cache_key(pull_number))
+        if config is None:
+            config = self.redis.get(self._old_config_cache_key(pull_number))
         if config is None:
             # FIXME(sileht): We should never ever pass here in theory, but
             # Currently we can have race condition like:
@@ -131,6 +136,7 @@ class Queue:
     def remove_pull(self, pull_number):
         self._remove_pull(pull_number)
         self.redis.delete(self._config_cache_key(pull_number))
+        self.redis.delete(self._old_config_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
@@ -235,6 +241,31 @@ class Queue:
             except Exception:
                 queue.log.error("Fail to process merge queue", exc_info=True)
         LOG.info("smart strict workflow loop end")
+
+    @classmethod
+    def fixup_queue_names(cls):
+        redis = utils.get_redis_for_cache()
+        LOG.info("start fixing queue names")
+        for queue_name in redis.keys("strict-merge-queues~*"):
+            queue = cls.from_queue_name(redis, queue_name)
+            try:
+                with github.get_client(queue.owner, queue.repo) as client:
+                    resp = client.get(f"/repos/{queue.owner}/{queue.repo}")
+                    new_queue = cls(
+                        redis,
+                        queue.installation_id,
+                        resp.json()["owner"]["login"],
+                        resp.json()["name"],
+                        queue.ref,
+                    )
+                    if queue._cache_key != new_queue._cache_key:
+                        redis.rename(queue._cache_key, new_queue._cache_key)
+
+            except exceptions.MergifyNotInstalled:
+                queue.delete()
+            except Exception:
+                queue.log.error("Fail to migrate merge queue", exc_info=True)
+        LOG.info("finished fixing queue names")
 
     def process(self):
         pull_numbers = self.get_pulls()

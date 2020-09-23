@@ -703,6 +703,7 @@ async def run_forever():
 
 def main():
     logs.setup_logging()
+    queue.Queue.fixup_queue_names()
     asyncio.run(run_forever())
 
 
