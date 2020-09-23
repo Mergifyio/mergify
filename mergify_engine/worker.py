@@ -486,8 +486,10 @@ end
                 if "timestamp" in source:
                     statsd.histogram(
                         "engine.streams.events.latency",
-                        datetime.datetime.utcnow()
-                        - datetime.datetime.fromisoformat(source["timestamp"]),
+                        (
+                            datetime.datetime.utcnow()
+                            - datetime.datetime.fromisoformat(source["timestamp"])
+                        ).total_seconds(),
                     )
 
             logger = daiquiri.getLogger(
