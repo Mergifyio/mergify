@@ -283,7 +283,7 @@ passing.
 ⚡️ Using Labels to Prioritize Merge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-|pro plan tag|
+|premium plan tag|
 
 When ``smart`` :ref:`strict merge` is enabled and many pull requests are
 waiting to be merged, some of them might be more urgent. In that case, you
