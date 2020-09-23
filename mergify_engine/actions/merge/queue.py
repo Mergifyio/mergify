@@ -66,6 +66,7 @@ class Queue:
     def _config_cache_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner}~{self.repo}~{pull_number}"
 
+    # FIXME(sileht): delete me in a couple of week
     def _old_config_cache_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
@@ -241,31 +242,6 @@ class Queue:
             except Exception:
                 queue.log.error("Fail to process merge queue", exc_info=True)
         LOG.info("smart strict workflow loop end")
-
-    @classmethod
-    def fixup_queue_names(cls):
-        redis = utils.get_redis_for_cache()
-        LOG.info("start fixing queue names")
-        for queue_name in redis.keys("strict-merge-queues~*"):
-            queue = cls.from_queue_name(redis, queue_name)
-            try:
-                with github.get_client(queue.owner, queue.repo) as client:
-                    resp = client.get(f"/repos/{queue.owner}/{queue.repo}")
-                    new_queue = cls(
-                        redis,
-                        queue.installation_id,
-                        resp.json()["owner"]["login"],
-                        resp.json()["name"],
-                        queue.ref,
-                    )
-                    if queue._cache_key != new_queue._cache_key:
-                        redis.rename(queue._cache_key, new_queue._cache_key)
-
-            except exceptions.MergifyNotInstalled:
-                queue.delete()
-            except Exception:
-                queue.log.error("Fail to migrate merge queue", exc_info=True)
-        LOG.info("finished fixing queue names")
 
     def process(self):
         pull_numbers = self.get_pulls()

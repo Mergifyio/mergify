@@ -17,9 +17,7 @@ import logging
 
 import yaml
 
-from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import utils
 from mergify_engine.actions.merge import queue
 from mergify_engine.tests.functional import base
 
@@ -281,11 +279,3 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         self.assertEqual(True, p_high.merged)
         self.assertEqual(True, p_medium.merged)
         assert p_high.merged_at > p_medium.merged_at > p_low.merged_at
-
-    def test_queue_fixup_queue_renaming(self):
-        name = f"strict-merge-queues~{config.INSTALLATION_ID}~MeRgiFyio-tesTING~funcTIONAL-tEstIng-Repo~master"
-        redis = utils.get_redis_for_cache()
-        redis.zadd(name, {123: 123})
-        queue.Queue.fixup_queue_names()
-
-        assert redis.keys("strict-merge-queues~*") == [name.lower()]
