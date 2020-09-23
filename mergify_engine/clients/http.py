@@ -31,7 +31,7 @@ DEFAULT_CLIENT_OPTIONS = {
         "Accept": "application/vnd.github.machine-man-preview+json",
         "User-Agent": "Mergify/Python",
     },
-    "timeout": httpx.Timeout(5.0, read_timeout=10.0),
+    "timeout": httpx.Timeout(5.0, read=10.0),
 }
 
 HTTPStatusError = httpx.HTTPStatusError
