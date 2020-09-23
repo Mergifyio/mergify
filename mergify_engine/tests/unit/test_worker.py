@@ -103,9 +103,21 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
             "repo-0",
             0,
             [
-                {"event_type": "pull_request", "data": {"payload": 0}},
-                {"event_type": "pull_request", "data": {"payload": 1}},
-                {"event_type": "pull_request", "data": {"payload": 2}},
+                {
+                    "event_type": "pull_request",
+                    "data": {"payload": 0},
+                    "timestamp": mock.ANY,
+                },
+                {
+                    "event_type": "pull_request",
+                    "data": {"payload": 1},
+                    "timestamp": mock.ANY,
+                },
+                {
+                    "event_type": "pull_request",
+                    "data": {"payload": 2},
+                    "timestamp": mock.ANY,
+                },
             ],
         )
         in run_engine.mock_calls
@@ -171,8 +183,16 @@ async def test_worker_expanded_events(
         "repo",
         123,
         [
-            {"event_type": "pull_request", "data": {"payload": "whatever"}},
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "pull_request",
+                "data": {"payload": "whatever"},
+                "timestamp": mock.ANY,
+            },
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
     assert run_engine.mock_calls[1] == mock.call(
@@ -180,7 +200,11 @@ async def test_worker_expanded_events(
         "repo",
         456,
         [
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
     assert run_engine.mock_calls[2] == mock.call(
@@ -188,7 +212,11 @@ async def test_worker_expanded_events(
         "repo",
         789,
         [
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
 
@@ -231,8 +259,16 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
         "repo",
         123,
         [
-            {"event_type": "pull_request", "data": {"payload": "whatever"}},
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "pull_request",
+                "data": {"payload": "whatever"},
+                "timestamp": mock.ANY,
+            },
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
 
@@ -279,8 +315,16 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
         "repo",
         123,
         [
-            {"event_type": "pull_request", "data": {"payload": "whatever"}},
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "pull_request",
+                "data": {"payload": "whatever"},
+                "timestamp": mock.ANY,
+            },
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
 
@@ -338,7 +382,11 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
             "repo",
             123,
             [
-                {"event_type": "pull_request", "data": {"payload": "whatever"}},
+                {
+                    "event_type": "pull_request",
+                    "data": {"payload": "whatever"},
+                    "timestamp": mock.ANY,
+                },
             ],
         ),
         mock.call(
@@ -346,7 +394,11 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
             "repo",
             42,
             [
-                {"event_type": "comment", "data": {"payload": "foobar"}},
+                {
+                    "event_type": "comment",
+                    "data": {"payload": "foobar"},
+                    "timestamp": mock.ANY,
+                },
             ],
         ),
     ]
@@ -430,8 +482,16 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
         "repo",
         123,
         [
-            {"event_type": "pull_request", "data": {"payload": "whatever"}},
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "pull_request",
+                "data": {"payload": "whatever"},
+                "timestamp": mock.ANY,
+            },
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
 
@@ -499,8 +559,16 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
         "repo",
         123,
         [
-            {"event_type": "pull_request", "data": {"payload": "whatever"}},
-            {"event_type": "comment", "data": {"payload": "foobar"}},
+            {
+                "event_type": "pull_request",
+                "data": {"payload": "whatever"},
+                "timestamp": mock.ANY,
+            },
+            {
+                "event_type": "comment",
+                "data": {"payload": "foobar"},
+                "timestamp": mock.ANY,
+            },
         ],
     )
 
