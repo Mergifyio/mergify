@@ -69,8 +69,9 @@ Runs the :ref:`backport action` action.
 .. warning::
 
    If the repository is bigger than 512 MB, the ``backport`` action is only
-   available for `Pro Plan subscribers <https://mergify.io/pricing>`_.
-   |pro plan tag|
+   available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
+   |essential plan tag|
+   |premium plan tag|
 
 refresh
 ========
