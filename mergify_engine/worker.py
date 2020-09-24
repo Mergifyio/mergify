@@ -97,7 +97,11 @@ async def push(redis, owner, repo, pull_number, event_type, data):
                 "owner": owner,
                 "repo": repo,
                 "pull_number": pull_number,
-                "source": {"event_type": event_type, "data": data},
+                "source": {
+                    "event_type": event_type,
+                    "data": data,
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                },
             },
             use_bin_type=True,
         ),
@@ -389,6 +393,7 @@ end
             owner = data["owner"]
             repo = data["repo"]
             source = data["source"]
+
             if data["pull_number"] is not None:
                 key = (owner, repo, data["pull_number"])
                 group = pulls.setdefault(key, ([], []))
@@ -475,7 +480,18 @@ end
     async def _consume_pulls(self, stream_name, pulls):
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
+
             statsd.histogram("engine.streams.batch-size", len(sources))
+            for source in sources:
+                if "timestamp" in source:
+                    statsd.histogram(
+                        "engine.streams.events.latency",
+                        (
+                            datetime.datetime.utcnow()
+                            - datetime.datetime.fromisoformat(source["timestamp"])
+                        ).total_seconds(),
+                    )
+
             logger = daiquiri.getLogger(
                 __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
             )

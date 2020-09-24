@@ -61,9 +61,13 @@ class Queue:
 
     @property
     def _cache_key(self):
-        return f"strict-merge-queues~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{self.ref}"
+        return f"strict-merge-queues~{self.installation_id}~{self.owner}~{self.repo}~{self.ref}"
 
     def _config_cache_key(self, pull_number):
+        return f"strict-merge-config~{self.installation_id}~{self.owner}~{self.repo}~{pull_number}"
+
+    # FIXME(sileht): delete me in a couple of week
+    def _old_config_cache_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner.lower()}~{self.repo.lower()}~{pull_number}"
 
     def get_config(self, pull_number: int) -> dict:
@@ -72,6 +76,8 @@ class Queue:
         :param pull_number: The pull request number.
         """
         config = self.redis.get(self._config_cache_key(pull_number))
+        if config is None:
+            config = self.redis.get(self._old_config_cache_key(pull_number))
         if config is None:
             # FIXME(sileht): We should never ever pass here in theory, but
             # Currently we can have race condition like:
@@ -131,6 +137,7 @@ class Queue:
     def remove_pull(self, pull_number):
         self._remove_pull(pull_number)
         self.redis.delete(self._config_cache_key(pull_number))
+        self.redis.delete(self._old_config_cache_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
