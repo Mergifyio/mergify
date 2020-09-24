@@ -101,10 +101,10 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
 
         with github.get_client(auth=auth) as client:
             try:
-                data = client.item(f"pulls/{pull_number}")
+                data = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
             except http.HTTPNotFound:
                 raise PullRequestUrlInvalid(
-                    message=f"Pull request '{owner}/{repo}/pull/{pull_number}' not found"
+                    message=f"Pull request {owner}/{repo}/pulls/{pull_number} not found"
                 )
 
             sub = asyncio.run(

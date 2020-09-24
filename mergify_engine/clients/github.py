@@ -269,15 +269,6 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
 
-            # FIXME(sileht): httpx 0.14 have changed the behavior of base_url, we used the
-            # old behavior that removed the path with url start with a /, that was in fact
-            # a bug.
-            if not (
-                url.startswith("/")
-                or url.startswith("http://")
-                or url.startswith("https://")
-            ):
-                url = f"/repos/{self.auth.owner}/{self.auth.repo}/{url}"
             return await func(url, headers=headers, **kwargs)
 
         return wrapper
@@ -399,16 +390,6 @@ class GithubInstallationClient(http.Client):
             headers = kwargs.pop("headers", {})
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
-
-            # FIXME(sileht): httpx 0.14 have changed the behavior of base_url, we used the
-            # old behavior that removed the path with url start with a /, that was in fact
-            # a bug.
-            if not (
-                url.startswith("/")
-                or url.startswith("http://")
-                or url.startswith("https://")
-            ):
-                url = f"/repos/{self.auth.owner}/{self.auth.repo}/{url}"
             return func(url, headers=headers, **kwargs)
 
         return wrapper

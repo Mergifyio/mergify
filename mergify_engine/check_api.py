@@ -18,7 +18,7 @@ from mergify_engine import utils
 def get_checks_for_ref(ctxt, sha, **kwargs):
     checks = list(
         ctxt.client.items(
-            f"commits/{sha}/check-runs",
+            f"{ctxt.base_url}/commits/{sha}/check-runs",
             api_version="antiope",
             list_items="check_runs",
             **kwargs,
@@ -69,7 +69,7 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
 
     if not checks:
         check = ctxt.client.post(
-            "check-runs",
+            f"{ctxt.base_url}/check-runs",
             api_version="antiope",
             json=post_parameters,
         ).json()
@@ -105,7 +105,7 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
                 continue
 
         check = ctxt.client.patch(
-            f"check-runs/{check['id']}",
+            f"{ctxt.base_url}/check-runs/{check['id']}",
             api_version="antiope",
             json=post_parameters,
         ).json()

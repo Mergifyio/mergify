@@ -39,7 +39,7 @@ class CommentAction(actions.Action):
 
         try:
             ctxt.client.post(
-                f"issues/{ctxt.pull['number']}/comments",
+                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover

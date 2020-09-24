@@ -46,31 +46,31 @@ class TestGithubClient(base.FunctionalTestBase):
                 self.o_integration.login, self.r_o_integration.name
             )
 
-            pulls = [p async for p in client.items("pulls")]
+            url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
+
+            pulls = [p async for p in client.items(url)]
             self.assertEqual(2, len(pulls))
 
-            pulls = [p async for p in client.items("pulls", per_page=1)]
+            pulls = [p async for p in client.items(url, per_page=1)]
             self.assertEqual(2, len(pulls))
 
-            pulls = [p async for p in client.items("pulls", per_page=1, page=2)]
+            pulls = [p async for p in client.items(url, per_page=1, page=2)]
             self.assertEqual(1, len(pulls))
 
-            pulls = [
-                p async for p in client.items("pulls", base=other_branch, state="all")
-            ]
+            pulls = [p async for p in client.items(url, base=other_branch, state="all")]
             self.assertEqual(1, len(pulls))
 
-            pulls = [p async for p in client.items("pulls", base="unknown")]
+            pulls = [p async for p in client.items(url, base="unknown")]
             self.assertEqual(0, len(pulls))
 
-            pull = await client.item(f"pulls/{p1.number}")
+            pull = await client.item(f"{url}/{p1.number}")
             self.assertEqual(p1.number, pull["number"])
 
-            pull = await client.item(f"pulls/{p2.number}")
+            pull = await client.item(f"{url}/{p2.number}")
             self.assertEqual(p2.number, pull["number"])
 
             with self.assertRaises(http.HTTPStatusError) as ctxt:
-                await client.item("pulls/10000000000")
+                await client.item(f"{url}/10000000000")
 
             self.assertEqual(404, ctxt.exception.response.status_code)
 

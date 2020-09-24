@@ -64,7 +64,9 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "synchronize"})
 
         ctxt = context.Context(
-            self.cli_integration, {"number": p.raw_data["number"]}, {}
+            self.cli_integration,
+            p.raw_data,
+            None,
         )
 
         assert len(ctxt.pull_engine_check_runs) == 1

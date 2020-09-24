@@ -54,7 +54,7 @@ class CopyAction(actions.Action):
         # NOTE(sileht): Ensure branch exists first
         escaped_branch_name = parse.quote(branch_name, safe="")
         try:
-            ctxt.client.item(f"branches/{escaped_branch_name}")
+            ctxt.client.item(f"{ctxt.base_url}/branches/{escaped_branch_name}")
         except http.HTTPStatusError as e:
             detail = "%s to branch `%s` failed: " % (
                 self.KIND.capitalize(),
@@ -118,7 +118,7 @@ class CopyAction(actions.Action):
             branches.extend(
                 (
                     branch["name"]
-                    for branch in ctxt.client.items("branches")
+                    for branch in ctxt.client.items(f"{ctxt.base_url}/branches")
                     if any(map(lambda regex: regex.match(branch["name"]), regexes))
                 )
             )
@@ -157,7 +157,7 @@ class CopyAction(actions.Action):
         )
         pulls = list(
             ctxt.client.items(
-                "pulls",
+                f"{ctxt.base_url}/pulls",
                 base=branch_name,
                 sort="created",
                 state="all",

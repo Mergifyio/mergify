@@ -145,13 +145,13 @@ def report(url):
     report_sub(client.auth.installation["id"], slug, cached_sub, "ENGINE-CACHE")
     report_sub(client.auth.installation["id"], slug, db_sub, "DASHBOARD")
 
-    repo = client.item(f"/repos/{owner}/{repo}")
-    print(f"* REPOSITORY IS {'PRIVATE' if repo['private'] else 'PUBLIC'}")
+    repo_info = client.item(f"/repos/{owner}/{repo}")
+    print(f"* REPOSITORY IS {'PRIVATE' if repo_info['private'] else 'PUBLIC'}")
 
     utils.async_run(report_worker_status(client.auth.owner))
 
     if pull_number:
-        pull_raw = client.item(f"pulls/{pull_number}")
+        pull_raw = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
         ctxt = context.Context(
             client,
             pull_raw,
@@ -159,7 +159,7 @@ def report(url):
             [{"event_type": "mergify-debugger", "data": {}}],
         )
     else:
-        for branch in client.items("branches"):
+        for branch in client.items(f"/repos/{owner}/{repo}/branches"):
             q = queue.Queue(
                 utils.get_redis_for_cache(),
                 client.auth.installation["id"],
@@ -186,7 +186,9 @@ def report(url):
     print("* CONFIGURATION:")
     mergify_config = None
     try:
-        filename, mergify_config_content = rules.get_mergify_config_content(client)
+        filename, mergify_config_content = rules.get_mergify_config_content(
+            client, repo
+        )
     except rules.NoRules:  # pragma: no cover
         print(".mergify.yml is missing")
     else:
