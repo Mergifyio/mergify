@@ -39,14 +39,26 @@ class TestAttributes(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         pr, _ = self.create_pr()
-        ctxt = context.Context(self.cli_integration, {"number": pr.number}, {})
+        ctxt = context.Context(self.cli_integration, pr.raw_data, {})
         assert not ctxt.pull_request.draft
 
         pr, _ = self.create_pr(draft=True)
 
         self.wait_for("issue_comment", {"action": "created"})
 
-        ctxt = context.Context(self.cli_integration, {"number": pr.number}, {})
+        ctxt = context.Context(
+            self.cli_integration,
+            {
+                "number": pr.number,
+                "base": {
+                    "user": {"login": pr.base.user.login},
+                    "repo": {
+                        "name": pr.base.repo.name,
+                    },
+                },
+            },
+            {},
+        )
         assert ctxt.pull_request.draft
 
         pr.update()

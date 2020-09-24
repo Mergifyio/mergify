@@ -79,7 +79,7 @@ class RequestReviewsAction(actions.Action):
             if not already_at_max:
                 try:
                     ctxt.client.post(
-                        f"pulls/{ctxt.pull['number']}/requested_reviewers",
+                        f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/requested_reviewers",
                         json={
                             "reviewers": list(user_reviews_to_request),
                             "team_reviewers": list(team_reviews_to_request),

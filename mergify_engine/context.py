@@ -102,6 +102,11 @@ class Context(object):
         )
 
     @property
+    def base_url(self):
+        """The URL prefix to make GitHub request."""
+        return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
+
+    @property
     def pull_request(self):
         return PullRequest(self)
 
@@ -110,7 +115,9 @@ class Context(object):
         key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
     )
     def has_write_permissions(self, login):
-        return self.client.item(f"collaborators/{login}/permission")["permission"] in [
+        return self.client.item(f"{self.base_url}/collaborators/{login}/permission")[
+            "permission"
+        ] in [
             "admin",
             "write",
         ]
@@ -269,7 +276,8 @@ class Context(object):
         checks.update(
             (s["context"], s["state"])
             for s in self.client.items(
-                f"commits/{self.pull['head']['sha']}/status", list_items="statuses"
+                f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
+                list_items="statuses",
             )
         )
         return checks
@@ -331,7 +339,7 @@ class Context(object):
             self._is_data_complete()
             and self._is_background_github_processing_completed()
         ):
-            self.pull = self.client.item(f"pulls/{self.pull['number']}")
+            self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
 
         if not self._is_data_complete():
             self.log.error(
@@ -370,7 +378,7 @@ class Context(object):
         # TODO(sileht): Remove me,
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
-        self.pull = self.client.item(f"pulls/{self.pull['number']}")
+        self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
         try:
             del self.__dict__["pull_check_runs"]
         except KeyError:
@@ -379,7 +387,7 @@ class Context(object):
     @functools.cached_property
     def is_behind(self):
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
-        branch = self.client.item(f"branches/{branch_name_escaped}")
+        branch = self.client.item(f"{self.base_url}/branches/{branch_name_escaped}")
         for commit in self.commits:
             for parent in commit["parents"]:
                 if parent["sha"] == branch["commit"]["sha"]:
@@ -401,15 +409,21 @@ class Context(object):
 
     @functools.cached_property
     def reviews(self):
-        return list(self.client.items(f"pulls/{self.pull['number']}/reviews"))
+        return list(
+            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/reviews")
+        )
 
     @functools.cached_property
     def commits(self):
-        return list(self.client.items(f"pulls/{self.pull['number']}/commits"))
+        return list(
+            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/commits")
+        )
 
     @functools.cached_property
     def files(self):
-        return list(self.client.items(f"pulls/{self.pull['number']}/files"))
+        return list(
+            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files")
+        )
 
     @property
     def pull_from_fork(self):

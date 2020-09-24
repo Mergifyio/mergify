@@ -246,7 +246,7 @@ MERGIFY_CONFIG_FILENAMES = (
 )
 
 
-def get_mergify_config_content(client, ref=None):
+def get_mergify_config_content(client, repo, ref=None):
     """Get the Mergify configuration file content.
 
     :return: The filename and its content.
@@ -256,15 +256,17 @@ def get_mergify_config_content(client, ref=None):
         kwargs["ref"] = ref
     for filename in MERGIFY_CONFIG_FILENAMES:
         try:
-            content = client.item(f"contents/{filename}", **kwargs)["content"]
+            content = client.item(
+                f"/repos/{client.auth.owner}/{repo}/contents/{filename}", **kwargs
+            )["content"]
         except http.HTTPNotFound:
             continue
         return filename, base64.b64decode(bytearray(content, "utf-8"))
     raise NoRules()
 
 
-def get_mergify_config(client, ref=None):
-    filename, content = get_mergify_config_content(client, ref)
+def get_mergify_config(client, repo, ref=None):
+    filename, content = get_mergify_config_content(client, repo, ref)
     try:
         return filename, UserConfigurationSchema(content)
     except voluptuous.Invalid as e:

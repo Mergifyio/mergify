@@ -78,7 +78,7 @@ class DismissReviewsAction(actions.Action):
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:
                         ctxt.client.put(
-                            f"pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
+                            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
                             json={"message": message},
                         )
                     except http.HTTPClientSideError as e:  # pragma: no cover

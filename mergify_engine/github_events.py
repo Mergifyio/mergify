@@ -191,12 +191,12 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
 SHA_EXPIRATION = 60
 
 
-async def _get_github_pulls_from_sha(client, sha):
+async def _get_github_pulls_from_sha(client, repo, sha):
     redis = await utils.get_aredis_for_cache()
-    cache_key = f"sha~{client.auth.owner}~{client.auth.repo}~{sha}"
+    cache_key = f"sha~{client.auth.owner}~{repo}~{sha}"
     pull_number = await redis.get(cache_key)
     if pull_number is None:
-        async for pull in client.items("pulls"):
+        async for pull in client.items(f"/repos/{client.auth.owner}/{repo}/pulls"):
             if pull["head"]["sha"] == sha:
                 await redis.set(cache_key, pull["number"], ex=SHA_EXPIRATION)
                 return [pull["number"]]
@@ -209,25 +209,24 @@ async def _get_github_pulls_from_sha(client, sha):
         return [int(pull_number)]
 
 
-async def extract_pull_numbers_from_event(client, event_type, data):
+async def extract_pull_numbers_from_event(client, repo, event_type, data):
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
     with contextlib.suppress(http.HTTPNotFound):
+        pulls_url = f"/repos/{client.auth.owner}/{repo}/pulls"
         if event_type == "refresh":
             if "ref" in data:
                 branch = data["ref"][11:]  # refs/heads/
-                return [p["number"] async for p in client.items("pulls", base=branch)]
+                return [p["number"] async for p in client.items(pulls_url, base=branch)]
             else:
-                return [p["number"] async for p in client.items("pulls")]
+                return [p["number"] async for p in client.items(pulls_url)]
         elif event_type == "push":
             branch = data["ref"][11:]  # refs/heads/
-            return [p["number"] async for p in client.items("pulls", base=branch)]
+            return [p["number"] async for p in client.items(pulls_url, base=branch)]
         elif event_type == "status":
-            return await _get_github_pulls_from_sha(client, data["sha"])
+            return await _get_github_pulls_from_sha(client, repo, data["sha"])
         elif event_type in ["check_suite", "check_run"]:
             # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-            base_repo_url = (
-                f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{client.auth.repo}"
-            )
+            base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
             pulls = data[event_type]["pull_requests"]
             # TODO(sileht): remove `"base" in p and`
             # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing
@@ -238,6 +237,6 @@ async def extract_pull_numbers_from_event(client, event_type, data):
             ]
             if not pulls:
                 sha = data[event_type]["head_sha"]
-                pulls = await _get_github_pulls_from_sha(client, sha)
+                pulls = await _get_github_pulls_from_sha(client, repo, sha)
             return pulls
     return []

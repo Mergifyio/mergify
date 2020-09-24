@@ -93,6 +93,8 @@ class ReviewAction(actions.Action):
             ):
                 break
 
-        ctxt.client.post(f"pulls/{ctxt.pull['number']}/reviews", json=payload)
+        ctxt.client.post(
+            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews", json=payload
+        )
 
         return ("success", "Review posted", "")

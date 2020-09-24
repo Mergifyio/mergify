@@ -47,7 +47,7 @@ class AssignAction(actions.Action):
         if assignees:
             try:
                 ctxt.client.post(
-                    f"issues/{ctxt.pull['number']}/assignees",
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
                     json={"assignees": assignees},
                 )
             except http.HTTPClientSideError as e:  # pragma: no cover

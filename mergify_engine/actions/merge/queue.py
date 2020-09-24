@@ -259,7 +259,9 @@ class Queue:
                 sub = asyncio.run(
                     subscription.Subscription.get_subscription(client.auth.owner_id)
                 )
-                data = client.item(f"pulls/{pull_number}")
+                data = client.item(
+                    f"/repos/{self.owner}/{self.repo}/pulls/{pull_number}"
+                )
 
                 ctxt = context.Context(client, data, sub)
                 if ctxt.pull["base"]["ref"] != self.ref:

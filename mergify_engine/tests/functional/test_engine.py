@@ -95,7 +95,7 @@ expected alphabetic or numeric character, but found"""
         check_id = check["id"]
         annotations = list(
             ctxt.client.items(
-                f"check-runs/{check_id}/annotations",
+                f"{ctxt.base_url}/check-runs/{check_id}/annotations",
                 api_version="antiope",
             )
         )
@@ -1514,7 +1514,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
         client = github.get_client(p.base.user.login, p.base.repo.name)
-        ctxt = context.Context(client, {"number": p.number}, {})
+        ctxt = context.Context(client, p.raw_data, {})
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]
         assert "clean" == ctxt.pull["mergeable_state"]

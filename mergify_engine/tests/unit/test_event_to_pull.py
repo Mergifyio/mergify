@@ -49,7 +49,7 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
     client.items.return_value = mock.AsyncMock()
 
     pulls = await github_events.extract_pull_numbers_from_event(
-        client, event_type, data
+        client, repo, event_type, data
     )
     assert pulls == expected_pulls
 

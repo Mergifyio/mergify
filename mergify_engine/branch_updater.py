@@ -183,13 +183,15 @@ def _do_update(ctxt, token, method="merge"):
 def update_with_api(ctxt):
     try:
         ctxt.client.put(
-            f"pulls/{ctxt.pull['number']}/update-branch",
+            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422:
-            refreshed_pull = ctxt.client.item(f"pulls/{ctxt.pull['number']}")
+            refreshed_pull = ctxt.client.item(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
+            )
             if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
                 ctxt.log.info(
                     "branch updated in the meantime",

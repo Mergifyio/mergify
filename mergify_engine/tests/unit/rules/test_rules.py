@@ -166,7 +166,7 @@ def test_jinja_with_wrong_syntax():
 def test_get_mergify_config(valid):
     client = mock.Mock()
     client.item.return_value = {"content": encodebytes(valid.encode()).decode()}
-    filename, schema = get_mergify_config(client)
+    filename, schema = get_mergify_config(client, "xyz")
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
 
@@ -203,7 +203,7 @@ def test_get_mergify_config_invalid(invalid):
     with pytest.raises(InvalidRules):
         client = mock.Mock()
         client.item.return_value = {"content": encodebytes(invalid.encode()).decode()}
-        filename, schema = get_mergify_config(client)
+        filename, schema = get_mergify_config(client, "xyz")
 
 
 def test_user_configuration_schema():
@@ -377,13 +377,13 @@ def test_get_pull_request_rule():
     client.item.return_value = {"permission": "write"}  # get review user perm
 
     def client_items(url, *args, **kwargs):
-        if url == "pulls/1/reviews":
+        if url == "/repos/another-jd/name/pulls/1/reviews":
             return get_reviews
-        elif url == "pulls/1/files":
+        elif url == "/repos/another-jd/name/pulls/1/files":
             return get_files
-        elif url == "commits/<sha>/check-runs":
+        elif url == "/repos/another-jd/name/commits/<sha>/check-runs":
             return get_checks
-        elif url == "commits/<sha>/status":
+        elif url == "/repos/another-jd/name/commits/<sha>/status":
             return get_statuses
         elif url == "/orgs/orgs/teams/my-reviewers/members":
             return get_team_members

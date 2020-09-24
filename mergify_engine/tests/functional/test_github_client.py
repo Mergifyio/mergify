@@ -41,28 +41,30 @@ class TestGithubClient(base.FunctionalTestBase):
 
         client = github.get_client(self.o_integration.login, self.r_o_integration.name)
 
-        pulls = list(client.items("pulls"))
+        url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
+
+        pulls = list(client.items(url))
         self.assertEqual(2, len(pulls))
 
-        pulls = list(client.items("pulls", per_page=1))
+        pulls = list(client.items(url, per_page=1))
         self.assertEqual(2, len(pulls))
 
-        pulls = list(client.items("pulls", per_page=1, page=2))
+        pulls = list(client.items(url, per_page=1, page=2))
         self.assertEqual(1, len(pulls))
 
-        pulls = list(client.items("pulls", base=other_branch, state="all"))
+        pulls = list(client.items(url, base=other_branch, state="all"))
         self.assertEqual(1, len(pulls))
 
-        pulls = list(client.items("pulls", base="unknown"))
+        pulls = list(client.items(url, base="unknown"))
         self.assertEqual(0, len(pulls))
 
-        pull = client.item(f"pulls/{p1.number}")
+        pull = client.item(f"{url}/{p1.number}")
         self.assertEqual(p1.number, pull["number"])
 
-        pull = client.item(f"pulls/{p2.number}")
+        pull = client.item(f"{url}/{p2.number}")
         self.assertEqual(p2.number, pull["number"])
 
         with self.assertRaises(http.HTTPStatusError) as ctxt:
-            client.item("pulls/10000000000")
+            client.item(f"{url}/10000000000")
 
         self.assertEqual(404, ctxt.exception.response.status_code)

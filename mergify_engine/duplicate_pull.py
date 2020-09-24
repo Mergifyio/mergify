@@ -94,7 +94,7 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
         commit = merge_commit
         while True:
             if "parents" not in commit:
-                commit = ctxt.client.item(f"commits/{commit['sha']}")
+                commit = ctxt.client.item(f"{ctxt.base_url}/commits/{commit['sha']}")
 
             if len(commit["parents"]) != 1:
                 # NOTE(sileht): What is that? A merge here?
@@ -107,7 +107,8 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
             pull_numbers = [
                 p["number"]
                 for p in ctxt.client.items(
-                    f"commits/{commit['sha']}/pulls", api_version="groot"
+                    f"{ctxt.base_url}/commits/{commit['sha']}/pulls",
+                    api_version="groot",
                 )
                 if (
                     p["base"]["repo"]["full_name"]
@@ -210,7 +211,9 @@ def duplicate(
         git("fetch", "--quiet", "origin", branch_name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
-        merge_commit = ctxt.client.item(f"commits/{ctxt.pull['merge_commit_sha']}")
+        merge_commit = ctxt.client.item(
+            f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
+        )
         for commit in _get_commits_to_cherrypick(ctxt, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
@@ -267,7 +270,7 @@ def duplicate(
 
     try:
         duplicate_pr = ctxt.client.post(
-            "pulls",
+            f"{ctxt.base_url}/pulls",
             json={
                 "title": "{} ({} #{})".format(
                     ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
@@ -284,7 +287,7 @@ def duplicate(
 
     if cherry_pick_fail and label_conflicts is not None:
         ctxt.client.post(
-            f"issues/{duplicate_pr['number']}/labels",
+            f"{ctxt.base_url}/issues/{duplicate_pr['number']}/labels",
             json={"labels": [label_conflicts]},
         )
 

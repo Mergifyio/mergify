@@ -125,7 +125,7 @@ async def push(redis, owner, repo, pull_number, event_type, data):
 async def get_pull_for_engine(owner, repo, pull_number, logger):
     async with await github.aget_client(owner, repo) as client:
         try:
-            pull = await client.item(f"pulls/{pull_number}")
+            pull = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
@@ -452,6 +452,7 @@ end
             async with await github.aget_client(owner, repo) as client:
                 pull_numbers = await github_events.extract_pull_numbers_from_event(
                     client,
+                    repo,
                     source["event_type"],
                     source["data"],
                 )

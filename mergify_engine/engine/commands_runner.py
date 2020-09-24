@@ -48,7 +48,9 @@ def load_action(message):
 
 def run_pending_commands_tasks(ctxt):
     pendings = set()
-    for comment in ctxt.client.items(f"issues/{ctxt.pull['number']}/comments"):
+    for comment in ctxt.client.items(
+        f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments"
+    ):
         if comment["user"]["id"] != config.BOT_USER_ID:
             continue
         match = COMMAND_RESULT_MATCHER.search(comment["body"])
@@ -108,7 +110,8 @@ def handle(ctxt, comment, user, rerun=False):
 
     try:
         ctxt.client.post(
-            f"issues/{ctxt.pull['number']}/comments", json={"body": result}
+            f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
+            json={"body": result},
         )
     except http.HTTPClientSideError as e:  # pragma: no cover
         ctxt.log.error(

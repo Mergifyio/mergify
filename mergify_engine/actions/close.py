@@ -34,7 +34,9 @@ class CloseAction(actions.Action):
             return ("success", "Pull request is already closed", "")
 
         try:
-            ctxt.client.patch(f"pulls/{ctxt.pull['number']}", json={"state": "close"})
+            ctxt.client.patch(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}", json={"state": "close"}
+            )
         except http.HTTPClientSideError as e:  # pragma: no cover
             return ("failure", "Pull request can't be closed", e.message)
 
@@ -49,7 +51,7 @@ class CloseAction(actions.Action):
 
         try:
             ctxt.client.post(
-                f"issues/{ctxt.pull['number']}/comments",
+                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover

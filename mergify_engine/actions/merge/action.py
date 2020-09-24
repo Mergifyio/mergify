@@ -307,7 +307,9 @@ class MergeAction(actions.Action):
         data["merge_method"] = method
 
         try:
-            ctxt.client.put(f"pulls/{ctxt.pull['number']}/merge", json=data)
+            ctxt.client.put(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge", json=data
+            )
         except http.HTTPClientSideError as e:  # pragma: no cover
             ctxt.update()
             if ctxt.pull["merged"]:
