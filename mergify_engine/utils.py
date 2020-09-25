@@ -40,7 +40,7 @@ async def get_aredis_for_cache():
     global AREDIS_CONNECTION_CACHE
     if AREDIS_CONNECTION_CACHE is None:
         AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
-            config.STORAGE_URL, decode_responses=True,
+            config.STORAGE_URL, decode_responses=True, max_idle_time=60
         )
         await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
     return AREDIS_CONNECTION_CACHE
@@ -62,7 +62,7 @@ def get_redis_for_cache():
 
 
 async def create_aredis_for_stream():
-    r = aredis.StrictRedis.from_url(config.STREAM_URL)
+    r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=60)
     await r.client_setname("stream:%s" % _PROCESS_IDENTIFIER)
     return r
 
