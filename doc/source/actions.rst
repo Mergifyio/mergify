@@ -494,13 +494,21 @@ request.
     - Default
     - Value Description
   * - ``users``
-    - list of string
+    - list of string or dictionary of login and weight
     -
     - The username to request reviews from.
   * - ``teams``
-    - list of string
+    - list of string or dictionary of login and weight
     -
     - The team name to request reviews from.
+  * - ``random_count``
+    - integer between 1 and 15
+    -
+    - Pick random users and teams from the provided lists. When
+      ``random_count`` is specified, ``users`` and ``teams`` can be a
+      dictionary where the key is the login and the value is the weight to use.
+
+      |essential plan tag|
 
 .. note::
 
