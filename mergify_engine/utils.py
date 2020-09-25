@@ -36,6 +36,12 @@ global AREDIS_CONNECTION_CACHE
 AREDIS_CONNECTION_CACHE = None
 
 
+async def create_aredis_for_cache():
+    r = aredis.StrictRedis.from_url(config.STORAGE_URL, decode_responses=True)
+    await r.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
+    return r
+
+
 async def get_aredis_for_cache():
     global AREDIS_CONNECTION_CACHE
     if AREDIS_CONNECTION_CACHE is None:
