@@ -482,7 +482,8 @@ Using the ``rebase`` method for the strict merge has many drawbacks:
 request_reviews
 ===============
 
-The ``request_reviews`` action requests reviews from users for the pull request.
+The ``request_reviews`` action requests reviews from users for the pull
+request.
 
 .. list-table::
   :header-rows: 1
@@ -500,6 +501,10 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - list of string
     -
     - The team name to request reviews from.
+
+.. note::
+
+   GitHub does not allow more to request more 15 users or teams for a review.
 
 .. _rebase action:
 
