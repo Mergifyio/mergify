@@ -68,6 +68,10 @@ class Action(abc.ABC):
     # Only keep it for internal tracking
     silent_report = False
 
+    # This makes checks created by mergify retriggering Mergify, beware to
+    # not create something that endup with a infinite loop of events
+    allow_retrigger_mergify = False
+
     @property
     @staticmethod
     @abc.abstractmethod

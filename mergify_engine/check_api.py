@@ -15,6 +15,11 @@
 from mergify_engine import utils
 
 
+# Used to track check run created by Mergify but for the user via the checks action
+# e.g.: we want the engine to be retriggered if the state of this kind of checks changes.
+USER_CREATED_CHECKS = "user-created-checkrun"
+
+
 def get_checks_for_ref(ctxt, sha, **kwargs):
     checks = list(
         ctxt.client.items(
@@ -43,7 +48,7 @@ def compare_dict(d1, d2, keys):
     return True
 
 
-def set_check_run(ctxt, name, status, conclusion=None, output=None):
+def set_check_run(ctxt, name, status, conclusion=None, output=None, external_id=None):
     post_parameters = {
         "name": name,
         "head_sha": ctxt.pull["head"]["sha"],
@@ -58,6 +63,9 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None):
             output["summary"] = utils.unicode_truncate(summary, 65532)
             output["summary"] += "…"  # this is 3 bytes long
         post_parameters["output"] = output
+
+    if external_id:
+        post_parameters["external_id"] = external_id
 
     post_parameters["started_at"] = utils.utcnow().isoformat()
     post_parameters["details_url"] = "%s/checks" % ctxt.pull["html_url"]

@@ -63,13 +63,13 @@ _DUMMY_PR = context.PullRequest(
 )
 
 
-def Jinja2(value):
+def Jinja2(value, extra_variables=None):
     """A Jinja2 type for voluptuous Schemas."""
     if value is None:
         raise voluptuous.Invalid("Template cannot be null")
     try:
         # TODO: optimize this by returning, storing and using the parsed Jinja2 AST
-        _DUMMY_PR.render_template(value)
+        _DUMMY_PR.render_template(value, extra_variables)
     except context.RenderTemplateFailure as rtf:
         if rtf.lineno is None:
             path = None

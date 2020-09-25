@@ -482,7 +482,8 @@ Using the ``rebase`` method for the strict merge has many drawbacks:
 request_reviews
 ===============
 
-The ``request_reviews`` action requests reviews from users for the pull request.
+The ``request_reviews`` action requests reviews from users for the pull
+request.
 
 .. list-table::
   :header-rows: 1
@@ -500,6 +501,10 @@ The ``request_reviews`` action requests reviews from users for the pull request.
     - list of string
     -
     - The team name to request reviews from.
+
+.. note::
+
+   GitHub does not allow more to request more 15 users or teams for a review.
 
 .. _rebase action:
 
@@ -537,5 +542,45 @@ update
 ======
 
 The ``update`` action updates the pull request against its base branch.
+
+
+check-runs
+==========
+
+   |premium plan tag|
+
+The ``check-runs`` action adds items in a pull request checks. The check-run
+status is ``success`` when all conditions match, otherwise, it is set to
+``failure``.
+
+
+.. list-table::
+  :header-rows: 1
+  :widths: 1 1 1 2
+
+  * - Key Name
+    - Value Type
+    - Default
+    - Value Description
+
+  * - ``title``
+    - :ref:`data type template`
+    -
+    - The title of the check.
+
+  * - ``summary``
+    - :ref:`data type template`
+    -
+    - The summary of the check.
+
+
+As the ``title`` and ``summary`` use on :ref:`data type template`, you can
+benefit from any pull request attributes e.g. ``{{author}}`` and also these
+additional variables:
+
+    * ``{{ check_rule_name }}`` the name of the rule that triggered this action.
+    * ``{{ check_succeed }}`` will be ``True`` if all conditions matches otherwise ``False``
+    * ``{{ check_conditions }}`` the list of all conditions with a checkbox marked if the condition match
+
 
 .. include:: global-substitutions.rst

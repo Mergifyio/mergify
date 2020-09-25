@@ -493,17 +493,12 @@ class PullRequest:
         for k in self:
             yield k, getattr(self, k)
 
-    @functools.cached_property
-    def jinja2_env(self):
-        """A Jinja2 environment to render your templates."""
-        env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-        PullRequestContext.inject(env, self)
-        return env
-
-    def render_template(self, template):
+    def render_template(self, template, extra_variables=None):
         """Render a template interpolating variables based on pull request attributes."""
+        env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
+        PullRequestContext.inject(env, self, extra_variables)
         try:
-            return self.jinja2_env.from_string(template).render()
+            return env.from_string(template).render()
         except jinja2.exceptions.TemplateSyntaxError as tse:
             raise RenderTemplateFailure(tse.message, tse.lineno)
         except jinja2.exceptions.TemplateError as te:
@@ -521,6 +516,16 @@ class PullRequestContext(jinja2.runtime.Context):
     _InvalidValue = object()
 
     def resolve_or_missing(self, key):
+        if "extra_variables" in self.parent:
+            try:
+                return self.parent["extra_variables"][key]
+            except KeyError:
+                if "extra_variables" in self.vars:
+                    try:
+                        return self.vars["extra_variables"][key]
+                    except KeyError:
+                        pass
+
         if "pull_request" in self.parent:
             try:
                 return getattr(self.parent["pull_request"], key)
@@ -534,13 +539,18 @@ class PullRequestContext(jinja2.runtime.Context):
             return jinja2.utils.missing
 
     @classmethod
-    def inject(cls, env, pull_request):
+    def inject(cls, env, pull_request, extra_variables=None):
         """Inject this context into a Jinja Environment."""
-        env.globals["pull_request"] = pull_request
         # Set all the value to _InvalidValue as the PullRequestContext will resolve
         # values correctly anyway. We still need to have those entries in
         # the global dict so find_undeclared_variables works correctly.
+        env.globals["pull_request"] = pull_request
         env.globals.update(
             dict((k.replace("-", "_"), cls._InvalidValue) for k in pull_request)
         )
+        if extra_variables:
+            env.globals["extra_variables"] = extra_variables
+            env.globals.update(
+                dict((k.replace("-", "_"), cls._InvalidValue) for k in extra_variables)
+            )
         env.context_class = cls
