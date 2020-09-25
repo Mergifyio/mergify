@@ -49,7 +49,7 @@ app.mount("/badges", badges.app)
 @app.on_event("startup")
 async def startup():
     app.aredis_stream = await utils.create_aredis_for_stream()
-    app.aredis_cache = await utils.create_aredis_for_cache()
+    app.aredis_cache = await utils.get_aredis_for_cache()
 
 
 @app.on_event("shutdown")
