@@ -15,6 +15,7 @@
 # under the License.
 
 
+import asyncio
 import collections
 import json
 import uuid
@@ -54,9 +55,15 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    app.aredis_cache.connection_pool.max_idle_time = 0
     app.aredis_cache.connection_pool.disconnect()
-    app.aredis_cache = None
+    app.aredis_stream.connection_pool.max_idle_time = 0
     app.aredis_stream.connection_pool.disconnect()
+    # aredis spawn a task without keeping a ref to this task.
+    # So to ensure it stop before we shutdown we set max_idle_time to zero
+    # and wait a bit more that idle_check_interval
+    await asyncio.sleep(1.2)
+    app.aredis_cache = None
     app.aredis_stream = None
 
 
