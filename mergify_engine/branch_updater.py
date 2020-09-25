@@ -154,8 +154,8 @@ def _do_update(ctxt, token, method="merge"):
 
         expected_sha = git("log", "-1", "--format=%H").decode().strip()
         # NOTE(sileht): We store this for dismissal action
-        redis = utils.get_redis_for_cache()
-        redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
+        with utils.get_redis_for_cache() as redis:
+            redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:

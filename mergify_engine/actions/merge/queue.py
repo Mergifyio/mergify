@@ -231,17 +231,17 @@ class Queue:
 
     @classmethod
     def process_queues(cls):
-        redis = utils.get_redis_for_cache()
-        LOG.info("smart strict workflow loop start")
-        for queue_name in redis.keys("strict-merge-queues~*"):
-            queue = cls.from_queue_name(redis, queue_name)
-            try:
-                queue.process()
-            except exceptions.MergifyNotInstalled:
-                queue.delete()
-            except Exception:
-                queue.log.error("Fail to process merge queue", exc_info=True)
-        LOG.info("smart strict workflow loop end")
+        with utils.get_redis_for_cache() as redis:
+            LOG.info("smart strict workflow loop start")
+            for queue_name in redis.keys("strict-merge-queues~*"):
+                queue = cls.from_queue_name(redis, queue_name)
+                try:
+                    queue.process()
+                except exceptions.MergifyNotInstalled:
+                    queue.delete()
+                except Exception:
+                    queue.log.error("Fail to process merge queue", exc_info=True)
+            LOG.info("smart strict workflow loop end")
 
     def process(self):
         pull_numbers = self.get_pulls()
