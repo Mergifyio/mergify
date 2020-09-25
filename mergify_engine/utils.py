@@ -1,4 +1,5 @@
-# -*- encoding: utf-8 -*-
+#
+# Copyright © 2019–2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -11,7 +12,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import asyncio
 import datetime
 import hashlib
@@ -21,6 +21,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import typing
 import urllib.parse
 
 import aredis
@@ -143,3 +144,40 @@ class Gitter(object):
         parsed[2] = path
         url = urllib.parse.urlunparse(parsed)
         self("credential", "approve", input=f"url={url}\n\n".encode("utf8"))
+
+
+def get_random_choices(
+    random_number: int, population: typing.Dict[typing.Any, int], k: int = 1
+) -> set:
+    """Return a random number of item from a population without replacement.
+
+    You need to provide the random number yourself.
+
+    The output is always the same based on that number.
+
+    The population is a dict where the key is the choice and the value is the weight.
+
+    The argument k is the number of item that should be picked.
+
+    :param random_number: The random_number that should be picked.
+    :param population: The dict of {item: weight}.
+    :param k: The number of choices to make.
+    :return: A set with the choices.
+    """
+    picked = set()
+    population = population.copy()
+
+    if k > len(population):
+        raise ValueError("k cannot be greater than the population size")
+
+    while len(picked) < k:
+        total_weight = sum(population.values())
+        choice_index = (random_number % total_weight) + 1
+        for item in sorted(population):
+            choice_index -= population[item]
+            if choice_index <= 0:
+                picked.add(item)
+                del population[item]
+                break
+
+    return picked
