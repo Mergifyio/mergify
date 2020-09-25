@@ -163,24 +163,24 @@ def _redis_last_summary_head_sha_key(ctxt):
 
 
 def delete_last_summary_head_sha(ctxt):
-    redis = utils.get_redis_for_cache()
-    return redis.delete(_redis_last_summary_head_sha_key(ctxt))
+    with utils.get_redis_for_cache() as redis:
+        redis.delete(_redis_last_summary_head_sha_key(ctxt))
 
 
 def get_last_summary_head_sha(ctxt):
-    redis = utils.get_redis_for_cache()
-    return redis.get(_redis_last_summary_head_sha_key(ctxt))
+    with utils.get_redis_for_cache() as redis:
+        redis.get(_redis_last_summary_head_sha_key(ctxt))
 
 
 def save_last_summary_head_sha(ctxt):
-    redis = utils.get_redis_for_cache()
     # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
     # to avoid race conditions when too many synchronize events occur in a short period of time
-    redis.set(
-        _redis_last_summary_head_sha_key(ctxt),
-        ctxt.pull["head"]["sha"],
-        ex=60 * 60 * 24 * 31,  # 1 month
-    )
+    with utils.get_redis_for_cache() as redis:
+        redis.set(
+            _redis_last_summary_head_sha_key(ctxt),
+            ctxt.pull["head"]["sha"],
+            ex=60 * 60 * 24 * 31,  # 1 month
+        )
 
 
 def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
