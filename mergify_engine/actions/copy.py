@@ -41,7 +41,7 @@ class CopyAction(actions.Action):
     validator = {
         voluptuous.Required("branches", default=[]): [str],
         voluptuous.Required("regexes", default=[]): [Regex],
-        voluptuous.Required("ignore_conflicts", default=False): bool,
+        voluptuous.Required("ignore_conflicts", default=True): bool,
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
 

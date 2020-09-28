@@ -76,7 +76,7 @@ parameter:
        to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``False``
+     - ``True``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
@@ -121,7 +121,7 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - The list of regexes to find branches the pull request should be copied to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``False``
+     - ``True``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
