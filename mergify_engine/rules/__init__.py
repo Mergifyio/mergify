@@ -142,19 +142,21 @@ class YAMLInvalid(voluptuous.Invalid):
         return f"{self.msg} at {self.path}"
 
     def get_annotations(self, path):
-        error_path = self.path[0]
-        return [
-            {
-                "path": path,
-                "start_line": error_path.line,
-                "end_line": error_path.line,
-                "start_column": error_path.column,
-                "end_column": error_path.column,
-                "annotation_level": "failure",
-                "message": self.error_message,
-                "title": self.msg,
-            },
-        ]
+        if self.path:
+            error_path = self.path[0]
+            return [
+                {
+                    "path": path,
+                    "start_line": error_path.line,
+                    "end_line": error_path.line,
+                    "start_column": error_path.column,
+                    "end_column": error_path.column,
+                    "annotation_level": "failure",
+                    "message": self.error_message,
+                    "title": self.msg,
+                },
+            ]
+        return []
 
 
 def YAML(v):
