@@ -123,7 +123,7 @@ async def push(redis, owner, repo, pull_number, event_type, data):
 
 
 async def get_pull_for_engine(owner, repo, pull_number, logger):
-    async with await github.aget_client(owner, repo) as client:
+    async with await github.aget_client(owner) as client:
         try:
             pull = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
         except http.HTTPNotFound:
@@ -145,7 +145,7 @@ def run_engine(owner, repo, pull_number, sources):
         result = asyncio.run(get_pull_for_engine(owner, repo, pull_number, logger))
         if result:
             subscription, pull = result
-            with github.get_client(owner, repo) as client:
+            with github.get_client(owner) as client:
                 engine.run(client, pull, subscription, sources)
     finally:
         logger.debug("engine in thread end")
@@ -449,7 +449,7 @@ end
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
         try:
-            async with await github.aget_client(owner, repo) as client:
+            async with await github.aget_client(owner) as client:
                 pull_numbers = await github_events.extract_pull_numbers_from_event(
                     client,
                     repo,

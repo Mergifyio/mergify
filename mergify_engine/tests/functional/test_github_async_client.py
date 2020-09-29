@@ -42,9 +42,7 @@ class TestGithubClient(base.FunctionalTestBase):
         self.create_pr(base=other_branch)
 
         async def _test_github_async_client():
-            client = await github.aget_client(
-                self.o_integration.login, self.r_o_integration.name
-            )
+            client = await github.aget_client(self.o_integration.login)
 
             url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
 

@@ -95,9 +95,9 @@ async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
 def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
     try:
         if token:
-            auth = github.GithubTokenAuth(owner, repo, token)
+            auth = github.GithubTokenAuth(owner, token)
         else:
-            auth = github.get_auth(owner, repo)
+            auth = github.get_auth(owner)
 
         with github.get_client(auth=auth) as client:
             try:

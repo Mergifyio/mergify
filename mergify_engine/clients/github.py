@@ -77,10 +77,9 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 
 class GithubTokenAuth(httpx.Auth):
-    def __init__(self, owner, repo, token):
+    def __init__(self, owner, token):
         self._token = token
         self.owner = owner
-        self.repo = repo
         self.permissions_need_to_be_updated = False
 
         self.owner_id = None
@@ -117,9 +116,8 @@ class GithubTokenAuth(httpx.Auth):
 
 
 class GithubAppInstallationAuth(httpx.Auth):
-    def __init__(self, owner, repo):
+    def __init__(self, owner):
         self.owner = owner
-        self.repo = repo
 
         self._cached_token = None
         self.installation = None
@@ -209,7 +207,6 @@ class GithubAppInstallationAuth(httpx.Auth):
         LOG.info(
             "New token acquired",
             gh_owner=self.owner,
-            gh_repo=self.repo,
             expire_at=self._cached_token.expiration,
         )
         return self._cached_token.token
@@ -222,7 +219,6 @@ class GithubAppInstallationAuth(httpx.Auth):
             LOG.info(
                 "Token expired",
                 gh_owner=self.owner,
-                gh_repo=self.repo,
                 expire_at=self._cached_token.expiration,
             )
             self._cached_token.invalidate()
@@ -240,9 +236,9 @@ class GithubAppInstallationAuth(httpx.Auth):
             raise RuntimeError("get_access_token() call on an unused client")
 
 
-def get_auth(owner, repo):
+def get_auth(owner):
     if config.GITHUB_APP:
-        return GithubAppInstallationAuth(owner, repo)
+        return GithubAppInstallationAuth(owner)
     else:
         return GithubActionAccessTokenAuth()
 
@@ -260,7 +256,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<AsyncGithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
+        return f"<AsyncGithubInstallationClient owner='{self.auth.owner}'>"
 
     def _inject_api_version(self, func):
         @functools.wraps(func)
@@ -345,7 +341,6 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 LOGGING_REQUESTS_THRESHOLD,
                 nb_requests,
                 gh_owner=self.auth.owner,
-                gh_repo=self.auth.repo,
                 requests=self._requests,
             )
         self._requests = []
@@ -363,8 +358,8 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-async def aget_client(owner=None, repo=None, auth=None):
-    client = AsyncGithubInstallationClient(auth or get_auth(owner, repo))
+async def aget_client(owner=None, auth=None):
+    client = AsyncGithubInstallationClient(auth or get_auth(owner))
     await client.check_rate_limit()
     return client
 
@@ -382,7 +377,7 @@ class GithubInstallationClient(http.Client):
             setattr(self, method, self._inject_api_version(getattr(self, method)))
 
     def __repr__(self):
-        return f"<GithubInstallationClient owner='{self.auth.owner}' repo='{self.auth.repo}'>"
+        return f"<GithubInstallationClient owner='{self.auth.owner}'"
 
     def _inject_api_version(self, func):
         @functools.wraps(func)
@@ -465,7 +460,6 @@ class GithubInstallationClient(http.Client):
                 LOGGING_REQUESTS_THRESHOLD,
                 nb_requests,
                 gh_owner=self.auth.owner,
-                gh_repo=self.auth.repo,
                 requests=self._requests,
             )
         self._requests = []
@@ -482,7 +476,7 @@ class GithubInstallationClient(http.Client):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-def get_client(owner=None, repo=None, auth=None):
-    client = GithubInstallationClient(auth or get_auth(owner, repo))
+def get_client(owner=None, auth=None):
+    client = GithubInstallationClient(auth or get_auth(owner))
     client.check_rate_limit()
     return client
