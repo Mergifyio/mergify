@@ -127,7 +127,7 @@ def report(url):
     slug = owner + "/" + repo
 
     try:
-        client = github.get_client(owner, repo)
+        client = github.get_client(owner)
     except exceptions.MergifyNotInstalled:
         print("* Mergify is not installed there")
         return
@@ -164,7 +164,7 @@ def report(url):
                 utils.get_redis_for_cache(),
                 client.auth.installation["id"],
                 client.auth.owner,
-                client.auth.repo,
+                repo,
                 branch["name"],
             )
             pulls = q.get_pulls()

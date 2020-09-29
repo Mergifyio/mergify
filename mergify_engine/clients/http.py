@@ -98,21 +98,19 @@ def wait_retry_after_header(retry_state):
 
 def extract_github_extra(client):
     if client.auth and hasattr(client.auth, "owner"):
-        return client.auth.owner, client.auth.repo
-    return (None, None)
+        return client.auth.owner
 
 
 def before_log(retry_state):
     client = retry_state.args[0]
     method = retry_state.args[1]
-    gh_owner, gh_repo = extract_github_extra(client)
+    gh_owner = extract_github_extra(client)
     url = retry_state.args[2]
     LOG.debug(
         "http request starts",
         method=method,
         url=url,
         gh_owner=gh_owner,
-        gh_repo=gh_repo,
         attempts=retry_state.attempt_number,
     )
 
@@ -121,7 +119,7 @@ def after_log(retry_state):
     client = retry_state.args[0]
     method = retry_state.args[1]
     url = retry_state.args[2]
-    gh_owner, gh_repo = extract_github_extra(client)
+    gh_owner = extract_github_extra(client)
     error_message = None
     response = None
     exc_info = None
@@ -138,7 +136,6 @@ def after_log(retry_state):
         method=method,
         url=url,
         gh_owner=gh_owner,
-        gh_repo=gh_repo,
         error_message=error_message,
         attempts=retry_state.attempt_number,
         seconds_since_start=retry_state.seconds_since_start,

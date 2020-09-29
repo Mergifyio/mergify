@@ -61,7 +61,7 @@ def test_client_401_raise_ratelimit(httpserver):
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        client = github.get_client(owner, repo)
+        client = github.get_client(owner)
         with pytest.raises(exceptions.RateLimited):
             client.item(f"/repos/{owner}/{repo}/pull/1")
 
@@ -183,9 +183,7 @@ def test_client_access_token_HTTP_500(httpserver):
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(
-            github.get_auth("owner", "repo")
-        ) as client:
+        with github.GithubInstallationClient(github.get_auth("owner")) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -211,9 +209,7 @@ def test_client_installation_HTTP_500(httpserver):
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(
-            github.get_auth("owner", "repo")
-        ) as client:
+        with github.GithubInstallationClient(github.get_auth("owner")) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -239,9 +235,7 @@ def test_client_installation_HTTP_404(httpserver):
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(
-            github.get_auth("owner", "repo")
-        ) as client:
+        with github.GithubInstallationClient(github.get_auth("owner")) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 
@@ -263,9 +257,7 @@ def test_client_installation_HTTP_301(httpserver):
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(
-            github.get_auth("owner", "repo")
-        ) as client:
+        with github.GithubInstallationClient(github.get_auth("owner")) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 

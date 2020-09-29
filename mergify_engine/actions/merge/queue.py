@@ -253,7 +253,7 @@ class Queue:
 
         pull_number = pull_numbers[0]
 
-        with github.get_client(self.owner, self.repo) as client:
+        with github.get_client(self.owner) as client:
             ctxt = None
             try:
                 sub = asyncio.run(
