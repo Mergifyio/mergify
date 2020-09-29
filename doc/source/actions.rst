@@ -547,7 +547,7 @@ The ``update`` action updates the pull request against its base branch.
 check-runs
 ==========
 
-   |premium plan tag|
+|premium plan tag|
 
 The ``check-runs`` action adds items in a pull request checks. The check-run
 status is ``success`` when all conditions match, otherwise, it is set to

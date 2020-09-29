@@ -282,6 +282,22 @@ pull_request_rules:
     assert str(i.value) == "expected a dictionary"
 
 
+def test_user_binary_file():
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(chr(4))
+    assert str(i.value) == "Invalid YAML at []"
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert (
+        str(ir)
+        == """Invalid YAML at []
+```
+unacceptable character #x0004: special characters are not allowed
+  in "<unicode string>", position 0
+```"""
+    )
+    assert ir.get_annotations(".mergify.yml") == []
+
+
 @pytest.mark.parametrize(
     "invalid,match",
     (
