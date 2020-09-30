@@ -51,6 +51,6 @@ def test_command_loader():
     assert action.config == {
         "branches": ["branch-3.1", "branch-3.2"],
         "regexes": [],
-        "ignore_conflicts": False,
+        "ignore_conflicts": True,
         "label_conflicts": "conflicts",
     }

@@ -76,7 +76,7 @@ parameter:
        to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``False``
+     - ``True``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
@@ -121,7 +121,7 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - The list of regexes to find branches the pull request should be copied to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``False``
+     - ``True``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
@@ -555,7 +555,7 @@ The ``update`` action updates the pull request against its base branch.
 check-runs
 ==========
 
-   |premium plan tag|
+|premium plan tag|
 
 The ``check-runs`` action adds items in a pull request checks. The check-run
 status is ``success`` when all conditions match, otherwise, it is set to
