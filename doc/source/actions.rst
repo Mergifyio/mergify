@@ -552,12 +552,12 @@ update
 The ``update`` action updates the pull request against its base branch.
 
 
-check-runs
+post_check
 ==========
 
 |premium plan tag|
 
-The ``check-runs`` action adds items in a pull request checks. The check-run
+The ``post_check`` action adds an item in a pull request check list. The check
 status is ``success`` when all conditions match, otherwise, it is set to
 ``failure``.
 

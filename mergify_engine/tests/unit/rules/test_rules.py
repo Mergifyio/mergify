@@ -734,7 +734,7 @@ pull_request_rules:
     conditions:
     - base=master
     actions:
-      check-runs:
+      post_check:
         title: '{{ check_rule_name }} whatever'
         summary: |
           This pull request has been checked!
@@ -757,7 +757,7 @@ pull_request_rules:
     conditions:
     - base=master
     actions:
-      check-runs: {}
+      post_check: {}
 """
     )["pull_request_rules"]
     assert [rule["name"] for rule in pull_request_rules] == [

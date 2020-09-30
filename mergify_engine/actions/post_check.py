@@ -33,7 +33,7 @@ def CheckRunJinja2(v):
     )
 
 
-class CheckRunsAction(actions.Action):
+class PostCheckAction(actions.Action):
     validator = {
         voluptuous.Required(
             "title",
