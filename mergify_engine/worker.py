@@ -14,16 +14,16 @@
 
 import asyncio
 import collections
-import contextlib
 import dataclasses
 import datetime
 import functools
+import hashlib
+import os
 import signal
 import threading
 import time
 from typing import Any
 from typing import List
-from typing import Set
 
 import daiquiri
 from datadog import statsd
@@ -208,37 +208,36 @@ class ThreadRunner(threading.Thread):
 
 @dataclasses.dataclass
 class StreamSelector:
-    worker_count: int
     redis: Any
+    worker_id: int
+    worker_count: int
 
-    _pending_streams: Set = dataclasses.field(init=False, default_factory=set)
+    _pending_streams: List = dataclasses.field(init=False, default_factory=list)
 
-    @contextlib.asynccontextmanager
+    def _forme(self, stream: bytes) -> bool:
+        hash = int(hashlib.md5(stream).hexdigest(), 16)
+        return hash % self.worker_count == self.worker_id
+
     async def next_stream(self):
-        # TODO(sileht): We can cache locally the result as the order is not going to
-        # change, and if it changes we don't care
-        # NOTE(sileht): We get the numbers we need to have one per worker, then remove
-        # streams already handled by other workers and keep the remaining one.
-        now = time.time()
-        streams = [
-            s
-            for s in await self.redis.zrangebyscore(
-                "streams",
-                min=0,
-                max=now,
-                start=0,
-                num=self.worker_count * 2,
-            )
-            if s not in self._pending_streams
-        ]
-        if streams:
-            self._pending_streams.add(streams[0])
-            try:
-                yield streams[0].decode()
-            finally:
-                self._pending_streams.remove(streams[0])
-        else:
-            yield
+        if not self._pending_streams:
+            now = time.time()
+            self._pending_streams = [
+                stream
+                for stream in await self.redis.zrangebyscore(
+                    "streams",
+                    min=0,
+                    max=now,
+                )
+                if self._forme(stream)
+            ]
+
+        if not self._pending_streams:
+            return
+
+        statsd.increment(
+            "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
+        )
+        return self._pending_streams.pop(0).decode()
 
 
 @dataclasses.dataclass
@@ -534,10 +533,20 @@ end
                 logger.error("failed to process pull request", exc_info=True)
 
 
+def get_process_index_from_env():
+    dyno = os.getenv("DYNO", None)
+    if dyno:
+        return int(dyno.split(".")[1]) - 1
+    else:
+        return 0
+
+
 @dataclasses.dataclass
 class Worker:
     idle_sleep_time: float = 0.42
-    worker_count: int = config.STREAM_WORKERS
+    worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
+    process_count: int = config.STREAM_PROCESSES
+    process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
     enabled_services: List[str] = dataclasses.field(
         default_factory=lambda: ["stream", "stream-monitoring"]
     )
@@ -551,35 +560,38 @@ class Worker:
     _worker_tasks: List = dataclasses.field(init=False, default_factory=list)
     _stream_monitoring_task: Any = dataclasses.field(init=False, default=None)
 
-    async def stream_worker_task(self, worker_id):
+    @property
+    def worker_count(self):
+        return self.worker_per_process * self.process_count
+
+    async def stream_worker_task(self, worker_id: int):
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis)
+        stream_selector = StreamSelector(self._redis, worker_id, self.worker_count)
 
         while not self._stopping.is_set():
             try:
-                async with self._stream_selector.next_stream() as stream_name:
-                    if stream_name:
-                        LOG.debug("worker %d take stream: %s", worker_id, stream_name)
-                        try:
-                            await stream_processor.consume(stream_name)
-                        finally:
-                            LOG.debug(
-                                "worker %d release stream: %s",
-                                worker_id,
-                                stream_name,
-                            )
-                    else:
+                stream_name = await stream_selector.next_stream()
+                if stream_name:
+                    LOG.debug("worker %s take stream: %s", worker_id, stream_name)
+                    try:
+                        await stream_processor.consume(stream_name)
+                    finally:
                         LOG.debug(
-                            "worker %d has nothing to do, sleeping a bit", worker_id
+                            "worker %s release stream: %s",
+                            worker_id,
+                            stream_name,
                         )
-                        await self._sleep_or_stop()
+                else:
+                    LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
+                    await self._sleep_or_stop()
             except Exception:
-                LOG.error("worker %d fail, sleeping a bit", worker_id, exc_info=True)
+                LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
                 await self._sleep_or_stop()
 
         stream_processor.close()
-        LOG.debug("worker %d exited", worker_id)
+        LOG.debug("worker %s exited", worker_id)
 
     async def _sleep_or_stop(self, timeout=None):
         if timeout is None:
@@ -601,6 +613,8 @@ class Worker:
                     num=1,
                     withscores=True,
                 )
+                # NOTE(sileht): May not be always true with the next StreamSelector based
+                # on hash+modulo
                 if streams:
                     latency = now - streams[0][1]
                     statsd.timing("engine.streams.latency", latency)
@@ -608,30 +622,42 @@ class Worker:
                     statsd.timing("engine.streams.latency", 0)
 
                 statsd.gauge("engine.workers.count", self.worker_count)
+                statsd.gauge("engine.processes.count", self.process_count)
+                statsd.gauge(
+                    "engine.workers-per-process.count", self.worker_per_process
+                )
             except Exception:
                 LOG.warning("monitoring task failed", exc_info=True)
 
             await self._sleep_or_stop(60)
 
+    def get_worker_ids(self):
+        return list(
+            range(
+                self.process_index * self.worker_per_process,
+                (self.process_index + 1) * self.worker_per_process,
+            )
+        )
+
     async def _run(self):
         self._stopping.clear()
 
         self._redis = await utils.create_aredis_for_stream()
-        self._stream_selector = StreamSelector(self.worker_count, self._redis)
 
         if "stream" in self.enabled_services:
-            for i in range(self.worker_count):
+            worker_ids = self.get_worker_ids()
+            for worker_id in worker_ids:
                 self._worker_tasks.append(
-                    asyncio.create_task(self.stream_worker_task(i))
+                    asyncio.create_task(self.stream_worker_task(worker_id))
                 )
+            LOG.debug("workers %s started", ", ".join(map(str, worker_ids)))
 
         if "stream-monitoring" in self.enabled_services:
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
 
-        LOG.debug("%d workers spawned", self.worker_count)
-
     async def _shutdown(self):
-        LOG.debug("wait for workers to exit")
+        worker_ids = self.get_worker_ids()
+        LOG.debug("wait for workers %s to exit", ", ".join(map(str, worker_ids)))
         self._stopping.set()
 
         await self._start_task

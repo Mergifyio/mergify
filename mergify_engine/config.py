@@ -99,7 +99,10 @@ Schema = voluptuous.Schema(
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("STREAM_URL", default="redis://localhost:6379?db=7"): str,
-        voluptuous.Required("STREAM_WORKERS", default=7): voluptuous.Coerce(int),
+        voluptuous.Required("STREAM_PROCESSES", default=1): voluptuous.Coerce(int),
+        voluptuous.Required("STREAM_WORKERS_PER_PROCESS", default=7): voluptuous.Coerce(
+            int
+        ),
         voluptuous.Required("STREAM_MAX_BATCH", default=100): voluptuous.Coerce(int),
         GitHubAppRequired("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
@@ -139,7 +142,8 @@ GITHUB_API_URL: str
 WEBHOOK_MARKETPLACE_FORWARD_URL: str
 WEBHOOK_APP_FORWARD_URL: str
 WEBHOOK_FORWARD_EVENT_TYPES: str
-STREAM_WORKERS: int
+STREAM_PROCESSES: int
+STREAM_WORKERS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
 STORAGE_URL: str
