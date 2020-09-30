@@ -24,7 +24,9 @@ from mergify_engine import subscription
 from mergify_engine.tests.functional import base
 
 
-class TestCheckRunsAction(base.FunctionalTestBase):
+class TestPostCheckAction(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
     def test_checks_default(self):
         rules = {
             "pull_request_rules": [
@@ -39,7 +41,7 @@ class TestCheckRunsAction(base.FunctionalTestBase):
                         "body~=(?m)^(Fixes|Related|Closes) (MERGIFY-ENGINE|MRGFY)-",
                         "-label=ignore-guideline",
                     ],
-                    "actions": {"check-runs": {}},
+                    "actions": {"post_check": {}},
                 }
             ]
         }
@@ -72,7 +74,7 @@ class TestCheckRunsAction(base.FunctionalTestBase):
                         "-label=ignore-guideline",
                     ],
                     "actions": {
-                        "check-runs": {
+                        "post_check": {
                             "title": "Pull request #{{ number }} does{% if not check_succeed %} not{% endif %} follow our guideline",
                             "summary": """
 Full markdown of my awesome pull request guideline:
@@ -108,6 +110,8 @@ Rule list:
         )
         assert "failure" == check["conclusion"]
 
+
+class TestPostCheckActionNoSub(base.FunctionalTestBase):
     def test_checks_feature_disabled(self):
         self.subscription = subscription.Subscription(
             config.INSTALLATION_ID,
@@ -138,7 +142,7 @@ Rule list:
                         "body~=(?m)^(Fixes|Related|Closes) (MERGIFY-ENGINE|MRGFY)-",
                         "-label=ignore-guideline",
                     ],
-                    "actions": {"check-runs": {}},
+                    "actions": {"post_check": {}},
                 }
             ]
         }

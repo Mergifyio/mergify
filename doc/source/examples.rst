@@ -510,7 +510,7 @@ request.
           - "body~=(?m)^(Fixes|Related|Closes) (MERGIFY-ENGINE|MRGFY)-"
           - -label=ignore-guidelines
         actions:
-          check-runs:
+          post_check:
             title: Pull request #{{ number }} does{% if not check_succeed %} not{% endif %} follow our guidelines
             summary: |
               My awesome pull request guidelines:
