@@ -20,6 +20,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import config
+from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
@@ -44,6 +45,18 @@ def load_action(message):
         config = action_class.command_to_config(command_args)
         action = voluptuous.Schema(action_class.get_schema())(config)
         return match[1], command_args, action
+
+
+async def on_each_event(owner, repo, event_type, data):
+    if event_type == "issue_comment":
+        action = load_action(data["comment"]["body"])
+        if action:
+            async with await github.aget_client(owner) as client:
+                await client.post(
+                    f"/repos/{owner}/{repo}/issues/comments/{data['comment']['id']}/reactions",
+                    json={"content": "+1"},
+                    api_version="squirrel-girl",
+                )
 
 
 def run_pending_commands_tasks(ctxt):
