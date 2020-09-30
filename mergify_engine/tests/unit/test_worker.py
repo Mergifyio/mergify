@@ -49,8 +49,8 @@ async def redis():
         await utils.stop_pending_aredis_tasks()
 
 
-async def run_worker():
-    w = worker.Worker()
+async def run_worker(**kwargs):
+    w = worker.Worker(**kwargs)
     w.start()
     timeout = 10
     started_at = time.monotonic()
@@ -659,7 +659,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     assert 2 == len(await redis.keys("stream~*"))
     assert 0 == len(await redis.hgetall("attempts"))
 
-    s = worker.StreamSelector(1, redis)
+    s = worker.StreamSelector(redis, 0, 1)
     p = worker.StreamProcessor(redis)
 
     received = []
@@ -670,9 +670,9 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     run_engine.side_effect = fake_engine
 
     with freeze_time("2020-01-14"):
-        async with s.next_stream() as stream_name:
-            assert stream_name is not None
-            await p.consume(stream_name)
+        stream_name = await s.next_stream()
+        assert stream_name is not None
+        await p.consume(stream_name)
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
@@ -680,8 +680,8 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     assert received == [wanted_owner_id]
 
     with freeze_time("2030-01-14"):
-        async with s.next_stream() as stream_name:
-            assert stream_name is None
+        stream_name = await s.next_stream()
+        assert stream_name is None
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
@@ -690,9 +690,9 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
 
     # We are in 2041, we have something todo :)
     with freeze_time("2041-01-14"):
-        async with s.next_stream() as stream_name:
-            assert stream_name is not None
-            await p.consume(stream_name)
+        stream_name = await s.next_stream()
+        assert stream_name is not None
+        await p.consume(stream_name)
 
     assert 0 == (await redis.zcard("streams"))
     assert 0 == len(await redis.keys("stream~*"))
@@ -738,3 +738,51 @@ async def test_stream_processor_retrying_after_read_error(run_engine, redis):
         await p._run_engine_and_translate_exception_to_retries(
             "stream-owner", "owner", "repo", 1234, []
         )
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_worker_with_multiple_workers(run_engine, redis, logger_checker):
+    stream_names = []
+    for installation_id in range(100):
+        for pull_number in range(2):
+            for data in range(3):
+                owner = f"owner-{installation_id}"
+                repo = f"repo-{installation_id}"
+                stream_names.append(f"stream~owner-{installation_id}")
+                await worker.push(
+                    redis,
+                    owner,
+                    repo,
+                    pull_number,
+                    "pull_request",
+                    {"payload": data},
+                )
+
+    # Check everything we push are in redis
+    assert 100 == (await redis.zcard("streams"))
+    assert 100 == len(await redis.keys("stream~*"))
+    for stream_name in stream_names:
+        assert 6 == (await redis.xlen(stream_name))
+
+    process_count = 4
+    worker_per_process = 3
+
+    await asyncio.gather(
+        *[
+            run_worker(
+                worker_per_process=worker_per_process,
+                process_count=process_count,
+                process_index=i,
+            )
+            for i in range(process_count)
+        ]
+    )
+
+    # Check redis is empty
+    assert 0 == (await redis.zcard("streams"))
+    assert 0 == len(await redis.keys("stream~*"))
+    assert 0 == len(await redis.hgetall("attempts"))
+
+    # Check engine have been run with expect data
+    assert 200 == len(run_engine.mock_calls)
