@@ -306,7 +306,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 #  X-RateLimit-Limit: 60
                 #  X-RateLimit-Remaining: 0
                 #  X-RateLimit-Reset: 1377013266
-                self.check_rate_limit()
+                await self.check_rate_limit()
             raise
         finally:
             if reply is None:
