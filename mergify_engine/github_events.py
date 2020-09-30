@@ -25,6 +25,7 @@ from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import http
+from mergify_engine.engine import commands_runner
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -173,6 +174,8 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
             event_type,
             source_data,
         )
+
+        await commands_runner.on_each_event(owner, repo, event_type, data)
 
     LOG.info(
         "GithubApp event %s",

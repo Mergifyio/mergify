@@ -47,3 +47,6 @@ class TestCommandBackport(base.FunctionalTestBase):
         assert 1 == len(pulls)
         pulls = list(self.r_o_admin.get_pulls(state="all", base=feature_branch))
         assert 1 == len(pulls)
+        assert ["+1"] == [
+            r.content for c in p.get_issue_comments() for r in c.get_reactions()
+        ]
