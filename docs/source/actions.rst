@@ -512,7 +512,7 @@ request.
 
 .. note::
 
-   GitHub does not allow more to request more 15 users or teams for a review.
+   GitHub does not allow to request more 15 users or teams for a review.
 
 .. _rebase action:
 
