@@ -159,21 +159,21 @@ Here's the list of pull request attribute that can be used in conditions:
        repository organization.
        This only matches reviewers with ``admin`` or ``write`` permission
        on the repository.
-   * - ``status-success``
+   * - ``check-success``
      - list of string
      - The list of status checks that successfuly passed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About Status Checks`_ for more
        details.
-   * - ``status-neutral``
+   * - ``check-neutral``
      - list of string
      - The list of status checks that are neutral for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About Status Checks`_ for more
        details.
-   * - ``status-failure``
+   * - ``check-failure``
      - list of string
      - The list of status checks that failed for the pull request.
        This is the name of a *status check* such as
@@ -296,7 +296,7 @@ For example, to automatically merge a pull request if its author is ``foo`` or
       - name: automatic merge if author is foo
         conditions:
           - author=foo
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -304,7 +304,7 @@ For example, to automatically merge a pull request if its author is ``foo`` or
       - name: automatic merge if author is bar
         conditions:
           - author=bar
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -316,7 +316,7 @@ About Status Checks
 Generic Status Check
 ++++++++++++++++++++
 
-When using the ``status-success``, ``status-neutral`` and ``status-failure``
+When using the ``check-success``, ``check-neutral`` and ``check-failure``
 conditions, you need to use the name of your check service. This can be find by
 opening an existing pull request and scrolling down near the ``Merge`` button.
 
@@ -330,7 +330,7 @@ this checks succeed before doing any action should be written as:
 .. code-block:: yaml
 
      conditions:
-       - status-success=Uno.UI - CI
+       - check-success=Uno.UI - CI
 
 GitHub Actions
 ++++++++++++++
@@ -346,7 +346,7 @@ In the example above, it would be ``A job to say hello``:
 .. code-block:: yaml
 
      conditions:
-       - status-success=A job to say hello
+       - check-success=A job to say hello
 
 Validating All Status Check
 +++++++++++++++++++++++++++
@@ -370,15 +370,15 @@ something like:
 .. code-block:: yaml
 
      conditions:
-       - status-success=build: Windows
-       - status-success=build: Linux
+       - check-success=build: Windows
+       - check-success=build: Linux
 
 **Do not** use conditions such as:
 
-- ``#status-failure=0``, because this will be true as soon as the pull request is
+- ``#check-failure=0``, because this will be true as soon as the pull request is
   created and before any service report its status (see point 2. above).
 
-- ``status-success~=build`` while expecting this to wait for all status checks
+- ``check-success~=build`` while expecting this to wait for all status checks
   that have ``build`` in their name (see point 1. above).
 
 Such conditions won't do what you want them to do.

@@ -166,7 +166,9 @@ class MergeAction(actions.Action):
 
         need_look_at_checks = []
         for condition in missing_conditions:
-            if condition.attribute_name.startswith("status-"):
+            if condition.attribute_name.startswith(
+                "check-"
+            ) or condition.attribute_name.startswith("status-"):
                 # TODO(sileht): Just return True here, no need to checks
                 # checks anymore, this method is no more use by merge queue
                 need_look_at_checks.append(condition)
