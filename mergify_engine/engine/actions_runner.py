@@ -47,7 +47,7 @@ def get_already_merged_summary(ctxt, match):
     action_merge_found_in_active_rule = False
 
     for rule, missing_conditions in match.matching_rules:
-        if "merge" in rule["actions"]:
+        if "merge" in rule.actions:
             action_merge_found = True
             if not missing_conditions:
                 action_merge_found_in_active_rule = True
@@ -75,11 +75,11 @@ def get_already_merged_summary(ctxt, match):
 def gen_summary_rules(rules):
     summary = ""
     for rule, missing_conditions in rules:
-        if rule["hidden"]:
+        if rule.hidden:
             continue
-        summary += "#### Rule: %s" % rule["name"]
-        summary += " (%s)" % ", ".join(rule["actions"])
-        for cond in rule["conditions"]:
+        summary += "#### Rule: %s" % rule.name
+        summary += " (%s)" % ", ".join(rule.actions)
+        for cond in rule.conditions:
             checked = " " if cond in missing_conditions else "X"
             summary += "\n- [%s] `%s`" % (checked, cond)
         summary += "\n\n"
@@ -90,7 +90,7 @@ def gen_summary(ctxt, match):
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
     summary += gen_summary_rules(match.matching_rules)
-    ignored_rules = len(list(filter(lambda x: not x[0]["hidden"], match.ignored_rules)))
+    ignored_rules = len(list(filter(lambda x: not x[0].hidden, match.ignored_rules)))
 
     if not ctxt.subscription.active:
         summary += (
@@ -224,7 +224,7 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
 
 def exec_action(method_name, rule, action, ctxt, missing_conditions):
     try:
-        method = getattr(rule["actions"][action], method_name)
+        method = getattr(rule.actions[action], method_name)
         return method(ctxt, rule, missing_conditions)
     except Exception:  # pragma: no cover
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
@@ -302,8 +302,8 @@ def run_actions(
     matching_rules = sorted(match.matching_rules, key=lambda value: len(value[1]) == 0)
 
     for rule, missing_conditions in matching_rules:
-        for action, action_obj in rule["actions"].items():
-            check_name = "Rule: %s (%s)" % (rule["name"], action)
+        for action, action_obj in rule.actions.items():
+            check_name = "Rule: %s (%s)" % (rule.name, action)
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
