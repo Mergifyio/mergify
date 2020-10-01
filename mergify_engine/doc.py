@@ -18,7 +18,7 @@ MERGIFY_PULL_REQUEST_DOC = """
 
 <br />
 
-More conditions and actions can be found in the [documentation](https://doc.mergify.io/).
+More conditions and actions can be found in the [documentation](https://docs.mergify.io/).
 
 You can also trigger Mergify actions by commenting on this pull request:
 
