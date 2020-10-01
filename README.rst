@@ -32,4 +32,4 @@ For example:
 
 That rule automatically merges a pull request targetting the `master` branch once it has 2 approving reviews and the CI passes.
 
-You can learn more by browing the `engine documentation <https://doc.mergify.io>`_.
+You can learn more by browing the `engine documentation <https://docs.mergify.io>`_.
