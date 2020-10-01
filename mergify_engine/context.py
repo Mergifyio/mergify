@@ -68,6 +68,8 @@ class Context(object):
     )
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
+    SUMMARY_NAME = "Summary"
+
     def __post_init__(self):
         self._ensure_complete()
 
@@ -121,6 +123,16 @@ class Context(object):
             "admin",
             "write",
         ]
+
+    def set_summary_check(self, status, conclusion, output):
+        """Set the Mergify Summary check result."""
+        return check_api.set_check_run(
+            self,
+            self.SUMMARY_NAME,
+            status,
+            conclusion,
+            output=output,
+        )
 
     def _get_valid_users(self):
         bots = list(
