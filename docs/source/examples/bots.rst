@@ -22,7 +22,7 @@ project dependencies.
       - name: automatic merge for Dependabot pull requests
         conditions:
           - author~=^dependabot(|-preview)\[bot\]$
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -38,8 +38,8 @@ dependencies.
       - name: automatic merge for Greenkeeper pull requests
         conditions:
           - author=greenkeeper[bot]
-          - status-success=Travis CI - Pull Request
-          - status-success=greenkeeper/verify
+          - check-success=Travis CI - Pull Request
+          - check-success=greenkeeper/verify
         actions:
           merge:
             method: merge
@@ -55,7 +55,7 @@ project's dependencies.
       - name: automatic merge for Renovate pull requests
         conditions:
           - author=renovate[bot]
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -71,7 +71,7 @@ dependencies.
       - name: automatic merge for PyUp pull requests
         conditions:
           - author=pyup-bot
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -87,7 +87,7 @@ saves you time.
       - name: automatic merge for ImgBot pull requests
         conditions:
           - author=imgbot[bot]
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge

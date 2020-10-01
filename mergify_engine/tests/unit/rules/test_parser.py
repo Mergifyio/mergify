@@ -49,6 +49,11 @@ from mergify_engine.rules import parser
             'status-success="my double quoted ci"',
             {"=": ("status-success", "my double quoted ci")},
         ),
+        ("check-success='my quoted ci'", {"=": ("check-success", "my quoted ci")}),
+        (
+            'check-success="my double quoted ci"',
+            {"=": ("check-success", "my double quoted ci")},
+        ),
     ),
 )
 def test_search(line, result):

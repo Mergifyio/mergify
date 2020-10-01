@@ -28,7 +28,7 @@ it.
       - name: automatic merge for master when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - base=master
         actions:
           merge:
@@ -44,7 +44,7 @@ merged — even if's approved:
       - name: automatic merge for master when CI passes and 2 reviews and not WIP
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - base=master
           - label!=work-in-progress
         actions:
@@ -60,7 +60,7 @@ certain member. You could therefore write such a rule:
       - name: automatic merge for master when CI passes approved by octocat
         conditions:
           - approved-reviews-by=octocat
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
@@ -116,7 +116,7 @@ if at least one Python file is modified and if it passes Circle CI’s validatio
     pull_request_rules:
       - name: automatic merge for master when CI passes and if at least one Python file is modified
         conditions:
-          - "status-success=ci/circleci: validate"
+          - "check-success=ci/circleci: validate"
           - files~=\.py$
         actions:
           merge:
@@ -141,7 +141,7 @@ passes Circle CI's validation tests:
     pull_request_rules:
       - name: automatic merge on CircleCI success if only data.json is changed
         conditions:
-          - "status-success=ci/circleci: validate"
+          - "check-success=ci/circleci: validate"
           - files=data.json
           - "#files=1"
         actions:
@@ -157,7 +157,7 @@ the pull requests when the CI passes and when all the files are inside the
     pull_request_rules:
       - name: automatic merge on CircleCI success if only data.json is changed
         conditions:
-          - "status-success=ci/circleci: validate"
+          - "check-success=ci/circleci: validate"
           - -files~=^(!?src/)
         actions:
           merge:
@@ -219,7 +219,7 @@ To automate the merge in this case, you could write some rules along those:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - "status-success=ci/circleci: my_testing_job"
+          - "check-success=ci/circleci: my_testing_job"
           - "#approved-reviews-by>=2"
           - base=master
         actions:
@@ -227,7 +227,7 @@ To automate the merge in this case, you could write some rules along those:
             method: merge
       - name: automatic merge for stable branches
         conditions:
-          - "status-success=ci/circleci: my_testing_job"
+          - "check-success=ci/circleci: my_testing_job"
           - "#approved-reviews-by>=1"
           - base~=^stable/
         actions:
@@ -248,7 +248,7 @@ condition using a `label
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
           - base=master
           - label=ready-to-merge
@@ -268,7 +268,7 @@ labelled as ``work-in-progress`` should not be merged:
     pull_request_rules:
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=continuous-integration/travis-ci/pr
+          - check-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
           - base=master
           - label!=work-in-progress
@@ -296,7 +296,7 @@ configure the priority option of :ref:`merge action`:
     pull_request_rules:
       - name: automatic merge of 🚑 hotfix (high priority)
         conditions:
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
           - base=master
           - label=🚑 hotfix
@@ -308,7 +308,7 @@ configure the priority option of :ref:`merge action`:
       - name: automatic merge of bot 🤖 (low priority)
         conditions:
           - author~=^dependabot(|-preview)\[bot\]$
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
           - base=master
         actions:
@@ -318,7 +318,7 @@ configure the priority option of :ref:`merge action`:
             priority: low
       - name: automatic merge for master when reviewed and CI passes
         conditions:
-          - status-success=Travis CI - Pull Request
+          - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
           - base=master
         actions:
@@ -429,7 +429,7 @@ to your contributor:
     pull_request_rules:
       - name: ask to fix commit message
         conditions:
-          - status-failure=Semantic Pull Request
+          - check-failure=Semantic Pull Request
           - -closed
         actions:
             comment:
@@ -488,7 +488,7 @@ request.
       - name: run Azure CI job once ready to merge
         conditions:
           - "#approved-reviews-by>=1"
-          - "status-success=ci/circleci: my_testing_job"
+          - "check-success=ci/circleci: my_testing_job"
           - -closed
         actions:
           comments:

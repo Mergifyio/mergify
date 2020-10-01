@@ -510,7 +510,7 @@ def test_get_pull_request_rule():
                 "name": "merge",
                 "conditions": [
                     "base=xyz",
-                    "status-success=continuous-integration/fake-ci",
+                    "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=1",
                 ],
                 "actions": {},
@@ -528,7 +528,7 @@ def test_get_pull_request_rule():
                 "name": "merge",
                 "conditions": [
                     "base=master",
-                    "status-success=continuous-integration/fake-ci",
+                    "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=1",
                 ],
                 "actions": {},
@@ -549,7 +549,7 @@ def test_get_pull_request_rule():
                 "name": "merge",
                 "conditions": [
                     "base=master",
-                    "status-success=continuous-integration/fake-ci",
+                    "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=2",
                 ],
                 "actions": {},
@@ -559,7 +559,7 @@ def test_get_pull_request_rule():
                 "conditions": [
                     "base=master",
                     "label=fast-track",
-                    "status-success=continuous-integration/fake-ci",
+                    "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=1",
                 ],
                 "actions": {},
@@ -569,7 +569,7 @@ def test_get_pull_request_rule():
                 "conditions": [
                     "base=master",
                     "label=fast-track",
-                    "status-success=continuous-integration/fake-ci-bis",
+                    "check-success=continuous-integration/fake-ci-bis",
                     "#approved-reviews-by>=1",
                 ],
                 "actions": {},
@@ -579,7 +579,7 @@ def test_get_pull_request_rule():
                 "conditions": [
                     "base=master",
                     "author=mybot",
-                    "status-success=continuous-integration/fake-ci",
+                    "check-success=continuous-integration/fake-ci",
                 ],
                 "actions": {},
             },
@@ -614,7 +614,7 @@ def test_get_pull_request_rule():
     assert str(match.matching_rules[2][1][0]) == "label=fast-track"
     assert (
         str(match.matching_rules[2][1][1])
-        == "status-success=continuous-integration/fake-ci-bis"
+        == "check-success=continuous-integration/fake-ci-bis"
     )
 
     # Team conditions with one review missing

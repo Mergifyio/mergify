@@ -99,6 +99,9 @@ review_commented_by = "commented-reviews-by" + _match_login_or_teams
 status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)
 status_neutral = "status-neutral" + _match_with_operator(text)
+check_success = "check-success" + _match_with_operator(text)
+check_failure = "check-failure" + _match_with_operator(text)
+check_neutral = "check-neutral" + _match_with_operator(text)
 
 search = (
     pyparsing.Optional(
@@ -135,5 +138,8 @@ search = (
         | status_success
         | status_neutral
         | status_failure
+        | check_success
+        | check_neutral
+        | check_failure
     )
 ).setParseAction(_token_to_dict)

@@ -249,11 +249,11 @@ class Context(object):
         # tracked, and on big projects it can reach the rate limit very
         # quickly.
         # NOTE(sileht): Not handled for now: cancelled, timed_out, or action_required
-        elif name == "status-success":
+        elif name in ("status-success", "check-success"):
             return [ctxt for ctxt, state in self.checks.items() if state == "success"]
-        elif name == "status-failure":
+        elif name in ("status-failure", "check-failure"):
             return [ctxt for ctxt, state in self.checks.items() if state == "failure"]
-        elif name == "status-neutral":
+        elif name in ("status-neutral", "check-neutral"):
             return [ctxt for ctxt, state in self.checks.items() if state == "neutral"]
 
         else:
@@ -487,6 +487,9 @@ class PullRequest:
         "dismissed-reviews-by",
         "changes-requested-reviews-by",
         "commented-reviews-by",
+        "check-success",
+        "check-failure",
+        "check-neutral",
         "status-success",
         "status-failure",
         "status-neutral",

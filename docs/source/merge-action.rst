@@ -97,7 +97,7 @@ in the :ref:`merge action` action. For example:
       - name: automatic merge with strict
         conditions:
           - "#approved-reviews-by>=2"
-          - status-success=continuous-integration/travis-ci/pr
+          - check-success=continuous-integration/travis-ci/pr
         actions:
           merge:
             method: merge
