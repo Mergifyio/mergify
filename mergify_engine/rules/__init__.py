@@ -45,18 +45,31 @@ def PullRequestRuleCondition(value):
 
 
 @dataclasses.dataclass
+class Rule:
+    name: str
+    conditions: typing.List[filter.Filter]
+    actions: typing.Dict[str, actions.Action]
+    hidden: bool = False
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(**d)
+
+
+@dataclasses.dataclass
 class PullRequestRules:
-    rules: typing.List
+    rules: typing.List[Rule]
 
     def __post_init__(self):
-        sorted_rules = sorted(self.rules, key=operator.itemgetter("name"))
-        grouped_rules = itertools.groupby(sorted_rules, operator.itemgetter("name"))
+        # Make sure each rule has a unique name
+        sorted_rules = sorted(self.rules, key=operator.attrgetter("name"))
+        grouped_rules = itertools.groupby(sorted_rules, operator.attrgetter("name"))
         for name, sub_rules in grouped_rules:
             sub_rules = list(sub_rules)
             if len(sub_rules) == 1:
                 continue
             for n, rule in enumerate(sub_rules):
-                rule["name"] += " #%d" % (n + 1)
+                rule.name += " #%d" % (n + 1)
 
     def __iter__(self):
         return iter(self.rules)
@@ -99,7 +112,7 @@ class PullRequestRules:
             for rule in self.rules:
                 ignore_rules = False
                 next_conditions_to_validate = []
-                for condition in rule["conditions"]:
+                for condition in rule.conditions:
                     for attrib in self.TEAM_ATTRIBUTES:
                         condition.set_value_expanders(
                             attrib,
@@ -162,14 +175,17 @@ def YAML(v):
 
 PullRequestRulesSchema = voluptuous.All(
     [
-        {
-            voluptuous.Required("name"): str,
-            voluptuous.Required("hidden", default=False): bool,
-            voluptuous.Required("conditions"): [
-                voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
-            ],
-            voluptuous.Required("actions"): actions.get_action_schemas(),
-        }
+        voluptuous.All(
+            {
+                voluptuous.Required("name"): str,
+                voluptuous.Required("hidden", default=False): bool,
+                voluptuous.Required("conditions"): [
+                    voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+                ],
+                voluptuous.Required("actions"): actions.get_action_schemas(),
+            },
+            voluptuous.Coerce(Rule.from_dict),
+        ),
     ],
     voluptuous.Length(min=1),
     voluptuous.Coerce(PullRequestRules),

@@ -60,12 +60,12 @@ class PostCheckAction(actions.Action):
 
         check_succeed = not bool(missing_conditions)
         check_conditions = ""
-        for cond in rule["conditions"]:
+        for cond in rule.conditions:
             checked = " " if cond in missing_conditions else "X"
             check_conditions += f"\n- [{checked}] `{cond}`"
 
         extra_variables = {
-            "check_rule_name": rule["name"],
+            "check_rule_name": rule.name,
             "check_succeed": check_succeed,
             "check_conditions": check_conditions,
         }

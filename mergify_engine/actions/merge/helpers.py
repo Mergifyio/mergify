@@ -135,7 +135,7 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
 
     if not need_update and rule and missing_conditions is not None:
         summary += "\n\nRequired conditions for merge:\n"
-        for cond in rule["conditions"]:
+        for cond in rule.conditions:
             checked = " " if cond in missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
 
