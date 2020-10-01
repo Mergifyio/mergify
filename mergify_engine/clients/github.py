@@ -13,12 +13,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-
 import contextlib
 import dataclasses
 from datetime import datetime
 import functools
+import typing
 from urllib import parse
 
 import daiquiri
@@ -45,7 +44,7 @@ class TooManyPages(Exception):
 
 @dataclasses.dataclass
 class CachedToken:
-    STORAGE = {}
+    STORAGE: typing.ClassVar[typing.Dict[int, typing.Any]] = {}
 
     installation_id: int
     token: dict

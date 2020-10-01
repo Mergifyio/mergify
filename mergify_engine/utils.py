@@ -164,7 +164,7 @@ def get_random_choices(
     :param k: The number of choices to make.
     :return: A set with the choices.
     """
-    picked = set()
+    picked: typing.Set[typing.Any] = set()
     population = population.copy()
 
     if k > len(population):

@@ -18,7 +18,7 @@ import functools
 import itertools
 import logging
 import operator
-from typing import List
+import typing
 from urllib import parse
 
 import cachetools
@@ -62,7 +62,7 @@ class Context(object):
     client: http.Client
     pull: dict
     subscription: subscription.Subscription
-    sources: List = dataclasses.field(default_factory=list)
+    sources: typing.List = dataclasses.field(default_factory=list)
     _write_permission_cache: cachetools.LRUCache = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
@@ -439,7 +439,7 @@ class Context(object):
 @dataclasses.dataclass
 class RenderTemplateFailure(Exception):
     message: str
-    lineno: int = None
+    lineno: typing.Optional[int] = None
 
     def __str__(self):
         return self.message
