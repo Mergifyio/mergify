@@ -111,8 +111,23 @@ def handle(ctxt, comment, user, rerun=False):
                     title=title,
                     summary="> " + "\n> ".join(summary.split("\n")).strip(),
                 )
+                ctxt.log.info(
+                    "command %s",
+                    conclusion,
+                    command_full=command_full,
+                    conclusion=conclusion,
+                    title=title,
+                    summary=summary,
+                    user=user["login"] if user else None,
+                )
             else:
                 result = f"**Command `{command_full}`: success**"
+                ctxt.log.info(
+                    "command success",
+                    command_full=command_full,
+                    conclusion="success",
+                    user=user["login"] if user else None,
+                )
         else:
             result = UNKNOWN_COMMAND_MESSAGE
 
