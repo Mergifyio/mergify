@@ -32,7 +32,7 @@ from mergify_engine.rules import types
 LOG = daiquiri.getLogger(__name__)
 
 BRANCH_PROTECTION_FAQ_URL = (
-    "https://doc.mergify.io/faq.html#"
+    "https://docs.mergify.io/faq.html#"
     "mergify-is-unable-to-merge-my-pull-request-due-to-"
     "my-branch-protection-settings"
 )
