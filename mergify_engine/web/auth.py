@@ -58,9 +58,9 @@ async def token(request: requests.Request):
         if authorization.startswith("token "):
             try:
                 options = http.DEFAULT_CLIENT_OPTIONS.copy()
-                options["headers"]["Authorization"] = authorization
+                options["headers"]["Authorization"] = authorization  # type: ignore
                 async with http.AsyncClient(
-                    base_url=config.GITHUB_API_URL, **options
+                    base_url=config.GITHUB_API_URL, **options  # type: ignore
                 ) as client:
                     await client.get("/user")
                     return
