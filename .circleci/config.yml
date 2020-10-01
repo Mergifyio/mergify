@@ -71,7 +71,7 @@ jobs:
       - run:
           command: |
             touch docs/build/.nojekyll
-            echo doc.mergify.io > docs/build/CNAME
+            echo docs.mergify.io > docs/build/CNAME
             npm install --no-save gh-pages@2.0.1
             git config user.email "ci-build@mergify.io"
             git config user.name "ci-build"
