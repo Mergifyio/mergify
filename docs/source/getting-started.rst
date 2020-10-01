@@ -121,12 +121,12 @@ Creating the Configuration File
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can create your configuration file using your favorite text editor.
-However, writing and testing in the simulator can be easier. Go to `your
-Mergify dashboard <https://dashboard.mergify.io>`_ and pick the simulator for
+However, writing and testing in the config editor can be easier. Go to `your
+Mergify dashboard <https://dashboard.mergify.io>`_ and pick the config editor for
 your organization. Then, select a repository where you enabled Mergify.
 
-.. image:: _static/simulator.png
-   :alt: Mergify simulator
+.. image:: _static/config-editor.png
+   :alt: Mergify config editor
    :align: center
 
 You can edit the default configuration provided as you wish. If your
@@ -137,8 +137,8 @@ When done, click on the ``Create a pull request with this configuration``
 button. A new pull request will be created on your repository with the new
 Mergify configuration. You can merge them by clicking on the merge button.
 
-.. image:: _static/simulator-pr.png
-   :alt: Mergify simulator PR
+.. image:: _static/config-editor-pr.png
+   :alt: Mergify config editor PR
    :align: center
 
 

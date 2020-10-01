@@ -30,7 +30,7 @@ You can also trigger Mergify actions by commenting on this pull request:
 Additionally, on Mergify [dashboard](https://dashboard.mergify.io/) you can:
 
 - look at your merge queues
-- generate the Mergify configuration with the simulator.
+- generate the Mergify configuration with the config editor.
 
 Finally, you can contact us on https://mergify.io/
 </details>
