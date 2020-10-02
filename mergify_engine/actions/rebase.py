@@ -18,6 +18,7 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine.rules import types
 
@@ -35,10 +36,10 @@ class RebaseAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if not config.GITHUB_APP:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Unavailable with GitHub Action",
                 "Due to GitHub Action limitation, the `rebase` command is only available "
                 "with the Mergify GitHub App.",
@@ -46,8 +47,8 @@ class RebaseAction(actions.Action):
 
         if ctxt.is_behind:
             if ctxt.github_workflow_changed():
-                return (
-                    "action_required",
+                return check_api.Result(
+                    check_api.Conclusion.ACTION_REQUIRED,
                     "Pull request must be rebased manually.",
                     "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.",
                 )
@@ -56,8 +57,16 @@ class RebaseAction(actions.Action):
                 branch_updater.update_with_git(
                     ctxt, "rebase", self.config["bot_account"]
                 )
-                return "success", "Branch has been successfully rebased", ""
+                return check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    "Branch has been successfully rebased",
+                    "",
+                )
             except branch_updater.BranchUpdateFailure as e:
-                return "failure", "Branch rebase failed", str(e)
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
+                )
         else:
-            return "success", "Branch already up to date", ""
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Branch already up to date", ""
+            )

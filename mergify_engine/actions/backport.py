@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine.actions import copy
 
@@ -29,15 +30,19 @@ class BackportAction(copy.CopyAction):
     def command_to_config(string):
         return {"branches": string.split(" ")}
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if not config.GITHUB_APP:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Unavailable with the GitHub Action",
                 "Due to Github Action limitation, the `backport` action/command is only "
                 "available with the Mergify GitHub App.",
             )
 
         if not ctxt.pull["merged"]:
-            return None, "Waiting for the pull request to get merged", ""
+            return check_api.Result(
+                check_api.Conclusion.PENDING,
+                "Waiting for the pull request to get merged",
+                "",
+            )
         return super().run(ctxt, rule, missing_conditions)

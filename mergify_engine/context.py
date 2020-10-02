@@ -124,15 +124,9 @@ class Context(object):
             "write",
         ]
 
-    def set_summary_check(self, status, conclusion, output):
+    def set_summary_check(self, result):
         """Set the Mergify Summary check result."""
-        return check_api.set_check_run(
-            self,
-            self.SUMMARY_NAME,
-            status,
-            conclusion,
-            output=output,
-        )
+        return check_api.set_check_run(self, self.SUMMARY_NAME, result)
 
     def _get_valid_users(self):
         bots = list(

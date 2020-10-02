@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -27,12 +28,12 @@ class CommentAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         try:
             message = ctxt.pull_request.render_template(self.config["message"])
         except context.RenderTemplateFailure as rmf:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Invalid comment message",
                 str(rmf),
             )
@@ -43,9 +44,9 @@ class CommentAction(actions.Action):
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
-            return (
-                None,
+            return check_api.Result(
+                check_api.Conclusion.PENDING,
                 "Unable to post comment",
                 f"GitHub error: [{e.status_code}] `{e.message}`",
             )
-        return ("success", "Comment posted", message)
+        return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)

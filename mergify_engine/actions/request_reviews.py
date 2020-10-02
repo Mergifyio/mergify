@@ -17,6 +17,7 @@ import typing
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -118,12 +119,12 @@ class RequestReviewsAction(actions.Action):
 
         return user_reviews_to_request, team_reviews_to_request
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if "random_count" in self.config and not ctxt.subscription.has_feature(
             subscription.Features.RANDOM_REQUEST_REVIEWS
         ):
-            return (
-                "action_required",
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
                 "Random request reviews are disabled",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
@@ -169,19 +170,23 @@ class RequestReviewsAction(actions.Action):
                         },
                     )
                 except http.HTTPClientSideError as e:  # pragma: no cover
-                    return (
-                        None,
+                    return check_api.Result(
+                        check_api.Conclusion.PENDING,
                         "Unable to create review request",
                         f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
             if already_at_max or will_exceed_max:
-                return (
-                    "neutral",
+                return check_api.Result(
+                    check_api.Conclusion.NEUTRAL,
                     "Maximum number of reviews already requested",
                     f"The maximum number of {self.GITHUB_MAXIMUM_REVIEW_REQUEST} reviews has been reached.\n"
                     "Unable to request reviews for additional users.",
                 )
 
-            return ("success", "New reviews requested", "")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "New reviews requested", ""
+            )
         else:
-            return ("success", "No new reviewers to request", "")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "No new reviewers to request", ""
+            )

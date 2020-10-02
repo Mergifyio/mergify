@@ -21,6 +21,8 @@ import typing
 import pkg_resources
 import voluptuous
 
+from mergify_engine import check_api
+
 
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES = None
@@ -55,8 +57,8 @@ class Action(abc.ABC):
 
     config: typing.Dict
 
-    cancelled_check_report = (
-        "cancelled",
+    cancelled_check_report = check_api.Result(
+        check_api.Conclusion.CANCELLED,
         "The rule doesn't match anymore",
         "This action has been cancelled.",
     )
@@ -88,8 +90,10 @@ class Action(abc.ABC):
         return {}
 
     @staticmethod
-    def run(ctxt, rule, missing_conditions):  # pragma: no cover
+    def run(ctxt, rule, missing_conditions) -> check_api.Result:  # pragma: no cover
         pass
 
-    def cancel(self, ctxt, rule, missing_conditions):  # pragma: no cover
+    def cancel(
+        self, ctxt, rule, missing_conditions
+    ) -> check_api.Result:  # pragma: no cover
         return self.cancelled_check_report

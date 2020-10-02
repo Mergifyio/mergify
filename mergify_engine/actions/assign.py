@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -31,14 +32,16 @@ class AssignAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         wanted = set()
         for user in set(self.config["users"]):
             try:
                 user = ctxt.pull_request.render_template(user)
             except context.RenderTemplateFailure as rmf:
                 # NOTE: this should never happen since the template is validated when parsing the config 🤷
-                return ("failure", "Invalid assignee", str(rmf))
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE, "Invalid assignee", str(rmf)
+                )
             else:
                 wanted.add(user)
 
@@ -51,10 +54,14 @@ class AssignAction(actions.Action):
                     json={"assignees": assignees},
                 )
             except http.HTTPClientSideError as e:  # pragma: no cover
-                return (
-                    None,
+                return check_api.Result(
+                    check_api.Conclusion.PENDING,
                     "Unable to add assignees",
                     f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
 
-        return ("success", "Assignees added", ", ".join(self.config["users"]))
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS,
+            "Assignees added",
+            ", ".join(self.config["users"]),
+        )

@@ -17,6 +17,7 @@ import typing
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
+from mergify_engine import check_api
 
 
 class UpdateAction(actions.Action):
@@ -29,13 +30,21 @@ class UpdateAction(actions.Action):
     validator: typing.ClassVar[typing.Dict] = {}
 
     @staticmethod
-    def run(ctxt, rule, missing_conditions):
+    def run(ctxt, rule, missing_conditions) -> check_api.Result:
         if ctxt.is_behind:
             try:
                 branch_updater.update_with_api(ctxt)
             except branch_updater.BranchUpdateFailure as e:
-                return "failure", "Branch update failed", str(e)
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE, "Branch update failed", str(e)
+                )
             else:
-                return "success", "Branch has been successfully updated", ""
+                return check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    "Branch has been successfully updated",
+                    "",
+                )
         else:
-            return "success", "Branch already up to date", ""
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Branch already up to date", ""
+            )
