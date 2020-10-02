@@ -36,4 +36,4 @@ def retring_session_init(self, *args, **kwargs):
     self.mount(config.GITHUB_API_URL, adapter)
 
 
-requests.sessions.Session.__init__ = retring_session_init
+requests.sessions.Session.__init__ = retring_session_init  # type: ignore

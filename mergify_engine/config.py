@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2017 Red Hat, Inc.
+# Copyright © 2020 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -18,6 +18,7 @@ import base64
 import distutils.util
 import logging
 import os
+import typing
 
 import dotenv
 import voluptuous
@@ -124,17 +125,30 @@ Schema = voluptuous.Schema(
         ): str,
         voluptuous.Required(
             "ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN",
-            default="ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
+            default="<ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
         ): str,
     }
 )
 
+# Config variables available
+SENTRY_URL: str
+SENTRY_ENVIRONMENT: str
+CACHE_TOKEN_SECRET: str
+PRIVATE_KEY: bytes
+GITHUB_API_URL: str
+WEBHOOK_MARKETPLACE_FORWARD_URL: str
+WEBHOOK_APP_FORWARD_URL: str
+WEBHOOK_FORWARD_EVENT_TYPES: str
+STREAM_WORKERS: int
+EXTERNAL_USER_PERSONAL_TOKEN: str
+
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
-    dotenv.load_dotenv(stream=configuration_file, override=True)
+    # FIXME: ignore type hit because it's wrong
+    dotenv.load_dotenv(stream=configuration_file, override=True)  # type: ignore
 
-CONFIG = {}
+CONFIG: typing.Dict[str, typing.Any] = {}
 for key, value in Schema.schema.items():
     val = os.getenv("MERGIFYENGINE_%s" % key)
     if val is not None:

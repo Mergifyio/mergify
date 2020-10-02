@@ -43,22 +43,24 @@ from mergify_engine.clients import http
 
 try:
     import vcr
-
-    vcr_errors_CannotOverwriteExistingCassetteException = (
-        vcr.errors.CannotOverwriteExistingCassetteException
-    )
 except ImportError:
 
     class vcr_errors_CannotOverwriteExistingCassetteException(Exception):
         pass
 
 
+else:
+    vcr_errors_CannotOverwriteExistingCassetteException: Exception = (  # type: ignore
+        vcr.errors.CannotOverwriteExistingCassetteException
+    )
+
+
 LOG = daiquiri.getLogger(__name__)
 
 
-MAX_RETRIES = 3
-WORKER_PROCESSING_DELAY = 30
-STREAM_ATTEMPTS_LOGGING_THRESHOLD = 20
+MAX_RETRIES: int = 3
+WORKER_PROCESSING_DELAY: float = 30
+STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
 
 class IgnoredException(Exception):
@@ -535,13 +537,12 @@ end
 
 @dataclasses.dataclass
 class Worker:
-    idle_sleep_time: int = 0.42
+    idle_sleep_time: float = 0.42
     worker_count: int = config.STREAM_WORKERS
     enabled_services: List[str] = dataclasses.field(
         default_factory=lambda: ["stream", "stream-monitoring", "smart-queue"]
     )
 
-    _worker_tasks: List = dataclasses.field(init=False, default_factory=list)
     _redis: Any = dataclasses.field(init=False, default=None)
 
     _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)

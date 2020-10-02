@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
@@ -25,7 +26,7 @@ class UpdateAction(actions.Action):
 
     silent_report = True
 
-    validator = {}
+    validator: typing.ClassVar[typing.Dict] = {}
 
     @staticmethod
     def run(ctxt, rule, missing_conditions):

@@ -61,21 +61,6 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    def as_dict(self):
-        return {
-            "rules": [
-                {
-                    "name": rule["name"],
-                    "hidden": rule["hidden"],
-                    "conditions": list(map(str, rule["conditions"])),
-                    "actions": dict(
-                        (name, obj.config) for name, obj in rule["actions"].items()
-                    ),
-                }
-                for rule in self.rules
-            ]
-        }
-
     @dataclasses.dataclass
     class PullRequestRuleForPR:
         """A pull request rule that matches a pull request."""
