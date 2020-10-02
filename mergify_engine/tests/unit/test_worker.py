@@ -60,9 +60,6 @@ async def run_worker():
     await w.wait_shutdown_complete()
 
 
-fake_subscription = {}
-
-
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):

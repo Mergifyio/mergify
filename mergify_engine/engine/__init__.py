@@ -51,9 +51,7 @@ def check_configuration_changes(ctxt):
                 )
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
-                check_api.set_check_run(
-                    ctxt,
-                    actions_runner.SUMMARY_NAME,
+                ctxt.set_summary_check(
                     "completed",
                     "failure",
                     output={
@@ -63,9 +61,7 @@ def check_configuration_changes(ctxt):
                     },
                 )
             else:
-                check_api.set_check_run(
-                    ctxt,
-                    actions_runner.SUMMARY_NAME,
+                ctxt.set_summary_check(
                     "completed",
                     "success",
                     output={
@@ -83,7 +79,7 @@ def get_summary_from_sha(ctxt, sha):
     checks = check_api.get_checks_for_ref(
         ctxt,
         sha,
-        check_name=actions_runner.SUMMARY_NAME,
+        check_name=ctxt.SUMMARY_NAME,
     )
     checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
     if checks:
@@ -139,7 +135,7 @@ def get_summary_from_synchronize_event(ctxt):
 
 def ensure_summary_on_head_sha(ctxt):
     for check in ctxt.pull_engine_check_runs:
-        if check["name"] == actions_runner.SUMMARY_NAME:
+        if check["name"] == ctxt.SUMMARY_NAME:
             return
 
     sha = actions_runner.get_last_summary_head_sha(ctxt)
@@ -149,9 +145,7 @@ def ensure_summary_on_head_sha(ctxt):
         previous_summary = get_summary_from_synchronize_event(ctxt)
 
     if previous_summary:
-        check_api.set_check_run(
-            ctxt,
-            actions_runner.SUMMARY_NAME,
+        ctxt.set_summary_check(
             "completed",
             "success",
             output={
@@ -226,9 +220,7 @@ def run(client, pull, sub, sources):
                 for s in ctxt.sources
             )
         ):
-            check_api.set_check_run(
-                ctxt,
-                actions_runner.SUMMARY_NAME,
+            ctxt.set_summary_check(
                 "completed",
                 "failure",
                 output={
@@ -245,9 +237,7 @@ def run(client, pull, sub, sources):
     if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
         subscription.Features.PRIVATE_REPOSITORY
     ):
-        check_api.set_check_run(
-            ctxt,
-            actions_runner.SUMMARY_NAME,
+        ctxt.set_summary_check(
             "completed",
             "failure",
             output={

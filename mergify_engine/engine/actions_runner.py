@@ -23,8 +23,6 @@ from mergify_engine import doc
 from mergify_engine import utils
 
 
-SUMMARY_NAME = "Summary"
-
 NOT_APPLICABLE_TEMPLATE = """<details>
 <summary>Rules not applicable to this pull request:</summary>
 %s
@@ -198,15 +196,17 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     if summary_changed:
         ctxt.log.info(
             "summary changed",
-            summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
+            summary={
+                "title": summary_title,
+                "name": ctxt.SUMMARY_NAME,
+                "summary": summary,
+            },
             sources=_filterred_sources_for_logging(ctxt.sources),
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
 
-        check_api.set_check_run(
-            ctxt,
-            SUMMARY_NAME,
+        ctxt.set_summary_check(
             "completed",
             "success",
             output={"title": summary_title, "summary": summary},
@@ -215,7 +215,11 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     else:
         ctxt.log.info(
             "summary unchanged",
-            summary={"title": summary_title, "name": SUMMARY_NAME, "summary": summary},
+            summary={
+                "title": summary_title,
+                "name": ctxt.SUMMARY_NAME,
+                "summary": summary,
+            },
             sources=_filterred_sources_for_logging(ctxt.sources),
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
@@ -403,11 +407,11 @@ def run_actions(
     return conclusions
 
 
-def handle(pull_request_rules, ctxt):
+def handle(pull_request_rules, ctxt) -> None:
     match = pull_request_rules.get_pull_request_rule(ctxt)
     checks = dict((c["name"], c) for c in ctxt.pull_engine_check_runs)
 
-    summary_check = checks.get(SUMMARY_NAME)
+    summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
 
     conclusions = run_actions(ctxt, match, checks, previous_conclusions)

@@ -18,7 +18,7 @@ import functools
 import itertools
 import logging
 import operator
-from typing import List
+import typing
 from urllib import parse
 
 import cachetools
@@ -62,11 +62,13 @@ class Context(object):
     client: http.Client
     pull: dict
     subscription: subscription.Subscription
-    sources: List = dataclasses.field(default_factory=list)
+    sources: typing.List = dataclasses.field(default_factory=list)
     _write_permission_cache: cachetools.LRUCache = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
     log: logging.LoggerAdapter = dataclasses.field(init=False)
+
+    SUMMARY_NAME = "Summary"
 
     def __post_init__(self):
         self._ensure_complete()
@@ -121,6 +123,16 @@ class Context(object):
             "admin",
             "write",
         ]
+
+    def set_summary_check(self, status, conclusion, output):
+        """Set the Mergify Summary check result."""
+        return check_api.set_check_run(
+            self,
+            self.SUMMARY_NAME,
+            status,
+            conclusion,
+            output=output,
+        )
 
     def _get_valid_users(self):
         bots = list(
@@ -439,7 +451,7 @@ class Context(object):
 @dataclasses.dataclass
 class RenderTemplateFailure(Exception):
     message: str
-    lineno: int = None
+    lineno: typing.Optional[int] = None
 
     def __str__(self):
         return self.message

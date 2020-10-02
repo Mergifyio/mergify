@@ -11,8 +11,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import asyncio
+import typing
 import uuid
 
 from mergify_engine import actions
@@ -23,7 +23,7 @@ from mergify_engine import utils
 class RefreshAction(actions.Action):
     is_command = True
     is_action = False
-    validator = {}
+    validator: typing.ClassVar[dict] = {}
 
     def run(self, ctxt, rule, missing_conditions):
         data = {

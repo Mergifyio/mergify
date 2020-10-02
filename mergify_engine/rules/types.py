@@ -55,9 +55,9 @@ class DummyContext(context.Context):
 
 _DUMMY_PR = context.PullRequest(
     DummyContext(
-        None,
+        None,  # type: ignore
         {"number": 0},
-        {},
+        None,  # type: ignore
         [],
     )
 )

@@ -46,7 +46,7 @@ def get_commands():
     return dict((name, obj) for name, obj in get_classes().items() if obj.is_command)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass  # type: ignore
 class Action(abc.ABC):
     is_action = True
     is_command = False

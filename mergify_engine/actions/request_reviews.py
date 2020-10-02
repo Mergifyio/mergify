@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import itertools
+import typing
 
 import voluptuous
 
@@ -93,7 +94,7 @@ class RequestReviewsAction(actions.Action):
 
     def _get_reviewers(
         self, pr_id: int, existing_reviews: set, pr_author: str
-    ) -> (set, set):
+    ) -> typing.Tuple[typing.Set[str], typing.Set[str]]:
         if "random_count" in self.config:
             team_reviews_to_request = set()
             user_reviews_to_request = set()
