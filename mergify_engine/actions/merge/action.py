@@ -21,6 +21,7 @@ import daiquiri
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.actions.merge import helpers
@@ -87,11 +88,11 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
-                return (
-                    "failure",
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
                     "Misconfigured for GitHub Action",
                     "Due to GitHub Action limitation, `strict_method: rebase` "
                     "is only available with the Mergify GitHub App",
@@ -101,20 +102,20 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
 
-        output = helpers.merge_report(ctxt, self.config["strict"])
-        if output:
+        result = helpers.merge_report(ctxt, self.config["strict"])
+        if result:
             q.remove_pull(ctxt.pull["number"])
-            return output
+            return result
 
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             q.add_pull(ctxt, self.config)
 
         if self._should_be_merged(ctxt):
             try:
-                conclusion, title, summary = self._merge(ctxt)
-                if conclusion is not None:
+                result = self._merge(ctxt)
+                if result.conclusion is not check_api.Conclusion.PENDING:
                     q.remove_pull(ctxt.pull["number"])
-                return conclusion, title, summary
+                return result
             except Exception:
                 q.remove_pull(ctxt.pull["number"])
                 raise
@@ -135,7 +136,7 @@ class MergeAction(actions.Action):
         else:
             return True
 
-    def cancel(self, ctxt, rule, missing_conditions):
+    def cancel(self, ctxt, rule, missing_conditions) -> check_api.Result:
         q = queue.Queue.from_context(ctxt)
         if ctxt.pull["state"] == "closed":
             output = helpers.merge_report(ctxt, self.config["strict"])
@@ -199,8 +200,8 @@ class MergeAction(actions.Action):
             and not ctxt.pull["base"]["repo"]["private"]
             and not ctxt.pull["maintainer_can_modify"]
         ):
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Pull request can't be updated with latest base branch changes",
                 "Mergify needs the permission to update the base branch of the pull request.\n"
                 f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
@@ -214,8 +215,8 @@ class MergeAction(actions.Action):
             and ctxt.pull["base"]["repo"]["private"]
             and not ctxt.pull["maintainer_can_modify"]
         ):
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Pull request can't be updated with latest base branch changes",
                 "Mergify needs the permission to update the base branch of the pull request.\n"
                 "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
@@ -270,14 +271,14 @@ class MergeAction(actions.Action):
                 ),
             )
 
-    def _merge(self, ctxt):
+    def _merge(self, ctxt) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:
             method = self.config["rebase_fallback"]
         else:
-            return (
-                "action_required",
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
                 "Automatic rebasing is not possible, manual intervention required",
                 "",
             )
@@ -290,8 +291,8 @@ class MergeAction(actions.Action):
                 self.config["commit_message"],
             )
         except context.RenderTemplateFailure as rmf:
-            return (
-                "action_required",
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
                 "Invalid commit message",
                 str(rmf),
             )
@@ -320,17 +321,25 @@ class MergeAction(actions.Action):
             ctxt.update()
             ctxt.log.info("merged")
 
-        return helpers.merge_report(ctxt, self.config["strict"])
+        result = helpers.merge_report(ctxt, self.config["strict"])
+        if result:
+            return result
+        else:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Unexpected after merge pull request state",
+                "The pull request have been merged, but GitHub API still report it open",
+            )
 
-    def _handle_merge_error(self, e, ctxt):
+    def _handle_merge_error(self, e, ctxt) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
                 "Head branch was modified in the meantime",
                 status=e.status_code,
                 error_message=e.message,
             )
-            return (
-                "cancelled",
+            return check_api.Result(
+                check_api.Conclusion.CANCELLED,
                 "Head branch was modified in the meantime",
                 "The head branch was modified, the merge action have been cancelled.",
             )
@@ -352,8 +361,8 @@ class MergeAction(actions.Action):
                     status=e.status_code,
                     error_message=e.message,
                 )
-                return (
-                    None,
+                return check_api.Result(
+                    check_api.Conclusion.PENDING,
                     "Waiting for the branch protection required status checks to be validated",
                     "[Branch protection](https://docs.github.com/en/github/administering-a-repository/about-protected-branches) is enabled and is preventing Mergify "
                     "to merge the pull request. Mergify will merge when "
@@ -367,8 +376,8 @@ class MergeAction(actions.Action):
                     error_message=e.message,
                 )
 
-                return (
-                    "cancelled",
+                return check_api.Result(
+                    check_api.Conclusion.CANCELLED,
                     "Branch protection settings are not validated anymore",
                     "[Branch protection](https://docs.github.com/en/github/administering-a-repository/about-protected-branches) is enabled and is preventing Mergify "
                     "to merge the pull request. Mergify will merge when "
@@ -383,4 +392,8 @@ class MergeAction(actions.Action):
                 mergify_message=message,
                 error_message=e.message,
             )
-            return ("failure", message, f"GitHub error message: `{e.message}`")
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                message,
+                f"GitHub error message: `{e.message}`",
+            )

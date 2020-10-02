@@ -207,9 +207,9 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
         )
 
         ctxt.set_summary_check(
-            "completed",
-            "success",
-            output={"title": summary_title, "summary": summary},
+            check_api.Result(
+                check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
+            )
         )
         save_last_summary_head_sha(ctxt)
     else:
@@ -244,7 +244,12 @@ def load_conclusions(ctxt, summary_check):
     if summary_check["output"]["summary"]:
         line = summary_check["output"]["summary"].splitlines()[-1]
         if line.startswith("<!-- ") and line.endswith(" -->"):
-            return yaml.safe_load(base64.b64decode(line[5:-4].encode()).decode())
+            return dict(
+                (name, check_api.Conclusion(conclusion))
+                for name, conclusion in yaml.safe_load(
+                    base64.b64decode(line[5:-4].encode()).decode()
+                ).items()
+            )
 
     ctxt.log.warning(
         "previous conclusion not found in summary",
@@ -255,7 +260,14 @@ def load_conclusions(ctxt, summary_check):
 
 def serialize_conclusions(conclusions):
     return (
-        "<!-- %s -->" % base64.b64encode(yaml.safe_dump(conclusions).encode()).decode()
+        "<!-- %s -->"
+        % base64.b64encode(
+            yaml.safe_dump(
+                dict(
+                    (name, conclusion.value) for name, conclusion in conclusions.items()
+                )
+            ).encode()
+        ).decode()
     )
 
 
@@ -265,8 +277,8 @@ def get_previous_conclusion(previous_conclusions, name, checks):
     # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
     # synchronization event issue is fixed
     elif name in checks:
-        return checks[name]["conclusion"]
-    return "neutral"
+        return check_api.Conclusion(checks[name]["conclusion"])
+    return check_api.Conclusion.NEUTRAL
 
 
 def run_actions(
@@ -313,10 +325,16 @@ def run_actions(
 
             if missing_conditions:
                 method_name = "cancel"
-                expected_conclusions = ["neutral", "cancelled"]
+                expected_conclusions = [
+                    check_api.Conclusion.NEUTRAL,
+                    check_api.Conclusion.CANCELLED,
+                ]
             else:
                 method_name = "run"
-                expected_conclusions = ["success", "failure"]
+                expected_conclusions = [
+                    check_api.Conclusion.SUCCESS,
+                    check_api.Conclusion.FAILURE,
+                ]
                 actions_ran.add(action)
 
             previous_conclusion = get_previous_conclusion(
@@ -326,7 +344,10 @@ def run_actions(
             need_to_be_run = (
                 action_obj.always_run
                 or forced_refresh_requested
-                or (user_refresh_requested and previous_conclusion == "failure")
+                or (
+                    user_refresh_requested
+                    and previous_conclusion == check_api.Conclusion.FAILURE
+                )
                 or previous_conclusion not in expected_conclusions
             )
 
@@ -334,7 +355,9 @@ def run_actions(
             # not just the conclusions
 
             if not need_to_be_run:
-                report = (previous_conclusion, "Already in expected state", "")
+                report = check_api.Result(
+                    previous_conclusion, "Already in expected state", ""
+                )
                 message = "ignored, already in expected state: %s/%s" % (
                     method_name,
                     previous_conclusion,
@@ -343,7 +366,11 @@ def run_actions(
             elif done_by_another_action:
                 # NOTE(sileht) We can't run two action merge for example,
                 # This assumes the action produce a report
-                report = ("success", "Another %s action already ran" % action, "")
+                report = check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    "Another %s action already ran" % action,
+                    "",
+                )
                 message = "ignored, another action `%s` has already been run" % action
 
             else:
@@ -357,15 +384,22 @@ def run_actions(
                 )
                 message = "`%s` executed" % method_name
 
-            if report and report[0] is not None and method_name == "run":
+            if (
+                report
+                and report.conclusion is not check_api.Conclusion.PENDING
+                and method_name == "run"
+            ):
                 statsd.increment("engine.actions.count", tags=["name:%s" % action])
 
             if report:
-                conclusion, title, summary = report
-                status = "completed" if conclusion else "in_progress"
                 if need_to_be_run and (
                     not action_obj.silent_report
-                    or conclusion not in ("success", "cancelled", None)
+                    or report.conclusion
+                    not in (
+                        check_api.Conclusion.SUCCESS,
+                        check_api.Conclusion.CANCELLED,
+                        check_api.Conclusion.PENDING,
+                    )
                 ):
                     external_id = (
                         check_api.USER_CREATED_CHECKS
@@ -376,16 +410,14 @@ def run_actions(
                         check_api.set_check_run(
                             ctxt,
                             check_name,
-                            status,
-                            conclusion,
+                            report,
                             external_id=external_id,
-                            output={"title": title, "summary": summary},
                         )
                     except Exception:
                         ctxt.log.error(
                             "Fail to post check `%s`", check_name, exc_info=True
                         )
-                conclusions[check_name] = conclusion
+                conclusions[check_name] = report.conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
                 # comment/request_reviews/..) So just assume it succeed
@@ -396,8 +428,8 @@ def run_actions(
                 "action evaluation: %s",
                 message,
                 report=report,
-                previous_conclusion=previous_conclusion,
-                conclusion=conclusions[check_name],
+                previous_conclusion=previous_conclusion.value,
+                conclusion=conclusions[check_name].value,
                 action=action,
                 check_name=check_name,
                 missing_conditions=missing_conditions,

@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.rules import types
@@ -41,17 +42,15 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         payload = {"event": self.config["type"]}
 
         if self.config["message"]:
             try:
                 body = ctxt.pull_request.render_template(self.config["message"])
             except context.RenderTemplateFailure as rmf:
-                return (
-                    "failure",
-                    "Invalid review message",
-                    str(rmf),
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE, "Invalid review message", str(rmf)
                 )
         else:
             body = None
@@ -79,7 +78,9 @@ class ReviewAction(actions.Action):
                 and review["state"] == EVENT_STATE_MAP[self.config["type"]]
             ):
                 # Already posted
-                return ("success", "Review already posted", "")
+                return check_api.Result(
+                    check_api.Conclusion.SUCCESS, "Review already posted", ""
+                )
 
             elif (
                 self.config["type"] == "REQUEST_CHANGES"
@@ -97,4 +98,4 @@ class ReviewAction(actions.Action):
             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews", json=payload
         )
 
-        return ("success", "Review posted", "")
+        return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")

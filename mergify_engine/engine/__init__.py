@@ -52,23 +52,20 @@ def check_configuration_changes(ctxt):
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
                 ctxt.set_summary_check(
-                    "completed",
-                    "failure",
-                    output={
-                        "title": "The new Mergify configuration is invalid",
-                        "summary": str(e),
-                        "annotations": e.get_annotations(e.filename),
-                    },
+                    check_api.Result(
+                        check_api.Conclusion.FAILURE,
+                        title="The new Mergify configuration is invalid",
+                        summary=str(e),
+                        annotations=e.get_annotations(e.filename),
+                    )
                 )
             else:
                 ctxt.set_summary_check(
-                    "completed",
-                    "success",
-                    output={
-                        "title": "The new Mergify configuration is valid",
-                        "summary": "This pull request must be merged "
-                        "manually because it modifies Mergify configuration",
-                    },
+                    check_api.Result(
+                        check_api.Conclusion.SUCCESS,
+                        title="The new Mergify configuration is valid",
+                        summary="This pull request must be merged manually because it modifies Mergify configuration",
+                    )
                 )
 
             return True
@@ -146,12 +143,11 @@ def ensure_summary_on_head_sha(ctxt):
 
     if previous_summary:
         ctxt.set_summary_check(
-            "completed",
-            "success",
-            output={
-                "title": previous_summary["output"]["title"],
-                "summary": previous_summary["output"]["summary"],
-            },
+            check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                title=previous_summary["output"]["title"],
+                summary=previous_summary["output"]["summary"],
+            )
         )
         actions_runner.save_last_summary_head_sha(ctxt)
 
@@ -185,15 +181,12 @@ def run(client, pull, sub, sources):
         return
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        check_api.set_check_run(
-            ctxt,
-            "Summary",
-            "completed",
-            "failure",
-            output={
-                "title": "Required GitHub permissions are missing.",
-                "summary": "You can accept them at https://dashboard.mergify.io/",
-            },
+        ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Required GitHub permissions are missing.",
+                summary="You can accept them at https://dashboard.mergify.io/",
+            )
         )
         return
 
@@ -221,13 +214,12 @@ def run(client, pull, sub, sources):
             )
         ):
             ctxt.set_summary_check(
-                "completed",
-                "failure",
-                output={
-                    "title": "The Mergify configuration is invalid",
-                    "summary": str(e),
-                    "annotations": e.get_annotations(e.filename),
-                },
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    title="The Mergify configuration is invalid",
+                    summary=str(e),
+                    annotations=e.get_annotations(e.filename),
+                )
             )
         return
 
@@ -238,12 +230,11 @@ def run(client, pull, sub, sources):
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.set_summary_check(
-            "completed",
-            "failure",
-            output={
-                "title": "Mergify is disabled",
-                "summary": sub.reason,
-            },
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Mergify is disabled",
+                summary=sub.reason,
+            )
         )
         return
 

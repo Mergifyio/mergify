@@ -16,6 +16,7 @@ import typing
 import uuid
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import github_events
 from mergify_engine import utils
 
@@ -25,7 +26,7 @@ class RefreshAction(actions.Action):
     is_action = False
     validator: typing.ClassVar[dict] = {}
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         data = {
             "action": "user",
             "repository": ctxt.pull["base"]["repo"],
@@ -33,6 +34,9 @@ class RefreshAction(actions.Action):
             "sender": {"login": "<internal>"},
         }
         asyncio.run(self.send_refresh(data))
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
+        )
 
     @staticmethod
     async def send_refresh(data):

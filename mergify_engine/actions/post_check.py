@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import subscription
 from mergify_engine.rules import types
@@ -47,13 +48,13 @@ class PostCheckAction(actions.Action):
     always_run = True
     allow_retrigger_mergify = True
 
-    def _post(self, ctxt, rule, missing_conditions):
+    def _post(self, ctxt, rule, missing_conditions) -> check_api.Result:
         # TODO(sileht): Don't run it if conditions contains the rule itself, as it can
         # created an endless loop of events.
 
         if not ctxt.subscription.has_feature(subscription.Features.CUSTOM_CHECKS):
-            return (
-                "action_required",
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
                 "Custom checks are disabled",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
@@ -77,8 +78,8 @@ class PostCheckAction(actions.Action):
                 extra_variables,
             )
         except context.RenderTemplateFailure as rmf:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Invalid title template",
                 str(rmf),
             )
@@ -88,13 +89,16 @@ class PostCheckAction(actions.Action):
                 self.config["summary"], extra_variables
             )
         except context.RenderTemplateFailure as rmf:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Invalid summary template",
                 str(rmf),
             )
 
-        return ("failure" if missing_conditions else "success", title, summary)
+        if missing_conditions:
+            return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
+        else:
+            return check_api.Result(check_api.Conclusion.SUCCESS, title, summary)
 
     run = _post
     cancel = _post

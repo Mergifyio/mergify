@@ -16,6 +16,7 @@ from unittest import mock
 import pytest
 import voluptuous
 
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import subscription
 from mergify_engine.actions import request_reviews
@@ -231,8 +232,10 @@ def test_disabled():
         },
         sub,
     )
-    assert action.run(ctxt, None, None) == (
-        "action_required",
-        "Random request reviews are disabled",
-        "⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.",
+    result = action.run(ctxt, None, None)
+    assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
+    assert result.title == "Random request reviews are disabled"
+    assert result.summary == (
+        "⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) "
+        "needs to be updated to enable this feature."
     )

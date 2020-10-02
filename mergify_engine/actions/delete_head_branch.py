@@ -19,6 +19,7 @@ from urllib import parse
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine.clients import http
 
 
@@ -28,9 +29,11 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if ctxt.pull_from_fork:
-            return ("success", "Pull request come from fork", "")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Pull request come from fork", ""
+            )
 
         if ctxt.pull["state"] == "closed":
             if self.config is None or not self.config["force"]:
@@ -40,8 +43,8 @@ class DeleteHeadBranchAction(actions.Action):
                     )
                 )
                 if pulls_using_this_branch:
-                    return (
-                        "neutral",
+                    return check_api.Result(
+                        check_api.Conclusion.NEUTRAL,
                         "Not deleting the head branch",
                         "Branch `{}` was not deleted "
                         "because it is used by:\n{}".format(
@@ -58,18 +61,18 @@ class DeleteHeadBranchAction(actions.Action):
                 ctxt.client.delete(f"{ctxt.base_url}/git/refs/heads/{ref_to_delete}")
             except http.HTTPClientSideError as e:
                 if e.status_code not in [422, 404]:
-                    return (
-                        "failure",
+                    return check_api.Result(
+                        check_api.Conclusion.FAILURE,
                         "Unable to delete the head branch",
                         f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
-            return (
-                "success",
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
                 f"Branch `{ctxt.pull['head']['ref']}` has been deleted",
                 "",
             )
-        return (
-            None,
+        return check_api.Result(
+            check_api.Conclusion.PENDING,
             f"Branch `{ctxt.pull['head']['ref']}` will be deleted once the pull request is closed",
             "",
         )

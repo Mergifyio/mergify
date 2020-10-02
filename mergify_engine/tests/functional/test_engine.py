@@ -1333,12 +1333,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, commits = self.create_pr()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        check_api.set_check_run(
-            ctxt,
-            "Summary",
-            "completed",
-            "success",
-            output={"title": "whatever", "summary": "erased"},
+        ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                title="whatever",
+                summary="erased",
+            )
         )
 
         assert len(ctxt.pull_check_runs) == 1
@@ -1501,9 +1501,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         check = check_api.set_check_run(
             pull,
             "Test",
-            "completed",
-            "success",
-            {"summary": "a" * 70000, "title": "bla"},
+            check_api.Result(
+                check_api.Conclusion.SUCCESS, title="bla", summary="a" * 70000
+            ),
         )
         assert check["output"]["summary"] == ("a" * 65532 + "…")
 

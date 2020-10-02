@@ -14,8 +14,10 @@
 
 import enum
 import itertools
+import typing
 
 from mergify_engine import branch_updater
+from mergify_engine import check_api
 from mergify_engine import subscription
 from mergify_engine.actions.merge import queue
 
@@ -26,9 +28,9 @@ class PriorityAliases(enum.Enum):
     high = 3000
 
 
-def merge_report(ctxt, strict):
+def merge_report(ctxt, strict) -> typing.Union[check_api.Result, None]:
     if ctxt.pull["draft"]:
-        conclusion = None
+        conclusion = check_api.Conclusion.PENDING
         title = "Draft flag needs to be removed"
         summary = ""
     elif ctxt.pull["merged"]:
@@ -39,25 +41,25 @@ def merge_report(ctxt, strict):
             mode = "automatically"
         else:
             mode = "manually"
-        conclusion = "success"
+        conclusion = check_api.Conclusion.SUCCESS
         title = "The pull request has been merged %s" % mode
         summary = "The pull request has been merged %s at *%s*" % (
             mode,
             ctxt.pull["merge_commit_sha"],
         )
     elif ctxt.pull["state"] == "closed":
-        conclusion = "cancelled"
+        conclusion = check_api.Conclusion.CANCELLED
         title = "The pull request has been closed manually"
         summary = ""
 
     # NOTE(sileht): Take care of all branch protection state
     elif ctxt.pull["mergeable_state"] == "dirty":
-        conclusion = "cancelled"
+        conclusion = check_api.Conclusion.CANCELLED
         title = "Merge conflict needs to be solved"
         summary = ""
 
     elif ctxt.pull["mergeable_state"] == "unknown":
-        conclusion = "failure"
+        conclusion = check_api.Conclusion.FAILURE
         title = "Pull request state reported as `unknown` by GitHub"
         summary = ""
     # FIXME(sileht): We disable this check as github wrongly report
@@ -70,14 +72,14 @@ def merge_report(ctxt, strict):
     elif ctxt.pull["mergeable_state"] == "behind" and not strict:
         # Strict mode has been enabled in branch protection but not in
         # mergify
-        conclusion = "failure"
+        conclusion = check_api.Conclusion.FAILURE
         title = (
             "Branch protection setting 'strict' conflicts with Mergify configuration"
         )
         summary = ""
 
     elif ctxt.github_workflow_changed():
-        conclusion = "action_required"
+        conclusion = check_api.Conclusion.ACTION_REQUIRED
         title = "Pull request must be merged manually."
         summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
 <br />
@@ -88,7 +90,7 @@ This pull request must be merged manually."""
     else:
         return
 
-    return conclusion, title, summary
+    return check_api.Result(conclusion, title, summary)
 
 
 def get_queue_summary(ctxt):
@@ -126,7 +128,9 @@ def get_queue_summary(ctxt):
     return summary
 
 
-def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=False):
+def get_strict_status(
+    ctxt, rule=None, missing_conditions=None, need_update=False
+) -> check_api.Result:
     if need_update:
         title = "Base branch will be updated soon"
         summary = "The pull request base branch will be updated soon and then merged."
@@ -142,10 +146,10 @@ def get_strict_status(ctxt, rule=None, missing_conditions=None, need_update=Fals
             checked = " " if cond in missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
 
-    return None, title, summary
+    return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
 
-def update_pull_base_branch(ctxt, method, user):
+def update_pull_base_branch(ctxt, method, user) -> check_api.Result:
     try:
         if method == "merge":
             branch_updater.update_with_api(ctxt)
@@ -159,6 +163,8 @@ def update_pull_base_branch(ctxt, method, user):
         if output:
             return output
         else:
-            return ("failure", "Base branch update has failed", e.message)
+            return check_api.Result(
+                check_api.Conclusion.FAILURE, "Base branch update has failed", e.message
+            )
     else:
         return get_strict_status(ctxt, need_update=False)

@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import utils
@@ -52,7 +53,7 @@ class DismissReviewsAction(actions.Action):
                 return True
         return False
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if self._have_been_synchronized(ctxt):
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
@@ -61,13 +62,17 @@ class DismissReviewsAction(actions.Action):
             # This is only true for method="rebase"
             with utils.get_redis_for_cache() as redis:
                 if redis.get("branch-update-%s" % ctxt.pull["head"]["sha"]):
-                    return ("success", "Rebased/Updated by us, nothing to do", "")
+                    return check_api.Result(
+                        check_api.Conclusion.SUCCESS,
+                        "Rebased/Updated by us, nothing to do",
+                        "",
+                    )
 
             try:
                 message = ctxt.pull_request.render_template(self.config["message"])
             except context.RenderTemplateFailure as rmf:
-                return (
-                    "failure",
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
                     "Invalid dismiss reviews message",
                     str(rmf),
                 )
@@ -85,12 +90,18 @@ class DismissReviewsAction(actions.Action):
                         errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
 
             if errors:
-                return (None, "Unable to dismiss review", "\n".join(errors))
+                return check_api.Result(
+                    check_api.Conclusion.PENDING,
+                    "Unable to dismiss review",
+                    "\n".join(errors),
+                )
             else:
-                return ("success", "Review dismissed", "")
+                return check_api.Result(
+                    check_api.Conclusion.SUCCESS, "Review dismissed", ""
+                )
         else:
-            return (
-                "success",
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
                 "Nothing to do, pull request have not been synchronized",
                 "",
             )

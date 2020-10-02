@@ -12,12 +12,44 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import dataclasses
+import enum
+import typing
+
 from mergify_engine import utils
 
 
 # Used to track check run created by Mergify but for the user via the checks action
 # e.g.: we want the engine to be retriggered if the state of this kind of checks changes.
 USER_CREATED_CHECKS = "user-created-checkrun"
+
+
+class Status(enum.Enum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class Conclusion(enum.Enum):
+    PENDING = None
+    CANCELLED = "cancelled"
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NEUTRAL = "neutral"
+    ACTION_REQUIRED = "action_required"
+
+    def get_status(self):
+        if self == Conclusion.PENDING:
+            return Status.IN_PROGRESS
+        else:
+            return Status.COMPLETED
+
+
+@dataclasses.dataclass
+class Result:
+    conclusion: Conclusion
+    title: str
+    summary: str
+    annotations: typing.List[str] = None
 
 
 def get_checks_for_ref(ctxt, sha, **kwargs):
@@ -48,29 +80,31 @@ def compare_dict(d1, d2, keys):
     return True
 
 
-def set_check_run(ctxt, name, status, conclusion=None, output=None, external_id=None):
+def set_check_run(ctxt, name, result, external_id=None):
+    status = result.conclusion.get_status()
     post_parameters = {
         "name": name,
         "head_sha": ctxt.pull["head"]["sha"],
-        "status": status,
+        "status": status.value,
+        "conclusion": result.conclusion.value,
+        "started_at": utils.utcnow().isoformat(),
+        "details_url": f"{ctxt.pull['html_url']}/checks",
+        "output": {
+            "title": result.title,
+            "summary": result.summary,
+        },
     }
-    if conclusion:
-        post_parameters["conclusion"] = conclusion
-    if output:
-        # Maximum output/summary length for Check API is 65535
-        summary = output.get("summary")
-        if summary and len(summary) > 65535:
-            output["summary"] = utils.unicode_truncate(summary, 65532)
-            output["summary"] += "…"  # this is 3 bytes long
-        post_parameters["output"] = output
+
+    # Maximum output/summary length for Check API is 65535
+    summary = post_parameters["output"]["summary"]
+    if summary and len(summary) > 65535:
+        post_parameters["output"]["summary"] = utils.unicode_truncate(summary, 65532)
+        post_parameters["output"]["summary"] += "…"  # this is 3 bytes long
 
     if external_id:
         post_parameters["external_id"] = external_id
 
-    post_parameters["started_at"] = utils.utcnow().isoformat()
-    post_parameters["details_url"] = "%s/checks" % ctxt.pull["html_url"]
-
-    if status == "completed":
+    if status is Status.COMPLETED:
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
     checks = [c for c in ctxt.pull_engine_check_runs if c["name"] == name]
@@ -103,12 +137,10 @@ def set_check_run(ctxt, name, status, conclusion=None, output=None, external_id=
             check,
             ("name", "head_sha", "status", "conclusion", "details_url"),
         ):
-            if check["output"] == output:
+            if check["output"] == post_parameters["output"]:
                 continue
-            elif (
-                check["output"] is not None
-                and output is not None
-                and compare_dict(output, check["output"], ("title", "summary"))
+            elif check["output"] is not None and compare_dict(
+                post_parameters["output"], check["output"], ("title", "summary")
             ):
                 continue
 

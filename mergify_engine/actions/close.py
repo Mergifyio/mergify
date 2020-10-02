@@ -17,6 +17,7 @@
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -29,22 +30,26 @@ class CloseAction(actions.Action):
     only_once = True
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if ctxt.pull["state"] == "close":
-            return ("success", "Pull request is already closed", "")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Pull request is already closed", ""
+            )
 
         try:
             ctxt.client.patch(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}", json={"state": "close"}
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
-            return ("failure", "Pull request can't be closed", e.message)
+            return check_api.Result(
+                check_api.Conclusion.FAILURE, "Pull request can't be closed", e.message
+            )
 
         try:
             message = ctxt.pull_request.render_template(self.config["message"])
         except context.RenderTemplateFailure as rmf:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Invalid close message",
                 str(rmf),
             )
@@ -55,6 +60,12 @@ class CloseAction(actions.Action):
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
-            return ("failure", "The close message can't be created", e.message)
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "The close message can't be created",
+                e.message,
+            )
 
-        return ("success", "The pull request has been closed", message)
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS, "The pull request has been closed", message
+        )

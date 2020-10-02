@@ -20,6 +20,7 @@ from urllib import parse
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import duplicate_pull
 from mergify_engine.clients import http
@@ -61,9 +62,9 @@ class CopyAction(actions.Action):
                 branch_name,
             )
             if e.response.status_code >= 500:
-                state = None
+                state = check_api.Conclusion.PENDING
             else:
-                state = "failure"
+                state = check_api.Conclusion.SUCCESS
                 detail += e.response.json()["message"]
             return state, detail
 
@@ -82,7 +83,7 @@ class CopyAction(actions.Action):
                 )
             except duplicate_pull.DuplicateFailed as e:
                 return (
-                    "failure",
+                    check_api.Conclusion.FAILURE,
                     f"Backport to branch `{branch_name}` failed\n{e.reason}",
                 )
 
@@ -93,20 +94,20 @@ class CopyAction(actions.Action):
 
         if new_pull:
             return (
-                "success",
+                check_api.Conclusion.SUCCESS,
                 f"[#{new_pull['number']} {new_pull['title']}]({new_pull['html_url']}) "
                 f"has been created for branch `{branch_name}`",
             )
 
         return (
-            "failure",
+            check_api.Conclusion.FAILURE,
             f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
-    def run(self, ctxt, rule, missing_conditions):
+    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
         if not config.GITHUB_APP:
-            return (
-                "failure",
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
                 "Unavailable with the GitHub Action",
                 "Due to GitHub Action limitation, the `copy` action/command is only "
                 "available with the Mergify GitHub App.",
@@ -126,26 +127,26 @@ class CopyAction(actions.Action):
         results = [self._copy(ctxt, branch_name) for branch_name in branches]
 
         # Pick the first status as the final_status
-        final_status = results[0][0]
+        conclusion = results[0][0]
         for r in results[1:]:
-            if r[0] == "failure":
-                final_status = "failure"
+            if r[0] == check_api.Conclusion.FAILURE:
+                conclusion = check_api.Conclusion.FAILURE
                 # If we have a failure, everything is set to fail
                 break
-            elif r[0] == "success":
+            elif r[0] == check_api.Conclusion.SUCCESS:
                 # If it was None, replace with success
                 # Keep checking for a failure just in case
-                final_status = "success"
+                conclusion = check_api.Conclusion.SUCCESS
 
-        if final_status == "success":
+        if conclusion == check_api.Conclusion.SUCCESS:
             message = self.SUCCESS_MESSAGE
-        elif final_status == "failure":
+        elif conclusion == check_api.Conclusion.FAILURE:
             message = self.FAILURE_MESSAGE
         else:
             message = "Pending"
 
-        return (
-            final_status,
+        return check_api.Result(
+            conclusion,
             message,
             "\n".join(f"* {detail}" for detail in map(lambda r: r[1], results)),
         )

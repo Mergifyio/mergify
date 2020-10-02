@@ -188,20 +188,17 @@ class Queue:
             c for c in ctxt.pull_engine_check_runs if c["name"].endswith(" (merge)")
         ]
 
-        output = helpers.merge_report(ctxt, True)
-        if output:
-            conclusion, title, summary = output
+        result = helpers.merge_report(ctxt, True)
+        if result:
             ctxt.log.info(
                 "pull request closed in the meantime",
-                conclusion=conclusion,
-                title=title,
-                summary=summary,
+                result=result,
             )
             self.remove_pull(ctxt.pull["number"])
         else:
             ctxt.log.info("updating base branch of pull request")
             config = self.get_config(ctxt.pull["number"])
-            conclusion, title, summary = helpers.update_pull_base_branch(
+            result = helpers.update_pull_base_branch(
                 ctxt,
                 config["strict_method"],
                 config["bot_account"],
@@ -210,24 +207,18 @@ class Queue:
             if ctxt.pull["state"] == "closed":
                 ctxt.log.info(
                     "pull request closed in the meantime",
-                    conclusion=conclusion,
-                    title=title,
-                    summary=summary,
+                    result=result,
                 )
                 self.remove_pull(ctxt.pull["number"])
-            elif conclusion == "failure":
-                ctxt.log.info("base branch update failed", title=title, summary=summary)
+            elif result.conclusion == check_api.Conclusion.FAILURE:
+                ctxt.log.info(
+                    "base branch update failed",
+                    result=result,
+                )
                 self._move_pull_at_end(ctxt.pull["number"])
 
-        status = "completed" if conclusion else "in_progress"
         for c in old_checks:
-            check_api.set_check_run(
-                ctxt,
-                c["name"],
-                status,
-                conclusion,
-                output={"title": title, "summary": summary},
-            )
+            check_api.set_check_run(ctxt, c["name"], result)
 
     @classmethod
     def process_queues(cls):

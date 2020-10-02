@@ -19,6 +19,7 @@ from datadog import statsd
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine.clients import github
 from mergify_engine.clients import http
@@ -100,24 +101,19 @@ def handle(ctxt, comment, user, rerun=False):
                 command_full = command
 
             if report:
-                conclusion, title, summary = report
-                if conclusion is None:
-                    if rerun:
-                        return
-                    conclusion = "pending"
+                if report.conclusion is check_api.Conclusion.PENDING and rerun:
+                    return
                 result = "**Command `{command}`: {conclusion}**\n> **{title}**\n{summary}\n".format(
                     command=command_full,
-                    conclusion=conclusion,
-                    title=title,
-                    summary="> " + "\n> ".join(summary.split("\n")).strip(),
+                    conclusion=report.conclusion.name.lower(),
+                    title=report.title,
+                    summary="> " + "\n> ".join(report.summary.split("\n")).strip(),
                 )
                 ctxt.log.info(
                     "command %s",
-                    conclusion,
+                    report.conclusion.name.lower(),
                     command_full=command_full,
-                    conclusion=conclusion,
-                    title=title,
-                    summary=summary,
+                    report=report,
                     user=user["login"] if user else None,
                 )
             else:
@@ -125,7 +121,10 @@ def handle(ctxt, comment, user, rerun=False):
                 ctxt.log.info(
                     "command success",
                     command_full=command_full,
-                    conclusion="success",
+                    report=check_api.Result(
+                        check_api.Conclusion.SUCCESS.value,
+                        f"`{command_full}` succeed" "",
+                    ),
                     user=user["login"] if user else None,
                 )
         else:
