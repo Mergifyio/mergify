@@ -143,6 +143,16 @@ class GithubAppInstallationAuth(httpx.Auth):
                     installation_response = yield self.build_installation_request(
                         url=installation_response.headers["Location"],
                     )
+                if installation_response.status_code == 403:
+                    error_message = installation_response.json()["message"]
+                    if "This installation has been suspended" in error_message:
+                        LOG.debug(
+                            "Mergify installation suspended",
+                            gh_owner=self.owner,
+                            error_message=error_message,
+                        )
+                        raise exceptions.MergifyNotInstalled()
+
                 if installation_response.status_code == 404:
                     LOG.debug(
                         "Mergify not installed",
