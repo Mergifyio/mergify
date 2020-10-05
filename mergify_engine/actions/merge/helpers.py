@@ -118,7 +118,10 @@ def get_queue_summary(ctxt):
     if priorities_configured and not ctxt.subscription.has_feature(
         subscription.Features.PRIORITY_QUEUES
     ):
-        summary += f"\n\n⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/{q.installation_id}/subscription) needed"
+        summary += "\n\n⚠ *Ignoring merge priority*\n"
+        summary += ctxt.subscription.missing_feature_reason(
+            ctxt.pull["base"]["repo"]["owner"]["login"]
+        )
 
     return summary
 

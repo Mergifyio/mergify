@@ -212,11 +212,27 @@ def test_disabled():
             "merged_by": None,
             "merged": None,
             "merged_at": None,
+            "base": {
+                "sha": "sha",
+                "ref": "main",
+                "user": {
+                    "login": {
+                        "Mergifyio",
+                    },
+                },
+                "repo": {
+                    "name": "demo",
+                    "private": False,
+                    "owner": {
+                        "login": "Mergifyio",
+                    },
+                },
+            },
         },
         sub,
     )
     assert action.run(ctxt, None, None) == (
         "action_required",
         "Random request reviews are disabled",
-        "⚠  The [subscription](https://dashboard.mergify.io/installation/123/subscription) needed to be updated to enable them.",
+        "⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.",
     )

@@ -55,7 +55,9 @@ class PostCheckAction(actions.Action):
             return (
                 "action_required",
                 "Custom checks are disabled",
-                f"⚠  The [subscription](https://dashboard.mergify.io/installation/{ctxt.client.auth.installation['id']}/subscription) needed to be updated to enable them.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
             )
 
         check_succeed = not bool(missing_conditions)
