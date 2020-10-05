@@ -62,6 +62,10 @@ class Subscription:
         """Return if the feature for a plan is available."""
         return self.active and feature in self.features
 
+    @staticmethod
+    def missing_feature_reason(owner):
+        return f"⚠ The [subscription](https://dashboard.mergify.io/github/{owner}/subscription) needs to be updated to enable this feature."
+
     @classmethod
     def from_dict(cls, owner_id, sub):
         return cls(

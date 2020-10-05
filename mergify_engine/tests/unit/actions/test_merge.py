@@ -238,7 +238,8 @@ The following pull requests are queued:
 * #5, #6 (priority: medium)
 * #7, #8, #9 (priority: low)
 
-⚠ *Ignoring merge priority* — [subscription](https://dashboard.mergify.io/installation/12345/subscription) needed""",
+⚠ *Ignoring merge priority*
+⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.""",
         ),
     ),
 )
@@ -252,6 +253,16 @@ def test_queue_summary_subscription(active, summary):
             frozenset({subscription.Features.PRIORITY_QUEUES}),
         )
     )
+    ctxt.missing_feature_reason = subscription.Subscription.missing_feature_reason
+    ctxt.pull = {
+        "base": {
+            "repo": {
+                "owner": {
+                    "login": "Mergifyio",
+                },
+            },
+        },
+    }
     q = mock.Mock(installation_id=12345)
     q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     q.get_config.side_effect = gen_config(
