@@ -35,3 +35,4 @@ html_sidebars = {
         "relations.html",
     ]
 }
+html_add_permalinks = " 🔗"
