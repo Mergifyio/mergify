@@ -37,6 +37,9 @@ $(function() {
   $("div.topic > ul").addClass("list-group");
   $("div.topic > ul > li").addClass("list-group-item").addClass("flex-fill").addClass("list-group-item-action");
   $("div.topic").removeClass("topic");
+
+  // Replace permalink unicode emoji by Font Awesome
+  $("a.headerlink").html(" <i class=\"fas fa-link\"></i>");
 });
 
 
