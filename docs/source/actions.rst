@@ -507,6 +507,7 @@ request.
     - Pick random users and teams from the provided lists. When
       ``random_count`` is specified, ``users`` and ``teams`` can be a
       dictionary where the key is the login and the value is the weight to use.
+      Weight must be between 1 and 65535 included.
 
       |essential plan tag|
 
