@@ -88,7 +88,7 @@ This pull request must be merged manually."""
     # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
     # are OK for us
     else:
-        return
+        return None
 
     return check_api.Result(conclusion, title, summary)
 
