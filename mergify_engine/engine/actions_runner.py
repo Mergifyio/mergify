@@ -234,7 +234,9 @@ def exec_action(method_name, rule, action, ctxt, missing_conditions):
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
-        return "failure", "action '%s' failed" % action, " "
+        return check_api.Result(
+            check_api.Conclusion.FAILURE, "action '%s' failed" % action, ""
+        )
 
 
 def load_conclusions(ctxt, summary_check):
