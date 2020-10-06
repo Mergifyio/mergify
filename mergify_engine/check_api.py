@@ -37,12 +37,6 @@ class Conclusion(enum.Enum):
     NEUTRAL = "neutral"
     ACTION_REQUIRED = "action_required"
 
-    def get_status(self):
-        if self == Conclusion.PENDING:
-            return Status.IN_PROGRESS
-        else:
-            return Status.COMPLETED
-
 
 @dataclasses.dataclass
 class Result:
@@ -81,12 +75,15 @@ def compare_dict(d1, d2, keys):
 
 
 def set_check_run(ctxt, name, result, external_id=None):
-    status = result.conclusion.get_status()
+    if result.conclusion is Conclusion.PENDING:
+        status = Status.IN_PROGRESS
+    else:
+        status = Status.COMPLETED
+
     post_parameters = {
         "name": name,
         "head_sha": ctxt.pull["head"]["sha"],
         "status": status.value,
-        "conclusion": result.conclusion.value,
         "started_at": utils.utcnow().isoformat(),
         "details_url": f"{ctxt.pull['html_url']}/checks",
         "output": {
@@ -105,6 +102,7 @@ def set_check_run(ctxt, name, result, external_id=None):
         post_parameters["external_id"] = external_id
 
     if status is Status.COMPLETED:
+        post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
     checks = [c for c in ctxt.pull_engine_check_runs if c["name"] == name]
