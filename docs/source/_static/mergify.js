@@ -40,6 +40,10 @@ $(function() {
 
   // Replace permalink unicode emoji by Font Awesome
   $("a.headerlink").html(" <i class=\"fas fa-link\"></i>");
+
+  // Remove the toctree on the frontpage
+  // Hiding it is not enough
+  $(".toctree-wrapper").remove();
 });
 
 
