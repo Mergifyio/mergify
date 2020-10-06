@@ -37,19 +37,13 @@ class RequestReviewsAction(actions.Action):
 
     validator = {
         voluptuous.Required("users", default=[]): voluptuous.Any(
-            voluptuous.All(
-                [types.GitHubLogin],
-                voluptuous.Length(max=GITHUB_MAXIMUM_REVIEW_REQUEST),
-            ),
+            [types.GitHubLogin],
             {
                 types.GitHubLogin: _random_weight,
             },
         ),
         voluptuous.Required("teams", default=[]): voluptuous.Any(
-            voluptuous.All(
-                [types.GitHubTeam],
-                voluptuous.Length(max=GITHUB_MAXIMUM_REVIEW_REQUEST),
-            ),
+            [types.GitHubTeam],
             {
                 types.GitHubTeam: _random_weight,
             },

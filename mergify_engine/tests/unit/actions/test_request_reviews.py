@@ -38,37 +38,6 @@ def test_config(config):
     request_reviews.RequestReviewsAction.get_schema()(config)
 
 
-@pytest.mark.parametrize(
-    "config,error",
-    (
-        (
-            {
-                "users": ["hello"]
-                * (
-                    request_reviews.RequestReviewsAction.GITHUB_MAXIMUM_REVIEW_REQUEST
-                    + 1
-                ),
-            },
-            "length of value must be at most 15 for dictionary value @ data['users']",
-        ),
-        (
-            {
-                "teams": ["hello"]
-                * (
-                    request_reviews.RequestReviewsAction.GITHUB_MAXIMUM_REVIEW_REQUEST
-                    + 1
-                ),
-            },
-            "length of value must be at most 15 for dictionary value @ data['teams']",
-        ),
-    ),
-)
-def test_config_not_ok(config, error):
-    with pytest.raises(voluptuous.MultipleInvalid) as p:
-        request_reviews.RequestReviewsAction.get_schema()(config)
-    assert str(p.value) == error
-
-
 def test_random_reviewers():
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
