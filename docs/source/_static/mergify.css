@@ -101,7 +101,6 @@ div.sphinxsidebar ul ul {
 div.sphinxsidebar {
     /* Overwrite basic theme CSS */
     margin-left: 0px;
-    font-size: 100%!important;
     margin: auto;
 }
 
@@ -116,7 +115,6 @@ div.document {
         top: 0;
         margin: initial;
         margin-top: -1em;
-        padding-top: 2em;
         max-height: 100vh;
         border-right: 1px solid rgb(236, 238, 239);
         overflow: scroll;
@@ -136,6 +134,27 @@ div.sphinxsidebar > a.reference {
 
 ul.nav ul {
     list-style: none!important;
+}
+
+.reference.nav-link {
+    display: block;
+    padding: .25rem 1rem;
+}
+
+.toctree-l1 {
+    margin-top: 2em;
+}
+
+.toctree-l1 > a.nav-link{
+    font-size: .9rem;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: inherit;
+    font-weight: bold;
+}
+
+.toctree-l2 {
+    margin-left: 1em;
 }
 
 /* Footer styles */

@@ -89,8 +89,9 @@ class Action(abc.ABC):
         """Convert string to dict config"""
         return {}
 
-    @staticmethod
-    def run(ctxt, rule, missing_conditions) -> check_api.Result:  # pragma: no cover
+    def run(
+        self, ctxt, rule, missing_conditions
+    ) -> check_api.Result:  # pragma: no cover
         pass
 
     def cancel(

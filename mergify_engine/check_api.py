@@ -43,7 +43,7 @@ class Result:
     conclusion: Conclusion
     title: str
     summary: str
-    annotations: typing.List[str] = None
+    annotations: typing.Optional[typing.List[str]] = None
 
 
 def get_checks_for_ref(ctxt, sha, **kwargs):
