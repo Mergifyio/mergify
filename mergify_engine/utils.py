@@ -68,6 +68,22 @@ async def create_aredis_for_stream():
     return r
 
 
+async def stop_pending_aredis_tasks():
+    tasks = [
+        task
+        for task in asyncio.all_tasks()
+        if (
+            task.get_coro().__qualname__
+            == "ConnectionPool.disconnect_on_idle_time_exceeded"
+        )
+    ]
+
+    if tasks:
+        for task in tasks:
+            task.cancel()
+        await asyncio.wait(tasks)
+
+
 def utcnow():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 

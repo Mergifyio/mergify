@@ -663,8 +663,10 @@ class Worker:
             self._worker_tasks = []
 
         if self._redis:
+            self._redis.connection_pool.max_idle_time = 0
             self._redis.connection_pool.disconnect()
             self._redis = None
+            await utils.stop_pending_aredis_tasks()
 
         self._tombstone.set()
         LOG.debug("exiting")

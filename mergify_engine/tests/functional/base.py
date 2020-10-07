@@ -140,8 +140,9 @@ class GitterRecorder(utils.Gitter):
 
 
 class EventReader:
-    def __init__(self, app):
+    def __init__(self, app, loop):
         self._app = app
+        self._loop = loop
         self._session = http.Client()
         self._handled_events = queue.Queue()
         self._counter = 0
@@ -224,11 +225,9 @@ class EventReader:
         w.stop()
         await w.wait_shutdown_complete()
 
-    @classmethod
-    def _run_workers(cls):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(cls._async_run_workers())
-        loop.run_until_complete(loop.shutdown_asyncgens())
+    def _run_workers(self):
+        self._loop.run_until_complete(self._async_run_workers())
+        self._loop.run_until_complete(self._loop.shutdown_asyncgens())
 
     def _forward_to_engine_api(self, event):
         payload = event["payload"]
@@ -409,8 +408,8 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(web.startup())
+        self.loop = asyncio.get_event_loop()
+        self.loop.run_until_complete(web.startup())
         self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
@@ -428,8 +427,7 @@ class FunctionalTestBase(unittest.TestCase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.subscription.save_subscription_to_cache())
+        self.loop.run_until_complete(self.subscription.save_subscription_to_cache())
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -511,7 +509,7 @@ class FunctionalTestBase(unittest.TestCase):
             return_value=[self.r_o_integration],
         ).start()
 
-        self._event_reader = EventReader(self.app)
+        self._event_reader = EventReader(self.app, self.loop)
         self._event_reader.drain()
 
     def tearDown(self):
@@ -551,8 +549,8 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.close()
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(web.shutdown())
+        self.loop.run_until_complete(web.shutdown())
+
         self._event_reader.drain()
         self._event_reader.close()
         mock.patch.stopall()

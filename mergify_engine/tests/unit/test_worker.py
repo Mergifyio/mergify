@@ -44,7 +44,9 @@ async def redis():
         yield r
     finally:
         await r.flushdb()
+        r.connection_pool.max_idle_time = 0
         r.connection_pool.disconnect()
+        await utils.stop_pending_aredis_tasks()
 
 
 async def run_worker():
