@@ -36,7 +36,7 @@ pull_request_rules:
   - name: automatic merge from dependabot
     conditions:
       - status-success=Semantic Pull Request
-      - author~=^dependabot(|-preview)\[bot\]$
+      - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
       - "status-success=ci/circleci: requirements"
@@ -68,7 +68,7 @@ pull_request_rules:
         add: ["work-in-progress"]
   - name: request review
     conditions:
-      - -author~=^dependabot(|-preview)\[bot\]$
+      - -author=dependabot[bot]
       - label!=work-in-progress
       - -merged
       - -closed
