@@ -83,53 +83,6 @@ def get_summary_from_sha(ctxt, sha):
         return checks[0]
 
 
-def get_summary_from_synchronize_event(ctxt):
-    # NOTE(sileht): This solution has some design race, rare but present. Example:
-    # * we receive /whatever/ event
-    # * engine run for a PR
-    # * github send synchronize in the meantime
-    # * engine GET /pull/123
-    #   here the head_sha is the new one (after synchronize occurs), but ctxt.sources does not
-    #   have the synchronize event, so it can't retrieve the previous summary.
-    #   Mergify thinks it's the first time it sees the PR, this introduces some bugs like:
-    #   * PR not cleanup from queue
-    #   * Comment posted twice
-    #
-    # Github does not offer API to retrieve previous PR head sha, the issues/123/events
-    # have events for "synchronize" event coming from "force-push" only and not when new commits
-    # are added.
-
-    synchronize_events = dict(
-        (
-            (s["data"]["after"], s["data"])
-            for s in ctxt.sources
-            if s["event_type"] == "pull_request"
-            and s["data"]["action"] == "synchronize"
-            and "after" in s["data"]
-        )
-    )
-    if synchronize_events:
-        ctxt.log.debug("engine synchronize summary")
-
-        # NOTE(sileht): We sometimes got multiple synchronize events in a row, that's not
-        # always the last one that have the Summary, so we also looks in older ones if
-        # necessary.
-        after_sha = ctxt.pull["head"]["sha"]
-        while synchronize_events:
-            sync_event = synchronize_events.pop(after_sha, None)
-            if sync_event:
-                previous_summary = get_summary_from_sha(ctxt, sync_event["before"])
-                if previous_summary:
-                    return previous_summary
-
-                after_sha = sync_event["before"]
-            else:
-                ctxt.log.warning(
-                    "Got synchronize event but didn't find Summary on previous head sha",
-                )
-                break
-
-
 def ensure_summary_on_head_sha(ctxt):
     for check in ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME:
@@ -139,7 +92,10 @@ def ensure_summary_on_head_sha(ctxt):
     if sha:
         previous_summary = get_summary_from_sha(ctxt, sha)
     else:
-        previous_summary = get_summary_from_synchronize_event(ctxt)
+        previous_summary = None
+        ctxt.log.warning(
+            "the pull request doesn't have the last summary head sha stored in redis"
+        )
 
     if previous_summary:
         ctxt.set_summary_check(
@@ -150,6 +106,8 @@ def ensure_summary_on_head_sha(ctxt):
             )
         )
         actions_runner.save_last_summary_head_sha(ctxt)
+    else:
+        ctxt.log.warning("the pull request doesn't have a summary")
 
 
 def run(client, pull, sub, sources):
