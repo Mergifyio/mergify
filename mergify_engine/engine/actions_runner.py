@@ -167,7 +167,7 @@ def delete_last_summary_head_sha(ctxt):
 
 def get_last_summary_head_sha(ctxt):
     with utils.get_redis_for_cache() as redis:
-        redis.get(_redis_last_summary_head_sha_key(ctxt))
+        return redis.get(_redis_last_summary_head_sha_key(ctxt))
 
 
 def save_last_summary_head_sha(ctxt):
