@@ -240,10 +240,7 @@ def exec_action(method_name, rule, action, ctxt, missing_conditions):
 
 
 def load_conclusions(ctxt, summary_check):
-    if not summary_check:
-        return {}
-
-    if summary_check["output"]["summary"]:
+    if summary_check and summary_check["output"]["summary"]:
         line = summary_check["output"]["summary"].splitlines()[-1]
         if line.startswith("<!-- ") and line.endswith(" -->"):
             return dict(
