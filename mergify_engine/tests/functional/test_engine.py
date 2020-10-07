@@ -291,11 +291,11 @@ Your branch is up to date with 'origin/{stable_branch}'.
 
 You are currently cherry-picking commit {commit_id[:7]}.
   (fix conflicts and run "git cherry-pick --continue")
-  (use "git cherry-pick --skip" to skip this patch)
   (use "git cherry-pick --abort" to cancel the cherry-pick operation)
 
 Unmerged paths:
   (use "git add <file>..." to mark resolution)
+
 	both added:      conflicts
 
 no changes added to commit (use "git add" and/or "git commit -a")
