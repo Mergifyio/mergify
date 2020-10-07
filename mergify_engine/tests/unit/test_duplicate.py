@@ -67,6 +67,7 @@ def test_get_commits_to_cherry_pick_rebase(commits):
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},
             },
             "head": {
+                "sha": "sha",
                 "ref": "fork",
                 "repo": {"full_name": "fork/other", "name": "other", "private": False},
             },
@@ -114,6 +115,7 @@ def test_get_commits_to_cherry_pick_merge(commits):
                 "repo": {"full_name": "user/ref", "name": "name", "private": False},
             },
             "head": {
+                "sha": "sha",
                 "ref": "fork",
                 "repo": {"full_name": "fork/other", "name": "other", "private": False},
             },

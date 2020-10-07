@@ -92,8 +92,11 @@ class Context(object):
             if "base" in self.pull
             else "<unknown-yet>",
             gh_pull=self.pull["number"],
-            gh_pull_sha=self.pull["base"]["sha"]
+            gh_pull_base_sha=self.pull["base"]["sha"]
             if "base" in self.pull
+            else "<unknown-yet>",
+            gh_pull_head_sha=self.pull["head"]["sha"]
+            if "head" in self.pull
             else "<unknown-yet>",
             gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
             gh_pull_state=(
