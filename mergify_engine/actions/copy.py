@@ -64,7 +64,7 @@ class CopyAction(actions.Action):
             if e.response.status_code >= 500:
                 state = check_api.Conclusion.PENDING
             else:
-                state = check_api.Conclusion.SUCCESS
+                state = check_api.Conclusion.FAILURE
                 detail += e.response.json()["message"]
             return state, detail
 
