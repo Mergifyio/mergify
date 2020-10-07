@@ -360,10 +360,7 @@ def run_actions(
                 report = check_api.Result(
                     previous_conclusion, "Already in expected state", ""
                 )
-                message = "ignored, already in expected state: %s/%s" % (
-                    method_name,
-                    previous_conclusion,
-                )
+                message = "ignored, already in expected state"
 
             elif done_by_another_action:
                 # NOTE(sileht) We can't run two action merge for example,
@@ -373,7 +370,7 @@ def run_actions(
                     "Another %s action already ran" % action,
                     "",
                 )
-                message = "ignored, another action `%s` has already been run" % action
+                message = "ignored, another has already been run"
 
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
@@ -384,7 +381,7 @@ def run_actions(
                     ctxt,
                     missing_conditions,
                 )
-                message = "`%s` executed" % method_name
+                message = "executed"
 
             if (
                 report
@@ -427,8 +424,12 @@ def run_actions(
                 conclusions[check_name] = expected_conclusions[0]
 
             ctxt.log.info(
-                "action evaluation: %s",
+                "action evaluation: `%s` %s: %s/%s -> %s",
+                action,
                 message,
+                method_name,
+                previous_conclusion.value,
+                conclusions[check_name].value,
                 report=report,
                 previous_conclusion=previous_conclusion.value,
                 conclusion=conclusions[check_name].value,
