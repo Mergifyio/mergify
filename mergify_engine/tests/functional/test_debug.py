@@ -43,7 +43,7 @@ class TestDebugger(base.FunctionalTestBase):
 
         assert (
             s1.strip()
-            == """* INSTALLATION ID: 499592
+            == f"""* INSTALLATION ID: 499592
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
@@ -62,15 +62,15 @@ pull_request_rules:
     comment:
       message: WTF?
   conditions:
-  - base=20200909091524/test_debugger/master
+  - base={self.master_branch_name}
   name: comment
 
 * QUEUES: 
 * PULL REQUEST:
-{'approved-reviews-by': [],
+{{'approved-reviews-by': [],
  'assignee': [],
  'author': 'mergify-test2',
- 'base': '20200909091524/test_debugger/master',
+ 'base': '{self.master_branch_name}',
  'body': 'Pull request n1 from fork',
  'changes-requested-reviews-by': [],
  'closed': False,
@@ -78,24 +78,24 @@ pull_request_rules:
  'conflict': False,
  'dismissed-reviews-by': [],
  'files': ['test1'],
- 'head': '20200909091524/test_debugger/fork/pr1',
+ 'head': '{p.head.ref}',
  'label': [],
  'locked': False,
  'merged': False,
  'merged-by': '',
  'milestone': '',
- 'number': 1805,
+ 'number': {p.number},
  'review-requested': [],
  'status-failure': [],
  'status-neutral': [],
  'status-success': ['Summary'],
- 'title': 'Pull request n1 from fork'}
+ 'title': 'Pull request n1 from fork'}}
 is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:
 [Summary]: success | 1 rule matches
 > #### Rule: comment (comment)
-> - [X] `base=20200909091524/test_debugger/master`
+> - [X] `base={self.master_branch_name}`
 > 
 > <hr />
 > :sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
@@ -108,7 +108,7 @@ mergeable_state: clean
 > 
 > <br />
 > 
-> More conditions and actions can be found in the [documentation](https://doc.mergify.io/).
+> More conditions and actions can be found in the [documentation](https://docs.mergify.io/).
 > 
 > You can also trigger Mergify actions by commenting on this pull request:
 > 
@@ -120,7 +120,7 @@ mergeable_state: clean
 > Additionally, on Mergify [dashboard](https://dashboard.mergify.io/) you can:
 > 
 > - look at your merge queues
-> - generate the Mergify configuration with the simulator.
+> - generate the Mergify configuration with the config editor.
 > 
 > Finally, you can contact us on https://mergify.io/
 > </details>
@@ -128,7 +128,7 @@ mergeable_state: clean
 * MERGIFY LIVE MATCHES:
 > 1 rule matches
 #### Rule: comment (comment)
-- [X] `base=20200909091524/test_debugger/master`
+- [X] `base={self.master_branch_name}`
 
 <hr />
 :sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
