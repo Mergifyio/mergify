@@ -93,11 +93,13 @@ class Queue:
                 "priority": 2000,
                 "effective_priority": 2000,
                 "bot_account": None,
+                "update_bot_account": None,
             }
         config = json.loads(config)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
         config.setdefault("effective_priority", config["priority"])
         config.setdefault("bot_account", None)
+        config.setdefault("update_bot_account", None)
         return config
 
     def _add_pull(self, pull_number, priority, update=False):
@@ -201,7 +203,7 @@ class Queue:
             result = helpers.update_pull_base_branch(
                 ctxt,
                 config["strict_method"],
-                config["bot_account"],
+                config["update_bot_account"] or config["bot_account"],
             )
 
             if ctxt.pull["state"] == "closed":

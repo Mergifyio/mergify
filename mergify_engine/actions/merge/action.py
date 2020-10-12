@@ -24,6 +24,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import subscription
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import http
@@ -72,7 +73,15 @@ class MergeAction(actions.Action):
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
+        # NOTE(sileht): Alias of update_bot_account, it's now undocumented but we have
+        # users that use it so, we have to keep it
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
+        voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
+        voluptuous.Required("update_bot_account", default=None): voluptuous.Any(
             None, types.GitHubLogin
         ),
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
@@ -97,6 +106,28 @@ class MergeAction(actions.Action):
                     "Due to GitHub Action limitation, `strict_method: rebase` "
                     "is only available with the Mergify GitHub App",
                 )
+
+        if self.config["update_bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Merge with `update_bot_account` set are disabled",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        if self.config["merge_bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Merge with `merge_bot_account` set are disabled",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
 
         ctxt.log.info("process merge", config=self.config)
 
@@ -230,7 +261,7 @@ class MergeAction(actions.Action):
             return helpers.update_pull_base_branch(
                 ctxt,
                 self.config["strict_method"],
-                self.config["bot_account"],
+                self.config["update_bot_account"] or self.config["bot_account"],
             )
 
     @staticmethod
@@ -309,9 +340,23 @@ class MergeAction(actions.Action):
         data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method
 
+        bot_account = self.config["merge_bot_account"]
+        if bot_account:
+            oauth_token = ctxt.subscription.get_token_for(bot_account)
+            if not oauth_token:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to rebase: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+        else:
+            oauth_token = None
+
         try:
             ctxt.client.put(
-                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge", json=data
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
+                oauth_token=oauth_token,
+                json=data,
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
             ctxt.update()
