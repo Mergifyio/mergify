@@ -22,6 +22,7 @@ import typing
 from urllib import parse
 
 import cachetools
+import cachetools.keys
 import daiquiri
 import jinja2.exceptions
 import jinja2.runtime
@@ -116,7 +117,8 @@ class Context(object):
         return PullRequest(self)
 
     @cachetools.cachedmethod(
-        cache=operator.attrgetter("_write_permission_cache"),
+        # Ignore type until https://github.com/python/typeshed/issues/4652 is fixed
+        cache=operator.attrgetter("_write_permission_cache"),  # type: ignore
         key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
     )
     def has_write_permissions(self, login):
