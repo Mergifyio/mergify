@@ -215,6 +215,46 @@ class TestMergeAction(base.FunctionalTestBase):
             == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
         )
 
+    def test_merge_with_installation_token(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on master",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p.update()
+        self.assertEqual(True, p.merged)
+        self.assertEqual("mergify-test[bot]", p.merged_by.login)
+
+    def test_merge_with_oauth_token(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on master",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {"merge_bot_account": "mergify-test1"}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p.update()
+        self.assertEqual(True, p.merged)
+        self.assertEqual("mergify-test1", p.merged_by.login)
+
 
 class TestMergeNoSubAction(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = False

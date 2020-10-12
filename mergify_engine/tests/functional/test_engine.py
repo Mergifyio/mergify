@@ -562,7 +562,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                         "merge": {
                             "strict": True,
                             "strict_method": "rebase",
-                            "bot_account": "mergify-test-1",
+                            "bot_account": "mergify-test1",
                         }
                     },
                 }

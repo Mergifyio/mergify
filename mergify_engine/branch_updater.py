@@ -220,18 +220,17 @@ def update_with_api(ctxt):
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
 def update_with_git(ctxt, method="merge", user=None):
-    creds = dict(
-        (login.lower(), token) for login, token in ctxt.subscription.tokens.items()
-    )
     if user:
-        token = creds.get(user.lower())
+        token = ctxt.subscription.get_token_for(user)
         if token:
-            creds = {user: token}
+            creds = {user.lower(): token}
         else:
             raise BranchUpdateFailure(
                 f"Unable to rebase: user `{user}` is unknown. "
                 f"Please make sure `{user}` has logged in Mergify dashboard."
             )
+    else:
+        creds = ctxt.subscription.tokens
 
     for login, token in creds.items():
         try:

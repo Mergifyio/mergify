@@ -36,6 +36,7 @@ class Features(enum.Enum):
     PRIORITY_QUEUES = "priority_queues"
     CUSTOM_CHECKS = "custom_checks"
     RANDOM_REQUEST_REVIEWS = "random_request_reviews"
+    MERGE_BOT_ACCOUNT = "merge_bot_account"
 
 
 @dataclasses.dataclass
@@ -75,6 +76,13 @@ class Subscription:
             sub["tokens"],
             cls._to_features(sub.get("features", [])),
         )
+
+    def get_token_for(self, wanted_login: str) -> typing.Optional[str]:
+        wanted_login = wanted_login.lower()
+        for login, token in self.tokens.items():
+            if login.lower() == wanted_login:
+                return token
+        return None
 
     def to_dict(self):
         return {

@@ -76,12 +76,11 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 
 class GithubTokenAuth(httpx.Auth):
-    def __init__(self, owner, token):
+    def __init__(self, owner, token, owner_id=None):
         self._token = token
         self.owner = owner
+        self.owner_id = owner_id
         self.permissions_need_to_be_updated = False
-
-        self.owner_id = None
 
     @property
     def installation(self):
@@ -264,29 +263,38 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
-            setattr(self, method, self._inject_api_version(getattr(self, method)))
+            setattr(self, method, self._inject_options(getattr(self, method)))
 
     def __repr__(self):
         return f"<AsyncGithubInstallationClient owner='{self.auth.owner}'>"
 
-    def _inject_api_version(self, func):
+    def _inject_options(self, func):
         @functools.wraps(func)
-        async def wrapper(url, api_version=None, **kwargs):
+        async def wrapper(url, api_version=None, oauth_token=None, **kwargs):
             headers = kwargs.pop("headers", {})
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
-
+            if oauth_token:
+                kwargs["auth"] = GithubTokenAuth(
+                    self.auth.owner, oauth_token, self.auth.owner_id
+                )
             return await func(url, headers=headers, **kwargs)
 
         return wrapper
 
-    async def item(self, url, api_version=None, **params):
-        response = await self.get(url, api_version=api_version, params=params)
+    async def item(self, url, api_version=None, oauth_token=None, **params):
+        response = await self.get(
+            url, api_version=api_version, oauth_token=oauth_token, params=params
+        )
         return response.json()
 
-    async def items(self, url, api_version=None, list_items=None, **params):
+    async def items(
+        self, url, api_version=None, oauth_token=None, list_items=None, **params
+    ):
         while True:
-            response = await self.get(url, api_version=api_version, params=params)
+            response = await self.get(
+                url, api_version=api_version, oauth_token=oauth_token, params=params
+            )
             last_url = response.links.get("last", {}).get("url")
             if last_url:
                 last_page = int(
@@ -385,27 +393,36 @@ class GithubInstallationClient(http.Client):
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
-            setattr(self, method, self._inject_api_version(getattr(self, method)))
+            setattr(self, method, self._inject_options(getattr(self, method)))
 
     def __repr__(self):
         return f"<GithubInstallationClient owner='{self.auth.owner}'"
 
-    def _inject_api_version(self, func):
+    def _inject_options(self, func):
         @functools.wraps(func)
-        def wrapper(url, api_version=None, **kwargs):
+        def wrapper(url, api_version=None, oauth_token=None, **kwargs):
             headers = kwargs.pop("headers", {})
             if api_version:
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+            if oauth_token:
+                kwargs["auth"] = GithubTokenAuth(
+                    self.auth.owner, oauth_token, self.auth.owner_id
+                )
+
             return func(url, headers=headers, **kwargs)
 
         return wrapper
 
-    def item(self, url, api_version=None, **params):
-        return self.get(url, api_version=api_version, params=params).json()
+    def item(self, url, api_version=None, oauth_token=None, **params):
+        return self.get(
+            url, api_version=api_version, oauth_token=oauth_token, params=params
+        ).json()
 
-    def items(self, url, api_version=None, list_items=None, **params):
+    def items(self, url, api_version=None, oauth_token=None, list_items=None, **params):
         while True:
-            r = self.get(url, api_version=api_version, params=params)
+            r = self.get(
+                url, api_version=api_version, oauth_token=oauth_token, params=params
+            )
             last_url = r.links.get("last", {}).get("url")
             if last_url:
                 last_page = int(
