@@ -13,12 +13,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-
 import collections
 import json
 import uuid
 
+import aredis
 import daiquiri
 import fastapi
 from starlette import requests
@@ -46,20 +45,26 @@ app.mount("/validate", config_validator.app)
 app.mount("/badges", badges.app)
 
 
+_AREDIS_STREAM: aredis.StrictRedis = None
+_AREDIS_CACHE: aredis.StrictRedis = None
+
+
 @app.on_event("startup")
 async def startup():
-    app.aredis_stream = await utils.create_aredis_for_stream()
-    app.aredis_cache = await utils.get_aredis_for_cache()
+    global _AREDIS_STREAM, _AREDIS_CACHE
+    _AREDIS_STREAM = await utils.create_aredis_for_stream()
+    _AREDIS_CACHE = await utils.get_aredis_for_cache()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    app.aredis_cache.connection_pool.max_idle_time = 0
-    app.aredis_cache.connection_pool.disconnect()
-    app.aredis_stream.connection_pool.max_idle_time = 0
-    app.aredis_stream.connection_pool.disconnect()
-    app.aredis_cache = None
-    app.aredis_stream = None
+    global _AREDIS_STREAM, _AREDIS_CACHE
+    _AREDIS_CACHE.connection_pool.max_idle_time = 0
+    _AREDIS_CACHE.connection_pool.disconnect()
+    _AREDIS_STREAM.connection_pool.max_idle_time = 0
+    _AREDIS_STREAM.connection_pool.disconnect()
+    _AREDIS_CACHE = None
+    _AREDIS_STREAM = None
     await utils.stop_pending_aredis_tasks()
 
 
@@ -85,7 +90,7 @@ async def _refresh(owner, repo, action="user", **extra_data):
     data.update(extra_data)
 
     await github_events.job_filter_and_dispatch(
-        app.aredis_stream, event_type, str(uuid.uuid4()), data
+        _AREDIS_STREAM, event_type, str(uuid.uuid4()), data
     )
 
     return responses.Response("Refresh queued", status_code=202)
@@ -137,7 +142,7 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
-    await app.aredis_cache.delete("subscription-cache-owner-%s" % owner_id)
+    await _AREDIS_CACHE.delete("subscription-cache-owner-%s" % owner_id)
     return responses.Response("Cache cleaned", status_code=200)
 
 
@@ -149,7 +154,7 @@ async def cleanup_subscription(data):
     except exceptions.MergifyNotInstalled:
         return
 
-    await app.aredis_cache.delete("subscription-cache-%s" % installation["id"])
+    await _AREDIS_CACHE.delete("subscription-cache-%s" % installation["id"])
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
@@ -190,12 +195,12 @@ async def marketplace_handler(
 @app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(auth.signature)])
 async def queues(installation_id):
     queues = collections.defaultdict(dict)
-    async for queue in app.aredis_cache.scan_iter(
+    async for queue in _AREDIS_CACHE.scan_iter(
         match=f"strict-merge-queues~{installation_id}~*"
     ):
         _, _, owner, repo, branch = queue.split("~")
         queues[owner + "/" + repo][branch] = [
-            int(pull) async for pull, _ in app.aredis_cache.zscan_iter(queue)
+            int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
         ]
 
     return responses.JSONResponse(status_code=200, content=queues)
@@ -211,7 +216,7 @@ async def event_handler(
 
     try:
         await github_events.job_filter_and_dispatch(
-            app.aredis_stream, event_type, event_id, data
+            _AREDIS_STREAM, event_type, event_id, data
         )
     except github_events.IgnoredEvent as ie:
         status_code = 200
@@ -245,7 +250,7 @@ async def event_handler(
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.delete("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_delete():  # pragma: no cover
-    await app.aredis_cache.delete("events-testing")
+    await _AREDIS_CACHE.delete("events-testing")
     return responses.Response("Event queued", status_code=202)
 
 
@@ -254,7 +259,7 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
-    await app.aredis_cache.rpush(
+    await _AREDIS_CACHE.rpush(
         "events-testing",
         json.dumps({"id": event_id, "type": event_type, "payload": data}),
     )
@@ -263,7 +268,7 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
 
 @app.get("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_get(number: int = None):  # pragma: no cover
-    async with await app.aredis_cache.pipeline() as p:
+    async with await _AREDIS_CACHE.pipeline() as p:
         if number is None:
             await p.lrange("events-testing", 0, -1)
             await p.delete("events-testing")

@@ -20,6 +20,6 @@ from mergify_engine.web import app as application  # noqa
 
 
 if config.SENTRY_URL:
-    application = SentryAsgiMiddleware(application)
+    application = SentryAsgiMiddleware(application)  # type: ignore
 
 logs.setup_logging()

@@ -60,7 +60,8 @@ class DismissReviewsAction(actions.Action):
             # his access_token instead of the Mergify installation token.
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
-            with utils.get_redis_for_cache() as redis:
+            # FIXME ignore type: https://github.com/python/typeshed/pull/4655
+            with utils.get_redis_for_cache() as redis:  # type: ignore
                 if redis.get("branch-update-%s" % ctxt.pull["head"]["sha"]):
                     return check_api.Result(
                         check_api.Conclusion.SUCCESS,

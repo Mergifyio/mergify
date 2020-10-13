@@ -34,10 +34,10 @@ _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 
 
 global AREDIS_CONNECTION_CACHE
-AREDIS_CONNECTION_CACHE = None
+AREDIS_CONNECTION_CACHE: typing.Optional[aredis.StrictRedis] = None
 
 
-async def get_aredis_for_cache():
+async def get_aredis_for_cache() -> aredis.StrictRedis:
     global AREDIS_CONNECTION_CACHE
     if AREDIS_CONNECTION_CACHE is None:
         AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
@@ -48,10 +48,10 @@ async def get_aredis_for_cache():
 
 
 global REDIS_CONNECTION_CACHE
-REDIS_CONNECTION_CACHE = None
+REDIS_CONNECTION_CACHE: typing.Optional[redis.StrictRedis] = None
 
 
-def get_redis_for_cache():
+def get_redis_for_cache() -> redis.StrictRedis:
     global REDIS_CONNECTION_CACHE
     if REDIS_CONNECTION_CACHE is None:
         REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
@@ -62,7 +62,7 @@ def get_redis_for_cache():
     return REDIS_CONNECTION_CACHE
 
 
-async def create_aredis_for_stream():
+async def create_aredis_for_stream() -> aredis.StrictRedis:
     r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=60)
     await r.client_setname("stream:%s" % _PROCESS_IDENTIFIER)
     return r
