@@ -162,7 +162,7 @@ class CopyAction(actions.Action):
                 base=branch_name,
                 sort="created",
                 state="all",
-                head=f"{ctxt.pull['head']['user']['login']}:{bp_branch}",
+                head=f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
             )
         )
         if pulls:
