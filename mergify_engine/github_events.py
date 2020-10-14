@@ -22,6 +22,7 @@ from datadog import statsd
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import http
@@ -175,7 +176,14 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
             source_data,
         )
 
-        await commands_runner.on_each_event(owner, repo, event_type, data)
+        # NOTE(sileht): nothing important should happen in this hook as we don't retry it
+        try:
+            await commands_runner.on_each_event(owner, repo, event_type, data)
+        except Exception as e:
+            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                LOG.debug("commands_runner.on_each_event failed", exc_info=True)
+            else:
+                raise
 
     LOG.info(
         "GithubApp event %s",
