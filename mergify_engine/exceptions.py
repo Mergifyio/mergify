@@ -60,6 +60,12 @@ def should_be_ignored(exception):
         ):
             return True
 
+        # NOTE(sileht): branch is gone since we started to handle a PR
+        elif exception.status_code == 404 and "/branches/" in str(
+            exception.request.url
+        ):
+            return True
+
     return False
 
 
