@@ -16,8 +16,8 @@
 
 from unittest import mock
 
-from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine.engine import actions_runner
 
 
 def test_summary_synchronization_cache():
@@ -61,10 +61,10 @@ def test_summary_synchronization_cache():
         },
         {},
     )
-    assert ctxt.get_cached_last_summary_head_sha() is None
-    ctxt.set_summary_check(check_api.Result(check_api.Conclusion.SUCCESS, "foo", "bar"))
+    assert actions_runner.get_last_summary_head_sha(ctxt) is None
+    actions_runner.save_last_summary_head_sha(ctxt)
 
-    assert ctxt.get_cached_last_summary_head_sha() == "old-sha-one"
-    ctxt.clear_cached_last_summary_head_sha()
+    assert actions_runner.get_last_summary_head_sha(ctxt) == "old-sha-one"
+    actions_runner.delete_last_summary_head_sha(ctxt)
 
-    assert ctxt.get_cached_last_summary_head_sha() is None
+    assert actions_runner.get_last_summary_head_sha(ctxt) is None
