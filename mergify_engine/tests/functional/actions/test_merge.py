@@ -210,10 +210,9 @@ class TestMergeAction(base.FunctionalTestBase):
         check = checks[1]
         assert check["conclusion"] == "action_required"
         assert check["output"]["title"] == "Pull request must be merged manually."
-        assert check["output"]["summary"] == (
-            "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.\n"
-            "<br />\n"
-            "This pull request must be merged manually."
+        assert (
+            check["output"]["summary"]
+            == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
         )
 
     def test_merge_with_installation_token(self):
