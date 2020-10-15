@@ -479,7 +479,7 @@ the pull request. For example, Microsoft Azure allows that using
 the `/AzurePipelines command
 <https://docs.microsoft.com/en-us/azure/devops/pipelines/repos/github?view=azure-devops&tabs=yaml#comment-triggers>`_.
 You could automate this using Mergify, and for example trigger the job after
-other CI jobs have passed and at least one develoepr has reviewed the pull
+other CI jobs have passed and at least one developer has reviewed the pull
 request.
 
 .. code-block:: yaml
