@@ -68,6 +68,7 @@ class GithubActionAccessTokenAuth(httpx.Auth):
             "id": config.ACTION_ID,
         }
         # TODO(sileht): To be defined when we handle subscription for GitHub Action
+        self.owner = None
         self.owner_id = 0
 
     def auth_flow(self, request):
@@ -246,7 +247,10 @@ class GithubAppInstallationAuth(httpx.Auth):
             raise RuntimeError("get_access_token() call on an unused client")
 
 
-def get_auth(owner):
+_T_get_auth = typing.Union[GithubAppInstallationAuth, GithubActionAccessTokenAuth]
+
+
+def get_auth(owner: typing.Optional[str]) -> _T_get_auth:
     if config.GITHUB_APP:
         return GithubAppInstallationAuth(owner)
     else:
@@ -254,12 +258,14 @@ def get_auth(owner):
 
 
 class AsyncGithubInstallationClient(http.AsyncClient):
-    def __init__(self, auth):
-        self._requests = []
+    auth: _T_get_auth
+
+    def __init__(self, auth: _T_get_auth):
+        self._requests: typing.List[typing.Tuple[str, str]] = []
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
-            **http.DEFAULT_CLIENT_OPTIONS,
+            **http.DEFAULT_CLIENT_OPTIONS,  # type: ignore
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -377,19 +383,23 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-async def aget_client(owner=None, auth=None):
+async def aget_client(
+    owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
+) -> AsyncGithubInstallationClient:
     client = AsyncGithubInstallationClient(auth or get_auth(owner))
     await client.check_rate_limit()
     return client
 
 
 class GithubInstallationClient(http.Client):
-    def __init__(self, auth):
-        self._requests = []
+    auth: _T_get_auth
+
+    def __init__(self, auth: _T_get_auth):
+        self._requests: typing.List[typing.Tuple[str, str]] = []
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
-            **http.DEFAULT_CLIENT_OPTIONS,
+            **http.DEFAULT_CLIENT_OPTIONS,  # type: ignore
         )
 
         for method in ("get", "post", "put", "patch", "delete", "head"):
@@ -504,7 +514,9 @@ class GithubInstallationClient(http.Client):
             raise exceptions.RateLimited(delta.total_seconds(), rate)
 
 
-def get_client(owner=None, auth=None):
+def get_client(
+    owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
+) -> GithubInstallationClient:
     client = GithubInstallationClient(auth or get_auth(owner))
     client.check_rate_limit()
     return client
