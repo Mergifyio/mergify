@@ -39,6 +39,12 @@ class TestDebugger(base.FunctionalTestBase):
 
             s2 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
+        with mock.patch("sys.stdout") as stdout:
+            with futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(debug.report, p.base.user.html_url).result()
+
+            s3 = "".join(call.args[0] for call in stdout.write.mock_calls)
+
         assert s1.startswith(s2)
 
         assert (
@@ -53,8 +59,8 @@ class TestDebugger(base.FunctionalTestBase):
 * DASHBOARD SUB DETAIL: You're not nice
 * DASHBOARD SUB NUMBER OF TOKENS: 1 (mergify-test1)
 * DASHBOARD SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
-* REPOSITORY IS PUBLIC
 * WORKER: Installation not queued to process
+* REPOSITORY IS PUBLIC
 * CONFIGURATION:
 Config filename: .mergify.yml
 pull_request_rules:
@@ -138,4 +144,19 @@ mergeable_state: clean
 
 :rocket:&nbsp;&nbsp;You can help us by [becoming a sponsor](/sponsors/Mergifyio)!
 <hr />"""  # noqa:W291
+        )
+
+        assert (
+            s3.strip()
+            == """* INSTALLATION ID: 499592
+* SUBSCRIBED (cache/db): False / False
+* Features (cache):
+  - priority_queues
+* ENGINE-CACHE SUB DETAIL: You're not nice
+* ENGINE-CACHE SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* ENGINE-CACHE SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS
+* DASHBOARD SUB DETAIL: You're not nice
+* DASHBOARD SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* DASHBOARD SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS
+* WORKER: Installation not queued to process"""
         )
