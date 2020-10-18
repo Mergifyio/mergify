@@ -85,19 +85,31 @@ class TestMergeAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "Merge priority high",
-                    "conditions": [f"base={self.master_branch_name}", "label=high"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {
                         "merge": {"strict": "smart+ordered", "priority": "high"}
                     },
                 },
                 {
                     "name": "Merge priority default",
-                    "conditions": [f"base={self.master_branch_name}", "label=medium"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=medium",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
                 },
                 {
                     "name": "Merge priority low",
-                    "conditions": [f"base={self.master_branch_name}", "label=low"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=low",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered", "priority": 1}},
                 },
             ]
@@ -113,12 +125,15 @@ class TestMergeAction(base.FunctionalTestBase):
         p, _ = self.create_pr()
         p.merge()
         self.wait_for("pull_request", {"action": "closed"}),
+        self.run_engine()
 
         # Merge them in reverse priority to ensure there are reordered
         self.add_label(p_low, "low")
+        self.create_status(p_low)
         self.add_label(p_medium, "medium")
+        self.create_status(p_medium)
         self.add_label(p_high, "high")
-
+        self.create_status(p_high)
         self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -126,27 +141,41 @@ class TestMergeAction(base.FunctionalTestBase):
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
 
-        queue.Queue.process_queues()
+        # Each PR can rebased, because we insert them in reserve order, but they are still
+        # all in queue
         self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-
-        queue.Queue.process_queues()
         self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-
-        queue.Queue.process_queues()
         self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
 
-        p_low.update()
-        p_medium.update()
+        self.run_engine()
         p_high.update()
+        self.create_status(p_high)
+        self.run_engine()  # PR merged, refresh emitted on next PR
+        self.wait_for("pull_request", {"action": "closed"})
+        self.run_engine()  # exec the refresh
+
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
+        p_medium.update()
+        self.create_status(p_medium)
+        self.run_engine()  # PR merged, refresh emitted on next PR
+        self.wait_for("pull_request", {"action": "closed"})
+        self.run_engine()  # exec the refresh
+
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
+        p_low.update()
+        self.create_status(p_low)
+        self.run_engine()  # PR merged, refresh emitted on next PR
+        self.wait_for("pull_request", {"action": "closed"})
+
+        p_low = p_low.base.repo.get_pull(p_low.number)
+        p_medium = p_medium.base.repo.get_pull(p_medium.number)
+        p_high = p_high.base.repo.get_pull(p_high.number)
         self.assertEqual(True, p_low.merged)
-        self.assertEqual(True, p_high.merged)
         self.assertEqual(True, p_medium.merged)
+        self.assertEqual(True, p_high.merged)
+
         assert p_low.merged_at > p_medium.merged_at > p_high.merged_at
 
     def test_merge_rule_switch(self):
@@ -154,19 +183,31 @@ class TestMergeAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "Merge priority high",
-                    "conditions": [f"base={self.master_branch_name}", "label=high"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {
                         "merge": {"strict": "smart+ordered", "priority": "high"}
                     },
                 },
                 {
                     "name": "Merge priority medium",
-                    "conditions": [f"base={self.master_branch_name}", "label=medium"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=medium",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
                 },
                 {
                     "name": "Merge priority low",
-                    "conditions": [f"base={self.master_branch_name}", "label=low"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=low",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered", "priority": 1}},
                 },
             ]
@@ -185,6 +226,8 @@ class TestMergeAction(base.FunctionalTestBase):
         # Merge them in reverse priority to ensure there are reordered
         self.add_label(p1, "medium")
         self.add_label(p2, "low")
+        self.create_status(p1)
+        self.create_status(p2)
         self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -276,19 +319,31 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "Merge priority high",
-                    "conditions": [f"base={self.master_branch_name}", "label=high"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {
                         "merge": {"strict": "smart+ordered", "priority": "high"}
                     },
                 },
                 {
                     "name": "Merge priority default",
-                    "conditions": [f"base={self.master_branch_name}", "label=medium"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=medium",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
                 },
                 {
                     "name": "Merge priority low",
-                    "conditions": [f"base={self.master_branch_name}", "label=low"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=low",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered", "priority": 1}},
                 },
             ]
@@ -304,13 +359,15 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         p, _ = self.create_pr()
         p.merge()
         self.wait_for("pull_request", {"action": "closed"}),
+        self.run_engine()
 
         # Merge them in reverse priority to ensure there are reordered
         self.add_label(p_low, "low")
-        self.run_engine()
+        self.create_status(p_low)
         self.add_label(p_medium, "medium")
-        self.run_engine()
+        self.create_status(p_medium)
         self.add_label(p_high, "high")
+        self.create_status(p_high)
         self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -318,18 +375,20 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]
 
-        queue.Queue.process_queues()
+        p_low.update()
+        self.create_status(p_low)
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "synchronize"})
         self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        p_medium.update()
+        self.create_status(p_medium)
+        self.run_engine()
 
-        queue.Queue.process_queues()
         self.wait_for("pull_request", {"action": "synchronize"})
         self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-
-        queue.Queue.process_queues()
-        self.wait_for("pull_request", {"action": "synchronize"})
+        p_high.update()
+        self.create_status(p_high)
         self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -337,6 +396,6 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         p_medium.update()
         p_high.update()
         self.assertEqual(True, p_low.merged)
-        self.assertEqual(True, p_high.merged)
         self.assertEqual(True, p_medium.merged)
+        self.assertEqual(True, p_high.merged)
         assert p_high.merged_at > p_medium.merged_at > p_low.merged_at

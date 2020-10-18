@@ -36,7 +36,6 @@ from mergify_engine import github_events
 from mergify_engine import logs
 from mergify_engine import subscription
 from mergify_engine import utils
-from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 
@@ -540,7 +539,7 @@ class Worker:
     idle_sleep_time: float = 0.42
     worker_count: int = config.STREAM_WORKERS
     enabled_services: List[str] = dataclasses.field(
-        default_factory=lambda: ["stream", "stream-monitoring", "smart-queue"]
+        default_factory=lambda: ["stream", "stream-monitoring"]
     )
 
     _redis: Any = dataclasses.field(init=False, default=None)
@@ -550,7 +549,6 @@ class Worker:
     _tombstone: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
 
     _worker_tasks: List = dataclasses.field(init=False, default_factory=list)
-    _smart_queue_task: Any = dataclasses.field(init=False, default=None)
     _stream_monitoring_task: Any = dataclasses.field(init=False, default=None)
 
     async def stream_worker_task(self, worker_id):
@@ -591,15 +589,6 @@ class Worker:
         except asyncio.TimeoutError:
             pass
 
-    async def smart_queue_processing_task(self):
-        LOG.debug("smart queue processing started")
-        thread = ThreadRunner()
-        while not self._stopping.is_set():
-            await thread.exec(queue.Queue.process_queues)
-            await self._sleep_or_stop(timeout=60)
-        thread.close()
-        LOG.debug("smart queue processing exited")
-
     async def monitoring_task(self):
         while not self._stopping.is_set():
             try:
@@ -639,11 +628,6 @@ class Worker:
         if "stream-monitoring" in self.enabled_services:
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
 
-        if "smart-queue" in self.enabled_services:
-            self._smart_queue_task = asyncio.create_task(
-                self.smart_queue_processing_task()
-            )
-
         LOG.debug("%d workers spawned", self.worker_count)
 
     async def _shutdown(self):
@@ -651,9 +635,6 @@ class Worker:
         self._stopping.set()
 
         await self._start_task
-
-        if self._smart_queue_task:
-            await self._smart_queue_task
 
         if self._stream_monitoring_task:
             await self._stream_monitoring_task

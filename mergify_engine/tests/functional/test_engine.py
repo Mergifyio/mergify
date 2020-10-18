@@ -25,16 +25,11 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
-from mergify_engine.actions.merge import queue
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
 
 LOG = logging.getLogger(__name__)
-
-
-def run_smart_strict_workflow_periodic_task():
-    queue.Queue.process_queues()
 
 
 class TestEngineV2Scenario(base.FunctionalTestBase):
@@ -507,8 +502,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.add_label(p2, "squash")
         self.run_engine()
-
-        run_smart_strict_workflow_periodic_task()
         self.wait_for("pull_request", {"action": "synchronize"})
 
         self.run_engine()
@@ -749,49 +742,22 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
-
         self.run_engine()
-
-        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
-        for check in ctxt.pull_check_runs:
-            if check["name"] == "Rule: strict merge on master (merge)":
-                assert (
-                    "The pull request base branch will be updated soon and then merged.\n\n"
-                    "The following pull requests are queued:\n"
-                    f"* #{p2.number} (priority: medium)"
-                ) == check["output"]["summary"]
-                break
-        else:
-            assert False, "Merge check not found"
-
-        r = self.app.get(
-            "/queues/%s" % (config.INSTALLATION_ID),
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-        assert r.json() == {
-            "mergifyio-testing/%s"
-            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
-        }
-
-        run_smart_strict_workflow_periodic_task()
-
-        r = self.app.get(
-            "/queues/%s" % (config.INSTALLATION_ID),
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-        assert r.json() == {
-            "mergifyio-testing/%s"
-            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
-        }
 
         self.wait_for("pull_request", {"action": "synchronize"})
         self.run_engine()
+
+        r = self.app.get(
+            "/queues/%s" % (config.INSTALLATION_ID),
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.json() == {
+            "mergifyio-testing/%s"
+            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
+        }
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -857,9 +823,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
-
         self.run_engine()
-        run_smart_strict_workflow_periodic_task()
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
@@ -878,13 +842,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # FIXME(sileht): Previous actions tracker was posting a "Rule XXXX (merge)" with
         # neutral status saying the Merge doesn't match anymore, the new one doesn't
-        # It's not a big deal as the the rule doesn't match anymore anyways.:w
+        # It's not a big deal as the rule doesn't match anymore anyway.
         self.wait_for("check_run", {"check_run": {"conclusion": "cancelled"}})
 
         # Should got to the next PR
         self.run_engine()
-        run_smart_strict_workflow_periodic_task()
-
         self.wait_for("pull_request", {"action": "synchronize"})
 
         p3 = self.r_o_admin.get_pull(p3.number)

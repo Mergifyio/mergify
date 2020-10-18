@@ -12,19 +12,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import asyncio
+import contextlib
 import dataclasses
 import json
 
 import daiquiri
 import redis
 
-from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import exceptions
-from mergify_engine import subscription
+from mergify_engine import github_events
 from mergify_engine import utils
-from mergify_engine.actions.merge import helpers
-from mergify_engine.clients import github
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -74,17 +70,12 @@ class Queue:
     def get_config(self, pull_number: int) -> dict:
         """Return merge config for a pull request.
 
+        Do not use it for logic, just for displaying the queue summary.
+
         :param pull_number: The pull request number.
         """
         config = self.redis.get(self._config_redis_queue_key(pull_number))
         if config is None:
-            # FIXME(sileht): We should never ever pass here in theory, but
-            # Currently we can have race condition like:
-            # * smart queue coro: get next PR
-            # * engine coro: get merge event
-            # * engine coro: cleanup queue with 3 redis cmds without transaction
-            # * smart queue coro: get merge config (get_config()), and got None.
-            # That's not a huge deal
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
             return {
@@ -111,27 +102,29 @@ class Queue:
             flags = dict(xx=True)
         else:
             flags = dict(nx=True)
-        self.redis.zadd(self._redis_queue_key, {pull_number: score}, **flags)
+        with self.pull_request_auto_refresher(pull_number):
+            return self.redis.zadd(self._redis_queue_key, {pull_number: score}, **flags)
 
     def add_pull(self, ctxt, config):
-        config = config.copy()
-        config["effective_priority"] = config["priority"]
-
-        if not ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
-            config["effective_priority"] = helpers.PriorityAliases.medium.value
-
         self._remove_pull_from_other_queues(ctxt)
 
         self.redis.set(
             self._config_redis_queue_key(ctxt.pull["number"]),
             json.dumps(config),
         )
-        self._add_pull(ctxt.pull["number"], config["effective_priority"])
-        self.log.info(
-            "pull request added to merge queue",
-            gh_pull=ctxt.pull["number"],
-            config=config,
-        )
+        added = self._add_pull(ctxt.pull["number"], config["effective_priority"])
+        if added:
+            self.log.info(
+                "pull request added to merge queue",
+                gh_pull=ctxt.pull["number"],
+                config=config,
+            )
+        else:
+            self.log.info(
+                "pull request already in merge queue",
+                gh_pull=ctxt.pull["number"],
+                config=config,
+            )
 
     def _remove_pull_from_other_queues(self, ctxt):
         # TODO(sileht): Find if there is an event when the base branch change to do this
@@ -149,15 +142,16 @@ class Queue:
 
     def _remove_pull(self, pull_number):
         """Remove the pull request from the queue, leaving the config."""
-        self.redis.zrem(self._redis_queue_key, pull_number)
+        with self.pull_request_auto_refresher(pull_number):
+            self.redis.zrem(self._redis_queue_key, pull_number)
 
     def remove_pull(self, pull_number):
         self._remove_pull(pull_number)
         self.redis.delete(self._config_redis_queue_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
-    def _move_pull_at_end(self, pull_number):  # pragma: no cover
-        priority = self.get_config(pull_number)["effective_priority"]
+    def move_pull_at_end(self, pull_number, config):  # pragma: no cover
+        priority = config["effective_priority"]
         self._add_pull(pull_number, priority=priority, update=True)
         self.log.info(
             "pull request moved at the end of the merge queue", gh_pull=pull_number
@@ -189,114 +183,42 @@ class Queue:
     def delete(self):
         self.redis.delete(self._redis_queue_key)
 
-    def handle_first_pull_in_queue(self, ctxt):
-        old_checks = [
-            c for c in ctxt.pull_engine_check_runs if c["name"].endswith(" (merge)")
-        ]
+    @contextlib.contextmanager
+    def pull_request_auto_refresher(self, pull_number):
+        # NOTE(sileht): If the first queued pull request changes, we refresh it to sync
+        # its base branch
 
-        result = helpers.merge_report(ctxt, True)
-        if result:
-            ctxt.log.info(
-                "pull request closed in the meantime",
-                result=result,
-            )
-            self.remove_pull(ctxt.pull["number"])
-        else:
-            ctxt.log.info("updating base branch of pull request")
-            config = self.get_config(ctxt.pull["number"])
-            result = helpers.update_pull_base_branch(
-                ctxt,
-                config["strict_method"],
-                config["update_bot_account"] or config["bot_account"],
-            )
+        old_pull_requests = self.get_pulls()
+        try:
+            yield
+        finally:
+            if not old_pull_requests:
+                return
+            new_pull_requests = self.get_pulls()
+            if not new_pull_requests:
+                return
 
-            if ctxt.pull["state"] == "closed":
-                ctxt.log.info(
-                    "pull request closed in the meantime",
-                    result=result,
+            if (
+                new_pull_requests[0] != old_pull_requests[0]
+                and new_pull_requests[0] != pull_number
+            ):
+                self.log.info(
+                    "refreshing next pull in queue",
+                    next_pull=new_pull_requests[0],
+                    _from=old_pull_requests,
+                    to=new_pull_requests,
                 )
-                self.remove_pull(ctxt.pull["number"])
-            elif result.conclusion == check_api.Conclusion.FAILURE:
-                ctxt.log.info(
-                    "base branch update failed",
-                    result=result,
-                )
-                self._move_pull_at_end(ctxt.pull["number"])
-
-        for c in old_checks:
-            check_api.set_check_run(ctxt, c["name"], result)
-
-    @classmethod
-    def process_queues(cls):
-        with utils.get_redis_for_cache() as redis:
-            LOG.info("smart strict workflow loop start")
-            for queue_name in redis.keys("strict-merge-queues~*"):
-                queue = cls.from_queue_name(redis, queue_name)
-                try:
-                    queue.process()
-                except exceptions.MergifyNotInstalled:
-                    queue.delete()
-                except Exception:
-                    queue.log.error("Fail to process merge queue", exc_info=True)
-            LOG.info("smart strict workflow loop end")
-
-    def process(self):
-        pull_numbers = self.get_pulls()
-
-        self.log.info("%d pulls queued", len(pull_numbers), queue=list(pull_numbers))
-
-        if not pull_numbers:
-            return
-
-        pull_number = pull_numbers[0]
-
-        with github.get_client(self.owner) as client:
-            ctxt = None
-            try:
-                sub = asyncio.run(
-                    subscription.Subscription.get_subscription(client.auth.owner_id)
-                )
-                data = client.item(
-                    f"/repos/{self.owner}/{self.repo}/pulls/{pull_number}"
-                )
-
-                ctxt = context.Context(client, data, sub)
-                if ctxt.pull["base"]["ref"] != self.ref:
-                    ctxt.log.info(
-                        "pull request base branch have changed, "
-                        "waiting for events subsystem to move it",
-                        old_branch=self.ref,
-                        new_branch=ctxt.pull["base"]["ref"],
+                asyncio.run(
+                    github_events.send_refresh(
+                        {
+                            "number": new_pull_requests[0],
+                            "base": {
+                                "repo": {
+                                    "name": self.repo,
+                                    "owner": {"login": self.owner},
+                                    "full_name": f"{self.owner}/{self.repo}",
+                                }
+                            },
+                        }
                     )
-                elif ctxt.pull["state"] == "closed" or ctxt.is_behind:
-                    # NOTE(sileht): Pick up this pull request and rebase it again
-                    # or update its status and remove it from the queue
-                    ctxt.log.info(
-                        "pull request needs to be updated again or has been closed",
-                    )
-                    self.handle_first_pull_in_queue(ctxt)
-                else:
-                    # NOTE(sileht): Pull request has not been merged or cancelled
-                    # yet wait next loop
-                    ctxt.log.info("pull request checks are still in progress")
-
-            except Exception as exc:  # pragma: no cover
-                log = self.log if ctxt is None else ctxt.log
-
-                if exceptions.should_be_ignored(exc):
-                    log.info(
-                        "Fail to process merge queue, remove the pull request from the queue",
-                        exc_info=True,
-                    )
-                    self.remove_pull(ctxt.pull["number"])
-
-                elif exceptions.need_retry(exc):
-                    log.info("Fail to process merge queue, need retry", exc_info=True)
-                    if isinstance(exc, exceptions.MergeableStateUnknown):
-                        # NOTE(sileht): We need GitHub to recompute the state here (by
-                        # merging something else for example), so move it to the end
-                        self._move_pull_at_end(pull_number)
-
-                else:
-                    log.error("Fail to process merge queue", exc_info=True)
-                    self._move_pull_at_end(pull_number)
+                )

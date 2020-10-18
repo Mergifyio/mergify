@@ -18,8 +18,11 @@ import typing
 
 from mergify_engine import branch_updater
 from mergify_engine import check_api
+from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.actions.merge import queue
+from mergify_engine.rules import filter
 
 
 class PriorityAliases(enum.Enum):
@@ -129,7 +132,10 @@ def get_queue_summary(ctxt):
 
 
 def get_strict_status(
-    ctxt, rule=None, missing_conditions=None, need_update=False
+    ctxt: context.Context,
+    rule: rules.Rule,
+    missing_conditions: typing.List[filter.Filter],
+    need_update: bool = False,
 ) -> check_api.Result:
     if need_update:
         title = "Base branch will be updated soon"
@@ -149,7 +155,15 @@ def get_strict_status(
     return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
 
-def update_pull_base_branch(ctxt, method, user) -> check_api.Result:
+def update_pull_base_branch(
+    ctxt: context.Context,
+    rule: rules.Rule,
+    missing_conditions: typing.List[filter.Filter],
+    queue: queue.Queue,
+    config: typing.Dict,
+) -> check_api.Result:
+    method = config["strict_method"]
+    user = config["update_bot_account"] or config["bot_account"]
     try:
         if method == "merge":
             branch_updater.update_with_api(ctxt)
@@ -163,8 +177,9 @@ def update_pull_base_branch(ctxt, method, user) -> check_api.Result:
         if output:
             return output
         else:
+            queue.move_pull_at_end(ctxt.pull["number"], config)
             return check_api.Result(
                 check_api.Conclusion.FAILURE, "Base branch update has failed", e.message
             )
     else:
-        return get_strict_status(ctxt, need_update=False)
+        return get_strict_status(ctxt, rule, missing_conditions, need_update=False)
