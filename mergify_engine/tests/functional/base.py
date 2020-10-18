@@ -165,6 +165,14 @@ class EventReader:
         self._redis.flushall()
 
     def wait_for(self, event_type, expected_payload, timeout=60 if RECORD else 2):
+        LOG.log(
+            42,
+            "WAITING FOR %s/%s: %s",
+            event_type,
+            expected_payload.get("action"),
+            expected_payload,
+        )
+
         started_at = time.monotonic()
         while time.monotonic() - started_at < timeout:
             try:
@@ -240,9 +248,9 @@ class EventReader:
             extra = "/%s" % payload.get("state")
         else:
             extra = ""
-        LOG.warning(
-            "### EVENT RECEIVED ### [%s] %s/%s%s: %s",
-            event["id"],
+        LOG.log(
+            42,
+            "EVENT RECEIVED %s/%s%s: %s",
             event["type"],
             payload.get("action"),
             extra,
