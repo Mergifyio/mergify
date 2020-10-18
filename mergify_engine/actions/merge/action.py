@@ -16,6 +16,7 @@
 # under the License.
 import itertools
 import re
+import typing
 
 import daiquiri
 import voluptuous
@@ -24,10 +25,12 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.actions.merge import helpers
 from mergify_engine.actions.merge import queue
 from mergify_engine.clients import http
+from mergify_engine.rules import filter
 from mergify_engine.rules import types
 
 
@@ -129,6 +132,8 @@ class MergeAction(actions.Action):
                 ),
             )
 
+        self._set_effective_priority(ctxt)
+
         ctxt.log.info("process merge", config=self.config)
 
         q = queue.Queue.from_context(ctxt)
@@ -141,9 +146,9 @@ class MergeAction(actions.Action):
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             q.add_pull(ctxt, self.config)
 
-        if self._should_be_merged(ctxt):
+        if self._should_be_merged(ctxt, q):
             try:
-                result = self._merge(ctxt)
+                result = self._merge(ctxt, rule, missing_conditions, q)
                 if result.conclusion is not check_api.Conclusion.PENDING:
                     q.remove_pull(ctxt.pull["number"])
                 return result
@@ -151,10 +156,9 @@ class MergeAction(actions.Action):
                 q.remove_pull(ctxt.pull["number"])
                 raise
         else:
-            return self._sync_with_base_branch(ctxt)
+            return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
 
-    def _should_be_merged(self, ctxt):
-        q = queue.Queue.from_context(ctxt)
+    def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self.config["strict"] == "smart+ordered":
                 return not ctxt.is_behind and q.is_first_pull(ctxt)
@@ -168,6 +172,8 @@ class MergeAction(actions.Action):
             return True
 
     def cancel(self, ctxt, rule, missing_conditions) -> check_api.Result:
+        self._set_effective_priority(ctxt)
+
         q = queue.Queue.from_context(ctxt)
         if ctxt.pull["state"] == "closed":
             output = helpers.merge_report(ctxt, self.config["strict"])
@@ -181,13 +187,24 @@ class MergeAction(actions.Action):
         if self.config["strict"] and self._required_statuses_in_progress(
             ctxt, missing_conditions
         ):
-            return helpers.get_strict_status(
-                ctxt, rule, missing_conditions, need_update=ctxt.is_behind
-            )
+            if self._should_be_merged(ctxt, q):
+                # Just wait for CIs to finish
+                return helpers.get_strict_status(
+                    ctxt, rule, missing_conditions, need_update=ctxt.is_behind
+                )
+            else:
+                # Something got merged in the base branch in the meantime: rebase it again
+                return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
 
         q.remove_pull(ctxt.pull["number"])
 
         return self.cancelled_check_report
+
+    def _set_effective_priority(self, ctxt):
+        if ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
+            self.config["effective_priority"] = self.config["priority"]
+        else:
+            self.config["effective_priority"] = helpers.PriorityAliases.medium.value
 
     @staticmethod
     def _required_statuses_in_progress(ctxt, missing_conditions):
@@ -226,7 +243,7 @@ class MergeAction(actions.Action):
 
         return False
 
-    def _sync_with_base_branch(self, ctxt):
+    def _sync_with_base_branch(self, ctxt, rule, missing_conditions, q):
         # If PR from a public fork but cannot be edited
         if (
             ctxt.pull_from_fork
@@ -256,12 +273,17 @@ class MergeAction(actions.Action):
                 "You cannot use strict mode with a pull request from a private fork.",
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            return helpers.get_strict_status(ctxt, need_update=ctxt.is_behind)
+            if q.is_first_pull(ctxt):
+                return helpers.update_pull_base_branch(
+                    ctxt, rule, missing_conditions, q, self.config
+                )
+            else:
+                return helpers.get_strict_status(
+                    ctxt, rule, missing_conditions, need_update=ctxt.is_behind
+                )
         else:
             return helpers.update_pull_base_branch(
-                ctxt,
-                self.config["strict_method"],
-                self.config["update_bot_account"] or self.config["bot_account"],
+                ctxt, rule, missing_conditions, q, self.config
             )
 
     @staticmethod
@@ -304,7 +326,13 @@ class MergeAction(actions.Action):
                 ),
             )
 
-    def _merge(self, ctxt) -> check_api.Result:
+    def _merge(
+        self,
+        ctxt: context.Context,
+        rule: rules.Rule,
+        missing_conditions: typing.List[filter.Filter],
+        q: queue.Queue,
+    ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
         elif self.config["rebase_fallback"]:
@@ -355,7 +383,7 @@ class MergeAction(actions.Action):
         try:
             ctxt.client.put(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
-                oauth_token=oauth_token,
+                oauth_token=oauth_token,  # type: ignore
                 json=data,
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
@@ -363,7 +391,7 @@ class MergeAction(actions.Action):
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")
             else:
-                return self._handle_merge_error(e, ctxt)
+                return self._handle_merge_error(e, ctxt, rule, missing_conditions, q)
         else:
             ctxt.update()
             ctxt.log.info("merged")
@@ -378,7 +406,14 @@ class MergeAction(actions.Action):
                 "The pull request have been merged, but GitHub API still report it open",
             )
 
-    def _handle_merge_error(self, e, ctxt) -> check_api.Result:
+    def _handle_merge_error(
+        self,
+        e: http.HTTPClientSideError,
+        ctxt: context.Context,
+        rule: rules.Rule,
+        missing_conditions: typing.List[filter.Filter],
+        q: queue.Queue,
+    ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
                 "Head branch was modified in the meantime",
@@ -399,7 +434,7 @@ class MergeAction(actions.Action):
                 status=e.status_code,
                 error_message=e.message,
             )
-            return self._sync_with_base_branch(ctxt)
+            return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):

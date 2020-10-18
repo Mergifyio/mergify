@@ -16,6 +16,8 @@
 
 import contextlib
 import dataclasses
+import typing
+import uuid
 
 import daiquiri
 from datadog import statsd
@@ -251,3 +253,18 @@ async def extract_pull_numbers_from_event(client, repo, event_type, data):
                 pulls = await _get_github_pulls_from_sha(client, repo, sha)
             return pulls
     return []
+
+
+# TODO(sileht): use Enum for action
+async def send_refresh(pull: typing.Dict, action: str = "user"):
+    data = {
+        "action": action,
+        "repository": pull["base"]["repo"],
+        "pull_request": pull,
+        "sender": {"login": "<internal>"},
+    }
+    redis = await utils.create_aredis_for_stream()
+    try:
+        await job_filter_and_dispatch(redis, "refresh", str(uuid.uuid4()), data)
+    finally:
+        redis.connection_pool.disconnect()

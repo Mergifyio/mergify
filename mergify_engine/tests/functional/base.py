@@ -176,10 +176,9 @@ class EventReader:
         while time.monotonic() - started_at < timeout:
             try:
                 event = self._handled_events.get(block=False)
+                self._forward_to_engine_api(event)
             except queue.Empty:
-                events = self._get_events()
-                for event in events:
-                    self._forward_to_engine_api(event)
+                for event in self._get_events():
                     self._handled_events.put(event)
                 else:
                     if RECORD:
@@ -512,14 +511,21 @@ class FunctionalTestBase(unittest.TestCase):
             self.r_o_admin.edit(default_branch="master")
 
             branches = list(self.r_o_admin.get_git_matching_refs("heads/20"))
+            branches.extend(self.r_o_admin.get_git_matching_refs("heads/mergify"))
             try:
                 branches.extend(self.r_fork.get_git_matching_refs("heads/20"))
+                branches.extend(self.r_fork.get_git_matching_refs("heads/mergify"))
             except pygithub.GithubException as e:
                 if e.data["message"] != "Git Repository is empty.":
                     raise
             for branch in branches:
                 if "branch_protection" in branch.ref:
-                    self.branch_protection_unprotect(branch.ref)
+                    try:
+                        self.branch_protection_unprotect(branch.ref)
+                    except pygithub.GithubException as e:
+                        if e.status != 404:
+                            raise
+
                 branch.delete()
 
             for label in self.r_o_admin.get_labels():

@@ -13,12 +13,10 @@
 # under the License.
 import asyncio
 import typing
-import uuid
 
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import github_events
-from mergify_engine import utils
 
 
 class RefreshAction(actions.Action):
@@ -27,23 +25,7 @@ class RefreshAction(actions.Action):
     validator: typing.ClassVar[dict] = {}
 
     def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
-        data = {
-            "action": "user",
-            "repository": ctxt.pull["base"]["repo"],
-            "pull_request": ctxt.pull,
-            "sender": {"login": "<internal>"},
-        }
-        asyncio.run(self.send_refresh(data))
+        asyncio.run(github_events.send_refresh(ctxt.pull))
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
         )
-
-    @staticmethod
-    async def send_refresh(data):
-        redis = await utils.create_aredis_for_stream()
-        try:
-            await github_events.job_filter_and_dispatch(
-                redis, "refresh", str(uuid.uuid4()), data
-            )
-        finally:
-            redis.connection_pool.disconnect()
