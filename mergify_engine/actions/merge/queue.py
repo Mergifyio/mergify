@@ -60,10 +60,15 @@ class Queue:
         )
 
     @property
-    def _cache_key(self):
-        return f"strict-merge-queues~{self.installation_id}~{self.owner}~{self.repo}~{self.ref}"
+    def _redis_queue_key(self):
+        return self._get_redis_queue_key_for(self.ref)
 
-    def _config_cache_key(self, pull_number):
+    def _get_redis_queue_key_for(self, ref):
+        return (
+            f"strict-merge-queues~{self.installation_id}~{self.owner}~{self.repo}~{ref}"
+        )
+
+    def _config_redis_queue_key(self, pull_number):
         return f"strict-merge-config~{self.installation_id}~{self.owner}~{self.repo}~{pull_number}"
 
     def get_config(self, pull_number: int) -> dict:
@@ -71,7 +76,7 @@ class Queue:
 
         :param pull_number: The pull request number.
         """
-        config = self.redis.get(self._config_cache_key(pull_number))
+        config = self.redis.get(self._config_redis_queue_key(pull_number))
         if config is None:
             # FIXME(sileht): We should never ever pass here in theory, but
             # Currently we can have race condition like:
@@ -106,7 +111,7 @@ class Queue:
             flags = dict(xx=True)
         else:
             flags = dict(nx=True)
-        self.redis.zadd(self._cache_key, {pull_number: score}, **flags)
+        self.redis.zadd(self._redis_queue_key, {pull_number: score}, **flags)
 
     def add_pull(self, ctxt, config):
         config = config.copy()
@@ -115,8 +120,10 @@ class Queue:
         if not ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
             config["effective_priority"] = helpers.PriorityAliases.medium.value
 
+        self._remove_pull_from_other_queues(ctxt)
+
         self.redis.set(
-            self._config_cache_key(ctxt.pull["number"]),
+            self._config_redis_queue_key(ctxt.pull["number"]),
             json.dumps(config),
         )
         self._add_pull(ctxt.pull["number"], config["effective_priority"])
@@ -126,13 +133,27 @@ class Queue:
             config=config,
         )
 
+    def _remove_pull_from_other_queues(self, ctxt):
+        # TODO(sileht): Find if there is an event when the base branch change to do this
+        # only is this case.
+        for queue_name in self.redis.keys(self._get_redis_queue_key_for("*")):
+            if queue_name != self._redis_queue_key:
+                oldqueue = Queue.from_queue_name(self.redis, queue_name)
+                if ctxt.pull["number"] in oldqueue.get_pulls():
+                    ctxt.log.info(
+                        "pull request base branch have changed, cleaning old queue",
+                        old_branch=oldqueue.ref,
+                        new_branch=ctxt.pull["base"]["ref"],
+                    )
+                    oldqueue._remove_pull(ctxt.pull["number"])
+
     def _remove_pull(self, pull_number):
         """Remove the pull request from the queue, leaving the config."""
-        self.redis.zrem(self._cache_key, pull_number)
+        self.redis.zrem(self._redis_queue_key, pull_number)
 
     def remove_pull(self, pull_number):
         self._remove_pull(pull_number)
-        self.redis.delete(self._config_cache_key(pull_number))
+        self.redis.delete(self._config_redis_queue_key(pull_number))
         self.log.info("pull request removed from merge queue", gh_pull=pull_number)
 
     def _move_pull_at_end(self, pull_number):  # pragma: no cover
@@ -152,16 +173,6 @@ class Queue:
             ref,
         )
 
-    def move_pull_to_new_base_branch(self, pull_number, new_queue):
-        self._remove_pull(pull_number)
-        priority = self.get_config(pull_number)["effective_priority"]
-        new_queue._add_pull(pull_number, priority)
-        self.log.info(
-            "pull request moved from this queue to %s",
-            new_queue,
-            gh_pull=pull_number,
-        )
-
     def is_first_pull(self, ctxt):
         pull_requests = self.get_pulls()
         if not pull_requests:
@@ -172,11 +183,11 @@ class Queue:
     def get_pulls(self):
         return [
             int(pull)
-            for pull in self.redis.zrangebyscore(self._cache_key, "-inf", "+inf")
+            for pull in self.redis.zrangebyscore(self._redis_queue_key, "-inf", "+inf")
         ]
 
     def delete(self):
-        self.redis.delete(self._cache_key)
+        self.redis.delete(self._redis_queue_key)
 
     def handle_first_pull_in_queue(self, ctxt):
         old_checks = [
@@ -252,13 +263,10 @@ class Queue:
                 ctxt = context.Context(client, data, sub)
                 if ctxt.pull["base"]["ref"] != self.ref:
                     ctxt.log.info(
-                        "pull request base branch have changed",
+                        "pull request base branch have changed, "
+                        "waiting for events subsystem to move it",
                         old_branch=self.ref,
                         new_branch=ctxt.pull["base"]["ref"],
-                    )
-                    self.move_pull_to_new_base_branch(
-                        ctxt.pull["number"],
-                        self.get_queue(ctxt.pull["base"]["ref"]),
                     )
                 elif ctxt.pull["state"] == "closed" or ctxt.is_behind:
                     # NOTE(sileht): Pick up this pull request and rebase it again
