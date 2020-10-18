@@ -13,15 +13,35 @@
 # under the License.
 
 
+import logging
 import re
 import sys
 
 import daiquiri
+import daiquiri.formatter
 
 from mergify_engine import config
 
 
 LOG = daiquiri.getLogger(__name__)
+
+logging.addLevelName(42, "TEST")
+LEVEL_COLORS = daiquiri.formatter.ColorFormatter.LEVEL_COLORS.copy()
+LEVEL_COLORS[42] = "\033[01;35m"
+
+
+class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):
+    LEVEL_COLORS = LEVEL_COLORS
+
+    def format(self, record):
+        if hasattr(record, "_daiquiri_extra_keys"):
+            record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)
+        return super().format(record)
+
+
+CUSTOM_FORMATTER = CustomFormatter(
+    fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: %(message)s%(extras)s%(color_stop)s"
+)
 
 
 def config_log():
@@ -56,8 +76,7 @@ def setup_logging():
     if config.LOG_STDOUT:
         outputs.append(
             daiquiri.output.Stream(
-                sys.stdout,
-                level=config.LOG_STDOUT_LEVEL,
+                sys.stdout, level=config.LOG_STDOUT_LEVEL, formatter=CUSTOM_FORMATTER
             )
         )
 
