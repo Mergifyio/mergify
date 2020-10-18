@@ -39,6 +39,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "closed"})
 
         self.create_message(p2, "@mergifyio update")
+        self.run_engine()
 
         oldsha = p2.head.sha
         p2.update()
@@ -62,6 +63,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "closed"})
 
         self.create_message(p2, "@mergifyio rebase")
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "synchronize"})
 

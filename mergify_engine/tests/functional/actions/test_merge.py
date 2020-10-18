@@ -54,6 +54,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         self.add_label(p_need_rebase, "ready")
         self.add_label(p_ready, "ready")
+        self.run_engine()
         return p_need_rebase, p_ready
 
     def test_merge_smart_ordered(self):
@@ -118,18 +119,26 @@ class TestMergeAction(base.FunctionalTestBase):
         self.add_label(p_medium, "medium")
         self.add_label(p_high, "high")
 
+        self.run_engine()
+
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p_low.update()
@@ -176,16 +185,16 @@ class TestMergeAction(base.FunctionalTestBase):
         # Merge them in reverse priority to ensure there are reordered
         self.add_label(p1, "medium")
         self.add_label(p2, "low")
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
-        # NOTE(sileht): The removal and the add must be part of the same batch to make the
-        # test useful
         p2.remove_from_labels("low")
         self.add_label(p2, "high")
+        self.run_engine()
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p2.number, p1.number]
 
@@ -203,6 +212,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr(files={".github/workflows/foo.yml": "whatever"})
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
@@ -212,7 +222,7 @@ class TestMergeAction(base.FunctionalTestBase):
         assert check["output"]["title"] == "Pull request must be merged manually."
         assert (
             check["output"]["summary"]
-            == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed."
+            == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.\n<br />\nThis pull request must be merged manually."
         )
 
     def test_merge_with_installation_token(self):
@@ -229,6 +239,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p.update()
@@ -249,6 +260,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p.update()
@@ -295,8 +307,11 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
 
         # Merge them in reverse priority to ensure there are reordered
         self.add_label(p_low, "low")
+        self.run_engine()
         self.add_label(p_medium, "medium")
+        self.run_engine()
         self.add_label(p_high, "high")
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
@@ -304,12 +319,18 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         queue.Queue.process_queues()
+        self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p_low.update()
