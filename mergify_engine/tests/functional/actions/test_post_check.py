@@ -48,6 +48,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
+        self.run_engine()
         p.update()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -96,6 +97,7 @@ Rule list:
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
+        self.run_engine()
         p.update()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -149,6 +151,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
+        self.run_engine()
         p.update()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})

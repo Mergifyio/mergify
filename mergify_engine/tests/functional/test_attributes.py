@@ -44,6 +44,7 @@ class TestAttributes(base.FunctionalTestBase):
 
         pr, _ = self.create_pr(draft=True)
 
+        self.run_engine()
         self.wait_for("issue_comment", {"action": "created"})
 
         ctxt = context.Context(

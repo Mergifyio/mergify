@@ -26,6 +26,8 @@ class TestDebugger(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
 
+        self.run_engine()
+
         # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
         with mock.patch("sys.stdout") as stdout:
             with futures.ThreadPoolExecutor(max_workers=1) as executor:

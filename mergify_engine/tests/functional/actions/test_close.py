@@ -35,6 +35,8 @@ class TestCloseAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
+        self.run_engine()
+
         p.update()
         self.assertEqual("closed", p.state)
         self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
@@ -53,6 +55,8 @@ class TestCloseAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+
+        self.run_engine()
 
         p.update()
         self.assertEqual("closed", p.state)
@@ -73,6 +77,8 @@ class TestCloseAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+
+        self.run_engine()
 
         p.update()
 

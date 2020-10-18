@@ -39,6 +39,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
         self.add_label(p, "stable")
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
@@ -67,6 +68,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
         self.add_label(p, "stable")
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
@@ -89,6 +91,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
         self.add_label(p, "stable")
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))

@@ -140,9 +140,8 @@ class GitterRecorder(utils.Gitter):
 
 
 class EventReader:
-    def __init__(self, app, loop):
+    def __init__(self, app):
         self._app = app
-        self._loop = loop
         self._session = http.Client()
         self._handled_events = queue.Queue()
         self._counter = 0
@@ -164,7 +163,7 @@ class EventReader:
         r.raise_for_status()
         self._redis.flushall()
 
-    def wait_for(self, event_type, expected_payload, timeout=60 if RECORD else 2):
+    def wait_for(self, event_type, expected_payload, timeout=15 if RECORD else 2):
         LOG.log(
             42,
             "WAITING FOR %s/%s: %s",
@@ -178,10 +177,10 @@ class EventReader:
             try:
                 event = self._handled_events.get(block=False)
             except queue.Empty:
-                for event in self._get_events():
+                events = self._get_events()
+                for event in events:
                     self._forward_to_engine_api(event)
                     self._handled_events.put(event)
-                    self._run_workers()
                 else:
                     if RECORD:
                         time.sleep(1)
@@ -217,25 +216,6 @@ class EventReader:
             data=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()
-
-    @staticmethod
-    async def _async_run_workers():
-        w = worker.Worker(
-            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
-        )
-        w.start()
-        timeout = 10
-        started_at = time.monotonic()
-        while (
-            w._redis is None or (await w._redis.zcard("streams")) > 0
-        ) and time.monotonic() - started_at < timeout:
-            await asyncio.sleep(0.42 if RECORD else 0.02)
-        w.stop()
-        await w.wait_shutdown_complete()
-
-    def _run_workers(self):
-        self._loop.run_until_complete(self._async_run_workers())
-        self._loop.run_until_complete(self._loop.shutdown_asyncgens())
 
     def _forward_to_engine_api(self, event):
         payload = event["payload"]
@@ -517,7 +497,7 @@ class FunctionalTestBase(unittest.TestCase):
             return_value=[self.r_o_integration],
         ).start()
 
-        self._event_reader = EventReader(self.app, self.loop)
+        self._event_reader = EventReader(self.app)
         self._event_reader.drain()
 
     def tearDown(self):
@@ -531,31 +511,22 @@ class FunctionalTestBase(unittest.TestCase):
 
             self.r_o_admin.edit(default_branch="master")
 
-            for branch in self.r_o_admin.get_git_refs():
-                if (
-                    branch.ref.startswith("refs/heads/")
-                    and branch.ref != "refs/heads/master"
-                ):
-                    if "branch_protection" in branch.ref:
-                        self.branch_protection_unprotect(branch.ref)
-                    branch.delete()
-
+            branches = list(self.r_o_admin.get_git_matching_refs("heads/20"))
             try:
-                for branch in self.r_fork.get_git_refs():
-                    if (
-                        branch.ref.startswith("refs/heads/")
-                        and branch.ref != "refs/heads/master"
-                    ):
-                        branch.delete()
+                branches.extend(self.r_fork.get_git_matching_refs("heads/20"))
             except pygithub.GithubException as e:
                 if e.data["message"] != "Git Repository is empty.":
                     raise
+            for branch in branches:
+                if "branch_protection" in branch.ref:
+                    self.branch_protection_unprotect(branch.ref)
+                branch.delete()
 
             for label in self.r_o_admin.get_labels():
                 label.delete()
 
             for pull in self.r_o_admin.get_pulls():
-                pull.close()
+                pull.edit(state="closed")
 
         self.loop.run_until_complete(web.shutdown())
 
@@ -565,6 +536,26 @@ class FunctionalTestBase(unittest.TestCase):
 
     def wait_for(self, *args, **kwargs):
         return self._event_reader.wait_for(*args, **kwargs)
+
+    @staticmethod
+    async def _async_run_workers():
+        w = worker.Worker(
+            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
+        )
+        w.start()
+        timeout = 10
+        started_at = time.monotonic()
+        while (
+            w._redis is None or (await w._redis.zcard("streams")) > 0
+        ) and time.monotonic() - started_at < timeout:
+            await asyncio.sleep(0.42 if RECORD else 0.02)
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    def run_engine(self):
+        LOG.log(42, "RUNNING ENGINE")
+        self.loop.run_until_complete(self._async_run_workers())
+        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
 
     def get_gitter(self, logger):
         self.git_counter += 1

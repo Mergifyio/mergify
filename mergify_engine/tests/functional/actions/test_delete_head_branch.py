@@ -58,6 +58,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         p2.edit(state="close")
         self.wait_for("pull_request", {"action": "closed"})
 
+        self.run_engine()
+
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
         )
@@ -95,6 +97,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         p1.merge()
         self.wait_for("pull_request", {"action": "closed"})
         self.add_label(p1, "merge")
+        self.run_engine()
+
         self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
         pulls = list(
@@ -137,7 +141,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         p1.merge()
         self.wait_for("pull_request", {"action": "closed", "number": p1.number})
         self.add_label(p1, "merge")
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed", "number": p2.number})
+        self.run_engine()
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
