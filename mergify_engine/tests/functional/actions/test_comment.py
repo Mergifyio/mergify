@@ -34,6 +34,7 @@ class TestCommentAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         p.update()
         comments = list(p.get_issue_comments())
@@ -41,6 +42,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         # Add a label to trigger mergify
         self.add_label(p, "stable")
+        self.run_engine()
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
@@ -59,6 +61,8 @@ class TestCommentAction(base.FunctionalTestBase):
         )
 
         self.wait_for("pull_request", {"action": "synchronize"})
+
+        self.run_engine()
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
@@ -80,6 +84,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
+        self.run_engine()
         p.update()
         comments = list(p.get_issue_comments())
         self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
@@ -99,6 +104,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
+        self.run_engine()
         p.update()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})

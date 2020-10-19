@@ -44,8 +44,10 @@ class TestReviewAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         self.wait_for("pull_request_review", {}),
+        self.run_engine()
 
         p.update()
         comments = list(p.get_reviews())
@@ -81,8 +83,10 @@ class TestReviewAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         self.wait_for("pull_request_review", {}),
+        self.run_engine()
 
         p.update()
         comments = list(p.get_reviews())
@@ -107,6 +111,7 @@ class TestReviewAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         assert len(ctxt.pull_engine_check_runs) == 1

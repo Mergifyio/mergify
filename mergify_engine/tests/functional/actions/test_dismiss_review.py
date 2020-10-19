@@ -62,6 +62,8 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         self._push_for_synchronize(branch)
 
         self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
+        p.update()
 
         ctxt = context.Context(
             self.cli_integration,
@@ -127,8 +129,9 @@ Unknown pull request attribute: Loser
         )
 
         self._push_for_synchronize(branch)
-
         self.wait_for("pull_request", {"action": "synchronize"})
+
+        self.run_engine()
         self.wait_for("pull_request_review", {"action": "dismissed"})
 
         self.assertEqual(
@@ -145,8 +148,9 @@ Unknown pull request attribute: Loser
         )
 
         self._push_for_synchronize(branch, "unwanted_changes2")
-
         self.wait_for("pull_request", {"action": "synchronize"})
+
+        self.run_engine()
         self.wait_for("pull_request_review", {"action": "dismissed"})
 
         # There's no way to retrieve the dismiss message :(

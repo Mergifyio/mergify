@@ -63,6 +63,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr()
 
+        self.run_engine()
+
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 1
@@ -78,6 +80,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     def test_invalid_yaml_configuration(self):
         self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
         p, _ = self.create_pr()
+
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
@@ -131,6 +135,8 @@ expected alphabetic or numeric character, but found"""
         self.setup_repo(yaml.dump(rules))
         p, _ = self.create_pr(files={".mergify.yml": "not valid"})
 
+        self.run_engine()
+
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 1
@@ -158,8 +164,10 @@ expected alphabetic or numeric character, but found"""
         p, _ = self.create_pr()
 
         self.add_label(p, "backport-3.1")
+        self.run_engine()
         p.remove_from_labels("backport-3.1")
         self.wait_for("pull_request", {"action": "unlabeled"})
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         checks = list(
@@ -197,6 +205,7 @@ expected alphabetic or numeric character, but found"""
         p, commits = self.create_pr(two_commits=True)
 
         self.add_label(p, "backport-#3.1")
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -254,6 +263,7 @@ expected alphabetic or numeric character, but found"""
         p, commits = self.create_pr(files={"conflicts": "ohoh"})
 
         self.add_label(p, "backport-#3.1")
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -356,6 +366,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.create_pr(base=stable_branch)
 
         self.add_label(p, "backport-#3.1")
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
@@ -429,6 +440,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p.update()
@@ -468,6 +480,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.add_label(p2, "squash")
 
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "closed"})
 
         p2.update()
@@ -492,9 +506,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p1.merge()
 
         self.add_label(p2, "squash")
+        self.run_engine()
 
         run_smart_strict_workflow_periodic_task()
+        self.wait_for("pull_request", {"action": "synchronize"})
 
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         p2.update()
@@ -530,6 +547,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.create_status(p2)
         self.create_review(p2, commits[0])
 
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
@@ -541,6 +560,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Retry to merge pr2
         self.create_status(p2)
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -582,6 +603,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
@@ -627,6 +650,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.create_status(p2)
         self.create_review(p2, commits[0])
 
+        self.run_engine()
+
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = context.Context(self.cli_integration, p2.raw_data, {})
@@ -670,6 +695,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.create_status(p2)
         self.create_review(p2, commits[0])
 
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
@@ -683,6 +710,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Retry to merge pr2
         self.create_status(p2)
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -720,6 +749,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.create_status(p2)
         self.create_review(p2, commits[0])
+
+        self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p2.raw_data, {})
         for check in ctxt.pull_check_runs:
@@ -760,6 +791,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         self.wait_for("pull_request", {"action": "synchronize"})
+        self.run_engine()
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -788,6 +820,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Retry to merge pr2
         self.create_status(p2)
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -825,11 +858,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.create_status(p2, "continuous-integration/fake-ci", "success")
 
+        self.run_engine()
         run_smart_strict_workflow_periodic_task()
 
         self.wait_for("pull_request", {"action": "synchronize"})
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
+        self.run_engine()
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -839,6 +874,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         self.create_status(p2, "continuous-integration/fake-ci", "failure")
+        self.run_engine()
 
         # FIXME(sileht): Previous actions tracker was posting a "Rule XXXX (merge)" with
         # neutral status saying the Merge doesn't match anymore, the new one doesn't
@@ -846,6 +882,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.wait_for("check_run", {"check_run": {"conclusion": "cancelled"}})
 
         # Should got to the next PR
+        self.run_engine()
         run_smart_strict_workflow_periodic_task()
 
         self.wait_for("pull_request", {"action": "synchronize"})
@@ -858,6 +895,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         self.create_status(p3, "continuous-integration/fake-ci", "success")
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
@@ -970,6 +1008,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
         self.create_status(p)
 
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
@@ -1023,6 +1063,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
         self.create_status(p)
 
+        self.run_engine()
+
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
         )
@@ -1042,6 +1084,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Edit and fixes the typo
         p.edit(body="It fixes it\n\n## Commit Message\n\nHere it is valid now")
+        self.wait_for("pull_request", {"action": "edited"})
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for(
@@ -1084,6 +1129,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr(message=msg)
         self.create_status(p)
 
+        self.run_engine()
+
         self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
@@ -1116,6 +1163,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         p, commits = self.create_pr(message="It fixes it\n\nCloses #%s" % i.number)
         self.create_status(p)
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -1150,6 +1199,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, commits = self.create_pr()
         self.create_status(p2)
         self.create_review(p2, commits[0])
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -1190,6 +1241,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, _ = self.create_pr()
 
+        self.run_engine()
+
         self.wait_for(
             "check_run",
             {"check_run": {"conclusion": None, "status": "in_progress"}},
@@ -1207,6 +1260,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         self.create_status(p)
+
+        self.run_engine()
 
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -1252,10 +1307,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.branch_protection_protect(self.master_branch_name, rule)
 
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
         self.create_status(p2)
 
+        self.run_engine()
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = context.Context(self.cli_integration, p2.raw_data, {})
@@ -1281,6 +1338,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p1, commits1 = self.create_pr()
         p2, commits2 = self.create_pr()
+        self.run_engine()
 
         rules = {
             "pull_request_rules": [
@@ -1298,6 +1356,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.git("add", ".mergify.yml")
         self.git("commit", "--no-edit", "-m", "automerge everything")
         self.git("push", "--quiet", "main", self.master_branch_name)
+        self.wait_for("push", {})
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 2 == len(pulls)
@@ -1315,6 +1374,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
 
@@ -1334,6 +1394,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         p, commits = self.create_pr()
 
+        self.run_engine()
+
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         ctxt.set_summary_check(
             check_api.Result(
@@ -1350,6 +1412,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p.create_issue_comment("@mergifyio refresh")
 
         self.wait_for("issue_comment", {"action": "created"})
+        self.run_engine()
 
         del ctxt.__dict__["pull_check_runs"]
         assert len(ctxt.pull_check_runs) == 1
@@ -1370,6 +1433,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s/branch/master" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
@@ -1382,6 +1446,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "/refresh/%s" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
@@ -1402,6 +1467,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        self.run_engine()
         ctxt = context.Context(self.cli_integration, p1.raw_data, {})
         assert len(ctxt.pull_check_runs) == 1
         assert ctxt.pull_check_runs[0]["name"] == "Summary"
@@ -1445,11 +1511,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, _ = self.create_pr(files={"TESTING": "p2"})
         p1.merge()
 
+        self.run_engine()
+
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
             time.sleep(10)
 
+        self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
         self.wait_for(
             "issue_comment",
@@ -1485,11 +1554,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p1, _ = self.create_pr()
         p1.create_review_request(reviewers=["sileht"])
         self.wait_for("pull_request", {"action": "review_requested"})
+        self.run_engine()
         self.wait_for("issue_comment", {"action": "created"})
 
         p2, _ = self.create_pr()
         p2.create_review_request(team_reviewers=[team.slug])
         self.wait_for("pull_request", {"action": "review_requested"})
+        self.run_engine()
         self.wait_for("issue_comment", {"action": "created"})
 
         assert "review-requested user" == list(p1.get_issue_comments())[0].body
@@ -1502,6 +1573,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         pr, commits = self.create_pr()
+        self.run_engine()
         pull = context.Context(self.cli_integration, pr.raw_data, {})
         check = check_api.set_check_run(
             pull,
@@ -1537,13 +1609,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr(files={"foo": "bar"})
+        self.run_engine()
 
         rules["pull_request_rules"][0]["conditions"][
             0
         ] = f"base={self.master_branch_name}"
         p_config, _ = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         p_config.merge()
+        self.wait_for("pull_request", {"action": "closed"})
+        self.wait_for("push", {})
 
+        self.run_engine()
         self.wait_for("issue_comment", {"action": "created"})
 
         p.update()

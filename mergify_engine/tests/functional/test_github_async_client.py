@@ -47,13 +47,13 @@ class TestGithubClient(base.FunctionalTestBase):
             url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
 
             pulls = [p async for p in client.items(url)]
-            self.assertEqual(2, len(pulls))
+            self.assertEqual(3, len(pulls))
 
             pulls = [p async for p in client.items(url, per_page=1)]
-            self.assertEqual(2, len(pulls))
+            self.assertEqual(3, len(pulls))
 
             pulls = [p async for p in client.items(url, per_page=1, page=2)]
-            self.assertEqual(1, len(pulls))
+            self.assertEqual(2, len(pulls))
 
             pulls = [p async for p in client.items(url, base=other_branch, state="all")]
             self.assertEqual(1, len(pulls))

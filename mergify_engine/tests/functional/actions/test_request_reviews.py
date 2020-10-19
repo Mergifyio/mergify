@@ -38,6 +38,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
@@ -62,6 +63,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
@@ -92,6 +94,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
@@ -141,12 +144,14 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
         pulls[0].create_review_request(["mergify-test1"])
-        requests = pulls[0].get_review_requests()
         self.wait_for("pull_request", {"action": "review_requested"})
+        self.run_engine()
+        requests = pulls[0].get_review_requests()
         assert sorted(["mergify-test1", "mergify-test3"]) == sorted(
             [user.login for user in requests[0]]
         )

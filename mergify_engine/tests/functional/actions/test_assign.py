@@ -34,6 +34,8 @@ class TestAssignAction(base.FunctionalTestBase):
 
         p, _ = self.create_pr()
 
+        self.run_engine()
+
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
         self.assertEqual(
@@ -55,6 +57,8 @@ class TestAssignAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr()
+
+        self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         self.assertEqual(1, len(pulls))
