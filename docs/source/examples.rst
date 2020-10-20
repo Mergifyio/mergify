@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Configuration Examples
+   :keywords: mergify, examples
+
 .. _examples:
 
 =================

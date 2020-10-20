@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Configuration Examples for Bots
+   :keywords: mergify, examples, dependabot, greenkeeper, renovate, pyup, imgbot
+
 🤖 Bots
 ~~~~~~~
 

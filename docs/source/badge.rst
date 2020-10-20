@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation for Badges
+   :keywords: mergify, badges
+
 .. _Badge:
 
 =======

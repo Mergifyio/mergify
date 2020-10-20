@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Frequently Asked Questions
+   :keywords: mergify, faq, questions, help
+
 ======
 💬 FAQ
 ======

@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation for Commands
+   :keywords: mergify, commands
+
 .. _Commands:
 
 ============

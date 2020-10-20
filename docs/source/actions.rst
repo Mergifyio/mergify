@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation for Actions
+   :keywords: mergify, automation, actions
+
 .. _Actions:
 
 ==========
