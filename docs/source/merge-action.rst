@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Merge Action Deep-dive
+   :keywords: mergify, merge, action
+
 .. _mastering merge:
 
 =================================

@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation for Configuration
+   :keywords: mergify, configuration
+
 .. _configuration file format:
 
 =====================

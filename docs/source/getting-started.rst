@@ -1,3 +1,7 @@
+.. meta::
+   :description: Introduction to Mergify Configuration and Deployment
+   :keywords: mergify, automation, deployment, start
+
 ==================
 ➡️ Getting Started
 ==================

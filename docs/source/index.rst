@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation
+   :keywords: mergify, github, bot, merge, automation
+
 Mergify Documentation
 =====================
 

@@ -1,3 +1,7 @@
+.. meta::
+   :description: Mergify Documentation for Conditions
+   :keywords: mergify, conditions
+
 .. _Conditions:
 
 =============
