@@ -21,11 +21,11 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
-from mergify_engine.actions.merge import helpers
-from mergify_engine.actions.merge import queue
+from mergify_engine.actions import merge
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
@@ -208,7 +208,7 @@ def report(
                     pulls, key=lambda v: q.get_config(v)["priority"]
                 ):
                     try:
-                        fancy_priority = helpers.PriorityAliases(priority).name
+                        fancy_priority = merge.PriorityAliases(priority).name
                     except ValueError:
                         fancy_priority = priority
                     formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))

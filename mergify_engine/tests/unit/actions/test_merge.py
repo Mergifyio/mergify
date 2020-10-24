@@ -19,8 +19,7 @@ import pytest
 
 from mergify_engine import context
 from mergify_engine import subscription
-from mergify_engine.actions.merge import action
-from mergify_engine.actions.merge import helpers
+from mergify_engine.actions import merge
 
 
 PR = {
@@ -148,7 +147,7 @@ def test_merge_commit_message(body, title, message, mode):
     ctxt = context.Context(client=client, pull=pull, subscription={})
     ctxt.checks = {"my CI": "success"}
     pr = ctxt.pull_request
-    assert action.MergeAction._get_commit_message(pr, mode=mode) == (title, message)
+    assert merge.MergeAction._get_commit_message(pr, mode=mode) == (title, message)
 
 
 @pytest.mark.parametrize(
@@ -181,7 +180,7 @@ def test_merge_commit_message_undefined(body):
         client=mock.MagicMock(), pull=pull, subscription={}
     ).pull_request
     with pytest.raises(context.RenderTemplateFailure) as x:
-        action.MergeAction._get_commit_message(pr)
+        merge.MergeAction._get_commit_message(pr)
         assert str(x) == "foobar"
 
 
@@ -207,7 +206,7 @@ def test_merge_commit_message_syntax_error(body, error):
         client=mock.MagicMock(), pull=pull, subscription={}
     ).pull_request
     with pytest.raises(context.RenderTemplateFailure) as rmf:
-        action.MergeAction._get_commit_message(pr)
+        merge.MergeAction._get_commit_message(pr)
         assert str(rmf) == error
 
 
@@ -268,5 +267,5 @@ def test_queue_summary_subscription(active, summary):
     q.get_config.side_effect = gen_config(
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
-    with mock.patch.object(helpers.queue.Queue, "from_context", return_value=q):
-        assert summary == helpers.get_queue_summary(ctxt)
+    with mock.patch.object(merge.queue.Queue, "from_context", return_value=q):
+        assert summary == merge.MergeAction.get_queue_summary(ctxt)
