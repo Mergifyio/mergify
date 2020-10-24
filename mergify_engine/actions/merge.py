@@ -14,6 +14,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import enum
 import itertools
 import re
 import typing
@@ -22,13 +23,13 @@ import daiquiri
 import voluptuous
 
 from mergify_engine import actions
+from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
-from mergify_engine.actions.merge import helpers
-from mergify_engine.actions.merge import queue
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import types
@@ -47,9 +48,15 @@ MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
 
 
+class PriorityAliases(enum.Enum):
+    low = 1000
+    medium = 2000
+    high = 3000
+
+
 def Priority(v):
     try:
-        return helpers.PriorityAliases[v].value
+        return PriorityAliases[v].value
     except KeyError:
         return v
 
@@ -91,7 +98,7 @@ class MergeAction(actions.Action):
             "default", "title+body"
         ),
         voluptuous.Required(
-            "priority", default=helpers.PriorityAliases.medium.value
+            "priority", default=PriorityAliases.medium.value
         ): voluptuous.All(
             voluptuous.Any("low", "medium", "high", int),
             voluptuous.Coerce(Priority),
@@ -138,7 +145,7 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
 
-        result = helpers.merge_report(ctxt, self.config["strict"])
+        result = self.merge_report(ctxt, self.config["strict"])
         if result:
             q.remove_pull(ctxt.pull["number"])
             return result
@@ -176,7 +183,7 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
         if ctxt.pull["state"] == "closed":
-            output = helpers.merge_report(ctxt, self.config["strict"])
+            output = self.merge_report(ctxt, self.config["strict"])
             if output:
                 q.remove_pull(ctxt.pull["number"])
                 return output
@@ -189,7 +196,7 @@ class MergeAction(actions.Action):
         ):
             if self._should_be_merged(ctxt, q):
                 # Just wait for CIs to finish
-                return helpers.get_strict_status(
+                return self.get_strict_status(
                     ctxt, rule, missing_conditions, need_update=ctxt.is_behind
                 )
             else:
@@ -204,7 +211,7 @@ class MergeAction(actions.Action):
         if ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
             self.config["effective_priority"] = self.config["priority"]
         else:
-            self.config["effective_priority"] = helpers.PriorityAliases.medium.value
+            self.config["effective_priority"] = PriorityAliases.medium.value
 
     @staticmethod
     def _required_statuses_in_progress(ctxt, missing_conditions):
@@ -274,15 +281,15 @@ class MergeAction(actions.Action):
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if q.is_first_pull(ctxt):
-                return helpers.update_pull_base_branch(
+                return self.update_pull_base_branch(
                     ctxt, rule, missing_conditions, q, self.config
                 )
             else:
-                return helpers.get_strict_status(
+                return self.get_strict_status(
                     ctxt, rule, missing_conditions, need_update=ctxt.is_behind
                 )
         else:
-            return helpers.update_pull_base_branch(
+            return self.update_pull_base_branch(
                 ctxt, rule, missing_conditions, q, self.config
             )
 
@@ -396,7 +403,7 @@ class MergeAction(actions.Action):
             ctxt.update()
             ctxt.log.info("merged")
 
-        result = helpers.merge_report(ctxt, self.config["strict"])
+        result = self.merge_report(ctxt, self.config["strict"])
         if result:
             return result
         else:
@@ -478,4 +485,163 @@ class MergeAction(actions.Action):
                 check_api.Conclusion.FAILURE,
                 message,
                 f"GitHub error message: `{e.message}`",
+            )
+
+    @staticmethod
+    def merge_report(ctxt, strict) -> typing.Union[check_api.Result, None]:
+        if ctxt.pull["draft"]:
+            conclusion = check_api.Conclusion.PENDING
+            title = "Draft flag needs to be removed"
+            summary = ""
+        elif ctxt.pull["merged"]:
+            if ctxt.pull["merged_by"]["login"] in [
+                "mergify[bot]",
+                "mergify-test[bot]",
+            ]:
+                mode = "automatically"
+            else:
+                mode = "manually"
+            conclusion = check_api.Conclusion.SUCCESS
+            title = "The pull request has been merged %s" % mode
+            summary = "The pull request has been merged %s at *%s*" % (
+                mode,
+                ctxt.pull["merge_commit_sha"],
+            )
+        elif ctxt.pull["state"] == "closed":
+            conclusion = check_api.Conclusion.CANCELLED
+            title = "The pull request has been closed manually"
+            summary = ""
+
+        # NOTE(sileht): Take care of all branch protection state
+        elif ctxt.pull["mergeable_state"] == "dirty":
+            conclusion = check_api.Conclusion.CANCELLED
+            title = "Merge conflict needs to be solved"
+            summary = ""
+
+        elif ctxt.pull["mergeable_state"] == "unknown":
+            conclusion = check_api.Conclusion.FAILURE
+            title = "Pull request state reported as `unknown` by GitHub"
+            summary = ""
+        # FIXME(sileht): We disable this check as github wrongly report
+        # mergeable_state == blocked sometimes. The workaround is to try to merge
+        # it and if that fail we checks for blocking state.
+        # elif ctxt.pull["mergeable_state"] == "blocked":
+        #     conclusion = "failure"
+        #     title = "Branch protection settings are blocking automatic merging"
+        #     summary = ""
+        elif ctxt.pull["mergeable_state"] == "behind" and not strict:
+            # Strict mode has been enabled in branch protection but not in
+            # mergify
+            conclusion = check_api.Conclusion.FAILURE
+            title = "Branch protection setting 'strict' conflicts with Mergify configuration"
+            summary = ""
+
+        elif ctxt.github_workflow_changed():
+            conclusion = check_api.Conclusion.ACTION_REQUIRED
+            title = "Pull request must be merged manually."
+            summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
+    <br />
+    This pull request must be merged manually."""
+
+        # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
+        # are OK for us
+        else:
+            return None
+
+        return check_api.Result(conclusion, title, summary)
+
+    @staticmethod
+    def get_queue_summary(ctxt):
+        q = queue.Queue.from_context(ctxt)
+        pulls = q.get_pulls()
+        if not pulls:
+            return ""
+
+        # NOTE(sileht): It would be better to get that from configuration, but we
+        # don't have it here, so just guess it.
+        priorities_configured = False
+
+        summary = "\n\nThe following pull requests are queued:"
+        for priority, grouped_pulls in itertools.groupby(
+            pulls, key=lambda v: q.get_config(v)["priority"]
+        ):
+            if priority != PriorityAliases.medium.value:
+                priorities_configured = True
+
+            try:
+                fancy_priority = PriorityAliases(priority).name
+            except ValueError:
+                fancy_priority = priority
+            formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+            summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
+
+        if priorities_configured and not ctxt.subscription.has_feature(
+            subscription.Features.PRIORITY_QUEUES
+        ):
+            summary += "\n\n⚠ *Ignoring merge priority*\n"
+            summary += ctxt.subscription.missing_feature_reason(
+                ctxt.pull["base"]["repo"]["owner"]["login"]
+            )
+
+        return summary
+
+    @classmethod
+    def get_strict_status(
+        cls,
+        ctxt: context.Context,
+        rule: rules.Rule,
+        missing_conditions: typing.List[filter.Filter],
+        need_update: bool = False,
+    ) -> check_api.Result:
+        if need_update:
+            title = "Base branch will be updated soon"
+            summary = (
+                "The pull request base branch will be updated soon and then merged."
+            )
+        else:
+            title = "Base branch update done"
+            summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
+
+        summary += cls.get_queue_summary(ctxt)
+
+        if not need_update and rule and missing_conditions is not None:
+            summary += "\n\nRequired conditions for merge:\n"
+            for cond in rule.conditions:
+                checked = " " if cond in missing_conditions else "X"
+                summary += f"\n- [{checked}] `{cond}`"
+
+        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
+
+    def update_pull_base_branch(
+        cls,
+        ctxt: context.Context,
+        rule: rules.Rule,
+        missing_conditions: typing.List[filter.Filter],
+        queue: queue.Queue,
+        config: typing.Dict,
+    ) -> check_api.Result:
+        method = config["strict_method"]
+        user = config["update_bot_account"] or config["bot_account"]
+        try:
+            if method == "merge":
+                branch_updater.update_with_api(ctxt)
+            else:
+                branch_updater.update_with_git(ctxt, method, user)
+        except branch_updater.BranchUpdateFailure as e:
+            # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
+            # in the meantime. So double check that to not report a wrong status
+            ctxt.update()
+            output = cls.merge_report(ctxt, True)
+            if output:
+                return output
+            else:
+                queue.move_pull_at_end(ctxt.pull["number"], config)
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Base branch update has failed",
+                    e.message,
+                )
+        else:
+            return cls.get_strict_status(
+                ctxt, rule, missing_conditions, need_update=False
             )
