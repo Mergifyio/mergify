@@ -446,8 +446,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
-    assert [(r, []) for r in match.rules] == match.matching_rules
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert [
+        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+    ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -457,8 +459,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["hello"]
-    assert [r.name for r, _ in match.matching_rules] == ["hello"]
-    assert [(r, []) for r in match.rules] == match.matching_rules
+    assert [r.name for r in match.matching_rules] == ["hello"]
+    assert [
+        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+    ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -471,8 +475,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["hello", "backport"]
-    assert [r.name for r, _ in match.matching_rules] == ["hello", "backport"]
-    assert [(r, []) for r in match.rules] == match.matching_rules
+    assert [r.name for r in match.matching_rules] == ["hello", "backport"]
+    assert [
+        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+    ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -485,7 +491,7 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["hello", "backport"]
-    assert [r.name for r, _ in match.matching_rules] == ["backport"]
+    assert [r.name for r in match.matching_rules] == ["backport"]
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -498,8 +504,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["hello", "backport"]
-    assert [r.name for r, _ in match.matching_rules] == ["hello", "backport"]
-    assert [(r, []) for r in match.rules] == match.matching_rules
+    assert [r.name for r in match.matching_rules] == ["hello", "backport"]
+    assert [
+        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+    ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -520,7 +528,7 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["merge"]
-    assert [r.name for r, _ in match.matching_rules] == []
+    assert [r.name for r in match.matching_rules] == []
 
     pull_request_rules = pull_request_rule_from_list(
         [
@@ -538,8 +546,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["merge"]
-    assert [r.name for r, _ in match.matching_rules] == ["merge"]
-    assert [(r, []) for r in match.rules] == match.matching_rules
+    assert [r.name for r in match.matching_rules] == ["merge"]
+    assert [
+        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+    ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
 
@@ -593,7 +603,7 @@ def test_get_pull_request_rule():
         "fast merge with alternate ci",
         "fast merge from a bot",
     ]
-    assert [r.name for r, _ in match.matching_rules] == [
+    assert [r.name for r in match.matching_rules] == [
         "merge",
         "fast merge",
         "fast merge with alternate ci",
@@ -601,19 +611,21 @@ def test_get_pull_request_rule():
     for rule in match.rules:
         assert rule.actions == {}
 
-    assert match.matching_rules[0][0].name == "merge"
-    assert len(match.matching_rules[0][1]) == 1
-    assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
-
-    assert match.matching_rules[1][0].name == "fast merge"
-    assert len(match.matching_rules[1][1]) == 1
-    assert str(match.matching_rules[1][1][0]) == "label=fast-track"
-
-    assert match.matching_rules[2][0].name == "fast merge with alternate ci"
-    assert len(match.matching_rules[2][1]) == 2
-    assert str(match.matching_rules[2][1][0]) == "label=fast-track"
+    assert match.matching_rules[0].name == "merge"
+    assert len(match.matching_rules[0].missing_conditions) == 1
     assert (
-        str(match.matching_rules[2][1][1])
+        str(match.matching_rules[0].missing_conditions[0]) == "#approved-reviews-by>=2"
+    )
+
+    assert match.matching_rules[1].name == "fast merge"
+    assert len(match.matching_rules[1].missing_conditions) == 1
+    assert str(match.matching_rules[1].missing_conditions[0]) == "label=fast-track"
+
+    assert match.matching_rules[2].name == "fast merge with alternate ci"
+    assert len(match.matching_rules[2].missing_conditions) == 2
+    assert str(match.matching_rules[2].missing_conditions[0]) == "label=fast-track"
+    assert (
+        str(match.matching_rules[2].missing_conditions[1])
         == "check-success=continuous-integration/fake-ci-bis"
     )
 
@@ -633,11 +645,13 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
+    assert [r.name for r in match.matching_rules] == ["default"]
 
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 1
-    assert str(match.matching_rules[0][1][0]) == "#approved-reviews-by>=2"
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 1
+    assert (
+        str(match.matching_rules[0].missing_conditions[0]) == "#approved-reviews-by>=2"
+    )
 
     get_reviews.append(
         {
@@ -666,10 +680,10 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
+    assert [r.name for r in match.matching_rules] == ["default"]
 
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 0
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 0
 
     # Forbidden labels, when no label set
     pull_request_rules = pull_request_rule_from_list(
@@ -684,19 +698,19 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 0
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 0
 
     # Forbidden labels, when forbiden label set
     ctxt.pull["labels"] = [{"name": "status/wip"}]
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 1
-    assert str(match.matching_rules[0][1][0]) == (
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 1
+    assert str(match.matching_rules[0].missing_conditions[0]) == (
         "-label~=^(status/wip|status/blocked|review/need2)$"
     )
 
@@ -705,9 +719,9 @@ def test_get_pull_request_rule():
 
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 0
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 0
 
     # Test team expander
     pull_request_rules = pull_request_rule_from_list(
@@ -721,9 +735,9 @@ def test_get_pull_request_rule():
     )
     match = pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
-    assert [r.name for r, _ in match.matching_rules] == ["default"]
-    assert match.matching_rules[0][0].name == "default"
-    assert len(match.matching_rules[0][1]) == 0
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert match.matching_rules[0].name == "default"
+    assert len(match.matching_rules[0].missing_conditions) == 0
 
 
 def test_check_runs_custom():

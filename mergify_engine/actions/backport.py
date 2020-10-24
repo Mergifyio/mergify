@@ -16,6 +16,8 @@
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.actions import copy
 
 
@@ -30,7 +32,7 @@ class BackportAction(copy.CopyAction):
     def command_to_config(string):
         return {"branches": string.split(" ")}
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
@@ -45,4 +47,4 @@ class BackportAction(copy.CopyAction):
                 "Waiting for the pull request to get merged",
                 "",
             )
-        return super().run(ctxt, rule, missing_conditions)
+        return super().run(ctxt, rule)

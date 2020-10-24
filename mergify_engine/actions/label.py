@@ -21,6 +21,8 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
+from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.clients import http
 
 
@@ -33,7 +35,7 @@ class LabelAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if self.config["add"]:
             all_label = [
                 label["name"] for label in ctxt.client.items(f"{ctxt.base_url}/labels")

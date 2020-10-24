@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -53,7 +54,7 @@ class DismissReviewsAction(actions.Action):
                 return True
         return False
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if self._have_been_synchronized(ctxt):
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses

@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.rules import types
 
@@ -48,7 +49,9 @@ class PostCheckAction(actions.Action):
     always_run = True
     allow_retrigger_mergify = True
 
-    def _post(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def _post(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         # TODO(sileht): Don't run it if conditions contains the rule itself, as it can
         # created an endless loop of events.
 
@@ -61,10 +64,10 @@ class PostCheckAction(actions.Action):
                 ),
             )
 
-        check_succeed = not bool(missing_conditions)
+        check_succeed = not bool(rule.missing_conditions)
         check_conditions = ""
         for cond in rule.conditions:
-            checked = " " if cond in missing_conditions else "X"
+            checked = " " if cond in rule.missing_conditions else "X"
             check_conditions += f"\n- [{checked}] `{cond}`"
 
         extra_variables = {
@@ -95,7 +98,7 @@ class PostCheckAction(actions.Action):
                 str(rmf),
             )
 
-        if missing_conditions:
+        if rule.missing_conditions:
             return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
         else:
             return check_api.Result(check_api.Conclusion.SUCCESS, title, summary)

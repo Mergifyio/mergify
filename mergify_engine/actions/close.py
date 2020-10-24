@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -30,7 +31,7 @@ class CloseAction(actions.Action):
     only_once = True
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if ctxt.pull["state"] == "close":
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request is already closed", ""

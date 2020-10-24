@@ -22,7 +22,9 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import rules
 from mergify_engine.clients import http
 
 
@@ -104,7 +106,7 @@ class CopyAction(actions.Action):
             f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,

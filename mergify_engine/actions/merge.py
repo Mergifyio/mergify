@@ -31,7 +31,6 @@ from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.clients import http
-from mergify_engine.rules import filter
 from mergify_engine.rules import types
 
 
@@ -107,7 +106,7 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
                 return check_api.Result(
@@ -155,7 +154,7 @@ class MergeAction(actions.Action):
 
         if self._should_be_merged(ctxt, q):
             try:
-                result = self._merge(ctxt, rule, missing_conditions, q)
+                result = self._merge(ctxt, rule, q)
                 if result.conclusion is not check_api.Conclusion.PENDING:
                     q.remove_pull(ctxt.pull["number"])
                 return result
@@ -163,7 +162,7 @@ class MergeAction(actions.Action):
                 q.remove_pull(ctxt.pull["number"])
                 raise
         else:
-            return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
+            return self._sync_with_base_branch(ctxt, rule, q)
 
     def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
@@ -178,7 +177,9 @@ class MergeAction(actions.Action):
         else:
             return True
 
-    def cancel(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def cancel(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         self._set_effective_priority(ctxt)
 
         q = queue.Queue.from_context(ctxt)
@@ -191,17 +192,13 @@ class MergeAction(actions.Action):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
-        if self.config["strict"] and self._required_statuses_in_progress(
-            ctxt, missing_conditions
-        ):
+        if self.config["strict"] and self._required_statuses_in_progress(ctxt, rule):
             if self._should_be_merged(ctxt, q):
                 # Just wait for CIs to finish
-                return self.get_strict_status(
-                    ctxt, rule, missing_conditions, need_update=ctxt.is_behind
-                )
+                return self.get_strict_status(ctxt, rule, need_update=ctxt.is_behind)
             else:
                 # Something got merged in the base branch in the meantime: rebase it again
-                return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
+                return self._sync_with_base_branch(ctxt, rule, q)
 
         q.remove_pull(ctxt.pull["number"])
 
@@ -214,13 +211,15 @@ class MergeAction(actions.Action):
             self.config["effective_priority"] = PriorityAliases.medium.value
 
     @staticmethod
-    def _required_statuses_in_progress(ctxt, missing_conditions):
+    def _required_statuses_in_progress(
+        ctxt: context.Context, rule: rules.EvaluatedRule
+    ):
         # It's closed, it's not going to change
         if ctxt.pull["state"] == "closed":
             return False
 
         need_look_at_checks = []
-        for condition in missing_conditions:
+        for condition in rule.missing_conditions:
             if condition.attribute_name.startswith(
                 "check-"
             ) or condition.attribute_name.startswith("status-"):
@@ -250,7 +249,9 @@ class MergeAction(actions.Action):
 
         return False
 
-    def _sync_with_base_branch(self, ctxt, rule, missing_conditions, q):
+    def _sync_with_base_branch(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule, q
+    ):
         # If PR from a public fork but cannot be edited
         if (
             ctxt.pull_from_fork
@@ -281,17 +282,11 @@ class MergeAction(actions.Action):
             )
         elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if q.is_first_pull(ctxt):
-                return self.update_pull_base_branch(
-                    ctxt, rule, missing_conditions, q, self.config
-                )
+                return self.update_pull_base_branch(ctxt, rule, q, self.config)
             else:
-                return self.get_strict_status(
-                    ctxt, rule, missing_conditions, need_update=ctxt.is_behind
-                )
+                return self.get_strict_status(ctxt, rule, need_update=ctxt.is_behind)
         else:
-            return self.update_pull_base_branch(
-                ctxt, rule, missing_conditions, q, self.config
-            )
+            return self.update_pull_base_branch(ctxt, rule, q, self.config)
 
     @staticmethod
     def _get_commit_message(pull_request, mode="default"):
@@ -336,8 +331,7 @@ class MergeAction(actions.Action):
     def _merge(
         self,
         ctxt: context.Context,
-        rule: rules.Rule,
-        missing_conditions: typing.List[filter.Filter],
+        rule: rules.EvaluatedRule,
         q: queue.Queue,
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
@@ -398,7 +392,7 @@ class MergeAction(actions.Action):
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")
             else:
-                return self._handle_merge_error(e, ctxt, rule, missing_conditions, q)
+                return self._handle_merge_error(e, ctxt, rule, q)
         else:
             ctxt.update()
             ctxt.log.info("merged")
@@ -417,8 +411,7 @@ class MergeAction(actions.Action):
         self,
         e: http.HTTPClientSideError,
         ctxt: context.Context,
-        rule: rules.Rule,
-        missing_conditions: typing.List[filter.Filter],
+        rule: rules.EvaluatedRule,
         q: queue.Queue,
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
@@ -441,7 +434,7 @@ class MergeAction(actions.Action):
                 status=e.status_code,
                 error_message=e.message,
             )
-            return self._sync_with_base_branch(ctxt, rule, missing_conditions, q)
+            return self._sync_with_base_branch(ctxt, rule, q)
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):
@@ -488,7 +481,7 @@ class MergeAction(actions.Action):
             )
 
     @staticmethod
-    def merge_report(ctxt, strict) -> typing.Union[check_api.Result, None]:
+    def merge_report(ctxt, strict) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"
@@ -589,8 +582,7 @@ class MergeAction(actions.Action):
     def get_strict_status(
         cls,
         ctxt: context.Context,
-        rule: rules.Rule,
-        missing_conditions: typing.List[filter.Filter],
+        rule: rules.EvaluatedRule,
         need_update: bool = False,
     ) -> check_api.Result:
         if need_update:
@@ -604,10 +596,10 @@ class MergeAction(actions.Action):
 
         summary += cls.get_queue_summary(ctxt)
 
-        if not need_update and rule and missing_conditions is not None:
+        if not need_update and rule and rule.missing_conditions is not None:
             summary += "\n\nRequired conditions for merge:\n"
             for cond in rule.conditions:
-                checked = " " if cond in missing_conditions else "X"
+                checked = " " if cond in rule.missing_conditions else "X"
                 summary += f"\n- [{checked}] `{cond}`"
 
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
@@ -615,8 +607,7 @@ class MergeAction(actions.Action):
     def update_pull_base_branch(
         cls,
         ctxt: context.Context,
-        rule: rules.Rule,
-        missing_conditions: typing.List[filter.Filter],
+        rule: rules.EvaluatedRule,
         queue: queue.Queue,
         config: typing.Dict,
     ) -> check_api.Result:
@@ -642,6 +633,4 @@ class MergeAction(actions.Action):
                     e.message,
                 )
         else:
-            return cls.get_strict_status(
-                ctxt, rule, missing_conditions, need_update=False
-            )
+            return cls.get_strict_status(ctxt, rule, need_update=False)
