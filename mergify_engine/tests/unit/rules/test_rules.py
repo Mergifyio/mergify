@@ -31,13 +31,13 @@ def pull_request_rule_from_list(lst):
 
 
 def test_valid_condition():
-    c = rules.PullRequestRuleCondition("head~=bar")
+    c = rules.RuleCondition("head~=bar")
     assert str(c) == "head~=bar"
 
 
 def test_invalid_condition_re():
     with pytest.raises(voluptuous.Invalid):
-        rules.PullRequestRuleCondition("head~=(bar")
+        rules.RuleCondition("head~=(bar")
 
 
 @pytest.mark.parametrize(

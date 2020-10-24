@@ -164,6 +164,11 @@ def run(client, pull, sub, sources):
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
     except rules.InvalidRules as e:  # pragma: no cover
+        ctxt.log.info(
+            "The Mergify configuration is invalid",
+            summary=str(e),
+            annotations=e.get_annotations(e.filename),
+        )
         # Not configured, post status check with the error message
         if any(
             (
@@ -188,6 +193,7 @@ def run(client, pull, sub, sources):
     if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
         subscription.Features.PRIVATE_REPOSITORY
     ):
+        ctxt.log.info("mergify disabled: private repository")
         ctxt.set_summary_check(
             check_api.Result(
                 check_api.Conclusion.FAILURE,

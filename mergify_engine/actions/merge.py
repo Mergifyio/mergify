@@ -14,6 +14,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+
 import enum
 import itertools
 import re
@@ -28,12 +29,14 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import queue
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -107,7 +110,117 @@ class MergeAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+        if self.config["strict"] == "smart+ordered":
+            return ctxt.is_behind and q.is_first_pull(ctxt)
+        elif self.config["strict"] == "smart+fasttrack":
+            return ctxt.is_behind
+        elif self.config["strict"] is True:
+            return ctxt.is_behind
+        elif self.config["strict"]:
+            raise RuntimeError("Unexpected strict")
+        else:
+            return False
+
+    def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
+        return True
+
+    def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+        if self.config["strict"] == "smart+ordered":
+            return not ctxt.is_behind and q.is_first_pull(ctxt)
+        elif self.config["strict"] == "smart+fasttrack":
+            return not ctxt.is_behind
+        elif self.config["strict"] is True:
+            return not ctxt.is_behind
+        elif self.config["strict"]:
+            raise RuntimeError("Unexpected strict")
+        else:
+            return True
+
+    def _should_be_cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> bool:
+        # It's closed, it's not going to change
+        if ctxt.pull["state"] == "closed":
+            return True
+
+        need_look_at_checks = []
+        for condition in rule.missing_conditions:
+            if condition.attribute_name.startswith(
+                "check-"
+            ) or condition.attribute_name.startswith("status-"):
+                # TODO(sileht): Just return True here, no need to checks
+                # checks anymore, this method is no more use by merge queue
+                need_look_at_checks.append(condition)
+            else:
+                # something else does not match anymore
+                return True
+
+        if need_look_at_checks:
+            if not ctxt.checks:
+                return False
+
+            states = [
+                state
+                for name, state in ctxt.checks.items()
+                for cond in need_look_at_checks
+                if cond(**{cond.attribute_name: name})
+            ]
+            if not states:
+                return False
+
+            for state in states:
+                if state in ("pending", None):
+                    return False
+
+        return True
+
+    def get_merge_conditions(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+    ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
+        return rule.conditions, rule.missing_conditions
+
+    def get_strict_status(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: queue.Queue,
+        is_behind: bool = False,
+    ) -> check_api.Result:
+
+        summary = ""
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
+            position = q.get_position(ctxt)
+            if position is None:
+                ctxt.log.error("expected queued pull request not found in queue")
+                title = "The pull request is queued to be merged"
+            else:
+                ord = utils.to_ordinal_numeric(position)
+                title = f"The pull request is the {ord} in the queue to be merged"
+
+            if is_behind:
+                summary = "\nThe pull request base branch will be updated before being merged."
+
+        elif self.config["strict"] and is_behind:
+            title = "The pull request will be updated with its base branch soon"
+        else:
+            title = "The pull request will be merged soon"
+
+        summary += self.get_queue_summary(ctxt, q)
+        conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
+
+        summary += "\n\nRequired conditions for merge:\n"
+        for cond in conditions:
+            checked = " " if cond in missing_conditions else "X"
+            summary += f"\n- [{checked}] `{cond}`"
+
+        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
+
+    def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
                 return check_api.Result(
@@ -145,41 +258,38 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
 
-        result = self.merge_report(ctxt, self.config["strict"])
-        if result:
+        report = self.merge_report(ctxt, self.config["strict"])
+        if report is not None:
             q.remove_pull(ctxt.pull["number"])
-            return result
+            return report
 
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            q.add_pull(ctxt, self.config)
-
-        if self._should_be_merged(ctxt, q):
-            try:
-                result = self._merge(ctxt, rule, q)
-                if result.conclusion is not check_api.Conclusion.PENDING:
-                    q.remove_pull(ctxt.pull["number"])
-                return result
-            except Exception:
-                q.remove_pull(ctxt.pull["number"])
-                raise
-        else:
-            return self._sync_with_base_branch(ctxt, rule, q)
-
-    def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
-        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            if self.config["strict"] == "smart+ordered":
-                return not ctxt.is_behind and q.is_first_pull(ctxt)
-            elif self.config["strict"] == "smart+fasttrack":
-                return not ctxt.is_behind
+            if self._should_be_queued(ctxt, q):
+                q.add_pull(ctxt, self.config)
             else:
-                raise RuntimeError("Unexpected strict_smart_behavior")
-        elif self.config["strict"]:
-            return not ctxt.is_behind
-        else:
-            return True
+                q.remove_pull(ctxt.pull["number"])
+                return check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    "The pull request have been removed from the queue",
+                    "The queue conditions cannot be reach due to failing checks.",
+                )
+
+        try:
+            if self._should_be_merged(ctxt, q):
+                result = self._merge(ctxt, rule, q)
+            elif self._should_be_synced(ctxt, q):
+                result = self._sync_with_base_branch(ctxt, rule, q)
+            else:
+                result = self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
+        except Exception:
+            q.remove_pull(ctxt.pull["number"])
+            raise
+        if result.conclusion is not check_api.Conclusion.PENDING:
+            q.remove_pull(ctxt.pull["number"])
+        return result
 
     def cancel(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         self._set_effective_priority(ctxt)
 
@@ -193,13 +303,26 @@ class MergeAction(actions.Action):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merge if all rules match again.
         # if not we will delete it when we received all CIs termination
-        if self.config["strict"] and self._required_statuses_in_progress(ctxt, rule):
-            if self._should_be_merged(ctxt, q):
-                # Just wait for CIs to finish
-                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
-            else:
-                # Something got merged in the base branch in the meantime: rebase it again
-                return self._sync_with_base_branch(ctxt, rule, q)
+        if self.config["strict"] and not self._should_be_cancel(ctxt, rule):
+            try:
+                if self._should_be_merged(ctxt, q):
+                    # Just wait for CIs to finish
+                    result = self.get_strict_status(
+                        ctxt, rule, q, is_behind=ctxt.is_behind
+                    )
+                elif self._should_be_synced(ctxt, q):
+                    # Something got merged in the base branch in the meantime: rebase it again
+                    result = self._sync_with_base_branch(ctxt, rule, q)
+                else:
+                    result = self.get_strict_status(
+                        ctxt, rule, q, is_behind=ctxt.is_behind
+                    )
+            except Exception:
+                q.remove_pull(ctxt.pull["number"])
+                raise
+            if result.conclusion is not check_api.Conclusion.PENDING:
+                q.remove_pull(ctxt.pull["number"])
+            return result
 
         q.remove_pull(ctxt.pull["number"])
 
@@ -211,47 +334,8 @@ class MergeAction(actions.Action):
         else:
             self.config["effective_priority"] = PriorityAliases.medium.value
 
-    @staticmethod
-    def _required_statuses_in_progress(
-        ctxt: context.Context, rule: rules.EvaluatedRule
-    ) -> bool:
-        # It's closed, it's not going to change
-        if ctxt.pull["state"] == "closed":
-            return False
-
-        need_look_at_checks = []
-        for condition in rule.missing_conditions:
-            if condition.attribute_name.startswith(
-                "check-"
-            ) or condition.attribute_name.startswith("status-"):
-                # TODO(sileht): Just return True here, no need to checks
-                # checks anymore, this method is no more use by merge queue
-                need_look_at_checks.append(condition)
-            else:
-                # something else does not match anymore
-                return False
-
-        if need_look_at_checks:
-            if not ctxt.checks:
-                return True
-
-            states = [
-                state
-                for name, state in ctxt.checks.items()
-                for cond in need_look_at_checks
-                if cond(**{cond.attribute_name: name})
-            ]
-            if not states:
-                return True
-
-            for state in states:
-                if state in ("pending", None):
-                    return True
-
-        return False
-
     def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule, q: queue.Queue
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.Queue
     ) -> check_api.Result:
         # If PR from a public fork but cannot be edited
         if (
@@ -281,13 +365,30 @@ class MergeAction(actions.Action):
                 "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
                 "You cannot use strict mode with a pull request from a private fork.",
             )
-        elif self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            if q.is_first_pull(ctxt):
-                return self.update_pull_base_branch(ctxt, rule, q, self.config)
+
+        method = self.config["strict_method"]
+        user = self.config["update_bot_account"] or self.config["bot_account"]
+        try:
+            if method == "merge":
+                branch_updater.update_with_api(ctxt)
             else:
-                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
+                branch_updater.update_with_git(ctxt, method, user)
+        except branch_updater.BranchUpdateFailure as e:
+            # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
+            # in the meantime. So double check that to not report a wrong status
+            ctxt.update()
+            output = self.merge_report(ctxt, True)
+            if output:
+                return output
+            else:
+                q.move_pull_at_end(ctxt.pull["number"], self.config)
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Base branch update has failed",
+                    e.message,
+                )
         else:
-            return self.update_pull_base_branch(ctxt, rule, q, self.config)
+            return self.get_strict_status(ctxt, rule, q, is_behind=False)
 
     @staticmethod
     def _get_commit_message(pull_request, mode="default"):
@@ -332,7 +433,7 @@ class MergeAction(actions.Action):
     def _merge(
         self,
         ctxt: context.Context,
-        rule: rules.EvaluatedRule,
+        rule: "rules.EvaluatedRule",
         q: queue.Queue,
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
@@ -412,7 +513,7 @@ class MergeAction(actions.Action):
         self,
         e: http.HTTPClientSideError,
         ctxt: context.Context,
-        rule: rules.EvaluatedRule,
+        rule: "rules.EvaluatedRule",
         q: queue.Queue,
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
@@ -435,7 +536,12 @@ class MergeAction(actions.Action):
                 status=e.status_code,
                 error_message=e.message,
             )
-            return self._sync_with_base_branch(ctxt, rule, q)
+            # FIXME(sileht): Not sure this code handle all cases, maybe we should just
+            # send a refresh to this PR to retry later
+            if self._should_be_synced(ctxt, q):
+                return self._sync_with_base_branch(ctxt, rule, q)
+            else:
+                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):
@@ -546,9 +652,8 @@ class MergeAction(actions.Action):
 
         return check_api.Result(conclusion, title, summary)
 
-    @staticmethod
-    def get_queue_summary(ctxt: context.Context, queue: queue.Queue) -> str:
-        pulls = queue.get_pulls()
+    def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
+        pulls = q.get_pulls()
         if not pulls:
             return ""
 
@@ -558,7 +663,7 @@ class MergeAction(actions.Action):
 
         summary = "\n\nThe following pull requests are queued:"
         for priority, grouped_pulls in itertools.groupby(
-            pulls, key=lambda v: queue.get_config(v)["priority"]
+            pulls, key=lambda v: q.get_config(v)["priority"]
         ):
             if priority != PriorityAliases.medium.value:
                 priorities_configured = True
@@ -568,6 +673,7 @@ class MergeAction(actions.Action):
             except ValueError:
                 fancy_priority = priority
             formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+
             summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
 
         if priorities_configured and not ctxt.subscription.has_feature(
@@ -579,69 +685,3 @@ class MergeAction(actions.Action):
             )
 
         return summary
-
-    def get_strict_status(
-        self,
-        ctxt: context.Context,
-        rule: rules.EvaluatedRule,
-        queue: queue.Queue,
-        is_behind: bool = False,
-    ) -> check_api.Result:
-
-        summary = ""
-        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
-            position = queue.get_position(ctxt)
-            if position is None:
-                ctxt.log.error("expected queued pull request not found in queue")
-                title = "The pull request is queued to be merged"
-            else:
-                ord = utils.to_ordinal_numeric(position)
-                title = f"The pull request is the {ord} in the queue to be merged"
-
-            if is_behind:
-                summary = "\nThe pull request base branch will be updated before being merged."
-
-        elif self.config["strict"] and is_behind:
-            title = "The pull request will be updated with its base branch soon"
-        else:
-            title = "The pull request will be merged soon"
-
-        summary += self.get_queue_summary(ctxt, queue)
-
-        summary += "\n\nRequired conditions for merge:\n"
-        for cond in rule.conditions:
-            checked = " " if cond in rule.missing_conditions else "X"
-            summary += f"\n- [{checked}] `{cond}`"
-
-        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
-
-    def update_pull_base_branch(
-        self,
-        ctxt: context.Context,
-        rule: rules.EvaluatedRule,
-        queue: queue.Queue,
-        config: typing.Dict,
-    ) -> check_api.Result:
-        method = config["strict_method"]
-        user = config["update_bot_account"] or config["bot_account"]
-        try:
-            if method == "merge":
-                branch_updater.update_with_api(ctxt)
-            else:
-                branch_updater.update_with_git(ctxt, method, user)
-        except branch_updater.BranchUpdateFailure as e:
-            # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
-            # in the meantime. So double check that to not report a wrong status
-            ctxt.update()
-            output = self.merge_report(ctxt, True)
-            if output:
-                return output
-            else:
-                queue.move_pull_at_end(ctxt.pull["number"], config)
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "Base branch update has failed",
-                    e.message,
-                )
-        else:
-            return self.get_strict_status(ctxt, rule, queue, is_behind=False)
