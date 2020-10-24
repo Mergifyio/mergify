@@ -93,7 +93,7 @@ def handle(ctxt, comment, user, rerun=False):
 
             statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-            report = method.run(ctxt, None, [])
+            report = method.run(ctxt, None)
 
             if command_args:
                 command_full = f"{command} {command_args}"

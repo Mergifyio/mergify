@@ -19,6 +19,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -28,7 +29,7 @@ class CommentAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         try:
             message = ctxt.pull_request.render_template(self.config["message"])
         except context.RenderTemplateFailure as rmf:

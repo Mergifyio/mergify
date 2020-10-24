@@ -201,7 +201,7 @@ def test_disabled():
         },
         sub,
     )
-    result = action.run(ctxt, None, None)
+    result = action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Random request reviews are disabled"
     assert result.summary == (

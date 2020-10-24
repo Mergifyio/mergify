@@ -34,6 +34,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import subscription
+from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
@@ -60,7 +61,7 @@ class PullRequestAttributeError(AttributeError):
 
 @dataclasses.dataclass
 class Context(object):
-    client: http.Client
+    client: github.GithubInstallationClient
     pull: dict
     subscription: subscription.Subscription
     sources: typing.List = dataclasses.field(default_factory=list)

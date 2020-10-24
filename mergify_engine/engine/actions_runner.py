@@ -44,10 +44,10 @@ def get_already_merged_summary(ctxt, match):
     action_merge_found = False
     action_merge_found_in_active_rule = False
 
-    for rule, missing_conditions in match.matching_rules:
+    for rule in match.matching_rules:
         if "merge" in rule.actions:
             action_merge_found = True
-            if not missing_conditions:
+            if not rule.missing_conditions:
                 action_merge_found_in_active_rule = True
 
     # We already have a fully detailled status in the rule associated with the
@@ -72,13 +72,13 @@ def get_already_merged_summary(ctxt, match):
 
 def gen_summary_rules(rules):
     summary = ""
-    for rule, missing_conditions in rules:
+    for rule in rules:
         if rule.hidden:
             continue
         summary += "#### Rule: %s" % rule.name
         summary += " (%s)" % ", ".join(rule.actions)
         for cond in rule.conditions:
-            checked = " " if cond in missing_conditions else "X"
+            checked = " " if cond in rule.missing_conditions else "X"
             summary += "\n- [%s] `%s`" % (checked, cond)
         summary += "\n\n"
     return summary
@@ -88,7 +88,7 @@ def gen_summary(ctxt, match):
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
     summary += gen_summary_rules(match.matching_rules)
-    ignored_rules = len(list(filter(lambda x: not x[0].hidden, match.ignored_rules)))
+    ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
     if not ctxt.subscription.active:
         summary += (
@@ -109,7 +109,9 @@ def gen_summary(ctxt, match):
         summary += gen_summary_rules(match.ignored_rules)
         summary += "</details>\n"
 
-    completed_rules = len(list(filter(lambda x: not x[1], match.matching_rules)))
+    completed_rules = len(
+        list(filter(lambda x: not x.missing_conditions, match.matching_rules))
+    )
     potential_rules = len(match.matching_rules) - completed_rules
 
     summary_title = []
@@ -226,10 +228,10 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
         )
 
 
-def exec_action(method_name, rule, action, ctxt, missing_conditions):
+def exec_action(method_name, rule, action, ctxt):
     try:
         method = getattr(rule.actions[action], method_name)
-        return method(ctxt, rule, missing_conditions)
+        return method(ctxt, rule)
     except Exception:  # pragma: no cover
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
@@ -314,15 +316,17 @@ def run_actions(
     # In case of a canceled merge action and another that need to be run. We want first
     # to remove the PR from the queue and then add it back with the new config and not the
     # reverse
-    matching_rules = sorted(match.matching_rules, key=lambda value: len(value[1]) == 0)
+    matching_rules = sorted(
+        match.matching_rules, key=lambda rule: len(rule.missing_conditions) == 0
+    )
 
-    for rule, missing_conditions in matching_rules:
+    for rule in matching_rules:
         for action, action_obj in rule.actions.items():
             check_name = "Rule: %s (%s)" % (rule.name, action)
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
-            if missing_conditions:
+            if rule.missing_conditions:
                 method_name = "cancel"
                 expected_conclusions = [
                     check_api.Conclusion.NEUTRAL,
@@ -376,7 +380,6 @@ def run_actions(
                     rule,
                     action,
                     ctxt,
-                    missing_conditions,
                 )
                 message = "executed"
 
@@ -432,7 +435,6 @@ def run_actions(
                 conclusion=conclusions[check_name].value,
                 action=action,
                 check_name=check_name,
-                missing_conditions=missing_conditions,
                 event_types=[se["event_type"] for se in ctxt.sources],
             )
 

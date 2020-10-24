@@ -22,6 +22,11 @@ import pkg_resources
 import voluptuous
 
 from mergify_engine import check_api
+from mergify_engine import context
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import rules
 
 
 global _ACTIONS_CLASSES
@@ -90,11 +95,11 @@ class Action(abc.ABC):
         return {}
 
     def run(
-        self, ctxt, rule, missing_conditions
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         pass
 
     def cancel(
-        self, ctxt, rule, missing_conditions
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         return self.cancelled_check_report

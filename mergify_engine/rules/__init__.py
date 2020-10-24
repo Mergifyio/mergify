@@ -57,6 +57,25 @@ class Rule:
 
 
 @dataclasses.dataclass
+class EvaluatedRule:
+    name: str
+    conditions: typing.List[filter.Filter]
+    missing_conditions: typing.List[filter.Filter]
+    actions: typing.Dict[str, actions.Action]
+    hidden: bool = False
+
+    @classmethod
+    def from_rule(cls, rule, missing_conditions):
+        return cls(
+            rule.name,
+            rule.conditions,
+            missing_conditions,
+            rule.actions,
+            rule.hidden,
+        )
+
+
+@dataclasses.dataclass
 class PullRequestRules:
     rules: typing.List[Rule]
 
@@ -127,9 +146,13 @@ class PullRequestRules:
                             ignore_rules = True
 
                 if ignore_rules:
-                    self.ignored_rules.append((rule, next_conditions_to_validate))
+                    self.ignored_rules.append(
+                        EvaluatedRule.from_rule(rule, next_conditions_to_validate)
+                    )
                 else:
-                    self.matching_rules.append((rule, next_conditions_to_validate))
+                    self.matching_rules.append(
+                        EvaluatedRule.from_rule(rule, next_conditions_to_validate)
+                    )
 
     def get_pull_request_rule(self, pull_request):
         return self.PullRequestRuleForPR(self.rules, pull_request)

@@ -20,6 +20,8 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
+from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.clients import http
 
 
@@ -29,7 +31,7 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if ctxt.pull_from_fork:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request come from fork", ""

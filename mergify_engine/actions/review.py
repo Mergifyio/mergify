@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import rules
 from mergify_engine.rules import types
 
 
@@ -42,7 +43,7 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt, rule, missing_conditions) -> check_api.Result:
+    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         payload = {"event": self.config["type"]}
 
         if self.config["message"]:
