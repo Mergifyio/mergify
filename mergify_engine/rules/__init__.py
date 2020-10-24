@@ -21,6 +21,7 @@ import itertools
 import operator
 import typing
 
+import daiquiri
 import voluptuous
 import yaml
 
@@ -32,7 +33,10 @@ from mergify_engine.rules import filter
 from mergify_engine.rules import types
 
 
-def PullRequestRuleCondition(value):
+LOG = daiquiri.getLogger(__name__)
+
+
+def RuleCondition(value: str) -> filter.Filter:
     try:
         return filter.Filter.parse(value)
     except filter.parser.pyparsing.ParseException as e:
@@ -45,28 +49,44 @@ def PullRequestRuleCondition(value):
         )
 
 
+RuleConditions = typing.NewType("RuleConditions", typing.List[filter.Filter])
+RuleMissingConditions = typing.NewType(
+    "RuleMissingConditions", typing.List[filter.Filter]
+)
+
+
 @dataclasses.dataclass
 class Rule:
     name: str
-    conditions: typing.List[filter.Filter]
+    conditions: RuleConditions
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
 
+    class T_from_dict_required(typing.TypedDict):
+        name: str
+        conditions: RuleConditions
+        actions: typing.Dict[str, actions.Action]
+
+    class T_from_dict(T_from_dict_required, total=False):
+        hidden: bool
+
     @classmethod
-    def from_dict(cls, d):
+    def from_dict(cls, d: T_from_dict) -> "Rule":
         return cls(**d)
 
 
 @dataclasses.dataclass
 class EvaluatedRule:
     name: str
-    conditions: typing.List[filter.Filter]
-    missing_conditions: typing.List[filter.Filter]
+    conditions: RuleConditions
+    missing_conditions: RuleMissingConditions
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
 
     @classmethod
-    def from_rule(cls, rule, missing_conditions):
+    def from_rule(
+        cls, rule: "Rule", missing_conditions: RuleMissingConditions
+    ) -> "EvaluatedRule":
         return cls(
             rule.name,
             rule.conditions,
@@ -74,6 +94,71 @@ class EvaluatedRule:
             rule.actions,
             rule.hidden,
         )
+
+
+@dataclasses.dataclass
+class RulesEvaluator:
+    """A rules that matches a pull request."""
+
+    # Fixed base attributes that are not considered when looking for the
+    # next matching rules.
+    BASE_ATTRIBUTES = (
+        "head",
+        "base",
+        "author",
+        "merged_by",
+    )
+    TEAM_ATTRIBUTES = (
+        "author",
+        "merged_by",
+        "approved-reviews-by",
+        "dismissed-reviews-by",
+        "commented-reviews-by",
+    )
+
+    # The list of pull request rules to match against.
+    rules: typing.List
+
+    # The context to test.
+    context: context.Context
+
+    rule_class: object
+
+    # The rules with BASE_ATTRIBUTES not matched are saved in ignored_rules
+    hide_rule: bool
+
+    # The rules matching the pull request.
+    matching_rules: typing.List = dataclasses.field(init=False, default_factory=list)
+
+    # The rules not matching the pull request.
+    ignored_rules: typing.List = dataclasses.field(init=False, default_factory=list)
+
+    def __post_init__(self):
+        for rule in self.rules:
+            ignore_rules = False
+            next_conditions_to_validate = []
+            for condition in rule.conditions:
+                for attrib in self.TEAM_ATTRIBUTES:
+                    condition.set_value_expanders(
+                        attrib,
+                        self.context.resolve_teams,
+                    )
+
+                name = condition.get_attribute_name()
+                value = getattr(self.context.pull_request, name)
+                if not condition(**{name: value}):
+                    next_conditions_to_validate.append(condition)
+                    if condition.attribute_name in self.BASE_ATTRIBUTES:
+                        ignore_rules = True
+
+            if ignore_rules and self.hide_rule:
+                self.ignored_rules.append(
+                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                )
+            else:
+                self.matching_rules.append(
+                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                )
 
 
 @dataclasses.dataclass
@@ -94,69 +179,8 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    @dataclasses.dataclass
-    class PullRequestRuleForPR:
-        """A pull request rule that matches a pull request."""
-
-        # Fixed base attributes that are not considered when looking for the
-        # next matching rules.
-        BASE_ATTRIBUTES = (
-            "head",
-            "base",
-            "author",
-            "merged_by",
-        )
-        TEAM_ATTRIBUTES = (
-            "author",
-            "merged_by",
-            "approved-reviews-by",
-            "dismissed-reviews-by",
-            "commented-reviews-by",
-        )
-
-        # The list of pull request rules to match against.
-        rules: typing.List
-
-        # The context to test.
-        context: context.Context
-
-        # The rules matching the pull request.
-        matching_rules: typing.List = dataclasses.field(
-            init=False, default_factory=list
-        )
-
-        # The rules not matching the pull request.
-        ignored_rules: typing.List = dataclasses.field(init=False, default_factory=list)
-
-        def __post_init__(self):
-            for rule in self.rules:
-                ignore_rules = False
-                next_conditions_to_validate = []
-                for condition in rule.conditions:
-                    for attrib in self.TEAM_ATTRIBUTES:
-                        condition.set_value_expanders(
-                            attrib,
-                            self.context.resolve_teams,
-                        )
-
-                    name = condition.get_attribute_name()
-                    value = getattr(self.context.pull_request, name)
-                    if not condition(**{name: value}):
-                        next_conditions_to_validate.append(condition)
-                        if condition.attribute_name in self.BASE_ATTRIBUTES:
-                            ignore_rules = True
-
-                if ignore_rules:
-                    self.ignored_rules.append(
-                        EvaluatedRule.from_rule(rule, next_conditions_to_validate)
-                    )
-                else:
-                    self.matching_rules.append(
-                        EvaluatedRule.from_rule(rule, next_conditions_to_validate)
-                    )
-
-    def get_pull_request_rule(self, pull_request):
-        return self.PullRequestRuleForPR(self.rules, pull_request)
+    def get_pull_request_rule(self, pull_request: context.Context) -> RulesEvaluator:
+        return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
 
 
 class YAMLInvalid(voluptuous.Invalid):
@@ -204,7 +228,7 @@ PullRequestRulesSchema = voluptuous.All(
                 voluptuous.Required("name"): str,
                 voluptuous.Required("hidden", default=False): bool,
                 voluptuous.Required("conditions"): [
-                    voluptuous.All(str, voluptuous.Coerce(PullRequestRuleCondition))
+                    voluptuous.All(str, voluptuous.Coerce(RuleCondition))
                 ],
                 voluptuous.Required("actions"): actions.get_action_schemas(),
             },
@@ -219,7 +243,9 @@ PullRequestRulesSchema = voluptuous.All(
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         voluptuous.Coerce(YAML),
-        {voluptuous.Required("pull_request_rules"): PullRequestRulesSchema},
+        {
+            voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
+        },
     )
 )
 
@@ -315,9 +341,13 @@ def get_mergify_config_content(client, repo, ref=None):
     raise NoRules()
 
 
+class MergifyConfig(typing.TypedDict):
+    pull_request_rules: PullRequestRules
+
+
 def get_mergify_config(client, repo, ref=None):
     filename, content = get_mergify_config_content(client, repo, ref)
     try:
-        return filename, UserConfigurationSchema(content)
+        return filename, typing.cast(MergifyConfig, UserConfigurationSchema(content))
     except voluptuous.Invalid as e:
         raise InvalidRules(e, filename)
