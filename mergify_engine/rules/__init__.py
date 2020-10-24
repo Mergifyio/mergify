@@ -96,6 +96,57 @@ class EvaluatedRule:
         )
 
 
+class QueueConfig(typing.TypedDict):
+    method: str
+    rebase_fallback: str
+    strict_method: str
+    merge_bot_account: typing.Optional[types.GitHubLogin]
+    update_bot_account: typing.Optional[types.GitHubLogin]
+
+
+@dataclasses.dataclass
+class EvaluatedQueueRule:
+    name: str
+    conditions: typing.List[filter.Filter]
+    missing_conditions: typing.List[filter.Filter]
+    config: QueueConfig
+
+    @classmethod
+    def from_rule(
+        cls, rule: "QueueRule", missing_conditions: typing.List[filter.Filter]
+    ) -> "EvaluatedQueueRule":
+        return cls(
+            rule.name,
+            rule.conditions,
+            missing_conditions,
+            rule.config,
+        )
+
+
+@dataclasses.dataclass
+class QueueRule:
+    name: str
+    conditions: typing.List[filter.Filter]
+    config: QueueConfig
+
+    class T_from_dict(QueueConfig, total=False):
+        name: str
+        conditions: typing.List[filter.Filter]
+
+    @classmethod
+    def from_dict(cls, d: T_from_dict) -> "QueueRule":
+        name = d.pop("name")
+        conditions = d.pop("conditions")
+        return cls(name, conditions, d)
+
+    def get_pull_request_rule(
+        self, pull_request: context.Context
+    ) -> EvaluatedQueueRule:
+        return RulesEvaluator(
+            [self], pull_request, EvaluatedQueueRule, False
+        ).matching_rules[0]
+
+
 @dataclasses.dataclass
 class RulesEvaluator:
     """A rules that matches a pull request."""
@@ -183,6 +234,29 @@ class PullRequestRules:
         return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
 
 
+@dataclasses.dataclass
+class QueueRules:
+    rules: typing.List[QueueRule]
+
+    # NOTE(sileht): 10000 is the max pr priority, so we use it as offset to order
+    # queue
+    QUEUE_PRIORITY_OFFSET = 10000
+
+    def __iter__(self):
+        return iter(self.rules)
+
+    def __post_init__(self):
+        names = set()
+        for i, rule in enumerate(reversed(self.rules)):
+            rule.config["queue_priority"] = i * self.QUEUE_PRIORITY_OFFSET
+
+            if rule.name is names:
+                raise voluptuous.error.Invalid(
+                    f"queue_rules names must be unique, found `{rule.name}` twice"
+                )
+            names.add(rule.name)
+
+
 class YAMLInvalid(voluptuous.Invalid):
     def __str__(self):
         return f"{self.msg} at {self.path}"
@@ -239,13 +313,46 @@ PullRequestRulesSchema = voluptuous.All(
     voluptuous.Coerce(PullRequestRules),
 )
 
+QueueRulesSchema = voluptuous.All(
+    [
+        voluptuous.All(
+            {
+                voluptuous.Required("name"): str,
+                voluptuous.Required("conditions"): [
+                    voluptuous.All(str, voluptuous.Coerce(RuleCondition))
+                ],
+                voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
+                    None, types.GitHubLogin
+                ),
+            },
+            voluptuous.Coerce(QueueRule.from_dict),
+        )
+    ],
+    voluptuous.Coerce(QueueRules),
+)
+
+
+def FullifyPullRequestRules(v):
+    try:
+        for pr_rule in v["pull_request_rules"]:
+            for action in pr_rule.actions.values():
+                action.validate_config(v)
+    except voluptuous.error.Error:
+        raise
+    except Exception as e:
+        LOG.error("fail to dispatch config", exc_info=True)
+        raise voluptuous.error.Invalid(str(e))
+    return v
+
 
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         voluptuous.Coerce(YAML),
         {
             voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
+            voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
         },
+        voluptuous.Coerce(FullifyPullRequestRules),
     )
 )
 
@@ -343,6 +450,7 @@ def get_mergify_config_content(client, repo, ref=None):
 
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
+    queue_rules: QueueRules
 
 
 def get_mergify_config(client, repo, ref=None):

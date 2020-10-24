@@ -8,11 +8,11 @@
 🎯 Conditions
 =============
 
-Conditions are used in pull request rules to check if a pull request matches a
-certain rule. If a pull request matches all of the listed conditions in a rule,
-the subsequent actions listed in that rule will be applied. Conditions must be
-listed under the ``conditions`` section of the ``pull_request_rules`` entries —
-see :ref:`configuration file format`.
+Conditions are used in pull request rules and queue rules to check if a pull
+request matches a certain rule. If a pull request matches all of the listed
+conditions in a rule, the subsequent actions listed in that rule will be
+applied. Conditions must be listed under the ``conditions`` section of the
+``pull_request_rules`` or ``queue_rules`` entries — see :ref:`configuration file format`.
 
 Grammar
 ~~~~~~~

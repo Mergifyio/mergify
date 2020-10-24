@@ -358,13 +358,13 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``strict_method``
      - string
      - ``merge``
-     - Update method to use to update the pull request with its base branch
+     - Method to use to update the pull request with its base branch
        when :ref:`strict merge` is enabled. Possible values:
 
        * ``merge`` to merge the base branch into the pull request.
        * ``rebase`` to rebase the pull request against its base branch.
 
-       Note that the ``rebase`` method has many drawbacks, see :ref:`strict
+       Note that the ``rebase`` method has some drawbacks, see :ref:`strict
        rebase`.
 
    * - ``merge_bot_account``
@@ -409,6 +409,50 @@ The ``merge`` action merges the pull request into its base branch. The
        * ``title+body`` means to use the title and body from the pull request
          itself as the commit message. The pull request number will be added to
          end of the title.
+
+queue
+=====
+
+|premium plan tag|
+
+The ``queue`` action moves the pull request into one of the merge queue defined
+in ``queue_rules``. The ``queue`` action takes the following parameter:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 1 3
+
+   * - Key Name
+     - Value Type
+     - Default
+     - Value Description
+   * - ``name``
+     - string
+     -
+     - The name of the merge queue where to move the pull request.
+   * - ``priority``
+     - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
+     - ``medium``
+     - This set the priority of the pull request in the queued. The pull
+       request with the highest priority is merged first.
+       ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
+   * - ``method``
+     - string
+     - ``merge``
+     - Merge method to use. Possible values are ``merge``.
+   * - ``commit_message``
+     - string
+     - ``default``
+     - Defines what commit message to use when merging using the ``squash`` or
+       ``merge`` method. Possible values are:
+
+       * ``default`` to use the default commit message provided by GitHub
+         or defined in the pull request body (see :ref:`commit message`).
+
+       * ``title+body`` means to use the title and body from the pull request
+         itself as the commit message. The pull request number will be added to
+         end of the title.
+
 
 Branch Protection Settings
 --------------------------
