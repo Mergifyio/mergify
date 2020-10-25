@@ -114,10 +114,22 @@ def _check_GitHubTeam_format(value):
 
     if sep == "" and team == "":
         # Just a slug
-        return _check_GitHubLogin_format(org, "team")
+        team = org
+    else:
+        _check_GitHubLogin_format(org, "organization")
 
-    _check_GitHubLogin_format(org, "organization")
-    return _check_GitHubLogin_format(team, "team")
+    if not team:
+        raise voluptuous.Invalid("A GitHub team cannot be an empty string")
+
+    if (
+        team[0] == "-"
+        or team[-1] == "-"
+        or not team.isascii()
+        or not team.replace("-", "").replace("_", "").isalnum()
+    ):
+        raise voluptuous.Invalid("GitHub team contains invalid characters")
+
+    return team
 
 
 GitHubTeam = voluptuous.All(str, _check_GitHubTeam_format)

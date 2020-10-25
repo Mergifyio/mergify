@@ -94,6 +94,7 @@ def test_github_login_nok(login, error):
         ("@fo-o/bar", "bar"),
         ("@fo-o/ba-r", "ba-r"),
         ("@foo/ba-r", "ba-r"),
+        ("under_score", "under_score"),
     ),
 )
 def test_github_team_ok(login, result):
