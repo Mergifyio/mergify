@@ -467,8 +467,6 @@ class PullRequest:
     context: Context
 
     ATTRIBUTES = {
-        "assignee",
-        "label",
         "author",
         "merged-by",
         "merged",
@@ -481,10 +479,11 @@ class PullRequest:
         "locked",
         "title",
         "body",
-        "files",
     }
 
     LIST_ATTRIBUTES = {
+        "assignee",
+        "label",
         "review-requested",
         "approved-reviews-by",
         "dismissed-reviews-by",
@@ -496,6 +495,7 @@ class PullRequest:
         "status-success",
         "status-failure",
         "status-neutral",
+        "files",
     }
 
     def __getattr__(self, name):

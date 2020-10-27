@@ -76,6 +76,15 @@ def test_jinja_with_list_attribute():
               comment:
                 message: |
                   This pull request has been approved by:
+                  {% for name in label %}
+                  @{{name}}
+                  {% endfor %}
+                  {% for name in files %}
+                  @{{name}}
+                  {% endfor %}
+                  {% for name in assignee %}
+                  @{{name}}
+                  {% endfor %}
                   {% for name in approved_reviews_by %}
                   @{{name}}
                   {% endfor %}
