@@ -407,7 +407,7 @@ little message.
             comment:
               message: |
                   Welcome to our great project!
-                  We're delight to have you onboard <3
+                  We're delighted to have you onboard <3
 
 🤜 Request for Action
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
