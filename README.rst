@@ -5,10 +5,6 @@ mergify-engine
    :target: https://mergify.io
    :alt: Mergify Status
 
-.. image:: https://travis-ci.org/Mergifyio/mergify-engine.svg?branch=master
-    :target: https://travis-ci.org/Mergifyio/mergify-engine
-    :alt: Build Status
-
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
 
 This is how it works:
