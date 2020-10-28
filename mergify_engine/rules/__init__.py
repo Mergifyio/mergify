@@ -26,6 +26,7 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import types
@@ -265,11 +266,11 @@ class InvalidRules(Exception):
         )
 
 
-MERGIFY_CONFIG_FILENAMES = (
+MERGIFY_CONFIG_FILENAMES = [
     ".mergify.yml",
     ".mergify/config.yml",
     ".github/mergify.yml",
-)
+]
 
 
 def get_mergify_config_content(client, repo, ref=None):
@@ -277,17 +278,36 @@ def get_mergify_config_content(client, repo, ref=None):
 
     :return: The filename and its content.
     """
+
+    config_location_cache = f"config-location~{client.auth.owner}~{repo}"
+
     kwargs = {}
     if ref:
         kwargs["ref"] = ref
-    for filename in MERGIFY_CONFIG_FILENAMES:
+        cached_filename = None
+    else:
+        with utils.get_redis_for_cache() as redis:
+            cached_filename = redis.get(config_location_cache)
+
+    filenames = MERGIFY_CONFIG_FILENAMES.copy()
+    if cached_filename:
+        filenames.remove(cached_filename)
+        filenames.insert(0, cached_filename)
+
+    for filename in filenames:
         try:
             content = client.item(
                 f"/repos/{client.auth.owner}/{repo}/contents/{filename}", **kwargs
             )["content"]
         except http.HTTPNotFound:
             continue
+        if ref is None and filename != cached_filename:
+            with utils.get_redis_for_cache() as redis:
+                redis.set(config_location_cache, filename, ex=60 * 60 * 24 * 31)
+
         return filename, base64.b64decode(bytearray(content, "utf-8"))
+    with utils.get_redis_for_cache() as redis:
+        redis.delete(config_location_cache)
     raise NoRules()
 
 
