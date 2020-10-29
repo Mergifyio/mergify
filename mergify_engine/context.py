@@ -34,8 +34,12 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+
+
+SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
@@ -132,7 +136,49 @@ class Context(object):
 
     def set_summary_check(self, result):
         """Set the Mergify Summary check result."""
-        return check_api.set_check_run(self, self.SUMMARY_NAME, result)
+
+        previous_sha = self.get_cached_last_summary_head_sha()
+        # NOTE(sileht): we first commit in redis the future sha,
+        # so engine.create_initial_summary() cannot creates a second SUMMARY
+        self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
+
+        try:
+            ret = check_api.set_check_run(self, self.SUMMARY_NAME, result)
+        except Exception:
+            if previous_sha:
+                # Restore previous sha in redis
+                self._save_cached_last_summary_head_sha(previous_sha)
+            raise
+
+        return ret
+
+    @staticmethod
+    def redis_last_summary_head_sha_key(client, pull):
+        installation_id = client.auth.installation["id"]
+        owner = pull["base"]["repo"]["owner"]["id"]
+        repo = pull["base"]["repo"]["id"]
+        pull_number = pull["number"]
+        return f"summary-sha~{installation_id}~{owner}~{repo}~{pull_number}"
+
+    def get_cached_last_summary_head_sha(self):
+        with utils.get_redis_for_cache() as redis:
+            return redis.get(
+                self.redis_last_summary_head_sha_key(self.client, self.pull)
+            )
+
+    def clear_cached_last_summary_head_sha(self):
+        with utils.get_redis_for_cache() as redis:
+            redis.delete(self.redis_last_summary_head_sha_key(self.client, self.pull))
+
+    def _save_cached_last_summary_head_sha(self, sha):
+        # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
+        # to avoid race conditions when too many synchronize events occur in a short period of time
+        with utils.get_redis_for_cache() as redis:
+            redis.set(
+                self.redis_last_summary_head_sha_key(self.client, self.pull),
+                sha,
+                ex=SUMMARY_SHA_EXPIRATION,
+            )
 
     def _get_valid_users(self):
         bots = list(

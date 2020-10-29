@@ -24,6 +24,7 @@ from datadog import statsd
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import utils
 from mergify_engine import worker
@@ -168,6 +169,14 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
             pull_number = data["issue"]["number"]
         else:
             pull_number = None
+
+        try:
+            await engine.create_initial_summary(owner, event_type, data)
+        except Exception as e:
+            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                LOG.debug("engine.create_initial_summary() failed", exc_info=True)
+            else:
+                LOG.error("fail to create initial summary", exc_info=True)
 
         await worker.push(
             redis,

@@ -296,11 +296,11 @@ Your branch is up to date with 'origin/{stable_branch}'.
 
 You are currently cherry-picking commit {commit_id[:7]}.
   (fix conflicts and run "git cherry-pick --continue")
-  (use "git cherry-pick --skip" to skip this patch)
   (use "git cherry-pick --abort" to cancel the cherry-pick operation)
 
 Unmerged paths:
   (use "git add <file>..." to mark resolution)
+
 	both added:      conflicts
 
 no changes added to commit (use "git add" and/or "git commit -a")
@@ -1556,7 +1556,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ctxt = context.Context(client, p.raw_data, {})
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]
-        assert "clean" == ctxt.pull["mergeable_state"]
+        assert "unstable" == ctxt.pull["mergeable_state"]
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        assert len(ctxt.pull_engine_check_runs) == 1
+        check = ctxt.pull_engine_check_runs[0]
+        assert check["output"]["title"] == "Your rules are under evaluation"
+        assert (
+            check["output"]["summary"] == "Be patient, the page will be updated soon."
+        )
 
     def test_pull_refreshed_after_config_change(self):
         rules = {
@@ -1587,3 +1594,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p.update()
         comments = list(p.get_issue_comments())
         assert "it works" == comments[-1].body
+
+    def test_unconfigured_repo_does_not_post_summary(self):
+        self.setup_repo()
+
+        self.run_engine()
+        p, _ = self.create_pr()
+        self.run_engine()
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        assert ctxt.pull_engine_check_runs == []
