@@ -21,6 +21,8 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
 
@@ -88,7 +90,7 @@ def ensure_summary_on_head_sha(ctxt):
         if check["name"] == ctxt.SUMMARY_NAME:
             return
 
-    sha = actions_runner.get_last_summary_head_sha(ctxt)
+    sha = ctxt.get_cached_last_summary_head_sha()
     if sha:
         previous_summary = get_summary_from_sha(ctxt, sha)
     else:
@@ -100,12 +102,11 @@ def ensure_summary_on_head_sha(ctxt):
     if previous_summary:
         ctxt.set_summary_check(
             check_api.Result(
-                check_api.Conclusion.SUCCESS,
+                check_api.Conclusion(previous_summary["conclusion"]),
                 title=previous_summary["output"]["title"],
                 summary=previous_summary["output"]["summary"],
             )
         )
-        actions_runner.save_last_summary_head_sha(ctxt)
     else:
         ctxt.log.warning("the pull request doesn't have a summary")
 
@@ -205,7 +206,65 @@ def run(client, pull, sub, sources):
         s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
         for s in ctxt.sources
     ):
-        actions_runner.delete_last_summary_head_sha(ctxt)
+        ctxt.clear_cached_last_summary_head_sha()
 
     ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+
+
+async def create_initial_summary(owner, event_type, data):
+    if event_type != "pull_request":
+        return
+
+    if data["action"] != "opened":
+        return
+
+    redis = await utils.get_aredis_for_cache()
+
+    if not await redis.exists(
+        rules.get_config_location_cache_key(
+            owner, data["pull_request"]["base"]["repo"]["name"]
+        )
+    ):
+        # Mergify is probably not activated on this repo
+        return
+
+    async with await github.aget_client(owner) as client:
+
+        # NOTE(sileht): It's possible that a "push" event creates a summary before we
+        # received the pull_request/opened event.
+        # So we check first if a summary does not already exists, to not post
+        # the summary twice. Since this method can ran in parallel of the worker
+        # this is not a 100% reliable solution, but if we post a duplicate summary
+        # check_api.set_check_run() handle this case and update both to not confuse users.
+        sha = await redis.get(
+            context.Context.redis_last_summary_head_sha_key(
+                client, data["pull_request"]
+            )
+        )
+        if sha:
+            return
+
+        post_parameters = {
+            "name": context.Context.SUMMARY_NAME,
+            "head_sha": data["pull_request"]["head"]["sha"],
+            "status": check_api.Status.IN_PROGRESS.value,
+            "started_at": utils.utcnow().isoformat(),
+            "details_url": f"{data['pull_request']['html_url']}/checks",
+            "output": {
+                "title": "Your rules are under evaluation",
+                "summary": "Be patient, the page will be updated soon.",
+            },
+        }
+        await client.post(
+            f"/repos/{data['pull_request']['base']['user']['login']}/{data['pull_request']['base']['repo']['name']}/check-runs",
+            api_version="antiope",
+            json=post_parameters,
+        )
+        await redis.set(
+            context.Context.redis_last_summary_head_sha_key(
+                client, data["pull_request"]
+            ),
+            data["pull_request"]["head"]["sha"],
+            ex=context.SUMMARY_SHA_EXPIRATION,
+        )

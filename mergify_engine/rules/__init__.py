@@ -273,13 +273,17 @@ MERGIFY_CONFIG_FILENAMES = [
 ]
 
 
+def get_config_location_cache_key(owner, repo):
+    return f"config-location~{owner}~{repo}"
+
+
 def get_mergify_config_content(client, repo, ref=None):
     """Get the Mergify configuration file content.
 
     :return: The filename and its content.
     """
 
-    config_location_cache = f"config-location~{client.auth.owner}~{repo}"
+    config_location_cache = get_config_location_cache_key(client.auth.owner, repo)
 
     kwargs = {}
     if ref:
