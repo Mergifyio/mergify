@@ -134,6 +134,13 @@ def _do_update(ctxt, token, method="merge"):
             "--shallow-since='%s'" % last_commit_date,
         )
 
+        # Try to find the merge base, but don't fetch more that 1000 commits.
+        for _ in range(20):
+            git("repack", "-d")
+            if git("merge-base", f"upstream/{base_branch}", f"origin/{head_branch}"):
+                break
+            git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
+
         try:
             _do_update_branch(git, method, base_branch, head_branch)
         except subprocess.CalledProcessError as e:  # pragma: no cover
