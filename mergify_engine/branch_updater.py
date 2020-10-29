@@ -166,7 +166,10 @@ def _do_update(ctxt, token, method="merge"):
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
-                raise out_exception(in_exception.output.decode())
+                raise out_exception(
+                    "Git reported the following error:\n"
+                    f"```\n{in_exception.output.decode()}\n```\n"
+                )
         else:
             ctxt.log.error(
                 "update branch failed: %s",
