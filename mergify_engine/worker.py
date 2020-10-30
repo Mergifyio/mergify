@@ -212,32 +212,22 @@ class StreamSelector:
     worker_id: int
     worker_count: int
 
-    _pending_streams: List = dataclasses.field(init=False, default_factory=list)
-
     def _is_stream_for_me(self, stream: bytes) -> bool:
         hash = int(hashlib.md5(stream).hexdigest(), 16)
         return hash % self.worker_count == self.worker_id
 
     async def next_stream(self):
-        if not self._pending_streams:
-            now = time.time()
-            self._pending_streams = [
-                stream
-                for stream in await self.redis.zrangebyscore(
-                    "streams",
-                    min=0,
-                    max=now,
+        now = time.time()
+        for stream in await self.redis.zrangebyscore(
+            "streams",
+            min=0,
+            max=now,
+        ):
+            if self._is_stream_for_me(stream):
+                statsd.increment(
+                    "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
                 )
-                if self._is_stream_for_me(stream)
-            ]
-
-        if not self._pending_streams:
-            return
-
-        statsd.increment(
-            "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
-        )
-        return self._pending_streams.pop(0).decode()
+                return stream.decode()
 
 
 @dataclasses.dataclass
@@ -650,14 +640,14 @@ class Worker:
                 self._worker_tasks.append(
                     asyncio.create_task(self.stream_worker_task(worker_id))
                 )
-            LOG.debug("workers %s started", ", ".join(map(str, worker_ids)))
+            LOG.info("workers %s started", ", ".join(map(str, worker_ids)))
 
         if "stream-monitoring" in self.enabled_services:
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
 
     async def _shutdown(self):
         worker_ids = self.get_worker_ids()
-        LOG.debug("wait for workers %s to exit", ", ".join(map(str, worker_ids)))
+        LOG.info("wait for workers %s to exit", ", ".join(map(str, worker_ids)))
         self._stopping.set()
 
         await self._start_task
