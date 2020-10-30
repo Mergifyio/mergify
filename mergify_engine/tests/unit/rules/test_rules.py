@@ -21,6 +21,7 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import get_mergify_config
 
@@ -178,6 +179,37 @@ def test_get_mergify_config(valid):
     filename, schema = get_mergify_config(client, "xyz")
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
+
+
+def test_get_mergify_config_location_from_cache():
+    client = mock.Mock()
+    client.auth.owner = "foo"
+    client.item.side_effect = [
+        http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
+        http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
+        {"content": encodebytes("whatever".encode()).decode()},
+    ]
+    filename, content = rules.get_mergify_config_content(client, "bar")
+    assert client.item.call_count == 3
+    client.item.assert_has_calls(
+        [
+            mock.call("/repos/foo/bar/contents/.mergify.yml"),
+            mock.call("/repos/foo/bar/contents/.mergify/config.yml"),
+            mock.call("/repos/foo/bar/contents/.github/mergify.yml"),
+        ]
+    )
+
+    client.item.reset_mock()
+    client.item.side_effect = [
+        {"content": encodebytes("whatever".encode()).decode()},
+    ]
+    filename, content = rules.get_mergify_config_content(client, "bar")
+    assert client.item.call_count == 1
+    client.item.assert_has_calls(
+        [
+            mock.call("/repos/foo/bar/contents/.github/mergify.yml"),
+        ]
+    )
 
 
 @pytest.mark.parametrize(

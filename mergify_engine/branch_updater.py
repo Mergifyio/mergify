@@ -134,6 +134,13 @@ def _do_update(ctxt, token, method="merge"):
             "--shallow-since='%s'" % last_commit_date,
         )
 
+        # Try to find the merge base, but don't fetch more that 1000 commits.
+        for _ in range(20):
+            git("repack", "-d")
+            if git("merge-base", f"upstream/{base_branch}", f"origin/{head_branch}"):
+                break
+            git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
+
         try:
             _do_update_branch(git, method, base_branch, head_branch)
         except subprocess.CalledProcessError as e:  # pragma: no cover
@@ -159,7 +166,10 @@ def _do_update(ctxt, token, method="merge"):
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
-                raise out_exception(in_exception.output.decode())
+                raise out_exception(
+                    "Git reported the following error:\n"
+                    f"```\n{in_exception.output.decode()}\n```\n"
+                )
         else:
             ctxt.log.error(
                 "update branch failed: %s",
