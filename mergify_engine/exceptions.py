@@ -67,7 +67,9 @@ def should_be_ignored(exception):
             exception.request.url
         ):
             return True
-        elif (
+
+    elif isinstance(exception, http.HTTPServerSideError):
+        if (
             exception.status_code == 503
             and exception.message in UNRECOVERABLE_SERVER_ERROR
         ):
