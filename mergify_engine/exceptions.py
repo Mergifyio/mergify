@@ -37,6 +37,8 @@ NOT_ACCESSIBLE_REPOSITORY_MESSAGES = [
     "Resource not accessible by integration",  # missing permission
 ]
 
+UNRECOVERABLE_SERVER_ERROR = ["Sorry, this diff is taking too long to generate."]
+
 MISSING_REPOSITORY_DATA_MESSAGE = "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
 
 
@@ -63,6 +65,11 @@ def should_be_ignored(exception):
         # NOTE(sileht): branch is gone since we started to handle a PR
         elif exception.status_code == 404 and "/branches/" in str(
             exception.request.url
+        ):
+            return True
+        elif (
+            exception.status_code == 503
+            and exception.message in UNRECOVERABLE_SERVER_ERROR
         ):
             return True
 
