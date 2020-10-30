@@ -242,7 +242,10 @@ def duplicate(
                 if out_exception is None:
                     return
                 else:
-                    raise out_exception(in_exception.output.decode())
+                    raise out_exception(
+                        "Git reported the following error:\n"
+                        f"```\n{in_exception.output.decode()}\n```\n"
+                    )
         else:
             ctxt.log.error(
                 "duplicate failed: %s",
