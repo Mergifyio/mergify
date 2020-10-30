@@ -214,7 +214,7 @@ class StreamSelector:
 
     _pending_streams: List = dataclasses.field(init=False, default_factory=list)
 
-    def _forme(self, stream: bytes) -> bool:
+    def _is_stream_for_me(self, stream: bytes) -> bool:
         hash = int(hashlib.md5(stream).hexdigest(), 16)
         return hash % self.worker_count == self.worker_id
 
@@ -228,7 +228,7 @@ class StreamSelector:
                     min=0,
                     max=now,
                 )
-                if self._forme(stream)
+                if self._is_stream_for_me(stream)
             ]
 
         if not self._pending_streams:
@@ -536,7 +536,7 @@ end
 def get_process_index_from_env():
     dyno = os.getenv("DYNO", None)
     if dyno:
-        return int(dyno.split(".")[1]) - 1
+        return int(dyno.rsplit(".", 1)[-1]) - 1
     else:
         return 0
 
@@ -613,8 +613,8 @@ class Worker:
                     num=1,
                     withscores=True,
                 )
-                # NOTE(sileht): May not be always true with the next StreamSelector based
-                # on hash+modulo
+                # NOTE(sileht): The latency may not be exact with the next StreamSelector
+                # based on hash+modulo
                 if streams:
                     latency = now - streams[0][1]
                     statsd.timing("engine.streams.latency", latency)
