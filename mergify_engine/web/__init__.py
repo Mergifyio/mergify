@@ -15,6 +15,7 @@
 # under the License.
 import collections
 import json
+import typing
 import uuid
 
 import aredis
@@ -76,7 +77,9 @@ async def http_post(*args, **kwargs):
         await client.post(*args, **kwargs)
 
 
-async def _refresh(owner, repo, action="user", **extra_data):
+async def _refresh(
+    owner: str, repo: str, action: str = "user", **extra_data: typing.Any
+) -> responses.Response:
     event_type = "refresh"
     data = {
         "action": action,
@@ -97,7 +100,7 @@ async def _refresh(owner, repo, action="user", **extra_data):
 
 
 @app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(auth.signature)])
-async def refresh_repo(owner, repo):
+async def refresh_repo(owner: str, repo: str) -> responses.Response:
     return await _refresh(owner, repo)
 
 
@@ -108,7 +111,9 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
     "/refresh/{owner}/{repo}/pull/{pull}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def refresh_pull(owner, repo, pull: int, action="user"):
+async def refresh_pull(
+    owner: str, repo: str, pull: int, action: str = "user"
+) -> responses.Response:
     action = RefreshActionSchema(action)
     return await _refresh(owner, repo, action=action, pull_request={"number": pull})
 
@@ -117,7 +122,7 @@ async def refresh_pull(owner, repo, pull: int, action="user"):
     "/refresh/{owner}/{repo}/branch/{branch}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def refresh_branch(owner, repo, branch):
+async def refresh_branch(owner: str, repo: str, branch: str) -> responses.Response:
     return await _refresh(owner, repo, ref=f"refs/heads/{branch}")
 
 
@@ -126,8 +131,8 @@ async def refresh_branch(owner, repo, branch):
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_update(
-    owner_id, request: requests.Request
-):  # pragma: no cover
+    owner_id: str, request: requests.Request
+) -> responses.Response:  # pragma: no cover
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
@@ -160,7 +165,7 @@ async def cleanup_subscription(data):
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
 async def marketplace_handler(
     request: requests.Request,
-):  # pragma: no cover
+) -> responses.Response:  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -209,7 +214,7 @@ async def queues(installation_id):
 @app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(
     request: requests.Request,
-):
+) -> responses.Response:
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -249,13 +254,15 @@ async def event_handler(
 # NOTE(sileht): These endpoints are used for recording cassetes, we receive
 # Github event on POST, we store them is redis, GET to retreive and delete
 @app.delete("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_delete():  # pragma: no cover
+async def event_testing_handler_delete() -> responses.Response:  # pragma: no cover
     await _AREDIS_CACHE.delete("events-testing")
     return responses.Response("Event queued", status_code=202)
 
 
 @app.post("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_post(request: requests.Request):  # pragma: no cover
+async def event_testing_handler_post(
+    request: requests.Request,
+) -> responses.Response:  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -267,7 +274,9 @@ async def event_testing_handler_post(request: requests.Request):  # pragma: no c
 
 
 @app.get("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_get(number: int = None):  # pragma: no cover
+async def event_testing_handler_get(
+    number: int = None,
+) -> responses.Response:  # pragma: no cover
     async with await _AREDIS_CACHE.pipeline() as p:
         if number is None:
             await p.lrange("events-testing", 0, -1)
@@ -282,7 +291,9 @@ async def event_testing_handler_get(number: int = None):  # pragma: no cover
 
 
 @app.post("/marketplace-testing")
-async def marketplace_testng_handler(request: requests.Request):  # pragma: no cover
+async def marketplace_testng_handler(
+    request: requests.Request,
+) -> responses.Response:  # pragma: no cover
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()

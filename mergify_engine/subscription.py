@@ -59,7 +59,7 @@ class Subscription:
                 features.append(feature)
         return frozenset(features)
 
-    def has_feature(self, feature: Features):
+    def has_feature(self, feature: Features) -> bool:
         """Return if the feature for a plan is available."""
         return self.active and feature in self.features
 

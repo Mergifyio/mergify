@@ -213,7 +213,7 @@ class MergeAction(actions.Action):
     @staticmethod
     def _required_statuses_in_progress(
         ctxt: context.Context, rule: rules.EvaluatedRule
-    ):
+    ) -> bool:
         # It's closed, it's not going to change
         if ctxt.pull["state"] == "closed":
             return False
@@ -250,8 +250,8 @@ class MergeAction(actions.Action):
         return False
 
     def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule, q
-    ):
+        self, ctxt: context.Context, rule: rules.EvaluatedRule, q: queue.Queue
+    ) -> check_api.Result:
         # If PR from a public fork but cannot be edited
         if (
             ctxt.pull_from_fork
@@ -481,7 +481,9 @@ class MergeAction(actions.Action):
             )
 
     @staticmethod
-    def merge_report(ctxt, strict) -> typing.Optional[check_api.Result]:
+    def merge_report(
+        ctxt: context.Context, strict: bool
+    ) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"

@@ -265,7 +265,7 @@ async def extract_pull_numbers_from_event(client, repo, event_type, data):
 
 
 # TODO(sileht): use Enum for action
-async def send_refresh(pull: typing.Dict, action: str = "user"):
+async def send_refresh(pull: typing.Dict, action: str = "user") -> None:
     data = {
         "action": action,
         "repository": pull["base"]["repo"],
