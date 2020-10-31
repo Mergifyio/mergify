@@ -81,7 +81,9 @@ def voluptuous_error(error):
 
 
 @app.exception_handler(voluptuous.Invalid)
-async def voluptuous_errors(request: requests.Request, exc: voluptuous.Invalid):
+async def voluptuous_errors(
+    request: requests.Request, exc: voluptuous.Invalid
+) -> responses.JSONResponse:
     # FIXME(sileht): remove error at payload root
     payload = voluptuous_error(exc)
     payload["errors"] = []
@@ -126,7 +128,7 @@ def _sync_simulator(pull_request_rules, owner, repo, pull_number, token):
 
 
 @app.post("/", dependencies=[fastapi.Depends(auth.signature_or_token)])
-async def simulator(request: requests.Request):
+async def simulator(request: requests.Request) -> responses.JSONResponse:
     token = request.headers.get("Authorization")
     if token:
         token = token[6:]  # Drop 'token '

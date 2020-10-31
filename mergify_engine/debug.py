@@ -61,7 +61,7 @@ def report_sub(
     sub: subscription.Subscription,
     title: str,
     slug: typing.Optional[str] = None,
-):
+) -> None:
     print(f"* {title} SUB DETAIL: {sub.reason}")
     print(
         f"* {title} SUB NUMBER OF TOKENS: {len(sub.tokens)} ({', '.join(sub.tokens)})"

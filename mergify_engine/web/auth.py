@@ -29,7 +29,7 @@ from mergify_engine.clients import http
 LOG = daiquiri.getLogger(__name__)
 
 
-async def signature(request: requests.Request):
+async def signature(request: requests.Request) -> None:
     # Only SHA1 is supported
     header_signature = request.headers.get("X-Hub-Signature")
     if header_signature is None:
@@ -52,7 +52,7 @@ async def signature(request: requests.Request):
         raise fastapi.HTTPException(status_code=403)
 
 
-async def token(request: requests.Request):
+async def token(request: requests.Request) -> None:
     authorization = request.headers.get("Authorization")
     if authorization:
         if authorization.startswith("token "):
@@ -70,7 +70,7 @@ async def token(request: requests.Request):
     raise fastapi.HTTPException(status_code=403)
 
 
-async def signature_or_token(request: requests.Request):
+async def signature_or_token(request: requests.Request) -> None:
     authorization = request.headers.get("Authorization")
     if authorization:
         await token(request)

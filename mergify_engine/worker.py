@@ -554,7 +554,7 @@ class Worker:
     def worker_count(self):
         return self.worker_per_process * self.process_count
 
-    async def stream_worker_task(self, worker_id: int):
+    async def stream_worker_task(self, worker_id: int) -> None:
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis)

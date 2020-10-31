@@ -19,7 +19,9 @@ from datadog import statsd
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import context
 from mergify_engine import doc
+from mergify_engine import rules
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -410,7 +412,7 @@ def run_actions(
     return conclusions
 
 
-def handle(pull_request_rules, ctxt) -> None:
+def handle(pull_request_rules: rules.PullRequestRules, ctxt: context.Context) -> None:
     match = pull_request_rules.get_pull_request_rule(ctxt)
     checks = dict((c["name"], c) for c in ctxt.pull_engine_check_runs)
 
