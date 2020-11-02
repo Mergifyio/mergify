@@ -22,7 +22,7 @@ from datadog import statsd
 from mergify_engine import worker
 
 
-statsd.socket = mock.Mock()  # type: ignore
+statsd.socket = mock.Mock()  # type:ignore[assignment]
 
 
 worker.WORKER_PROCESSING_DELAY = 0.01
