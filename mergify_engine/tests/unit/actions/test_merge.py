@@ -268,4 +268,4 @@ def test_queue_summary_subscription(active, summary):
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
     with mock.patch.object(merge.queue.Queue, "from_context", return_value=q):
-        assert summary == merge.MergeAction.get_queue_summary(ctxt)
+        assert summary == merge.MergeAction.get_queue_summary(ctxt, q)
