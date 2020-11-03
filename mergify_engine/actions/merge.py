@@ -30,6 +30,7 @@ from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -195,7 +196,7 @@ class MergeAction(actions.Action):
         if self.config["strict"] and self._required_statuses_in_progress(ctxt, rule):
             if self._should_be_merged(ctxt, q):
                 # Just wait for CIs to finish
-                return self.get_strict_status(ctxt, rule, need_update=ctxt.is_behind)
+                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
             else:
                 # Something got merged in the base branch in the meantime: rebase it again
                 return self._sync_with_base_branch(ctxt, rule, q)
@@ -284,7 +285,7 @@ class MergeAction(actions.Action):
             if q.is_first_pull(ctxt):
                 return self.update_pull_base_branch(ctxt, rule, q, self.config)
             else:
-                return self.get_strict_status(ctxt, rule, need_update=ctxt.is_behind)
+                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
         else:
             return self.update_pull_base_branch(ctxt, rule, q, self.config)
 
@@ -546,9 +547,8 @@ class MergeAction(actions.Action):
         return check_api.Result(conclusion, title, summary)
 
     @staticmethod
-    def get_queue_summary(ctxt):
-        q = queue.Queue.from_context(ctxt)
-        pulls = q.get_pulls()
+    def get_queue_summary(ctxt: context.Context, queue: queue.Queue) -> str:
+        pulls = queue.get_pulls()
         if not pulls:
             return ""
 
@@ -558,7 +558,7 @@ class MergeAction(actions.Action):
 
         summary = "\n\nThe following pull requests are queued:"
         for priority, grouped_pulls in itertools.groupby(
-            pulls, key=lambda v: q.get_config(v)["priority"]
+            pulls, key=lambda v: queue.get_config(v)["priority"]
         ):
             if priority != PriorityAliases.medium.value:
                 priorities_configured = True
@@ -580,34 +580,43 @@ class MergeAction(actions.Action):
 
         return summary
 
-    @classmethod
     def get_strict_status(
-        cls,
+        self,
         ctxt: context.Context,
         rule: rules.EvaluatedRule,
-        need_update: bool = False,
+        queue: queue.Queue,
+        is_behind: bool = False,
     ) -> check_api.Result:
-        if need_update:
-            title = "Base branch will be updated soon"
-            summary = (
-                "The pull request base branch will be updated soon and then merged."
-            )
+
+        summary = ""
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
+            position = queue.get_position(ctxt)
+            if position is None:
+                ctxt.log.error("expected queued pull request not found in queue")
+                title = "The pull request is queued to be merged"
+            else:
+                ord = utils.to_ordinal_numeric(position)
+                title = f"The pull request is the {ord} in the queue to be merged"
+
+            if is_behind:
+                summary = "\nThe pull request base branch will be updated before being merged."
+
+        elif self.config["strict"] and is_behind:
+            title = "The pull request will be updated with its base branch soon"
         else:
-            title = "Base branch update done"
-            summary = "The pull request has been automatically updated to follow its base branch and will be merged soon."
+            title = "The pull request will be merged soon"
 
-        summary += cls.get_queue_summary(ctxt)
+        summary += self.get_queue_summary(ctxt, queue)
 
-        if not need_update and rule and rule.missing_conditions is not None:
-            summary += "\n\nRequired conditions for merge:\n"
-            for cond in rule.conditions:
-                checked = " " if cond in rule.missing_conditions else "X"
-                summary += f"\n- [{checked}] `{cond}`"
+        summary += "\n\nRequired conditions for merge:\n"
+        for cond in rule.conditions:
+            checked = " " if cond in rule.missing_conditions else "X"
+            summary += f"\n- [{checked}] `{cond}`"
 
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     def update_pull_base_branch(
-        cls,
+        self,
         ctxt: context.Context,
         rule: rules.EvaluatedRule,
         queue: queue.Queue,
@@ -624,7 +633,7 @@ class MergeAction(actions.Action):
             # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status
             ctxt.update()
-            output = cls.merge_report(ctxt, True)
+            output = self.merge_report(ctxt, True)
             if output:
                 return output
             else:
@@ -635,4 +644,4 @@ class MergeAction(actions.Action):
                     e.message,
                 )
         else:
-            return cls.get_strict_status(ctxt, rule, need_update=False)
+            return self.get_strict_status(ctxt, rule, queue, is_behind=False)

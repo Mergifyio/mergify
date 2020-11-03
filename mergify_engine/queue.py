@@ -15,10 +15,12 @@ import asyncio
 import contextlib
 import dataclasses
 import json
+import typing
 
 import daiquiri
 import redis
 
+from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import utils
 
@@ -167,12 +169,19 @@ class Queue:
             ref,
         )
 
-    def is_first_pull(self, ctxt):
+    def is_first_pull(self, ctxt: context.Context) -> bool:
         pull_requests = self.get_pulls()
         if not pull_requests:
             ctxt.log.error("is_first_pull() called on empty queues")
             return True
         return pull_requests[0] == ctxt.pull["number"]
+
+    def get_position(self, ctxt: context.Context) -> typing.Optional[int]:
+        pulls = self.get_pulls()
+        try:
+            return pulls.index(ctxt.pull["number"])
+        except ValueError:
+            return None
 
     def get_pulls(self):
         return [
