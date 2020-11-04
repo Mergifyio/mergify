@@ -203,6 +203,8 @@ ORDINAL_SUFFIXES = {1: "st", 2: "nd", 3: "rd"}
 
 
 def to_ordinal_numeric(number: int) -> str:
+    if number < 0:
+        raise ValueError("number must be positive")
     last = number % 10
     suffix = ORDINAL_SUFFIXES.get(last) or "th"
     return f"{number}{suffix}"
