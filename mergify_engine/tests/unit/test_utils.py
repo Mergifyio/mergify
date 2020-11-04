@@ -77,3 +77,23 @@ def test_get_random_choices():
     assert utils.get_random_choices(0, choices, 3) == {"jd", "sileht", "foobar"}
     with pytest.raises(ValueError):
         assert utils.get_random_choices(4, choices, 4) == {"jd", "sileht"}
+
+
+def test_to_ordinal_numeric():
+    with pytest.raises(ValueError):
+        utils.to_ordinal_numeric(-1)
+
+    assert utils.to_ordinal_numeric(0) == "0th"
+    assert utils.to_ordinal_numeric(100) == "100th"
+    assert utils.to_ordinal_numeric(1) == "1st"
+    assert utils.to_ordinal_numeric(11) == "11st"
+    assert utils.to_ordinal_numeric(2) == "2nd"
+    assert utils.to_ordinal_numeric(42) == "42nd"
+    assert utils.to_ordinal_numeric(6543512) == "6543512nd"
+    assert utils.to_ordinal_numeric(3) == "3rd"
+    assert utils.to_ordinal_numeric(5743) == "5743rd"
+    for i in range(4, 10):
+        assert utils.to_ordinal_numeric(i) == f"{i}th"
+
+    assert utils.to_ordinal_numeric(4567) == "4567th"
+    assert utils.to_ordinal_numeric(5743) == "5743rd"
