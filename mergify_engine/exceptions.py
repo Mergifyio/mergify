@@ -49,11 +49,9 @@ IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
 
 def should_be_ignored(exception: Exception) -> bool:
     if isinstance(exception, (http.HTTPClientSideError, http.HTTPServerSideError)):
-        for code, errors in IGNORED_HTTP_ERRORS.items():
-            if exception.status_code == code:
-                for error in errors:
-                    if error in exception.message:
-                        return True
+        for error in IGNORED_HTTP_ERRORS.get(exception.status_code, []):
+            if error in exception.message:
+                return True
 
         # NOTE(sileht): a repository return 404 for /pulls..., so can't do much
         if exception.status_code == 404 and str(exception.request.url).endswith(
