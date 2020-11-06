@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 from mergify_engine.clients import http
 
 
@@ -30,34 +32,31 @@ class MergeableStateUnknown(Exception):
         self.ctxt = ctxt
 
 
-RATE_LIMIT_RETRY_MIN = 3
-BASE_RETRY_TIMEOUT = 60
-NOT_ACCESSIBLE_REPOSITORY_MESSAGES = [
-    "Repository access blocked",  # Blocked Github Account or Repo
-    "Resource not accessible by integration",  # missing permission
-]
+RATE_LIMIT_RETRY_MIN: int = 3
+BASE_RETRY_TIMEOUT: int = 60
 
-UNRECOVERABLE_SERVER_ERROR = ["Sorry, this diff is taking too long to generate."]
+IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
+    403: [
+        "Repository access blocked",  # Blocked Github Account or Repo
+        "Resource not accessible by integration",  # missing permission
+    ],
+    422: [
+        "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
+    ],
+    500: ["Sorry, this diff is taking too long to generate."],
+}
 
-MISSING_REPOSITORY_DATA_MESSAGE = "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
 
-
-def should_be_ignored(exception):
-    if isinstance(exception, http.HTTPClientSideError):
-        if (
-            exception.status_code == 403
-            and exception.message in NOT_ACCESSIBLE_REPOSITORY_MESSAGES
-        ):
-            return True
-
-        elif (
-            exception.status_code == 422
-            and exception.message == MISSING_REPOSITORY_DATA_MESSAGE
-        ):
-            return True
+def should_be_ignored(exception: Exception) -> bool:
+    if isinstance(exception, (http.HTTPClientSideError, http.HTTPServerSideError)):
+        for code, errors in IGNORED_HTTP_ERRORS.items():
+            if exception.status_code == code:
+                for error in errors:
+                    if error in exception.message:
+                        return True
 
         # NOTE(sileht): a repository return 404 for /pulls..., so can't do much
-        elif exception.status_code == 404 and str(exception.request.url).endswith(
+        if exception.status_code == 404 and str(exception.request.url).endswith(
             "/pulls"
         ):
             return True
@@ -65,13 +64,6 @@ def should_be_ignored(exception):
         # NOTE(sileht): branch is gone since we started to handle a PR
         elif exception.status_code == 404 and "/branches/" in str(
             exception.request.url
-        ):
-            return True
-
-    elif isinstance(exception, http.HTTPServerSideError):
-        if (
-            exception.status_code == 503
-            and exception.message in UNRECOVERABLE_SERVER_ERROR
         ):
             return True
 
