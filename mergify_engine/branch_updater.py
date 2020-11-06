@@ -73,7 +73,7 @@ def _do_update_branch(git, method, base_branch, head_branch):
         git("push", "--quiet", "origin", head_branch)
     elif method == "rebase":
         git("rebase", "upstream/%s" % base_branch)
-        git("push", "--quiet", "origin", head_branch, "-f")
+        git("push", "--verbose", "origin", head_branch, "-f")
     else:
         raise RuntimeError("Invalid branch update method")
 
