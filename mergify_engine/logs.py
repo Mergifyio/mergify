@@ -81,7 +81,12 @@ def setup_logging():
         )
 
     if config.LOG_DATADOG:
-        outputs.append(daiquiri.output.Datadog(level=config.LOG_DATADOG_LEVEL))
+        outputs.append(
+            daiquiri.output.Datadog(
+                level=config.LOG_DATADOG_LEVEL,
+                handler_class=daiquiri.handlers.PlainTextDatagramHandler,
+            )
+        )
 
     daiquiri.setup(
         outputs=outputs,
