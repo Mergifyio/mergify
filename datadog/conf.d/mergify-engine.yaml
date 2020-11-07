@@ -3,7 +3,7 @@ init_config:
 instances:
 
 logs:
-  - type: tcp
+  - type: udp
     port: 10518
     source: python
     service: mergify-engine
