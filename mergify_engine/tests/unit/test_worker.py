@@ -13,6 +13,7 @@
 # under the License.
 
 import asyncio
+import json
 import sys
 import time
 from unittest import mock
@@ -738,6 +739,35 @@ async def test_stream_processor_retrying_after_read_error(run_engine, redis):
         await p._run_engine_and_translate_exception_to_retries(
             "stream-owner", "owner", "repo", 1234, []
         )
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_stream_processor_ignore_503(run_engine, redis, logger_checker):
+    response = mock.Mock()
+    response.text = "Server Error: Sorry, this diff is taking too long to generate."
+    response.status_code = 503
+    response.json.side_effect = json.JSONDecodeError("whatever", "", 0)
+    response.reason_phrase = "Service Unavailable"
+    response.url = "https://api.github.com/repositories/1234/pulls/5/files"
+
+    run_engine.side_effect = lambda *_: http.raise_for_status(response)
+
+    await worker.push(
+        redis,
+        "owner1",
+        "repo",
+        123,
+        "pull_request",
+        {"payload": "whatever"},
+    )
+
+    await run_worker()
+
+    # Check redis is empty
+    assert 0 == (await redis.zcard("streams"))
+    assert 0 == len(await redis.keys("stream~*"))
+    assert 0 == len(await redis.hgetall("attempts"))
 
 
 @pytest.mark.asyncio

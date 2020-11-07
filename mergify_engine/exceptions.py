@@ -43,7 +43,7 @@ IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
     422: [
         "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
     ],
-    500: ["Sorry, this diff is taking too long to generate."],
+    503: ["Sorry, this diff is taking too long to generate."],
 }
 
 
