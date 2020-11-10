@@ -37,10 +37,10 @@ def api_call(url, method="post"):
 
 def clear_token_cache():
     parser = argparse.ArgumentParser(description="Force refresh of installation token")
-    parser.add_argument("installation_id")
+    parser.add_argument("owner_id")
     args = parser.parse_args()
     api_call(
-        config.BASE_URL + "/subscription-cache/%s" % args.installation_id,
+        config.BASE_URL + "/subscription-cache/%s" % args.owner_id,
         method="delete",
     )
 

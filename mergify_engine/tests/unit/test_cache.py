@@ -22,7 +22,7 @@ from mergify_engine import web
 
 
 def test_subscription_cache_delete():
-    installation_id = 123
+    owner_id = 123
 
     data = None
     headers = {
@@ -30,14 +30,14 @@ def test_subscription_cache_delete():
     }
     with testclient.TestClient(web.app) as client:
         reply = client.delete(
-            f"/subscription-cache/{installation_id}", data=data, headers=headers
+            f"/subscription-cache/{owner_id}", data=data, headers=headers
         )
         assert reply.status_code == 200
         assert reply.content == b"Cache cleaned"
 
 
 def test_subscription_cache_update():
-    installation_id = 123
+    owner_id = 123
     charset = "utf-8"
 
     data = json.dumps(
@@ -54,7 +54,7 @@ def test_subscription_cache_update():
     }
     with testclient.TestClient(web.app) as client:
         reply = client.put(
-            f"/subscription-cache/{installation_id}", data=data, headers=headers
+            f"/subscription-cache/{owner_id}", data=data, headers=headers
         )
         assert reply.status_code == 200
         assert reply.content == b"Cache updated"
