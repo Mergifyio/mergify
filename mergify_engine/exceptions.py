@@ -39,6 +39,7 @@ IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
     403: [
         "Repository access blocked",  # Blocked Github Account or Repo
         "Resource not accessible by integration",  # missing permission
+        "Repository was archived so is read-only",
     ],
     422: [
         "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
