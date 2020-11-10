@@ -144,6 +144,9 @@ class MergeAction(actions.Action):
         if ctxt.pull["state"] == "closed":
             return True
 
+        if ctxt.have_been_synchronized():
+            return True
+
         need_look_at_checks = []
         for condition in rule.missing_conditions:
             if condition.attribute_name.startswith(

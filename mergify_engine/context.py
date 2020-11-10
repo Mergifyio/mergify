@@ -452,6 +452,16 @@ class Context(object):
                     return False
         return True
 
+    def have_been_synchronized(self):
+        for source in self.sources:
+            if (
+                source["event_type"] == "pull_request"
+                and source["data"]["action"] == "synchronize"
+                and source["data"]["sender"]["id"] != config.BOT_USER_ID
+            ):
+                return True
+        return False
+
     def __str__(self):
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
             "login": self.pull["base"]["user"]["login"],
