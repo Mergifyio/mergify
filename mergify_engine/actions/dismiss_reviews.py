@@ -18,7 +18,6 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import utils
@@ -43,19 +42,8 @@ class DismissReviewsAction(actions.Action):
 
     silent_report = True
 
-    @staticmethod
-    def _have_been_synchronized(ctxt):
-        for source in ctxt.sources:
-            if (
-                source["event_type"] == "pull_request"
-                and source["data"]["action"] == "synchronize"
-                and source["data"]["sender"]["id"] != config.BOT_USER_ID
-            ):
-                return True
-        return False
-
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        if self._have_been_synchronized(ctxt):
+        if ctxt.have_been_synchronized():
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
             # his access_token instead of the Mergify installation token.
