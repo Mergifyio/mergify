@@ -149,8 +149,8 @@ class MergeAction(actions.Action):
             if condition.attribute_name.startswith(
                 "check-"
             ) or condition.attribute_name.startswith("status-"):
-                # TODO(sileht): Just return True here, no need to checks
-                # checks anymore, this method is no more use by merge queue
+                # TODO(sileht): Just return True here, no need to checks checks anymore,
+                # this method is no more used by teh merge queue
                 need_look_at_checks.append(condition)
             else:
                 # something else does not match anymore
@@ -301,7 +301,7 @@ class MergeAction(actions.Action):
                 return output
 
         # We just rebase the pull request, don't cancel it yet if CIs are
-        # running. The pull request will be merge if all rules match again.
+        # running. The pull request will be merged if all rules match again.
         # if not we will delete it when we received all CIs termination
         if self.config["strict"] and not self._should_be_cancel(ctxt, rule):
             try:
@@ -374,8 +374,8 @@ class MergeAction(actions.Action):
             else:
                 branch_updater.update_with_git(ctxt, method, user)
         except branch_updater.BranchUpdateFailure as e:
-            # NOTE(sileht): Maybe the PR have been rebased and/or merged manually
-            # in the meantime. So double check that to not report a wrong status
+            # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
+            # in the meantime. So double check that to not report a wrong status.
             ctxt.update()
             output = self.merge_report(ctxt, True)
             if output:
@@ -536,7 +536,7 @@ class MergeAction(actions.Action):
                 status=e.status_code,
                 error_message=e.message,
             )
-            # FIXME(sileht): Not sure this code handle all cases, maybe we should just
+            # FIXME(sileht): Not sure this code handles all cases, maybe we should just
             # send a refresh to this PR to retry later
             if self._should_be_synced(ctxt, q):
                 return self._sync_with_base_branch(ctxt, rule, q)
