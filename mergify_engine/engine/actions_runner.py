@@ -47,8 +47,13 @@ def get_already_merged_summary(ctxt, match):
 
     for rule in match.matching_rules:
         if "merge" in rule.actions:
+            missing_conditions = [
+                condition
+                for condition in rule.missing_conditions
+                if condition.get_attribute_name() not in ["merged", "closed"]
+            ]
             action_merge_found = True
-            if not rule.missing_conditions:
+            if not missing_conditions:
                 action_merge_found_in_active_rule = True
 
     # We already have a fully detailled status in the rule associated with the
