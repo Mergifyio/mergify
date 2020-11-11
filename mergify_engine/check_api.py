@@ -92,6 +92,9 @@ def set_check_run(ctxt, name, result, external_id=None):
         },
     }
 
+    if result.annotations is not None:
+        post_parameters["output"]["annotations"] = result.annotations
+
     # Maximum output/summary length for Check API is 65535
     summary = post_parameters["output"]["summary"]
     if summary and len(summary) > 65535:

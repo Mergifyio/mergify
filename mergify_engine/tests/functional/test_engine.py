@@ -16,7 +16,6 @@
 import logging
 import os.path
 import time
-import unittest
 from unittest import mock
 
 import yaml
@@ -71,7 +70,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "* required key not provided @ data['pull_request_rules'][0]['conditions']"
         )
 
-    @unittest.skip("FIXME: annotations are empty")
     def test_invalid_yaml_configuration(self):
         self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
         p, _ = self.create_pr()
