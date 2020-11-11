@@ -246,7 +246,10 @@ class TestMergeAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "Merge",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=automerge",
+                    ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
                 },
             ]
@@ -255,6 +258,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         p, _ = self.create_pr(files={".github/workflows/foo.yml": "whatever"})
+        self.add_label(p, "automerge")
         self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
@@ -267,6 +271,52 @@ class TestMergeAction(base.FunctionalTestBase):
             check["output"]["summary"]
             == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.\n<br />\nThis pull request must be merged manually."
         )
+
+        self.remove_label(p, "automerge")
+        self.run_engine()
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] == "cancelled"
+        assert check["output"]["title"] == "The rule doesn't match anymore"
+
+    def test_merge_draft(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=automerge",
+                    ],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr(draft=True)
+        self.add_label(p, "automerge")
+        self.run_engine()
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] is None
+        assert check["output"]["title"] == "Draft flag needs to be removed"
+        assert check["output"]["summary"] == ""
+
+        self.remove_label(p, "automerge")
+        self.run_engine()
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] == "cancelled"
+        assert check["output"]["title"] == "The rule doesn't match anymore"
 
     def test_merge_with_installation_token(self):
         rules = {

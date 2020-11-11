@@ -160,8 +160,7 @@ expected alphabetic or numeric character, but found"""
 
         self.add_label(p, "backport-3.1")
         self.run_engine()
-        p.remove_from_labels("backport-3.1")
-        self.wait_for("pull_request", {"action": "unlabeled"})
+        self.remove_label(p, "backport-3.1")
         self.run_engine()
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
