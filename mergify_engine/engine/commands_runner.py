@@ -143,6 +143,6 @@ def handle(ctxt, comment, user, rerun=False):
     except http.HTTPClientSideError as e:  # pragma: no cover
         ctxt.log.error(
             "fail to post comment on the pull request",
-            status=e.status_code,
+            status_code=e.status_code,
             error=e.message,
         )

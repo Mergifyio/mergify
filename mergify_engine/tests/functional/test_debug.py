@@ -156,9 +156,7 @@ mergeable_state: clean
   - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 1 (mergify-test1)
-* ENGINE-CACHE SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS
 * DASHBOARD SUB DETAIL: You're not nice
 * DASHBOARD SUB NUMBER OF TOKENS: 1 (mergify-test1)
-* DASHBOARD SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS
 * WORKER: Installation not queued to process"""
         )

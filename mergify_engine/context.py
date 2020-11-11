@@ -369,7 +369,7 @@ class Context(object):
             self.log.warning(
                 "fail to get the organization, team or members",
                 team=name,
-                status=e.status_code,
+                status_code=e.status_code,
                 detail=e.message,
             )
         return [name]
@@ -451,6 +451,16 @@ class Context(object):
                 if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
+
+    def have_been_synchronized(self):
+        for source in self.sources:
+            if (
+                source["event_type"] == "pull_request"
+                and source["data"]["action"] == "synchronize"
+                and source["data"]["sender"]["id"] != config.BOT_USER_ID
+            ):
+                return True
+        return False
 
     def __str__(self):
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {

@@ -88,7 +88,7 @@ def report_sub(
                     print(
                         f"* {title} SUB: MERGIFY INSTALLED BUT DISABLED ON THIS REPOSITORY"
                     )
-                break
+            break
     else:
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 

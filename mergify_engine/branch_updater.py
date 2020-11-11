@@ -205,20 +205,20 @@ def update_with_api(ctxt):
             if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
                 ctxt.log.info(
                     "branch updated in the meantime",
-                    status=e.status_code,
+                    status_code=e.status_code,
                     error=e.message,
                 )
                 return
         ctxt.log.info(
             "update branch failed",
-            status=e.status_code,
+            status_code=e.status_code,
             error=e.message,
         )
         raise BranchUpdateFailure(e.message)
     except (http.RequestError, http.HTTPStatusError) as e:
         ctxt.log.info(
             "update branch failed",
-            status=(e.response.status_code if e.response else None),
+            status_code=(e.response.status_code if e.response else None),
             error=str(e),
         )
         raise BranchUpdateNeedRetry()
