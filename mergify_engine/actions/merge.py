@@ -522,7 +522,7 @@ class MergeAction(actions.Action):
         if "Head branch was modified" in e.message:
             ctxt.log.info(
                 "Head branch was modified in the meantime",
-                status=e.status_code,
+                status_code=e.status_code,
                 error_message=e.message,
             )
             return check_api.Result(
@@ -536,7 +536,7 @@ class MergeAction(actions.Action):
             # with the base branch.
             ctxt.log.info(
                 "Base branch was modified in the meantime, retrying",
-                status=e.status_code,
+                status_code=e.status_code,
                 error_message=e.message,
             )
             # FIXME(sileht): Not sure this code handles all cases, maybe we should just
@@ -550,7 +550,7 @@ class MergeAction(actions.Action):
             if REQUIRED_STATUS_RE.match(e.message):
                 ctxt.log.info(
                     "Waiting for the branch protection required status checks to be validated",
-                    status=e.status_code,
+                    status_code=e.status_code,
                     error_message=e.message,
                 )
                 return check_api.Result(
@@ -564,7 +564,7 @@ class MergeAction(actions.Action):
             else:
                 ctxt.log.info(
                     "Branch protection settings are not validated anymore",
-                    status=e.status_code,
+                    status_code=e.status_code,
                     error_message=e.message,
                 )
 
@@ -580,7 +580,7 @@ class MergeAction(actions.Action):
             message = "Mergify failed to merge the pull request"
             ctxt.log.info(
                 "merge fail",
-                status=e.status_code,
+                status_code=e.status_code,
                 mergify_message=message,
                 error_message=e.message,
             )
