@@ -765,6 +765,10 @@ class FunctionalTestBase(unittest.TestCase):
         pr.add_to_labels(label)
         self.wait_for("pull_request", {"action": "labeled"})
 
+    def remove_label(self, pr, label):
+        pr.remove_from_labels(label)
+        self.wait_for("pull_request", {"action": "unlabeled"})
+
     def branch_protection_unprotect(self, branch):
         return self.r_o_admin._requester.requestJsonAndCheck(
             "DELETE",

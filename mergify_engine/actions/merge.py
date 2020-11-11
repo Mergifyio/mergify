@@ -297,11 +297,13 @@ class MergeAction(actions.Action):
         self._set_effective_priority(ctxt)
 
         q = queue.Queue.from_context(ctxt)
-        if ctxt.pull["state"] == "closed":
-            output = self.merge_report(ctxt)
-            if output:
-                q.remove_pull(ctxt.pull["number"])
+        output = self.merge_report(ctxt)
+        if output:
+            q.remove_pull(ctxt.pull["number"])
+            if ctxt.pull["state"] == "closed":
                 return output
+            else:
+                return self.cancelled_check_report
 
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merged if all rules match again.
@@ -642,8 +644,8 @@ class MergeAction(actions.Action):
             conclusion = check_api.Conclusion.ACTION_REQUIRED
             title = "Pull request must be merged manually."
             summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
-    <br />
-    This pull request must be merged manually."""
+<br />
+This pull request must be merged manually."""
 
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
         # are OK for us
