@@ -261,7 +261,7 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
 
-        report = self.merge_report(ctxt, self.config["strict"])
+        report = self.merge_report(ctxt)
         if report is not None:
             q.remove_pull(ctxt.pull["number"])
             return report
@@ -298,7 +298,7 @@ class MergeAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
         if ctxt.pull["state"] == "closed":
-            output = self.merge_report(ctxt, self.config["strict"])
+            output = self.merge_report(ctxt)
             if output:
                 q.remove_pull(ctxt.pull["number"])
                 return output
@@ -380,7 +380,7 @@ class MergeAction(actions.Action):
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
             ctxt.update()
-            output = self.merge_report(ctxt, True)
+            output = self.merge_report(ctxt)
             if output:
                 return output
             else:
@@ -502,7 +502,7 @@ class MergeAction(actions.Action):
             ctxt.update()
             ctxt.log.info("merged")
 
-        result = self.merge_report(ctxt, self.config["strict"])
+        result = self.merge_report(ctxt)
         if result:
             return result
         else:
@@ -590,10 +590,7 @@ class MergeAction(actions.Action):
                 f"GitHub error message: `{e.message}`",
             )
 
-    @staticmethod
-    def merge_report(
-        ctxt: context.Context, strict: bool
-    ) -> typing.Optional[check_api.Result]:
+    def merge_report(self, ctxt: context.Context) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"
@@ -634,7 +631,7 @@ class MergeAction(actions.Action):
         #     conclusion = "failure"
         #     title = "Branch protection settings are blocking automatic merging"
         #     summary = ""
-        elif ctxt.pull["mergeable_state"] == "behind" and not strict:
+        elif ctxt.pull["mergeable_state"] == "behind" and not self.config["strict"]:
             # Strict mode has been enabled in branch protection but not in
             # mergify
             conclusion = check_api.Conclusion.FAILURE
