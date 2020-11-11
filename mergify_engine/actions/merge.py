@@ -297,11 +297,10 @@ class MergeAction(actions.Action):
         self._set_effective_priority(ctxt)
 
         q = queue.Queue.from_context(ctxt)
-        if ctxt.pull["state"] == "closed":
-            output = self.merge_report(ctxt, self.config["strict"])
-            if output:
-                q.remove_pull(ctxt.pull["number"])
-                return output
+        output = self.merge_report(ctxt, self.config["strict"])
+        if output:
+            q.remove_pull(ctxt.pull["number"])
+            return output
 
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merged if all rules match again.
