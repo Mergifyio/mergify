@@ -369,7 +369,7 @@ class Context(object):
             self.log.warning(
                 "fail to get the organization, team or members",
                 team=name,
-                status=e.status_code,
+                status_code=e.status_code,
                 detail=e.message,
             )
         return [name]
