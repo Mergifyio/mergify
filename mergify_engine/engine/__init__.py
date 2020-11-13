@@ -218,7 +218,7 @@ def run(client, pull, sub, sources):
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
-async def create_initial_summary(owner, event_type, data):
+async def create_initial_summary(owner: str, event_type: str, data: dict) -> None:
     if event_type != "pull_request":
         return
 
@@ -235,22 +235,19 @@ async def create_initial_summary(owner, event_type, data):
         # Mergify is probably not activated on this repo
         return
 
+    # NOTE(sileht): It's possible that a "push" event creates a summary before we
+    # received the pull_request/opened event.
+    # So we check first if a summary does not already exists, to not post
+    # the summary twice. Since this method can ran in parallel of the worker
+    # this is not a 100% reliable solution, but if we post a duplicate summary
+    # check_api.set_check_run() handle this case and update both to not confuse users.
+    sha = context.Context.get_cached_last_summary_head_sha_from_pull(
+        data["pull_request"]
+    )
+    if sha:
+        return
+
     async with await github.aget_client(owner) as client:
-
-        # NOTE(sileht): It's possible that a "push" event creates a summary before we
-        # received the pull_request/opened event.
-        # So we check first if a summary does not already exists, to not post
-        # the summary twice. Since this method can ran in parallel of the worker
-        # this is not a 100% reliable solution, but if we post a duplicate summary
-        # check_api.set_check_run() handle this case and update both to not confuse users.
-        sha = await redis.get(
-            context.Context.redis_last_summary_head_sha_key(
-                client, data["pull_request"]
-            )
-        )
-        if sha:
-            return
-
         post_parameters = {
             "name": context.Context.SUMMARY_NAME,
             "head_sha": data["pull_request"]["head"]["sha"],
@@ -264,13 +261,12 @@ async def create_initial_summary(owner, event_type, data):
         }
         await client.post(
             f"/repos/{data['pull_request']['base']['user']['login']}/{data['pull_request']['base']['repo']['name']}/check-runs",
-            api_version="antiope",
+            api_version="antiope",  # type: ignore[call-arg]
             json=post_parameters,
         )
-        await redis.set(
-            context.Context.redis_last_summary_head_sha_key(
-                client, data["pull_request"]
-            ),
-            data["pull_request"]["head"]["sha"],
-            ex=context.SUMMARY_SHA_EXPIRATION,
-        )
+
+    await redis.set(
+        context.Context.redis_last_summary_head_sha_key(data["pull_request"]),
+        data["pull_request"]["head"]["sha"],
+        ex=context.SUMMARY_SHA_EXPIRATION,
+    )

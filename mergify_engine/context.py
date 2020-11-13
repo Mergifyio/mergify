@@ -153,29 +153,44 @@ class Context(object):
         return ret
 
     @staticmethod
-    def redis_last_summary_head_sha_key(client, pull):
-        installation_id = client.auth.installation["id"]
+    def redis_last_summary_head_sha_key(pull: dict) -> str:
         owner = pull["base"]["repo"]["owner"]["id"]
         repo = pull["base"]["repo"]["id"]
         pull_number = pull["number"]
-        return f"summary-sha~{installation_id}~{owner}~{repo}~{pull_number}"
+        return f"summary-sha~{owner}~{repo}~{pull_number}"
 
-    def get_cached_last_summary_head_sha(self):
-        with utils.get_redis_for_cache() as redis:
-            return redis.get(
-                self.redis_last_summary_head_sha_key(self.client, self.pull)
-            )
+    @classmethod
+    def get_cached_last_summary_head_sha_from_pull(
+        cls,
+        pull: dict,
+    ) -> str:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            # FIXME(jd): remove in January 2021
+            # Look for old format
+            ################
+            owner = pull["base"]["repo"]["owner"]["id"]
+            repo = pull["base"]["repo"]["id"]
+            pull_number = pull["number"]
+            for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
+                return redis.get(k)
+            # ENDOF FIXME(jd)
+            return redis.get(cls.redis_last_summary_head_sha_key(pull))
+
+    def get_cached_last_summary_head_sha(self) -> str:
+        return self.get_cached_last_summary_head_sha_from_pull(
+            self.pull,
+        )
 
     def clear_cached_last_summary_head_sha(self):
         with utils.get_redis_for_cache() as redis:
-            redis.delete(self.redis_last_summary_head_sha_key(self.client, self.pull))
+            redis.delete(self.redis_last_summary_head_sha_key(self.pull))
 
     def _save_cached_last_summary_head_sha(self, sha):
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
         with utils.get_redis_for_cache() as redis:
             redis.set(
-                self.redis_last_summary_head_sha_key(self.client, self.pull),
+                self.redis_last_summary_head_sha_key(self.pull),
                 sha,
                 ex=SUMMARY_SHA_EXPIRATION,
             )
