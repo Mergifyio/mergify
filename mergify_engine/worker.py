@@ -267,7 +267,7 @@ class StreamProcessor:
             raise IgnoredException() from e
 
         if isinstance(e, exceptions.RateLimited):
-            retry_at = utils.utcnow() + datetime.timedelta(seconds=e.countdown)
+            retry_at = utils.utcnow() + e.countdown
             score = retry_at.timestamp()
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)

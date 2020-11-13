@@ -15,7 +15,7 @@
 # under the License.
 import contextlib
 import dataclasses
-from datetime import datetime
+import datetime
 import functools
 import typing
 from urllib import parse
@@ -48,7 +48,7 @@ class CachedToken:
 
     installation_id: int
     token: dict
-    expiration: datetime
+    expiration: datetime.datetime
 
     def __post_init__(self):
         CachedToken.STORAGE[self.installation_id] = self
@@ -213,7 +213,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         self._cached_token = CachedToken(
             self.installation["id"],
             data["token"],
-            datetime.fromisoformat(data["expires_at"][:-1]),  # Remove the Z
+            datetime.datetime.fromisoformat(data["expires_at"][:-1]),  # Remove the Z
         )
         LOG.info(
             "New token acquired",
@@ -223,7 +223,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         return self._cached_token.token
 
     def _get_access_token(self):
-        now = datetime.utcnow()
+        now = datetime.datetime.utcnow()
         if not self._cached_token:
             return None
         elif self._cached_token.expiration <= now:
@@ -255,6 +255,31 @@ def get_auth(owner: typing.Optional[str]) -> _T_get_auth:
         return GithubAppInstallationAuth(owner)
     else:
         return GithubActionAccessTokenAuth()
+
+
+def _check_rate_limit(response: httpx.Response) -> None:
+    remaining = response.headers.get("X-RateLimit-Remaining")
+
+    if remaining is None:
+        return
+
+    remaining = int(remaining)
+
+    if remaining < RATE_LIMIT_THRESHOLD:
+        reset = response.headers.get("X-RateLimit-Reset")
+        if reset is None:
+            delta = datetime.timedelta(minutes=5)
+        else:
+            delta = (
+                datetime.datetime.utcfromtimestamp(int(reset))
+                - datetime.datetime.utcnow()
+            )
+        if response.url is not None:
+            statsd.increment(
+                "http.client.rate_limited",
+                tags=[f"hostname:{response.url.host}"],
+            )
+        raise exceptions.RateLimited(delta, remaining)
 
 
 class AsyncGithubInstallationClient(http.AsyncClient):
@@ -325,13 +350,8 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         try:
             reply = await super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403 and url != "/rate_limit":
-                # TODO(sileht): Maybe we could look at header to avoid a request:
-                # they should be according the doc:
-                #  X-RateLimit-Limit: 60
-                #  X-RateLimit-Remaining: 0
-                #  X-RateLimit-Reset: 1377013266
-                await self.check_rate_limit()
+            if e.status_code == 403:
+                _check_rate_limit(e.response)
             raise
         finally:
             if reply is None:
@@ -370,25 +390,11 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             )
         self._requests = []
 
-    async def check_rate_limit(self):
-        response = await self.item("/rate_limit")
-        rate = response["resources"]
-        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
-            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-            now = datetime.utcnow()
-            delta = reset - now
-            statsd.increment(
-                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
-            )
-            raise exceptions.RateLimited(delta.total_seconds(), rate)
-
 
 async def aget_client(
     owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
 ) -> AsyncGithubInstallationClient:
-    client = AsyncGithubInstallationClient(auth or get_auth(owner))
-    await client.check_rate_limit()
-    return client
+    return AsyncGithubInstallationClient(auth or get_auth(owner))
 
 
 class GithubInstallationClient(http.Client):
@@ -457,13 +463,8 @@ class GithubInstallationClient(http.Client):
         try:
             reply = super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403 and url != "/rate_limit":
-                # TODO(sileht): Maybe we could look at header to avoid a request:
-                # they should be according the doc:
-                #  X-RateLimit-Limit: 60
-                #  X-RateLimit-Remaining: 0
-                #  X-RateLimit-Reset: 1377013266
-                self.check_rate_limit()
+            if e.status_code == 403:
+                _check_rate_limit(e.response)
             raise
         finally:
             if reply is None:
@@ -502,21 +503,8 @@ class GithubInstallationClient(http.Client):
             )
         self._requests = []
 
-    def check_rate_limit(self):
-        rate = self.item("/rate_limit")["resources"]
-        if rate["core"]["remaining"] < RATE_LIMIT_THRESHOLD:
-            reset = datetime.utcfromtimestamp(rate["core"]["reset"])
-            now = datetime.utcnow()
-            delta = reset - now
-            statsd.increment(
-                "http.client.rate_limited", tags=[f"hostname:{self.base_url.host}"]
-            )
-            raise exceptions.RateLimited(delta.total_seconds(), rate)
-
 
 def get_client(
     owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
 ) -> GithubInstallationClient:
-    client = GithubInstallationClient(auth or get_auth(owner))
-    client.check_rate_limit()
-    return client
+    return GithubInstallationClient(auth or get_auth(owner))
