@@ -324,3 +324,52 @@ def test_client_installation_HTTP_301(httpserver):
     assert len(httpserver.log) == 2
 
     httpserver.check_assertions()
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+def test_client_abuse_403(httpserver):
+
+    abuse_message = (
+        "You have triggered an abuse detection mechanism. "
+        "Please wait a few minutes before you try again."
+    )
+    httpserver.expect_request("/users/owner/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        }
+    )
+    httpserver.expect_request(
+        "/app/installations/12345/access_tokens"
+    ).respond_with_json({"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"})
+
+    httpserver.expect_oneshot_request("/").respond_with_json(
+        {"message": abuse_message},
+        status=403,
+    )
+
+    httpserver.expect_request("/rate_limit").respond_with_json(
+        {"message": abuse_message},
+        status=403,
+    )
+    with mock.patch(
+        "mergify_engine.config.GITHUB_API_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+            with pytest.raises(http.HTTPClientSideError) as exc_info:
+                client.get(httpserver.url_for("/"))
+
+    assert exc_info.value.message == abuse_message
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.response.status_code == 403
+    assert str(exc_info.value.request.url) == httpserver.url_for("/rate_limit")
+    assert len(httpserver.log) == 4
+
+    httpserver.check_assertions()
