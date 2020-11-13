@@ -18,6 +18,7 @@ import datetime
 from unittest import mock
 
 import pytest
+from pytest_httpserver import httpserver
 from werkzeug.http import http_date
 from werkzeug.wrappers import Response
 
@@ -27,7 +28,7 @@ from mergify_engine.clients import http
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_installation_token(httpserver):
+def test_client_installation_token(httpserver: httpserver.HTTPServer) -> None:
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
@@ -64,7 +65,7 @@ def test_client_installation_token(httpserver):
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_user_token(httpserver):
+def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
@@ -80,14 +81,14 @@ def test_client_user_token(httpserver):
         ).respond_with_json({"work": True}, status=200)
 
         with github.GithubInstallationClient(github.get_auth("owner")) as client:
-            ret = client.get(httpserver.url_for("/"), oauth_token="<user-token>")
+            ret = client.get(httpserver.url_for("/"), oauth_token="<user-token>")  # type: ignore[call-arg]
             assert ret.json()["work"]
 
     assert len(httpserver.log) == 2
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_401_raise_ratelimit(httpserver):
+def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> None:
     owner = "owner"
     repo = "repo"
 
@@ -105,16 +106,15 @@ def test_client_401_raise_ratelimit(httpserver):
     )
     httpserver.expect_request(
         "/app/installations/12345/access_tokens"
-    ).respond_with_json({"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"})
+    ).respond_with_json(
+        {"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"},
+        headers={"X-RateLimit-Remaining": 5000, "X-RateLimit-Reset": 1234567890},
+    )
 
-    httpserver.expect_oneshot_request("/rate_limit").respond_with_json(
-        {"resources": {"core": {"remaining": 5000, "reset": 1234567890}}}
-    )
     httpserver.expect_oneshot_request("/repos/owner/repo/pull/1").respond_with_json(
-        {"message": "quota !"}, status=403
-    )
-    httpserver.expect_oneshot_request("/rate_limit").respond_with_json(
-        {"resources": {"core": {"remaining": 0, "reset": 1234567890}}}
+        {"message": "quota !"},
+        status=403,
+        headers={"X-RateLimit-Remaining": 0, "X-RateLimit-Reset": 1234567890},
     )
 
     with mock.patch(
@@ -128,7 +128,7 @@ def test_client_401_raise_ratelimit(httpserver):
     httpserver.check_assertions()
 
 
-def test_client_HTTP_400(httpserver):
+def test_client_HTTP_400(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_oneshot_request("/").respond_with_json(
         {"message": "This is an 4XX error"}, status=400
     )
@@ -145,7 +145,7 @@ def test_client_HTTP_400(httpserver):
     httpserver.check_assertions()
 
 
-def test_client_HTTP_500(httpserver):
+def test_client_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/").respond_with_data("This is an 5XX error", status=500)
 
     with http.Client() as client:
@@ -163,7 +163,7 @@ def test_client_HTTP_500(httpserver):
     httpserver.check_assertions()
 
 
-def test_client_temporary_HTTP_500(httpserver):
+def test_client_temporary_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_oneshot_request("/").respond_with_data(
         "This is an 5XX error", status=500
     )
@@ -184,13 +184,15 @@ def test_client_temporary_HTTP_500(httpserver):
     httpserver.check_assertions()
 
 
-def test_client_connection_error():
+def test_client_connection_error() -> None:
     with http.Client() as client:
         with pytest.raises(http.RequestError):
             client.get("http://localhost:12345")
 
 
-def _do_test_client_retry_429(httpserver, retry_after, expected_seconds):
+def _do_test_client_retry_429(
+    httpserver: httpserver.HTTPServer, retry_after: str, expected_seconds: int
+) -> None:
     records = []
 
     def record_date(_):
@@ -212,17 +214,21 @@ def _do_test_client_retry_429(httpserver, retry_after, expected_seconds):
     httpserver.check_assertions()
 
 
-def test_client_retry_429_retry_after_as_seconds(httpserver):
-    _do_test_client_retry_429(httpserver, 3, 3)
+def test_client_retry_429_retry_after_as_seconds(
+    httpserver: httpserver.HTTPServer,
+) -> None:
+    _do_test_client_retry_429(httpserver, "3", 3)
 
 
-def test_client_retry_429_retry_after_as_absolute_date(httpserver):
+def test_client_retry_429_retry_after_as_absolute_date(
+    httpserver: httpserver.HTTPServer,
+) -> None:
     retry_after = http_date(datetime.datetime.utcnow() + datetime.timedelta(seconds=3))
     _do_test_client_retry_429(httpserver, retry_after, 3)
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_access_token_HTTP_500(httpserver):
+def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/users/owner/installation").respond_with_json(
         {
             "id": 12345,
@@ -261,7 +267,7 @@ def test_client_access_token_HTTP_500(httpserver):
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_installation_HTTP_500(httpserver):
+def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/users/owner/installation").respond_with_data(
         "This is an 5XX error", status=500
     )
@@ -287,7 +293,7 @@ def test_client_installation_HTTP_500(httpserver):
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_installation_HTTP_404(httpserver):
+def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/users/owner/installation").respond_with_json(
         {"message": "Repository not found"}, status=404
     )
@@ -305,7 +311,7 @@ def test_client_installation_HTTP_404(httpserver):
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_installation_HTTP_301(httpserver):
+def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/users/owner/installation").respond_with_data(
         status=301,
         headers={"Location": httpserver.url_for("/repositories/12345/installation")},
@@ -327,7 +333,7 @@ def test_client_installation_HTTP_301(httpserver):
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-def test_client_abuse_403(httpserver):
+def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> None:
 
     abuse_message = (
         "You have triggered an abuse detection mechanism. "
@@ -354,10 +360,6 @@ def test_client_abuse_403(httpserver):
         status=403,
     )
 
-    httpserver.expect_request("/rate_limit").respond_with_json(
-        {"message": abuse_message},
-        status=403,
-    )
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
@@ -369,7 +371,7 @@ def test_client_abuse_403(httpserver):
     assert exc_info.value.message == abuse_message
     assert exc_info.value.status_code == 403
     assert exc_info.value.response.status_code == 403
-    assert str(exc_info.value.request.url) == httpserver.url_for("/rate_limit")
-    assert len(httpserver.log) == 4
+    assert str(exc_info.value.request.url) == httpserver.url_for("/")
+    assert len(httpserver.log) == 3
 
     httpserver.check_assertions()
