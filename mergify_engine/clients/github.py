@@ -325,7 +325,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         try:
             reply = await super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403:
+            if e.status_code == 403 and url != "/rate_limit":
                 # TODO(sileht): Maybe we could look at header to avoid a request:
                 # they should be according the doc:
                 #  X-RateLimit-Limit: 60
@@ -457,7 +457,7 @@ class GithubInstallationClient(http.Client):
         try:
             reply = super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
-            if e.status_code == 403:
+            if e.status_code == 403 and url != "/rate_limit":
                 # TODO(sileht): Maybe we could look at header to avoid a request:
                 # they should be according the doc:
                 #  X-RateLimit-Limit: 60
