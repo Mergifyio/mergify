@@ -115,7 +115,10 @@ class GithubTokenAuth(httpx.Auth):
 
 
 class GithubAppInstallationAuth(httpx.Auth):
-    def __init__(self, owner):
+
+    installation: typing.Optional[typing.Dict]
+
+    def __init__(self, owner: str):
         self.owner = owner
 
         self._cached_token = None
@@ -131,7 +134,9 @@ class GithubAppInstallationAuth(httpx.Auth):
         finally:
             self.requires_response_body = False
 
-    def auth_flow(self, request):
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> typing.Generator[httpx.Request, httpx.Response, None]:
         if self.installation is None:
             with self.response_body_read():
                 installation_response = yield self.build_installation_request()
@@ -252,7 +257,7 @@ _T_get_auth = typing.Union[GithubAppInstallationAuth, GithubActionAccessTokenAut
 
 def get_auth(owner: typing.Optional[str]) -> _T_get_auth:
     if config.GITHUB_APP:
-        return GithubAppInstallationAuth(owner)
+        return GithubAppInstallationAuth(typing.cast(str, owner))
     else:
         return GithubActionAccessTokenAuth()
 
