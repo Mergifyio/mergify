@@ -143,6 +143,13 @@ def report(
         print(f"* Mergify is not installed on account {owner}")
         return None
 
+    # Do a dumb request just to authenticate
+    client.get("/")
+
+    if client.auth.installation is None:
+        print("No installation detected")
+        return None
+
     print("* INSTALLATION ID: %s" % client.auth.installation["id"])
 
     cached_sub, db_sub = utils.async_run(
