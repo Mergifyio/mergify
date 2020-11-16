@@ -21,6 +21,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
@@ -31,7 +32,9 @@ from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 
 
-def get_repositories_setuped(token: str, install_id: int) -> list:  # pragma: no cover
+def get_repositories_setuped(
+    token: str, install_id: int
+) -> typing.List[github_types.GitHubRepository]:  # pragma: no cover
     repositories = []
     url = f"{config.GITHUB_API_URL}/user/installations/{install_id}/repositories"
     token = f"token {token}"
