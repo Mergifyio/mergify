@@ -107,7 +107,7 @@ class Queue:
 
         score = utils.utcnow().timestamp() / config["effective_priority"]
         added = self.redis.zadd(
-            self._redis_queue_key, {ctxt.pull["number"]: score}, nx=True
+            self._redis_queue_key, {str(ctxt.pull["number"]): score}, nx=True
         )
 
         if added:

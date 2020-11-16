@@ -15,7 +15,6 @@
 # under the License.
 import collections
 import json
-import typing
 import uuid
 
 import aredis
@@ -28,6 +27,7 @@ import voluptuous
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_events
+from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -79,22 +79,45 @@ async def http_post(*args, **kwargs):
 
 
 async def _refresh(
-    owner: str, repo: str, action: str = "user", **extra_data: typing.Any
+    owner: str,
+    repo: str,
+    action: str = "user",
+    ref: str = None,
+    pull_request: github_types.GitHubPullRequest = None,
 ) -> responses.Response:
-    event_type = "refresh"
-    data = {
-        "action": action,
-        "repository": {
-            "name": repo,
-            "owner": {"login": owner},
-            "full_name": f"{owner}/{repo}",
-        },
-        "sender": {"login": "<internal>"},
-    }
-    data.update(extra_data)
+    data = github_types.GitHubEventRefresh(
+        {
+            "action": action,
+            "organization": {
+                "login": owner,
+                "id": 0,
+                "type": "Organization",
+            },
+            "installation": {
+                "id": 0,
+                "account": {
+                    "login": owner,
+                    "id": 0,
+                    "type": "Organization",
+                },
+            },
+            "repository": {
+                "id": 0,
+                "private": False,
+                "archived": False,
+                "url": "",
+                "name": repo,
+                "owner": {"login": owner, "id": 0, "type": "Organization"},
+                "full_name": f"{owner}/{repo}",
+            },
+            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "ref": ref,
+            "pull_request": pull_request,
+        }
+    )
 
     await github_events.job_filter_and_dispatch(
-        _AREDIS_STREAM, event_type, str(uuid.uuid4()), data
+        _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
     )
 
     return responses.Response("Refresh queued", status_code=202)
@@ -116,7 +139,66 @@ async def refresh_pull(
     owner: str, repo: str, pull: int, action: str = "user"
 ) -> responses.Response:
     action = RefreshActionSchema(action)
-    return await _refresh(owner, repo, action=action, pull_request={"number": pull})
+    return await _refresh(
+        owner,
+        repo,
+        action=action,
+        pull_request=github_types.GitHubPullRequest(
+            {
+                "number": pull,
+                "id": 0,
+                "maintainer_can_modify": False,
+                "base": {
+                    "label": "",
+                    "ref": "",
+                    "sha": "",
+                    "repo": {
+                        "id": 0,
+                        "owner": {
+                            "id": 0,
+                            "login": "",
+                            "type": "User",
+                        },
+                        "private": False,
+                        "name": "",
+                        "full_name": "",
+                        "archived": False,
+                        "url": "",
+                    },
+                    "user": {"login": "", "id": 0, "type": "User"},
+                },
+                "head": {
+                    "label": "",
+                    "ref": "",
+                    "sha": "",
+                    "repo": {
+                        "id": 0,
+                        "owner": {
+                            "id": 0,
+                            "login": "",
+                            "type": "User",
+                        },
+                        "private": False,
+                        "name": "",
+                        "full_name": "",
+                        "archived": False,
+                        "url": "",
+                    },
+                    "user": {"login": "", "id": 0, "type": "User"},
+                },
+                "state": "open",
+                "user": {"id": 0, "login": "", "type": "User"},
+                "labels": [],
+                "merged": False,
+                "merged_by": None,
+                "rebaseable": False,
+                "draft": False,
+                "merge_commit_sha": None,
+                "mergeable_state": "unknown",
+                "html_url": "",
+            }
+        ),
+    )
 
 
 @app.post(

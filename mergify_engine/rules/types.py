@@ -56,7 +56,63 @@ class DummyContext(context.Context):
 _DUMMY_PR = context.PullRequest(
     DummyContext(
         None,  # type: ignore
-        {"number": 0},
+        {
+            "number": 0,
+            "html_url": "",
+            "id": 0,
+            "maintainer_can_modify": False,
+            "state": "open",
+            "merged": False,
+            "merged_by": None,
+            "draft": False,
+            "merge_commit_sha": None,
+            "mergeable_state": "unknown",
+            "rebaseable": False,
+            "user": {
+                "id": 0,
+                "login": "",
+                "type": "User",
+            },
+            "labels": [],
+            "base": {
+                "user": {
+                    "id": 0,
+                    "login": "",
+                    "type": "User",
+                },
+                "label": "",
+                "ref": "",
+                "sha": "",
+                "repo": {
+                    "url": "",
+                    "full_name": "",
+                    "archived": False,
+                    "id": 0,
+                    "private": False,
+                    "name": "",
+                    "owner": {"login": "", "id": 0, "type": "User"},
+                },
+            },
+            "head": {
+                "user": {
+                    "id": 0,
+                    "login": "",
+                    "type": "User",
+                },
+                "label": "",
+                "ref": "",
+                "sha": "",
+                "repo": {
+                    "url": "",
+                    "full_name": "",
+                    "archived": False,
+                    "id": 0,
+                    "private": False,
+                    "name": "",
+                    "owner": {"login": "", "id": 0, "type": "User"},
+                },
+            },
+        },
         None,  # type: ignore
         [],
     )

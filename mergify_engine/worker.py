@@ -19,14 +19,14 @@ import datetime
 import functools
 import hashlib
 import itertools
+import logging
 import os
 import signal
 import threading
 import time
 import typing
-from typing import Any
-from typing import List
 
+import aredis
 import daiquiri
 from datadog import statsd
 import msgpack
@@ -35,6 +35,7 @@ from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
+from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import subscription
 from mergify_engine import utils
@@ -88,7 +89,30 @@ class StreamUnused(Exception):
     stream_name: str
 
 
-async def push(redis, owner, repo, pull_number, event_type, data):
+T_Payload = typing.Dict[bytes, bytes]
+
+
+class T_PayloadEventSource(typing.TypedDict):
+    event_type: github_types.GitHubEventType
+    data: github_types.GitHubEvent
+    timestamp: str
+
+
+class T_PayloadEvent(typing.TypedDict):
+    owner: str
+    repo: str
+    pull_number: int
+    source: T_PayloadEventSource
+
+
+async def push(
+    redis: aredis.StrictRedis,
+    owner: str,
+    repo: str,
+    pull_number: typing.Optional[int],
+    event_type: github_types.GitHubEventType,
+    data: github_types.GitHubEvent,
+) -> typing.Tuple[bool, T_Payload]:
     stream_name = f"stream~{owner}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
@@ -125,21 +149,32 @@ async def push(redis, owner, repo, pull_number, event_type, data):
     return (ret[0], payload)
 
 
-async def get_pull_for_engine(owner, repo, pull_number, logger):
+async def get_pull_for_engine(
+    owner: str, repo: str, pull_number: int, logger: logging.LoggerAdapter
+) -> typing.Optional[
+    typing.Tuple[
+        typing.Optional[subscription.Subscription], github_types.GitHubPullRequest
+    ]
+]:
     async with await github.aget_client(owner) as client:
         try:
             pull = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
-            return
+            return None
 
-        sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
+        if client.auth.owner_id is None:
+            sub = None
+        else:
+            sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
 
         return sub, pull
 
 
-def run_engine(owner, repo, pull_number, sources):
+def run_engine(
+    owner: str, repo: str, pull_number: int, sources: typing.List[T_PayloadEventSource]
+) -> None:
     logger = daiquiri.getLogger(
         __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
     )
@@ -211,14 +246,15 @@ class ThreadRunner(threading.Thread):
 PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
-        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
+        typing.Tuple[str, str, int],
+        typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
     ],
 )
 
 
 @dataclasses.dataclass
 class StreamSelector:
-    redis: Any
+    redis: aredis.StrictRedis
     worker_id: int
     worker_count: int
 
@@ -244,7 +280,7 @@ class StreamSelector:
 
 @dataclasses.dataclass
 class StreamProcessor:
-    redis: Any
+    redis: aredis.StrictRedis
     _thread: ThreadRunner = dataclasses.field(init=False, default_factory=ThreadRunner)
 
     def close(self):
@@ -301,7 +337,12 @@ class StreamProcessor:
         return StreamRetry(stream_name, attempts, retry_at)
 
     async def _run_engine_and_translate_exception_to_retries(
-        self, stream_name: str, owner: str, repo: str, pull_number: int, sources: list
+        self,
+        stream_name: str,
+        owner: str,
+        repo: str,
+        pull_number: int,
+        sources: typing.List[T_PayloadEventSource],
     ) -> None:
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
@@ -327,7 +368,7 @@ class StreamProcessor:
                 e, stream_name, attempts_key
             ) from e
 
-    async def consume(self, stream_name):
+    async def consume(self, stream_name: str) -> None:
         owner = stream_name.split("~", 1)[1]
 
         try:
@@ -392,12 +433,11 @@ end
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
         opened_pulls_by_repo: typing.Dict[
-            typing.Tuple[str, str], typing.List[dict]
+            typing.Tuple[str, str], typing.List[github_types.GitHubPullRequest]
         ] = {}
 
         # Groups stream by pull request
         pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
-
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
             owner = data["owner"]
@@ -421,9 +461,7 @@ end
                     except IgnoredException:
                         opened_pulls_by_repo[(owner, repo)] = []
 
-                converted_messages: typing.List[
-                    str
-                ] = await self._convert_event_to_messages(
+                converted_messages = await self._convert_event_to_messages(
                     owner,
                     repo,
                     source,
@@ -454,7 +492,7 @@ end
 
     async def _get_pulls_for(
         self, stream_name: str, owner: str, repo: str
-    ) -> typing.List[dict]:
+    ) -> typing.List[github_types.GitHubPullRequest]:
         try:
             async with await github.aget_client(owner) as client:
                 return [
@@ -470,9 +508,9 @@ end
         self,
         owner: str,
         repo: str,
-        source: dict,
-        pulls: typing.List[typing.Dict],
-    ) -> typing.List[str]:
+        source: T_PayloadEventSource,
+        pulls: typing.List[github_types.GitHubPullRequest],
+    ) -> typing.List[typing.Tuple[bool, T_Payload]]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
@@ -506,7 +544,14 @@ end
             )
         return messages
 
-    async def _consume_pulls(self, stream_name: str, pulls: dict) -> None:
+    async def _consume_pulls(
+        self,
+        stream_name: str,
+        pulls: collections.OrderedDict[
+            typing.Tuple[str, str, int],
+            typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
+        ],
+    ) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
 
@@ -571,18 +616,28 @@ class Worker:
     worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
-    enabled_services: List[str] = dataclasses.field(
-        default_factory=lambda: ["stream", "stream-monitoring"]
+    enabled_services: typing.Set[
+        typing.Literal["stream", "stream-monitoring"]
+    ] = dataclasses.field(default_factory=lambda: {"stream", "stream-monitoring"})
+
+    _redis: aredis.StrictRedis = dataclasses.field(init=False, default=None)
+
+    _loop: asyncio.AbstractEventLoop = dataclasses.field(
+        init=False, default_factory=asyncio.get_running_loop
+    )
+    _stopping: asyncio.Event = dataclasses.field(
+        init=False, default_factory=asyncio.Event
+    )
+    _tombstone: asyncio.Event = dataclasses.field(
+        init=False, default_factory=asyncio.Event
     )
 
-    _redis: Any = dataclasses.field(init=False, default=None)
-
-    _loop: Any = dataclasses.field(init=False, default_factory=asyncio.get_running_loop)
-    _stopping: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
-    _tombstone: Any = dataclasses.field(init=False, default_factory=asyncio.Event)
-
-    _worker_tasks: List = dataclasses.field(init=False, default_factory=list)
-    _stream_monitoring_task: Any = dataclasses.field(init=False, default=None)
+    _worker_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    _stream_monitoring_task: typing.Optional[asyncio.Task[None]] = dataclasses.field(
+        init=False, default=None
+    )
 
     @property
     def worker_count(self):
@@ -626,7 +681,7 @@ class Worker:
         except asyncio.TimeoutError:
             pass
 
-    async def monitoring_task(self):
+    async def monitoring_task(self) -> None:
         while not self._stopping.is_set():
             try:
                 now = time.time()

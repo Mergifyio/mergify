@@ -78,7 +78,7 @@ class Filter:
     }
 
     # mypy does not support recursive definition (yet)
-    tree: typing.Dict[
+    tree: typing.Dict[  # type: ignore[type-arg]
         typing.Literal[
             "-", "¬", "=", "==", "<", ">", "<=", "≤", ">=", "≥", "!=", "≠", "~="
         ],
