@@ -69,11 +69,20 @@ class Subscription:
 
     @classmethod
     def from_dict(cls, owner_id, sub):
+        # FIXME(sileht): Remove me in January 2021, we should not support two kinds of
+        # payload, we have wrongly sent the token as dict instead of string, so we have
+        # to handle it for a while, in the meantime the dashboard will be updated to return
+        # only the access_token.
+        tokens = dict(
+            (login, token["access_token"] if isinstance(token, dict) else token)
+            for login, token in sub["tokens"].items()
+        )
+        # END FIXME
         return cls(
             owner_id,
             sub["subscription_active"],
             sub["subscription_reason"],
-            sub["tokens"],
+            tokens,
             cls._to_features(sub.get("features", [])),
         )
 
@@ -123,10 +132,6 @@ class Subscription:
                 return cls(owner_id, False, e.message, {}, frozenset())
             else:
                 sub = resp.json()
-                sub["tokens"] = dict(
-                    (login, token["access_token"])
-                    for login, token in sub["tokens"].items()
-                )
                 return cls.from_dict(owner_id, sub)
 
     @classmethod
