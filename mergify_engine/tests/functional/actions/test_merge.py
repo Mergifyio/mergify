@@ -345,7 +345,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "merge on master",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"merge": {"merge_bot_account": "mergify-test1"}},
+                    "actions": {"merge": {"merge_bot_account": "mergify-test3"}},
                 },
             ]
         }
@@ -358,7 +358,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         p.update()
         self.assertEqual(True, p.merged)
-        self.assertEqual("mergify-test1", p.merged_by.login)
+        self.assertEqual("mergify-test3", p.merged_by.login)
 
 
 class TestMergeNoSubAction(base.FunctionalTestBase):
