@@ -56,10 +56,10 @@ class TestDebugger(base.FunctionalTestBase):
 * Features (cache):
   - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
-* ENGINE-CACHE SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
 * DASHBOARD SUB DETAIL: You're not nice
-* DASHBOARD SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* DASHBOARD SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * DASHBOARD SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
 * WORKER: Installation not queued to process
 * REPOSITORY IS PUBLIC
@@ -155,8 +155,8 @@ mergeable_state: clean
 * Features (cache):
   - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
-* ENGINE-CACHE SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * DASHBOARD SUB DETAIL: You're not nice
-* DASHBOARD SUB NUMBER OF TOKENS: 1 (mergify-test1)
+* DASHBOARD SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * WORKER: Installation not queued to process"""
         )
