@@ -145,12 +145,6 @@ class EventReader:
         self._session = http.Client()
         self._handled_events = queue.Queue()
         self._counter = 0
-        self._redis = redis.StrictRedis.from_url(
-            config.STREAM_URL, decode_responses=True
-        )
-
-    def close(self):
-        self._redis.close()
 
     def drain(self):
         # NOTE(sileht): Drop any pending events still on the server
@@ -161,7 +155,6 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
         r.raise_for_status()
-        self._redis.flushall()
 
     def wait_for(self, event_type, expected_payload, timeout=15 if RECORD else 2):
         LOG.log(
@@ -400,8 +393,12 @@ class FunctionalTestBase(unittest.TestCase):
         self.app = testclient.TestClient(web.app)
 
         # NOTE(sileht): Prepare a fresh redis
-        self.redis = utils.get_redis_for_cache()
-        self.redis.flushall()
+        self.redis_stream = redis.StrictRedis.from_url(
+            config.STREAM_URL, decode_responses=False
+        )
+        self.redis_stream.flushall()
+        self.redis_cache = utils.get_redis_for_cache()
+        self.redis_cache.flushall()
         self.subscription = subscription.Subscription(
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
@@ -501,6 +498,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
+        self.redis_stream.flushall()
 
     def tearDown(self):
         super(FunctionalTestBase, self).tearDown()
@@ -540,30 +538,36 @@ class FunctionalTestBase(unittest.TestCase):
         self.loop.run_until_complete(web.shutdown())
 
         self._event_reader.drain()
-        self._event_reader.close()
+        self.redis_stream.flushall()
+        self.redis_stream.close()
         mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):
         return self._event_reader.wait_for(*args, **kwargs)
 
     @staticmethod
-    async def _async_run_workers():
+    async def _async_run_workers(timeout):
         w = worker.Worker(
             idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
         )
         w.start()
-        timeout = 10
-        started_at = time.monotonic()
-        while (
-            w._redis is None or (await w._redis.zcard("streams")) > 0
-        ) and time.monotonic() - started_at < timeout:
-            await asyncio.sleep(0.42 if RECORD else 0.02)
+
+        started_at = None
+        while True:
+            if w._redis is None or (await w._redis.zcard("streams")) > 0:
+                started_at = None
+            elif started_at is None:
+                started_at = time.monotonic()
+            elif time.monotonic() - started_at >= timeout:
+                break
+            await asyncio.sleep(timeout)
+
         w.stop()
         await w.wait_shutdown_complete()
 
-    def run_engine(self):
+    def run_engine(self, timeout=0.42 if RECORD else 0.02):
         LOG.log(42, "RUNNING ENGINE")
-        self.loop.run_until_complete(self._async_run_workers())
+        self.loop.run_until_complete(self._async_run_workers(timeout))
         self.loop.run_until_complete(self.loop.shutdown_asyncgens())
 
     def get_gitter(self, logger):

@@ -134,7 +134,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.create_status(p_medium)
         self.add_label(p_high, "high")
         self.create_status(p_high)
-        self.run_engine()
+        self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
@@ -146,27 +146,26 @@ class TestMergeAction(base.FunctionalTestBase):
         self.wait_for("pull_request", {"action": "synchronize"})
         self.wait_for("pull_request", {"action": "synchronize"})
         self.wait_for("pull_request", {"action": "synchronize"})
-
         self.run_engine()
+
         p_high.update()
         self.create_status(p_high)
-        self.run_engine()  # PR merged, refresh emitted on next PR
+        # Ensure this events are proceed in same batch, otherwise replay may not work
+        self.run_engine()  # PR merged
         self.wait_for("pull_request", {"action": "closed"})
-        self.run_engine()  # exec the refresh
-
+        self.run_engine(1)  # ensure we handle the 2 refresh here.
         self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
+
         p_medium.update()
         self.create_status(p_medium)
-        self.run_engine()  # PR merged, refresh emitted on next PR
+        self.run_engine()  # PR merged
         self.wait_for("pull_request", {"action": "closed"})
-        self.run_engine()  # exec the refresh
-
+        self.run_engine(1)  # ensure we handle the last refresh here.
         self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
+
         p_low.update()
         self.create_status(p_low)
-        self.run_engine()  # PR merged, refresh emitted on next PR
+        self.run_engine()  # PR merged
         self.wait_for("pull_request", {"action": "closed"})
 
         p_low = p_low.base.repo.get_pull(p_low.number)
@@ -228,7 +227,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.add_label(p2, "low")
         self.create_status(p1)
         self.create_status(p2)
-        self.run_engine()
+        self.run_engine(1)
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
@@ -418,7 +417,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         self.create_status(p_medium)
         self.add_label(p_high, "high")
         self.create_status(p_high)
-        self.run_engine()
+        self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = context.Context(self.cli_integration, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
@@ -427,13 +426,13 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
 
         p_low.update()
         self.create_status(p_low)
-        self.run_engine()
+        self.run_engine(1)  # ensure we handle the 2 refresh here.
 
         self.wait_for("pull_request", {"action": "synchronize"})
         self.run_engine()
         p_medium.update()
         self.create_status(p_medium)
-        self.run_engine()
+        self.run_engine(1)  # ensure we handle the 2 refresh here.
 
         self.wait_for("pull_request", {"action": "synchronize"})
         self.run_engine()
