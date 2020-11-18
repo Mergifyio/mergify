@@ -131,6 +131,7 @@ class Context(object):
             "permission"
         ] in [
             "admin",
+            "maintain",
             "write",
         ]
 
@@ -165,16 +166,16 @@ class Context(object):
         pull: dict,
     ) -> str:
         with utils.get_redis_for_cache() as redis:  # type: ignore
-            # FIXME(jd): remove in January 2021
-            # Look for old format
-            ################
-            owner = pull["base"]["repo"]["owner"]["id"]
-            repo = pull["base"]["repo"]["id"]
-            pull_number = pull["number"]
-            for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
-                return redis.get(k)
-            # ENDOF FIXME(jd)
-            return redis.get(cls.redis_last_summary_head_sha_key(pull))
+            sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
+            if not sha:
+                # FIXME(jd): remove in January 2021, fallback to the old key
+                owner = pull["base"]["repo"]["owner"]["id"]
+                repo = pull["base"]["repo"]["id"]
+                pull_number = pull["number"]
+                for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
+                    sha = redis.get(k)
+                # ENDOF FIXME(jd)
+            return sha
 
     def get_cached_last_summary_head_sha(self) -> str:
         return self.get_cached_last_summary_head_sha_from_pull(

@@ -2,7 +2,7 @@
 
 # If we are in ps:exec do nothing plz
 # see https://github.com/DataDog/heroku-buildpack-datadog/issues/155
-if [ -z "$DYNO" ]; then
+if [ -z "$DYNO" -o "$DYNOTYPE" = "run" ]; then
     DISABLE_DATADOG_AGENT="true"
     return
 fi

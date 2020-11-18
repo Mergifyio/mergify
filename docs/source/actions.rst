@@ -559,7 +559,7 @@ The ``rebase`` action will rebase the pull request against its base branch.
 .. warning::
 
    Be aware that rebasing force-pushes the pull request head branch: any change
-   done to the that branch while Mergify is rebasing will be lost.
+   done to that branch while Mergify is rebasing will be lost.
 
 .. _update action:
 
