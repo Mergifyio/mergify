@@ -30,6 +30,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import subscription
 from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 from mergify_engine.web import auth
@@ -199,14 +200,18 @@ async def marketplace_handler(
 
 @app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(auth.signature)])
 async def queues(installation_id):
+    installation = await github_app.get_installation_from_id(installation_id)
     queues = collections.defaultdict(dict)
     async for queue in _AREDIS_CACHE.scan_iter(
-        match=f"strict-merge-queues~{installation_id}~*"
+        match=f"merge-queue~{installation['account']['id']}~*"
     ):
-        _, _, owner, repo, branch = queue.split("~")
-        queues[owner + "/" + repo][branch] = [
-            int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
-        ]
+        _, _, repo_id, branch = queue.split("~")
+        owner = installation["account"]["login"]
+        async with await github.aget_client(owner) as client:
+            repo = await client.item(f"/repositories/{repo_id}")
+            queues[owner + "/" + repo["name"]][branch] = [
+                int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+            ]
 
     return responses.JSONResponse(status_code=200, content=queues)
 

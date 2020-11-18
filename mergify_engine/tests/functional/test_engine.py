@@ -769,7 +769,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
-                    "will be merged soon.\n\n"
+                    "The pull request is the 1st in the queue to be merged"
+                    == check["output"]["title"]
+                )
+                assert (
                     "The following pull requests are queued:\n"
                     f"* #{p2.number} (priority: medium)\n\n"
                     "Required conditions for merge:\n\n"

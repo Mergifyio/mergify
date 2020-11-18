@@ -200,9 +200,10 @@ def report(
             for branch in client.items(f"/repos/{owner}/{repo}/branches"):
                 q = queue.Queue(
                     utils.get_redis_for_cache(),
-                    client.auth.installation["id"],
-                    client.auth.owner,
-                    repo,
+                    repo_info["owner"]["id"],
+                    repo_info["owner"]["login"],
+                    repo_info["id"],
+                    repo_info["name"],
                     branch["name"],
                 )
                 pulls = q.get_pulls()
