@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import contextlib
 import dataclasses
 import json
@@ -211,33 +210,36 @@ class Queue:
 
     @contextlib.contextmanager
     def pull_request_auto_refresher(self, pull_number):
-        # NOTE(sileht): If the first queued pull request changes, we refresh it to sync
-        # its base branch
+        # NOTE(sileht): we need to refresh PR for two reasons:
+        # * sync the first one from its base branch if needed
+        # * update all summary with the new queues
 
         old_pull_requests = self.get_pulls()
         try:
             yield
         finally:
-            if not old_pull_requests:
-                return
             new_pull_requests = self.get_pulls()
-            if not new_pull_requests:
+            if new_pull_requests == old_pull_requests:
                 return
 
-            if (
-                new_pull_requests[0] != old_pull_requests[0]
-                and new_pull_requests[0] != pull_number
-            ):
-                self.log.info(
-                    "refreshing next pull in queue",
-                    next_pull=new_pull_requests[0],
-                    _from=old_pull_requests,
-                    to=new_pull_requests,
-                )
-                asyncio.run(
+            pull_requests_to_refresh = [
+                p for p in new_pull_requests if p != pull_number
+            ]
+            if not pull_requests_to_refresh:
+                return
+
+            self.log.info(
+                "queue changed, refreshing all pull requests",
+                _from=old_pull_requests,
+                _to=new_pull_requests,
+                _to_refresh=pull_requests_to_refresh,
+            )
+
+            for pull in pull_requests_to_refresh:
+                utils.async_run(
                     github_events.send_refresh(
                         {
-                            "number": new_pull_requests[0],
+                            "number": pull,
                             "base": {
                                 "repo": {
                                     "name": self.repo,
