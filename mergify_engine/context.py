@@ -131,6 +131,7 @@ class Context(object):
             "permission"
         ] in [
             "admin",
+            "maintain",
             "write",
         ]
 
