@@ -31,10 +31,30 @@ LOG = daiquiri.getLogger(__name__)
 @dataclasses.dataclass
 class Queue:
     redis: redis.Redis
-    installation_id: int
+    owner_id: int
     owner: str
+    repo_id: int
     repo: str
     ref: str
+
+    def __post_init__(self):
+        # TODO(sileht): Remove me when no more old keys are present
+        for old_queue_key in self.redis.keys(
+            f"strict-merge-queues~*~{self.owner}~{self.repo}~*"
+        ):
+            _, installation_id, _, _, ref = old_queue_key.split("~")
+            new_queue_key = f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
+
+            for old_config_key in self.redis.keys(
+                f"strict-merge-config~{installation_id}~{self.owner}~{self.repo}~*"
+            ):
+                pull_number = old_config_key.split("~")[-1]
+                new_config_key = (
+                    f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
+                )
+                self.redis.rename(old_config_key, new_config_key)
+
+            self.redis.rename(old_queue_key, new_queue_key)
 
     @property
     def log(self):
@@ -43,16 +63,12 @@ class Queue:
         )
 
     @classmethod
-    def from_queue_name(cls, redis, name):
-        _, installation_id, owner, repo, branch = name.split("~")
-        return cls(redis, int(installation_id), owner, repo, branch)
-
-    @classmethod
     def from_context(cls, ctxt):
         return cls(
             utils.get_redis_for_cache(),
-            ctxt.client.auth.installation["id"],
+            ctxt.pull["base"]["repo"]["owner"]["id"],
             ctxt.pull["base"]["repo"]["owner"]["login"],
+            ctxt.pull["base"]["repo"]["id"],
             ctxt.pull["base"]["repo"]["name"],
             ctxt.pull["base"]["ref"],
         )
@@ -62,12 +78,10 @@ class Queue:
         return self._get_redis_queue_key_for(self.ref)
 
     def _get_redis_queue_key_for(self, ref):
-        return (
-            f"strict-merge-queues~{self.installation_id}~{self.owner}~{self.repo}~{ref}"
-        )
+        return f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
 
     def _config_redis_queue_key(self, pull_number):
-        return f"strict-merge-config~{self.installation_id}~{self.owner}~{self.repo}~{pull_number}"
+        return f"merge-queue-config~{self.owner_id}~{self.repo_id}~{pull_number}"
 
     def get_config(self, pull_number: int) -> dict:
         """Return merge config for a pull request.
@@ -133,14 +147,16 @@ class Queue:
         # only is this case.
         for queue_name in self.redis.keys(self._get_redis_queue_key_for("*")):
             if queue_name != self._redis_queue_key:
-                oldqueue = Queue.from_queue_name(self.redis, queue_name)
-                if ctxt.pull["number"] in oldqueue.get_pulls():
+                score = self.redis.zscore(queue_name, ctxt.pull["number"])
+                if score is not None:
+                    old_branch = queue_name.split("~")[-1]
+                    old_queue = self.get_queue(old_branch)
                     ctxt.log.info(
                         "pull request base branch have changed, cleaning old queue",
-                        old_branch=oldqueue.ref,
+                        old_branch=old_branch,
                         new_branch=ctxt.pull["base"]["ref"],
                     )
-                    oldqueue._remove_pull(ctxt.pull["number"])
+                    old_queue._remove_pull(ctxt.pull["number"])
 
     def _remove_pull(self, pull_number):
         """Remove the pull request from the queue, leaving the config."""
@@ -163,8 +179,9 @@ class Queue:
         """Get a queue for another ref of this repository."""
         return self.__class__(
             self.redis,
-            self.installation_id,
+            self.owner_id,
             self.owner,
+            self.repo_id,
             self.repo,
             ref,
         )

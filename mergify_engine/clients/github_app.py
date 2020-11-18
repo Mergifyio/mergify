@@ -126,3 +126,20 @@ async def get_installation(account):
                 error_message=e.message,
             )
             raise exceptions.MergifyNotInstalled()
+
+
+async def get_installation_from_id(installation_id):
+    url = f"{config.GITHUB_API_URL}/app/installations/{installation_id}"
+    async with http.AsyncClient(
+        auth=GithubBearerAuth(), **http.DEFAULT_CLIENT_OPTIONS
+    ) as client:
+        try:
+            installation = (await client.get(url)).json()
+            permissions_need_to_be_updated(installation)
+            return installation
+        except http.HTTPNotFound as e:
+            LOG.debug(
+                "Mergify not installed",
+                error_message=e.message,
+            )
+            raise exceptions.MergifyNotInstalled()
