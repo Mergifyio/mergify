@@ -357,42 +357,17 @@ class MergeAction(actions.Action):
     def _sync_with_base_branch(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.Queue
     ) -> check_api.Result:
-        # If PR from a public fork but cannot be edited
-        if (
-            ctxt.pull_from_fork
-            and not ctxt.pull["base"]["repo"]["private"]
-            and not ctxt.pull["maintainer_can_modify"]
-        ):
-            return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                "Pull request can't be updated with latest base branch changes",
-                "Mergify needs the permission to update the base branch of the pull request.\n"
-                f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
-                "[authorize modification on its base branch]"
-                "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
-            )
-        # If PR from a private fork but cannot be edited:
-        # NOTE(jd): GitHub removed the ability to configure `maintainer_can_modify` on private fork we which make strict mode broken
-        elif (
-            ctxt.pull_from_fork
-            and ctxt.pull["base"]["repo"]["private"]
-            and not ctxt.pull["maintainer_can_modify"]
-        ):
-            return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                "Pull request can't be updated with latest base branch changes",
-                "Mergify needs the permission to update the base branch of the pull request.\n"
-                "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
-                "You cannot use strict mode with a pull request from a private fork.",
-            )
-
         method = self.config["strict_method"]
         user = self.config["update_bot_account"] or self.config["bot_account"]
+
         try:
             if method == "merge":
                 branch_updater.update_with_api(ctxt)
             else:
-                branch_updater.update_with_git(ctxt, method, user)
+                output = branch_updater.pre_rebase_check(ctxt)
+                if output:
+                    return output
+                branch_updater.update_with_git(ctxt, "rebase", user)
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
