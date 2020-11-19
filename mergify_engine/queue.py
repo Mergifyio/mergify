@@ -81,7 +81,7 @@ class Queue:
         return f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
 
     def _config_redis_queue_key(self, pull_number):
-        return f"merge-queue-config~{self.owner_id}~{self.repo_id}~{pull_number}"
+        return f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
 
     def get_config(self, pull_number: int) -> dict:
         """Return merge config for a pull request.
