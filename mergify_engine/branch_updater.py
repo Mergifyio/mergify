@@ -15,11 +15,14 @@
 # under the License.
 import collections
 import subprocess
+import typing
 import uuid
 
 import tenacity
 
+from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -61,6 +64,40 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
 GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
 
 
+def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]:
+    # If PR from a public fork but cannot be edited
+    if (
+        ctxt.pull_from_fork
+        and not ctxt.pull["base"]["repo"]["private"]
+        and not ctxt.pull["maintainer_can_modify"]
+    ):
+        return check_api.Result(
+            check_api.Conclusion.FAILURE,
+            "Pull request can't be updated with latest base branch changes",
+            "Mergify needs the permission to update the base branch of the pull request.\n"
+            f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
+            "[authorize modification on its base branch]"
+            "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
+        )
+    # If PR from a private fork but cannot be edited:
+    # NOTE(jd): GitHub removed the ability to configure `maintainer_can_modify` on private
+    # fork we which make rebase impossible
+    elif (
+        ctxt.pull_from_fork
+        and ctxt.pull["base"]["repo"]["private"]
+        and not ctxt.pull["maintainer_can_modify"]
+    ):
+        return check_api.Result(
+            check_api.Conclusion.FAILURE,
+            "Pull request can't be updated with latest base branch changes",
+            "Mergify needs the permission to update the base branch of the pull request.\n"
+            "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
+            "You cannot `rebase` a pull request from a private fork.",
+        )
+    else:
+        return None
+
+
 def _do_update_branch(git, method, base_branch, head_branch):
     if method == "merge":
         git(
@@ -83,7 +120,7 @@ def _do_update_branch(git, method, base_branch, head_branch):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def _do_update(ctxt, token, method="merge"):
+def _do_update(ctxt: context.Context, token: str, method: str = "merge") -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -161,7 +198,7 @@ def _do_update(ctxt, token, method="merge"):
 
         expected_sha = git("log", "-1", "--format=%H").decode().strip()
         # NOTE(sileht): We store this for dismissal action
-        with utils.get_redis_for_cache() as redis:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
             redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
@@ -190,11 +227,11 @@ def _do_update(ctxt, token, method="merge"):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def update_with_api(ctxt):
+def update_with_api(ctxt: context.Context) -> None:
     try:
         ctxt.client.put(
             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
-            api_version="lydian",
+            api_version="lydian",  # type: ignore[call-arg]
             json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
     except http.HTTPClientSideError as e:
@@ -216,9 +253,13 @@ def update_with_api(ctxt):
         )
         raise BranchUpdateFailure(e.message)
     except (http.RequestError, http.HTTPStatusError) as e:
+        status_code: typing.Optional[int] = None
+        if isinstance(e, http.HTTPStatusError) and http.HTTPStatusError:
+            status_code = e.response.status_code
+
         ctxt.log.info(
             "update branch failed",
-            status_code=(e.response.status_code if e.response else None),
+            status_code=status_code,
             error=str(e),
         )
         raise BranchUpdateNeedRetry()
@@ -229,7 +270,9 @@ def update_with_api(ctxt):
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
-def update_with_git(ctxt, method="merge", user=None):
+def update_with_git(
+    ctxt: context.Context, method: str = "merge", user: typing.Optional[str] = None
+) -> None:
     if user:
         token = ctxt.subscription.get_token_for(user)
         if token:
@@ -259,4 +302,6 @@ def update_with_git(ctxt, method="merge", user=None):
             "Rebasing a branch for a forked private repository is not supported by GitHub"
         )
 
-    raise AuthenticationFailure("No valid OAuth tokens")
+    raise AuthenticationFailure(
+        f"No registered tokens allows Mergify to push to `{ctxt.pull['head']['label']}`"
+    )

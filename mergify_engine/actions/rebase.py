@@ -55,6 +55,10 @@ class RebaseAction(actions.Action):
                     "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.",
                 )
 
+            output = branch_updater.pre_rebase_check(ctxt)
+            if output:
+                return output
+
             try:
                 branch_updater.update_with_git(
                     ctxt, "rebase", self.config["bot_account"]
@@ -64,7 +68,10 @@ class RebaseAction(actions.Action):
                     "Branch has been successfully rebased",
                     "",
                 )
-            except branch_updater.BranchUpdateFailure as e:
+            except (
+                branch_updater.AuthenticationFailure,
+                branch_updater.BranchUpdateFailure,
+            ) as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
                 )
