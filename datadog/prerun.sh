@@ -18,6 +18,8 @@ process_config:
   enabled: "true"
 confd_path: $DD_CONF_DIR/conf.d
 logs_enabled: true
+logs_config:
+  frame_size: 30000
 additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
@@ -48,6 +50,8 @@ process_config:
   enabled: "true"
 confd_path: $DD_CONF_DIR/conf.d
 logs_enabled: true
+logs_config:
+  frame_size: 30000
 additional_checksd: $DD_CONF_DIR/checks.d
 tags:
   - dyno:$DYNO
