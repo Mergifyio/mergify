@@ -201,6 +201,10 @@ def _do_update(ctxt: context.Context, token: str, method: str = "merge") -> None
         with utils.get_redis_for_cache() as redis:  # type: ignore
             redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
+        if in_exception.output == b"":
+            # SIGKILL...
+            raise BranchUpdateNeedRetry()
+
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
                 raise out_exception(
