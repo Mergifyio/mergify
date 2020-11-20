@@ -262,7 +262,14 @@ class InvalidRules(Exception):
 
     @staticmethod
     def _format_error(error):
-        msg = str(error)
+        msg = str(error.msg)
+
+        if error.error_type:
+            msg += f" for {error.error_type}"
+
+        if error.path:
+            path = " → ".join(map(str, error.path))
+            msg += f" @ {path}"
         # Only include the error message if it has been provided
         # voluptuous set it to the `message` otherwise
         if error.error_message != error.msg:

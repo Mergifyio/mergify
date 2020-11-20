@@ -266,9 +266,9 @@ def test_user_configuration_schema():
 
     ir = rules.InvalidRules(i.value, ".mergify.yml")
     assert str(ir) == (
-        "* extra keys not allowed @ data['pull_request_rules'][0]['key']\n"
-        "* required key not provided @ data['pull_request_rules'][0]['actions']\n"
-        "* required key not provided @ data['pull_request_rules'][0]['conditions']"
+        "* extra keys not allowed @ pull_request_rules → 0 → key\n"
+        "* required key not provided @ pull_request_rules → 0 → actions\n"
+        "* required key not provided @ pull_request_rules → 0 → conditions"
     )
     assert [] == ir.get_annotations(".mergify.yml")
 
@@ -283,7 +283,7 @@ def test_user_configuration_schema():
     ir = rules.InvalidRules(i.value, ".mergify.yml")
     assert (
         str(ir)
-        == """Invalid YAML at [line 2, column 3]
+        == """Invalid YAML @ line 2, column 3
 ```
 found undefined alias 'yaml'
   in "<unicode string>", line 2, column 3:
@@ -317,10 +317,36 @@ pull_request_rules:
         str(i.value)
         == "expected a list for dictionary value @ data['pull_request_rules']"
     )
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert str(ir) == "expected a list for dictionary value @ pull_request_rules"
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema("")
     assert str(i.value) == "expected a dictionary"
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert str(ir) == "expected a dictionary"
+
+    with pytest.raises(voluptuous.Invalid) as i:
+        rules.UserConfigurationSchema(
+            """
+            pull_request_rules:
+              - name: add label
+                conditions:
+                  - conflict
+                actions:
+                  label:
+                    add:
+                      - conflict:
+            """
+        )
+    assert (
+        str(i.value)
+        == "expected str @ data['pull_request_rules'][0]['actions']['label']['add'][0]"
+    )
+    ir = rules.InvalidRules(i.value, ".mergify.yml")
+    assert (
+        str(ir) == "expected str @ pull_request_rules → 0 → actions → label → add → 0"
+    )
 
 
 def test_user_binary_file():
@@ -330,7 +356,7 @@ def test_user_binary_file():
     ir = rules.InvalidRules(i.value, ".mergify.yml")
     assert (
         str(ir)
-        == """Invalid YAML at []
+        == """Invalid YAML
 ```
 unacceptable character #x0004: special characters are not allowed
   in "<unicode string>", position 0
