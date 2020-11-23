@@ -64,33 +64,24 @@ SimulatorSchema = voluptuous.Schema(
 )
 
 
-def ensure_no_voluptuous(value):
-    if isinstance(value, (dict, list, str)):
-        return value
-    else:
-        return str(value)
-
-
 def voluptuous_error(error):
-    return {
-        "type": error.__class__.__name__,
-        "message": error.error_message,
-        "error": str(error),
-        "details": list(map(ensure_no_voluptuous, error.path)),
-    }
+    if error.path[0] == "mergify.yml":
+        error.path.pop(0)
+    return str(rules.InvalidRules(error, ""))
 
 
 @app.exception_handler(voluptuous.Invalid)
 async def voluptuous_errors(
     request: requests.Request, exc: voluptuous.Invalid
 ) -> responses.JSONResponse:
-    # FIXME(sileht): remove error at payload root
-    payload = voluptuous_error(exc)
-    payload["errors"] = []
+    # Replace payload by our own
+    # FIXME(guillaume): rename key to "errors" when dahsboard transition is done
     if isinstance(exc, voluptuous.MultipleInvalid):
-        payload["errors"].extend(map(voluptuous_error, sorted(exc.errors, key=str)))
+        payload = {
+            "errors_list": list(map(voluptuous_error, sorted(exc.errors, key=str)))
+        }
     else:
-        payload["errors"].extend(voluptuous_error(exc))
+        payload = {"errors_list": list(voluptuous_error(exc))}
     return responses.JSONResponse(status_code=400, content=payload)
 
 

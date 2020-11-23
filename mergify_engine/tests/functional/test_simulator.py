@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import operator
-
 import yaml
 
 from mergify_engine import config
@@ -78,6 +76,57 @@ class TestSimulator(base.FunctionalTestBase):
             f"#### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
         )
 
+        mergify_yaml = """pull_request_rules:
+  - name: remove label conflict
+    conditions:
+      - -conflict
+    actions:
+      label:
+        remove:
+          - conflict:
+"""
+
+        r = self.app.post(
+            "/simulator/",
+            json={"pull_request": None, "mergify.yml": mergify_yaml},
+            headers={
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 400, r.json()
+        assert r.json() == {
+            "errors_list": [
+                "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
+            ]
+        }
+
+        mergify_yaml = """pull_request_rules:
+  - name: remove label conflict
+    conditions:
+      - -conflict:
+    actions:
+      label:
+        remove:
+          - conflict:
+"""
+
+        r = self.app.post(
+            "/simulator/",
+            json={"pull_request": None, "mergify.yml": mergify_yaml},
+            headers={
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 400, r.json()
+        assert r.json() == {
+            "errors_list": [
+                "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
+                "expected str @ pull_request_rules → 0 → conditions → 0",
+            ]
+        }
+
     def test_simulator_with_signature(self):
         rules = {
             "pull_request_rules": [
@@ -137,31 +186,18 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 400
         assert r.json() == {
-            "type": "MultipleInvalid",
-            "message": """while scanning an alias
+            "errors_list": [
+                """Invalid YAML @ line 2, column 2
+```
+while scanning an alias
   in "<unicode string>", line 2, column 1:
     * way
     ^
 expected alphabetic or numeric character, but found ' '
   in "<unicode string>", line 2, column 2:
     * way
-     ^""",
-            "details": ["mergify.yml", "line 2, column 2"],
-            "error": "Invalid YAML at ['mergify.yml', line 2, column 2]",
-            "errors": [
-                {
-                    "type": "YAMLInvalid",
-                    "details": ["mergify.yml", "line 2, column 2"],
-                    "error": "Invalid YAML at ['mergify.yml', line 2, column 2]",
-                    "message": """while scanning an alias
-  in "<unicode string>", line 2, column 1:
-    * way
-    ^
-expected alphabetic or numeric character, but found ' '
-  in "<unicode string>", line 2, column 2:
-    * way
-     ^""",
-                }
+     ^
+```""",
             ],
         }
 
@@ -174,32 +210,10 @@ expected alphabetic or numeric character, but found ' '
             },
         )
         assert r.status_code == 400
-        r.json()["errors"] = sorted(
-            r.json()["errors"], key=operator.itemgetter("message")
-        )
         assert r.json() == {
-            "type": "MultipleInvalid",
-            "error": "extra keys not allowed @ data['invalid']",
-            "details": ["invalid"],
-            "message": "extra keys not allowed",
-            "errors": [
-                {
-                    "details": ["invalid"],
-                    "error": "extra keys not allowed @ data['invalid']",
-                    "message": "extra keys not allowed",
-                    "type": "Invalid",
-                },
-                {
-                    "details": ["mergify.yml"],
-                    "error": "required key not provided @ data['mergify.yml']",
-                    "message": "required key not provided",
-                    "type": "RequiredFieldInvalid",
-                },
-                {
-                    "details": ["pull_request"],
-                    "error": "required key not provided @ data['pull_request']",
-                    "message": "required key not provided",
-                    "type": "RequiredFieldInvalid",
-                },
+            "errors_list": [
+                "extra keys not allowed @ invalid",
+                "required key not provided",
+                "required key not provided @ pull_request",
             ],
         }
