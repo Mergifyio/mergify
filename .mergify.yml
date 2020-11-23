@@ -18,6 +18,7 @@ pull_request_rules:
   - name: automatic merge for hotfix
     conditions:
       - base=master
+      - author=@devs
       - status-success=Semantic Pull Request
       - body~=(?m)^Fixes MERGIFY-ENGINE-
       - "status-success=ci/circleci: requirements"
