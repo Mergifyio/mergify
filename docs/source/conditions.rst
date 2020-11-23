@@ -367,7 +367,7 @@ Here's why:
 3. A status check might not be reported by a service (CI) (e.g., because it's
    broken) and therefore be totally absent.
 
-Those three facts makes it **mandatory** to write explicitely the checks that
+Those three facts makes it **mandatory** to write explicitly the checks that
 are expected for your condition to be valid. Therefore you should write
 something like:
 
