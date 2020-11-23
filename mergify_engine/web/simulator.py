@@ -75,13 +75,10 @@ async def voluptuous_errors(
     request: requests.Request, exc: voluptuous.Invalid
 ) -> responses.JSONResponse:
     # Replace payload by our own
-    # FIXME(guillaume): rename key to "errors" when dahsboard transition is done
     if isinstance(exc, voluptuous.MultipleInvalid):
-        payload = {
-            "errors_list": list(map(voluptuous_error, sorted(exc.errors, key=str)))
-        }
+        payload = {"errors": list(map(voluptuous_error, sorted(exc.errors, key=str)))}
     else:
-        payload = {"errors_list": list(voluptuous_error(exc))}
+        payload = {"errors": list(voluptuous_error(exc))}
     return responses.JSONResponse(status_code=400, content=payload)
 
 

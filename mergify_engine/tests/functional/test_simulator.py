@@ -96,7 +96,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 400, r.json()
         assert r.json() == {
-            "errors_list": [
+            "errors": [
                 "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
             ]
         }
@@ -121,7 +121,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 400, r.json()
         assert r.json() == {
-            "errors_list": [
+            "errors": [
                 "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
                 "expected str @ pull_request_rules → 0 → conditions → 0",
             ]
@@ -186,7 +186,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 400
         assert r.json() == {
-            "errors_list": [
+            "errors": [
                 """Invalid YAML @ line 2, column 2
 ```
 while scanning an alias
@@ -211,7 +211,7 @@ expected alphabetic or numeric character, but found ' '
         )
         assert r.status_code == 400
         assert r.json() == {
-            "errors_list": [
+            "errors": [
                 "extra keys not allowed @ invalid",
                 "required key not provided",
                 "required key not provided @ pull_request",
