@@ -21,6 +21,7 @@ import yaml
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import doc
+from mergify_engine import exceptions
 from mergify_engine import rules
 
 
@@ -208,7 +209,10 @@ def exec_action(method_name, rule, action, ctxt):
     try:
         method = getattr(rule.actions[action], method_name)
         return method(ctxt, rule)
-    except Exception:  # pragma: no cover
+    except Exception as e:  # pragma: no cover
+        # Forward those to worker
+        if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+            raise
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
