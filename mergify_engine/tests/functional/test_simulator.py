@@ -97,7 +97,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.status_code == 400, r.json()
         assert r.json() == {
             "errors": [
-                "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
+                "expected str @ pull_request_rules → item 0 → actions → label → remove → item 0",
             ]
         }
 
@@ -122,8 +122,8 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.status_code == 400, r.json()
         assert r.json() == {
             "errors": [
-                "expected str @ pull_request_rules → 0 → actions → label → remove → 0",
-                "expected str @ pull_request_rules → 0 → conditions → 0",
+                "expected str @ pull_request_rules → item 0 → actions → label → remove → item 0",
+                "expected str @ pull_request_rules → item 0 → conditions → item 0",
             ]
         }
 

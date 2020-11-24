@@ -261,14 +261,19 @@ class InvalidRules(Exception):
     filename: str
 
     @staticmethod
-    def _format_error(error):
+    def _format_path_item(path_item):
+        if isinstance(path_item, int):
+            return f"item {path_item}"
+        return str(path_item)
+
+    def _format_error(self, error):
         msg = str(error.msg)
 
         if error.error_type:
             msg += f" for {error.error_type}"
 
         if error.path:
-            path = " → ".join(map(str, error.path))
+            path = " → ".join(map(self._format_path_item, error.path))
             msg += f" @ {path}"
         # Only include the error message if it has been provided
         # voluptuous set it to the `message` otherwise
