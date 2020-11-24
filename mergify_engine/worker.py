@@ -22,6 +22,7 @@ import os
 import signal
 import threading
 import time
+import typing
 from typing import Any
 from typing import List
 
@@ -240,10 +241,10 @@ class StreamProcessor:
 
     async def _translate_exception_to_retries(
         self,
-        e,
-        stream_name,
-        attempts_key=None,
-    ):
+        e: Exception,
+        stream_name: str,
+        attempts_key: typing.Optional[str] = None,
+    ) -> None:
         if isinstance(e, exceptions.MergifyNotInstalled):
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
@@ -283,14 +284,14 @@ class StreamProcessor:
 
         attempts = await self.redis.hincrby("attempts", stream_name)
         retry_in = 3 ** min(attempts, 3) * backoff
-        retry_at = utils.utcnow() + datetime.timedelta(seconds=retry_in)
+        retry_at = utils.utcnow() + retry_in
         score = retry_at.timestamp()
         await self.redis.zaddoption("streams", "XX", **{stream_name: score})
         raise StreamRetry(stream_name, attempts, retry_at) from e
 
     async def _run_engine_and_translate_exception_to_retries(
-        self, stream_name, owner, repo, pull_number, sources
-    ):
+        self, stream_name: str, owner: str, repo: str, pull_number: int, sources: list
+    ) -> None:
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
             await self._thread.exec(
@@ -371,13 +372,20 @@ else
 end
 """
 
-    async def _extract_pulls_from_stream(self, stream_name):
+    async def _extract_pulls_from_stream(
+        self, stream_name: str
+    ) -> collections.OrderedDict[
+        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
+    ]:
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
 
         # Groups stream by pull request
-        pulls = collections.OrderedDict()
+        pulls: collections.OrderedDict[
+            typing.Tuple[str, str, int],
+            typing.Tuple[typing.List[str], typing.List[dict]],
+        ] = collections.OrderedDict()
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
             owner = data["owner"]
@@ -394,6 +402,7 @@ end
                     __name__, gh_repo=repo, gh_owner=owner, source=source
                 )
                 logger.debug("unpacking event")
+                converted_messages: typing.List[str]
                 try:
                     converted_messages = await self._convert_event_to_messages(
                         stream_name, owner, repo, source
@@ -432,7 +441,9 @@ end
                         )
         return pulls
 
-    async def _convert_event_to_messages(self, stream_name, owner, repo, source):
+    async def _convert_event_to_messages(
+        self, stream_name: str, owner: str, repo: str, source: dict
+    ) -> typing.List[str]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
@@ -468,7 +479,7 @@ end
             )
         return messages
 
-    async def _consume_pulls(self, stream_name, pulls):
+    async def _consume_pulls(self, stream_name: str, pulls: dict) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
 
@@ -523,7 +534,7 @@ end
                 logger.error("failed to process pull request", exc_info=True)
 
 
-def get_process_index_from_env():
+def get_process_index_from_env() -> int:
     dyno = os.getenv("DYNO", None)
     if dyno:
         return int(dyno.rsplit(".", 1)[-1]) - 1
@@ -694,7 +705,7 @@ class Worker:
             )
 
 
-async def run_forever():
+async def run_forever() -> None:
     worker = Worker()
     worker.setup_signals()
     worker.start()
@@ -702,12 +713,12 @@ async def run_forever():
     LOG.info("Exiting...")
 
 
-def main():
+def main() -> None:
     logs.setup_logging()
-    asyncio.run(run_forever())
+    return asyncio.run(run_forever())
 
 
-async def async_status():
+async def async_status() -> None:
     redis = await utils.create_aredis_for_stream()
     streams = await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True)
 
@@ -718,5 +729,5 @@ async def async_status():
         print(f"[{date}] {owner}: {items} events")
 
 
-def status():
+def status() -> None:
     asyncio.run(async_status())

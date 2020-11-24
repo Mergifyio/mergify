@@ -149,7 +149,7 @@ EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
 STORAGE_URL: str
 STREAM_URL: str
-
+STREAM_MAX_BATCH: int
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
