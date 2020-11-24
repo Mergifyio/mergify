@@ -33,8 +33,8 @@ class MergeableStateUnknown(Exception):
         self.ctxt = ctxt
 
 
-RATE_LIMIT_RETRY_MIN: int = 3
-BASE_RETRY_TIMEOUT: int = 60
+RATE_LIMIT_RETRY_MIN = datetime.timedelta(seconds=3)
+BASE_RETRY_TIMEOUT = datetime.timedelta(minutes=1)
 
 IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
     403: [
@@ -70,7 +70,9 @@ def should_be_ignored(exception: Exception) -> bool:
     return False
 
 
-def need_retry(exception):  # pragma: no cover
+def need_retry(
+    exception: Exception,
+) -> typing.Optional[datetime.timedelta]:  # pragma: no cover
     if isinstance(exception, RateLimited):
         # NOTE(sileht): when we are close to reset date, and since utc time between us and
         # github differ a bit, we can have negative delta, so set a minimun for retrying
@@ -92,3 +94,4 @@ def need_retry(exception):  # pragma: no cover
         # correctly by mergify_engine.utils.Github()
         elif exception.response.status_code == 403:
             return BASE_RETRY_TIMEOUT * 5
+    return None
