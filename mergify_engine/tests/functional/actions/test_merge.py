@@ -280,6 +280,49 @@ class TestMergeAction(base.FunctionalTestBase):
         assert check["conclusion"] == "cancelled"
         assert check["output"]["title"] == "The rule doesn't match anymore"
 
+    def test_merge_depends_on(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=automerge",
+                    ],
+                    "actions": {"merge": {}},
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p1, _ = self.create_pr()
+        p2, _ = self.create_pr(message=f"Awesome description\nDepends-On: #{p1.number}")
+        self.add_label(p2, "automerge")
+        self.run_engine()
+
+        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        checks = ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] is None
+        assert (
+            check["output"]["title"]
+            == "Some pull request dependencies are not yet merged"
+        )
+        assert check["output"]["summary"] == (
+            "This pull request depends on:\n"
+            f"* https://github.com/mergifyio-testing/functional-testing-repo/pull/{p1.number}: not merged"
+        )
+
+        p1.merge()
+        self.wait_for("push", {})
+        self.run_engine()
+
+        p2.update()
+        assert p2.state == "closed"
+        assert p2.merged
+
     def test_merge_draft(self):
         rules = {
             "pull_request_rules": [

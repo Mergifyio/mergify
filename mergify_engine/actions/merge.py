@@ -219,6 +219,9 @@ class MergeAction(actions.Action):
             checked = " " if cond in missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
 
+        if ctxt.depends_on_statuses:
+            summary += "\n\n" + self.get_depends_on_summary(ctxt)
+
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     def run(
@@ -583,6 +586,7 @@ class MergeAction(actions.Action):
             )
 
     def merge_report(self, ctxt: context.Context) -> typing.Optional[check_api.Result]:
+
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"
@@ -640,9 +644,26 @@ This pull request must be merged manually."""
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
         # are OK for us
         else:
-            return None
+            if ctxt.depends_on_statuses and any(
+                map(
+                    lambda s: s != context.DependsOnStatus.MERGED,
+                    ctxt.depends_on_statuses.values(),
+                )
+            ):
+                conclusion = check_api.Conclusion.PENDING
+                title = "Some pull request dependencies are not yet merged"
+                summary = self.get_depends_on_summary(ctxt)
+            else:
+                return None
 
         return check_api.Result(conclusion, title, summary)
+
+    @staticmethod
+    def get_depends_on_summary(ctxt: context.Context) -> str:
+        summary = "This pull request depends on:"
+        for url, state in ctxt.depends_on_statuses.items():
+            summary += f"\n* {url}: {state.value}"
+        return summary
 
     def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
         pulls = q.get_pulls()

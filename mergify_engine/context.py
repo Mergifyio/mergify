@@ -14,10 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import enum
 import functools
 import itertools
 import logging
 import operator
+import re
 import typing
 from urllib import parse
 
@@ -40,6 +42,18 @@ from mergify_engine.clients import http
 
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
+DEPENDS_ON_RE = re.compile(
+    r"^Depends-On: (https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/|#)(?P<number>\d+)"
+)
+
+
+# NOTE(sileht): In case a pull request is waiting on other, we got notified
+# of dependency states change only when dependency get merged (because
+# we received a push event that will refresh our PR).
+# That why we only handles these states (and not open/close/...)
+class DependsOnStatus(enum.Enum):
+    NOT_MERGED = "not merged"
+    MERGED = "merged"
 
 
 # NOTE(sileht): Github mergeable_state is undocumented, here my finding by
@@ -518,6 +532,26 @@ class Context(object):
             if f["filename"].startswith(".github/workflows"):
                 return True
         return False
+
+    @functools.cached_property
+    def depends_on_statuses(self) -> typing.Dict[str, DependsOnStatus]:
+        pull_states = {}
+        for line in self.pull["body"].split("\n"):
+            m = DEPENDS_ON_RE.match(line)
+            if m:
+                owner = m.group("owner") or self.pull["base"]["user"]["login"]
+                repo = m.group("repo") or self.pull["base"]["repo"]["name"]
+                number = m.group("number")
+                url = f"{config.GITHUB_URL}/{owner}/{repo}/pull/{number}"
+                if url in pull_states:
+                    continue
+                try:
+                    self.client.get(f"/repos/{owner}/{repo}/pulls/{number}/merge")
+                except http.HTTPNotFound:
+                    pull_states[url] = DependsOnStatus.NOT_MERGED
+                else:
+                    pull_states[url] = DependsOnStatus.MERGED
+        return pull_states
 
 
 @dataclasses.dataclass
