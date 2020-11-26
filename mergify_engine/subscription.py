@@ -121,7 +121,6 @@ class Subscription:
 
     @classmethod
     async def _retrieve_subscription_from_db(cls, owner_id):
-        LOG.info("Subscription not cached, retrieving it...", gh_owner=owner_id)
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
