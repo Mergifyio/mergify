@@ -302,6 +302,14 @@ The ``label`` action can add or remove `labels
      - Boolean
      - ``false``
      - Remove all labels from the pull request.
+   * - ``add_when_unmatch``
+     - list of string
+     - ``[]``
+     - The list of labels to add when the rule does not match anymore.
+   * - ``remove_when_unmatch``
+     - list of string
+     - ``[]``
+     - The list of labels to add when the rule does not match anymore.
 
 .. _merge action:
 

@@ -99,3 +99,42 @@ class TestLabelAction(base.FunctionalTestBase):
             [],
             pulls[0].labels,
         )
+
+    def test_label_add_remove_when_unmatch(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "unmatch label",
+                    "conditions": [f"base={self.master_branch_name}", "label=wip"],
+                    "actions": {
+                        "label": {
+                            "add_when_unmatch": ["ready", "foobar"],
+                            "remove_when_unmatch": ["testme", "what"],
+                        }
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.add_label(p, "wip")
+        self.add_label(p, "testme")
+        self.run_engine()
+
+        pulls = list(self.r_o_admin.get_pulls())
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted(["wip", "testme"]),
+            sorted([label.name for label in pulls[0].labels]),
+        )
+
+        self.remove_label(p, "wip")
+        self.run_engine()
+
+        pulls[0].update()
+        self.assertEqual(
+            sorted(["ready", "foobar"]),
+            sorted([label.name for label in pulls[0].labels]),
+        )
