@@ -15,6 +15,7 @@
 # under the License.
 
 import random
+import typing
 from urllib import parse
 
 import voluptuous
@@ -31,45 +32,69 @@ class LabelAction(actions.Action):
         voluptuous.Required("add", default=[]): [str],
         voluptuous.Required("remove", default=[]): [str],
         voluptuous.Required("remove_all", default=False): bool,
+        voluptuous.Required("add_when_unmatch", default=[]): [str],
+        voluptuous.Required("remove_when_unmatch", default=[]): [str],
     }
 
     silent_report = True
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if self.config["add"]:
-            all_label = [
-                label["name"] for label in ctxt.client.items(f"{ctxt.base_url}/labels")
-            ]
-            for label in self.config["add"]:
-                if label not in all_label:
-                    color = "%06x" % random.randrange(16 ** 6)
-                    try:
-                        ctxt.client.post(
-                            f"{ctxt.base_url}/labels",
-                            json={"name": label, "color": color},
-                        )
-                    except http.HTTPClientSideError:
-                        continue
-
-            ctxt.client.post(
-                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
-                json={"labels": self.config["add"]},
-            )
-
+            self._add_labels(ctxt, self.config["add"])
         if self.config["remove_all"]:
             ctxt.client.delete(f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels")
         elif self.config["remove"]:
-            pull_labels = [label["name"] for label in ctxt.pull["labels"]]
-            for label in self.config["remove"]:
-                if label in pull_labels:
-                    label_escaped = parse.quote(label, safe="")
-                    try:
-                        ctxt.client.delete(
-                            f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels/{label_escaped}"
-                        )
-                    except http.HTTPClientSideError:
-                        continue
+            self._remove_labels(ctxt, self.config["remove"])
 
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "Labels added/removed", ""
         )
+
+    def cancel(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
+        if self.config["remove_when_unmatch"]:
+            self._remove_labels(ctxt, self.config["remove_when_unmatch"])
+
+        if self.config["add_when_unmatch"]:
+            self._add_labels(ctxt, self.config["add_when_unmatch"])
+
+        return check_api.Result(
+            check_api.Conclusion.CANCELLED, "Labels added/removed", ""
+        )
+
+    def _add_labels(
+        self, ctxt: context.Context, labels_to_add: typing.List[str]
+    ) -> None:
+        all_label = [
+            label["name"] for label in ctxt.client.items(f"{ctxt.base_url}/labels")
+        ]
+        for label in labels_to_add:
+            if label not in all_label:
+                color = "%06x" % random.randrange(16 ** 6)
+                try:
+                    ctxt.client.post(
+                        f"{ctxt.base_url}/labels",
+                        json={"name": label, "color": color},
+                    )
+                except http.HTTPClientSideError:
+                    continue
+
+        ctxt.client.post(
+            f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
+            json={"labels": labels_to_add},
+        )
+
+    def _remove_labels(
+        self, ctxt: context.Context, labels_to_remove: typing.List[str]
+    ) -> None:
+        pull_labels = [label["name"] for label in ctxt.pull["labels"]]
+        for label in labels_to_remove:
+            if label in pull_labels:
+                label_escaped = parse.quote(label, safe="")
+                try:
+                    ctxt.client.delete(
+                        f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels/{label_escaped}"
+                    )
+                except http.HTTPClientSideError:
+                    continue
