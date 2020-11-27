@@ -114,3 +114,27 @@ class TestAssignAction(base.FunctionalTestBase):
             sorted(["mergify-test1"]),
             sorted([user.login for user in pulls[0].assignees]),
         )
+
+    def test_remove_assignee(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "assign",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"assign": {"remove_users": ["mergify-test1"]}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.add_assignee(p, "mergify-test1")
+        self.run_engine()
+
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            [],
+            pulls[0].assignees,
+        )
