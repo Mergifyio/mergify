@@ -19,13 +19,37 @@ from mergify_engine.tests.functional import base
 
 
 class TestAssignAction(base.FunctionalTestBase):
-    def test_assign(self):
+    def test_assign_with_users(self):
         rules = {
             "pull_request_rules": [
                 {
                     "name": "assign",
                     "conditions": [f"base={self.master_branch_name}"],
                     "actions": {"assign": {"users": ["mergify-test1"]}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+
+        self.run_engine()
+
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted(["mergify-test1"]),
+            sorted([user.login for user in pulls[0].assignees]),
+        )
+
+    def test_assign_with_add_users(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "assign",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"assign": {"add_users": ["mergify-test1"]}},
                 }
             ]
         }
@@ -64,5 +88,29 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted([self.u_fork.login]),
+            sorted([user.login for user in pulls[0].assignees]),
+        )
+
+    def test_assign_user_already_assigned(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "assign",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"assign": {"add_users": ["mergify-test1"]}},
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.add_assignee(p, "mergify-test1")
+        self.run_engine()
+
+        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted(["mergify-test1"]),
             sorted([user.login for user in pulls[0].assignees]),
         )

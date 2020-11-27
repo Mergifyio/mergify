@@ -21,11 +21,22 @@ from mergify_engine.actions import assign
 
 def test_assign_get_schema():
     validator = voluptuous.Schema(assign.AssignAction.get_schema())
+
     schema = {"users": ["{{ author }}"]}
-    assert validator(schema) == assign.AssignAction(config=schema)
+    result = validator(schema)
+    assert result.config["users"] == schema["users"]
 
     schema = {"users": ["foo-42"]}
-    assert validator(schema) == assign.AssignAction(config=schema)
+    result = validator(schema)
+    assert result.config["users"] == schema["users"]
+
+    schema = {"add_users": ["{{ author }}"]}
+    result = validator(schema)
+    assert result.config["add_users"] == schema["add_users"]
+
+    schema = {"add_users": ["foo-42"]}
+    result = validator(schema)
+    assert result.config["add_users"] == schema["add_users"]
 
 
 def test_assign_get_schema_with_wrong_template():
@@ -33,5 +44,8 @@ def test_assign_get_schema_with_wrong_template():
 
     with pytest.raises(voluptuous.Invalid) as e:
         validator({"users": ["{{ foo }}"]})
-
     assert str(e.value) == "Template syntax error @ data['users'][0]"
+
+    with pytest.raises(voluptuous.Invalid) as e:
+        validator({"add_users": ["{{ foo }}"]})
+    assert str(e.value) == "Template syntax error @ data['add_users'][0]"

@@ -764,6 +764,10 @@ class FunctionalTestBase(unittest.TestCase):
         self.wait_for("issue_comment", {"action": "created"})
         return comment
 
+    def add_assignee(self, pr, assignee):
+        pr.add_to_assignees(assignee)
+        self.wait_for("pull_request", {"action": "assigned"})
+
     def add_label(self, pr, label):
         if label not in self.existing_labels:
             self.r_o_admin.create_label(label, "000000")
