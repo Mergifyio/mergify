@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -25,25 +27,33 @@ from mergify_engine.rules import types
 
 
 class AssignAction(actions.Action):
-    validator = {voluptuous.Required("users", default=[]): [types.Jinja2]}
+    validator = {
+        # NOTE: "users" is deprecated, but kept as legacy code for old config
+        voluptuous.Required("users", default=[]): [types.Jinja2],
+        voluptuous.Required("add_users", default=[]): [types.Jinja2],
+    }
 
     silent_report = True
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        wanted = set()
-        for user in set(self.config["users"]):
-            try:
-                user = ctxt.pull_request.render_template(user)
-            except context.RenderTemplateFailure as rmf:
-                # NOTE: this should never happen since the template is validated when parsing the config 🤷
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE, "Invalid assignee", str(rmf)
-                )
-            else:
-                wanted.add(user)
+        # NOTE: "users" is deprecated, but kept as legacy code for old config
+        if self.config["users"]:
+            return self._add_assignees(ctxt, self.config["users"])
 
-        already = set((user["login"] for user in ctxt.pull["assignees"]))
-        assignees = list(wanted - already)
+        if self.config["add_users"]:
+            return self._add_assignees(ctxt, self.config["add_users"])
+
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS,
+            "Missing key name",
+            "No user added or removed from assignees",
+        )
+
+    def _add_assignees(
+        self, ctxt: context.Context, users_to_add: typing.List[str]
+    ) -> check_api.Result:
+        assignees = self._wanted_users(ctxt, users_to_add)
+
         if assignees:
             try:
                 ctxt.client.post(
@@ -57,8 +67,29 @@ class AssignAction(actions.Action):
                     f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
 
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "Assignees added",
+                ", ".join(assignees),
+            )
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
-            "Assignees added",
-            ", ".join(self.config["users"]),
+            "Empty users list",
+            "No user added to assignees",
         )
+
+    def _wanted_users(
+        self, ctxt: context.Context, users: typing.List[str]
+    ) -> typing.List[str]:
+        wanted = set()
+        for user in set(users):
+            try:
+                user = ctxt.pull_request.render_template(user)
+            except context.RenderTemplateFailure:
+                # NOTE: this should never happen since
+                # the template is validated when parsing the config 🤷
+                continue
+            else:
+                wanted.add(user)
+
+        return list(wanted)
