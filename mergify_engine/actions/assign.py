@@ -31,6 +31,7 @@ class AssignAction(actions.Action):
         # NOTE: "users" is deprecated, but kept as legacy code for old config
         voluptuous.Required("users", default=[]): [types.Jinja2],
         voluptuous.Required("add_users", default=[]): [types.Jinja2],
+        voluptuous.Required("remove_users", default=[]): [types.Jinja2],
     }
 
     silent_report = True
@@ -38,15 +39,18 @@ class AssignAction(actions.Action):
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         # NOTE: "users" is deprecated, but kept as legacy code for old config
         if self.config["users"]:
-            return self._add_assignees(ctxt, self.config["users"])
+            self._add_assignees(ctxt, self.config["users"])
 
         if self.config["add_users"]:
-            return self._add_assignees(ctxt, self.config["add_users"])
+            self._add_assignees(ctxt, self.config["add_users"])
+
+        if self.config["remove_users"]:
+            self._remove_assignees(ctxt, self.config["remove_users"])
 
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
-            "Missing key name",
-            "No user added or removed from assignees",
+            "Users added/removed from assignees",
+            "",
         )
 
     def _add_assignees(
@@ -76,6 +80,36 @@ class AssignAction(actions.Action):
             check_api.Conclusion.SUCCESS,
             "Empty users list",
             "No user added to assignees",
+        )
+
+    def _remove_assignees(
+        self, ctxt: context.Context, users_to_remove: typing.List[str]
+    ) -> check_api.Result:
+        assignees = self._wanted_users(ctxt, users_to_remove)
+
+        if assignees:
+            try:
+                ctxt.client.request(
+                    "DELETE",
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
+                    json={"assignees": assignees},
+                )
+            except http.HTTPClientSideError as e:  # pragma: no cover
+                return check_api.Result(
+                    check_api.Conclusion.PENDING,
+                    "Unable to remove assignees",
+                    f"GitHub error: [{e.status_code}] `{e.message}`",
+                )
+
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "Assignees removed",
+                ", ".join(assignees),
+            )
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS,
+            "Empty users list",
+            "No user removed from assignees",
         )
 
     def _wanted_users(

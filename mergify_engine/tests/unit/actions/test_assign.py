@@ -38,6 +38,14 @@ def test_assign_get_schema():
     result = validator(schema)
     assert result.config["add_users"] == schema["add_users"]
 
+    schema = {"remove_users": ["{{ author }}"]}
+    result = validator(schema)
+    assert result.config["remove_users"] == schema["remove_users"]
+
+    schema = {"remove_users": ["foo-42"]}
+    result = validator(schema)
+    assert result.config["remove_users"] == schema["remove_users"]
+
 
 def test_assign_get_schema_with_wrong_template():
     validator = voluptuous.Schema(assign.AssignAction.get_schema())
@@ -49,3 +57,7 @@ def test_assign_get_schema_with_wrong_template():
     with pytest.raises(voluptuous.Invalid) as e:
         validator({"add_users": ["{{ foo }}"]})
     assert str(e.value) == "Template syntax error @ data['add_users'][0]"
+
+    with pytest.raises(voluptuous.Invalid) as e:
+        validator({"remove_users": ["{{ foo }}"]})
+    assert str(e.value) == "Template syntax error @ data['remove_users'][0]"
