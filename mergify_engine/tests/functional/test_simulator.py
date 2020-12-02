@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import yaml
 
 from mergify_engine import config
@@ -124,6 +123,44 @@ class TestSimulator(base.FunctionalTestBase):
             "errors": [
                 "expected str @ pull_request_rules → item 0 → actions → label → remove → item 0",
                 "expected str @ pull_request_rules → item 0 → conditions → item 0",
+            ]
+        }
+
+    def test_simulator_with_wrong_pull_request_url(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "simulator",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        mergify_yaml = f"""pull_request_rules:
+  - name: assign
+    conditions:
+      - base={self.master_branch_name}
+    actions:
+      assign:
+        users:
+          - mergify-test1
+"""
+        mock_pr_url = f"{p.html_url}424242"
+        r = self.app.post(
+            "/simulator/",
+            json={"pull_request": mock_pr_url, "mergify.yml": mergify_yaml},
+            headers={
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 400, r.json()
+        assert r.json() == {
+            "errors": [
+                f"Pull request {p.base.repo.full_name}/pulls/{p.number}424242 not found"
             ]
         }
 

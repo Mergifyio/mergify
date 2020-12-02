@@ -65,8 +65,9 @@ SimulatorSchema = voluptuous.Schema(
 
 
 def voluptuous_error(error):
-    if error.path[0] == "mergify.yml":
-        error.path.pop(0)
+    if error.path:
+        if error.path[0] == "mergify.yml":
+            error.path.pop(0)
     return str(rules.InvalidRules(error, ""))
 
 
@@ -78,7 +79,7 @@ async def voluptuous_errors(
     if isinstance(exc, voluptuous.MultipleInvalid):
         payload = {"errors": list(map(voluptuous_error, sorted(exc.errors, key=str)))}
     else:
-        payload = {"errors": list(voluptuous_error(exc))}
+        payload = {"errors": [voluptuous_error(exc)]}
     return responses.JSONResponse(status_code=400, content=payload)
 
 
