@@ -367,7 +367,7 @@ class MergeAction(actions.Action):
                 output = branch_updater.pre_rebase_check(ctxt)
                 if output:
                     return output
-                branch_updater.update_with_git(ctxt, "rebase", user)
+                branch_updater.rebase_with_git(ctxt, user)
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.

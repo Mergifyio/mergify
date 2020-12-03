@@ -60,9 +60,7 @@ class RebaseAction(actions.Action):
                 return output
 
             try:
-                branch_updater.update_with_git(
-                    ctxt, "rebase", self.config["bot_account"]
-                )
+                branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
                     "Branch has been successfully rebased",

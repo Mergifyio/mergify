@@ -98,29 +98,12 @@ def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]
         return None
 
 
-def _do_update_branch(git, method, base_branch, head_branch):
-    if method == "merge":
-        git(
-            "merge",
-            "--quiet",
-            "upstream/%s" % base_branch,
-            "-m",
-            "Merge branch '%s' into '%s'" % (base_branch, head_branch),
-        )
-        git("push", "--quiet", "origin", head_branch)
-    elif method == "rebase":
-        git("rebase", "upstream/%s" % base_branch)
-        git("push", "--verbose", "origin", head_branch, "-f")
-    else:
-        raise RuntimeError("Invalid branch update method")
-
-
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def _do_update(ctxt: context.Context, token: str, method: str = "merge") -> None:
+def _do_rebase(ctxt: context.Context, token: str) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -179,7 +162,8 @@ def _do_update(ctxt: context.Context, token: str, method: str = "merge") -> None
             git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
 
         try:
-            _do_update_branch(git, method, base_branch, head_branch)
+            git("rebase", "upstream/%s" % base_branch)
+            git("push", "--verbose", "origin", head_branch, "-f")
         except subprocess.CalledProcessError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
@@ -191,7 +175,8 @@ def _do_update(ctxt: context.Context, token: str, method: str = "merge") -> None
                     git("fetch", "--unshallow")
                     git("fetch", "--quiet", "origin", head_branch)
                     git("fetch", "--quiet", "upstream", base_branch)
-                    _do_update_branch(git, method, base_branch, head_branch)
+                    git("rebase", "upstream/%s" % base_branch)
+                    git("push", "--verbose", "origin", head_branch, "-f")
                     break
             else:
                 raise
@@ -274,9 +259,7 @@ def update_with_api(ctxt: context.Context) -> None:
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
-def update_with_git(
-    ctxt: context.Context, method: str = "merge", user: typing.Optional[str] = None
-) -> None:
+def rebase_with_git(ctxt: context.Context, user: typing.Optional[str] = None) -> None:
     if user:
         token = ctxt.subscription.get_token_for(user)
         if token:
@@ -291,7 +274,7 @@ def update_with_git(
 
     for login, token in creds.items():
         try:
-            return _do_update(ctxt, token, method)
+            return _do_rebase(ctxt, token)
         except AuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
