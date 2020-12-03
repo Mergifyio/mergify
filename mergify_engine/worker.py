@@ -380,6 +380,7 @@ end
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
+        statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
         # Groups stream by pull request
         pulls: collections.OrderedDict[
