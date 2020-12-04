@@ -1,0 +1,34 @@
+name: upload-docs
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+
+      - name: Setup Node 🔧
+        uses: actions/setup-node@v1
+        with:
+          node-version: 8.17.0
+
+      - name: Build 🔧
+        run: |
+          pip install tox
+          tox -e docs
+
+      - name: Deploy 🚀
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/build

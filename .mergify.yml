@@ -3,11 +3,11 @@ pull_request_rules:
     conditions:
       - base=master
       - status-success=Semantic Pull Request
-      - "status-success=ci/circleci: requirements"
-      - "status-success=ci/circleci: datadog"
-      - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py39"
-      - "status-success=ci/circleci: docs"
+      - "status-success=requirements"
+      - "status-success=datadog"
+      - "status-success=pep8"
+      - "status-success=py39"
+      - "status-success=docs"
       - "#approved-reviews-by>=1"
       - label!=work-in-progress
       - label!=manual merge
@@ -21,11 +21,11 @@ pull_request_rules:
       - author=@devs
       - status-success=Semantic Pull Request
       - body~=(?m)^Fixes MERGIFY-ENGINE-
-      - "status-success=ci/circleci: requirements"
-      - "status-success=ci/circleci: datadog"
-      - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py39"
-      - "status-success=ci/circleci: docs"
+      - "status-success=requirements"
+      - "status-success=datadog"
+      - "status-success=pep8"
+      - "status-success=py39"
+      - "status-success=docs"
       - label=hotfix
       - "#changes-requested-reviews-by=0"
       - label!=work-in-progress
@@ -40,11 +40,11 @@ pull_request_rules:
       - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
-      - "status-success=ci/circleci: requirements"
-      - "status-success=ci/circleci: datadog"
-      - "status-success=ci/circleci: pep8"
-      - "status-success=ci/circleci: py39"
-      - "status-success=ci/circleci: docs"
+      - "status-success=requirements"
+      - "status-success=datadog"
+      - "status-success=pep8"
+      - "status-success=py39"
+      - "status-success=docs"
     actions:
       merge:
         strict: "smart"

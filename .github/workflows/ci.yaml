@@ -1,0 +1,67 @@
+name: Continuous Integration
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  datadog:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+      - run: |
+          bash -n datadog/prerun.sh
+          pip install pyyaml
+          python datadog/validate.py
+
+  requirements:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+      - run: |
+          pip install tox
+          tox -e requirements
+          tox -e missing-imports
+          tox -e genreqs
+          git diff --exit-code
+
+
+  pep8:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+      - run: |
+          pip install tox
+          tox -e pep8
+
+  py39:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+      - run: |
+          sudo apt install -y redis-server
+          pip install tox
+          tox -e py39
+
+  docs:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.0
+      - run: |
+          pip install tox
+          tox -e docs
