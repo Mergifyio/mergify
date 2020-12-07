@@ -173,7 +173,9 @@ class GithubAppInstallationAuth(httpx.Auth):
             if auth_response.status_code == 401:  # due to jwt
                 auth_response = yield self.build_access_token_request(force=True)
 
-            if auth_response.status_code == 403:
+            if auth_response.status_code == 404:
+                raise exceptions.MergifyNotInstalled()
+            elif auth_response.status_code == 403:
                 error_message = auth_response.json()["message"]
                 if "This installation has been suspended" in error_message:
                     LOG.debug(
