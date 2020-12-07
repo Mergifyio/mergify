@@ -68,21 +68,12 @@ class Subscription:
         return f"⚠ The [subscription](https://dashboard.mergify.io/github/{owner}/subscription) needs to be updated to enable this feature."
 
     @classmethod
-    def from_dict(cls, owner_id, sub):
-        # FIXME(sileht): Remove me in January 2021, we should not support two kinds of
-        # payload, we have wrongly sent the token as dict instead of string, so we have
-        # to handle it for a while, in the meantime the dashboard will be updated to return
-        # only the access_token.
-        tokens = dict(
-            (login, token["access_token"] if isinstance(token, dict) else token)
-            for login, token in sub["tokens"].items()
-        )
-        # END FIXME
+    def from_dict(cls, owner_id: int, sub: dict) -> "Subscription":
         return cls(
             owner_id,
             sub["subscription_active"],
             sub["subscription_reason"],
-            tokens,
+            sub["tokens"],
             cls._to_features(sub.get("features", [])),
         )
 

@@ -138,7 +138,7 @@ async def subscription_cache_update(
     if sub is None:
         return responses.Response("Empty content", status_code=400)
     await subscription.Subscription.from_dict(
-        owner_id, sub
+        int(owner_id), sub
     ).save_subscription_to_cache()
     return responses.Response("Cache updated", status_code=200)
 
