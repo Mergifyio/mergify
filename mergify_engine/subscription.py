@@ -39,6 +39,22 @@ class Features(enum.Enum):
     MERGE_BOT_ACCOUNT = "merge_bot_account"
 
 
+class SubscriptionDict(typing.TypedDict):
+    subscription_active: bool
+    subscription_reason: str
+    tokens: typing.Dict[str, str]
+    features: typing.List[
+        typing.Literal[
+            "private_repository",
+            "large_repository",
+            "priority_queues",
+            "custom_checks",
+            "random_request_reviews",
+            "merge_bot_account",
+        ]
+    ]
+
+
 @dataclasses.dataclass
 class Subscription:
     owner_id: int
@@ -48,7 +64,7 @@ class Subscription:
     features: typing.FrozenSet[enum.Enum]
 
     @staticmethod
-    def _to_features(feature_list):
+    def _to_features(feature_list: typing.Iterable[str]) -> typing.FrozenSet[Features]:
         features = []
         for f in feature_list:
             try:
@@ -64,11 +80,11 @@ class Subscription:
         return self.active and feature in self.features
 
     @staticmethod
-    def missing_feature_reason(owner):
+    def missing_feature_reason(owner: str) -> str:
         return f"⚠ The [subscription](https://dashboard.mergify.io/github/{owner}/subscription) needs to be updated to enable this feature."
 
     @classmethod
-    def from_dict(cls, owner_id: int, sub: dict) -> "Subscription":
+    def from_dict(cls, owner_id: int, sub: SubscriptionDict) -> "Subscription":
         return cls(
             owner_id,
             sub["subscription_active"],
@@ -84,7 +100,7 @@ class Subscription:
                 return token
         return None
 
-    def to_dict(self):
+    def to_dict(self) -> SubscriptionDict:
         return {
             "subscription_active": self.active,
             "subscription_reason": self.reason,
@@ -93,7 +109,7 @@ class Subscription:
         }
 
     @classmethod
-    async def get_subscription(cls, owner_id):
+    async def get_subscription(cls, owner_id: int) -> "Subscription":
         """Get a subscription."""
         sub = await cls._retrieve_subscription_from_cache(owner_id)
         if sub is None:
@@ -101,7 +117,7 @@ class Subscription:
             await sub.save_subscription_to_cache()
         return sub
 
-    async def save_subscription_to_cache(self):
+    async def save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         r = await utils.get_aredis_for_cache()
         await r.setex(
@@ -111,7 +127,7 @@ class Subscription:
         )
 
     @classmethod
-    async def _retrieve_subscription_from_db(cls, owner_id):
+    async def _retrieve_subscription_from_db(cls, owner_id: int) -> "Subscription":
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
@@ -125,10 +141,13 @@ class Subscription:
                 return cls.from_dict(owner_id, sub)
 
     @classmethod
-    async def _retrieve_subscription_from_cache(cls, owner_id):
+    async def _retrieve_subscription_from_cache(
+        cls, owner_id: int
+    ) -> typing.Optional["Subscription"]:
         r = await utils.get_aredis_for_cache()
         encrypted_sub = await r.get("subscription-cache-owner-%s" % owner_id)
         if encrypted_sub:
             return cls.from_dict(
                 owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())
             )
+        return None

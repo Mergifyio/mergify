@@ -152,6 +152,9 @@ def report(
 
     print("* INSTALLATION ID: %s" % client.auth.installation["id"])
 
+    if client.auth.owner_id is None:
+        raise RuntimeError("Unable to get owner_id")
+
     cached_sub, db_sub = utils.async_run(
         subscription.Subscription.get_subscription(client.auth.owner_id),
         subscription.Subscription._retrieve_subscription_from_db(client.auth.owner_id),
@@ -218,7 +221,7 @@ def report(
                     try:
                         fancy_priority = merge_base.PriorityAliases(priority).name
                     except ValueError:
-                        fancy_priority = priority
+                        fancy_priority = str(priority)
                     formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
                     print(f"** {formatted_pulls} (priority: {fancy_priority})")
         else:
@@ -227,7 +230,7 @@ def report(
                 client,
                 pull_raw,
                 cached_sub,
-                [{"event_type": "mergify-debugger", "data": {}}],
+                [],
             )
 
             # FIXME queues could also be printed if no pull number given
