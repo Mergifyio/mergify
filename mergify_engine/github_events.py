@@ -45,9 +45,6 @@ def get_ignore_reason(event_type, data):
     elif event_type in ["push"] and not data["ref"].startswith("refs/heads/"):
         return f"push on {data['ref']}"
 
-    elif event_type == "status" and data["state"] == "pending":
-        return "state pending"
-
     elif event_type == "check_suite" and data["action"] != "rerequested":
         return f"check_suite/{data['action']}"
 
