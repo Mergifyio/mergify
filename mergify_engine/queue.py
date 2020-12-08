@@ -230,9 +230,9 @@ class Queue:
 
             self.log.info(
                 "queue changed, refreshing all pull requests",
-                _from=old_pull_requests,
-                _to=new_pull_requests,
-                _to_refresh=pull_requests_to_refresh,
+                queue_from=old_pull_requests,
+                queue_to=new_pull_requests,
+                queue_to_refresh=pull_requests_to_refresh,
             )
 
             for pull in pull_requests_to_refresh:
