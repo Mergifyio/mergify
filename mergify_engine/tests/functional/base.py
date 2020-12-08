@@ -770,7 +770,12 @@ class FunctionalTestBase(unittest.TestCase):
 
     def add_label(self, pr, label):
         if label not in self.existing_labels:
-            self.r_o_admin.create_label(label, "000000")
+            try:
+                self.r_o_admin.create_label(label, "000000")
+            except pygithub.GithubException as e:
+                if e.status != 422:
+                    raise
+
             self.existing_labels.append(label)
 
         pr.add_to_labels(label)
