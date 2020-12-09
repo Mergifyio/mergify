@@ -37,6 +37,7 @@ class Features(enum.Enum):
     CUSTOM_CHECKS = "custom_checks"
     RANDOM_REQUEST_REVIEWS = "random_request_reviews"
     MERGE_BOT_ACCOUNT = "merge_bot_account"
+    BOT_ACCOUNT = "bot_account"
 
 
 class SubscriptionDict(typing.TypedDict):
