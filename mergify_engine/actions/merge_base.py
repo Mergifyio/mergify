@@ -168,7 +168,7 @@ class MergeBaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.ACTION_REQUIRED,
                     (
-                        "`{self.config['merge_bot_account']}` account used as "
+                        f"`{self.config['merge_bot_account']}` account used as "
                         "`merge_bot_account` must have `write` or `maintain` permission, "
                         f"not `{permission}`"
                     ),
