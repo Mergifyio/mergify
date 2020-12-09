@@ -568,7 +568,7 @@ This pull request must be merged manually."""
             try:
                 fancy_priority = PriorityAliases(priority).name
             except ValueError:
-                fancy_priority = priority
+                fancy_priority = str(priority)
             formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
 
             summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"

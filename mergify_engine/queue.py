@@ -27,6 +27,14 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
+class QueueConfig(typing.TypedDict):
+    strict_method: typing.Literal["merge", "rebase", "squash"]
+    priority: int
+    effective_priority: int
+    bot_account: typing.Optional[str]
+    update_bot_account: typing.Optional[str]
+
+
 @dataclasses.dataclass
 class Queue:
     redis: redis.Redis
@@ -73,16 +81,16 @@ class Queue:
         )
 
     @property
-    def _redis_queue_key(self):
+    def _redis_queue_key(self) -> str:
         return self._get_redis_queue_key_for(self.ref)
 
-    def _get_redis_queue_key_for(self, ref):
+    def _get_redis_queue_key_for(self, ref: str) -> str:
         return f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
 
-    def _config_redis_queue_key(self, pull_number):
+    def _config_redis_queue_key(self, pull_number: int) -> str:
         return f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
 
-    def get_config(self, pull_number: int) -> dict:
+    def get_config(self, pull_number: int) -> QueueConfig:
         """Return merge config for a pull request.
 
         Do not use it for logic, just for displaying the queue summary.
@@ -93,13 +101,15 @@ class Queue:
         if config is None:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
-            return {
-                "strict_method": "merge",
-                "priority": 2000,
-                "effective_priority": 2000,
-                "bot_account": None,
-                "update_bot_account": None,
-            }
+            return QueueConfig(
+                {
+                    "strict_method": "merge",
+                    "priority": 2000,
+                    "effective_priority": 2000,
+                    "bot_account": None,
+                    "update_bot_account": None,
+                }
+            )
         config = json.loads(config)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
         config.setdefault("effective_priority", config["priority"])
