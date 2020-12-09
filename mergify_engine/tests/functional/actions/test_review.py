@@ -20,6 +20,8 @@ from mergify_engine.tests.functional import base
 
 
 class TestReviewAction(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
     def test_review(self):
         rules = {
             "pull_request_rules": [
@@ -143,3 +145,50 @@ Unknown pull request attribute: hello
 ```"""
             == check["output"]["summary"]
         )
+
+    def test_review_with_oauth_token(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "approve",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {
+                        "review": {
+                            "type": "APPROVE",
+                            "bot_account": "mergify-test3",
+                        }
+                    },
+                },
+                {
+                    "name": "requested",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "#approved-reviews-by>=1",
+                    ],
+                    "actions": {
+                        "review": {
+                            "message": "WTF?",
+                            "type": "REQUEST_CHANGES",
+                            "bot_account": "mergify-test3",
+                        }
+                    },
+                },
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.run_engine()
+
+        self.wait_for("pull_request_review", {}),
+        self.run_engine()
+
+        p.update()
+        comments = list(p.get_reviews())
+        self.assertEqual(2, len(comments))
+        self.assertEqual("APPROVED", comments[-2].state)
+        self.assertEqual("mergify-test3", comments[-2].user.login)
+        self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
+        self.assertEqual("WTF?", comments[-1].body)
+        self.assertEqual("mergify-test3", comments[-1].user.login)

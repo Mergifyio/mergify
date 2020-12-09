@@ -21,6 +21,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine.rules import types
 
 
@@ -39,12 +40,26 @@ class ReviewAction(actions.Action):
         voluptuous.Required("message", default=None): voluptuous.Any(
             types.Jinja2, None
         ),
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
     }
 
     silent_report = True
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         payload = {"event": self.config["type"]}
+
+        if self.config["bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Reviews with `bot_account` set are disabled",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
 
         if self.config["message"]:
             try:
@@ -95,8 +110,22 @@ class ReviewAction(actions.Action):
             ):
                 break
 
+        bot_account = self.config["bot_account"]
+        if bot_account:
+            oauth_token = ctxt.subscription.get_token_for(bot_account)
+            if not oauth_token:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to review: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+        else:
+            oauth_token = None
+
         ctxt.client.post(
-            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews", json=payload
+            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews",
+            oauth_token=oauth_token,  # type: ignore
+            json=payload,
         )
 
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
