@@ -150,6 +150,10 @@ BOT_USER_ID: int
 STORAGE_URL: str
 STREAM_URL: str
 STREAM_MAX_BATCH: int
+INTEGRATION_ID: int
+SUBSCRIPTION_BASE_URL: str
+OAUTH_CLIENT_ID: str
+OAUTH_CLIENT_SECRET: str
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
