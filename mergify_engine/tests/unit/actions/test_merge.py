@@ -21,6 +21,7 @@ import voluptuous
 from mergify_engine import context
 from mergify_engine import subscription
 from mergify_engine.actions import merge
+from mergify_engine.actions import merge_base
 
 
 PR = {
@@ -271,3 +272,26 @@ def test_queue_summary_subscription(active, summary):
     with mock.patch.object(merge.queue.Queue, "from_context", return_value=q):
         action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
         assert summary == action.get_queue_summary(ctxt, q)
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        (True, merge_base.StrictMergeParameter.true),
+        (False, merge_base.StrictMergeParameter.false),
+        ("smart", merge_base.StrictMergeParameter.ordered),
+        ("smart+ordered", merge_base.StrictMergeParameter.ordered),
+        ("smart+fasttrack", merge_base.StrictMergeParameter.fasttrack),
+        ("smart+fastpath", merge_base.StrictMergeParameter.fasttrack),
+    ],
+)
+def test_strict_merge_parameter_ok(test_input, expected):
+    assert merge_base.strict_merge_parameter(test_input) == expected
+
+
+def test_strict_merge_parameter_fail():
+    with pytest.raises(
+        ValueError,
+        match="toto is an unknown strict merge parameter",
+    ):
+        merge_base.strict_merge_parameter("toto")
