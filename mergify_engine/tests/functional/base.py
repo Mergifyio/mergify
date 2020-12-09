@@ -80,7 +80,7 @@ class GitterRecorder(utils.Gitter):
     def __call__(self, *args, **kwargs):
         if RECORD:
             try:
-                out = super(GitterRecorder, self).__call__(*args, **kwargs)
+                p = super(GitterRecorder, self).__call__(*args, **kwargs)
             except subprocess.CalledProcessError as e:
                 self.records.append(
                     {
@@ -89,7 +89,7 @@ class GitterRecorder(utils.Gitter):
                         "exc": {
                             "returncode": e.returncode,
                             "cmd": e.cmd,
-                            "output": e.output.decode("utf8"),
+                            "output": e.output,
                         },
                     }
                 )
@@ -99,17 +99,18 @@ class GitterRecorder(utils.Gitter):
                     {
                         "args": self.prepare_args(args),
                         "kwargs": self.prepare_kwargs(kwargs),
-                        "out": out.decode("utf8"),
+                        "out": p.stdout,
+                        "returncode": p.returncode,
                     }
                 )
-            return out
+            return p
         else:
             r = self.records.pop(0)
             if "exc" in r:
                 raise subprocess.CalledProcessError(
                     returncode=r["exc"]["returncode"],
                     cmd=r["exc"]["cmd"],
-                    output=r["exc"]["output"].encode("utf8"),
+                    output=r["exc"]["output"],
                 )
             else:
                 assert r["args"] == self.prepare_args(args), "%s != %s" % (
@@ -120,7 +121,11 @@ class GitterRecorder(utils.Gitter):
                     r["kwargs"],
                     self.prepare_kwargs(kwargs),
                 )
-                return r["out"].encode("utf8")
+                return mock.Mock(
+                    stdout=r["out"],
+                    returncode=r.get("returncode", 0),
+                    args=r["args"],
+                )
 
     def prepare_args(self, args):
         return [arg.replace(self.tmp, "/tmp/mergify-gitter<random>") for arg in args]
@@ -128,9 +133,7 @@ class GitterRecorder(utils.Gitter):
     @staticmethod
     def prepare_kwargs(kwargs):
         if "input" in kwargs:
-            kwargs["input"] = re.sub(
-                r"://[^@]*@", "://<TOKEN>:@", kwargs["input"].decode("utf8")
-            )
+            kwargs["input"] = re.sub(r"://[^@]*@", "://<TOKEN>:@", kwargs["input"])
         return kwargs
 
     def cleanup(self):

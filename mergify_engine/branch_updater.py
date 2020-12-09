@@ -44,24 +44,24 @@ class AuthenticationFailure(Exception):
 
 GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     [
-        (b"This repository was archived so it is read-only.", BranchUpdateFailure),
-        (b"organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
-        (b"Invalid username or password", AuthenticationFailure),
-        (b"Repository not found", AuthenticationFailure),
-        (b"The requested URL returned error: 403", AuthenticationFailure),
-        (b"Patch failed at", BranchUpdateFailure),
-        (b"remote contains work that you do", BranchUpdateNeedRetry),
-        (b"remote end hung up unexpectedly", BranchUpdateNeedRetry),
-        (b"cannot lock ref 'refs/heads/", BranchUpdateNeedRetry),
-        (b"Could not resolve host", BranchUpdateNeedRetry),
-        (b"Operation timed out", BranchUpdateNeedRetry),
-        (b"No such device or address", BranchUpdateNeedRetry),
-        (b"Protected branch update failed", BranchUpdateFailure),
-        (b"Couldn't find remote ref", BranchUpdateFailure),
+        ("This repository was archived so it is read-only.", BranchUpdateFailure),
+        ("organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
+        ("Invalid username or password", AuthenticationFailure),
+        ("Repository not found", AuthenticationFailure),
+        ("The requested URL returned error: 403", AuthenticationFailure),
+        ("Patch failed at", BranchUpdateFailure),
+        ("remote contains work that you do", BranchUpdateNeedRetry),
+        ("remote end hung up unexpectedly", BranchUpdateNeedRetry),
+        ("cannot lock ref 'refs/heads/", BranchUpdateNeedRetry),
+        ("Could not resolve host", BranchUpdateNeedRetry),
+        ("Operation timed out", BranchUpdateNeedRetry),
+        ("No such device or address", BranchUpdateNeedRetry),
+        ("Protected branch update failed", BranchUpdateFailure),
+        ("Couldn't find remote ref", BranchUpdateFailure),
     ]
 )
 
-GIT_MESSAGE_TO_UNSHALLOW = set([b"shallow update not allowed", b"unrelated histories"])
+GIT_MESSAGE_TO_UNSHALLOW = set(["shallow update not allowed", "unrelated histories"])
 
 
 def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]:
@@ -143,8 +143,8 @@ def _do_rebase(ctxt: context.Context, token: str) -> None:
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
-        out = git("log", "--format=%cI")
-        last_commit_date = [d for d in out.decode("utf8").split("\n") if d.strip()][-1]
+        out = git("log", "--format=%cI").stdout
+        last_commit_date = [d for d in out.split("\n") if d.strip()][-1]
 
         git(
             "fetch",
@@ -181,12 +181,12 @@ def _do_rebase(ctxt: context.Context, token: str) -> None:
             else:
                 raise
 
-        expected_sha = git("log", "-1", "--format=%H").decode().strip()
+        expected_sha = git("log", "-1", "--format=%H").stdout.strip()
         # NOTE(sileht): We store this for dismissal action
         with utils.get_redis_for_cache() as redis:  # type: ignore
             redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
-        if in_exception.output == b"":
+        if in_exception.output == "":
             # SIGKILL...
             raise BranchUpdateNeedRetry()
 
@@ -194,12 +194,12 @@ def _do_rebase(ctxt: context.Context, token: str) -> None:
             if message in in_exception.output:
                 raise out_exception(
                     "Git reported the following error:\n"
-                    f"```\n{in_exception.output.decode()}\n```\n"
+                    f"```\n{in_exception.output}\n```\n"
                 )
         else:
             ctxt.log.error(
                 "update branch failed: %s",
-                in_exception.output.decode(),
+                in_exception.output,
                 exc_info=True,
             )
             raise BranchUpdateFailure()

@@ -35,13 +35,13 @@ class DuplicateFailed(Exception):
 
 
 GIT_MESSAGE_TO_EXCEPTION = {
-    b"No such device or address": DuplicateNeedRetry,
-    b"Could not resolve host": DuplicateNeedRetry,
-    b"remote end hung up unexpectedly": DuplicateNeedRetry,
-    b"Operation timed out": DuplicateNeedRetry,
-    b"reference already exists": None,
-    b"Aborting commit due to empty commit message": None,
-    b"You may want to first integrate the remote changes": None,
+    "No such device or address": DuplicateNeedRetry,
+    "Could not resolve host": DuplicateNeedRetry,
+    "remote end hung up unexpectedly": DuplicateNeedRetry,
+    "Operation timed out": DuplicateNeedRetry,
+    "reference already exists": None,
+    "Aborting commit due to empty commit message": None,
+    "You may want to first integrate the remote changes": None,
 }
 
 
@@ -227,7 +227,7 @@ def duplicate(
                 git("cherry-pick", "-x", commit["sha"])
             except subprocess.CalledProcessError as e:  # pragma: no cover
                 ctxt.log.info("fail to cherry-pick %s: %s", commit["sha"], e.output)
-                git_status = git("status").decode("utf8")
+                git_status = git("status").stdout
                 body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{git_status}```\n\n"
                 if not ignore_conflicts:
                     raise DuplicateFailed(body)
@@ -244,12 +244,12 @@ def duplicate(
                 else:
                     raise out_exception(
                         "Git reported the following error:\n"
-                        f"```\n{in_exception.output.decode()}\n```\n"
+                        f"```\n{in_exception.output}\n```\n"
                     )
         else:
             ctxt.log.error(
                 "duplicate failed: %s",
-                in_exception.output.decode(),
+                in_exception.output,
                 branch=branch_name,
                 kind=kind,
                 exc_info=True,

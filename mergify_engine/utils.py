@@ -124,11 +124,14 @@ class Gitter(object):
     def __call__(self, *args, **kwargs):  # pragma: no cover
         self.logger.info("calling: %s", " ".join(args))
         kwargs["cwd"] = self.tmp
-        kwargs["stderr"] = subprocess.STDOUT
         # Worker timeout at 5 minutes, so ensure subprocess return before
         kwargs["timeout"] = 4 * 60 + 30
+        kwargs["encoding"] = "utf-8"
+        kwargs.setdefault("check", True)
+        kwargs.setdefault("stdout", subprocess.PIPE)
+        kwargs.setdefault("stderr", subprocess.STDOUT)
         try:
-            return subprocess.check_output(["git"] + list(args), **kwargs)
+            return subprocess.run(["git"] + list(args), **kwargs)
         except subprocess.CalledProcessError as e:
             self.logger.info("output: %s", e.output)
             raise
@@ -159,7 +162,7 @@ class Gitter(object):
         parsed[1] = f"{username}:{password}@{parsed[1]}"
         parsed[2] = path
         url = urllib.parse.urlunparse(parsed)
-        self("credential", "approve", input=f"url={url}\n\n".encode("utf8"))
+        self("credential", "approve", input=f"url={url}\n\n")
 
 
 def get_random_choices(

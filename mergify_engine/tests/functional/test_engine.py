@@ -274,11 +274,9 @@ expected alphabetic or numeric character, but found"""
 
         # Retrieve the new commit id that has been be cherry-picked
         self.git("fetch", "main")
-        commit_id = (
-            self.git("show-ref", "--hash", f"main/{self.master_branch_name}")
-            .decode("utf-8")
-            .strip()
-        )
+        commit_id = self.git(
+            "show-ref", "--hash", f"main/{self.master_branch_name}"
+        ).stdout.strip()
 
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
