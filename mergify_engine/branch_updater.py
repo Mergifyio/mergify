@@ -157,8 +157,20 @@ def _do_rebase(ctxt: context.Context, token: str) -> None:
         # Try to find the merge base, but don't fetch more that 1000 commits.
         for _ in range(20):
             git("repack", "-d")
-            if git("merge-base", f"upstream/{base_branch}", f"origin/{head_branch}"):
+            result = git(
+                "merge-base",
+                f"upstream/{base_branch}",
+                f"origin/{head_branch}",
+                check=False,
+            )
+            if result.returncode == 0:
+                # We have enough commits
                 break
+            elif result.returncode == 1:
+                # We need more commits
+                continue
+            else:
+                result.check_returncode()
             git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
 
         try:
