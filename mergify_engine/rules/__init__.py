@@ -117,7 +117,7 @@ class RulesEvaluator:
     )
 
     # The list of pull request rules to match against.
-    rules: typing.List
+    rules: typing.List[Rule]
 
     # The context to test.
     context: context.Context
@@ -128,10 +128,14 @@ class RulesEvaluator:
     hide_rule: bool
 
     # The rules matching the pull request.
-    matching_rules: typing.List = dataclasses.field(init=False, default_factory=list)
+    matching_rules: typing.List[EvaluatedRule] = dataclasses.field(
+        init=False, default_factory=list
+    )
 
     # The rules not matching the pull request.
-    ignored_rules: typing.List = dataclasses.field(init=False, default_factory=list)
+    ignored_rules: typing.List[EvaluatedRule] = dataclasses.field(
+        init=False, default_factory=list
+    )
 
     def __post_init__(self):
         for rule in self.rules:

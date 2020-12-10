@@ -77,15 +77,21 @@ class Filter:
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
-    tree: typing.Dict[str, typing.Dict]
+    # mypy does not support recursive definition (yet)
+    tree: typing.Dict[
+        typing.Literal[
+            "-", "¬", "=", "==", "<", ">", "<=", "≤", ">=", "≥", "!=", "≠", "~="
+        ],
+        typing.Dict,
+    ]
 
     # The name of the attribute that is going to be evaluated by this filter.
     attribute_name: str = dataclasses.field(init=False)
 
     # A method to resolve name externaly
-    _value_expanders: typing.Dict[str, typing.Callable] = dataclasses.field(
-        init=False, default_factory=dict
-    )
+    _value_expanders: typing.Dict[
+        str, typing.Callable[[typing.List[typing.Any]], typing.Any]
+    ] = dataclasses.field(init=False, default_factory=dict)
 
     def __post_init__(self):
         self._eval = self.build_evaluator(self.tree)
