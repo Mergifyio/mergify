@@ -82,7 +82,7 @@ parameter:
        to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``True``
+     - ``true``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
@@ -125,7 +125,7 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - The list of regexes to find branches the pull request should be copied to.
    * - ``ignore_conflicts``
      - Boolean
-     - ``True``
+     - ``true``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
    * - ``label_conflicts``
@@ -238,8 +238,8 @@ using :ref:`Conditions`.
      - Value Description
    * - ``force``
      - Boolean
-     - ``False``
-     - If set to ``True``, the branch will be deleted even if another pull
+     - ``false``
+     - If set to ``true``, the branch will be deleted even if another pull
        request depends on the head branch. GitHub will therefore close the
        dependent pull requests.
 
@@ -264,16 +264,16 @@ branch is rebased).
      - Value Description
    * - ``approved``
      - Boolean or list of string
-     - ``True``
-     - If set to ``True``, all the approving reviews will be removed when the
-       pull request is updated. If set to ``False``, nothing will be done. If
+     - ``true``
+     - If set to ``true``, all the approving reviews will be removed when the
+       pull request is updated. If set to ``false``, nothing will be done. If
        set to a list, each item should be the GitHub login of a user whose
        review will be removed.
    * - ``changes_requested``
      - Boolean or list of string
-     - ``True``
-     - If set to ``True``, all the reviews requesting changes will be removed
-       when the pull request is updated. If set to ``False``, nothing will be
+     - ``true``
+     - If set to ``true``, all the reviews requesting changes will be removed
+       when the pull request is updated. If set to ``false``, nothing will be
        done. If set to a list, each item should be the GitHub login of a user
        whose review will be removed.
    * - ``message``
@@ -612,7 +612,7 @@ benefit from any pull request attributes e.g. ``{{author}}`` and also these
 additional variables:
 
     * ``{{ check_rule_name }}`` the name of the rule that triggered this action.
-    * ``{{ check_succeed }}`` will be ``True`` if all conditions matches otherwise ``False``
+    * ``{{ check_succeed }}`` is ``True`` if all conditions matches otherwise ``False``
     * ``{{ check_conditions }}`` the list of all conditions with a checkbox marked if the condition match
 
 
