@@ -500,14 +500,10 @@ end
             )
 
             try:
-                logger.debug("engine start with %s sources", len(sources))
-                start = time.monotonic()
                 await self._run_engine_and_translate_exception_to_retries(
                     stream_name, owner, repo, pull_number, sources
                 )
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
-                end = time.monotonic()
-                logger.debug("engine finished in %s sec", end - start)
             except IgnoredException:
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
@@ -578,7 +574,8 @@ class Worker:
                 if stream_name:
                     LOG.debug("worker %s take stream: %s", worker_id, stream_name)
                     try:
-                        await stream_processor.consume(stream_name)
+                        with statsd.timed("engine.stream.consume.time"):
+                            await stream_processor.consume(stream_name)
                     finally:
                         LOG.debug(
                             "worker %s release stream: %s",
