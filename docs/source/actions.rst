@@ -47,8 +47,6 @@ e.g. ``{{author}}`` to assign the pull request to its author.
 backport
 =========
 
-|not enterprise plan tag|
-
 It is common for software to have (some of) their major versions maintained
 over an extended period. Developers usually create stable branches that are
 maintained for a while by cherry-picking patches from the development branch.
@@ -106,8 +104,6 @@ automatically delete the backport head branch that it created.
 
 copy
 ====
-
-|not enterprise plan tag|
 
 The ``copy`` action creates a copy of the pull request targetting other branches.
 
