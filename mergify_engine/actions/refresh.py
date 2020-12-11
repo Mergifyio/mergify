@@ -24,7 +24,7 @@ from mergify_engine import rules
 class RefreshAction(actions.Action):
     is_command = True
     is_action = False
-    validator: typing.ClassVar[dict] = {}
+    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         asyncio.run(github_events.send_refresh(ctxt.pull))

@@ -29,7 +29,7 @@ class UpdateAction(actions.Action):
 
     silent_report = True
 
-    validator: typing.ClassVar[typing.Dict] = {}
+    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     @staticmethod
     def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:

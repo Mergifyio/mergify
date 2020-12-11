@@ -60,7 +60,8 @@ class Action(abc.ABC):
 
     always_run = False
 
-    config: typing.Dict
+    # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
+    config: typing.Dict[str, typing.Any]
 
     cancelled_check_report = check_api.Result(
         check_api.Conclusion.CANCELLED,
@@ -82,7 +83,7 @@ class Action(abc.ABC):
     @property
     @staticmethod
     @abc.abstractmethod
-    def validator():  # pragma: no cover
+    def validator() -> typing.Dict[typing.Any, typing.Any]:  # pragma: no cover
         pass
 
     @classmethod

@@ -60,7 +60,9 @@ class RequestReviewsAction(actions.Action):
 
     always_run = True
 
-    def _get_random_reviewers(self, random_number: int, pr_author: str) -> set:
+    def _get_random_reviewers(
+        self, random_number: int, pr_author: str
+    ) -> typing.Set[str]:
         if isinstance(self.config["users"], dict):
             user_weights = self.config["users"]
         else:
@@ -90,7 +92,7 @@ class RequestReviewsAction(actions.Action):
         )
 
     def _get_reviewers(
-        self, pr_id: int, existing_reviews: set, pr_author: str
+        self, pr_id: int, existing_reviews: typing.Set[str], pr_author: str
     ) -> typing.Tuple[typing.Set[str], typing.Set[str]]:
         if "random_count" in self.config:
             team_reviews_to_request = set()
