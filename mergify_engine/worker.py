@@ -18,6 +18,7 @@ import dataclasses
 import datetime
 import functools
 import hashlib
+import itertools
 import os
 import signal
 import threading
@@ -213,9 +214,11 @@ class StreamSelector:
     worker_id: int
     worker_count: int
 
+    def get_worker_id_for(self, stream: bytes) -> int:
+        return int(hashlib.md5(stream).hexdigest(), 16) % self.worker_count
+
     def _is_stream_for_me(self, stream: bytes) -> bool:
-        hash = int(hashlib.md5(stream).hexdigest(), 16)
-        return hash % self.worker_count == self.worker_id
+        return self.get_worker_id_for(stream) == self.worker_id
 
     async def next_stream(self):
         now = time.time()
@@ -717,14 +720,28 @@ def main() -> None:
 
 
 async def async_status() -> None:
-    redis = await utils.create_aredis_for_stream()
-    streams = await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True)
+    worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
+    process_count: int = config.STREAM_PROCESSES
+    worker_count: int = worker_per_process * process_count
 
-    for stream, score in streams:
-        owner = stream.split(b"~")[1]
-        date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
-        items = await redis.xlen(stream)
-        print(f"[{date}] {owner}: {items} events")
+    redis = await utils.create_aredis_for_stream()
+    stream_selector = StreamSelector(redis, 0, worker_count)
+
+    def sorter(item):
+        stream, score = item
+        return stream_selector.get_worker_id_for(stream)
+
+    streams = sorted(
+        await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True),
+        key=sorter,
+    )
+
+    for worker_id, streams_by_worker in itertools.groupby(streams, key=sorter):
+        for stream, score in streams_by_worker:
+            owner = stream.split(b"~")[1]
+            date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
+            items = await redis.xlen(stream)
+            print(f"{{{worker_id:02}}} [{date}] {owner.decode()}: {items} events")
 
 
 def status() -> None:
