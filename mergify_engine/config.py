@@ -108,7 +108,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
         voluptuous.Required(
-            "NOSUB_MAX_REPO_SIZE_KB", default=512 * 1024
+            "NOSUB_MAX_REPO_SIZE_KB", default=512 * 1000
         ): voluptuous.Coerce(int),
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
