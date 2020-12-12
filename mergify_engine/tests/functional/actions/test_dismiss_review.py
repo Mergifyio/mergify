@@ -80,7 +80,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
     def test_dismiss_reviews_custom_message_syntax_error(self):
         check = self._test_dismiss_reviews_fail("{{Loser")
         assert (
-            """Template syntax error @ data['pull_request_rules'][0]['actions']['dismiss_reviews']['message'][line 1]
+            """Template syntax error @ pull_request_rules → item 0 → actions → dismiss_reviews → message → line 1
 ```
 unexpected end of template, expected 'end of print statement'.
 ```"""
@@ -90,7 +90,7 @@ unexpected end of template, expected 'end of print statement'.
     def test_dismiss_reviews_custom_message_attribute_error(self):
         check = self._test_dismiss_reviews_fail("{{Loser}}")
         assert (
-            """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['dismiss_reviews']['message']
+            """Template syntax error for dictionary value @ pull_request_rules → item 0 → actions → dismiss_reviews → message
 ```
 Unknown pull request attribute: Loser
 ```"""
