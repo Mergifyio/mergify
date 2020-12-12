@@ -387,6 +387,10 @@ end
         statsd.histogram("engine.streams.size", len(messages))
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
+        opened_pulls_by_repo: typing.Dict[
+            typing.Tuple[str, str], typing.List[dict]
+        ] = {}
+
         # Groups stream by pull request
         pulls: collections.OrderedDict[
             typing.Tuple[str, str, int],
@@ -407,23 +411,18 @@ end
                 logger = daiquiri.getLogger(
                     __name__, gh_repo=repo, gh_owner=owner, source=source
                 )
-                logger.debug("unpacking event")
-                converted_messages: typing.List[str]
-                try:
-                    converted_messages = await self._convert_event_to_messages(
-                        stream_name, owner, repo, source
+                if (owner, repo) not in opened_pulls_by_repo:
+                    opened_pulls_by_repo[(owner, repo)] = await self._get_pulls_for(
+                        stream_name, owner, repo
                     )
-                except IgnoredException:
-                    converted_messages = []
-                    logger.debug("ignored error", exc_info=True)
-                except StreamRetry:
-                    raise
-                except StreamUnused:
-                    raise
-                except Exception:
-                    # Ignore it, it will retried later
-                    logger.error("failed to process incomplete event", exc_info=True)
-                    continue
+                converted_messages: typing.List[
+                    str
+                ] = await self._convert_event_to_messages(
+                    owner,
+                    repo,
+                    source,
+                    opened_pulls_by_repo[(owner, repo)],
+                )
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
                 messages.extend(converted_messages)
@@ -447,24 +446,40 @@ end
                         )
         return pulls
 
+    async def _get_pulls_for(
+        self, stream_name: str, owner: str, repo: str
+    ) -> typing.List[dict]:
+        try:
+            async with await github.aget_client(owner) as client:
+                return [
+                    p
+                    async for p in client.items(
+                        f"/repos/{client.auth.owner}/{repo}/pulls"
+                    )
+                ]
+        except Exception as e:
+            raise await self._translate_exception_to_retries(e, stream_name)
+
     async def _convert_event_to_messages(
-        self, stream_name: str, owner: str, repo: str, source: dict
+        self,
+        owner: str,
+        repo: str,
+        source: dict,
+        pulls: typing.List[typing.Dict],
     ) -> typing.List[str]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
-        try:
-            async with await github.aget_client(owner) as client:
-                pull_numbers = await github_events.extract_pull_numbers_from_event(
-                    client,
-                    repo,
-                    source["event_type"],
-                    source["data"],
-                )
-        except Exception as e:
-            raise await self._translate_exception_to_retries(e, stream_name) from e
+        async with await github.aget_client(owner) as client:
+            pull_numbers = await github_events.extract_pull_numbers_from_event(
+                client,
+                repo,
+                source["event_type"],
+                source["data"],
+                pulls,
+            )
 
         messages = []
         for pull_number in pull_numbers:

@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import contextlib
 import dataclasses
 import typing
 import uuid
@@ -28,7 +27,6 @@ from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import utils
 from mergify_engine import worker
-from mergify_engine.clients import http
 from mergify_engine.engine import commands_runner
 
 
@@ -210,12 +208,12 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
 SHA_EXPIRATION = 60
 
 
-async def _get_github_pulls_from_sha(client, repo, sha):
+async def _get_github_pulls_from_sha(client, repo, sha, pulls):
     redis = await utils.get_aredis_for_cache()
     cache_key = f"sha~{client.auth.owner}~{repo}~{sha}"
     pull_number = await redis.get(cache_key)
     if pull_number is None:
-        async for pull in client.items(f"/repos/{client.auth.owner}/{repo}/pulls"):
+        for pull in pulls:
             if pull["head"]["sha"] == sha:
                 await redis.set(cache_key, pull["number"], ex=SHA_EXPIRATION)
                 return [pull["number"]]
@@ -228,33 +226,32 @@ async def _get_github_pulls_from_sha(client, repo, sha):
         return [int(pull_number)]
 
 
-async def extract_pull_numbers_from_event(client, repo, event_type, data):
+async def extract_pull_numbers_from_event(client, repo, event_type, data, pulls):
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
-    with contextlib.suppress(http.HTTPNotFound):
-        pulls_url = f"/repos/{client.auth.owner}/{repo}/pulls"
-        if event_type == "refresh":
-            if "ref" in data:
-                branch = data["ref"][11:]  # refs/heads/
-                return [p["number"] async for p in client.items(pulls_url, base=branch)]
-            else:
-                return [p["number"] async for p in client.items(pulls_url)]
-        elif event_type == "push":
+    if event_type == "refresh":
+        if "ref" in data:
             branch = data["ref"][11:]  # refs/heads/
-            return [p["number"] async for p in client.items(pulls_url, base=branch)]
-        elif event_type == "status":
-            return await _get_github_pulls_from_sha(client, repo, data["sha"])
-        elif event_type in ["check_suite", "check_run"]:
-            # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-            base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
-            pulls = data[event_type]["pull_requests"]
-            pulls = [
-                p["number"] for p in pulls if p["base"]["repo"]["url"] == base_repo_url
-            ]
-            if not pulls:
-                sha = data[event_type]["head_sha"]
-                pulls = await _get_github_pulls_from_sha(client, repo, sha)
-            return pulls
-    return []
+            return [p["number"] for p in pulls if p["base"]["ref"] == branch]
+        else:
+            return [p["number"] for p in pulls]
+    elif event_type == "push":
+        branch = data["ref"][11:]  # refs/heads/
+        return [p["number"] for p in pulls if p["base"]["ref"] == branch]
+    elif event_type == "status":
+        return await _get_github_pulls_from_sha(client, repo, data["sha"], pulls)
+    elif event_type in ["check_suite", "check_run"]:
+        # NOTE(sileht): This list may contains Pull Request from another org/user fork...
+        base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
+        pulls = data[event_type]["pull_requests"]
+        pulls = [
+            p["number"] for p in pulls if p["base"]["repo"]["url"] == base_repo_url
+        ]
+        if not pulls:
+            sha = data[event_type]["head_sha"]
+            pulls = await _get_github_pulls_from_sha(client, repo, sha, pulls)
+        return pulls
+    else:
+        return []
 
 
 # TODO(sileht): use Enum for action

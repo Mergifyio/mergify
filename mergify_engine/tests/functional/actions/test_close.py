@@ -95,7 +95,7 @@ class TestCloseAction(base.FunctionalTestBase):
             msg="Thank you {{",
         )
         assert (
-            """Template syntax error @ data['pull_request_rules'][0]['actions']['close']['message'][line 1]
+            """Template syntax error @ pull_request_rules → item 0 → actions → close → message → line 1
 ```
 unexpected 'end of template'
 ```"""
@@ -107,7 +107,7 @@ unexpected 'end of template'
             msg="Thank you {{hello}}",
         )
         assert (
-            """Template syntax error for dictionary value @ data['pull_request_rules'][0]['actions']['close']['message']
+            """Template syntax error for dictionary value @ pull_request_rules → item 0 → actions → close → message
 ```
 Unknown pull request attribute: hello
 ```"""
