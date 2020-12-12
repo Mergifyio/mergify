@@ -247,12 +247,12 @@ class StreamProcessor:
         e: Exception,
         stream_name: str,
         attempts_key: typing.Optional[str] = None,
-    ) -> None:
+    ) -> Exception:
         if isinstance(e, exceptions.MergifyNotInstalled):
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
-            raise StreamUnused(stream_name) from e
+            return StreamUnused(stream_name)
 
         if isinstance(e, github.TooManyPages):
             # TODO(sileht): Ideally this should be catcher earlier to post an
@@ -262,13 +262,13 @@ class StreamProcessor:
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
-            raise IgnoredException() from e
+            return IgnoredException()
 
         if exceptions.should_be_ignored(e):
             if attempts_key:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
-            raise IgnoredException() from e
+            return IgnoredException()
 
         if isinstance(e, exceptions.RateLimited):
             retry_at = utils.utcnow() + e.countdown
@@ -277,20 +277,20 @@ class StreamProcessor:
                 await self.redis.hdel("attempts", attempts_key)
             await self.redis.hdel("attempts", stream_name)
             await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-            raise StreamRetry(stream_name, 0, retry_at) from e
+            return StreamRetry(stream_name, 0, retry_at)
 
         backoff = exceptions.need_retry(e)
         if backoff is None:
             # NOTE(sileht): This is our fault, so retry until we fix the bug but
             # without increasing the attempts
-            raise
+            return e
 
         attempts = await self.redis.hincrby("attempts", stream_name)
         retry_in = 3 ** min(attempts, 3) * backoff
         retry_at = utils.utcnow() + retry_in
         score = retry_at.timestamp()
         await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-        raise StreamRetry(stream_name, attempts, retry_at) from e
+        return StreamRetry(stream_name, attempts, retry_at)
 
     async def _run_engine_and_translate_exception_to_retries(
         self, stream_name: str, owner: str, repo: str, pull_number: int, sources: list
@@ -315,7 +315,9 @@ class StreamProcessor:
                 raise MaxPullRetry(attempts) from e
 
         except Exception as e:
-            await self._translate_exception_to_retries(e, stream_name, attempts_key)
+            raise await self._translate_exception_to_retries(
+                e, stream_name, attempts_key
+            ) from e
 
     async def consume(self, stream_name):
         owner = stream_name.split("~", 1)[1]
@@ -462,7 +464,7 @@ end
                     source["data"],
                 )
         except Exception as e:
-            await self._translate_exception_to_retries(e, stream_name)
+            raise await self._translate_exception_to_retries(e, stream_name) from e
 
         messages = []
         for pull_number in pull_numbers:
