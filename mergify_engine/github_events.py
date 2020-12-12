@@ -247,12 +247,8 @@ async def extract_pull_numbers_from_event(client, repo, event_type, data):
             # NOTE(sileht): This list may contains Pull Request from another org/user fork...
             base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
             pulls = data[event_type]["pull_requests"]
-            # TODO(sileht): remove `"base" in p and`
-            # Due to MERGIFY-ENGINE-1JZ, we have to temporary ignore pull with base missing
             pulls = [
-                p["number"]
-                for p in pulls
-                if "base" in p and p["base"]["repo"]["url"] == base_repo_url
+                p["number"] for p in pulls if p["base"]["repo"]["url"] == base_repo_url
             ]
             if not pulls:
                 sha = data[event_type]["head_sha"]
