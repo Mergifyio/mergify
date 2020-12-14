@@ -412,9 +412,13 @@ end
                     __name__, gh_repo=repo, gh_owner=owner, source=source
                 )
                 if (owner, repo) not in opened_pulls_by_repo:
-                    opened_pulls_by_repo[(owner, repo)] = await self._get_pulls_for(
-                        stream_name, owner, repo
-                    )
+                    try:
+                        opened_pulls_by_repo[(owner, repo)] = await self._get_pulls_for(
+                            stream_name, owner, repo
+                        )
+                    except IgnoredException:
+                        opened_pulls_by_repo[(owner, repo)] = []
+
                 converted_messages: typing.List[
                     str
                 ] = await self._convert_event_to_messages(
