@@ -44,25 +44,6 @@ class Queue:
     repo: str
     ref: str
 
-    def __post_init__(self):
-        # TODO(sileht): Remove me when no more old keys are present
-        for old_queue_key in self.redis.keys(
-            f"strict-merge-queues~*~{self.owner}~{self.repo}~*"
-        ):
-            _, installation_id, _, _, ref = old_queue_key.split("~")
-            new_queue_key = f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
-
-            for old_config_key in self.redis.keys(
-                f"strict-merge-config~{installation_id}~{self.owner}~{self.repo}~*"
-            ):
-                pull_number = old_config_key.split("~")[-1]
-                new_config_key = (
-                    f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
-                )
-                self.redis.rename(old_config_key, new_config_key)
-
-            self.redis.rename(old_queue_key, new_queue_key)
-
     @property
     def log(self):
         return daiquiri.getLogger(
