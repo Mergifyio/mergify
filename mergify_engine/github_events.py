@@ -226,19 +226,19 @@ async def _get_github_pulls_from_sha(client, repo, sha, pulls):
         return [int(pull_number)]
 
 
-async def extract_pull_numbers_from_event(client, repo, event_type, data, pulls):
+async def extract_pull_numbers_from_event(client, repo, event_type, data, opened_pulls):
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
     if event_type == "refresh":
         if "ref" in data:
             branch = data["ref"][11:]  # refs/heads/
-            return [p["number"] for p in pulls if p["base"]["ref"] == branch]
+            return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
         else:
-            return [p["number"] for p in pulls]
+            return [p["number"] for p in opened_pulls]
     elif event_type == "push":
         branch = data["ref"][11:]  # refs/heads/
-        return [p["number"] for p in pulls if p["base"]["ref"] == branch]
+        return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "status":
-        return await _get_github_pulls_from_sha(client, repo, data["sha"], pulls)
+        return await _get_github_pulls_from_sha(client, repo, data["sha"], opened_pulls)
     elif event_type in ["check_suite", "check_run"]:
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
@@ -248,7 +248,7 @@ async def extract_pull_numbers_from_event(client, repo, event_type, data, pulls)
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
-            pulls = await _get_github_pulls_from_sha(client, repo, sha, pulls)
+            pulls = await _get_github_pulls_from_sha(client, repo, sha, opened_pulls)
         return pulls
     else:
         return []
