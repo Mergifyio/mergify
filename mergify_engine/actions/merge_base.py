@@ -183,14 +183,14 @@ class MergeBaseAction(actions.Action):
 
         report = self.merge_report(ctxt)
         if report is not None:
-            q.remove_pull(ctxt.pull["number"])
+            q.remove_pull(ctxt)
             return report
 
         if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self._should_be_queued(ctxt, q):
-                q.add_pull(ctxt, self.config)
+                q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
             else:
-                q.remove_pull(ctxt.pull["number"])
+                q.remove_pull(ctxt)
                 return check_api.Result(
                     check_api.Conclusion.CANCELLED,
                     "The pull request have been removed from the queue",
@@ -205,10 +205,10 @@ class MergeBaseAction(actions.Action):
             else:
                 result = self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
         except Exception:
-            q.remove_pull(ctxt.pull["number"])
+            q.remove_pull(ctxt)
             raise
         if result.conclusion is not check_api.Conclusion.PENDING:
-            q.remove_pull(ctxt.pull["number"])
+            q.remove_pull(ctxt)
         return result
 
     def cancel(
@@ -219,7 +219,7 @@ class MergeBaseAction(actions.Action):
         q = queue.Queue.from_context(ctxt)
         output = self.merge_report(ctxt)
         if output:
-            q.remove_pull(ctxt.pull["number"])
+            q.remove_pull(ctxt)
             if ctxt.pull["state"] == "closed":
                 return output
             else:
@@ -243,13 +243,13 @@ class MergeBaseAction(actions.Action):
                         ctxt, rule, q, is_behind=ctxt.is_behind
                     )
             except Exception:
-                q.remove_pull(ctxt.pull["number"])
+                q.remove_pull(ctxt)
                 raise
             if result.conclusion is not check_api.Conclusion.PENDING:
-                q.remove_pull(ctxt.pull["number"])
+                q.remove_pull(ctxt)
             return result
 
-        q.remove_pull(ctxt.pull["number"])
+        q.remove_pull(ctxt)
 
         return self.cancelled_check_report
 
@@ -281,7 +281,8 @@ class MergeBaseAction(actions.Action):
             if output:
                 return output
             else:
-                q.move_pull_at_end(ctxt.pull["number"], self.config)
+                q.remove_pull(ctxt)
+                q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
                     "Base branch update has failed",
