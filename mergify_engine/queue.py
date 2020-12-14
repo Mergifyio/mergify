@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import contextlib
 import dataclasses
 import json
 import typing
@@ -107,10 +106,9 @@ class Queue:
         )
 
         score = utils.utcnow().timestamp() / config["effective_priority"]
-        with self.pull_request_auto_refresher(ctxt.pull["number"]):
-            added = self.redis.zadd(
-                self._redis_queue_key, {ctxt.pull["number"]: score}, nx=True
-            )
+        added = self.redis.zadd(
+            self._redis_queue_key, {ctxt.pull["number"]: score}, nx=True
+        )
 
         if added:
             self.log.info(
@@ -118,6 +116,10 @@ class Queue:
                 gh_pull=ctxt.pull["number"],
                 config=config,
             )
+            pull_requests_to_refresh = [
+                p for p in self.get_pulls() if p != ctxt.pull["number"]
+            ]
+            self._refresh_pulls(pull_requests_to_refresh)
         else:
             self.log.info(
                 "pull request already in merge queue",
@@ -142,12 +144,17 @@ class Queue:
                     old_queue.remove_pull(ctxt)
 
     def remove_pull(self, ctxt: context.Context) -> None:
-        with self.pull_request_auto_refresher(ctxt.pull["number"]):
-            self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
-        self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
-        self.log.info(
-            "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
-        )
+        removed = self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
+        if removed > 0:
+            self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
+            self.log.info(
+                "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
+            )
+            self._refresh_pulls(self.get_pulls())
+        else:
+            self.log.info(
+                "pull request not in merge queue", gh_pull=ctxt.pull["number"]
+            )
 
     def get_queue(self, ref: str) -> "Queue":
         """Get a queue for another ref of this repository."""
@@ -183,45 +190,19 @@ class Queue:
     def delete(self):
         self.redis.delete(self._redis_queue_key)
 
-    @contextlib.contextmanager
-    def pull_request_auto_refresher(self, pull_number: int) -> typing.Iterator:
-        # NOTE(sileht): we need to refresh PR for two reasons:
-        # * sync the first one from its base branch if needed
-        # * update all summary with the new queues
-
-        old_pull_requests = self.get_pulls()
-        try:
-            yield
-        finally:
-            new_pull_requests = self.get_pulls()
-            if new_pull_requests == old_pull_requests:
-                return
-
-            pull_requests_to_refresh = [
-                p for p in new_pull_requests if p != pull_number
-            ]
-            if not pull_requests_to_refresh:
-                return
-
-            self.log.info(
-                "queue changed, refreshing all pull requests",
-                queue_from=old_pull_requests,
-                queue_to=new_pull_requests,
-                queue_to_refresh=pull_requests_to_refresh,
-            )
-
-            for pull in pull_requests_to_refresh:
-                utils.async_run(
-                    github_events.send_refresh(
-                        {
-                            "number": pull,
-                            "base": {
-                                "repo": {
-                                    "name": self.repo,
-                                    "owner": {"login": self.owner},
-                                    "full_name": f"{self.owner}/{self.repo}",
-                                }
-                            },
-                        }
-                    )
+    def _refresh_pulls(self, pull_requests_to_refresh):
+        for pull in pull_requests_to_refresh:
+            utils.async_run(
+                github_events.send_refresh(
+                    {
+                        "number": pull,
+                        "base": {
+                            "repo": {
+                                "name": self.repo,
+                                "owner": {"login": self.owner},
+                                "full_name": f"{self.owner}/{self.repo}",
+                            }
+                        },
+                    }
                 )
+            )
