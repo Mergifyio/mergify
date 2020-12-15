@@ -158,3 +158,8 @@ def to_ordinal_numeric(number: int) -> str:
     last = number % 10
     suffix = ORDINAL_SUFFIXES.get(last) or "th"
     return f"{number}{suffix}"
+
+
+class FakePR:
+    def __init__(self, key: str, value: typing.Any):
+        setattr(self, key, value)
