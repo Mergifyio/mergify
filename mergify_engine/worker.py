@@ -635,7 +635,6 @@ class Worker:
                     min=0,
                     max=now,
                     start=self.worker_count,
-                    num=1,
                     withscores=True,
                 )
                 # NOTE(sileht): The latency may not be exact with the next StreamSelector
@@ -646,6 +645,7 @@ class Worker:
                 else:
                     statsd.timing("engine.streams.latency", 0)
 
+                statsd.gauge("engine.streams.backlog", len(streams))
                 statsd.gauge("engine.workers.count", self.worker_count)
                 statsd.gauge("engine.processes.count", self.process_count)
                 statsd.gauge(
