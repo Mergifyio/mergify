@@ -208,6 +208,14 @@ class ThreadRunner(threading.Thread):
                 self._process.clear()
 
 
+PullsToConsume = typing.NewType(
+    "PullsToConsume",
+    collections.OrderedDict[
+        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
+    ],
+)
+
+
 @dataclasses.dataclass
 class StreamSelector:
     redis: Any
@@ -377,11 +385,7 @@ else
 end
 """
 
-    async def _extract_pulls_from_stream(
-        self, stream_name: str
-    ) -> collections.OrderedDict[
-        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
-    ]:
+    async def _extract_pulls_from_stream(self, stream_name: str) -> PullsToConsume:
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
@@ -392,10 +396,8 @@ end
         ] = {}
 
         # Groups stream by pull request
-        pulls: collections.OrderedDict[
-            typing.Tuple[str, str, int],
-            typing.Tuple[typing.List[str], typing.List[dict]],
-        ] = collections.OrderedDict()
+        pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
+
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
             owner = data["owner"]
