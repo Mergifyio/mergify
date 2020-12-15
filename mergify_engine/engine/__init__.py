@@ -28,6 +28,7 @@ from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
+from mergify_engine.engine import queue_runner
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -236,7 +237,10 @@ def run(
                 break
 
     ctxt.log.debug("engine handle actions")
-    actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+    if ctxt.is_merge_queue_pr():
+        queue_runner.handle(mergify_config["queue_rules"], ctxt)
+    else:
+        actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
 async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:

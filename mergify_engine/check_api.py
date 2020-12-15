@@ -86,7 +86,10 @@ def compare_dict(d1, d2, keys):
 
 
 def set_check_run(
-    ctxt: "context.Context", name: str, result: Result, external_id: str = None
+    ctxt: "context.Context",
+    name: str,
+    result: Result,
+    external_id: str = None,
 ) -> github_types.GitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS

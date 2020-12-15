@@ -30,6 +30,7 @@ import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -490,6 +491,11 @@ class Context(object):
                 if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
+
+    def is_merge_queue_pr(self) -> bool:
+        return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
+            "ref"
+        ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 
     def have_been_synchronized(self) -> bool:
         for source in self.sources:

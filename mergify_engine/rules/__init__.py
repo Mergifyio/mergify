@@ -55,6 +55,7 @@ RuleMissingConditions = typing.NewType(
 )
 
 
+# TODO(sileht): rename me PullRequestRule ?
 @dataclasses.dataclass
 class Rule:
     name: str
@@ -75,6 +76,7 @@ class Rule:
         return cls(**d)
 
 
+# TODO(sileht): rename me EvaluatedPullRequestRule ?
 @dataclasses.dataclass
 class EvaluatedRule:
     name: str
@@ -96,8 +98,62 @@ class EvaluatedRule:
         )
 
 
+class QueueConfig(typing.TypedDict):
+    priority: int
+
+
 @dataclasses.dataclass
-class RulesEvaluator:
+class EvaluatedQueueRule:
+    name: str
+    conditions: RuleConditions
+    missing_conditions: RuleMissingConditions
+    config: QueueConfig
+
+    @classmethod
+    def from_rule(
+        cls, rule: "QueueRule", missing_conditions: RuleMissingConditions
+    ) -> "EvaluatedQueueRule":
+        return cls(
+            rule.name,
+            rule.conditions,
+            missing_conditions,
+            rule.config,
+        )
+
+
+QueueName = typing.NewType("QueueName", str)
+
+
+@dataclasses.dataclass
+class QueueRule:
+    name: QueueName
+    conditions: RuleConditions
+    config: QueueConfig
+
+    class T_from_dict(QueueConfig, total=False):
+        name: QueueName
+        conditions: RuleConditions
+
+    @classmethod
+    def from_dict(cls, d: T_from_dict) -> "QueueRule":
+        name = d.pop("name")
+        conditions = d.pop("conditions")
+        return cls(name, conditions, d)
+
+    def get_pull_request_rule(
+        self, pull_request: context.Context
+    ) -> EvaluatedQueueRule:
+        return QueuesRulesEvaluator(
+            [self], pull_request, EvaluatedQueueRule.from_rule, False
+        ).matching_rules[0]
+
+
+T_Rule = typing.TypeVar("T_Rule", Rule, QueueRule)
+T_EvaluatedRule = typing.TypeVar("T_EvaluatedRule", EvaluatedRule, EvaluatedQueueRule)
+
+
+@dataclasses.dataclass
+class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
     """A rules that matches a pull request."""
 
     # Fixed base attributes that are not considered when looking for the
@@ -117,23 +173,26 @@ class RulesEvaluator:
     )
 
     # The list of pull request rules to match against.
-    rules: typing.List[Rule]
+    rules: typing.List[T_Rule]
 
     # The context to test.
     context: context.Context
 
-    rule_class: object
+    # evaluated rule getter
+    evaluated_rule_getter: typing.Callable[
+        [T_Rule, RuleMissingConditions], T_EvaluatedRule
+    ]
 
     # The rules with BASE_ATTRIBUTES not matched are saved in ignored_rules
     hide_rule: bool
 
     # The rules matching the pull request.
-    matching_rules: typing.List[EvaluatedRule] = dataclasses.field(
+    matching_rules: typing.List[T_EvaluatedRule] = dataclasses.field(
         init=False, default_factory=list
     )
 
     # The rules not matching the pull request.
-    ignored_rules: typing.List[EvaluatedRule] = dataclasses.field(
+    ignored_rules: typing.List[T_EvaluatedRule] = dataclasses.field(
         init=False, default_factory=list
     )
 
@@ -152,12 +211,16 @@ class RulesEvaluator:
 
             if ignore_rules and self.hide_rule:
                 self.ignored_rules.append(
-                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                    self.evaluated_rule_getter(rule, next_conditions_to_validate)
                 )
             else:
                 self.matching_rules.append(
-                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                    self.evaluated_rule_getter(rule, next_conditions_to_validate)
                 )
+
+
+RulesEvaluator = GenericRulesEvaluator[Rule, EvaluatedRule]
+QueuesRulesEvaluator = GenericRulesEvaluator[QueueRule, EvaluatedQueueRule]
 
 
 @dataclasses.dataclass
@@ -178,8 +241,32 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    def get_pull_request_rule(self, pull_request: context.Context) -> RulesEvaluator:
-        return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
+    def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
+        return RulesEvaluator(self.rules, ctxt, EvaluatedRule.from_rule, True)
+
+
+@dataclasses.dataclass
+class QueueRules:
+    rules: typing.List[QueueRule]
+
+    def __iter__(self):
+        return iter(self.rules)
+
+    def __getitem__(self, key):
+        for rule in self:
+            if rule.name == key:
+                return rule
+        raise KeyError(f"{key} not found")
+
+    def __post_init__(self):
+        names = set()
+        for i, rule in enumerate(reversed(self.rules)):
+            rule.config["priority"] = i
+            if rule.name is names:
+                raise voluptuous.error.Invalid(
+                    f"queue_rules names must be unique, found `{rule.name}` twice"
+                )
+            names.add(rule.name)
 
 
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
@@ -238,13 +325,43 @@ PullRequestRulesSchema = voluptuous.All(
     voluptuous.Coerce(PullRequestRules),
 )
 
+QueueRulesSchema = voluptuous.All(
+    [
+        voluptuous.All(
+            {
+                voluptuous.Required("name"): str,
+                voluptuous.Required("conditions"): [
+                    voluptuous.All(str, voluptuous.Coerce(RuleCondition))
+                ],
+            },
+            voluptuous.Coerce(QueueRule.from_dict),
+        )
+    ],
+    voluptuous.Coerce(QueueRules),
+)
+
+
+def FullifyPullRequestRules(v):
+    try:
+        for pr_rule in v["pull_request_rules"]:
+            for action in pr_rule.actions.values():
+                action.validate_config(v)
+    except voluptuous.error.Error:
+        raise
+    except Exception as e:
+        LOG.error("fail to dispatch config", exc_info=True)
+        raise voluptuous.error.Invalid(str(e))
+    return v
+
 
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         voluptuous.Coerce(YAML),
         {
             voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
+            voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
         },
+        voluptuous.Coerce(FullifyPullRequestRules),
     )
 )
 
@@ -354,6 +471,7 @@ def get_mergify_config_content(client, repo, ref=None):
 
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
+    queue_rules: QueueRules
 
 
 def get_mergify_config(client, repo, ref=None):

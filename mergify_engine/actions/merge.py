@@ -22,6 +22,7 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import queue
+from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.rules import types
 
@@ -30,11 +31,6 @@ if typing.TYPE_CHECKING:
     from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
-
-
-class FakePR:
-    def __init__(self, key: str, value: typing.Any):
-        setattr(self, key, value)
 
 
 class MergeAction(merge_base.MergeBaseAction):
@@ -72,13 +68,14 @@ class MergeAction(merge_base.MergeBaseAction):
         ),
         voluptuous.Required(
             "priority", default=merge_base.PriorityAliases.medium.value
-        ): voluptuous.All(
-            voluptuous.Any("low", "medium", "high", int),
-            voluptuous.Coerce(merge_base.Priority),
-            int,
-            voluptuous.Range(min=1, max=10000),
-        ),
+        ): merge_base.PrioritySchema,
     }
+
+    def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
+        pass
+
+    def _compute_priority(self) -> int:
+        return typing.cast(int, self.config["priority"])
 
     def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
@@ -137,7 +134,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 state
                 for name, state in ctxt.checks.items()
                 for cond in need_look_at_checks
-                if cond(FakePR(cond.attribute_name, name))
+                if cond(utils.FakePR(cond.attribute_name, name))
             ]
             if not states:
                 return False
@@ -147,6 +144,9 @@ class MergeAction(merge_base.MergeBaseAction):
                     return False
 
         return True
+
+    def _get_queue(self, ctxt: context.Context) -> queue.Queue:
+        return queue.Queue.from_context(ctxt, with_train=False)
 
     def get_merge_conditions(
         self,

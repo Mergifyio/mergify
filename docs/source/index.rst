@@ -40,6 +40,7 @@ Contact `our support <mailto:support@mergify.io>`_ or our `sales team
    conditions
    actions
    commands
+   queues
    merge-action
    examples
    badge

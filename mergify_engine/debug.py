@@ -208,12 +208,14 @@ def report(
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
                 q = queue.Queue(
+                    client,
                     utils.get_redis_for_cache(),
                     repo_info["owner"]["id"],
                     repo_info["owner"]["login"],
                     repo_info["id"],
                     repo_info["name"],
                     branch["name"],
+                    None,
                 )
                 pulls = q.get_pulls()
                 if not pulls:
@@ -240,7 +242,8 @@ def report(
             )
 
             # FIXME queues could also be printed if no pull number given
-            q = queue.Queue.from_context(ctxt)
+            # TODO(sileht): display train if any
+            q = queue.Queue.from_context(ctxt, with_train=False)
             print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
             print("* PULL REQUEST:")
             pr_data = dict(ctxt.pull_request.items())

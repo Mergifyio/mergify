@@ -86,6 +86,11 @@ class Action(abc.ABC):
     def validator() -> typing.Dict[typing.Any, typing.Any]:  # pragma: no cover
         pass
 
+    def validate_config(
+        self, mergify_config: "rules.MergifyConfig"
+    ) -> None:  # pragma: no cover
+        pass
+
     @classmethod
     def get_schema(cls):
         return voluptuous.All(cls.validator, voluptuous.Coerce(cls))
