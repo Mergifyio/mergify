@@ -31,6 +31,7 @@ import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -111,11 +112,17 @@ class Repository(object):
     async def get_pull_request_context(
         self,
         pull_number: github_types.GitHubPullRequestNumber,
+        pull: typing.Optional[github_types.GitHubPullRequest] = None,
     ) -> "Context":
         if pull_number not in self.pull_contexts:
-            pull = await self.installation.client.item(
-                f"{self.base_url}/pulls/{pull_number}"
-            )
+            if pull is None:
+                pull = await self.installation.client.item(
+                    f"{self.base_url}/pulls/{pull_number}"
+                )
+            elif pull["number"] != pull_number:
+                raise RuntimeError(
+                    'get_pull_request_context() needs pull["number"] == pull_number'
+                )
             ctxt = await Context.create(self, pull)
             self.pull_contexts[pull_number] = ctxt
 
@@ -657,6 +664,11 @@ class Context(object):
 
         self._cache["is_behind"] = True
         return True
+
+    def is_merge_queue_pr(self) -> bool:
+        return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
+            "ref"
+        ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 
     def have_been_synchronized(self) -> bool:
         for source in self.sources:

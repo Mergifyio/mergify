@@ -62,8 +62,8 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
         assert p_need_rebase.merged
@@ -74,8 +74,8 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number]
         p_ready.update()
         assert p_ready.merged
@@ -85,8 +85,8 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
         assert p_need_rebase.merged
@@ -149,8 +149,8 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
 
         # Each PR can rebased, because we insert them in reserve order, but they are still
@@ -242,14 +242,14 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.run_engine(1)
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
         p2.remove_from_labels("low")
         await self.add_label(p2, "high")
         await self.run_engine()
-        pulls_in_queue = await (q.get_pulls())
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number, p1.number]
 
     async def test_merge_github_workflow(self):
@@ -432,8 +432,8 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = await (q.get_pulls())
+        q = await queue.Queue.from_context(ctxt, with_train=False)
+        pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]
 
         p_low.update()

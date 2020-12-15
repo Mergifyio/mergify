@@ -21,6 +21,7 @@ import re
 import typing
 
 import daiquiri
+import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
@@ -30,13 +31,11 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
+from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 
-
-if typing.TYPE_CHECKING:
-    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -77,6 +76,17 @@ def Priority(v):
         return v
 
 
+MAX_PRIORITY: int = 10000
+
+
+PrioritySchema = voluptuous.All(
+    voluptuous.Any("low", "medium", "high", int),
+    voluptuous.Coerce(Priority),
+    int,
+    voluptuous.Range(min=1, max=MAX_PRIORITY),
+)
+
+
 def strict_merge_parameter(v):
     if v == "smart":
         return StrictMergeParameter.ordered
@@ -94,7 +104,10 @@ class MergeBaseAction(actions.Action):
     only_once = True
 
     @abc.abstractmethod
-    def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
+        pass
+
+    def _compute_priority(self) -> int:
         pass
 
     @abc.abstractmethod
@@ -109,6 +122,10 @@ class MergeBaseAction(actions.Action):
     async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> bool:
+        pass
+
+    @abc.abstractmethod
+    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
         pass
 
     @abc.abstractmethod
@@ -151,7 +168,10 @@ class MergeBaseAction(actions.Action):
         summary += await self.get_queue_summary(ctxt, q)
         conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
 
-        summary += "\n\nRequired conditions for merge:\n"
+        if q.train is None:
+            summary += "\n\nRequired conditions for merge:\n"
+        else:
+            summary += "\n\nRequired conditions for queue:\n"
         for cond in conditions:
             checked = " " if cond in missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
@@ -216,7 +236,7 @@ class MergeBaseAction(actions.Action):
 
         ctxt.log.info("process merge", config=self.config)
 
-        q = queue.Queue.from_context(ctxt)
+        q = await self._get_queue(ctxt)
 
         report = await self.merge_report(ctxt)
         if report is not None:
@@ -227,7 +247,7 @@ class MergeBaseAction(actions.Action):
             StrictMergeParameter.fasttrack,
             StrictMergeParameter.ordered,
         ):
-            if self._should_be_queued(ctxt, q):
+            if await self._should_be_queued(ctxt, q):
                 await q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
             else:
                 await q.remove_pull(ctxt)
@@ -258,7 +278,7 @@ class MergeBaseAction(actions.Action):
     ) -> check_api.Result:
         self._set_effective_priority(ctxt)
 
-        q = queue.Queue.from_context(ctxt)
+        q = await self._get_queue(ctxt)
         output = await self.merge_report(ctxt)
         if output:
             await q.remove_pull(ctxt)
@@ -301,7 +321,7 @@ class MergeBaseAction(actions.Action):
 
     def _set_effective_priority(self, ctxt):
         if ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
-            self.config["effective_priority"] = self.config["priority"]
+            self.config["effective_priority"] = self._compute_priority()
         else:
             self.config["effective_priority"] = PriorityAliases.medium.value
 
@@ -682,8 +702,8 @@ This pull request must be merged manually."""
                 fancy_priority = PriorityAliases(priority).name
             except ValueError:
                 fancy_priority = str(priority)
-            formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
 
+            formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
             summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
 
         if priorities_configured and not ctxt.subscription.has_feature(

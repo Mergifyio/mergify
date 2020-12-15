@@ -230,7 +230,8 @@ async def report(
                 typing.AsyncGenerator[github_types.GitHubBranch, None],
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
-                q = queue.Queue(repository, branch["name"])
+                # TODO(sileht): Add some informations on the train
+                q = queue.Queue(repository, branch["name"], None)
                 pulls = await q.get_pulls()
                 if not pulls:
                     continue
@@ -264,7 +265,8 @@ async def report(
             )
 
             # FIXME queues could also be printed if no pull number given
-            q = queue.Queue.from_context(ctxt)
+            # TODO(sileht): display train if any
+            q = await queue.Queue.from_context(ctxt, with_train=False)
             print("* QUEUES: %s" % ", ".join([f"#{p}" for p in await q.get_pulls()]))
             print("* PULL REQUEST:")
             pr_data = await ctxt.pull_request.items()

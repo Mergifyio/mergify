@@ -88,6 +88,10 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
 
 
 async def run_pending_commands_tasks(ctxt: context.Context) -> None:
+    if ctxt.is_merge_queue_pr():
+        # We don't allow any command yet
+        return
+
     pendings = set()
     async for comment in ctxt.client.items(
         f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments"
@@ -160,6 +164,10 @@ async def handle(
         footer = ""
     else:
         footer = "\n\n" + WRONG_ACCOUNT_MESSAGE
+
+    if ctxt.is_merge_queue_pr():
+        post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
+        return
 
     if (
         user

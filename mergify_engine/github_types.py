@@ -78,7 +78,7 @@ class GitHubBranchCommit(typing.TypedDict):
 
 
 class GitHubBranch(typing.TypedDict):
-    name: str
+    name: GitHubRefType
     commit: GitHubBranchCommit
 
 

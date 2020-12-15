@@ -21,6 +21,8 @@ from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import json
+from mergify_engine import merge_train
+from mergify_engine import rules
 from mergify_engine import utils
 
 
@@ -33,12 +35,14 @@ class QueueConfig(typing.TypedDict):
     effective_priority: int
     bot_account: typing.Optional[str]
     update_bot_account: typing.Optional[str]
+    name: rules.QueueName
 
 
 @dataclasses.dataclass
 class Queue:
     repository: context.Repository
-    ref: str
+    ref: github_types.GitHubRefType
+    train: typing.Optional[merge_train.Train]
 
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
@@ -51,14 +55,34 @@ class Queue:
         )
 
     @classmethod
-    def from_context(cls, ctxt: context.Context) -> "Queue":
-        return cls(ctxt.repository, ctxt.pull["base"]["ref"])
+    async def from_context(cls, ctxt: context.Context, *, with_train: bool) -> "Queue":
+
+        train: typing.Optional[merge_train.Train] = None
+        if with_train:
+            train = merge_train.Train(ctxt.repository, ctxt.pull["base"]["ref"])
+            await train.load()
+
+        return cls(ctxt.repository, ctxt.pull["base"]["ref"], train)
+
+    async def get_queue_for(
+        self, ref: github_types.GitHubRefType, with_train: bool
+    ) -> "Queue":
+        """Get a queue for another ref of this repository."""
+
+        train: typing.Optional[merge_train.Train] = None
+        if with_train:
+            train = merge_train.Train(self.repository, ref)
+            await train.load()
+
+        return self.__class__(self.repository, ref, train)
 
     @property
     def _redis_queue_key(self) -> str:
         return self._get_redis_queue_key_for(self.ref)
 
-    def _get_redis_queue_key_for(self, ref: str) -> str:
+    def _get_redis_queue_key_for(
+        self, ref: typing.Union[github_types.GitHubRefType, typing.Literal["*"]]
+    ) -> str:
         return f"merge-queue~{self.repository.installation.owner_id}~{self.repository.id}~{ref}"
 
     def _config_redis_queue_key(
@@ -90,6 +114,7 @@ class Queue:
                     "effective_priority": 2000,
                     "bot_account": None,
                     "update_bot_account": None,
+                    "name": rules.QueueName(""),
                 }
             )
         config: QueueConfig = json.loads(config_str)
@@ -100,6 +125,9 @@ class Queue:
         return config
 
     async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
+        if self.train and ("name" not in config or config["name"] is None):
+            raise RuntimeError("train without queue name")
+
         await self._remove_pull_from_other_queues(ctxt)
 
         async with await self.repository.installation.redis.pipeline() as pipeline:
@@ -115,16 +143,33 @@ class Queue:
             added = (await pipeline.execute())[-1]
 
         if added:
+            if self.train:
+                position = await self.repository.installation.redis.zrank(
+                    self._redis_queue_key, str(ctxt.pull["number"])
+                )
+                if position is None:
+                    self.log.error(
+                        "just added pull request already not in queue anymore",
+                        gh_pull=ctxt.pull["number"],
+                        config=config,
+                    )
+                else:
+                    await self.train.insert_pull_at(ctxt, int(position), config["name"])
+
             self.log.info(
                 "pull request added to merge queue",
                 gh_pull=ctxt.pull["number"],
                 config=config,
             )
+
             pull_requests_to_refresh = [
                 p for p in await self.get_pulls() if p != ctxt.pull["number"]
             ]
             await self._refresh_pulls(pull_requests_to_refresh)
         else:
+            if self.train:
+                await self.train.refresh()
+
             self.log.info(
                 "pull request already in merge queue",
                 gh_pull=ctxt.pull["number"],
@@ -143,7 +188,9 @@ class Queue:
                 )
                 if score is not None:
                     old_branch = queue_name.split("~")[-1]
-                    old_queue = self.get_queue(old_branch)
+                    old_queue = await self.get_queue_for(
+                        old_branch, with_train=bool(self.train)
+                    )
                     ctxt.log.info(
                         "pull request base branch have changed, cleaning old queue",
                         old_branch=old_branch,
@@ -162,18 +209,19 @@ class Queue:
             removed = (await pipeline.execute())[0]
 
         if removed > 0:
+            if self.train:
+                await self.train.remove_pull(ctxt)
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
             await self._refresh_pulls(await self.get_pulls())
         else:
+            if self.train:
+                await self.train.refresh()
+
             self.log.info(
                 "pull request not in merge queue", gh_pull=ctxt.pull["number"]
             )
-
-    def get_queue(self, ref: str) -> "Queue":
-        """Get a queue for another ref of this repository."""
-        return self.__class__(self.repository, ref)
 
     async def is_first_pull(self, ctxt: context.Context) -> bool:
         pull_requests = await self.get_pulls()

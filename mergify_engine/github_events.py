@@ -67,6 +67,9 @@ def _extract_slim_event(event_type, data):
     elif event_type == "push":
         # To get PR from sha
         slim_data["ref"] = data["ref"]
+        slim_data["before"] = data["before"]
+        slim_data["after"] = data["after"]
+        slim_data["pusher"] = data["pusher"]
 
     elif event_type in ("check_suite", "check_run"):
         # To get PR from sha
