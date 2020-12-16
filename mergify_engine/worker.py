@@ -652,7 +652,7 @@ class Worker:
                     "engine.workers-per-process.count", self.worker_per_process
                 )
             except Exception:
-                LOG.warning("monitoring task failed", exc_info=True)
+                LOG.error("monitoring task failed", exc_info=True)
 
             await self._sleep_or_stop(60)
 
