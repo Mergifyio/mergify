@@ -208,6 +208,14 @@ class ThreadRunner(threading.Thread):
                 self._process.clear()
 
 
+PullsToConsume = typing.NewType(
+    "PullsToConsume",
+    collections.OrderedDict[
+        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
+    ],
+)
+
+
 @dataclasses.dataclass
 class StreamSelector:
     redis: Any
@@ -377,11 +385,7 @@ else
 end
 """
 
-    async def _extract_pulls_from_stream(
-        self, stream_name: str
-    ) -> collections.OrderedDict[
-        typing.Tuple[str, str, int], typing.Tuple[typing.List[str], typing.List[dict]]
-    ]:
+    async def _extract_pulls_from_stream(self, stream_name: str) -> PullsToConsume:
         messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
@@ -392,10 +396,8 @@ end
         ] = {}
 
         # Groups stream by pull request
-        pulls: collections.OrderedDict[
-            typing.Tuple[str, str, int],
-            typing.Tuple[typing.List[str], typing.List[dict]],
-        ] = collections.OrderedDict()
+        pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
+
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
             owner = data["owner"]
@@ -632,25 +634,24 @@ class Worker:
                     "streams",
                     min=0,
                     max=now,
-                    start=self.worker_count,
-                    num=1,
                     withscores=True,
                 )
                 # NOTE(sileht): The latency may not be exact with the next StreamSelector
                 # based on hash+modulo
-                if streams:
-                    latency = now - streams[0][1]
+                if len(streams) > self.worker_count:
+                    latency = now - streams[self.worker_count][1]
                     statsd.timing("engine.streams.latency", latency)
                 else:
                     statsd.timing("engine.streams.latency", 0)
 
+                statsd.gauge("engine.streams.backlog", len(streams))
                 statsd.gauge("engine.workers.count", self.worker_count)
                 statsd.gauge("engine.processes.count", self.process_count)
                 statsd.gauge(
                     "engine.workers-per-process.count", self.worker_per_process
                 )
             except Exception:
-                LOG.warning("monitoring task failed", exc_info=True)
+                LOG.error("monitoring task failed", exc_info=True)
 
             await self._sleep_or_stop(60)
 
