@@ -634,13 +634,12 @@ class Worker:
                     "streams",
                     min=0,
                     max=now,
-                    start=self.worker_count,
                     withscores=True,
                 )
                 # NOTE(sileht): The latency may not be exact with the next StreamSelector
                 # based on hash+modulo
-                if streams:
-                    latency = now - streams[0][1]
+                if len(streams) > self.worker_count:
+                    latency = now - streams[self.worker_count][1]
                     statsd.timing("engine.streams.latency", latency)
                 else:
                     statsd.timing("engine.streams.latency", 0)
