@@ -14,7 +14,6 @@
 
 import asyncio
 import json
-import sys
 import time
 from unittest import mock
 
@@ -27,14 +26,6 @@ from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import http
-
-
-if sys.version_info < (3, 8):
-    # https://github.com/pytest-dev/pytest-asyncio/issues/69
-    pytest.skip(
-        "mock + pytest-asyncio requires python3.8 or higher",
-        allow_module_level=True,
-    )
 
 
 @pytest.fixture()
