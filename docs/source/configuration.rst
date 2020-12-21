@@ -74,7 +74,9 @@ See the specific :ref:`Examples` for configuration file examples.
 
 .. tip::
 
-  You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your regular expression.
+  You can use `regex101 <https://regex101.com/>`_, `PyRegex
+  <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
+  regular expressions.
 
 .. _data type template:
 
