@@ -83,8 +83,8 @@ Here's the list of pull request attribute that can be used in conditions:
      - The list of GitHub user or team login that approved the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This only matches reviewers with ``admin`` or ``write`` permission
-       on the repository.
+       This only matches reviewers with ``admin``, ``write`` or ``maintain``
+       permission on the repository.
    * - ``author``
      - string
      - The GitHub user or team login of the author of the pull request.
@@ -102,8 +102,8 @@ Here's the list of pull request attribute that can be used in conditions:
        review for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This only matches reviewers with ``admin`` or ``write`` permission
-       on the repository.
+       This only matches reviewers with ``admin``, ``write`` or ``maintain``
+       permission on the repository.
    * - ``closed``
      - Boolean
      - Whether the pull request is closed.
@@ -116,16 +116,16 @@ Here's the list of pull request attribute that can be used in conditions:
        for the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This only matches reviewers with ``admin`` or ``write`` permission
-       on the repository.
+       This only matches reviewers with ``admin``, ``write`` or ``maintain``
+       permission on the repository.
    * - ``dismissed-reviews-by``
      - list of string
      - The list of GitHub user or team login that have their review dismissed
        in the pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This only matches reviewers with ``admin`` or ``write`` permission
-       on the repository.
+       This only matches reviewers with ``admin``, ``write`` or ``maintain``
+       permission on the repository.
    * - ``draft``
      - Boolean
      - Whether the pull request is in draft state.
@@ -161,8 +161,8 @@ Here's the list of pull request attribute that can be used in conditions:
        pull request.
        Team logins are prefixed with the ``@`` character and must belong to the
        repository organization.
-       This only matches reviewers with ``admin`` or ``write`` permission
-       on the repository.
+       This only matches reviewers with ``admin``, ``write`` or ``maintain``
+       permission on the repository.
    * - ``check-success``
      - list of string
      - The list of status checks that successfuly passed for the pull request.
