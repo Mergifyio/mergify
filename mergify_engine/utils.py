@@ -165,9 +165,17 @@ class Gitter(object):
         self("credential", "approve", input=f"url={url}\n\n")
 
 
+class SupportsLessThan(typing.Protocol):
+    def __lt__(self, __other: typing.Any) -> bool:
+        ...
+
+
+SupportsLessThanT = typing.TypeVar("SupportsLessThanT", bound=SupportsLessThan)
+
+
 def get_random_choices(
-    random_number: int, population: typing.Dict[typing.Any, int], k: int = 1
-) -> set:
+    random_number: int, population: typing.Dict[SupportsLessThanT, int], k: int = 1
+) -> typing.Set[SupportsLessThanT]:
     """Return a random number of item from a population without replacement.
 
     You need to provide the random number yourself.
@@ -183,16 +191,16 @@ def get_random_choices(
     :param k: The number of choices to make.
     :return: A set with the choices.
     """
-    picked: typing.Set[typing.Any] = set()
-    population = population.copy()
-
     if k > len(population):
         raise ValueError("k cannot be greater than the population size")
+
+    picked: typing.Set[SupportsLessThanT] = set()
+    population = population.copy()
 
     while len(picked) < k:
         total_weight = sum(population.values())
         choice_index = (random_number % total_weight) + 1
-        for item in sorted(population):
+        for item in sorted(population.keys()):
             choice_index -= population[item]
             if choice_index <= 0:
                 picked.add(item)

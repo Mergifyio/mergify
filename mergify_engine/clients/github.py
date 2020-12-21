@@ -26,6 +26,7 @@ import httpx
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
@@ -47,7 +48,7 @@ class CachedToken:
     STORAGE: typing.ClassVar[typing.Dict[int, typing.Any]] = {}
 
     installation_id: int
-    token: dict
+    token: github_types.GitHubInstallationAccessToken
     expiration: datetime.datetime
 
     def __post_init__(self):
@@ -62,6 +63,9 @@ class CachedToken:
 
 
 class GithubActionAccessTokenAuth(httpx.Auth):
+    owner_id: int
+    owner: str
+
     def __init__(self):
         self.permissions_need_to_be_updated = False
         self.installation = {
@@ -77,7 +81,9 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 
 class GithubTokenAuth(httpx.Auth):
-    def __init__(self, owner, token, owner_id=None):
+    owner_id: typing.Optional[int]
+
+    def __init__(self, owner: str, token: str, owner_id: int = None):
         self._token = token
         self.owner = owner
         self.owner_id = owner_id
@@ -116,7 +122,7 @@ class GithubTokenAuth(httpx.Auth):
 
 class GithubAppInstallationAuth(httpx.Auth):
 
-    installation: typing.Optional[typing.Dict]
+    installation: typing.Optional[github_types.GitHubInstallation]
 
     def __init__(self, owner: str):
         self.owner = owner
