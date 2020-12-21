@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
-import json
 import typing
 
 import daiquiri
@@ -20,6 +19,7 @@ import redis
 
 from mergify_engine import context
 from mergify_engine import github_events
+from mergify_engine import json
 from mergify_engine import utils
 
 
