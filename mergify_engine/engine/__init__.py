@@ -19,6 +19,7 @@ import yaml
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
@@ -218,10 +219,9 @@ def run(client, pull, sub, sources):
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
-async def create_initial_summary(owner: str, event_type: str, data: dict) -> None:
-    if event_type != "pull_request":
-        return
-
+async def create_initial_summary(
+    owner: str, event_type: str, data: github_types.GitHubEventPullRequest
+) -> None:
     if data["action"] != "opened":
         return
 

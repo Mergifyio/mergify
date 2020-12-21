@@ -494,7 +494,9 @@ class MergeBaseAction(actions.Action):
             title = "Draft flag needs to be removed"
             summary = ""
         elif ctxt.pull["merged"]:
-            if ctxt.pull["merged_by"]["login"] in [
+            if ctxt.pull["merged_by"] is None:
+                mode = "somehow"
+            elif ctxt.pull["merged_by"]["login"] in [
                 "mergify[bot]",
                 "mergify-test[bot]",
             ]:
