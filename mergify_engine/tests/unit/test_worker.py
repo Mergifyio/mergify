@@ -13,6 +13,7 @@
 # under the License.
 
 import asyncio
+import datetime
 import json
 import time
 from unittest import mock
@@ -807,3 +808,40 @@ async def test_worker_with_multiple_workers(run_engine, redis, logger_checker):
 
     # Check engine have been run with expect data
     assert 200 == len(run_engine.mock_calls)
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_worker_reschedule(run_engine, redis, logger_checker, monkeypatch):
+    monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
+    await worker.push(
+        redis,
+        "owner",
+        "repo",
+        123,
+        "pull_request",
+        {"payload": "whatever"},
+    )
+
+    score = (await redis.zrange("streams", 0, -1, withscores=True))[0][1]
+    planned_for = datetime.datetime.utcfromtimestamp(score)
+
+    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "other"])
+    ret = await worker.async_reschedule_now()
+    assert ret == 1
+
+    score_not_rescheduled = (await redis.zrange("streams", 0, -1, withscores=True))[0][
+        1
+    ]
+    planned_for_not_rescheduled = datetime.datetime.utcfromtimestamp(
+        score_not_rescheduled
+    )
+    assert planned_for == planned_for_not_rescheduled
+
+    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "OwNer"])
+    ret = await worker.async_reschedule_now()
+    assert ret == 0
+
+    score_rescheduled = (await redis.zrange("streams", 0, -1, withscores=True))[0][1]
+    planned_for_rescheduled = datetime.datetime.utcfromtimestamp(score_rescheduled)
+    assert planned_for > planned_for_rescheduled
