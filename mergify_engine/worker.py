@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
 import asyncio
 import collections
 import dataclasses
@@ -823,3 +824,31 @@ async def async_status() -> None:
 
 def status() -> None:
     asyncio.run(async_status())
+
+
+async def async_reschedule_now() -> int:
+    parser = argparse.ArgumentParser(description="Rescheduler for Mergify")
+    parser.add_argument("org", help="Organization")
+    args = parser.parse_args()
+
+    redis = await utils.create_aredis_for_stream()
+    streams = await redis.zrangebyscore("streams", min=0, max="+inf")
+    expected_stream = f"stream~{args.org.lower()}"
+    for stream in streams:
+        if expected_stream == stream.decode().lower():
+            scheduled_at = utils.utcnow()
+            score = scheduled_at.timestamp()
+            transaction = await redis.pipeline()
+            await transaction.hdel("attempts", stream)
+            await transaction.zadd("streams", **{stream.decode(): score})
+            # NOTE(sileht): Do we need to cleanup the per PR attempt?
+            # await transaction.hdel("attempts", attempts_key)
+            await transaction.execute()
+            return 0
+    else:
+        print(f"Stream for {args.org} not found")
+        return 1
+
+
+def reschedule_now() -> int:
+    return asyncio.run(async_reschedule_now())
