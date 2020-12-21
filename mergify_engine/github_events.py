@@ -18,6 +18,7 @@ import dataclasses
 import typing
 import uuid
 
+import aredis
 import daiquiri
 from datadog import statsd
 
@@ -25,35 +26,50 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import engine
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine import worker
+from mergify_engine.clients import github
 from mergify_engine.engine import commands_runner
 
 
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_ignore_reason(event_type, data):
+def get_ignore_reason(
+    event_type: github_types.GitHubEventType,
+    data: github_types.GitHubEvent,
+) -> typing.Optional[str]:
     if "repository" not in data:
         return "no repository found"
 
     elif event_type in ["installation", "installation_repositories"]:
         return f"action {data['action']}"
 
-    elif event_type in ["push"] and not data["ref"].startswith("refs/heads/"):
-        return f"push on {data['ref']}"
+    elif event_type == "push":
+        data = typing.cast(github_types.GitHubEventPush, data)
+        if not data["ref"].startswith("refs/heads/"):
+            return f"push on {data['ref']}"
 
     elif event_type == "check_suite" and data["action"] != "rerequested":
         return f"check_suite/{data['action']}"
 
-    elif (
-        event_type in ["check_run", "check_suite"]
-        and data[event_type]["app"]["id"] == config.INTEGRATION_ID
-        and data["action"] != "rerequested"
-        and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
-    ):
-        return f"mergify {event_type}"
-
+    elif event_type == "check_run":
+        data = typing.cast(github_types.GitHubEventCheckRun, data)
+        if (
+            data[event_type]["app"]["id"] == config.INTEGRATION_ID
+            and data["action"] != "rerequested"
+            and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
+        ):
+            return f"mergify {event_type}"
+    elif event_type == "check_suite":
+        data = typing.cast(github_types.GitHubEventCheckSuite, data)
+        if (
+            data[event_type]["app"]["id"] == config.INTEGRATION_ID
+            and data["action"] != "rerequested"
+            and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
+        ):
+            return f"mergify {event_type}"
     elif event_type == "issue_comment" and data["action"] != "created":
         return f"comment has been {data['action']}"
 
@@ -78,6 +94,7 @@ def get_ignore_reason(event_type, data):
         "refresh",
     ]:
         return "unexpected event_type"
+    return None
 
 
 def meter_event(event_type, data):
@@ -140,7 +157,12 @@ class IgnoredEvent(Exception):
     reason: str
 
 
-async def job_filter_and_dispatch(redis, event_type, event_id, data):
+async def job_filter_and_dispatch(
+    redis: aredis.StrictRedis,
+    event_type: github_types.GitHubEventType,
+    event_id: str,
+    data: github_types.GitHubEvent,
+) -> None:
     # TODO(sileht): is statsd async ?
     meter_event(event_type, data)
 
@@ -157,21 +179,31 @@ async def job_filter_and_dispatch(redis, event_type, event_id, data):
     else:
         msg_action = "pushed to worker"
         source_data = _extract_source_data(event_type, data)
+        pull_number = None
 
-        if "pull_request" in data:
+        if event_type == "pull_request":
+            data = typing.cast(github_types.GitHubEventPullRequest, data)
+            try:
+                await engine.create_initial_summary(owner, event_type, data)
+            except Exception as e:
+                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                    LOG.debug("engine.create_initial_summary() failed", exc_info=True)
+                else:
+                    LOG.error("fail to create initial summary", exc_info=True)
+            pull_number = data["pull_request"]["number"]
+        elif event_type == "refresh":
+            data = typing.cast(github_types.GitHubEventRefresh, data)
+            if data["pull_request"] is not None:
+                pull_number = data["pull_request"]["number"]
+        elif event_type == "pull_request_review_comment":
+            data = typing.cast(github_types.GitHubEventPullRequestReviewComment, data)
+            pull_number = data["pull_request"]["number"]
+        elif event_type == "pull_request_review":
+            data = typing.cast(github_types.GitHubEventPullRequestReview, data)
             pull_number = data["pull_request"]["number"]
         elif event_type == "issue_comment":
+            data = typing.cast(github_types.GitHubEventIssueComment, data)
             pull_number = data["issue"]["number"]
-        else:
-            pull_number = None
-
-        try:
-            await engine.create_initial_summary(owner, event_type, data)
-        except Exception as e:
-            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                LOG.debug("engine.create_initial_summary() failed", exc_info=True)
-            else:
-                LOG.error("fail to create initial summary", exc_info=True)
 
         await worker.push(
             redis,
@@ -226,25 +258,49 @@ async def _get_github_pulls_from_sha(client, repo, sha, pulls):
         return [int(pull_number)]
 
 
-async def extract_pull_numbers_from_event(client, repo, event_type, data, opened_pulls):
+async def extract_pull_numbers_from_event(
+    client: github.AsyncGithubInstallationClient,
+    repo: str,
+    event_type: github_types.GitHubEventType,
+    data: github_types.GitHubEvent,
+    opened_pulls: typing.List[github_types.GitHubPullRequest],
+) -> typing.List[int]:
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
     if event_type == "refresh":
-        if "ref" in data:
-            branch = data["ref"][11:]  # refs/heads/
-            return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
-        else:
+        data = typing.cast(github_types.GitHubEventRefresh, data)
+        if (ref := data.get("ref")) is None:
             return [p["number"] for p in opened_pulls]
+        else:
+            branch = ref[11:]  # refs/heads/
+            return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "push":
+        data = typing.cast(github_types.GitHubEventPush, data)
         branch = data["ref"][11:]  # refs/heads/
         return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "status":
+        data = typing.cast(github_types.GitHubEventStatus, data)
         return await _get_github_pulls_from_sha(client, repo, data["sha"], opened_pulls)
-    elif event_type in ["check_suite", "check_run"]:
+    elif event_type == "check_suite":
+        data = typing.cast(github_types.GitHubEventCheckSuite, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
-        pulls = data[event_type]["pull_requests"]
         pulls = [
-            p["number"] for p in pulls if p["base"]["repo"]["url"] == base_repo_url
+            p["number"]
+            for p in data[event_type]["pull_requests"]
+            if p["base"]["repo"]["url"] == base_repo_url
+        ]
+        if not pulls:
+            sha = data[event_type]["head_sha"]
+            pulls = await _get_github_pulls_from_sha(client, repo, sha, opened_pulls)
+        return pulls
+    elif event_type == "check_run":
+        data = typing.cast(github_types.GitHubEventCheckRun, data)
+        # NOTE(sileht): This list may contains Pull Request from another org/user fork...
+        base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
+        pulls = [
+            p["number"]
+            for p in data[event_type]["pull_requests"]
+            if p["base"]["repo"]["url"] == base_repo_url
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
@@ -255,13 +311,22 @@ async def extract_pull_numbers_from_event(client, repo, event_type, data, opened
 
 
 # TODO(sileht): use Enum for action
-async def send_refresh(pull: typing.Dict, action: str = "user") -> None:
-    data = {
-        "action": action,
-        "repository": pull["base"]["repo"],
-        "pull_request": pull,
-        "sender": {"login": "<internal>"},
-    }
+async def send_refresh(
+    pull: github_types.GitHubPullRequest, action: str = "user"
+) -> None:
+    data = github_types.GitHubEventPullRequest(
+        {
+            "action": action,
+            "repository": pull["base"]["repo"],
+            "pull_request": pull,
+            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "organization": pull["base"]["repo"]["owner"],
+            "installation": {
+                "id": 0,
+                "account": {"login": "", "id": 0, "type": "User"},
+            },
+        }
+    )
     redis = await utils.create_aredis_for_stream()
     try:
         await job_filter_and_dispatch(redis, "refresh", str(uuid.uuid4()), data)

@@ -33,6 +33,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -40,22 +41,6 @@ from mergify_engine.clients import http
 
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
-
-
-# NOTE(sileht): Github mergeable_state is undocumented, here my finding by
-# testing and and some info from other project:
-#
-# unknown: not yet computed by Github
-# dirty: pull request conflict with the base branch
-# behind: head branch is behind the base branch (only if strict: True)
-# unstable: branch up2date (if strict: True) and not required status
-#           checks are failure or pending
-# clean: branch up2date (if strict: True) and all status check OK
-# has_hooks: Mergeable with passing commit status and pre-recieve hooks.
-#
-# https://platform.github.community/t/documentation-about-mergeable-state/4259
-# https://github.com/octokit/octokit.net/issues/1763
-# https://developer.github.com/v4/enum/mergestatestatus/
 
 
 @dataclasses.dataclass
@@ -66,10 +51,12 @@ class PullRequestAttributeError(AttributeError):
 @dataclasses.dataclass
 class Context(object):
     client: github.GithubInstallationClient
-    pull: dict
+    pull: github_types.GitHubPullRequest
     subscription: subscription.Subscription
-    sources: typing.List = dataclasses.field(default_factory=list)
-    _write_permission_cache: cachetools.LRUCache = dataclasses.field(
+    sources: typing.List[github_types.GitHubEvent] = dataclasses.field(
+        default_factory=list
+    )
+    _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
     log: logging.LoggerAdapter = dataclasses.field(init=False)
@@ -126,7 +113,7 @@ class Context(object):
         cache=operator.attrgetter("_write_permission_cache"),  # type: ignore
         key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
     )
-    def has_write_permissions(self, login):
+    def has_write_permissions(self, login: str) -> bool:
         return self.client.item(f"{self.base_url}/collaborators/{login}/permission")[
             "permission"
         ] in [
@@ -154,7 +141,7 @@ class Context(object):
         return ret
 
     @staticmethod
-    def redis_last_summary_head_sha_key(pull: dict) -> str:
+    def redis_last_summary_head_sha_key(pull: github_types.GitHubPullRequest) -> str:
         owner = pull["base"]["repo"]["owner"]["id"]
         repo = pull["base"]["repo"]["id"]
         pull_number = pull["number"]
@@ -163,7 +150,7 @@ class Context(object):
     @classmethod
     def get_cached_last_summary_head_sha_from_pull(
         cls,
-        pull: dict,
+        pull: github_types.GitHubPullRequest,
     ) -> str:
         with utils.get_redis_for_cache() as redis:  # type: ignore
             sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
