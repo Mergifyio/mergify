@@ -119,12 +119,23 @@ def meter_event(event_type, data):
 def _extract_source_data(event_type, data):
     slim_data = {"sender": data["sender"]}
 
-    # To extract pull request numbers
     if event_type == "status":
+        # To get PR from sha
         slim_data["sha"] = data["sha"]
-    elif event_type in ("refresh", "push") and "ref" in data:
+
+    elif event_type == "refresh":
+        # To get PR from sha or branch name
+        slim_data["action"] = data["action"]
         slim_data["ref"] = data["ref"]
+
+    elif event_type == "push":
+        # To get PR from sha
+        slim_data["ref"] = data["ref"]
+        slim_data["before"] = data["before"]
+        slim_data["after"] = data["after"]
+
     elif event_type in ("check_suite", "check_run"):
+        # To get PR from sha
         slim_data[event_type] = {
             "head_sha": data[event_type]["head_sha"],
             "pull_requests": [
@@ -136,15 +147,14 @@ def _extract_source_data(event_type, data):
             ],
         }
 
-    # For pull_request opened/synchronise/closed
-    # and refresh event
-    for attr in ("action", "after", "before"):
-        if attr in data:
-            slim_data[attr] = data[attr]
+    elif event_type == "pull_request":
+        # For pull_request opened/synchronise/closed
+        slim_data["action"] = data["action"]
 
-    # For commands runner
-    if event_type == "issue_comment":
+    elif event_type == "issue_comment":
+        # For commands runner
         slim_data["comment"] = data["comment"]
+
     return slim_data
 
 
