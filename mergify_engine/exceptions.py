@@ -34,7 +34,6 @@ class MergeableStateUnknown(Exception):
 
 
 RATE_LIMIT_RETRY_MIN = datetime.timedelta(seconds=3)
-BASE_RETRY_TIMEOUT = datetime.timedelta(minutes=1)
 
 IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
     403: [
@@ -78,20 +77,21 @@ def need_retry(
         # github differ a bit, we can have negative delta, so set a minimun for retrying
         return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
     elif isinstance(exception, MergeableStateUnknown):
-        return BASE_RETRY_TIMEOUT
+        return datetime.timedelta(minutes=1)
 
     elif isinstance(exception, (http.RequestError, http.HTTPServerSideError)):
         # NOTE(sileht): We already retry locally with urllib3, so if we get there, Github
         # is in a really bad shape...
-        return BASE_RETRY_TIMEOUT * 5
+        return datetime.timedelta(minutes=1)
+
     # NOTE(sileht): Most of the times token are just temporary invalid, Why ?
     # no idea, ask Github...
     elif isinstance(exception, http.HTTPClientSideError):
         # Bad creds or token expired, we can't really known
         if exception.response.status_code == 401:
-            return BASE_RETRY_TIMEOUT
+            return datetime.timedelta(minutes=1)
         # Rate limit or abuse detection mechanism, futures events will be rate limited
         # correctly by mergify_engine.utils.Github()
         elif exception.response.status_code == 403:
-            return BASE_RETRY_TIMEOUT * 5
+            return datetime.timedelta(minutes=3)
     return None
