@@ -324,11 +324,12 @@ async def extract_pull_numbers_from_event(
 async def send_refresh(
     pull: github_types.GitHubPullRequest, action: str = "user"
 ) -> None:
-    data = github_types.GitHubEventPullRequest(
+    data = github_types.GitHubEventRefresh(
         {
             "action": action,
             "repository": pull["base"]["repo"],
             "pull_request": pull,
+            "ref": None,
             "sender": {"login": "<internal>", "id": 0, "type": "User"},
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
