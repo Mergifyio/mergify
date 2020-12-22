@@ -62,6 +62,11 @@ class GitHubLabel(typing.TypedDict):
     default: bool
 
 
+class GitHubComment(typing.TypedDict):
+    id: int
+    body: str
+
+
 class GitHubIssue(typing.TypedDict):
     number: int
 
@@ -149,6 +154,7 @@ class GitHubEventPullRequestReview(GitHubEvent):
 
 class GitHubEventIssueComment(GitHubEvent):
     issue: GitHubIssue
+    comment: GitHubComment
 
 
 class GitHubEventPush(GitHubEvent):
