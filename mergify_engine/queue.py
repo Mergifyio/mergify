@@ -60,6 +60,17 @@ class Queue:
             ctxt.pull["base"]["ref"],
         )
 
+    def from_queue_name(self, ref: str) -> "Queue":
+        """Get a queue for another ref of this repository."""
+        return self.__class__(
+            self.redis,
+            self.owner_id,
+            self.owner,
+            self.repo_id,
+            self.repo,
+            ref,
+        )
+
     @property
     def _redis_queue_key(self) -> str:
         return self._get_redis_queue_key_for(self.ref)
@@ -135,7 +146,7 @@ class Queue:
                 score = self.redis.zscore(queue_name, ctxt.pull["number"])
                 if score is not None:
                     old_branch = queue_name.split("~")[-1]
-                    old_queue = self.get_queue(old_branch)
+                    old_queue = self.from_queue_name(old_branch)
                     ctxt.log.info(
                         "pull request base branch have changed, cleaning old queue",
                         old_branch=old_branch,
@@ -155,17 +166,6 @@ class Queue:
             self.log.info(
                 "pull request not in merge queue", gh_pull=ctxt.pull["number"]
             )
-
-    def get_queue(self, ref: str) -> "Queue":
-        """Get a queue for another ref of this repository."""
-        return self.__class__(
-            self.redis,
-            self.owner_id,
-            self.owner,
-            self.repo_id,
-            self.repo,
-            ref,
-        )
 
     def is_first_pull(self, ctxt: context.Context) -> bool:
         pull_requests = self.get_pulls()
