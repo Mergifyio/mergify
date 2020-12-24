@@ -32,6 +32,7 @@ import tenacity
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -402,13 +403,6 @@ class Context(object):
         ):
             self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
 
-        if not self._is_data_complete():
-            self.log.error(
-                "/pulls/%s has returned an incomplete payload...",
-                self.pull["number"],
-                data=self.pull,
-            )
-
         if self._is_background_github_processing_completed():
             return
 
@@ -454,6 +448,11 @@ class Context(object):
                 if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
+
+    def is_merge_queue_pr(self):
+        return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
+            "ref"
+        ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 
     def have_been_synchronized(self):
         for source in self.sources:
