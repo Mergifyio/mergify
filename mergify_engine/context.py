@@ -405,13 +405,6 @@ class Context(object):
         ):
             self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
 
-        if not self._is_data_complete():
-            self.log.error(
-                "/pulls/%s has returned an incomplete payload...",
-                self.pull["number"],
-                data=self.pull,
-            )
-
         if self._is_background_github_processing_completed():
             return
 
