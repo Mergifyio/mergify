@@ -33,6 +33,7 @@ from datadog import statsd
 import msgpack
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
@@ -93,17 +94,11 @@ class StreamUnused(Exception):
 T_Payload = typing.Dict[bytes, bytes]
 
 
-class T_PayloadEventSource(typing.TypedDict):
-    event_type: github_types.GitHubEventType
-    data: github_types.GitHubEvent
-    timestamp: str
-
-
 class T_PayloadEvent(typing.TypedDict):
     owner: str
     repo: str
     pull_number: int
-    source: T_PayloadEventSource
+    source: context.T_PayloadEventSource
 
 
 async def push(
@@ -153,9 +148,7 @@ async def push(
 async def get_pull_for_engine(
     owner: str, repo: str, pull_number: int, logger: logging.LoggerAdapter
 ) -> typing.Optional[
-    typing.Tuple[
-        typing.Optional[subscription.Subscription], github_types.GitHubPullRequest
-    ]
+    typing.Tuple[subscription.Subscription, github_types.GitHubPullRequest]
 ]:
     async with await github.aget_client(owner) as client:
         try:
@@ -166,15 +159,18 @@ async def get_pull_for_engine(
             return None
 
         if client.auth.owner_id is None:
-            sub = None
-        else:
-            sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
+            raise RuntimeError("owner_id is None")
+
+        sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
 
         return sub, pull
 
 
 def run_engine(
-    owner: str, repo: str, pull_number: int, sources: typing.List[T_PayloadEventSource]
+    owner: str,
+    repo: str,
+    pull_number: int,
+    sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
         __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
@@ -248,7 +244,7 @@ PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
         typing.Tuple[str, str, int],
-        typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
+        typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
     ],
 )
 
@@ -343,7 +339,7 @@ class StreamProcessor:
         owner: str,
         repo: str,
         pull_number: int,
-        sources: typing.List[T_PayloadEventSource],
+        sources: typing.List[context.T_PayloadEventSource],
     ) -> None:
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
@@ -509,7 +505,7 @@ end
         self,
         owner: str,
         repo: str,
-        source: T_PayloadEventSource,
+        source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
     ) -> typing.List[typing.Tuple[bool, T_Payload]]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
@@ -550,7 +546,7 @@ end
         stream_name: str,
         pulls: collections.OrderedDict[
             typing.Tuple[str, str, int],
-            typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
+            typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
         ],
     ) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
