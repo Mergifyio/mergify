@@ -63,12 +63,15 @@ class Context(object):
     _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
+    pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
     SUMMARY_NAME = "Summary"
 
     def __post_init__(self):
         self._ensure_complete()
+
+        self.pull_request = PullRequest(self)
 
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
@@ -107,10 +110,6 @@ class Context(object):
     def base_url(self):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
-
-    @property
-    def pull_request(self):
-        return PullRequest(self)
 
     @cachetools.cachedmethod(
         # Ignore type until https://github.com/python/typeshed/issues/4652 is fixed
