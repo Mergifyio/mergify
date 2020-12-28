@@ -150,7 +150,7 @@ class CopyAction(actions.Action):
         return check_api.Result(
             conclusion,
             message,
-            "\n".join(f"* {detail}" for detail in map(lambda r: r[1], results)),
+            "\n".join(f"* {detail}" for detail in (r[1] for r in results)),
         )
 
     @classmethod

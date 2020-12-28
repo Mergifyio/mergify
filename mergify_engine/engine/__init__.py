@@ -11,6 +11,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import daiquiri
 import pkg_resources
 import voluptuous
@@ -112,12 +114,23 @@ def ensure_summary_on_head_sha(ctxt):
         ctxt.log.warning("the pull request doesn't have a summary")
 
 
-def run(client, pull, sub, sources):
+class T_PayloadEventIssueCommentSource(typing.TypedDict):
+    event_type: github_types.GitHubEventType
+    data: github_types.GitHubEventIssueComment
+    timestamp: str
+
+
+def run(
+    client: github.GithubInstallationClient,
+    pull: github_types.GitHubPullRequest,
+    sub: subscription.Subscription,
+    sources: typing.List[context.T_PayloadEventSource],
+) -> None:
     LOG.debug("engine get context")
     ctxt = context.Context(client, pull, sub)
     ctxt.log.debug("engine start processing context")
 
-    issue_comment_sources = []
+    issue_comment_sources: typing.List[T_PayloadEventIssueCommentSource] = []
 
     for source in sources:
         if source["event_type"] == "issue_comment":
@@ -130,11 +143,11 @@ def run(client, pull, sub, sources):
 
     if issue_comment_sources:
         ctxt.log.debug("engine handle commands")
-        for source in issue_comment_sources:
+        for ic_source in issue_comment_sources:
             commands_runner.handle(
                 ctxt,
-                source["data"]["comment"]["body"],
-                source["data"]["comment"]["user"],
+                ic_source["data"]["comment"]["body"],
+                ic_source["data"]["comment"]["user"],
             )
 
     if not ctxt.sources:

@@ -43,6 +43,12 @@ from mergify_engine.clients import http
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
 
 
+class T_PayloadEventSource(typing.TypedDict):
+    event_type: github_types.GitHubEventType
+    data: github_types.GitHubEvent
+    timestamp: str
+
+
 @dataclasses.dataclass
 class PullRequestAttributeError(AttributeError):
     name: str
@@ -53,9 +59,7 @@ class Context(object):
     client: github.GithubInstallationClient
     pull: github_types.GitHubPullRequest
     subscription: subscription.Subscription
-    sources: typing.List[github_types.GitHubEvent] = dataclasses.field(
-        default_factory=list
-    )
+    sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
@@ -152,7 +156,7 @@ class Context(object):
         cls,
         pull: github_types.GitHubPullRequest,
     ) -> str:
-        with utils.get_redis_for_cache() as redis:  # type: ignore
+        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
             if not sha:
                 # FIXME(jd): remove in January 2021, fallback to the old key
@@ -162,7 +166,7 @@ class Context(object):
                 for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
                     sha = redis.get(k)
                 # ENDOF FIXME(jd)
-            return sha
+            return sha  # type: ignore[no-any-return]
 
     def get_cached_last_summary_head_sha(self) -> str:
         return self.get_cached_last_summary_head_sha_from_pull(
@@ -446,7 +450,7 @@ class Context(object):
             pass
 
     @functools.cached_property
-    def is_behind(self):
+    def is_behind(self) -> bool:
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
         branch = self.client.item(f"{self.base_url}/branches/{branch_name_escaped}")
         for commit in self.commits:
@@ -455,7 +459,7 @@ class Context(object):
                     return False
         return True
 
-    def have_been_synchronized(self):
+    def have_been_synchronized(self) -> bool:
         for source in self.sources:
             if (
                 source["event_type"] == "pull_request"
@@ -465,7 +469,7 @@ class Context(object):
                 return True
         return False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
             "login": self.pull["base"]["user"]["login"],
             "repo": self.pull["base"]["repo"]["name"],

@@ -69,6 +69,7 @@ class GitHubLabel(typing.TypedDict):
 class GitHubComment(typing.TypedDict):
     id: int
     body: str
+    user: GitHubAccount
 
 
 class GitHubIssue(typing.TypedDict):

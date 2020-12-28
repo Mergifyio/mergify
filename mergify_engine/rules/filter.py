@@ -59,11 +59,35 @@ def _identity(value):
     return value
 
 
+TreeT = typing.TypedDict(
+    "TreeT",
+    {
+        # mypy does not support recursive definition yet
+        "-": "TreeT",  # type: ignore[misc]
+        "¬": "TreeT",  # type: ignore[misc]
+        "=": typing.Tuple[typing.Any, typing.Any],
+        "==": typing.Tuple[typing.Any, typing.Any],
+        "<": typing.Tuple[typing.Any, typing.Any],
+        ">": typing.Tuple[typing.Any, typing.Any],
+        "<=": typing.Tuple[typing.Any, typing.Any],
+        "≤": typing.Tuple[typing.Any, typing.Any],
+        ">=": typing.Tuple[typing.Any, typing.Any],
+        "≥": typing.Tuple[typing.Any, typing.Any],
+        "!=": typing.Tuple[typing.Any, typing.Any],
+        "≠": typing.Tuple[typing.Any, typing.Any],
+        "~=": typing.Tuple[typing.Any, typing.Any],
+    },
+    total=False,
+)
+
+
 @dataclasses.dataclass(repr=False)
 class Filter:
-    unary_operators = {"-": operator.not_, "¬": operator.not_}
+    tree: TreeT
 
-    binary_operators = {
+    unary_operators: typing.ClassVar = {"-": operator.not_, "¬": operator.not_}
+
+    binary_operators: typing.ClassVar = {
         "=": (operator.eq, any, _identity),
         "==": (operator.eq, any, _identity),
         "<": (operator.lt, any, _identity),
@@ -77,14 +101,6 @@ class Filter:
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
-    # mypy does not support recursive definition (yet)
-    tree: typing.Dict[  # type: ignore[type-arg]
-        typing.Literal[
-            "-", "¬", "=", "==", "<", ">", "<=", "≤", ">=", "≥", "!=", "≠", "~="
-        ],
-        typing.Dict,
-    ]
-
     # The name of the attribute that is going to be evaluated by this filter.
     attribute_name: str = dataclasses.field(init=False)
 
@@ -92,6 +108,10 @@ class Filter:
     _value_expanders: typing.Dict[
         str, typing.Callable[[typing.List[typing.Any]], typing.Any]
     ] = dataclasses.field(init=False, default_factory=dict)
+
+    _eval: typing.Callable[
+        ["Filter", typing.Dict[typing.Any, typing.Any]], bool
+    ] = dataclasses.field(init=False)
 
     def __post_init__(self):
         self._eval = self.build_evaluator(self.tree)
@@ -104,7 +124,7 @@ class Filter:
         return name
 
     @classmethod
-    def parse(cls, string):
+    def parse(cls, string: str) -> "Filter":
         return cls(parser.search.parseString(string, parseAll=True)[0])
 
     def __str__(self):
@@ -130,8 +150,8 @@ class Filter:
     def set_value_expanders(self, name, resolver):
         self._value_expanders[name] = resolver
 
-    def __call__(self, **kwargs):
-        return self._eval(kwargs)
+    def __call__(self, d: typing.Dict[typing.Any, typing.Any]) -> bool:
+        return self._eval(d)
 
     LENGTH_OPERATOR = "#"
 
