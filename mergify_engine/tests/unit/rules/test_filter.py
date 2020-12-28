@@ -18,55 +18,60 @@ import pytest
 from mergify_engine.rules import filter
 
 
+class TestDict(dict):  # type: ignore[type-arg]
+    def __getattr__(self, k):
+        return self[k]
+
+
 def test_binary() -> None:
     f = filter.Filter({"=": ("foo", 1)})
-    assert f({"foo": 1})
-    assert not f({"foo": 2})
+    assert f(TestDict({"foo": 1}))
+    assert not f(TestDict({"foo": 2}))
 
 
 def test_string() -> None:
     f = filter.Filter({"=": ("foo", "bar")})
-    assert f({"foo": "bar"})
-    assert not f({"foo": 2})
+    assert f(TestDict({"foo": "bar"}))
+    assert not f(TestDict({"foo": 2}))
 
 
 def test_not() -> None:
     f = filter.Filter({"-": {"=": ("foo", 1)}})
-    assert not f({"foo": 1})
-    assert f({"foo": 2})
+    assert not f(TestDict({"foo": 1}))
+    assert f(TestDict({"foo": 2}))
 
 
 def test_len() -> None:
     f = filter.Filter({"=": ("#foo", 3)})
-    assert f({"foo": "bar"})
+    assert f(TestDict({"foo": "bar"}))
     with pytest.raises(filter.InvalidOperator):
-        f({"foo": 2})
-    assert not f({"foo": "a"})
-    assert not f({"foo": "abcedf"})
-    assert f({"foo": [10, 20, 30]})
-    assert not f({"foo": [10, 20]})
-    assert not f({"foo": [10, 20, 40, 50]})
+        f(TestDict({"foo": 2}))
+    assert not f(TestDict({"foo": "a"}))
+    assert not f(TestDict({"foo": "abcedf"}))
+    assert f(TestDict({"foo": [10, 20, 30]}))
+    assert not f(TestDict({"foo": [10, 20]}))
+    assert not f(TestDict({"foo": [10, 20, 40, 50]}))
     f = filter.Filter({">": ("#foo", 3)})
-    assert f({"foo": "barz"})
+    assert f(TestDict({"foo": "barz"}))
     with pytest.raises(filter.InvalidOperator):
-        f({"foo": 2})
-    assert not f({"foo": "a"})
-    assert f({"foo": "abcedf"})
-    assert f({"foo": [10, "abc", 20, 30]})
-    assert not f({"foo": [10, 20]})
-    assert not f({"foo": []})
+        f(TestDict({"foo": 2}))
+    assert not f(TestDict({"foo": "a"}))
+    assert f(TestDict({"foo": "abcedf"}))
+    assert f(TestDict({"foo": [10, "abc", 20, 30]}))
+    assert not f(TestDict({"foo": [10, 20]}))
+    assert not f(TestDict({"foo": []}))
 
 
 def test_regexp() -> None:
     f = filter.Filter({"~=": ("foo", "^f")})
-    assert f({"foo": "foobar"})
-    assert f({"foo": "foobaz"})
-    assert not f({"foo": "x"})
-    assert not f({"foo": None})
+    assert f(TestDict({"foo": "foobar"}))
+    assert f(TestDict({"foo": "foobaz"}))
+    assert not f(TestDict({"foo": "x"}))
+    assert not f(TestDict({"foo": None}))
 
     f = filter.Filter({"~=": ("foo", "^$")})
-    assert f({"foo": ""})
-    assert not f({"foo": "x"})
+    assert f(TestDict({"foo": ""}))
+    assert not f(TestDict({"foo": "x"}))
 
 
 def test_regexp_invalid() -> None:
@@ -75,41 +80,51 @@ def test_regexp_invalid() -> None:
 
 
 def test_set_value_expanders() -> None:
+    f = filter.Filter(
+        {"=": ("foo", "@bar")},
+        value_expanders={"foo": lambda x: [x.replace("@", "foo")]},
+    )
+    assert f(TestDict({"foo": "foobar"}))
+    assert not f(TestDict({"foo": "x"}))
+
+
+def test_set_value_expanders_unset_at_init() -> None:
     f = filter.Filter({"=": ("foo", "@bar")})
-    f.set_value_expanders("foo", lambda x: [x.replace("@", "foo")])
-    assert f({"foo": "foobar"})
-    assert not f({"foo": "x"})
+    f.value_expanders = {"foo": lambda x: [x.replace("@", "foo")]}
+    assert f(TestDict({"foo": "foobar"}))
+    assert not f(TestDict({"foo": "x"}))
 
 
 def test_does_not_contain() -> None:
     f = filter.Filter({"!=": ("foo", 1)})
-    assert f({"foo": []})
-    assert f({"foo": [2, 3]})
-    assert not f({"foo": (1, 2)})
+    assert f(TestDict({"foo": []}))
+    assert f(TestDict({"foo": [2, 3]}))
+    assert not f(TestDict({"foo": (1, 2)}))
 
 
 def test_set_value_expanders_does_not_contain() -> None:
-    f = filter.Filter({"!=": ("foo", "@bar")})
-    f.set_value_expanders("foo", lambda x: ["foobaz", "foobar"])
-    assert not f({"foo": "foobar"})
-    assert not f({"foo": "foobaz"})
-    assert f({"foo": "foobiz"})
+    f = filter.Filter(
+        {"!=": ("foo", "@bar")}, value_expanders={"foo": lambda x: ["foobaz", "foobar"]}
+    )
+    assert not f(TestDict({"foo": "foobar"}))
+    assert not f(TestDict({"foo": "foobaz"}))
+    assert f(TestDict({"foo": "foobiz"}))
 
 
 def test_contains() -> None:
     f = filter.Filter({"=": ("foo", 1)})
-    assert f({"foo": [1, 2]})
-    assert not f({"foo": [2, 3]})
-    assert f({"foo": (1, 2)})
+    assert f(TestDict({"foo": [1, 2]}))
+    assert not f(TestDict({"foo": [2, 3]}))
+    assert f(TestDict({"foo": (1, 2)}))
     f = filter.Filter({">": ("foo", 2)})
-    assert not f({"foo": [1, 2]})
-    assert f({"foo": [2, 3]})
+    assert not f(TestDict({"foo": [1, 2]}))
+    assert f(TestDict({"foo": [2, 3]}))
 
 
 def test_unknown_attribute() -> None:
     f = filter.Filter({"=": ("foo", 1)})
     with pytest.raises(filter.UnknownAttribute):
-        f({"bar": 1})
+        f(TestDict({"bar": 1}))
 
 
 def test_parse_error() -> None:

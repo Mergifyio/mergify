@@ -523,7 +523,7 @@ class RenderTemplateFailure(Exception):
 class PullRequest:
     """A high level pull request object.
 
-    This object is used for e.g. templates.
+    This object is used for templates and rule evaluations.
     """
 
     context: Context
