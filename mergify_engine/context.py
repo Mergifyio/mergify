@@ -17,12 +17,9 @@ import dataclasses
 import functools
 import itertools
 import logging
-import operator
 import typing
 from urllib import parse
 
-import cachetools
-import cachetools.keys
 import daiquiri
 import jinja2.exceptions
 import jinja2.runtime
@@ -60,13 +57,11 @@ class Context(object):
     pull: github_types.GitHubPullRequest
     subscription: subscription.Subscription
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
-    _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
-        default_factory=lambda: cachetools.LRUCache(4096)
-    )
     pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
     SUMMARY_NAME = "Summary"
+    USER_PERMISSION_EXPIRATION = 3600  # 1 hour
 
     def __post_init__(self):
         self._ensure_complete()
@@ -111,19 +106,70 @@ class Context(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
 
-    @cachetools.cachedmethod(
-        # Ignore type until https://github.com/python/typeshed/issues/4652 is fixed
-        cache=operator.attrgetter("_write_permission_cache"),  # type: ignore
-        key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
-    )
-    def has_write_permissions(self, login: str) -> bool:
-        return self.client.item(f"{self.base_url}/collaborators/{login}/permission")[
-            "permission"
-        ] in [
+    USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
+    USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
+
+    @classmethod
+    def _users_permission_cache_key_for_repo(
+        cls, owner: github_types.GitHubAccount, repo: github_types.GitHubRepository
+    ) -> str:
+        return f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{owner['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{repo['id']}"
+
+    @property
+    def _users_permission_cache_key(self) -> str:
+        return self._users_permission_cache_key_for_repo(
+            self.pull["base"]["user"], self.pull["base"]["repo"]
+        )
+
+    @classmethod
+    def clear_user_permission_cache_for_user(
+        cls,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+        user: github_types.GitHubAccount,
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            redis.hdel(
+                cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
+            )
+
+    @classmethod
+    def clear_user_permission_cache_for_repo(
+        cls,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
+
+    @classmethod
+    def clear_user_permission_cache_for_org(
+        cls, user: github_types.GitHubAccount
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            for key in redis.scan_iter(
+                f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+            ):
+                redis.delete(key)
+
+    def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            key = self._users_permission_cache_key
+            permission = redis.hget(key, user["id"])
+            if permission is None:
+                permission = self.client.item(
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
+                )["permission"]
+                with redis.pipeline() as pipe:
+                    pipe.hset(key, user["id"], permission)
+                    pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
+                    pipe.execute()
+
+        return permission in (
             "admin",
             "maintain",
             "write",
-        ]
+        )
 
     def set_summary_check(
         self, result: check_api.Result
@@ -189,37 +235,29 @@ class Context(object):
                 ex=SUMMARY_SHA_EXPIRATION,
             )
 
-    def _get_valid_users(self):
-        bots = list(
-            set(
-                [
-                    r["user"]["login"]
-                    for r in self.reviews
-                    if r["user"] and r["user"]["type"] == "Bot"
-                ]
+    def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
+        return {
+            r["user"]["id"]
+            for r in self.reviews
+            if (
+                r["user"] is not None
+                and (r["user"]["type"] == "Bot" or self.has_write_permission(r["user"]))
             )
-        )
-        collabs = set(
-            [
-                r["user"]["login"]
-                for r in self.reviews
-                if r["user"] and r["user"]["type"] != "Bot"
-            ]
-        )
-        valid_collabs = [
-            login for login in collabs if self.has_write_permissions(login)
-        ]
-        return bots + valid_collabs
+        }
 
     @functools.cached_property
-    def consolidated_reviews(self):
+    def consolidated_reviews(
+        self,
+    ) -> typing.Tuple[
+        typing.List[github_types.GitHubReview], typing.List[github_types.GitHubReview]
+    ]:
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
         comments = dict()
         approvals = dict()
-        valid_users = self._get_valid_users()
+        valid_user_ids = self._get_valid_user_ids()
         for review in self.reviews:
-            if not review["user"] or review["user"]["login"] not in valid_users:
+            if not review["user"] or review["user"]["id"] not in valid_user_ids:
                 continue
             # Only keep latest review of an user
             if review["state"] == "COMMENTED":
@@ -479,7 +517,7 @@ class Context(object):
         }
 
     @functools.cached_property
-    def reviews(self):
+    def reviews(self) -> typing.List[github_types.GitHubReview]:
         return list(
             self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/reviews")
         )

@@ -164,7 +164,7 @@ def handle(
     if (
         user
         and user["id"] != config.BOT_USER_ID
-        and not ctxt.has_write_permissions(user["login"])
+        and not ctxt.has_write_permission(user)
     ):
         message = "@{} is not allowed to run commands".format(user["login"])
         post_comment(ctxt, message + footer)

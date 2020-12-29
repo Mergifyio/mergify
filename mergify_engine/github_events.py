@@ -24,6 +24,7 @@ from datadog import statsd
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -121,7 +122,7 @@ async def filter_and_dispatch(
 
     pull_number = None
     owner = "<unknown>"
-    repo = "unknown"
+    repo = "<unknown>"
     ignore_reason = None
 
     if event_type == "pull_request":
@@ -241,6 +242,61 @@ async def filter_and_dispatch(
             and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
         ):
             ignore_reason = f"mergify {event_type}"
+
+    elif event_type == "organization":
+        event = typing.cast(github_types.GitHubEventOrganization, event)
+        owner = event["organization"]["login"]
+        repo = None
+        ignore_reason = "organization event"
+
+        if event["action"] in ("deleted", "member_added", "member_removed"):
+            context.Context.clear_user_permission_cache_for_org(owner)
+
+    elif event_type == "member":
+        event = typing.cast(github_types.GitHubEventMember, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        ignore_reason = "member event"
+
+        context.Context.clear_user_permission_cache_for_user(
+            event["repository"]["owner"],
+            event["repository"],
+            event["member"],
+        )
+
+    elif event_type == "membership":
+        event = typing.cast(github_types.GitHubEventMembership, event)
+        owner = event["organization"]["login"]
+        repo = None
+        ignore_reason = "membership event"
+
+        context.Context.clear_user_permission_cache_for_org(event["organization"])
+
+    elif event_type == "team":
+        event = typing.cast(github_types.GitHubEventTeam, event)
+        owner = event["organization"]["login"]
+        repo = None
+        ignore_reason = "team event"
+
+        if event["action"] in (
+            "edited",
+            "added_to_repository",
+            "removed_from_repository",
+        ):
+            context.Context.clear_user_permission_cache_for_repo(
+                event["organization"], event["repo"]
+            )
+
+    elif event_type == "team_add":
+        event = typing.cast(github_types.GitHubEventTeamAdd, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        ignore_reason = "team_add event"
+
+        context.Context.clear_user_permission_cache_for_repo(
+            event["repository"]["owner"], event["repository"]
+        )
+
     else:
         ignore_reason = "unexpected event_type"
 
@@ -359,11 +415,19 @@ async def send_refresh(
             "repository": pull["base"]["repo"],
             "pull_request": pull,
             "ref": None,
-            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "sender": {
+                "login": github_types.GitHubLogin("<internal>"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+            },
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
                 "id": 0,
-                "account": {"login": "", "id": 0, "type": "User"},
+                "account": {
+                    "login": github_types.GitHubLogin(""),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                },
             },
         }
     )

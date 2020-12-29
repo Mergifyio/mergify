@@ -16,18 +16,22 @@
 import typing
 
 
+GitHubLogin = typing.NewType("GitHubLogin", str)
+
+
 class GitHubInstallationAccessToken(typing.TypedDict):
     # https://developer.github.com/v3/apps/#response-7
     token: str
     expires_at: str
 
 
-GitHubAccountType = typing.Literal["User", "Organization"]
+GitHubAccountType = typing.Literal["User", "Organization", "Bot"]
+GitHubAccountIdType = typing.NewType("GitHubAccountIdType", int)
 
 
 class GitHubAccount(typing.TypedDict):
-    login: str
-    id: int
+    login: GitHubLogin
+    id: GitHubAccountIdType
     type: GitHubAccountType
 
 
@@ -39,10 +43,11 @@ class GitHubInstallation(typing.TypedDict):
 
 GitHubRefType = typing.NewType("GitHubRefType", str)
 SHAType = typing.NewType("SHAType", str)
+GitHubRepositoryIdType = typing.NewType("GitHubRepositoryIdType", int)
 
 
 class GitHubRepository(typing.TypedDict):
-    id: int
+    id: GitHubRepositoryIdType
     owner: GitHubAccount
     private: bool
     name: str
@@ -218,6 +223,21 @@ GitHubEventPullRequestReviewActionType = typing.Literal[
 ]
 
 
+GitHubReviewIdType = typing.NewType("GitHubReviewIdType", int)
+GitHubReviewStateType = typing.Literal[
+    "APPROVED", "COMMENTED", "DISMISSED", "CHANGES_REQUESTED"
+]
+
+
+class GitHubReview(typing.TypedDict):
+    id: GitHubReviewIdType
+    user: GitHubAccount
+    body: typing.Optional[str]
+    pull_request: GitHubPullRequest
+    repository: GitHubRepository
+    state: GitHubReviewStateType
+
+
 class GitHubEventPullRequestReview(GitHubEvent):
     repository: GitHubRepository
     action: GitHubEventPullRequestReviewActionType
@@ -320,3 +340,49 @@ class GitHubEventCheckSuite(GitHubEvent):
     repository: GitHubRepository
     action: GitHubCheckSuiteActionType
     check_suite: GitHubCheckSuite
+
+
+GitHubEventOrganizationActionType = typing.Literal[
+    "deleted",
+    "renamed",
+    "member_added",
+    "member_removed",
+    "member_invited",
+]
+
+
+class GitHubEventOrganization(GitHubEvent):
+    action: GitHubEventOrganizationActionType
+
+
+GitHubEventMemberActionType = typing.Literal["added", "removed", "edited"]
+
+
+class GitHubEventMember(GitHubEvent):
+    action: GitHubEventMemberActionType
+    repository: GitHubRepository
+
+
+GitHubEventMembershipActionType = typing.Literal["added", "removed"]
+
+
+class GitHubEventMembership(GitHubEvent):
+    action: GitHubEventMembershipActionType
+
+
+GitHubEventTeamActionType = typing.Literal[
+    "created",
+    "deleted",
+    "edited",
+    "added_to_repository",
+    "removed_from_repository",
+]
+
+
+class GitHubEventTeam(GitHubEvent):
+    action: GitHubEventTeamActionType
+    repository: typing.Optional[GitHubRepository]
+
+
+class GitHubEventTeamAdd(GitHubEvent):
+    repository: GitHubRepository
