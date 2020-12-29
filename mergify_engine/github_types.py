@@ -37,6 +37,9 @@ class GitHubInstallation(typing.TypedDict):
     account: GitHubAccount
 
 
+GitHubRefType = typing.NewType("GitHubRefType", str)
+
+
 class GitHubRepository(typing.TypedDict):
     id: int
     owner: GitHubAccount
@@ -45,11 +48,12 @@ class GitHubRepository(typing.TypedDict):
     full_name: str
     archived: bool
     url: str
+    default_branch: GitHubRefType
 
 
 class GitHubBranch(typing.TypedDict):
     label: str
-    ref: str
+    ref: GitHubRefType
     sha: str
     repo: GitHubRepository
     user: GitHubAccount
@@ -137,7 +141,7 @@ class GitHubEvent(typing.TypedDict):
 
 
 class GitHubEventRefresh(GitHubEvent):
-    ref: typing.Optional[str]
+    ref: typing.Optional[GitHubRefType]
     pull_request: typing.Optional[GitHubPullRequest]
 
 
@@ -159,7 +163,7 @@ class GitHubEventIssueComment(GitHubEvent):
 
 
 class GitHubEventPush(GitHubEvent):
-    ref: str
+    ref: GitHubRefType
 
 
 class GitHubEventStatus(GitHubEvent):

@@ -20,6 +20,7 @@ import jinja2.sandbox
 import voluptuous
 
 from mergify_engine import context
+from mergify_engine import github_types
 
 
 _JINJA_ENV = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
@@ -81,10 +82,11 @@ _DUMMY_PR = context.PullRequest(
                     "type": "User",
                 },
                 "label": "",
-                "ref": "",
+                "ref": github_types.GitHubRefType(""),
                 "sha": "",
                 "repo": {
                     "url": "",
+                    "default_branch": github_types.GitHubRefType(""),
                     "full_name": "",
                     "archived": False,
                     "id": 0,
@@ -100,10 +102,11 @@ _DUMMY_PR = context.PullRequest(
                     "type": "User",
                 },
                 "label": "",
-                "ref": "",
+                "ref": github_types.GitHubRefType(""),
                 "sha": "",
                 "repo": {
                     "url": "",
+                    "default_branch": github_types.GitHubRefType(""),
                     "full_name": "",
                     "archived": False,
                     "id": 0,

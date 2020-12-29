@@ -154,7 +154,6 @@ class Filter:
         return self._eval(d)
 
     LENGTH_OPERATOR = "#"
-    ATTR_SEPARATOR = "."
 
     def _get_value_comparator(self, op, iterable_op, name, values):
         if op != len and name in self._value_expanders:
@@ -172,14 +171,13 @@ class Filter:
             self.attribute_name = name
             op = _identity
         try:
-            for subname in self.attribute_name.split(self.ATTR_SEPARATOR):
-                values = values[subname]
-            try:
-                return op(values)
-            except TypeError:
-                raise InvalidOperator(name)
+            values = values[self.attribute_name]
         except KeyError:
             raise UnknownAttribute(self.attribute_name)
+        try:
+            return op(values)
+        except TypeError:
+            raise InvalidOperator(name)
 
     def build_evaluator(self, tree):
         items = list(tree.items())

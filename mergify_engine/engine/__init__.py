@@ -42,7 +42,7 @@ with open(mergify_rule_path, "r") as f:
     )
 
 
-def check_configuration_changes(ctxt):
+def check_configuration_changes(ctxt: context.Context) -> bool:
     if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
         for f in ctxt.files:
