@@ -152,7 +152,7 @@ async def refresh_pull(
                 "base": {
                     "label": "",
                     "ref": github_types.GitHubRefType(""),
-                    "sha": "",
+                    "sha": github_types.SHAType(""),
                     "repo": {
                         "default_branch": github_types.GitHubRefType(""),
                         "id": 0,
@@ -172,7 +172,7 @@ async def refresh_pull(
                 "head": {
                     "label": "",
                     "ref": github_types.GitHubRefType(""),
-                    "sha": "",
+                    "sha": github_types.SHAType(""),
                     "repo": {
                         "default_branch": github_types.GitHubRefType(""),
                         "id": 0,
