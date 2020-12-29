@@ -460,12 +460,13 @@ class Context(object):
 
     def have_been_synchronized(self) -> bool:
         for source in self.sources:
-            if (
-                source["event_type"] == "pull_request"
-                and source["data"]["action"] == "synchronize"
-                and source["data"]["sender"]["id"] != config.BOT_USER_ID
-            ):
-                return True
+            if source["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
+                if (
+                    event["action"] == "synchronize"
+                    and event["sender"]["id"] != config.BOT_USER_ID
+                ):
+                    return True
         return False
 
     def __str__(self) -> str:

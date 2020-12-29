@@ -44,16 +44,17 @@ def get_ignore_reason(
         return "no repository found"
 
     elif event_type in ["installation", "installation_repositories"]:
-        return f"action {data['action']}"
+        return "installation event"
 
     elif event_type == "push":
         data = typing.cast(github_types.GitHubEventPush, data)
         if not data["ref"].startswith("refs/heads/"):
             return f"push on {data['ref']}"
 
-    elif event_type == "check_suite" and data["action"] != "rerequested":
-        return f"check_suite/{data['action']}"
-
+    elif event_type == "check_suite":
+        event = typing.cast(github_types.GitHubEventCheckSuite, data)
+        if event["action"] != "rerequested":
+            return f"check_suite/{event['action']}"
     elif event_type == "check_run":
         data = typing.cast(github_types.GitHubEventCheckRun, data)
         if (
@@ -321,11 +322,13 @@ async def extract_pull_numbers_from_event(
 
 # TODO(sileht): use Enum for action
 async def send_refresh(
-    pull: github_types.GitHubPullRequest, action: str = "user"
+    pull: github_types.GitHubPullRequest,
+    action: github_types.GitHubEventRefreshActionType = "user",
 ) -> None:
     data = github_types.GitHubEventRefresh(
         {
             "action": action,
+            "ref": None,
             "repository": pull["base"]["repo"],
             "pull_request": pull,
             "ref": None,

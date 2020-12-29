@@ -134,32 +134,81 @@ GitHubEventType = typing.Literal[
 
 
 class GitHubEvent(typing.TypedDict):
-    action: str
     repository: GitHubRepository
     organization: GitHubAccount
     installation: GitHubInstallation
     sender: GitHubAccount
 
 
+GitHubEventRefreshActionType = typing.Literal[
+    "user",
+    "forced",
+]
+
+
 # This does not exist in GitHub, it's a Mergify made one
 class GitHubEventRefresh(GitHubEvent):
+    action: GitHubEventRefreshActionType
     ref: typing.Optional[GitHubRefType]
     pull_request: typing.Optional[GitHubPullRequest]
 
 
+GitHubEventPullRequestActionType = typing.Literal[
+    "opened",
+    "edited",
+    "closed",
+    "assigned",
+    "unassigned",
+    "review_requested",
+    "review_request_removed",
+    "ready_for_review",
+    "labeled",
+    "unlabeled",
+    "synchronize",
+    "locked",
+    "unlocked",
+    "reopened",
+]
+
+
 class GitHubEventPullRequest(GitHubEvent):
+    action: GitHubEventPullRequestActionType
     pull_request: GitHubPullRequest
+
+
+GitHubEventPullRequestReviewCommentActionType = typing.Literal[
+    "created",
+    "edited",
+    "deleted",
+]
 
 
 class GitHubEventPullRequestReviewComment(GitHubEvent):
+    action: GitHubEventPullRequestReviewCommentActionType
     pull_request: GitHubPullRequest
+
+
+GitHubEventPullRequestReviewActionType = typing.Literal[
+    "submitted",
+    "edited",
+    "dismissed",
+]
 
 
 class GitHubEventPullRequestReview(GitHubEvent):
+    action: GitHubEventPullRequestReviewActionType
     pull_request: GitHubPullRequest
 
 
+GitHubEventIssueCommentActionType = typing.Literal[
+    "created",
+    "edited",
+    "deleted",
+]
+
+
 class GitHubEventIssueComment(GitHubEvent):
+    action: GitHubEventIssueCommentActionType
     issue: GitHubIssue
     comment: GitHubComment
 
@@ -218,9 +267,27 @@ class GitHubCheckSuite(typing.TypedDict):
     after: SHAType
 
 
+GitHubCheckRunActionType = typing.Literal[
+    "created",
+    "completed",
+    "rerequested",
+    "requested_action",
+]
+
+
 class GitHubEventCheckRun(GitHubEvent):
+    action: GitHubCheckRunActionType
     check_run: GitHubCheckRun
 
 
+GitHubCheckSuiteActionType = typing.Literal[
+    "created",
+    "completed",
+    "rerequested",
+    "requested_action",
+]
+
+
 class GitHubEventCheckSuite(GitHubEvent):
+    action: GitHubCheckSuiteActionType
     check_suite: GitHubCheckSuite

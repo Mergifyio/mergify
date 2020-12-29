@@ -184,21 +184,19 @@ def run(
             annotations=e.get_annotations(e.filename),
         )
         # Not configured, post status check with the error message
-        if any(
-            (
-                s["event_type"] == "pull_request"
-                and s["data"]["action"] in ["opened", "synchronize"]
-                for s in ctxt.sources
-            )
-        ):
-            ctxt.set_summary_check(
-                check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    title="The Mergify configuration is invalid",
-                    summary=str(e),
-                    annotations=e.get_annotations(e.filename),
-                )
-            )
+        for s in ctxt.sources:
+            if s["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
+                if event["action"] in ("opened", "synchronize"):
+                    ctxt.set_summary_check(
+                        check_api.Result(
+                            check_api.Conclusion.FAILURE,
+                            title="The Mergify configuration is invalid",
+                            summary=str(e),
+                            annotations=e.get_annotations(e.filename),
+                        )
+                    )
+                    break
         return
 
     # Add global and mandatory rules
@@ -222,11 +220,12 @@ def run(
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
     # register. It feels hackish otherwise.
-    if any(
-        s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
-        for s in ctxt.sources
-    ):
-        ctxt.clear_cached_last_summary_head_sha()
+    for s in ctxt.sources:
+        if s["event_type"] == "pull_request":
+            event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
+            if event["action"] == "closed":
+                ctxt.clear_cached_last_summary_head_sha()
+                break
 
     ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)

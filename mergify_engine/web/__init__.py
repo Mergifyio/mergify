@@ -81,7 +81,7 @@ async def http_post(*args, **kwargs):
 async def _refresh(
     owner: str,
     repo: str,
-    action: str = "user",
+    action: github_types.GitHubEventRefreshActionType = "user",
     ref: github_types.GitHubRefType = None,
     pull_request: github_types.GitHubPullRequest = None,
 ) -> responses.Response:
@@ -137,7 +137,10 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
-    owner: str, repo: str, pull: int, action: str = "user"
+    owner: str,
+    repo: str,
+    pull: int,
+    action: github_types.GitHubEventRefreshActionType = "user",
 ) -> responses.Response:
     action = RefreshActionSchema(action)
     return await _refresh(
