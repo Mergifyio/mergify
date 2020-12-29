@@ -150,7 +150,7 @@ class RulesEvaluator:
 
                 name = condition.get_attribute_name()
                 value = getattr(self.context.pull_request, name)
-                if not condition(**{name: value}):
+                if not condition({name: value}):
                     next_conditions_to_validate.append(condition)
                     if condition.attribute_name in self.BASE_ATTRIBUTES:
                         ignore_rules = True

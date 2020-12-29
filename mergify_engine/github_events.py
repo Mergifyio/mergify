@@ -223,13 +223,14 @@ async def job_filter_and_dispatch(
         )
 
         # NOTE(sileht): nothing important should happen in this hook as we don't retry it
-        try:
-            await commands_runner.on_each_event(owner, repo, event_type, data)
-        except Exception as e:
-            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                LOG.debug("commands_runner.on_each_event failed", exc_info=True)
-            else:
-                raise
+        if event_type == "issue_comment":
+            try:
+                await commands_runner.on_each_event(owner, repo, data)
+            except Exception as e:
+                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                    LOG.debug("commands_runner.on_each_event failed", exc_info=True)
+                else:
+                    raise
 
     LOG.info(
         "GithubApp event %s",

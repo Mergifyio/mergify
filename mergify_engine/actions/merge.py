@@ -134,7 +134,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 state
                 for name, state in ctxt.checks.items()
                 for cond in need_look_at_checks
-                if cond(**{cond.attribute_name: name})
+                if cond({cond.attribute_name: name})
             ]
             if not states:
                 return False

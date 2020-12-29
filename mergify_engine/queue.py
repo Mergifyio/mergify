@@ -77,8 +77,8 @@ class Queue:
 
         :param pull_number: The pull request number.
         """
-        config = self.redis.get(self._config_redis_queue_key(pull_number))
-        if config is None:
+        config_str = self.redis.get(self._config_redis_queue_key(pull_number))
+        if config_str is None:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
             return QueueConfig(
@@ -90,7 +90,7 @@ class Queue:
                     "update_bot_account": None,
                 }
             )
-        config = json.loads(config)
+        config: QueueConfig = json.loads(config_str)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
         config.setdefault("effective_priority", config["priority"])
         config.setdefault("bot_account", None)
