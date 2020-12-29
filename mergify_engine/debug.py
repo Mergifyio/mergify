@@ -253,7 +253,14 @@ def report(
                     "[%s]: %s | %s"
                     % (c["name"], c["conclusion"], c["output"].get("title"))
                 )
-                print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
+                print(
+                    "> "
+                    + "\n> ".join(
+                        ("No Summary",)
+                        if c["output"]["summary"] is None
+                        else c["output"]["summary"].split("\n")
+                    )
+                )
 
             if mergify_config is not None:
                 print("* MERGIFY LIVE MATCHES:")

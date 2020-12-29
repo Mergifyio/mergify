@@ -83,7 +83,7 @@ _DUMMY_PR = context.PullRequest(
                 },
                 "label": "",
                 "ref": github_types.GitHubRefType(""),
-                "sha": "",
+                "sha": github_types.SHAType(""),
                 "repo": {
                     "url": "",
                     "default_branch": github_types.GitHubRefType(""),
@@ -103,7 +103,7 @@ _DUMMY_PR = context.PullRequest(
                 },
                 "label": "",
                 "ref": github_types.GitHubRefType(""),
-                "sha": "",
+                "sha": github_types.SHAType(""),
                 "repo": {
                     "url": "",
                     "default_branch": github_types.GitHubRefType(""),
