@@ -448,13 +448,13 @@ def test_get_pull_request_rule():
 
     get_reviews = [
         {
-            "user": {"login": "sileht", "type": "User"},
+            "user": {"login": "sileht", "id": 12321, "type": "User"},
             "state": "APPROVED",
             "author_association": "MEMBER",
         }
     ]
     get_files = [{"filename": "README.rst"}, {"filename": "setup.py"}]
-    get_team_members = [{"login": "sileht"}, {"login": "jd"}]
+    get_team_members = [{"login": "sileht", "id": 12321}, {"login": "jd", "id": 2644}]
 
     get_checks = []
     get_statuses = [{"context": "continuous-integration/fake-ci", "state": "success"}]
@@ -492,8 +492,8 @@ def test_get_pull_request_rule():
             "labels": [],
             "base": {
                 "ref": "master",
-                "repo": {"name": "name", "private": False},
-                "user": {"login": "another-jd"},
+                "repo": {"name": "name", "private": False, "id": 123321},
+                "user": {"login": "another-jd", "id": 2644},
                 "sha": "mew",
             },
             "head": {"ref": "myfeature", "sha": "<sha>"},
@@ -502,7 +502,7 @@ def test_get_pull_request_rule():
             "requested_teams": [],
             "title": "My awesome job",
             "body": "I rock",
-            "user": {"login": "another-jd"},
+            "user": {"login": "another-jd", "id": 2644},
         },
         {},
     )
@@ -723,7 +723,7 @@ def test_get_pull_request_rule():
 
     get_reviews.append(
         {
-            "user": {"login": "jd", "type": "User"},
+            "user": {"login": "jd", "id": 2644, "type": "User"},
             "state": "APPROVED",
             "author_association": "MEMBER",
         }
