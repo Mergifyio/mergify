@@ -74,14 +74,14 @@ def load_action(
     return None
 
 
-async def on_each_event(
-    owner: str, repo: str, data: github_types.GitHubEventIssueComment
-) -> None:
-    action = load_action(data["comment"]["body"])
+async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
+    action = load_action(event["comment"]["body"])
     if action:
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
         async with await github.aget_client(owner) as client:
             await client.post(
-                f"/repos/{owner}/{repo}/issues/comments/{data['comment']['id']}/reactions",
+                f"/repos/{owner}/{repo}/issues/comments/{event['comment']['id']}/reactions",
                 json={"content": "+1"},
                 api_version="squirrel-girl",
             )  # type: ignore[call-arg]

@@ -19,6 +19,7 @@ import os
 import pytest
 from starlette import testclient
 
+from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine import web
 
@@ -44,7 +45,7 @@ with open(
             },
             None,
             200,
-            b"Event ignored: no repository found",
+            b"Event ignored: unexpected event_type",
         ),
         (
             push_event,
@@ -60,7 +61,9 @@ with open(
         ),
     ),
 )
-def test_push_event(event, event_type, status_code, reason):
+def test_push_event(
+    event: github_types.GitHubEvent, event_type: str, status_code: int, reason: bytes
+) -> None:
     with testclient.TestClient(web.app) as client:
         charset = "utf-8"
         data = json.dumps(event).encode(charset)

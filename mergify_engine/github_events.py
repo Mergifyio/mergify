@@ -36,68 +36,6 @@ from mergify_engine.engine import commands_runner
 LOG = daiquiri.getLogger(__name__)
 
 
-def get_ignore_reason(
-    event_type: github_types.GitHubEventType,
-    data: github_types.GitHubEvent,
-) -> typing.Optional[str]:
-    if "repository" not in data:
-        return "no repository found"
-
-    elif event_type in ["installation", "installation_repositories"]:
-        return "installation event"
-
-    elif event_type == "push":
-        data = typing.cast(github_types.GitHubEventPush, data)
-        if not data["ref"].startswith("refs/heads/"):
-            return f"push on {data['ref']}"
-
-    elif event_type == "check_suite":
-        event = typing.cast(github_types.GitHubEventCheckSuite, data)
-        if event["action"] != "rerequested":
-            return f"check_suite/{event['action']}"
-    elif event_type == "check_run":
-        data = typing.cast(github_types.GitHubEventCheckRun, data)
-        if (
-            data[event_type]["app"]["id"] == config.INTEGRATION_ID
-            and data["action"] != "rerequested"
-            and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
-        ):
-            return f"mergify {event_type}"
-    elif event_type == "check_suite":
-        data = typing.cast(github_types.GitHubEventCheckSuite, data)
-        if (
-            data[event_type]["app"]["id"] == config.INTEGRATION_ID
-            and data["action"] != "rerequested"
-            and data[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
-        ):
-            return f"mergify {event_type}"
-    elif event_type == "issue_comment" and data["action"] != "created":
-        return f"comment has been {data['action']}"
-
-    elif (
-        event_type == "issue_comment"
-        and "@mergify " not in data["comment"]["body"].lower()
-        and "@mergifyio " not in data["comment"]["body"].lower()
-    ):
-        return "comment is not for Mergify"
-
-    if data["repository"].get("archived"):  # pragma: no cover
-        return "repository archived"
-
-    elif event_type not in [
-        "issue_comment",
-        "pull_request",
-        "pull_request_review",
-        "push",
-        "status",
-        "check_suite",
-        "check_run",
-        "refresh",
-    ]:
-        return "unexpected event_type"
-    return None
-
-
 def meter_event(
     event_type: github_types.GitHubEventType, event: github_types.GitHubEvent
 ) -> None:
@@ -164,63 +102,149 @@ class IgnoredEvent(Exception):
     reason: str
 
 
+def _log_on_exception(exc: Exception, msg: str) -> None:
+    if exceptions.should_be_ignored(exc) or exceptions.need_retry(exc):
+        log = LOG.debug
+    else:
+        log = LOG.error
+    log(msg, exc_info=exc)
+
+
 async def filter_and_dispatch(
     redis: aredis.StrictRedis,
     event_type: github_types.GitHubEventType,
     event_id: str,
-    data: github_types.GitHubEvent,
+    event: github_types.GitHubEvent,
 ) -> None:
     # TODO(sileht): is statsd async ?
-    meter_event(event_type, data)
-
-    if "repository" in data:
-        owner = data["repository"]["owner"]["login"]
-        repo = data["repository"]["name"]
-    else:
-        owner = "<unknown>"
-        repo = "<unknown>"
+    meter_event(event_type, event)
 
     pull_number = None
+    owner = "<unknown>"
+    repo = "unknown"
+    ignore_reason = None
 
     if event_type == "pull_request":
-        data = typing.cast(github_types.GitHubEventPullRequest, data)
-        try:
-            await engine.create_initial_summary(owner, event_type, data)
-        except Exception as e:
-            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                LOG.debug("engine.create_initial_summary() failed", exc_info=True)
-            else:
-                LOG.error("fail to create initial summary", exc_info=True)
-        pull_number = data["pull_request"]["number"]
-    elif event_type == "refresh":
-        data = typing.cast(github_types.GitHubEventRefresh, data)
-        if data["pull_request"] is not None:
-            pull_number = data["pull_request"]["number"]
-    elif event_type == "pull_request_review_comment":
-        data = typing.cast(github_types.GitHubEventPullRequestReviewComment, data)
-        pull_number = data["pull_request"]["number"]
-    elif event_type == "pull_request_review":
-        data = typing.cast(github_types.GitHubEventPullRequestReview, data)
-        pull_number = data["pull_request"]["number"]
-    elif event_type == "issue_comment":
-        data = typing.cast(github_types.GitHubEventIssueComment, data)
-        pull_number = data["issue"]["number"]
-        # NOTE(sileht): nothing important should happen in this hook as we don't retry it
-        try:
-            await commands_runner.on_each_event(owner, repo, data)
-        except Exception as e:
-            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                log = LOG.debug
-            else:
-                log = LOG.error
-            log("commands_runner.on_each_event failed", exc_info=True)
+        event = typing.cast(github_types.GitHubEventPullRequest, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        pull_number = event["pull_request"]["number"]
 
-    reason = get_ignore_reason(event_type, data)
-    if reason:
-        msg_action = f"ignored: {reason}"
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+        elif event["action"] == "opened":
+            try:
+                await engine.create_initial_summary(event)
+            except Exception as e:
+                _log_on_exception(e, "fail to create initial summary")
+
+    elif event_type == "refresh":
+        event = typing.cast(github_types.GitHubEventRefresh, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+
+        if event["pull_request"] is not None:
+            pull_number = event["pull_request"]["number"]
+
+    elif event_type == "pull_request_review_comment":
+        event = typing.cast(github_types.GitHubEventPullRequestReviewComment, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        pull_number = event["pull_request"]["number"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+    elif event_type == "pull_request_review":
+        event = typing.cast(github_types.GitHubEventPullRequestReview, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        pull_number = event["pull_request"]["number"]
+    elif event_type == "issue_comment":
+        event = typing.cast(github_types.GitHubEventIssueComment, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+        pull_number = event["issue"]["number"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+        elif event["action"] != "created":
+            ignore_reason = f"comment has been {event['action']}"
+
+        elif (
+            "@mergify " not in event["comment"]["body"].lower()
+            and "@mergifyio " not in event["comment"]["body"].lower()
+        ):
+            ignore_reason = "comment is not for Mergify"
+        else:
+            # NOTE(sileht): nothing important should happen in this hook as we don't retry it
+            try:
+                await commands_runner.on_each_event(event)
+            except Exception as e:
+                _log_on_exception(e, "commands_runner.on_each_event failed")
+
+    elif event_type == "status":
+        event = typing.cast(github_types.GitHubEventStatus, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+    elif event_type == "push":
+        event = typing.cast(github_types.GitHubEventPush, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+        elif not event["ref"].startswith("refs/heads/"):
+            ignore_reason = f"push on {event['ref']}"
+
+        elif event["repository"]["archived"]:  # pragma: no cover
+            ignore_reason = "repository archived"
+
+    elif event_type == "check_suite":
+        event = typing.cast(github_types.GitHubEventCheckSuite, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+        elif event["action"] != "rerequested":
+            ignore_reason = f"check_suite/{event['action']}"
+
+        elif (
+            event[event_type]["app"]["id"] == config.INTEGRATION_ID
+            and event["action"] != "rerequested"
+            and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
+        ):
+            ignore_reason = f"mergify {event_type}"
+
+    elif event_type == "check_run":
+        event = typing.cast(github_types.GitHubEventCheckRun, event)
+        owner = event["repository"]["owner"]["login"]
+        repo = event["repository"]["name"]
+
+        if event["repository"]["archived"]:
+            ignore_reason = "repository archived"
+
+        elif (
+            event[event_type]["app"]["id"] == config.INTEGRATION_ID
+            and event["action"] != "rerequested"
+            and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
+        ):
+            ignore_reason = f"mergify {event_type}"
     else:
+        ignore_reason = "unexpected event_type"
+
+    if ignore_reason is None:
         msg_action = "pushed to worker"
-        slim_event = _extract_slim_event(event_type, data)
+        slim_event = _extract_slim_event(event_type, event)
 
         await worker.push(
             redis,
@@ -230,19 +254,21 @@ async def filter_and_dispatch(
             event_type,
             slim_event,
         )
+    else:
+        msg_action = f"ignored: {ignore_reason}"
 
     LOG.info(
         "GithubApp event %s",
         msg_action,
         event_type=event_type,
         event_id=event_id,
-        sender=data["sender"]["login"],
+        sender=event["sender"]["login"],
         gh_owner=owner,
         gh_repo=repo,
     )
 
-    if reason:
-        raise IgnoredEvent(event_type, event_id, reason)
+    if ignore_reason:
+        raise IgnoredEvent(event_type, event_id, ignore_reason)
 
 
 SHA_EXPIRATION = 60
