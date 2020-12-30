@@ -117,7 +117,7 @@ async def _refresh(
         }
     )
 
-    await github_events.job_filter_and_dispatch(
+    await github_events.filter_and_dispatch(
         _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
     )
 
@@ -315,7 +315,7 @@ async def event_handler(
     data = await request.json()
 
     try:
-        await github_events.job_filter_and_dispatch(
+        await github_events.filter_and_dispatch(
             _AREDIS_STREAM, event_type, event_id, data
         )
     except github_events.IgnoredEvent as ie:
