@@ -166,7 +166,7 @@ class IgnoredEvent(Exception):
     reason: str
 
 
-async def job_filter_and_dispatch(
+async def filter_and_dispatch(
     redis: aredis.StrictRedis,
     event_type: github_types.GitHubEventType,
     event_id: str,
@@ -341,6 +341,6 @@ async def send_refresh(
     )
     redis = await utils.create_aredis_for_stream()
     try:
-        await job_filter_and_dispatch(redis, "refresh", str(uuid.uuid4()), data)
+        await filter_and_dispatch(redis, "refresh", str(uuid.uuid4()), data)
     finally:
         redis.connection_pool.disconnect()
