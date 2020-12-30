@@ -38,6 +38,7 @@ class GitHubInstallation(typing.TypedDict):
 
 
 GitHubRefType = typing.NewType("GitHubRefType", str)
+SHAType = typing.NewType("SHAType", str)
 
 
 class GitHubRepository(typing.TypedDict):
@@ -54,7 +55,7 @@ class GitHubRepository(typing.TypedDict):
 class GitHubBranch(typing.TypedDict):
     label: str
     ref: GitHubRefType
-    sha: str
+    sha: SHAType
     repo: GitHubRepository
     user: GitHubAccount
 
@@ -116,7 +117,7 @@ class GitHubPullRequest(GitHubIssue):
     merged_by: typing.Optional[GitHubAccount]
     rebaseable: bool
     draft: bool
-    merge_commit_sha: typing.Optional[str]
+    merge_commit_sha: typing.Optional[SHAType]
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
 
@@ -140,6 +141,7 @@ class GitHubEvent(typing.TypedDict):
     sender: GitHubAccount
 
 
+# This does not exist in GitHub, it's a Mergify made one
 class GitHubEventRefresh(GitHubEvent):
     ref: typing.Optional[GitHubRefType]
     pull_request: typing.Optional[GitHubPullRequest]
@@ -164,6 +166,8 @@ class GitHubEventIssueComment(GitHubEvent):
 
 class GitHubEventPush(GitHubEvent):
     ref: GitHubRefType
+    before: SHAType
+    after: SHAType
 
 
 class GitHubEventStatus(GitHubEvent):
@@ -174,12 +178,34 @@ class GitHubApp(typing.TypedDict):
     id: int
 
 
+GitHubCheckRunConclusion = typing.Literal[
+    "success",
+    "failure",
+    "neutral",
+    "cancelled",
+    "timed_out",
+    "action_required",
+    "stale",
+]
+
+
+class GitHubCheckRunOutput(typing.TypedDict):
+    title: typing.Optional[str]
+    summary: typing.Optional[str]
+    text: typing.Optional[str]
+
+
 class GitHubCheckRun(typing.TypedDict):
     id: int
     app: GitHubApp
     external_id: str
     pull_requests: typing.List[GitHubPullRequest]
-    head_sha: str
+    head_sha: SHAType
+    before: SHAType
+    after: SHAType
+    name: str
+    output: GitHubCheckRunOutput
+    conclusion: typing.Optional[GitHubCheckRunConclusion]
 
 
 class GitHubCheckSuite(typing.TypedDict):
@@ -187,7 +213,9 @@ class GitHubCheckSuite(typing.TypedDict):
     app: GitHubApp
     external_id: str
     pull_requests: typing.List[GitHubPullRequest]
-    head_sha: str
+    head_sha: SHAType
+    before: SHAType
+    after: SHAType
 
 
 class GitHubEventCheckRun(GitHubEvent):

@@ -16,7 +16,12 @@ import dataclasses
 import enum
 import typing
 
+from mergify_engine import github_types
 from mergify_engine import utils
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 # Used to track check run created by Mergify but for the user via the checks action
@@ -46,7 +51,13 @@ class Result:
     annotations: typing.Optional[typing.List[str]] = None
 
 
-def get_checks_for_ref(ctxt, sha, **kwargs):
+def get_checks_for_ref(
+    ctxt: "context.Context", sha: github_types.SHAType, check_name: str = None
+) -> typing.List[github_types.GitHubCheckRun]:
+    if check_name is None:
+        kwargs = {}
+    else:
+        kwargs = {"check_name": check_name}
     checks = list(
         ctxt.client.items(
             f"{ctxt.base_url}/commits/{sha}/check-runs",
@@ -74,7 +85,9 @@ def compare_dict(d1, d2, keys):
     return True
 
 
-def set_check_run(ctxt, name, result, external_id=None):
+def set_check_run(
+    ctxt: "context.Context", name: str, result: Result, external_id: str = None
+) -> github_types.GitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
     else:
@@ -111,11 +124,14 @@ def set_check_run(ctxt, name, result, external_id=None):
     checks = [c for c in ctxt.pull_engine_check_runs if c["name"] == name]
 
     if not checks:
-        check = ctxt.client.post(
-            f"{ctxt.base_url}/check-runs",
-            api_version="antiope",
-            json=post_parameters,
-        ).json()
+        check = typing.cast(
+            github_types.GitHubCheckRun,
+            ctxt.client.post(
+                f"{ctxt.base_url}/check-runs",
+                api_version="antiope",  # type: ignore[call-arg]
+                json=post_parameters,
+            ).json(),
+        )
         ctxt.update_pull_check_runs(check)
         return check
 
@@ -145,11 +161,14 @@ def set_check_run(ctxt, name, result, external_id=None):
             ):
                 continue
 
-        check = ctxt.client.patch(
-            f"{ctxt.base_url}/check-runs/{check['id']}",
-            api_version="antiope",
-            json=post_parameters,
-        ).json()
+        check = typing.cast(
+            github_types.GitHubCheckRun,
+            ctxt.client.patch(
+                f"{ctxt.base_url}/check-runs/{check['id']}",
+                api_version="antiope",  # type: ignore[call-arg]
+                json=post_parameters,
+            ).json(),
+        )
 
     ctxt.update_pull_check_runs(check)
     return check

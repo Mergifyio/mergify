@@ -63,12 +63,15 @@ class Context(object):
     _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
         default_factory=lambda: cachetools.LRUCache(4096)
     )
+    pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
     SUMMARY_NAME = "Summary"
 
     def __post_init__(self):
         self._ensure_complete()
+
+        self.pull_request = PullRequest(self)
 
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
@@ -108,10 +111,6 @@ class Context(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
 
-    @property
-    def pull_request(self):
-        return PullRequest(self)
-
     @cachetools.cachedmethod(
         # Ignore type until https://github.com/python/typeshed/issues/4652 is fixed
         cache=operator.attrgetter("_write_permission_cache"),  # type: ignore
@@ -126,7 +125,9 @@ class Context(object):
             "write",
         ]
 
-    def set_summary_check(self, result):
+    def set_summary_check(
+        self, result: check_api.Result
+    ) -> github_types.GitHubCheckRun:
         """Set the Mergify Summary check result."""
 
         previous_sha = self.get_cached_last_summary_head_sha()
@@ -135,14 +136,12 @@ class Context(object):
         self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
-            ret = check_api.set_check_run(self, self.SUMMARY_NAME, result)
+            return check_api.set_check_run(self, self.SUMMARY_NAME, result)
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis
                 self._save_cached_last_summary_head_sha(previous_sha)
             raise
-
-        return ret
 
     @staticmethod
     def redis_last_summary_head_sha_key(pull: github_types.GitHubPullRequest) -> str:
@@ -155,7 +154,7 @@ class Context(object):
     def get_cached_last_summary_head_sha_from_pull(
         cls,
         pull: github_types.GitHubPullRequest,
-    ) -> str:
+    ) -> github_types.SHAType:
         with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
             if not sha:
@@ -168,19 +167,19 @@ class Context(object):
                 # ENDOF FIXME(jd)
             return sha  # type: ignore[no-any-return]
 
-    def get_cached_last_summary_head_sha(self) -> str:
+    def get_cached_last_summary_head_sha(self) -> github_types.SHAType:
         return self.get_cached_last_summary_head_sha_from_pull(
             self.pull,
         )
 
-    def clear_cached_last_summary_head_sha(self):
-        with utils.get_redis_for_cache() as redis:
+    def clear_cached_last_summary_head_sha(self) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             redis.delete(self.redis_last_summary_head_sha_key(self.pull))
 
-    def _save_cached_last_summary_head_sha(self, sha):
+    def _save_cached_last_summary_head_sha(self, sha: github_types.SHAType) -> None:
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
-        with utils.get_redis_for_cache() as redis:
+        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             redis.set(
                 self.redis_last_summary_head_sha_key(self.pull),
                 sha,
@@ -322,11 +321,11 @@ class Context(object):
         self.pull_check_runs.append(check)
 
     @functools.cached_property
-    def pull_check_runs(self):
+    def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         return check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
 
     @property
-    def pull_engine_check_runs(self):
+    def pull_engine_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         return [
             c for c in self.pull_check_runs if c["app"]["id"] == config.INTEGRATION_ID
         ]
