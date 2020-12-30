@@ -115,7 +115,7 @@ def meter_event(
     statsd.increment("github.events", tags=tags)
 
 
-def _extract_source_data(event_type, data):
+def _extract_slim_event(event_type, data):
     slim_data = {"sender": data["sender"]}
 
     if event_type == "status":
@@ -180,46 +180,47 @@ async def filter_and_dispatch(
         owner = "<unknown>"
         repo = "<unknown>"
 
+    pull_number = None
+
+    if event_type == "pull_request":
+        data = typing.cast(github_types.GitHubEventPullRequest, data)
+        try:
+            await engine.create_initial_summary(owner, event_type, data)
+        except Exception as e:
+            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                LOG.debug("engine.create_initial_summary() failed", exc_info=True)
+            else:
+                LOG.error("fail to create initial summary", exc_info=True)
+        pull_number = data["pull_request"]["number"]
+    elif event_type == "refresh":
+        data = typing.cast(github_types.GitHubEventRefresh, data)
+        if data["pull_request"] is not None:
+            pull_number = data["pull_request"]["number"]
+    elif event_type == "pull_request_review_comment":
+        data = typing.cast(github_types.GitHubEventPullRequestReviewComment, data)
+        pull_number = data["pull_request"]["number"]
+    elif event_type == "pull_request_review":
+        data = typing.cast(github_types.GitHubEventPullRequestReview, data)
+        pull_number = data["pull_request"]["number"]
+    elif event_type == "issue_comment":
+        data = typing.cast(github_types.GitHubEventIssueComment, data)
+        pull_number = data["issue"]["number"]
+        # NOTE(sileht): nothing important should happen in this hook as we don't retry it
+        try:
+            await commands_runner.on_each_event(owner, repo, data)
+        except Exception as e:
+            if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                log = LOG.debug
+            else:
+                log = LOG.error
+            log("commands_runner.on_each_event failed", exc_info=True)
+
     reason = get_ignore_reason(event_type, data)
     if reason:
         msg_action = f"ignored: {reason}"
     else:
         msg_action = "pushed to worker"
-        source_data = _extract_source_data(event_type, data)
-        pull_number = None
-
-        if event_type == "pull_request":
-            data = typing.cast(github_types.GitHubEventPullRequest, data)
-            try:
-                await engine.create_initial_summary(owner, event_type, data)
-            except Exception as e:
-                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                    LOG.debug("engine.create_initial_summary() failed", exc_info=True)
-                else:
-                    LOG.error("fail to create initial summary", exc_info=True)
-            pull_number = data["pull_request"]["number"]
-        elif event_type == "refresh":
-            data = typing.cast(github_types.GitHubEventRefresh, data)
-            if data["pull_request"] is not None:
-                pull_number = data["pull_request"]["number"]
-        elif event_type == "pull_request_review_comment":
-            data = typing.cast(github_types.GitHubEventPullRequestReviewComment, data)
-            pull_number = data["pull_request"]["number"]
-        elif event_type == "pull_request_review":
-            data = typing.cast(github_types.GitHubEventPullRequestReview, data)
-            pull_number = data["pull_request"]["number"]
-        elif event_type == "issue_comment":
-            data = typing.cast(github_types.GitHubEventIssueComment, data)
-            pull_number = data["issue"]["number"]
-            # NOTE(sileht): nothing important should happen in this hook as we don't retry it
-            try:
-                await commands_runner.on_each_event(owner, repo, data)
-            except Exception as e:
-                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                    log = LOG.debug
-                else:
-                    log = LOG.error
-                log("commands_runner.on_each_event failed", exc_info=True)
+        slim_event = _extract_slim_event(event_type, data)
 
         await worker.push(
             redis,
@@ -227,7 +228,7 @@ async def filter_and_dispatch(
             repo,
             pull_number,
             event_type,
-            source_data,
+            slim_event,
         )
 
     LOG.info(
