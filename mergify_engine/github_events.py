@@ -213,6 +213,15 @@ async def filter_and_dispatch(
         elif event_type == "issue_comment":
             data = typing.cast(github_types.GitHubEventIssueComment, data)
             pull_number = data["issue"]["number"]
+            # NOTE(sileht): nothing important should happen in this hook as we don't retry it
+            try:
+                await commands_runner.on_each_event(owner, repo, data)
+            except Exception as e:
+                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+                    log = LOG.debug
+                else:
+                    log = LOG.error
+                log("commands_runner.on_each_event failed", exc_info=True)
 
         await worker.push(
             redis,
@@ -222,16 +231,6 @@ async def filter_and_dispatch(
             event_type,
             source_data,
         )
-
-        # NOTE(sileht): nothing important should happen in this hook as we don't retry it
-        if event_type == "issue_comment":
-            try:
-                await commands_runner.on_each_event(owner, repo, data)
-            except Exception as e:
-                if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
-                    LOG.debug("commands_runner.on_each_event failed", exc_info=True)
-                else:
-                    raise
 
     LOG.info(
         "GithubApp event %s",
