@@ -98,21 +98,19 @@ def get_ignore_reason(
     return None
 
 
-def meter_event(event_type, data):
+def meter_event(
+    event_type: github_types.GitHubEventType, event: github_types.GitHubEvent
+) -> None:
     tags = [f"event_type:{event_type}"]
 
-    if "action" in data:
-        tags.append(f"action:{data['action']}")
-
-    if (
-        event_type == "pull_request"
-        and data["action"] == "closed"
-        and data["pull_request"]["merged"]
-    ):
-        if data["pull_request"]["merged_by"] and data["pull_request"]["merged_by"][
-            "login"
-        ] in ["mergify[bot]", "mergify-test[bot]"]:
-            tags.append("by_mergify")
+    if event_type == "pull_request":
+        event = typing.cast(github_types.GitHubEventPullRequest, event)
+        tags.append(f"action:{event['action']}")
+        if event["action"] == "closed" and event["pull_request"]["merged"]:
+            if event["pull_request"]["merged_by"] is not None and event["pull_request"][
+                "merged_by"
+            ]["login"] in ["mergify[bot]", "mergify-test[bot]"]:
+                tags.append("by_mergify")
 
     statsd.increment("github.events", tags=tags)
 
