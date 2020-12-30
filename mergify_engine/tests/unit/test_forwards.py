@@ -25,7 +25,7 @@ from mergify_engine import web
 
 
 @mock.patch(
-    "mergify_engine.github_events.job_filter_and_dispatch",
+    "mergify_engine.github_events.filter_and_dispatch",
     new_callable=mock.AsyncMock,
 )
 @mock.patch(
