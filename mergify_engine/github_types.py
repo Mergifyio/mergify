@@ -134,7 +134,6 @@ GitHubEventType = typing.Literal[
 
 
 class GitHubEvent(typing.TypedDict):
-    repository: GitHubRepository
     organization: GitHubAccount
     installation: GitHubInstallation
     sender: GitHubAccount
@@ -148,6 +147,7 @@ GitHubEventRefreshActionType = typing.Literal[
 
 # This does not exist in GitHub, it's a Mergify made one
 class GitHubEventRefresh(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubEventRefreshActionType
     ref: typing.Optional[GitHubRefType]
     pull_request: typing.Optional[GitHubPullRequest]
@@ -172,6 +172,7 @@ GitHubEventPullRequestActionType = typing.Literal[
 
 
 class GitHubEventPullRequest(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubEventPullRequestActionType
     pull_request: GitHubPullRequest
 
@@ -184,6 +185,7 @@ GitHubEventPullRequestReviewCommentActionType = typing.Literal[
 
 
 class GitHubEventPullRequestReviewComment(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubEventPullRequestReviewCommentActionType
     pull_request: GitHubPullRequest
 
@@ -196,6 +198,7 @@ GitHubEventPullRequestReviewActionType = typing.Literal[
 
 
 class GitHubEventPullRequestReview(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubEventPullRequestReviewActionType
     pull_request: GitHubPullRequest
 
@@ -208,18 +211,21 @@ GitHubEventIssueCommentActionType = typing.Literal[
 
 
 class GitHubEventIssueComment(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubEventIssueCommentActionType
     issue: GitHubIssue
     comment: GitHubComment
 
 
 class GitHubEventPush(GitHubEvent):
+    repository: GitHubRepository
     ref: GitHubRefType
     before: SHAType
     after: SHAType
 
 
 class GitHubEventStatus(GitHubEvent):
+    repository: GitHubRepository
     sha: str
 
 
@@ -276,6 +282,7 @@ GitHubCheckRunActionType = typing.Literal[
 
 
 class GitHubEventCheckRun(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubCheckRunActionType
     check_run: GitHubCheckRun
 
@@ -289,5 +296,6 @@ GitHubCheckSuiteActionType = typing.Literal[
 
 
 class GitHubEventCheckSuite(GitHubEvent):
+    repository: GitHubRepository
     action: GitHubCheckSuiteActionType
     check_suite: GitHubCheckSuite

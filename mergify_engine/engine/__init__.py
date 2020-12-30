@@ -231,17 +231,14 @@ def run(
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
-async def create_initial_summary(
-    owner: str, event_type: str, data: github_types.GitHubEventPullRequest
-) -> None:
-    if data["action"] != "opened":
-        return
+async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:
+    owner = event["repository"]["owner"]["login"]
 
     redis = await utils.get_aredis_for_cache()
 
     if not await redis.exists(
         rules.get_config_location_cache_key(
-            owner, data["pull_request"]["base"]["repo"]["name"]
+            owner, event["pull_request"]["base"]["repo"]["name"]
         )
     ):
         # Mergify is probably not activated on this repo
@@ -254,7 +251,7 @@ async def create_initial_summary(
     # this is not a 100% reliable solution, but if we post a duplicate summary
     # check_api.set_check_run() handle this case and update both to not confuse users.
     sha = context.Context.get_cached_last_summary_head_sha_from_pull(
-        data["pull_request"]
+        event["pull_request"]
     )
     if sha:
         return
@@ -262,23 +259,23 @@ async def create_initial_summary(
     async with await github.aget_client(owner) as client:
         post_parameters = {
             "name": context.Context.SUMMARY_NAME,
-            "head_sha": data["pull_request"]["head"]["sha"],
+            "head_sha": event["pull_request"]["head"]["sha"],
             "status": check_api.Status.IN_PROGRESS.value,
             "started_at": utils.utcnow().isoformat(),
-            "details_url": f"{data['pull_request']['html_url']}/checks",
+            "details_url": f"{event['pull_request']['html_url']}/checks",
             "output": {
                 "title": "Your rules are under evaluation",
                 "summary": "Be patient, the page will be updated soon.",
             },
         }
         await client.post(
-            f"/repos/{data['pull_request']['base']['user']['login']}/{data['pull_request']['base']['repo']['name']}/check-runs",
+            f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
             api_version="antiope",  # type: ignore[call-arg]
             json=post_parameters,
         )
 
     await redis.set(
-        context.Context.redis_last_summary_head_sha_key(data["pull_request"]),
-        data["pull_request"]["head"]["sha"],
+        context.Context.redis_last_summary_head_sha_key(event["pull_request"]),
+        event["pull_request"]["head"]["sha"],
         ex=context.SUMMARY_SHA_EXPIRATION,
     )
