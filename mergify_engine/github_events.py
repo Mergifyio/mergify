@@ -298,7 +298,7 @@ async def extract_pull_numbers_from_event(
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
     opened_pulls: typing.List[github_types.GitHubPullRequest],
-) -> typing.List[int]:
+) -> typing.List[github_types.GitHubPullRequestNumber]:
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
     if event_type == "refresh":
         data = typing.cast(github_types.GitHubEventRefresh, data)

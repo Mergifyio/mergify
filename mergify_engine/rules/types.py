@@ -57,66 +57,70 @@ class DummyContext(context.Context):
 _DUMMY_PR = context.PullRequest(
     DummyContext(
         None,  # type: ignore
-        {
-            "number": 0,
-            "html_url": "",
-            "id": 0,
-            "maintainer_can_modify": False,
-            "state": "open",
-            "merged": False,
-            "merged_by": None,
-            "merged_at": None,
-            "draft": False,
-            "merge_commit_sha": None,
-            "mergeable_state": "unknown",
-            "rebaseable": False,
-            "user": {
-                "id": 0,
-                "login": "",
-                "type": "User",
-            },
-            "labels": [],
-            "base": {
+        github_types.GitHubPullRequest(
+            {
+                "number": github_types.GitHubPullRequestNumber(
+                    github_types.GitHubIssueNumber(0)
+                ),
+                "html_url": "",
+                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
+                "maintainer_can_modify": False,
+                "state": "open",
+                "merged": False,
+                "merged_by": None,
+                "merged_at": None,
+                "draft": False,
+                "merge_commit_sha": None,
+                "mergeable_state": "unknown",
+                "rebaseable": False,
                 "user": {
                     "id": 0,
                     "login": "",
                     "type": "User",
                 },
-                "label": "",
-                "ref": github_types.GitHubRefType(""),
-                "sha": github_types.SHAType(""),
-                "repo": {
-                    "url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                    "full_name": "",
-                    "archived": False,
-                    "id": 0,
-                    "private": False,
-                    "name": "",
-                    "owner": {"login": "", "id": 0, "type": "User"},
+                "labels": [],
+                "base": {
+                    "user": {
+                        "id": 0,
+                        "login": "",
+                        "type": "User",
+                    },
+                    "label": "",
+                    "ref": github_types.GitHubRefType(""),
+                    "sha": github_types.SHAType(""),
+                    "repo": {
+                        "url": "",
+                        "default_branch": github_types.GitHubRefType(""),
+                        "full_name": "",
+                        "archived": False,
+                        "id": 0,
+                        "private": False,
+                        "name": "",
+                        "owner": {"login": "", "id": 0, "type": "User"},
+                    },
                 },
-            },
-            "head": {
-                "user": {
-                    "id": 0,
-                    "login": "",
-                    "type": "User",
+                "head": {
+                    "user": {
+                        "id": 0,
+                        "login": "",
+                        "type": "User",
+                    },
+                    "label": "",
+                    "ref": github_types.GitHubRefType(""),
+                    "sha": github_types.SHAType(""),
+                    "repo": {
+                        "url": "",
+                        "default_branch": github_types.GitHubRefType(""),
+                        "full_name": "",
+                        "archived": False,
+                        "id": 0,
+                        "private": False,
+                        "name": "",
+                        "owner": {"login": "", "id": 0, "type": "User"},
+                    },
                 },
-                "label": "",
-                "ref": github_types.GitHubRefType(""),
-                "sha": github_types.SHAType(""),
-                "repo": {
-                    "url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                    "full_name": "",
-                    "archived": False,
-                    "id": 0,
-                    "private": False,
-                    "name": "",
-                    "owner": {"login": "", "id": 0, "type": "User"},
-                },
-            },
-        },
+            }
+        ),
         None,  # type: ignore
         [],
     )
