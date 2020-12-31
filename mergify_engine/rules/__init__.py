@@ -182,7 +182,7 @@ class PullRequestRules:
         return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
 
 
-class YAMLInvalid(voluptuous.Invalid):
+class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
         return f"{self.msg} at {self.path}"
 
