@@ -30,7 +30,7 @@ LEVEL_COLORS = daiquiri.formatter.ColorFormatter.LEVEL_COLORS.copy()
 LEVEL_COLORS[42] = "\033[01;35m"
 
 
-class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):
+class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[misc]
     LEVEL_COLORS = LEVEL_COLORS
 
     def format(self, record):
