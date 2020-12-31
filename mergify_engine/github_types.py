@@ -104,6 +104,9 @@ GitHubPullRequestMergeableState = typing.Literal[
 ]
 
 
+ISODateTimeType = typing.NewType("ISODateTimeType", str)
+
+
 class GitHubPullRequest(GitHubIssue):
     # https://developer.github.com/v3/pulls/#get-a-pull-request
     id: int
@@ -115,6 +118,7 @@ class GitHubPullRequest(GitHubIssue):
     labels: typing.List[GitHubLabel]
     merged: bool
     merged_by: typing.Optional[GitHubAccount]
+    merged_at: typing.Optional[ISODateTimeType]
     rebaseable: bool
     draft: bool
     merge_commit_sha: typing.Optional[SHAType]
