@@ -366,13 +366,13 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``strict_method``
      - string
      - ``merge``
-     - Update method to use to update the pull request with its base branch
+     - Method to use to update the pull request with its base branch
        when :ref:`strict merge` is enabled. Possible values:
 
        * ``merge`` to merge the base branch into the pull request.
        * ``rebase`` to rebase the pull request against its base branch.
 
-       Note that the ``rebase`` method has many drawbacks, see :ref:`strict
+       Note that the ``rebase`` method has some drawbacks, see :ref:`strict
        rebase`.
 
    * - ``merge_bot_account``
@@ -399,7 +399,7 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
-     - This set the priority of the pull request in the queue when ``smart``
+     - This sets the priority of the pull request in the queue when ``smart``
        :ref:`strict merge` is enabled. The pull request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
 
