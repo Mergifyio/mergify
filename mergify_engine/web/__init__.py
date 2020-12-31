@@ -139,7 +139,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 async def refresh_pull(
     owner: str,
     repo: str,
-    pull: int,
+    pull_request_number: github_types.GitHubPullRequestNumber,
     action: github_types.GitHubEventRefreshActionType = "user",
 ) -> responses.Response:
     action = RefreshActionSchema(action)
@@ -149,8 +149,8 @@ async def refresh_pull(
         action=action,
         pull_request=github_types.GitHubPullRequest(
             {
-                "number": pull,
-                "id": 0,
+                "number": pull_request_number,
+                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
                 "maintainer_can_modify": False,
                 "base": {
                     "label": "",

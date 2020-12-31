@@ -73,8 +73,17 @@ class GitHubComment(typing.TypedDict):
     user: GitHubAccount
 
 
-class GitHubIssue(typing.TypedDict):
-    number: int
+class GitHubIssueOrPullRequest(typing.TypedDict):
+    pass
+
+
+GitHubIssueId = typing.NewType("GitHubIssueId", int)
+GitHubIssueNumber = typing.NewType("GitHubIssueNumber", int)
+
+
+class GitHubIssue(GitHubIssueOrPullRequest):
+    id: GitHubIssueId
+    number: GitHubIssueNumber
 
 
 GitHubPullRequestState = typing.Literal["open", "closed"]
@@ -103,13 +112,17 @@ GitHubPullRequestMergeableState = typing.Literal[
     "has_hooks",
 ]
 
+GitHubPullRequestId = typing.NewType("GitHubPullRequestId", GitHubIssueId)
+GitHubPullRequestNumber = typing.NewType("GitHubPullRequestNumber", GitHubIssueNumber)
+
 
 ISODateTimeType = typing.NewType("ISODateTimeType", str)
 
 
-class GitHubPullRequest(GitHubIssue):
+class GitHubPullRequest(GitHubIssueOrPullRequest):
     # https://developer.github.com/v3/pulls/#get-a-pull-request
-    id: int
+    id: GitHubPullRequestId
+    number: GitHubPullRequestNumber
     maintainer_can_modify: bool
     base: GitHubBranch
     head: GitHubBranch
