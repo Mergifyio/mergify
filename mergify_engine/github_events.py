@@ -133,7 +133,7 @@ async def filter_and_dispatch(
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
 
-        elif event["action"] == "opened":
+        elif event["action"] in ("opened", "synchronize"):
             try:
                 await engine.create_initial_summary(event)
             except Exception as e:
