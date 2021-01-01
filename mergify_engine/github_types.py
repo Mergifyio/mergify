@@ -144,7 +144,11 @@ GitHubEventType = typing.Literal[
     "check_run",
     "check_suite",
     "pull_request",
+    "status",
     "push",
+    "issue_comment",
+    "pull_request_review",
+    "pull_request_review_comment",
     # This does not exist in GitHub, it's a Mergify made one
     "refresh",
 ]
@@ -243,7 +247,7 @@ class GitHubEventPush(GitHubEvent):
 
 class GitHubEventStatus(GitHubEvent):
     repository: GitHubRepository
-    sha: str
+    sha: SHAType
 
 
 class GitHubApp(typing.TypedDict):

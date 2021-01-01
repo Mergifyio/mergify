@@ -165,7 +165,9 @@ async def filter_and_dispatch(
         event = typing.cast(github_types.GitHubEventIssueComment, event)
         owner = event["repository"]["owner"]["login"]
         repo = event["repository"]["name"]
-        pull_number = event["issue"]["number"]
+        pull_number = typing.cast(
+            github_types.GitHubPullRequestNumber, event["issue"]["number"]
+        )
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
@@ -274,9 +276,14 @@ async def filter_and_dispatch(
 SHA_EXPIRATION = 60
 
 
-async def _get_github_pulls_from_sha(client, repo, sha, pulls):
+async def _get_github_pulls_from_sha(
+    client: github.AsyncGithubInstallationClient,
+    repo_name: str,
+    sha: github_types.SHAType,
+    pulls: typing.List[github_types.GitHubPullRequest],
+) -> typing.List[github_types.GitHubPullRequestNumber]:
     redis = await utils.get_aredis_for_cache()
-    cache_key = f"sha~{client.auth.owner}~{repo}~{sha}"
+    cache_key = f"sha~{client.auth.owner}~{repo_name}~{sha}"
     pull_number = await redis.get(cache_key)
     if pull_number is None:
         for pull in pulls:
@@ -285,7 +292,7 @@ async def _get_github_pulls_from_sha(client, repo, sha, pulls):
                 return [pull["number"]]
         return []
     else:
-        return [int(pull_number)]
+        return [typing.cast(github_types.GitHubPullRequestNumber, int(pull_number))]
 
 
 async def extract_pull_numbers_from_event(
