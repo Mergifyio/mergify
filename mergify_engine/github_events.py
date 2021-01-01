@@ -283,10 +283,6 @@ async def _get_github_pulls_from_sha(client, repo, sha, pulls):
             if pull["head"]["sha"] == sha:
                 await redis.set(cache_key, pull["number"], ex=SHA_EXPIRATION)
                 return [pull["number"]]
-
-        await redis.set(cache_key, -1, ex=SHA_EXPIRATION)
-        return []
-    elif pull_number == -1:
         return []
     else:
         return [int(pull_number)]
