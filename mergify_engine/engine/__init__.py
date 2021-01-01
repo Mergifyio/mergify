@@ -134,7 +134,9 @@ def run(
 
     for source in sources:
         if source["event_type"] == "issue_comment":
-            issue_comment_sources.append(source)
+            issue_comment_sources.append(
+                typing.cast(T_PayloadEventIssueCommentSource, source)
+            )
         else:
             ctxt.sources.append(source)
 

@@ -32,7 +32,7 @@ class CloseAction(actions.Action):
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        if ctxt.pull["state"] == "close":
+        if ctxt.pull["state"] == "closed":
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request is already closed", ""
             )
