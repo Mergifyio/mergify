@@ -42,14 +42,13 @@ async def redis():
         await utils.stop_pending_aredis_tasks()
 
 
-async def run_worker(**kwargs):
+async def run_worker(test_timeout=10, **kwargs):
     w = worker.Worker(**kwargs)
     w.start()
-    timeout = 10
     started_at = time.monotonic()
     while (
         w._redis is None or (await w._redis.zcard("streams")) > 0
-    ) and time.monotonic() - started_at < timeout:
+    ) and time.monotonic() - started_at < test_timeout:
         await asyncio.sleep(0.5)
     w.stop()
     await w.wait_shutdown_complete()
@@ -845,3 +844,19 @@ async def test_worker_reschedule(run_engine, redis, logger_checker, monkeypatch)
     score_rescheduled = (await redis.zrange("streams", 0, -1, withscores=True))[0][1]
     planned_for_rescheduled = datetime.datetime.utcfromtimestamp(score_rescheduled)
     assert planned_for > planned_for_rescheduled
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_worker_stuck_shutdown(run_engine, redis, logger_checker):
+    run_engine.side_effect = lambda *args, **kwargs: time.sleep(10000000)
+
+    await worker.push(
+        redis,
+        "owner",
+        "repo",
+        123,
+        "pull_request",
+        {"payload": "whatever"},
+    )
+    await run_worker(test_timeout=2, shutdown_timeout=1)
