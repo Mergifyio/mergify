@@ -610,6 +610,7 @@ def get_process_index_from_env() -> int:
 @dataclasses.dataclass
 class Worker:
     idle_sleep_time: float = 0.42
+    shutdown_timeout: float = 25
     worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
@@ -663,6 +664,11 @@ class Worker:
                 else:
                     LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
                     await self._sleep_or_stop()
+            except asyncio.CancelledError:
+                # NOTE(sileht): We don't wait for the thread and just return, the thread
+                # will be killed when the program exits.
+                LOG.debug("worker %s killed", worker_id)
+                return
             except Exception:
                 LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
                 await self._sleep_or_stop()
@@ -675,7 +681,7 @@ class Worker:
             timeout = self.idle_sleep_time
         try:
             await asyncio.wait_for(self._stopping.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError):
             pass
 
     async def monitoring_task(self) -> None:
@@ -702,6 +708,9 @@ class Worker:
                 statsd.gauge(
                     "engine.workers-per-process.count", self.worker_per_process
                 )
+            except asyncio.CancelledError:
+                LOG.debug("monitoring task killed")
+                return
             except Exception:
                 LOG.error("monitoring task failed", exc_info=True)
 
@@ -738,12 +747,19 @@ class Worker:
 
         await self._start_task
 
-        if self._stream_monitoring_task:
-            await self._stream_monitoring_task
+        tasks = []
+        if "stream" in self.enabled_services:
+            tasks.extend(self._worker_tasks)
+        if "stream-monitoring" in self.enabled_services:
+            tasks.append(self._stream_monitoring_task)
 
-        if self._worker_tasks:
-            await asyncio.wait(self._worker_tasks)
-            self._worker_tasks = []
+        done, pending = await asyncio.wait(tasks, timeout=self.shutdown_timeout)
+        if pending:
+            for task in pending:
+                task.cancel(msg="shutdown")
+            await asyncio.wait(pending)
+
+        self._worker_tasks = []
 
         if self._redis:
             self._redis.connection_pool.max_idle_time = 0
