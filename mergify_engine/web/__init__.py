@@ -197,6 +197,7 @@ async def refresh_pull(
                 "labels": [],
                 "merged": False,
                 "merged_by": None,
+                "merged_at": None,
                 "rebaseable": False,
                 "draft": False,
                 "merge_commit_sha": None,

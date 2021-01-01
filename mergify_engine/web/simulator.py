@@ -45,7 +45,7 @@ app.add_middleware(
 )
 
 
-class PullRequestUrlInvalid(voluptuous.Invalid):
+class PullRequestUrlInvalid(voluptuous.Invalid):  # type: ignore[misc]
     pass
 
 

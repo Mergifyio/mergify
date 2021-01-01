@@ -65,6 +65,7 @@ _DUMMY_PR = context.PullRequest(
             "state": "open",
             "merged": False,
             "merged_by": None,
+            "merged_at": None,
             "draft": False,
             "merge_commit_sha": None,
             "mergeable_state": "unknown",
