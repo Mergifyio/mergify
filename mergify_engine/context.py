@@ -156,7 +156,10 @@ class Context(object):
         pull: github_types.GitHubPullRequest,
     ) -> github_types.SHAType:
         with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
-            sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
+            sha = typing.cast(
+                github_types.SHAType,
+                redis.get(cls.redis_last_summary_head_sha_key(pull)),
+            )
             if not sha:
                 # FIXME(jd): remove in January 2021, fallback to the old key
                 owner = pull["base"]["repo"]["owner"]["id"]
@@ -165,7 +168,7 @@ class Context(object):
                 for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
                     sha = redis.get(k)
                 # ENDOF FIXME(jd)
-            return sha  # type: ignore[no-any-return]
+            return sha
 
     def get_cached_last_summary_head_sha(self) -> github_types.SHAType:
         return self.get_cached_last_summary_head_sha_from_pull(
