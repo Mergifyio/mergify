@@ -42,7 +42,7 @@ with open(mergify_rule_path, "r") as f:
     )
 
 
-def check_configuration_changes(ctxt: context.Context) -> bool:
+async def _check_configuration_changes(ctxt: context.Context) -> bool:
     if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
         for f in ctxt.files:
@@ -56,7 +56,7 @@ def check_configuration_changes(ctxt: context.Context) -> bool:
                 )
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
-                ctxt.set_summary_check(
+                await ctxt.set_summary_check(
                     check_api.Result(
                         check_api.Conclusion.FAILURE,
                         title="The new Mergify configuration is invalid",
@@ -65,7 +65,7 @@ def check_configuration_changes(ctxt: context.Context) -> bool:
                     )
                 )
             else:
-                ctxt.set_summary_check(
+                await ctxt.set_summary_check(
                     check_api.Result(
                         check_api.Conclusion.SUCCESS,
                         title="The new Mergify configuration is valid",
@@ -88,22 +88,22 @@ def get_summary_from_sha(ctxt, sha):
         return checks[0]
 
 
-def ensure_summary_on_head_sha(ctxt):
+async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     for check in ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME:
             return
 
-    sha = ctxt.get_cached_last_summary_head_sha()
-    if sha:
-        previous_summary = get_summary_from_sha(ctxt, sha)
-    else:
+    sha = await ctxt.get_cached_last_summary_head_sha()
+    if sha is None:
         previous_summary = None
         ctxt.log.warning(
             "the pull request doesn't have the last summary head sha stored in redis"
         )
+    else:
+        previous_summary = get_summary_from_sha(ctxt, sha)
 
     if previous_summary:
-        ctxt.set_summary_check(
+        await ctxt.set_summary_check(
             check_api.Result(
                 check_api.Conclusion(previous_summary["conclusion"]),
                 title=previous_summary["output"]["title"],
@@ -156,17 +156,19 @@ def run(
         return
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Required GitHub permissions are missing.",
-                summary="You can accept them at https://dashboard.mergify.io/",
+        utils.async_run_one(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    title="Required GitHub permissions are missing.",
+                    summary="You can accept them at https://dashboard.mergify.io/",
+                )
             )
         )
         return
 
     ctxt.log.debug("engine check configuration change")
-    if check_configuration_changes(ctxt):
+    if utils.async_run_one(_check_configuration_changes(ctxt)):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
@@ -190,12 +192,14 @@ def run(
             if s["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
                 if event["action"] in ("opened", "synchronize"):
-                    ctxt.set_summary_check(
-                        check_api.Result(
-                            check_api.Conclusion.FAILURE,
-                            title="The Mergify configuration is invalid",
-                            summary=str(e),
-                            annotations=e.get_annotations(e.filename),
+                    utils.async_run_one(
+                        ctxt.set_summary_check(
+                            check_api.Result(
+                                check_api.Conclusion.FAILURE,
+                                title="The Mergify configuration is invalid",
+                                summary=str(e),
+                                annotations=e.get_annotations(e.filename),
+                            )
                         )
                     )
                     break
@@ -208,16 +212,18 @@ def run(
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.log.info("mergify disabled: private repository")
-        ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Mergify is disabled",
-                summary=sub.reason,
+        utils.async_run_one(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    title="Mergify is disabled",
+                    summary=sub.reason,
+                )
             )
         )
         return
 
-    ensure_summary_on_head_sha(ctxt)
+    utils.async_run_one(_ensure_summary_on_head_sha(ctxt))
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
@@ -252,10 +258,10 @@ async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> 
     # the summary twice. Since this method can ran in parallel of the worker
     # this is not a 100% reliable solution, but if we post a duplicate summary
     # check_api.set_check_run() handle this case and update both to not confuse users.
-    sha = context.Context.get_cached_last_summary_head_sha_from_pull(
-        event["pull_request"]
+    sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
+        redis, event["pull_request"]
     )
-    if sha:
+    if sha is None:
         return
 
     async with await github.aget_client(owner) as client:

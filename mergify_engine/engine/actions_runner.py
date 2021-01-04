@@ -23,6 +23,7 @@ from mergify_engine import context
 from mergify_engine import doc
 from mergify_engine import exceptions
 from mergify_engine import rules
+from mergify_engine import utils
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -186,9 +187,11 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
             previous_conclusions=previous_conclusions,
         )
 
-        ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
+        utils.async_run(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
+                )
             )
         )
     else:

@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -20,6 +20,7 @@ import logging
 import typing
 from urllib import parse
 
+import aredis
 import daiquiri
 import jinja2.exceptions
 import jinja2.runtime
@@ -171,12 +172,12 @@ class Context(object):
             "write",
         )
 
-    def set_summary_check(
+    async def set_summary_check(
         self, result: check_api.Result
     ) -> github_types.GitHubCheckRun:
         """Set the Mergify Summary check result."""
 
-        previous_sha = self.get_cached_last_summary_head_sha()
+        previous_sha = await self.get_cached_last_summary_head_sha()
         # NOTE(sileht): we first commit in redis the future sha,
         # so engine.create_initial_summary() cannot creates a second SUMMARY
         self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
@@ -197,18 +198,22 @@ class Context(object):
         return f"summary-sha~{owner}~{repo}~{pull_number}"
 
     @classmethod
-    def get_cached_last_summary_head_sha_from_pull(
+    async def get_cached_last_summary_head_sha_from_pull(
         cls,
+        redis_cache: aredis.StrictRedis,
         pull: github_types.GitHubPullRequest,
-    ) -> github_types.SHAType:
-        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
-            return typing.cast(
-                github_types.SHAType,
-                redis.get(cls.redis_last_summary_head_sha_key(pull)),
-            )
+    ) -> typing.Optional[github_types.SHAType]:
+        return typing.cast(
+            typing.Optional[github_types.SHAType],
+            await redis_cache.get(cls.redis_last_summary_head_sha_key(pull)),
+        )
 
-    def get_cached_last_summary_head_sha(self) -> github_types.SHAType:
-        return self.get_cached_last_summary_head_sha_from_pull(
+    async def get_cached_last_summary_head_sha(
+        self,
+    ) -> typing.Optional[github_types.SHAType]:
+        redis_cache = await utils.get_aredis_for_cache()
+        return await self.get_cached_last_summary_head_sha_from_pull(
+            redis_cache,
             self.pull,
         )
 
