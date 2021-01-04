@@ -485,7 +485,10 @@ class Context(object):
     @functools.cached_property
     def is_behind(self) -> bool:
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
-        branch = self.client.item(f"{self.base_url}/branches/{branch_name_escaped}")
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            self.client.item(f"{self.base_url}/branches/{branch_name_escaped}"),
+        )
         for commit in self.commits:
             for parent in commit["parents"]:
                 if parent["sha"] == branch["commit"]["sha"]:

@@ -57,7 +57,21 @@ class GitHubRepository(typing.TypedDict):
     default_branch: GitHubRefType
 
 
+class GitHubBranchCommitParent(typing.TypedDict):
+    sha: SHAType
+
+
+class GitHubBranchCommit(typing.TypedDict):
+    sha: SHAType
+    parents: typing.List[GitHubBranchCommitParent]
+
+
 class GitHubBranch(typing.TypedDict):
+    name: str
+    commit: GitHubBranchCommit
+
+
+class GitHubBranchRef(typing.TypedDict):
     label: str
     ref: GitHubRefType
     sha: SHAType
@@ -129,8 +143,8 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     id: GitHubPullRequestId
     number: GitHubPullRequestNumber
     maintainer_can_modify: bool
-    base: GitHubBranch
-    head: GitHubBranch
+    base: GitHubBranchRef
+    head: GitHubBranchRef
     state: GitHubPullRequestState
     user: GitHubAccount
     labels: typing.List[GitHubLabel]

@@ -25,6 +25,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import http
 
@@ -120,7 +121,10 @@ class CopyAction(actions.Action):
             branches.extend(
                 (
                     branch["name"]
-                    for branch in ctxt.client.items(f"{ctxt.base_url}/branches")
+                    for branch in typing.cast(
+                        typing.List[github_types.GitHubBranch],
+                        ctxt.client.items(f"{ctxt.base_url}/branches"),
+                    )
                     if any(
                         map(
                             lambda regex: regex.match(branch["name"]),
