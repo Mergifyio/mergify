@@ -316,6 +316,7 @@ class GitHubCheckRun(typing.TypedDict):
     name: str
     output: GitHubCheckRunOutput
     conclusion: typing.Optional[GitHubCheckRunConclusion]
+    completed_at: ISODateTimeType
 
 
 class GitHubCheckSuite(typing.TypedDict):
