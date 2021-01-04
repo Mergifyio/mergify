@@ -284,7 +284,7 @@ async def filter_and_dispatch(
             "removed_from_repository",
         ):
             context.Context.clear_user_permission_cache_for_repo(
-                event["organization"], event["repo"]
+                event["organization"], event["repository"]
             )
 
     elif event_type == "team_add":
