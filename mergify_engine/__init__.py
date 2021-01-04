@@ -27,3 +27,4 @@ if config.SENTRY_URL:  # pragma: no cover
         environment=config.SENTRY_ENVIRONMENT,
         integrations=[RedisIntegration()],
     )
+    sentry_sdk.utils.MAX_STRING_LENGTH = 2048
