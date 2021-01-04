@@ -24,6 +24,7 @@ from datadog import statsd
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -120,14 +121,12 @@ async def filter_and_dispatch(
     meter_event(event_type, event)
 
     pull_number = None
-    owner = "<unknown>"
-    repo = "unknown"
     ignore_reason = None
 
     if event_type == "pull_request":
         event = typing.cast(github_types.GitHubEventPullRequest, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
 
         if event["repository"]["archived"]:
@@ -141,16 +140,16 @@ async def filter_and_dispatch(
 
     elif event_type == "refresh":
         event = typing.cast(github_types.GitHubEventRefresh, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
 
         if event["pull_request"] is not None:
             pull_number = event["pull_request"]["number"]
 
     elif event_type == "pull_request_review_comment":
         event = typing.cast(github_types.GitHubEventPullRequestReviewComment, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
 
         if event["repository"]["archived"]:
@@ -158,13 +157,13 @@ async def filter_and_dispatch(
 
     elif event_type == "pull_request_review":
         event = typing.cast(github_types.GitHubEventPullRequestReview, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
     elif event_type == "issue_comment":
         event = typing.cast(github_types.GitHubEventIssueComment, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
         pull_number = typing.cast(
             github_types.GitHubPullRequestNumber, event["issue"]["number"]
         )
@@ -189,16 +188,16 @@ async def filter_and_dispatch(
 
     elif event_type == "status":
         event = typing.cast(github_types.GitHubEventStatus, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
 
     elif event_type == "push":
         event = typing.cast(github_types.GitHubEventPush, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
@@ -211,8 +210,8 @@ async def filter_and_dispatch(
 
     elif event_type == "check_suite":
         event = typing.cast(github_types.GitHubEventCheckSuite, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
@@ -229,8 +228,8 @@ async def filter_and_dispatch(
 
     elif event_type == "check_run":
         event = typing.cast(github_types.GitHubEventCheckRun, event)
-        owner = event["repository"]["owner"]["login"]
-        repo = event["repository"]["name"]
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
@@ -241,7 +240,64 @@ async def filter_and_dispatch(
             and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
         ):
             ignore_reason = f"mergify {event_type}"
+
+    elif event_type == "organization":
+        event = typing.cast(github_types.GitHubEventOrganization, event)
+        owner_login = event["organization"]["login"]
+        repo_name = None
+        ignore_reason = "organization event"
+
+        if event["action"] in ("deleted", "member_added", "member_removed"):
+            context.Context.clear_user_permission_cache_for_org(event["organization"])
+
+    elif event_type == "member":
+        event = typing.cast(github_types.GitHubEventMember, event)
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
+        ignore_reason = "member event"
+
+        context.Context.clear_user_permission_cache_for_user(
+            event["repository"]["owner"],
+            event["repository"],
+            event["member"],
+        )
+
+    elif event_type == "membership":
+        event = typing.cast(github_types.GitHubEventMembership, event)
+        owner_login = event["organization"]["login"]
+        repo_name = None
+        ignore_reason = "membership event"
+
+        context.Context.clear_user_permission_cache_for_org(event["organization"])
+
+    elif event_type == "team":
+        event = typing.cast(github_types.GitHubEventTeam, event)
+        owner_login = event["organization"]["login"]
+        repo_name = None
+        ignore_reason = "team event"
+
+        if event["action"] in (
+            "edited",
+            "added_to_repository",
+            "removed_from_repository",
+        ):
+            context.Context.clear_user_permission_cache_for_repo(
+                event["organization"], event["repository"]
+            )
+
+    elif event_type == "team_add":
+        event = typing.cast(github_types.GitHubEventTeamAdd, event)
+        owner_login = event["repository"]["owner"]["login"]
+        repo_name = event["repository"]["name"]
+        ignore_reason = "team_add event"
+
+        context.Context.clear_user_permission_cache_for_repo(
+            event["repository"]["owner"], event["repository"]
+        )
+
     else:
+        owner_login = "<unknown>"
+        repo_name = "<unknown>"
         ignore_reason = "unexpected event_type"
 
     if ignore_reason is None:
@@ -250,8 +306,8 @@ async def filter_and_dispatch(
 
         await worker.push(
             redis,
-            owner,
-            repo,
+            owner_login,
+            repo_name,
             pull_number,
             event_type,
             slim_event,
@@ -265,8 +321,8 @@ async def filter_and_dispatch(
         event_type=event_type,
         event_id=event_id,
         sender=event["sender"]["login"],
-        gh_owner=owner,
-        gh_repo=repo,
+        gh_owner=owner_login,
+        gh_repo=repo_name,
     )
 
     if ignore_reason:
@@ -359,11 +415,19 @@ async def send_refresh(
             "repository": pull["base"]["repo"],
             "pull_request": pull,
             "ref": None,
-            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "sender": {
+                "login": github_types.GitHubLogin("<internal>"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+            },
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
                 "id": 0,
-                "account": {"login": "", "id": 0, "type": "User"},
+                "account": {
+                    "login": github_types.GitHubLogin(""),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                },
             },
         }
     )

@@ -79,7 +79,7 @@ async def http_post(*args, **kwargs):
 
 
 async def _refresh(
-    owner: str,
+    owner: github_types.GitHubLogin,
     repo: str,
     action: github_types.GitHubEventRefreshActionType = "user",
     ref: github_types.GitHubRefType = None,
@@ -90,28 +90,36 @@ async def _refresh(
             "action": action,
             "organization": {
                 "login": owner,
-                "id": 0,
+                "id": github_types.GitHubAccountIdType(0),
                 "type": "Organization",
             },
             "installation": {
                 "id": 0,
                 "account": {
                     "login": owner,
-                    "id": 0,
+                    "id": github_types.GitHubAccountIdType(0),
                     "type": "Organization",
                 },
             },
             "repository": {
                 "default_branch": github_types.GitHubRefType(""),
-                "id": 0,
+                "id": github_types.GitHubRepositoryIdType(0),
                 "private": False,
                 "archived": False,
                 "url": "",
                 "name": repo,
-                "owner": {"login": owner, "id": 0, "type": "Organization"},
+                "owner": {
+                    "login": owner,
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "Organization",
+                },
                 "full_name": f"{owner}/{repo}",
             },
-            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "sender": {
+                "login": github_types.GitHubLogin("<internal>"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+            },
             "ref": ref,
             "pull_request": pull_request,
         }
@@ -125,7 +133,9 @@ async def _refresh(
 
 
 @app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(auth.signature)])
-async def refresh_repo(owner: str, repo: str) -> responses.Response:
+async def refresh_repo(
+    owner: github_types.GitHubLogin, repo: str
+) -> responses.Response:
     return await _refresh(owner, repo)
 
 
@@ -137,7 +147,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
-    owner: str,
+    owner: github_types.GitHubLogin,
     repo: str,
     pull_request_number: github_types.GitHubPullRequestNumber,
     action: github_types.GitHubEventRefreshActionType = "user",
@@ -158,10 +168,10 @@ async def refresh_pull(
                     "sha": github_types.SHAType(""),
                     "repo": {
                         "default_branch": github_types.GitHubRefType(""),
-                        "id": 0,
+                        "id": github_types.GitHubRepositoryIdType(0),
                         "owner": {
-                            "id": 0,
-                            "login": "",
+                            "id": github_types.GitHubAccountIdType(0),
+                            "login": github_types.GitHubLogin(""),
                             "type": "User",
                         },
                         "private": False,
@@ -170,7 +180,11 @@ async def refresh_pull(
                         "archived": False,
                         "url": "",
                     },
-                    "user": {"login": "", "id": 0, "type": "User"},
+                    "user": {
+                        "login": github_types.GitHubLogin(""),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                    },
                 },
                 "head": {
                     "label": "",
@@ -178,10 +192,10 @@ async def refresh_pull(
                     "sha": github_types.SHAType(""),
                     "repo": {
                         "default_branch": github_types.GitHubRefType(""),
-                        "id": 0,
+                        "id": github_types.GitHubRepositoryIdType(0),
                         "owner": {
-                            "id": 0,
-                            "login": "",
+                            "id": github_types.GitHubAccountIdType(0),
+                            "login": github_types.GitHubLogin(""),
                             "type": "User",
                         },
                         "private": False,
@@ -190,10 +204,18 @@ async def refresh_pull(
                         "archived": False,
                         "url": "",
                     },
-                    "user": {"login": "", "id": 0, "type": "User"},
+                    "user": {
+                        "login": github_types.GitHubLogin(""),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                    },
                 },
                 "state": "open",
-                "user": {"id": 0, "login": "", "type": "User"},
+                "user": {
+                    "id": github_types.GitHubAccountIdType(0),
+                    "login": github_types.GitHubLogin(""),
+                    "type": "User",
+                },
                 "labels": [],
                 "merged": False,
                 "merged_by": None,
@@ -212,7 +234,9 @@ async def refresh_pull(
     "/refresh/{owner}/{repo}/branch/{branch}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def refresh_branch(owner: str, repo: str, branch: str) -> responses.Response:
+async def refresh_branch(
+    owner: github_types.GitHubLogin, repo: str, branch: str
+) -> responses.Response:
     return await _refresh(
         owner, repo, ref=github_types.GitHubRefType(f"refs/heads/{branch}")
     )
