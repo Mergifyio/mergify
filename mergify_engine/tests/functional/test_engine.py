@@ -25,6 +25,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
+from mergify_engine import subscription
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -1342,7 +1343,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_command_refresh(self):
+    @pytest.mark.asyncio
+    async def test_command_refresh(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -1357,8 +1359,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
-        ctxt.set_summary_check(
+        ctxt = context.Context(
+            self.cli_integration,
+            p.raw_data,
+            subscription.Subscription(1, False, "", {}, frozenset()),
+        )
+        await ctxt.set_summary_check(
             check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 title="whatever",
