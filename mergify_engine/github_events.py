@@ -250,7 +250,7 @@ async def filter_and_dispatch(
         ignore_reason = "organization event"
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
-            context.Context.clear_user_permission_cache_for_org(owner)
+            context.Context.clear_user_permission_cache_for_org(event["organization"])
 
     elif event_type == "member":
         event = typing.cast(github_types.GitHubEventMember, event)
