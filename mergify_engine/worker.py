@@ -749,7 +749,6 @@ class Worker:
     async def _shutdown(self):
         worker_ids = self.get_worker_ids()
         LOG.info("wait for workers %s to exit", ", ".join(map(str, worker_ids)))
-        self._stopping.set()
 
         await self._start_task
 
@@ -780,6 +779,7 @@ class Worker:
         self._start_task = asyncio.create_task(self._run())
 
     def stop(self):
+        self._stopping.set()
         self._stop_task = asyncio.create_task(self._shutdown())
 
     async def wait_shutdown_complete(self):
@@ -788,11 +788,10 @@ class Worker:
 
     def stop_with_signal(self, signame):
         if not self._stopping.is_set():
-            LOG.info("got signal %s: cleanly shutdown worker", signame)
+            LOG.info("got signal %s: cleanly shutdown workers", signame)
             self.stop()
         else:
-            LOG.info("got signal %s again: exiting now...", signame)
-            self._loop.stop()
+            LOG.info("got signal %s: ignoring, shutdown already in process", signame)
 
     def setup_signals(self):
         for signame in ("SIGINT", "SIGTERM"):
