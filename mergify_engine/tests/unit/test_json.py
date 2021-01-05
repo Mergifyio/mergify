@@ -19,7 +19,7 @@ import json
 from mergify_engine import json as mergify_json
 
 
-class Colour(enum.Enum):
+class Color(enum.Enum):
     RED = 1
     GREEN = 2
     BLUE = 3
@@ -28,18 +28,18 @@ class Colour(enum.Enum):
 with_enum = {
     "name": "hello",
     "conditions": [],
-    "actions": {"merge": {"strict": Colour.BLUE}},
+    "actions": {"merge": {"strict": Color.BLUE}},
 }
 
 with_enum_encode = {
     "name": "hello",
     "conditions": [],
     "actions": {
-        "merge": {"strict": {"__pytype__": "enum", "class": "Colour", "name": "BLUE"}}
+        "merge": {"strict": {"__pytype__": "enum", "class": "Color", "name": "BLUE"}}
     },
 }
 
-mergify_json.register_type(type(Colour.BLUE))
+mergify_json.register_type(type(Color.BLUE))
 
 
 def test_encode_enum():
