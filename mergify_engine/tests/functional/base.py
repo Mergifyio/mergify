@@ -395,11 +395,6 @@ class FunctionalTestBase(unittest.TestCase):
         self.loop.run_until_complete(web.startup())
         self.app = testclient.TestClient(web.app)
 
-        # NOTE(sileht): Prepare a fresh redis
-        self.redis_stream = redis.StrictRedis.from_url(
-            config.STREAM_URL, decode_responses=False
-        )
-        self.redis_stream.flushall()
         self.redis_cache = utils.get_redis_for_cache()
         self.redis_cache.flushall()
         self.subscription = subscription.Subscription(
@@ -501,6 +496,11 @@ class FunctionalTestBase(unittest.TestCase):
 
         self._event_reader = EventReader(self.app)
         self._event_reader.drain()
+
+        # NOTE(sileht): Prepare a fresh redis
+        self.redis_stream = redis.StrictRedis.from_url(
+            config.STREAM_URL, decode_responses=False
+        )
         self.redis_stream.flushall()
 
     def tearDown(self):
