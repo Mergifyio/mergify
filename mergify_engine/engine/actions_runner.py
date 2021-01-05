@@ -14,6 +14,7 @@
 
 import base64
 import copy
+import typing
 
 from datadog import statsd
 import yaml
@@ -22,6 +23,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import doc
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
 
@@ -224,16 +226,25 @@ def exec_action(method_name, rule, action, ctxt):
         )
 
 
-def load_conclusions(ctxt, summary_check):
-    if summary_check and summary_check["output"]["summary"]:
+def load_conclusions_line(
+    summary_check: github_types.GitHubCheckRun,
+) -> typing.Optional[str]:
+    if summary_check and summary_check["output"]["summary"] is not None:
         line = summary_check["output"]["summary"].splitlines()[-1]
         if line.startswith("<!-- ") and line.endswith(" -->"):
-            return dict(
-                (name, check_api.Conclusion(conclusion))
-                for name, conclusion in yaml.safe_load(
-                    base64.b64decode(line[5:-4].encode()).decode()
-                ).items()
-            )
+            return line
+    return None
+
+
+def load_conclusions(ctxt, summary_check):
+    line = load_conclusions_line(summary_check)
+    if line:
+        return dict(
+            (name, check_api.Conclusion(conclusion))
+            for name, conclusion in yaml.safe_load(
+                base64.b64decode(line[5:-4].encode()).decode()
+            ).items()
+        )
 
     ctxt.log.warning(
         "previous conclusion not found in summary",
