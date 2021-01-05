@@ -128,8 +128,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.subscription.save_subscription_to_cache())
+        asyncio.run(self.subscription.save_subscription_to_cache())
 
         rules = {
             "pull_request_rules": [
