@@ -323,7 +323,15 @@ async def queues(installation_id):
         _, _, repo_id, branch = queue.split("~")
         owner = installation["account"]["login"]
         async with await github.aget_client(owner) as client:
-            repo = await client.item(f"/repositories/{repo_id}")
+            try:
+                repo = await client.item(f"/repositories/{repo_id}")
+            except exceptions.RateLimited:
+                return responses.JSONResponse(
+                    status_code=403,
+                    content={
+                        "message": f"{installation['account']['type']} account `{owner}` rate limited by GitHub"
+                    },
+                )
             queues[owner + "/" + repo["name"]][branch] = [
                 int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
             ]
