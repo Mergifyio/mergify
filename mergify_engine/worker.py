@@ -31,6 +31,7 @@ import aredis
 import daiquiri
 from datadog import statsd
 import msgpack
+import tenacity
 
 from mergify_engine import config
 from mergify_engine import context
@@ -101,6 +102,11 @@ class T_PayloadEvent(typing.TypedDict):
     source: context.T_PayloadEventSource
 
 
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
+)
 async def push(
     redis: aredis.StrictRedis,
     owner: str,
