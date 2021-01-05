@@ -39,13 +39,13 @@ with_enum_encode = {
     },
 }
 
-mergify_json.register_type(type(Colour.BLUE))
-
 
 def test_encode_enum():
+    mergify_json.register_type(Colour)
     assert json.loads(mergify_json.dumps(with_enum)) == with_enum_encode
 
 
 def test_decode_enum():
+    mergify_json.register_type(Colour)
     json_file = mergify_json.dumps(with_enum)
     assert mergify_json.loads(json_file) == with_enum

@@ -26,7 +26,6 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import subscription
 from mergify_engine import utils
@@ -55,34 +54,11 @@ class PriorityAliases(enum.Enum):
     high = 3000
 
 
-class StrictMergeParameter(enum.Enum):
-    true = True
-    false = False
-    fasttrack = "smart+fasttrack"
-    ordered = "smart+ordered"
-
-
-mergify_json.register_type(StrictMergeParameter)
-
-
 def Priority(v):
     try:
         return PriorityAliases[v].value
     except KeyError:
         return v
-
-
-def strict_merge_parameter(v):
-    if v == "smart":
-        return StrictMergeParameter.ordered
-    elif v == "smart+fastpath":
-        return StrictMergeParameter.fasttrack
-    else:
-        for name, member in StrictMergeParameter.__members__.items():
-            if v == member.value:
-                return member
-
-    raise ValueError(f"{v} is an unknown strict merge parameter")
 
 
 class MergeBaseAction(actions.Action):
@@ -123,10 +99,7 @@ class MergeBaseAction(actions.Action):
     ) -> check_api.Result:
 
         summary = ""
-        if self.config["strict"] in (
-            StrictMergeParameter.fasttrack,
-            StrictMergeParameter.ordered,
-        ):
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             position = q.get_position(ctxt)
             if position is None:
                 ctxt.log.error("expected queued pull request not found in queue")
@@ -138,7 +111,7 @@ class MergeBaseAction(actions.Action):
             if is_behind:
                 summary = "\nThe pull request base branch will be updated before being merged."
 
-        elif self.config["strict"] is not StrictMergeParameter.false and is_behind:
+        elif self.config["strict"] and is_behind:
             title = "The pull request will be updated with its base branch soon"
         else:
             title = "The pull request will be merged soon"
@@ -213,10 +186,7 @@ class MergeBaseAction(actions.Action):
             q.remove_pull(ctxt)
             return report
 
-        if self.config["strict"] in (
-            StrictMergeParameter.fasttrack,
-            StrictMergeParameter.ordered,
-        ):
+        if self.config["strict"] in ("smart+fasttrack", "smart+ordered"):
             if self._should_be_queued(ctxt, q):
                 q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
             else:
@@ -258,9 +228,7 @@ class MergeBaseAction(actions.Action):
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merged if all rules match again.
         # if not we will delete it when we received all CIs termination
-        if self.config[
-            "strict"
-        ] is not StrictMergeParameter.false and not self._should_be_cancel(ctxt, rule):
+        if self.config["strict"] and not self._should_be_cancel(ctxt, rule):
             try:
                 if self._should_be_merged(ctxt, q):
                     # Just wait for CIs to finish
@@ -563,10 +531,7 @@ class MergeBaseAction(actions.Action):
         #     conclusion = "failure"
         #     title = "Branch protection settings are blocking automatic merging"
         #     summary = ""
-        elif (
-            ctxt.pull["mergeable_state"] == "behind"
-            and self.config["strict"] is StrictMergeParameter.false
-        ):
+        elif ctxt.pull["mergeable_state"] == "behind" and not self.config["strict"]:
             # Strict mode has been enabled in branch protection but not in
             # mergify
             conclusion = check_api.Conclusion.FAILURE

@@ -46,12 +46,14 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
             "merge", "squash", None
         ),
-        voluptuous.Required("strict", default=False): voluptuous.All(
-            voluptuous.Any(
-                bool, "smart", "smart+fastpath", "smart+fasttrack", "smart+ordered"
+        voluptuous.Required("strict", default=False): voluptuous.Any(
+            bool,
+            voluptuous.All("smart", voluptuous.Coerce(lambda _: "smart+ordered")),
+            voluptuous.All(
+                "smart+fastpath", voluptuous.Coerce(lambda _: "smart+fasttrack")
             ),
-            voluptuous.Coerce(merge_base.strict_merge_parameter),
-            merge_base.StrictMergeParameter,
+            "smart+fasttrack",
+            "smart+ordered",
         ),
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
@@ -81,31 +83,31 @@ class MergeAction(merge_base.MergeBaseAction):
     }
 
     def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
-        if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
+        if self.config["strict"] == "smart+ordered":
             return ctxt.is_behind and q.is_first_pull(ctxt)
-        elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
+        elif self.config["strict"] == "smart+fasttrack":
             return ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.true:
+        elif self.config["strict"] is True:
             return ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.false:
-            return False
-        else:
+        elif self.config["strict"]:
             raise RuntimeError("Unexpected strict")
+        else:
+            return False
 
     def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
         return True
 
     def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
-        if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
+        if self.config["strict"] == "smart+ordered":
             return not ctxt.is_behind and q.is_first_pull(ctxt)
-        elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
+        elif self.config["strict"] == "smart+fasttrack":
             return not ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.true:
+        elif self.config["strict"] is True:
             return not ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.false:
-            return True
-        else:
+        elif self.config["strict"]:
             raise RuntimeError("Unexpected strict")
+        else:
+            return True
 
     def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
