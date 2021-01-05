@@ -15,11 +15,12 @@ import enum
 import json
 
 
-JSON_TYPES = {}
+_JSON_TYPES = {}
 
 
 def register_type(enum_cls):
-    JSON_TYPES[enum_cls.__name__] = enum_cls
+    if enum_cls.__name__ not in _JSON_TYPES:
+        _JSON_TYPES[enum_cls.__name__] = enum_cls
 
 
 class Encoder(json.JSONEncoder):
@@ -37,7 +38,7 @@ class Encoder(json.JSONEncoder):
 def decode_enum(v):
     if v.get("__pytype__") == "enum":
         cls_name = v["class"]
-        enum_cls = JSON_TYPES[cls_name]
+        enum_cls = _JSON_TYPES[cls_name]
         enum_name = v["name"]
         return enum_cls[enum_name]
     return v
