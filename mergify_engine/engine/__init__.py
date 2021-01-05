@@ -261,7 +261,7 @@ async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> 
     sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
         redis, event["pull_request"]
     )
-    if sha is None:
+    if sha is not None:
         return
 
     async with await github.aget_client(owner) as client:
