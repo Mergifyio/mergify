@@ -66,12 +66,13 @@ async def test_event_to_pull_check_run_same_repo():
 
 GITHUB_SAMPLE_EVENTS = {}
 _EVENT_DIR = os.path.join(os.path.dirname(__file__), "events")
-for event_type in os.listdir(_EVENT_DIR):
-    with open(os.path.join(_EVENT_DIR, event_type), "r") as event:
-        GITHUB_SAMPLE_EVENTS[event_type.split(".")[0]] = json.load(event)
+for filename in os.listdir(_EVENT_DIR):
+    event_type = filename.split(".")[0]
+    with open(os.path.join(_EVENT_DIR, filename), "r") as event:
+        GITHUB_SAMPLE_EVENTS[filename] = (event_type, json.load(event))
 
 
-@pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.items()))
+@pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
 @mock.patch("mergify_engine.worker.push")
 @pytest.mark.asyncio
 async def test_filter_and_dispatch(

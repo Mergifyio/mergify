@@ -281,9 +281,14 @@ async def filter_and_dispatch(
             "added_to_repository",
             "removed_from_repository",
         ):
-            context.Context.clear_user_permission_cache_for_repo(
-                event["organization"], event["repository"]
-            )
+            if "repository" in event:
+                context.Context.clear_user_permission_cache_for_repo(
+                    event["organization"], event["repository"]
+                )
+            else:
+                context.Context.clear_user_permission_cache_for_org(
+                    event["organization"]
+                )
 
     elif event_type == "team_add":
         event = typing.cast(github_types.GitHubEventTeamAdd, event)
