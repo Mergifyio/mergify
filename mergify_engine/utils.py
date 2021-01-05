@@ -62,8 +62,8 @@ def get_redis_for_cache() -> redis.StrictRedis:
     return REDIS_CONNECTION_CACHE
 
 
-async def create_aredis_for_stream() -> aredis.StrictRedis:
-    r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=60)
+async def create_aredis_for_stream(max_idle_time: int = 60) -> aredis.StrictRedis:
+    r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=max_idle_time)
     await r.client_setname("stream:%s" % _PROCESS_IDENTIFIER)
     return r
 
