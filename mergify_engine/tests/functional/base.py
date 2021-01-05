@@ -391,8 +391,7 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
-        self.loop = asyncio.get_event_loop()
-        self.loop.run_until_complete(web.startup())
+        utils.async_run(web.startup())
         self.app = testclient.TestClient(web.app)
 
         self.redis_cache = utils.get_redis_for_cache()
@@ -412,7 +411,7 @@ class FunctionalTestBase(unittest.TestCase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        self.loop.run_until_complete(self.subscription.save_subscription_to_cache())
+        utils.async_run(self.subscription.save_subscription_to_cache())
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -538,7 +537,7 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.edit(state="closed")
 
-        self.loop.run_until_complete(web.shutdown())
+        utils.async_run(web.shutdown())
 
         self._event_reader.drain()
         self.redis_stream.flushall()
@@ -570,8 +569,7 @@ class FunctionalTestBase(unittest.TestCase):
 
     def run_engine(self, timeout=0.42 if RECORD else 0.02):
         LOG.log(42, "RUNNING ENGINE")
-        self.loop.run_until_complete(self._async_run_workers(timeout))
-        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+        utils.async_run(self._async_run_workers(timeout))
 
     def get_gitter(self, logger):
         self.git_counter += 1

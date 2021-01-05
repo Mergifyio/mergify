@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import operator
 
 import yaml
@@ -21,6 +20,7 @@ import yaml
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.tests.functional import base
 
 
@@ -128,8 +128,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.subscription.save_subscription_to_cache())
+        utils.async_run(self.subscription.save_subscription_to_cache())
 
         rules = {
             "pull_request_rules": [

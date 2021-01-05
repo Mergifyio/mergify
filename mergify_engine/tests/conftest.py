@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import pytest
@@ -19,3 +20,9 @@ def logger_checker(request, caplog):
             if rec.levelname in ("CRITICAL", "ERROR")
         ]
         assert [] == messages
+
+
+@pytest.fixture(autouse=True)
+def setup_new_event_loop(request):
+    # ensure each tests have a fresh event loop
+    asyncio.set_event_loop(asyncio.new_event_loop())
