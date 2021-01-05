@@ -32,6 +32,11 @@ if typing.TYPE_CHECKING:
 LOG = daiquiri.getLogger(__name__)
 
 
+class FakePR:
+    def __init__(self, key: str, value: typing.Any):
+        setattr(self, key, value)
+
+
 class MergeAction(merge_base.MergeBaseAction):
 
     validator = {
@@ -132,7 +137,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 state
                 for name, state in ctxt.checks.items()
                 for cond in need_look_at_checks
-                if cond(**{cond.attribute_name: name})
+                if cond(FakePR(cond.attribute_name, name))
             ]
             if not states:
                 return False

@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import logging
 import typing
 
 import daiquiri
@@ -19,6 +20,7 @@ import redis
 
 from mergify_engine import context
 from mergify_engine import github_events
+from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import utils
 
@@ -43,9 +45,10 @@ class Queue:
     repo: str
     ref: str
 
-    @property
-    def log(self):
-        return daiquiri.getLogger(
+    log: logging.LoggerAdapter = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        self.log = daiquiri.getLogger(
             __name__, gh_owner=self.owner, gh_repo=self.repo, gh_branch=self.ref
         )
 
@@ -67,18 +70,22 @@ class Queue:
     def _get_redis_queue_key_for(self, ref: str) -> str:
         return f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
 
-    def _config_redis_queue_key(self, pull_number: int) -> str:
+    def _config_redis_queue_key(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> str:
         return f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
 
-    def get_config(self, pull_number: int) -> QueueConfig:
+    def get_config(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> QueueConfig:
         """Return merge config for a pull request.
 
         Do not use it for logic, just for displaying the queue summary.
 
         :param pull_number: The pull request number.
         """
-        config = self.redis.get(self._config_redis_queue_key(pull_number))
-        if config is None:
+        config_str = self.redis.get(self._config_redis_queue_key(pull_number))
+        if config_str is None:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
             return QueueConfig(
@@ -90,7 +97,7 @@ class Queue:
                     "update_bot_account": None,
                 }
             )
-        config = json.loads(config)
+        config: QueueConfig = json.loads(config_str)
         # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
         config.setdefault("effective_priority", config["priority"])
         config.setdefault("bot_account", None)
@@ -181,16 +188,19 @@ class Queue:
         except ValueError:
             return None
 
-    def get_pulls(self) -> typing.List[int]:
+    def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         return [
-            int(pull)
+            typing.cast(github_types.GitHubPullRequestNumber, int(pull))
             for pull in self.redis.zrangebyscore(self._redis_queue_key, "-inf", "+inf")
         ]
 
-    def delete(self):
+    def delete(self) -> None:
         self.redis.delete(self._redis_queue_key)
 
-    def _refresh_pulls(self, pull_requests_to_refresh):
+    def _refresh_pulls(
+        self,
+        pull_requests_to_refresh: typing.List[github_types.GitHubPullRequestNumber],
+    ) -> None:
         for pull in pull_requests_to_refresh:
             utils.async_run(
                 github_events.send_refresh(
@@ -203,6 +213,6 @@ class Queue:
                                 "full_name": f"{self.owner}/{self.repo}",
                             }
                         },
-                    }
+                    }  # type: ignore
                 )
             )

@@ -31,8 +31,10 @@ import aredis
 import daiquiri
 from datadog import statsd
 import msgpack
+import tenacity
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
@@ -93,19 +95,18 @@ class StreamUnused(Exception):
 T_Payload = typing.Dict[bytes, bytes]
 
 
-class T_PayloadEventSource(typing.TypedDict):
-    event_type: github_types.GitHubEventType
-    data: github_types.GitHubEvent
-    timestamp: str
-
-
 class T_PayloadEvent(typing.TypedDict):
     owner: str
     repo: str
     pull_number: int
-    source: T_PayloadEventSource
+    source: context.T_PayloadEventSource
 
 
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
+)
 async def push(
     redis: aredis.StrictRedis,
     owner: str,
@@ -153,9 +154,7 @@ async def push(
 async def get_pull_for_engine(
     owner: str, repo: str, pull_number: int, logger: logging.LoggerAdapter
 ) -> typing.Optional[
-    typing.Tuple[
-        typing.Optional[subscription.Subscription], github_types.GitHubPullRequest
-    ]
+    typing.Tuple[subscription.Subscription, github_types.GitHubPullRequest]
 ]:
     async with await github.aget_client(owner) as client:
         try:
@@ -166,15 +165,18 @@ async def get_pull_for_engine(
             return None
 
         if client.auth.owner_id is None:
-            sub = None
-        else:
-            sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
+            raise RuntimeError("owner_id is None")
+
+        sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
 
         return sub, pull
 
 
 def run_engine(
-    owner: str, repo: str, pull_number: int, sources: typing.List[T_PayloadEventSource]
+    owner: str,
+    repo: str,
+    pull_number: int,
+    sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
         __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
@@ -248,7 +250,7 @@ PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
         typing.Tuple[str, str, int],
-        typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
+        typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
     ],
 )
 
@@ -343,7 +345,7 @@ class StreamProcessor:
         owner: str,
         repo: str,
         pull_number: int,
-        sources: typing.List[T_PayloadEventSource],
+        sources: typing.List[context.T_PayloadEventSource],
     ) -> None:
         attempts_key = f"pull~{owner}~{repo}~{pull_number}"
         try:
@@ -509,7 +511,7 @@ end
         self,
         owner: str,
         repo: str,
-        source: T_PayloadEventSource,
+        source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
     ) -> typing.List[typing.Tuple[bool, T_Payload]]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
@@ -550,7 +552,7 @@ end
         stream_name: str,
         pulls: collections.OrderedDict[
             typing.Tuple[str, str, int],
-            typing.Tuple[typing.List[str], typing.List[T_PayloadEventSource]],
+            typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
         ],
     ) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
@@ -614,6 +616,7 @@ def get_process_index_from_env() -> int:
 @dataclasses.dataclass
 class Worker:
     idle_sleep_time: float = 0.42
+    shutdown_timeout: float = 25
     worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
@@ -667,6 +670,11 @@ class Worker:
                 else:
                     LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
                     await self._sleep_or_stop()
+            except asyncio.CancelledError:
+                # NOTE(sileht): We don't wait for the thread and just return, the thread
+                # will be killed when the program exits.
+                LOG.debug("worker %s killed", worker_id)
+                return
             except Exception:
                 LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
                 await self._sleep_or_stop()
@@ -679,7 +687,7 @@ class Worker:
             timeout = self.idle_sleep_time
         try:
             await asyncio.wait_for(self._stopping.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError):
             pass
 
     async def monitoring_task(self) -> None:
@@ -706,6 +714,9 @@ class Worker:
                 statsd.gauge(
                     "engine.workers-per-process.count", self.worker_per_process
                 )
+            except asyncio.CancelledError:
+                LOG.debug("monitoring task killed")
+                return
             except Exception:
                 LOG.error("monitoring task failed", exc_info=True)
 
@@ -742,12 +753,19 @@ class Worker:
 
         await self._start_task
 
-        if self._stream_monitoring_task:
-            await self._stream_monitoring_task
+        tasks = []
+        if "stream" in self.enabled_services:
+            tasks.extend(self._worker_tasks)
+        if "stream-monitoring" in self.enabled_services:
+            tasks.append(self._stream_monitoring_task)
 
-        if self._worker_tasks:
-            await asyncio.wait(self._worker_tasks)
-            self._worker_tasks = []
+        done, pending = await asyncio.wait(tasks, timeout=self.shutdown_timeout)
+        if pending:
+            for task in pending:
+                task.cancel(msg="shutdown")
+            await asyncio.wait(pending)
+
+        self._worker_tasks = []
 
         if self._redis:
             self._redis.connection_pool.max_idle_time = 0

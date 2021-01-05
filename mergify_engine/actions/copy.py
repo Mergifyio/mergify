@@ -15,6 +15,7 @@
 # under the License.
 
 import re
+import typing
 from urllib import parse
 
 import voluptuous
@@ -24,16 +25,16 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import http
 
 
-def Regex(value):
+def Regex(value: str) -> typing.Pattern[str]:
     try:
-        re.compile(value)
+        return re.compile(value)
     except re.error as e:
         raise voluptuous.Invalid(str(e))
-    return value
 
 
 class CopyAction(actions.Action):
@@ -43,7 +44,7 @@ class CopyAction(actions.Action):
 
     validator = {
         voluptuous.Required("branches", default=[]): [str],
-        voluptuous.Required("regexes", default=[]): [Regex],
+        voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
         voluptuous.Required("ignore_conflicts", default=True): bool,
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
@@ -117,12 +118,19 @@ class CopyAction(actions.Action):
 
         branches = self.config["branches"]
         if self.config["regexes"]:
-            regexes = list(map(re.compile, self.config["regexes"]))
             branches.extend(
                 (
                     branch["name"]
-                    for branch in ctxt.client.items(f"{ctxt.base_url}/branches")
-                    if any(map(lambda regex: regex.match(branch["name"]), regexes))
+                    for branch in typing.cast(
+                        typing.List[github_types.GitHubBranch],
+                        ctxt.client.items(f"{ctxt.base_url}/branches"),
+                    )
+                    if any(
+                        map(
+                            lambda regex: regex.match(branch["name"]),
+                            self.config["regexes"],
+                        )
+                    )
                 )
             )
 
@@ -150,7 +158,7 @@ class CopyAction(actions.Action):
         return check_api.Result(
             conclusion,
             message,
-            "\n".join(f"* {detail}" for detail in map(lambda r: r[1], results)),
+            "\n".join(f"* {detail}" for detail in (r[1] for r in results)),
         )
 
     @classmethod

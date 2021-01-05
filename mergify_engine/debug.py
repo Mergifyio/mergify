@@ -203,7 +203,10 @@ def report(
                 )
 
         if pull_number is None:
-            for branch in client.items(f"/repos/{owner}/{repo}/branches"):
+            for branch in typing.cast(
+                typing.List[github_types.GitHubBranch],
+                client.items(f"/repos/{owner}/{repo}/branches"),
+            ):
                 q = queue.Queue(
                     utils.get_redis_for_cache(),
                     repo_info["owner"]["id"],
@@ -253,7 +256,14 @@ def report(
                     "[%s]: %s | %s"
                     % (c["name"], c["conclusion"], c["output"].get("title"))
                 )
-                print("> " + "\n> ".join(c["output"].get("summary").split("\n")))
+                print(
+                    "> "
+                    + "\n> ".join(
+                        ("No Summary",)
+                        if c["output"]["summary"] is None
+                        else c["output"]["summary"].split("\n")
+                    )
+                )
 
             if mergify_config is not None:
                 print("* MERGIFY LIVE MATCHES:")

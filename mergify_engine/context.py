@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -17,12 +17,10 @@ import dataclasses
 import functools
 import itertools
 import logging
-import operator
 import typing
 from urllib import parse
 
-import cachetools
-import cachetools.keys
+import aredis
 import daiquiri
 import jinja2.exceptions
 import jinja2.runtime
@@ -43,6 +41,12 @@ from mergify_engine.clients import http
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
 
 
+class T_PayloadEventSource(typing.TypedDict):
+    event_type: github_types.GitHubEventType
+    data: github_types.GitHubEvent
+    timestamp: str
+
+
 @dataclasses.dataclass
 class PullRequestAttributeError(AttributeError):
     name: str
@@ -53,18 +57,17 @@ class Context(object):
     client: github.GithubInstallationClient
     pull: github_types.GitHubPullRequest
     subscription: subscription.Subscription
-    sources: typing.List[github_types.GitHubEvent] = dataclasses.field(
-        default_factory=list
-    )
-    _write_permission_cache: cachetools.LRUCache[str, bool] = dataclasses.field(
-        default_factory=lambda: cachetools.LRUCache(4096)
-    )
+    sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
+    pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
     SUMMARY_NAME = "Summary"
+    USER_PERMISSION_EXPIRATION = 3600  # 1 hour
 
     def __post_init__(self):
         self._ensure_complete()
+
+        self.pull_request = PullRequest(self)
 
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
@@ -104,41 +107,88 @@ class Context(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
 
-    @property
-    def pull_request(self):
-        return PullRequest(self)
+    USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
+    USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
 
-    @cachetools.cachedmethod(
-        # Ignore type until https://github.com/python/typeshed/issues/4652 is fixed
-        cache=operator.attrgetter("_write_permission_cache"),  # type: ignore
-        key=functools.partial(cachetools.keys.hashkey, "has_write_permissions"),
-    )
-    def has_write_permissions(self, login: str) -> bool:
-        return self.client.item(f"{self.base_url}/collaborators/{login}/permission")[
-            "permission"
-        ] in [
+    @classmethod
+    def _users_permission_cache_key_for_repo(
+        cls, owner: github_types.GitHubAccount, repo: github_types.GitHubRepository
+    ) -> str:
+        return f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{owner['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{repo['id']}"
+
+    @property
+    def _users_permission_cache_key(self) -> str:
+        return self._users_permission_cache_key_for_repo(
+            self.pull["base"]["user"], self.pull["base"]["repo"]
+        )
+
+    @classmethod
+    def clear_user_permission_cache_for_user(
+        cls,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+        user: github_types.GitHubAccount,
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            redis.hdel(
+                cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
+            )
+
+    @classmethod
+    def clear_user_permission_cache_for_repo(
+        cls,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
+
+    @classmethod
+    def clear_user_permission_cache_for_org(
+        cls, user: github_types.GitHubAccount
+    ) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            for key in redis.scan_iter(
+                f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+            ):
+                redis.delete(key)
+
+    def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        with utils.get_redis_for_cache() as redis:  # type: ignore
+            key = self._users_permission_cache_key
+            permission = redis.hget(key, user["id"])
+            if permission is None:
+                permission = self.client.item(
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
+                )["permission"]
+                with redis.pipeline() as pipe:
+                    pipe.hset(key, user["id"], permission)
+                    pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
+                    pipe.execute()
+
+        return permission in (
             "admin",
             "maintain",
             "write",
-        ]
+        )
 
-    def set_summary_check(self, result):
+    async def set_summary_check(
+        self, result: check_api.Result
+    ) -> github_types.GitHubCheckRun:
         """Set the Mergify Summary check result."""
 
-        previous_sha = self.get_cached_last_summary_head_sha()
+        previous_sha = await self.get_cached_last_summary_head_sha()
         # NOTE(sileht): we first commit in redis the future sha,
         # so engine.create_initial_summary() cannot creates a second SUMMARY
         self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
-            ret = check_api.set_check_run(self, self.SUMMARY_NAME, result)
+            return check_api.set_check_run(self, self.SUMMARY_NAME, result)
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis
                 self._save_cached_last_summary_head_sha(previous_sha)
             raise
-
-        return ret
 
     @staticmethod
     def redis_last_summary_head_sha_key(pull: github_types.GitHubPullRequest) -> str:
@@ -148,72 +198,62 @@ class Context(object):
         return f"summary-sha~{owner}~{repo}~{pull_number}"
 
     @classmethod
-    def get_cached_last_summary_head_sha_from_pull(
+    async def get_cached_last_summary_head_sha_from_pull(
         cls,
+        redis_cache: aredis.StrictRedis,
         pull: github_types.GitHubPullRequest,
-    ) -> str:
-        with utils.get_redis_for_cache() as redis:  # type: ignore
-            sha = redis.get(cls.redis_last_summary_head_sha_key(pull))
-            if not sha:
-                # FIXME(jd): remove in January 2021, fallback to the old key
-                owner = pull["base"]["repo"]["owner"]["id"]
-                repo = pull["base"]["repo"]["id"]
-                pull_number = pull["number"]
-                for k in redis.keys(f"summary-sha~*~{owner}~{repo}~{pull_number}"):
-                    sha = redis.get(k)
-                # ENDOF FIXME(jd)
-            return sha
+    ) -> typing.Optional[github_types.SHAType]:
+        return typing.cast(
+            typing.Optional[github_types.SHAType],
+            await redis_cache.get(cls.redis_last_summary_head_sha_key(pull)),
+        )
 
-    def get_cached_last_summary_head_sha(self) -> str:
-        return self.get_cached_last_summary_head_sha_from_pull(
+    async def get_cached_last_summary_head_sha(
+        self,
+    ) -> typing.Optional[github_types.SHAType]:
+        redis_cache = await utils.get_aredis_for_cache()
+        return await self.get_cached_last_summary_head_sha_from_pull(
+            redis_cache,
             self.pull,
         )
 
-    def clear_cached_last_summary_head_sha(self):
-        with utils.get_redis_for_cache() as redis:
+    def clear_cached_last_summary_head_sha(self) -> None:
+        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             redis.delete(self.redis_last_summary_head_sha_key(self.pull))
 
-    def _save_cached_last_summary_head_sha(self, sha):
+    def _save_cached_last_summary_head_sha(self, sha: github_types.SHAType) -> None:
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
-        with utils.get_redis_for_cache() as redis:
+        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
             redis.set(
                 self.redis_last_summary_head_sha_key(self.pull),
                 sha,
                 ex=SUMMARY_SHA_EXPIRATION,
             )
 
-    def _get_valid_users(self):
-        bots = list(
-            set(
-                [
-                    r["user"]["login"]
-                    for r in self.reviews
-                    if r["user"] and r["user"]["type"] == "Bot"
-                ]
+    def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
+        return {
+            r["user"]["id"]
+            for r in self.reviews
+            if (
+                r["user"] is not None
+                and (r["user"]["type"] == "Bot" or self.has_write_permission(r["user"]))
             )
-        )
-        collabs = set(
-            [
-                r["user"]["login"]
-                for r in self.reviews
-                if r["user"] and r["user"]["type"] != "Bot"
-            ]
-        )
-        valid_collabs = [
-            login for login in collabs if self.has_write_permissions(login)
-        ]
-        return bots + valid_collabs
+        }
 
     @functools.cached_property
-    def consolidated_reviews(self):
+    def consolidated_reviews(
+        self,
+    ) -> typing.Tuple[
+        typing.List[github_types.GitHubReview], typing.List[github_types.GitHubReview]
+    ]:
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
         comments = dict()
         approvals = dict()
-        valid_users = self._get_valid_users()
+        valid_user_ids = self._get_valid_user_ids()
         for review in self.reviews:
-            if not review["user"] or review["user"]["login"] not in valid_users:
+            if not review["user"] or review["user"]["id"] not in valid_user_ids:
                 continue
             # Only keep latest review of an user
             if review["state"] == "COMMENTED":
@@ -318,11 +358,11 @@ class Context(object):
         self.pull_check_runs.append(check)
 
     @functools.cached_property
-    def pull_check_runs(self):
+    def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         return check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
 
     @property
-    def pull_engine_check_runs(self):
+    def pull_engine_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         return [
             c for c in self.pull_check_runs if c["app"]["id"] == config.INTEGRATION_ID
         ]
@@ -402,13 +442,6 @@ class Context(object):
         ):
             self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
 
-        if not self._is_data_complete():
-            self.log.error(
-                "/pulls/%s has returned an incomplete payload...",
-                self.pull["number"],
-                data=self.pull,
-            )
-
         if self._is_background_github_processing_completed():
             return
 
@@ -446,26 +479,30 @@ class Context(object):
             pass
 
     @functools.cached_property
-    def is_behind(self):
+    def is_behind(self) -> bool:
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
-        branch = self.client.item(f"{self.base_url}/branches/{branch_name_escaped}")
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            self.client.item(f"{self.base_url}/branches/{branch_name_escaped}"),
+        )
         for commit in self.commits:
             for parent in commit["parents"]:
                 if parent["sha"] == branch["commit"]["sha"]:
                     return False
         return True
 
-    def have_been_synchronized(self):
+    def have_been_synchronized(self) -> bool:
         for source in self.sources:
-            if (
-                source["event_type"] == "pull_request"
-                and source["data"]["action"] == "synchronize"
-                and source["data"]["sender"]["id"] != config.BOT_USER_ID
-            ):
-                return True
+            if source["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
+                if (
+                    event["action"] == "synchronize"
+                    and event["sender"]["id"] != config.BOT_USER_ID
+                ):
+                    return True
         return False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
             "login": self.pull["base"]["user"]["login"],
             "repo": self.pull["base"]["repo"]["name"],
@@ -479,7 +516,7 @@ class Context(object):
         }
 
     @functools.cached_property
-    def reviews(self):
+    def reviews(self) -> typing.List[github_types.GitHubReview]:
         return list(
             self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/reviews")
         )
@@ -520,7 +557,7 @@ class RenderTemplateFailure(Exception):
 class PullRequest:
     """A high level pull request object.
 
-    This object is used for e.g. templates.
+    This object is used for templates and rule evaluations.
     """
 
     context: Context

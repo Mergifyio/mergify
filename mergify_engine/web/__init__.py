@@ -79,10 +79,10 @@ async def http_post(*args, **kwargs):
 
 
 async def _refresh(
-    owner: str,
+    owner: github_types.GitHubLogin,
     repo: str,
-    action: str = "user",
-    ref: str = None,
+    action: github_types.GitHubEventRefreshActionType = "user",
+    ref: github_types.GitHubRefType = None,
     pull_request: github_types.GitHubPullRequest = None,
 ) -> responses.Response:
     data = github_types.GitHubEventRefresh(
@@ -90,33 +90,42 @@ async def _refresh(
             "action": action,
             "organization": {
                 "login": owner,
-                "id": 0,
+                "id": github_types.GitHubAccountIdType(0),
                 "type": "Organization",
             },
             "installation": {
                 "id": 0,
                 "account": {
                     "login": owner,
-                    "id": 0,
+                    "id": github_types.GitHubAccountIdType(0),
                     "type": "Organization",
                 },
             },
             "repository": {
-                "id": 0,
+                "default_branch": github_types.GitHubRefType(""),
+                "id": github_types.GitHubRepositoryIdType(0),
                 "private": False,
                 "archived": False,
                 "url": "",
                 "name": repo,
-                "owner": {"login": owner, "id": 0, "type": "Organization"},
+                "owner": {
+                    "login": owner,
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "Organization",
+                },
                 "full_name": f"{owner}/{repo}",
             },
-            "sender": {"login": "<internal>", "id": 0, "type": "User"},
+            "sender": {
+                "login": github_types.GitHubLogin("<internal>"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+            },
             "ref": ref,
             "pull_request": pull_request,
         }
     )
 
-    await github_events.job_filter_and_dispatch(
+    await github_events.filter_and_dispatch(
         _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
     )
 
@@ -124,7 +133,9 @@ async def _refresh(
 
 
 @app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(auth.signature)])
-async def refresh_repo(owner: str, repo: str) -> responses.Response:
+async def refresh_repo(
+    owner: github_types.GitHubLogin, repo: str
+) -> responses.Response:
     return await _refresh(owner, repo)
 
 
@@ -136,7 +147,10 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
-    owner: str, repo: str, pull: int, action: str = "user"
+    owner: github_types.GitHubLogin,
+    repo: str,
+    pull_request_number: github_types.GitHubPullRequestNumber,
+    action: github_types.GitHubEventRefreshActionType = "user",
 ) -> responses.Response:
     action = RefreshActionSchema(action)
     return await _refresh(
@@ -145,18 +159,19 @@ async def refresh_pull(
         action=action,
         pull_request=github_types.GitHubPullRequest(
             {
-                "number": pull,
-                "id": 0,
+                "number": pull_request_number,
+                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
                 "maintainer_can_modify": False,
                 "base": {
                     "label": "",
-                    "ref": "",
-                    "sha": "",
+                    "ref": github_types.GitHubRefType(""),
+                    "sha": github_types.SHAType(""),
                     "repo": {
-                        "id": 0,
+                        "default_branch": github_types.GitHubRefType(""),
+                        "id": github_types.GitHubRepositoryIdType(0),
                         "owner": {
-                            "id": 0,
-                            "login": "",
+                            "id": github_types.GitHubAccountIdType(0),
+                            "login": github_types.GitHubLogin(""),
                             "type": "User",
                         },
                         "private": False,
@@ -165,17 +180,22 @@ async def refresh_pull(
                         "archived": False,
                         "url": "",
                     },
-                    "user": {"login": "", "id": 0, "type": "User"},
+                    "user": {
+                        "login": github_types.GitHubLogin(""),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                    },
                 },
                 "head": {
                     "label": "",
-                    "ref": "",
-                    "sha": "",
+                    "ref": github_types.GitHubRefType(""),
+                    "sha": github_types.SHAType(""),
                     "repo": {
-                        "id": 0,
+                        "default_branch": github_types.GitHubRefType(""),
+                        "id": github_types.GitHubRepositoryIdType(0),
                         "owner": {
-                            "id": 0,
-                            "login": "",
+                            "id": github_types.GitHubAccountIdType(0),
+                            "login": github_types.GitHubLogin(""),
                             "type": "User",
                         },
                         "private": False,
@@ -184,13 +204,22 @@ async def refresh_pull(
                         "archived": False,
                         "url": "",
                     },
-                    "user": {"login": "", "id": 0, "type": "User"},
+                    "user": {
+                        "login": github_types.GitHubLogin(""),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                    },
                 },
                 "state": "open",
-                "user": {"id": 0, "login": "", "type": "User"},
+                "user": {
+                    "id": github_types.GitHubAccountIdType(0),
+                    "login": github_types.GitHubLogin(""),
+                    "type": "User",
+                },
                 "labels": [],
                 "merged": False,
                 "merged_by": None,
+                "merged_at": None,
                 "rebaseable": False,
                 "draft": False,
                 "merge_commit_sha": None,
@@ -205,8 +234,12 @@ async def refresh_pull(
     "/refresh/{owner}/{repo}/branch/{branch}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def refresh_branch(owner: str, repo: str, branch: str) -> responses.Response:
-    return await _refresh(owner, repo, ref=f"refs/heads/{branch}")
+async def refresh_branch(
+    owner: github_types.GitHubLogin, repo: str, branch: str
+) -> responses.Response:
+    return await _refresh(
+        owner, repo, ref=github_types.GitHubRefType(f"refs/heads/{branch}")
+    )
 
 
 @app.put(
@@ -307,7 +340,7 @@ async def event_handler(
     data = await request.json()
 
     try:
-        await github_events.job_filter_and_dispatch(
+        await github_events.filter_and_dispatch(
             _AREDIS_STREAM, event_type, event_id, data
         )
     except github_events.IgnoredEvent as ie:

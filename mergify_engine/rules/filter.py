@@ -59,11 +59,56 @@ def _identity(value):
     return value
 
 
+TreeBinaryLeafT = typing.Tuple[typing.Any, typing.Any]
+
+TreeT = typing.TypedDict(
+    "TreeT",
+    {
+        # mypy does not support recursive definition yet
+        "-": "TreeT",  # type: ignore[misc]
+        "¬": "TreeT",  # type: ignore[misc]
+        "=": TreeBinaryLeafT,
+        "==": TreeBinaryLeafT,
+        "<": TreeBinaryLeafT,
+        ">": TreeBinaryLeafT,
+        "<=": TreeBinaryLeafT,
+        "≤": TreeBinaryLeafT,
+        ">=": TreeBinaryLeafT,
+        "≥": TreeBinaryLeafT,
+        "!=": TreeBinaryLeafT,
+        "≠": TreeBinaryLeafT,
+        "~=": TreeBinaryLeafT,
+    },
+    total=False,
+)
+
+
+class GetAttrObject(typing.Protocol):
+    def __getattribute__(self, key: typing.Any) -> typing.Any:
+        ...
+
+
+GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
+
+
 @dataclasses.dataclass(repr=False)
 class Filter:
-    unary_operators = {"-": operator.not_, "¬": operator.not_}
+    tree: TreeT
 
-    binary_operators = {
+    unary_operators: typing.ClassVar[
+        typing.Dict[str, typing.Callable[[typing.Any], bool]]
+    ] = {"-": operator.not_, "¬": operator.not_}
+
+    binary_operators: typing.ClassVar[
+        typing.Dict[
+            str,
+            typing.Tuple[
+                typing.Callable[[typing.Any, typing.Any], bool],
+                typing.Callable[[typing.Iterable[object]], bool],
+                typing.Callable[[typing.Any], typing.Any],
+            ],
+        ]
+    ] = {
         "=": (operator.eq, any, _identity),
         "==": (operator.eq, any, _identity),
         "<": (operator.lt, any, _identity),
@@ -77,21 +122,16 @@ class Filter:
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
-    # mypy does not support recursive definition (yet)
-    tree: typing.Dict[  # type: ignore[type-arg]
-        typing.Literal[
-            "-", "¬", "=", "==", "<", ">", "<=", "≤", ">=", "≥", "!=", "≠", "~="
-        ],
-        typing.Dict,
-    ]
-
     # The name of the attribute that is going to be evaluated by this filter.
     attribute_name: str = dataclasses.field(init=False)
 
-    # A method to resolve name externaly
-    _value_expanders: typing.Dict[
-        str, typing.Callable[[typing.List[typing.Any]], typing.Any]
-    ] = dataclasses.field(init=False, default_factory=dict)
+    value_expanders: typing.Dict[
+        str, typing.Callable[[typing.Any], typing.List[typing.Any]]
+    ] = dataclasses.field(default_factory=dict)
+
+    _eval: typing.Callable[["Filter", GetAttrObjectT], bool] = dataclasses.field(
+        init=False
+    )
 
     def __post_init__(self):
         self._eval = self.build_evaluator(self.tree)
@@ -104,7 +144,7 @@ class Filter:
         return name
 
     @classmethod
-    def parse(cls, string):
+    def parse(cls, string: str) -> "Filter":
         return cls(parser.search.parseString(string, parseAll=True)[0])
 
     def __str__(self):
@@ -127,71 +167,81 @@ class Filter:
     def __repr__(self):  # pragma: no cover
         return "%s(%s)" % (self.__class__.__name__, str(self))
 
-    def set_value_expanders(self, name, resolver):
-        self._value_expanders[name] = resolver
-
-    def __call__(self, **kwargs):
-        return self._eval(kwargs)
+    def __call__(self, obj: GetAttrObjectT) -> bool:
+        return self._eval(obj)
 
     LENGTH_OPERATOR = "#"
-    ATTR_SEPARATOR = "."
 
-    def _get_value_comparator(self, op, iterable_op, name, values):
-        if op != len and name in self._value_expanders:
-            return lambda x: iterable_op(
-                map(lambda y: op(x, y), self._value_expanders[name](values))
-            )
-        else:
-            return lambda x: op(x, values)
+    def _to_list(self, item: typing.Any) -> typing.List[typing.Any]:
+        if isinstance(item, list):
+            return item
 
-    def _resolve_name(self, values, name):
-        if name.startswith(self.LENGTH_OPERATOR):
-            self.attribute_name = name[1:]
+        if isinstance(item, tuple):
+            return list(item)
+
+        return [item]
+
+    def _get_attribute_values(
+        self,
+        obj: GetAttrObjectT,
+        attribute_name: str,
+    ) -> typing.List[typing.Any]:
+        if attribute_name.startswith(self.LENGTH_OPERATOR):
+            self.attribute_name = attribute_name[1:]
             op = len
         else:
-            self.attribute_name = name
+            self.attribute_name = attribute_name
             op = _identity
         try:
-            for subname in self.attribute_name.split(self.ATTR_SEPARATOR):
-                values = values[subname]
-            try:
-                return op(values)
-            except TypeError:
-                raise InvalidOperator(name)
+            attr = getattr(obj, self.attribute_name)
         except KeyError:
             raise UnknownAttribute(self.attribute_name)
+        try:
+            values = op(attr)
+        except TypeError:
+            raise InvalidOperator(self.attribute_name)
 
-    def build_evaluator(self, tree):
-        items = list(tree.items())
-        if len(items) != 1:
+        return self._to_list(values)
+
+    def build_evaluator(self, tree: TreeT) -> typing.Callable[[typing.Any], bool]:
+        if len(tree) != 1:
             raise ParseError(tree)
+        operator_name, nodes = list(tree.items())[0]
         try:
-            operator, nodes = items[0]
-        except Exception:  # pragma: no cover
-            raise ParseError(tree)
-        try:
-            op = self.unary_operators[operator]
+            unary_op = self.unary_operators[operator_name]
         except KeyError:
             try:
-                op, iterable_op, compile_fn = self.binary_operators[operator]
+                binary_op, iterable_op, compile_fn = self.binary_operators[
+                    operator_name
+                ]
             except KeyError:
-                raise UnknownOperator(operator)
+                raise UnknownOperator(operator_name)
+
+            nodes = typing.cast(TreeBinaryLeafT, nodes)
             if len(nodes) != 2:
                 raise InvalidArguments(nodes)
 
             try:
-                nodes = (nodes[0], compile_fn(nodes[1]))
+                attribute_name, reference_value = (nodes[0], compile_fn(nodes[1]))
             except Exception as e:
                 raise InvalidArguments(str(e))
 
-            def _op(values):
-                values = self._resolve_name(values, nodes[0])
-                cmp = self._get_value_comparator(op, iterable_op, nodes[0], nodes[1])
+            def _cmp(attribute_values: typing.Tuple[typing.Any]) -> bool:
+                reference_value_expander = self.value_expanders.get(
+                    attribute_name, self._to_list
+                )
+                ref_values_expanded = reference_value_expander(reference_value)
+                return iterable_op(
+                    binary_op(attribute_value, ref_value)
+                    for attribute_value in attribute_values
+                    for ref_value in ref_values_expanded
+                )
 
-                if isinstance(values, (list, tuple)) and op != len:
-                    return iterable_op(map(cmp, values))
-                return cmp(values)
+            def _op(obj):
+                return _cmp(self._get_attribute_values(obj, attribute_name))
 
             return _op
+
+        nodes = typing.cast(TreeT, nodes)
         element = self.build_evaluator(nodes)
-        return lambda values: op(element(values))
+        return lambda values: unary_op(element(values))

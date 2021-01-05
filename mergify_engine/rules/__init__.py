@@ -143,14 +143,9 @@ class RulesEvaluator:
             next_conditions_to_validate = []
             for condition in rule.conditions:
                 for attrib in self.TEAM_ATTRIBUTES:
-                    condition.set_value_expanders(
-                        attrib,
-                        self.context.resolve_teams,
-                    )
+                    condition.value_expanders[attrib] = self.context.resolve_teams
 
-                name = condition.get_attribute_name()
-                value = getattr(self.context.pull_request, name)
-                if not condition(**{name: value}):
+                if not condition(self.context.pull_request):
                     next_conditions_to_validate.append(condition)
                     if condition.attribute_name in self.BASE_ATTRIBUTES:
                         ignore_rules = True
@@ -187,7 +182,7 @@ class PullRequestRules:
         return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
 
 
-class YAMLInvalid(voluptuous.Invalid):
+class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
         return f"{self.msg} at {self.path}"
 

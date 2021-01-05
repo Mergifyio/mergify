@@ -11,6 +11,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import daiquiri
 import pkg_resources
 import voluptuous
@@ -40,7 +42,7 @@ with open(mergify_rule_path, "r") as f:
     )
 
 
-def check_configuration_changes(ctxt):
+async def _check_configuration_changes(ctxt: context.Context) -> bool:
     if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
         for f in ctxt.files:
@@ -54,7 +56,7 @@ def check_configuration_changes(ctxt):
                 )
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
-                ctxt.set_summary_check(
+                await ctxt.set_summary_check(
                     check_api.Result(
                         check_api.Conclusion.FAILURE,
                         title="The new Mergify configuration is invalid",
@@ -63,7 +65,7 @@ def check_configuration_changes(ctxt):
                     )
                 )
             else:
-                ctxt.set_summary_check(
+                await ctxt.set_summary_check(
                     check_api.Result(
                         check_api.Conclusion.SUCCESS,
                         title="The new Mergify configuration is valid",
@@ -86,22 +88,22 @@ def get_summary_from_sha(ctxt, sha):
         return checks[0]
 
 
-def ensure_summary_on_head_sha(ctxt):
+async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     for check in ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME:
             return
 
-    sha = ctxt.get_cached_last_summary_head_sha()
-    if sha:
-        previous_summary = get_summary_from_sha(ctxt, sha)
-    else:
+    sha = await ctxt.get_cached_last_summary_head_sha()
+    if sha is None:
         previous_summary = None
         ctxt.log.warning(
             "the pull request doesn't have the last summary head sha stored in redis"
         )
+    else:
+        previous_summary = get_summary_from_sha(ctxt, sha)
 
     if previous_summary:
-        ctxt.set_summary_check(
+        await ctxt.set_summary_check(
             check_api.Result(
                 check_api.Conclusion(previous_summary["conclusion"]),
                 title=previous_summary["output"]["title"],
@@ -112,16 +114,29 @@ def ensure_summary_on_head_sha(ctxt):
         ctxt.log.warning("the pull request doesn't have a summary")
 
 
-def run(client, pull, sub, sources):
+class T_PayloadEventIssueCommentSource(typing.TypedDict):
+    event_type: github_types.GitHubEventType
+    data: github_types.GitHubEventIssueComment
+    timestamp: str
+
+
+def run(
+    client: github.GithubInstallationClient,
+    pull: github_types.GitHubPullRequest,
+    sub: subscription.Subscription,
+    sources: typing.List[context.T_PayloadEventSource],
+) -> None:
     LOG.debug("engine get context")
     ctxt = context.Context(client, pull, sub)
     ctxt.log.debug("engine start processing context")
 
-    issue_comment_sources = []
+    issue_comment_sources: typing.List[T_PayloadEventIssueCommentSource] = []
 
     for source in sources:
         if source["event_type"] == "issue_comment":
-            issue_comment_sources.append(source)
+            issue_comment_sources.append(
+                typing.cast(T_PayloadEventIssueCommentSource, source)
+            )
         else:
             ctxt.sources.append(source)
 
@@ -130,28 +145,30 @@ def run(client, pull, sub, sources):
 
     if issue_comment_sources:
         ctxt.log.debug("engine handle commands")
-        for source in issue_comment_sources:
+        for ic_source in issue_comment_sources:
             commands_runner.handle(
                 ctxt,
-                source["data"]["comment"]["body"],
-                source["data"]["comment"]["user"],
+                ic_source["data"]["comment"]["body"],
+                ic_source["data"]["comment"]["user"],
             )
 
     if not ctxt.sources:
         return
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Required GitHub permissions are missing.",
-                summary="You can accept them at https://dashboard.mergify.io/",
+        utils.async_run_one(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    title="Required GitHub permissions are missing.",
+                    summary="You can accept them at https://dashboard.mergify.io/",
+                )
             )
         )
         return
 
     ctxt.log.debug("engine check configuration change")
-    if check_configuration_changes(ctxt):
+    if utils.async_run_one(_check_configuration_changes(ctxt)):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
@@ -171,21 +188,21 @@ def run(client, pull, sub, sources):
             annotations=e.get_annotations(e.filename),
         )
         # Not configured, post status check with the error message
-        if any(
-            (
-                s["event_type"] == "pull_request"
-                and s["data"]["action"] in ["opened", "synchronize"]
-                for s in ctxt.sources
-            )
-        ):
-            ctxt.set_summary_check(
-                check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    title="The Mergify configuration is invalid",
-                    summary=str(e),
-                    annotations=e.get_annotations(e.filename),
-                )
-            )
+        for s in ctxt.sources:
+            if s["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
+                if event["action"] in ("opened", "synchronize"):
+                    utils.async_run_one(
+                        ctxt.set_summary_check(
+                            check_api.Result(
+                                check_api.Conclusion.FAILURE,
+                                title="The Mergify configuration is invalid",
+                                summary=str(e),
+                                annotations=e.get_annotations(e.filename),
+                            )
+                        )
+                    )
+                    break
         return
 
     # Add global and mandatory rules
@@ -195,41 +212,41 @@ def run(client, pull, sub, sources):
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.log.info("mergify disabled: private repository")
-        ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Mergify is disabled",
-                summary=sub.reason,
+        utils.async_run_one(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    title="Mergify is disabled",
+                    summary=sub.reason,
+                )
             )
         )
         return
 
-    ensure_summary_on_head_sha(ctxt)
+    utils.async_run_one(_ensure_summary_on_head_sha(ctxt))
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
     # register. It feels hackish otherwise.
-    if any(
-        s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
-        for s in ctxt.sources
-    ):
-        ctxt.clear_cached_last_summary_head_sha()
+    for s in ctxt.sources:
+        if s["event_type"] == "pull_request":
+            event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
+            if event["action"] == "closed":
+                ctxt.clear_cached_last_summary_head_sha()
+                break
 
     ctxt.log.debug("engine handle actions")
     actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
-async def create_initial_summary(
-    owner: str, event_type: str, data: github_types.GitHubEventPullRequest
-) -> None:
-    if data["action"] != "opened":
-        return
+async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:
+    owner = event["repository"]["owner"]["login"]
 
     redis = await utils.get_aredis_for_cache()
 
     if not await redis.exists(
         rules.get_config_location_cache_key(
-            owner, data["pull_request"]["base"]["repo"]["name"]
+            owner, event["pull_request"]["base"]["repo"]["name"]
         )
     ):
         # Mergify is probably not activated on this repo
@@ -241,32 +258,32 @@ async def create_initial_summary(
     # the summary twice. Since this method can ran in parallel of the worker
     # this is not a 100% reliable solution, but if we post a duplicate summary
     # check_api.set_check_run() handle this case and update both to not confuse users.
-    sha = context.Context.get_cached_last_summary_head_sha_from_pull(
-        data["pull_request"]
+    sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
+        redis, event["pull_request"]
     )
-    if sha:
+    if sha is None:
         return
 
     async with await github.aget_client(owner) as client:
         post_parameters = {
             "name": context.Context.SUMMARY_NAME,
-            "head_sha": data["pull_request"]["head"]["sha"],
+            "head_sha": event["pull_request"]["head"]["sha"],
             "status": check_api.Status.IN_PROGRESS.value,
             "started_at": utils.utcnow().isoformat(),
-            "details_url": f"{data['pull_request']['html_url']}/checks",
+            "details_url": f"{event['pull_request']['html_url']}/checks",
             "output": {
                 "title": "Your rules are under evaluation",
                 "summary": "Be patient, the page will be updated soon.",
             },
         }
         await client.post(
-            f"/repos/{data['pull_request']['base']['user']['login']}/{data['pull_request']['base']['repo']['name']}/check-runs",
+            f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
             api_version="antiope",  # type: ignore[call-arg]
             json=post_parameters,
         )
 
     await redis.set(
-        context.Context.redis_last_summary_head_sha_key(data["pull_request"]),
-        data["pull_request"]["head"]["sha"],
+        context.Context.redis_last_summary_head_sha_key(event["pull_request"]),
+        event["pull_request"]["head"]["sha"],
         ex=context.SUMMARY_SHA_EXPIRATION,
     )

@@ -18,116 +18,131 @@ import pytest
 from mergify_engine.rules import filter
 
 
-def test_binary():
+class FakePR(dict):  # type: ignore[type-arg]
+    def __getattr__(self, k):
+        return self[k]
+
+
+def test_binary() -> None:
     f = filter.Filter({"=": ("foo", 1)})
-    assert f(foo=1)
-    assert not f(foo=2)
+    assert f(FakePR({"foo": 1}))
+    assert not f(FakePR({"foo": 2}))
 
 
-def test_string():
+def test_string() -> None:
     f = filter.Filter({"=": ("foo", "bar")})
-    assert f(foo="bar")
-    assert not f(foo=2)
+    assert f(FakePR({"foo": "bar"}))
+    assert not f(FakePR({"foo": 2}))
 
 
-def test_not():
+def test_not() -> None:
     f = filter.Filter({"-": {"=": ("foo", 1)}})
-    assert not f(foo=1)
-    assert f(foo=2)
+    assert not f(FakePR({"foo": 1}))
+    assert f(FakePR({"foo": 2}))
 
 
-def test_len():
+def test_len() -> None:
     f = filter.Filter({"=": ("#foo", 3)})
-    assert f(foo="bar")
+    assert f(FakePR({"foo": "bar"}))
     with pytest.raises(filter.InvalidOperator):
-        f(foo=2)
-    assert not f(foo="a")
-    assert not f(foo="abcedf")
-    assert f(foo=[10, 20, 30])
-    assert not f(foo=[10, 20])
-    assert not f(foo=[10, 20, 40, 50])
+        f(FakePR({"foo": 2}))
+    assert not f(FakePR({"foo": "a"}))
+    assert not f(FakePR({"foo": "abcedf"}))
+    assert f(FakePR({"foo": [10, 20, 30]}))
+    assert not f(FakePR({"foo": [10, 20]}))
+    assert not f(FakePR({"foo": [10, 20, 40, 50]}))
     f = filter.Filter({">": ("#foo", 3)})
-    assert f(foo="barz")
+    assert f(FakePR({"foo": "barz"}))
     with pytest.raises(filter.InvalidOperator):
-        f(foo=2)
-    assert not f(foo="a")
-    assert f(foo="abcedf")
-    assert f(foo=[10, "abc", 20, 30])
-    assert not f(foo=[10, 20])
-    assert not f(foo=[])
+        f(FakePR({"foo": 2}))
+    assert not f(FakePR({"foo": "a"}))
+    assert f(FakePR({"foo": "abcedf"}))
+    assert f(FakePR({"foo": [10, "abc", 20, 30]}))
+    assert not f(FakePR({"foo": [10, 20]}))
+    assert not f(FakePR({"foo": []}))
 
 
-def test_regexp():
+def test_regexp() -> None:
     f = filter.Filter({"~=": ("foo", "^f")})
-    assert f(foo="foobar")
-    assert f(foo="foobaz")
-    assert not f(foo="x")
-    assert not f(foo=None)
+    assert f(FakePR({"foo": "foobar"}))
+    assert f(FakePR({"foo": "foobaz"}))
+    assert not f(FakePR({"foo": "x"}))
+    assert not f(FakePR({"foo": None}))
 
     f = filter.Filter({"~=": ("foo", "^$")})
-    assert f(foo="")
-    assert not f(foo="x")
+    assert f(FakePR({"foo": ""}))
+    assert not f(FakePR({"foo": "x"}))
 
 
-def test_regexp_invalid():
+def test_regexp_invalid() -> None:
     with pytest.raises(filter.InvalidArguments):
         filter.Filter({"~=": ("foo", r"([^\s\w])(\s*\1+")})
 
 
-def test_set_value_expanders():
+def test_set_value_expanders() -> None:
+    f = filter.Filter(
+        {"=": ("foo", "@bar")},
+        value_expanders={"foo": lambda x: [x.replace("@", "foo")]},
+    )
+    assert f(FakePR({"foo": "foobar"}))
+    assert not f(FakePR({"foo": "x"}))
+
+
+def test_set_value_expanders_unset_at_init() -> None:
     f = filter.Filter({"=": ("foo", "@bar")})
-    f.set_value_expanders("foo", lambda x: [x.replace("@", "foo")])
-    assert f(foo="foobar")
-    assert not f(foo="x")
+    f.value_expanders = {"foo": lambda x: [x.replace("@", "foo")]}
+    assert f(FakePR({"foo": "foobar"}))
+    assert not f(FakePR({"foo": "x"}))
 
 
-def test_does_not_contain():
+def test_does_not_contain() -> None:
     f = filter.Filter({"!=": ("foo", 1)})
-    assert f(foo=[])
-    assert f(foo=[2, 3])
-    assert not f(foo=(1, 2))
+    assert f(FakePR({"foo": []}))
+    assert f(FakePR({"foo": [2, 3]}))
+    assert not f(FakePR({"foo": (1, 2)}))
 
 
-def test_set_value_expanders_does_not_contain():
-    f = filter.Filter({"!=": ("foo", "@bar")})
-    f.set_value_expanders("foo", lambda x: ["foobaz", "foobar"])
-    assert not f(foo="foobar")
-    assert not f(foo="foobaz")
-    assert f(foo="foobiz")
+def test_set_value_expanders_does_not_contain() -> None:
+    f = filter.Filter(
+        {"!=": ("foo", "@bar")}, value_expanders={"foo": lambda x: ["foobaz", "foobar"]}
+    )
+    assert not f(FakePR({"foo": "foobar"}))
+    assert not f(FakePR({"foo": "foobaz"}))
+    assert f(FakePR({"foo": "foobiz"}))
 
 
-def test_contains():
+def test_contains() -> None:
     f = filter.Filter({"=": ("foo", 1)})
-    assert f(foo=[1, 2])
-    assert not f(foo=[2, 3])
-    assert f(foo=(1, 2))
+    assert f(FakePR({"foo": [1, 2]}))
+    assert not f(FakePR({"foo": [2, 3]}))
+    assert f(FakePR({"foo": (1, 2)}))
     f = filter.Filter({">": ("foo", 2)})
-    assert not f(foo=[1, 2])
-    assert f(foo=[2, 3])
+    assert not f(FakePR({"foo": [1, 2]}))
+    assert f(FakePR({"foo": [2, 3]}))
 
 
-def test_unknown_attribute():
+def test_unknown_attribute() -> None:
     f = filter.Filter({"=": ("foo", 1)})
     with pytest.raises(filter.UnknownAttribute):
-        f(bar=1)
+        f(FakePR({"bar": 1}))
 
 
-def test_parse_error():
+def test_parse_error() -> None:
     with pytest.raises(filter.ParseError):
         filter.Filter({})
 
 
-def test_unknown_operator():
+def test_unknown_operator() -> None:
     with pytest.raises(filter.UnknownOperator):
-        filter.Filter({"oops": (1, 2)})
+        filter.Filter({"oops": (1, 2)})  # type: ignore[typeddict-item]
 
 
-def test_invalid_arguments():
+def test_invalid_arguments() -> None:
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({"=": (1, 2, 3)})
+        filter.Filter({"=": (1, 2, 3)})  # type: ignore[typeddict-item]
 
 
-def test_str():
+def test_str() -> None:
     assert "foo~=^f" == str(filter.Filter({"~=": ("foo", "^f")}))
     assert "-foo=1" == str(filter.Filter({"-": {"=": ("foo", 1)}}))
     assert "foo" == str(filter.Filter({"=": ("foo", True)}))
@@ -136,6 +151,6 @@ def test_str():
         str(filter.Filter({">=": ("bar", False)}))
 
 
-def test_parser():
+def test_parser() -> None:
     for string in ("head=foobar", "-base=master", "#files>3"):
         assert string == str(filter.Filter.parse(string))
