@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+# Copyright © 2018—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -29,7 +29,6 @@ from unittest import mock
 import daiquiri
 import github as pygithub
 import pytest
-import redis
 from starlette import testclient
 import vcr
 import vcr.stubs.urllib3_stubs
@@ -497,10 +496,12 @@ class FunctionalTestBase(unittest.TestCase):
         self._event_reader.drain()
 
         # NOTE(sileht): Prepare a fresh redis
-        self.redis_stream = redis.StrictRedis.from_url(
-            config.STREAM_URL, decode_responses=False
-        )
-        self.redis_stream.flushall()
+        asyncio.run(self.clear_redis_stream())
+
+    @staticmethod
+    async def clear_redis_stream():
+        redis_stream = await utils.create_aredis_for_stream(max_idle_time=0)
+        await redis_stream.flushall()
 
     def tearDown(self):
         super(FunctionalTestBase, self).tearDown()
@@ -540,8 +541,7 @@ class FunctionalTestBase(unittest.TestCase):
         asyncio.run(web.shutdown())
 
         self._event_reader.drain()
-        self.redis_stream.flushall()
-        self.redis_stream.close()
+        asyncio.run(self.clear_redis_stream())
         mock.patch.stopall()
 
     def wait_for(self, *args, **kwargs):
