@@ -398,5 +398,6 @@ class GitHubEventTeam(GitHubEvent):
     repository: typing.Optional[GitHubRepository]
 
 
-class GitHubEventTeamAdd(GitHubEvent):
+class GitHubEventTeamAdd(GitHubEvent, total=False):
+    # Repository key can be missing on Enterprise installations
     repository: GitHubRepository
