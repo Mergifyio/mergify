@@ -16,6 +16,8 @@
 import enum
 import json
 
+import pytest
+
 from mergify_engine import json as mergify_json
 
 
@@ -39,7 +41,12 @@ with_enum_encode = {
     },
 }
 
-mergify_json.register_type(type(Color.BLUE))
+mergify_json.register_type(Color)
+
+
+def test_register_type_fail():
+    with pytest.raises(RuntimeError):
+        mergify_json.register_type(Color)
 
 
 def test_encode_enum():
