@@ -90,7 +90,9 @@ def get_summary_from_sha(ctxt, sha):
 
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     for check in ctxt.pull_engine_check_runs:
-        if check["name"] == ctxt.SUMMARY_NAME:
+        if check["name"] == ctxt.SUMMARY_NAME and actions_runner.load_conclusions_line(
+            check
+        ):
             return
 
     sha = await ctxt.get_cached_last_summary_head_sha()
@@ -261,7 +263,7 @@ async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> 
     sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
         redis, event["pull_request"]
     )
-    if sha is not None:
+    if sha is not None or sha == event["pull_request"]["head"]["sha"]:
         return
 
     async with await github.aget_client(owner) as client:
@@ -281,9 +283,3 @@ async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> 
             api_version="antiope",  # type: ignore[call-arg]
             json=post_parameters,
         )
-
-    await redis.set(
-        context.Context.redis_last_summary_head_sha_key(event["pull_request"]),
-        event["pull_request"]["head"]["sha"],
-        ex=context.SUMMARY_SHA_EXPIRATION,
-    )
