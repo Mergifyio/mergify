@@ -83,7 +83,7 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[int]
 
-    def __init__(self, owner: str, token: str, owner_id: int = None):
+    def __init__(self, owner: str, token: str, owner_id: typing.Optional[int] = None):
         self._token = token
         self.owner = owner
         self.owner_id = owner_id

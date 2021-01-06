@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2019–2020 Mergify SAS
+# Copyright © 2019–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,6 +15,7 @@
 # under the License.
 import collections
 import json
+import typing
 import uuid
 
 import aredis
@@ -82,8 +83,8 @@ async def _refresh(
     owner: github_types.GitHubLogin,
     repo: str,
     action: github_types.GitHubEventRefreshActionType = "user",
-    ref: github_types.GitHubRefType = None,
-    pull_request: github_types.GitHubPullRequest = None,
+    ref: typing.Optional[github_types.GitHubRefType] = None,
+    pull_request: typing.Optional[github_types.GitHubPullRequest] = None,
 ) -> responses.Response:
     data = github_types.GitHubEventRefresh(
         {
@@ -403,7 +404,7 @@ async def event_testing_handler_post(
 
 @app.get("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
 async def event_testing_handler_get(
-    number: int = None,
+    number: typing.Optional[int] = None,
 ) -> responses.Response:  # pragma: no cover
     async with await _AREDIS_CACHE.pipeline() as p:
         if number is None:
