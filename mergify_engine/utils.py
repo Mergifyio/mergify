@@ -115,15 +115,6 @@ def async_run(*awaitables):
     return asyncio.run(async_main(*awaitables))
 
 
-_T = typing.TypeVar("_T")
-
-
-def async_run_one(awaitable: typing.Awaitable[_T]) -> _T:
-    # NOTE(jd): Ignore type here because async_run takes an iterable and we'd
-    # need a ton of @overload
-    return asyncio.run(async_main(awaitable))[0]  # type: ignore[no-any-return]
-
-
 class Gitter(object):
     def __init__(self, logger):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")
