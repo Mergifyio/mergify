@@ -10,7 +10,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import asyncio
 import typing
 
 import daiquiri
@@ -158,7 +158,7 @@ def run(
         return
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        utils.async_run_one(
+        asyncio.run(
             ctxt.set_summary_check(
                 check_api.Result(
                     check_api.Conclusion.FAILURE,
@@ -170,7 +170,7 @@ def run(
         return
 
     ctxt.log.debug("engine check configuration change")
-    if utils.async_run_one(_check_configuration_changes(ctxt)):
+    if asyncio.run(_check_configuration_changes(ctxt)):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
@@ -194,7 +194,7 @@ def run(
             if s["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
                 if event["action"] in ("opened", "synchronize"):
-                    utils.async_run_one(
+                    asyncio.run(
                         ctxt.set_summary_check(
                             check_api.Result(
                                 check_api.Conclusion.FAILURE,
@@ -214,7 +214,7 @@ def run(
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.log.info("mergify disabled: private repository")
-        utils.async_run_one(
+        asyncio.run(
             ctxt.set_summary_check(
                 check_api.Result(
                     check_api.Conclusion.FAILURE,
@@ -225,7 +225,7 @@ def run(
         )
         return
 
-    utils.async_run_one(_ensure_summary_on_head_sha(ctxt))
+    asyncio.run(_ensure_summary_on_head_sha(ctxt))
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
