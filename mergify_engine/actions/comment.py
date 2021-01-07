@@ -20,16 +20,33 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
 class CommentAction(actions.Action):
-    validator = {voluptuous.Required("message"): types.Jinja2}
+    validator = {
+        voluptuous.Required("message"): types.Jinja2,
+        voluptuous.Required("bot_account", default=None): voluptuous.Any(
+            None, types.GitHubLogin
+        ),
+    }
 
     silent_report = True
 
     def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+        if self.config["bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Comments with `bot_account` set are disabled",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
         try:
             message = ctxt.pull_request.render_template(self.config["message"])
         except context.RenderTemplateFailure as rmf:
@@ -39,9 +56,21 @@ class CommentAction(actions.Action):
                 str(rmf),
             )
 
+        if bot_account := self.config["bot_account"]:
+            oauth_token = ctxt.subscription.get_token_for(bot_account)
+            if not oauth_token:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to comment: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+        else:
+            oauth_token = None
+
         try:
             ctxt.client.post(
                 f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
+                oauth_token=oauth_token,  # type: ignore
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
