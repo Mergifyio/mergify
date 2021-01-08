@@ -1,10 +1,10 @@
 aredis==1.1.8
 cachetools==4.1.1
-certifi==2020.11.8
+certifi==2020.12.5
 cffi==1.14.3
 chardet==3.0.4
 click==7.1.2
-cryptography==3.2.1
+cryptography==3.3.1
 daiquiri==3.0.0
 datadog==0.39.0
 decorator==4.4.2
@@ -32,7 +32,7 @@ python-json-logger==2.0.1
 python-multipart==0.0.5
 PyYAML==5.3.1
 redis==3.5.3
-requests==2.24.0
+requests==2.25.1
 rfc3986==1.4.0
 sentry-sdk==0.19.2
 setproctitle==1.1.10
@@ -41,7 +41,7 @@ sniffio==1.2.0
 starlette==0.13.6
 tenacity==6.2.0
 urllib3==1.25.11
-uvicorn==0.12.2
+uvicorn==0.13.3
 uvloop==0.14.0
 voluptuous==0.12.0
 watchgod==0.6
