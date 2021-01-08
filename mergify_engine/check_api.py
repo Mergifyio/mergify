@@ -52,7 +52,9 @@ class Result:
 
 
 def get_checks_for_ref(
-    ctxt: "context.Context", sha: github_types.SHAType, check_name: str = None
+    ctxt: "context.Context",
+    sha: github_types.SHAType,
+    check_name: typing.Optional[str] = None,
 ) -> typing.List[github_types.GitHubCheckRun]:
     if check_name is None:
         kwargs = {}
@@ -86,7 +88,10 @@ def compare_dict(d1, d2, keys):
 
 
 def set_check_run(
-    ctxt: "context.Context", name: str, result: Result, external_id: str = None
+    ctxt: "context.Context",
+    name: str,
+    result: Result,
+    external_id: typing.Optional[str] = None,
 ) -> github_types.GitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
