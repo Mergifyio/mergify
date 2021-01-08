@@ -19,6 +19,33 @@ from mergify_engine import context
 from mergify_engine.tests.functional import base
 
 
+class TestCommentActionWithSub(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
+    def test_comment_with_bot_account(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {
+                        "comment": {"message": "WTF?", "bot_account": "mergify-test3"}
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.run_engine()
+
+        p.update()
+        comments = list(p.get_issue_comments())
+        assert comments[-1].body == "WTF?"
+        assert comments[-1].user.login == "mergify-test3"
+
+
 class TestCommentAction(base.FunctionalTestBase):
     def test_comment(self):
         rules = {
@@ -137,4 +164,33 @@ unexpected 'end of template'
 Unknown pull request attribute: hello
 ```"""
             == check["output"]["summary"]
+        )
+
+    def test_comment_with_bot_account(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {
+                        "comment": {"message": "WTF?", "bot_account": "mergify-test3"}
+                    },
+                }
+            ]
+        }
+
+        self.setup_repo(yaml.dump(rules))
+
+        p, _ = self.create_pr()
+        self.run_engine()
+
+        p.update()
+
+        comments = list(p.get_issue_comments())
+        assert len(comments) == 0
+
+        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        check = ctxt.pull_engine_check_runs[-1]
+        assert (
+            check["output"]["title"] == "Comments with `bot_account` set are disabled"
         )

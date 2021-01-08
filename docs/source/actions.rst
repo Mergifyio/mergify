@@ -161,6 +161,14 @@ The ``comment`` action adds a comment to the pull request.
      - :ref:`data type template`
      -
      - The message to write as a comment.
+   * - ``bot_account``
+     - string
+     -
+     - Mergify can impersonate a GitHub user to comment a pull request.
+       If no ``bot_account`` is set, Mergify will comment the pull request
+       itself.
+
+       |premium plan tag|
 
 .. _review action:
 
