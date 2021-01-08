@@ -4,13 +4,13 @@ certifi==2020.12.5
 cffi==1.14.3
 chardet==3.0.4
 click==7.1.2
-cryptography==3.2.1
+cryptography==3.3.1
 daiquiri==3.0.0
 datadog==0.39.0
 decorator==4.4.2
 fastapi==0.61.2
 gunicorn==20.0.4
-h11==0.11.0
+h11==0.12.0
 h2==3.2.0
 hiredis==1.1.0
 honcho==1.0.1
@@ -24,7 +24,7 @@ Jinja2==2.11.2
 MarkupSafe==1.1.1
 msgpack==1.0.0
 pycparser==2.20
-pydantic==1.7.2
+pydantic==1.7.3
 PyJWT==1.7.1
 pyparsing==2.4.7
 python-dotenv==0.15.0
@@ -32,7 +32,7 @@ python-json-logger==2.0.1
 python-multipart==0.0.5
 PyYAML==5.3.1
 redis==3.5.3
-requests==2.24.0
+requests==2.25.1
 rfc3986==1.4.0
 sentry-sdk==0.19.2
 setproctitle==1.1.10
@@ -41,7 +41,7 @@ sniffio==1.2.0
 starlette==0.13.6
 tenacity==6.2.0
 urllib3==1.25.11
-uvicorn==0.12.2
+uvicorn==0.13.3
 uvloop==0.14.0
 voluptuous==0.12.0
 watchgod==0.6
