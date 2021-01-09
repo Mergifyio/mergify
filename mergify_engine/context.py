@@ -135,13 +135,13 @@ class Context(object):
         )
 
     @classmethod
-    def clear_user_permission_cache_for_repo(
+    async def clear_user_permission_cache_for_repo(
         cls,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
-        with utils.get_redis_for_cache() as redis:  # type: ignore
-            redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
+        redis = await utils.get_aredis_for_cache()
+        await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
 
     @classmethod
     def clear_user_permission_cache_for_org(

@@ -170,7 +170,7 @@ async def test_user_permission_cache() -> None:
     assert client.called == 1
     assert not c.has_write_permission(user_1)
     assert client.called == 2
-    context.Context.clear_user_permission_cache_for_repo(owner, repo)
+    await context.Context.clear_user_permission_cache_for_repo(owner, repo)
     assert not c.has_write_permission(user_1)
     assert client.called == 3
     assert not c.has_write_permission(user_3)
