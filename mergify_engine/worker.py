@@ -111,13 +111,15 @@ class T_PayloadEvent(typing.TypedDict):
 )
 async def push(
     redis: aredis.StrictRedis,
-    owner: str,
-    repo: str,
+    # NOTE(sileht): remove Optional when all stream have the new name format
+    owner_id: int,
+    owner: github_types.GitHubLogin,
+    repo: github_types.GitHubRepositoryName,
     pull_number: typing.Optional[int],
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
 ) -> typing.Tuple[T_MessageID, T_MessagePayload]:
-    stream_name = f"stream~{owner}"
+    stream_name = f"stream~{owner}~{owner_id}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
     transaction = await redis.pipeline()
@@ -126,6 +128,7 @@ async def push(
         {
             b"event": msgpack.packb(
                 {
+                    "owner_id": owner_id,
                     "owner": owner,
                     "repo": repo,
                     "pull_number": pull_number,
@@ -360,7 +363,7 @@ class StreamProcessor:
             raise StreamRetry(stream_name, attempts, retry_at)
 
     async def consume(self, stream_name: str) -> None:
-        owner = stream_name.split("~", 1)[1]
+        owner = github_types.GitHubLogin(stream_name.split("~")[1])
 
         try:
             pulls = await self._extract_pulls_from_stream(stream_name)
@@ -426,16 +429,17 @@ end
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
         opened_pulls_by_repo: typing.Dict[
-            typing.Tuple[str, str], typing.List[github_types.GitHubPullRequest]
+            typing.Tuple[github_types.GitHubLogin, github_types.GitHubRepositoryName],
+            typing.List[github_types.GitHubPullRequest],
         ] = {}
 
         # Groups stream by pull request
         pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
-            owner = data["owner"]
-            repo = data["repo"]
-            source = data["source"]
+            owner = github_types.GitHubLogin(data["owner"])
+            repo = github_types.GitHubRepositoryName(data["repo"])
+            source = typing.cast(context.T_PayloadEventSource, data["source"])
 
             if data["pull_number"] is not None:
                 key = (owner, repo, data["pull_number"])
@@ -459,7 +463,11 @@ end
                     except IgnoredException:
                         opened_pulls_by_repo[(owner, repo)] = []
 
+                if client.auth.owner_id is None:
+                    raise RuntimeError("owner_id is None")
+
                 converted_messages = await self._convert_event_to_messages(
+                    client.auth.owner_id,
                     owner,
                     repo,
                     source,
@@ -490,6 +498,7 @@ end
 
     async def _convert_event_to_messages(
         self,
+        owner_id: int,
         owner_login: github_types.GitHubLogin,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
@@ -518,6 +527,7 @@ end
             messages.append(
                 await push(
                     self.redis,
+                    owner_id,
                     owner_login,
                     repo_name,
                     pull_number,
@@ -832,9 +842,9 @@ async def async_reschedule_now() -> int:
 
     redis = await utils.create_aredis_for_stream()
     streams = await redis.zrangebyscore("streams", min=0, max="+inf")
-    expected_stream = f"stream~{args.org.lower()}"
+    expected_stream = f"stream~{args.org.lower()}~"
     for stream in streams:
-        if expected_stream == stream.decode().lower():
+        if stream.decode().lower().startswith(expected_stream):
             scheduled_at = utils.utcnow()
             score = scheduled_at.timestamp()
             transaction = await redis.pipeline()
