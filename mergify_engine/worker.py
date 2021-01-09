@@ -483,7 +483,7 @@ end
 
     async def _convert_event_to_messages(
         self,
-        owner: github_types.GitHubLogin,
+        owner_login: github_types.GitHubLogin,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
@@ -493,14 +493,13 @@ end
         # handle retry later, add them to message to run engine on them now,
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
-        async with await github.aget_client(owner) as client:
-            pull_numbers = await github_events.extract_pull_numbers_from_event(
-                client,
-                repo_name,
-                source["event_type"],
-                source["data"],
-                pulls,
-            )
+        pull_numbers = await github_events.extract_pull_numbers_from_event(
+            owner_login,
+            repo_name,
+            source["event_type"],
+            source["data"],
+            pulls,
+        )
 
         messages = []
         for pull_number in pull_numbers:
@@ -512,7 +511,7 @@ end
             messages.append(
                 await push(
                     self.redis,
-                    owner,
+                    owner_login,
                     repo_name,
                     pull_number,
                     source["event_type"],

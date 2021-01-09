@@ -18,7 +18,6 @@ import json
 import os
 from unittest import mock
 
-import httpx
 import pytest
 
 from mergify_engine import github_events
@@ -26,8 +25,6 @@ from mergify_engine import github_types
 
 
 async def _do_test_event_to_pull_check_run(filename, expected_pulls):
-
-    installation_id = 12345
     owner = "CytopiaTeam"
     repo = "Cytopia"
     event_type = "check_run"
@@ -38,18 +35,8 @@ async def _do_test_event_to_pull_check_run(filename, expected_pulls):
     ) as f:
         data = json.load(f)
 
-    client = mock.Mock(
-        base_url=httpx.URL("https://api.github.com/"),
-        name="foo",
-        owner=owner,
-        repo=repo,
-        auth=mock.Mock(installation={"id": installation_id}, owner=owner, repo=repo),
-    )
-    client.__aenter__ = mock.AsyncMock(return_value=client)
-    client.__aexit__ = mock.AsyncMock()
-
     pulls = await github_events.extract_pull_numbers_from_event(
-        client, repo, event_type, data, []
+        owner, repo, event_type, data, []
     )
     assert pulls == expected_pulls
 
