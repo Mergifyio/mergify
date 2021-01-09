@@ -406,10 +406,17 @@ def run_actions(
                             report,
                             external_id=external_id,
                         )
-                    except Exception:
-                        ctxt.log.error(
-                            "Fail to post check `%s`", check_name, exc_info=True
-                        )
+                    except Exception as e:
+                        if exceptions.should_be_ignored(e):
+                            ctxt.log.info(
+                                "Fail to post check `%s`", check_name, exc_info=True
+                            )
+                        elif exceptions.need_retry(e):
+                            raise
+                        else:
+                            ctxt.log.error(
+                                "Fail to post check `%s`", check_name, exc_info=True
+                            )
                 conclusions[check_name] = report.conclusion
             else:
                 # NOTE(sileht): action doesn't have report (eg:
