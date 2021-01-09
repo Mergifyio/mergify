@@ -607,7 +607,7 @@ class PullRequest:
     def render_template(self, template, extra_variables=None):
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-        PullRequestContext.inject(env, self, extra_variables)
+        PullRequestJinjaContext.inject(env, self, extra_variables)
         try:
             return env.from_string(template).render()
         except jinja2.exceptions.TemplateSyntaxError as tse:
@@ -618,7 +618,7 @@ class PullRequest:
             raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
 
 
-class PullRequestContext(jinja2.runtime.Context):
+class PullRequestJinjaContext(jinja2.runtime.Context):
     """This is a special Context that resolves any attribute first in the "pull request" object.
 
 
@@ -652,7 +652,7 @@ class PullRequestContext(jinja2.runtime.Context):
     @classmethod
     def inject(cls, env, pull_request, extra_variables=None):
         """Inject this context into a Jinja Environment."""
-        # Set all the value to _InvalidValue as the PullRequestContext will resolve
+        # Set all the value to _InvalidValue as the PullRequestJinjaContext will resolve
         # values correctly anyway. We still need to have those entries in
         # the global dict so find_undeclared_variables works correctly.
         env.globals["pull_request"] = pull_request
