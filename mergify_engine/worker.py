@@ -93,7 +93,8 @@ class StreamUnused(Exception):
     stream_name: str
 
 
-T_Payload = typing.Dict[bytes, bytes]
+T_MessagePayload = typing.NewType("T_MessagePayload", typing.Dict[bytes, bytes])
+T_MessageID = typing.NewType("T_MessageID", str)
 
 
 class T_PayloadEvent(typing.TypedDict):
@@ -115,33 +116,35 @@ async def push(
     pull_number: typing.Optional[int],
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
-) -> typing.Tuple[bool, T_Payload]:
+) -> typing.Tuple[T_MessageID, T_MessagePayload]:
     stream_name = f"stream~{owner}"
     scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
     transaction = await redis.pipeline()
     # NOTE(sileht): Add this event to the pull request stream
-    payload = {
-        b"event": msgpack.packb(
-            {
-                "owner": owner,
-                "repo": repo,
-                "pull_number": pull_number,
-                "source": {
-                    "event_type": event_type,
-                    "data": data,
-                    "timestamp": datetime.datetime.utcnow().isoformat(),
+    payload = T_MessagePayload(
+        {
+            b"event": msgpack.packb(
+                {
+                    "owner": owner,
+                    "repo": repo,
+                    "pull_number": pull_number,
+                    "source": {
+                        "event_type": event_type,
+                        "data": data,
+                        "timestamp": datetime.datetime.utcnow().isoformat(),
+                    },
                 },
-            },
-            use_bin_type=True,
-        ),
-    }
+                use_bin_type=True,
+            ),
+        }
+    )
 
     await transaction.xadd(stream_name, payload)
     # NOTE(sileht): Add pull request stream to process to the list, only if it
     # does not exists, to not update the score(date)
     await transaction.zaddoption("streams", "NX", **{stream_name: score})
-    ret = await transaction.execute()
+    message_id: T_MessageID = (await transaction.execute())[0]
     LOG.debug(
         "pushed to worker",
         gh_owner=owner,
@@ -149,7 +152,7 @@ async def push(
         gh_pull=pull_number,
         event_type=event_type,
     )
-    return (ret[0], payload)
+    return (message_id, payload)
 
 
 async def get_pull_for_engine(
@@ -254,7 +257,9 @@ PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
         typing.Tuple[str, str, int],
-        typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
+        typing.Tuple[
+            typing.List[T_MessageID], typing.List[context.T_PayloadEventSource]
+        ],
     ],
 )
 
@@ -413,7 +418,9 @@ end
 """
 
     async def _extract_pulls_from_stream(self, stream_name: str) -> PullsToConsume:
-        messages = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
+        messages: typing.List[
+            typing.Tuple[T_MessageID, T_MessagePayload]
+        ] = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
         statsd.histogram("engine.streams.size", len(messages))
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
@@ -487,7 +494,7 @@ end
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
-    ) -> typing.List[typing.Tuple[bool, T_Payload]]:
+    ) -> typing.List[typing.Tuple[T_MessageID, T_MessagePayload]]:
         # NOTE(sileht): the event is incomplete (push, refresh, checks, status)
         # So we get missing pull numbers, add them to the stream to
         # handle retry later, add them to message to run engine on them now,
@@ -520,14 +527,7 @@ end
             )
         return messages
 
-    async def _consume_pulls(
-        self,
-        stream_name: str,
-        pulls: collections.OrderedDict[
-            typing.Tuple[str, str, int],
-            typing.Tuple[typing.List[str], typing.List[context.T_PayloadEventSource]],
-        ],
-    ) -> None:
+    async def _consume_pulls(self, stream_name: str, pulls: PullsToConsume) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
 
