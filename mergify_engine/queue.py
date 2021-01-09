@@ -208,8 +208,9 @@ class Queue:
                         "number": pull,
                         "base": {
                             "repo": {
+                                "id": self.repo_id,
                                 "name": self.repo,
-                                "owner": {"login": self.owner},
+                                "owner": {"login": self.owner, "id": self.owner_id},
                                 "full_name": f"{self.owner}/{self.repo}",
                             }
                         },
