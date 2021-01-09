@@ -727,9 +727,10 @@ async def test_stream_processor_retrying_after_read_error(run_engine, redis):
     p = worker.StreamProcessor(redis)
 
     with pytest.raises(worker.StreamRetry):
-        await p._run_engine_and_translate_exception_to_retries(
-            "stream-owner", "owner", "repo", 1234, []
-        )
+        async with p._translate_exception_to_retries("stream-owner"):
+            await p._thread.exec(
+                worker.run_engine, "stream-owner", "owner", "repo", 1234, []
+            )
 
 
 @pytest.mark.asyncio
