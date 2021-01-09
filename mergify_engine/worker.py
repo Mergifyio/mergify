@@ -152,13 +152,16 @@ async def push(
 
 
 async def get_pull_for_engine(
-    owner: str, repo: str, pull_number: int, logger: logging.LoggerAdapter
+    owner: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
+    pull_number: int,
+    logger: logging.LoggerAdapter,
 ) -> typing.Optional[
     typing.Tuple[subscription.Subscription, github_types.GitHubPullRequest]
 ]:
     async with await github.aget_client(owner) as client:
         try:
-            pull = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
+            pull = await client.item(f"/repos/{owner}/{repo_name}/pulls/{pull_number}")
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
@@ -173,17 +176,17 @@ async def get_pull_for_engine(
 
 
 def run_engine(
-    owner: str,
-    repo: str,
+    owner: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
     pull_number: int,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
-        __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+        __name__, gh_repo=repo_name, gh_owner=owner, gh_pull=pull_number
     )
     logger.debug("engine in thread start")
     try:
-        result = asyncio.run(get_pull_for_engine(owner, repo, pull_number, logger))
+        result = asyncio.run(get_pull_for_engine(owner, repo_name, pull_number, logger))
         if result:
             subscription, pull = result
             with github.get_client(owner) as client:
@@ -494,14 +497,17 @@ end
         return pulls
 
     async def _get_pulls_for(
-        self, stream_name: str, owner: str, repo: str
+        self,
+        stream_name: str,
+        owner: github_types.GitHubLogin,
+        repo_name: github_types.GitHubRepositoryName,
     ) -> typing.List[github_types.GitHubPullRequest]:
         try:
             async with await github.aget_client(owner) as client:
                 return [
                     p
                     async for p in client.items(
-                        f"/repos/{client.auth.owner}/{repo}/pulls"
+                        f"/repos/{client.auth.owner}/{repo_name}/pulls"
                     )
                 ]
         except Exception as e:
@@ -509,8 +515,8 @@ end
 
     async def _convert_event_to_messages(
         self,
-        owner: str,
-        repo: str,
+        owner: github_types.GitHubLogin,
+        repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
     ) -> typing.List[typing.Tuple[bool, T_Payload]]:
@@ -522,7 +528,7 @@ end
         async with await github.aget_client(owner) as client:
             pull_numbers = await github_events.extract_pull_numbers_from_event(
                 client,
-                repo,
+                repo_name,
                 source["event_type"],
                 source["data"],
                 pulls,
@@ -539,7 +545,7 @@ end
                 await push(
                     self.redis,
                     owner,
-                    repo,
+                    repo_name,
                     pull_number,
                     source["event_type"],
                     source["data"],

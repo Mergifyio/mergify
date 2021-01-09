@@ -65,7 +65,7 @@ def test_user_permission_cache() -> None:
             "archived": False,
             "url": "",
             "default_branch": github_types.GitHubRefType(""),
-            "name": "test",
+            "name": github_types.GitHubRepositoryName("test"),
             "private": False,
         }
     )
@@ -153,7 +153,7 @@ def test_user_permission_cache() -> None:
             "archived": False,
             "url": "",
             "default_branch": github_types.GitHubRefType(""),
-            "name": "test2",
+            "name": github_types.GitHubRepositoryName("test2"),
             "private": False,
         }
     )

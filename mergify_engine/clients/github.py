@@ -64,9 +64,9 @@ class CachedToken:
 
 class GithubActionAccessTokenAuth(httpx.Auth):
     owner_id: int
-    owner: str
+    owner: typing.Optional[github_types.GitHubLogin]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.permissions_need_to_be_updated = False
         self.installation = {
             "id": config.ACTION_ID,
@@ -82,8 +82,14 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[int]
+    owner: github_types.GitHubLogin
 
-    def __init__(self, owner: str, token: str, owner_id: typing.Optional[int] = None):
+    def __init__(
+        self,
+        owner: github_types.GitHubLogin,
+        token: str,
+        owner_id: typing.Optional[int] = None,
+    ) -> None:
         self._token = token
         self.owner = owner
         self.owner_id = owner_id
@@ -124,7 +130,7 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     installation: typing.Optional[github_types.GitHubInstallation]
 
-    def __init__(self, owner: str):
+    def __init__(self, owner: github_types.GitHubLogin) -> None:
         self.owner = owner
 
         self._cached_token = None
@@ -263,9 +269,11 @@ class GithubAppInstallationAuth(httpx.Auth):
 _T_get_auth = typing.Union[GithubAppInstallationAuth, GithubActionAccessTokenAuth]
 
 
-def get_auth(owner: typing.Optional[str]) -> _T_get_auth:
+def get_auth(owner: typing.Optional[github_types.GitHubLogin]) -> _T_get_auth:
     if config.GITHUB_APP:
-        return GithubAppInstallationAuth(typing.cast(str, owner))
+        if owner is None:
+            raise ValueError("No owner provided")
+        return GithubAppInstallationAuth(owner)
     else:
         return GithubActionAccessTokenAuth()
 
@@ -405,7 +413,8 @@ class AsyncGithubInstallationClient(http.AsyncClient):
 
 
 async def aget_client(
-    owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
+    owner: typing.Optional[github_types.GitHubLogin] = None,
+    auth: typing.Optional[_T_get_auth] = None,
 ) -> AsyncGithubInstallationClient:
     return AsyncGithubInstallationClient(auth or get_auth(owner))
 
@@ -518,6 +527,7 @@ class GithubInstallationClient(http.Client):
 
 
 def get_client(
-    owner: typing.Optional[str] = None, auth: typing.Optional[_T_get_auth] = None
+    owner: typing.Optional[github_types.GitHubLogin] = None,
+    auth: typing.Optional[_T_get_auth] = None,
 ) -> GithubInstallationClient:
     return GithubInstallationClient(auth or get_auth(owner))

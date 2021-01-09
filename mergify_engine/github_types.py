@@ -46,11 +46,14 @@ SHAType = typing.NewType("SHAType", str)
 GitHubRepositoryIdType = typing.NewType("GitHubRepositoryIdType", int)
 
 
+GitHubRepositoryName = typing.NewType("GitHubRepositoryName", str)
+
+
 class GitHubRepository(typing.TypedDict):
     id: GitHubRepositoryIdType
     owner: GitHubAccount
     private: bool
-    name: str
+    name: GitHubRepositoryName
     full_name: str
     archived: bool
     url: str

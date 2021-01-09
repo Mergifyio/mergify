@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import argparse
+import asyncio
 import datetime
 import itertools
 import pprint
@@ -96,7 +97,7 @@ def report_sub(
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
-async def report_worker_status(owner: str) -> None:
+async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     stream_name = f"stream~{owner}".encode()
     r = await utils.create_aredis_for_stream()
     streams = await r.zrangebyscore("streams", min=0, max="+inf", withscores=True)
@@ -140,6 +141,8 @@ def report(
             owner = path
             repo = None
 
+    owner = typing.cast(github_types.GitHubLogin, owner)
+
     try:
         client = github.get_client(owner)
     except exceptions.MergifyNotInstalled:
@@ -175,7 +178,7 @@ def report(
     report_sub(client.auth.installation["id"], cached_sub, "ENGINE-CACHE", slug)
     report_sub(client.auth.installation["id"], db_sub, "DASHBOARD", slug)
 
-    utils.async_run(report_worker_status(client.auth.owner))
+    asyncio.run(report_worker_status(owner))
 
     if repo is not None:
 
@@ -185,8 +188,8 @@ def report(
         print("* CONFIGURATION:")
         mergify_config = None
         try:
-            filename, mergify_config_content = rules.get_mergify_config_content(
-                client, repo
+            filename, mergify_config_content = asyncio.run(
+                rules.get_mergify_config_content(client, repo_info)
             )
         except rules.NoRules:  # pragma: no cover
             print(".mergify.yml is missing")

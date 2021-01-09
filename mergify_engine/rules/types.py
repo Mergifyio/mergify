@@ -95,7 +95,7 @@ _DUMMY_PR = context.PullRequest(
                         "archived": False,
                         "id": github_types.GitHubRepositoryIdType(0),
                         "private": False,
-                        "name": "",
+                        "name": github_types.GitHubRepositoryName(""),
                         "owner": {
                             "login": github_types.GitHubLogin(""),
                             "id": github_types.GitHubAccountIdType(0),
@@ -119,7 +119,7 @@ _DUMMY_PR = context.PullRequest(
                         "archived": False,
                         "id": github_types.GitHubRepositoryIdType(0),
                         "private": False,
-                        "name": "",
+                        "name": github_types.GitHubRepositoryName(""),
                         "owner": {
                             "login": github_types.GitHubLogin(""),
                             "id": github_types.GitHubAccountIdType(0),
