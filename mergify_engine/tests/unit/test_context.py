@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,13 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import pytest
+
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine.clients import github
 
 
-def test_user_permission_cache() -> None:
+@pytest.mark.asyncio
+async def test_user_permission_cache() -> None:
     class FakeClient(github.GithubInstallationClient):
         called: int
 
@@ -179,6 +182,6 @@ def test_user_permission_cache() -> None:
     assert client.called == 6
     assert c.has_write_permission(user_2)
     assert client.called == 6
-    context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
+    await context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
     assert c.has_write_permission(user_2)
     assert client.called == 7

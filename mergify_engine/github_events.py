@@ -256,7 +256,7 @@ async def filter_and_dispatch(
         repo_name = event["repository"]["name"]
         ignore_reason = "member event"
 
-        context.Context.clear_user_permission_cache_for_user(
+        await context.Context.clear_user_permission_cache_for_user(
             event["repository"]["owner"],
             event["repository"],
             event["member"],
