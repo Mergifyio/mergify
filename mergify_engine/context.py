@@ -144,14 +144,16 @@ class Context(object):
         await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
 
     @classmethod
-    def clear_user_permission_cache_for_org(
+    async def clear_user_permission_cache_for_org(
         cls, user: github_types.GitHubAccount
     ) -> None:
-        with utils.get_redis_for_cache() as redis:  # type: ignore
-            for key in redis.scan_iter(
-                f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
-            ):
-                redis.delete(key)
+        redis = await utils.get_aredis_for_cache()
+        pipeline = await redis.pipeline()
+        async for key in redis.scan_iter(
+            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+        ):
+            await pipeline.delete(key)
+        await pipeline.execute()
 
     def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
         with utils.get_redis_for_cache() as redis:  # type: ignore
