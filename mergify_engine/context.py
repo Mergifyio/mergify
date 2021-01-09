@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import dataclasses
 import functools
 import itertools
@@ -155,18 +156,18 @@ class Context(object):
             await pipeline.delete(key)
         await pipeline.execute()
 
-    def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
-        with utils.get_redis_for_cache() as redis:  # type: ignore
-            key = self._users_permission_cache_key
-            permission = redis.hget(key, user["id"])
-            if permission is None:
-                permission = self.client.item(
-                    f"{self.base_url}/collaborators/{user['login']}/permission"
-                )["permission"]
-                with redis.pipeline() as pipe:
-                    pipe.hset(key, user["id"], permission)
-                    pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
-                    pipe.execute()
+    async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        redis = await utils.get_aredis_for_cache()
+        key = self._users_permission_cache_key
+        permission = await redis.hget(key, user["id"])
+        if permission is None:
+            permission = self.client.item(
+                f"{self.base_url}/collaborators/{user['login']}/permission"
+            )["permission"]
+            pipe = await redis.pipeline()
+            await pipe.hset(key, user["id"], permission)
+            await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
+            await pipe.execute()
 
         return permission in (
             "admin",
@@ -239,7 +240,10 @@ class Context(object):
             for r in self.reviews
             if (
                 r["user"] is not None
-                and (r["user"]["type"] == "Bot" or self.has_write_permission(r["user"]))
+                and (
+                    r["user"]["type"] == "Bot"
+                    or asyncio.run(self.has_write_permission(r["user"]))
+                )
             )
         }
 
