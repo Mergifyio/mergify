@@ -247,7 +247,9 @@ async def filter_and_dispatch(
         ignore_reason = "organization event"
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
-            context.Context.clear_user_permission_cache_for_org(event["organization"])
+            await context.Context.clear_user_permission_cache_for_org(
+                event["organization"]
+            )
 
     elif event_type == "member":
         event = typing.cast(github_types.GitHubEventMember, event)
@@ -267,7 +269,7 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
-        context.Context.clear_user_permission_cache_for_org(event["organization"])
+        await context.Context.clear_user_permission_cache_for_org(event["organization"])
 
     elif event_type == "team":
         event = typing.cast(github_types.GitHubEventTeam, event)
@@ -285,7 +287,7 @@ async def filter_and_dispatch(
                     event["organization"], event["repository"]
                 )
             else:
-                context.Context.clear_user_permission_cache_for_org(
+                await context.Context.clear_user_permission_cache_for_org(
                     event["organization"]
                 )
 
