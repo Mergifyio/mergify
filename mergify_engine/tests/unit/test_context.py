@@ -137,15 +137,15 @@ async def test_user_permission_cache() -> None:
     client = FakeClient(owner["login"], repo["name"])
     c = context.Context(client, make_pr(repo, owner), sub)
     assert client.called == 0
-    assert c.has_write_permission(user_1)
+    assert await c.has_write_permission(user_1)
     assert client.called == 1
-    assert c.has_write_permission(user_1)
+    assert await c.has_write_permission(user_1)
     assert client.called == 1
-    assert not c.has_write_permission(user_2)
+    assert not await c.has_write_permission(user_2)
     assert client.called == 2
-    assert not c.has_write_permission(user_2)
+    assert not await c.has_write_permission(user_2)
     assert client.called == 2
-    assert not c.has_write_permission(user_3)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 3
 
     repo = github_types.GitHubRepository(
@@ -164,24 +164,24 @@ async def test_user_permission_cache() -> None:
     client = FakeClient(owner["login"], repo["name"])
     c = context.Context(client, make_pr(repo, owner), sub)
     assert client.called == 0
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 1
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 1
-    assert not c.has_write_permission(user_1)
+    assert not await c.has_write_permission(user_1)
     assert client.called == 2
     await context.Context.clear_user_permission_cache_for_repo(owner, repo)
-    assert not c.has_write_permission(user_1)
+    assert not await c.has_write_permission(user_1)
     assert client.called == 3
-    assert not c.has_write_permission(user_3)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 4
     await context.Context.clear_user_permission_cache_for_org(owner)
-    assert not c.has_write_permission(user_3)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 5
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 6
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 6
     await context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 7
