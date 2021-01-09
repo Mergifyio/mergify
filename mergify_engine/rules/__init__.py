@@ -27,7 +27,9 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import types
@@ -310,25 +312,29 @@ MERGIFY_CONFIG_FILENAMES = [
 ]
 
 
-def get_config_location_cache_key(owner, repo):
-    return f"config-location~{owner}~{repo}"
+def get_config_location_cache_key(repo: github_types.GitHubRepository) -> str:
+    return f"config-location~{repo['owner']['login']}~{repo['name']}"
 
 
-def get_mergify_config_content(client, repo, ref=None):
+async def get_mergify_config_content(
+    client: github.GithubInstallationClient,
+    repo: github_types.GitHubRepository,
+    ref: typing.Optional[github_types.GitHubRefType] = None,
+) -> typing.Tuple[str, bytes]:
     """Get the Mergify configuration file content.
 
     :return: The filename and its content.
     """
 
-    config_location_cache = get_config_location_cache_key(client.auth.owner, repo)
+    config_location_cache = get_config_location_cache_key(repo)
 
     kwargs = {}
     if ref:
         kwargs["ref"] = ref
         cached_filename = None
     else:
-        with utils.get_redis_for_cache() as redis:
-            cached_filename = redis.get(config_location_cache)
+        redis_cache = await utils.get_aredis_for_cache()
+        cached_filename = await redis_cache.get(config_location_cache)
 
     filenames = MERGIFY_CONFIG_FILENAMES.copy()
     if cached_filename:
@@ -338,17 +344,17 @@ def get_mergify_config_content(client, repo, ref=None):
     for filename in filenames:
         try:
             content = client.item(
-                f"/repos/{client.auth.owner}/{repo}/contents/{filename}", **kwargs
+                f"/repos/{repo['owner']['login']}/{repo['name']}/contents/{filename}",
+                **kwargs,
             )["content"]
         except http.HTTPNotFound:
             continue
         if ref is None and filename != cached_filename:
-            with utils.get_redis_for_cache() as redis:
-                redis.set(config_location_cache, filename, ex=60 * 60 * 24 * 31)
+            await redis_cache.set(config_location_cache, filename, ex=60 * 60 * 24 * 31)
 
         return filename, base64.b64decode(bytearray(content, "utf-8"))
-    with utils.get_redis_for_cache() as redis:
-        redis.delete(config_location_cache)
+
+    await redis_cache.delete(config_location_cache)
     raise NoRules()
 
 
@@ -356,8 +362,12 @@ class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
 
 
-def get_mergify_config(client, repo, ref=None):
-    filename, content = get_mergify_config_content(client, repo, ref)
+async def get_mergify_config(
+    client: github.GithubInstallationClient,
+    repo: github_types.GitHubRepository,
+    ref: typing.Optional[github_types.GitHubRefType] = None,
+) -> typing.Tuple[str, MergifyConfig]:
+    filename, content = await get_mergify_config_content(client, repo, ref)
     try:
         return filename, typing.cast(MergifyConfig, UserConfigurationSchema(content))
     except voluptuous.Invalid as e:

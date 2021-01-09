@@ -20,6 +20,7 @@ import pytest
 import voluptuous
 
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
@@ -173,15 +174,51 @@ def test_jinja_with_wrong_syntax():
         ),
     ),
 )
-def test_get_mergify_config(valid):
+@pytest.mark.asyncio
+async def test_get_mergify_config(valid: str) -> None:
     client = mock.Mock()
     client.item.return_value = {"content": encodebytes(valid.encode()).decode()}
-    filename, schema = get_mergify_config(client, "xyz")
+    filename, schema = await get_mergify_config(
+        client,
+        github_types.GitHubRepository(
+            {
+                "id": github_types.GitHubRepositoryIdType(0),
+                "name": github_types.GitHubRepositoryName("xyz"),
+                "private": False,
+                "full_name": "foobar/xyz",
+                "archived": False,
+                "url": "",
+                "default_branch": github_types.GitHubRefType(""),
+                "owner": {
+                    "login": github_types.GitHubLogin("foobar"),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                },
+            }
+        ),
+    )
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
 
 
-def test_get_mergify_config_location_from_cache():
+@pytest.mark.asyncio
+async def test_get_mergify_config_location_from_cache() -> None:
+    repo = github_types.GitHubRepository(
+        {
+            "id": github_types.GitHubRepositoryIdType(0),
+            "name": github_types.GitHubRepositoryName("bar"),
+            "private": False,
+            "full_name": "foo/bar",
+            "archived": False,
+            "url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "owner": {
+                "login": github_types.GitHubLogin("foo"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+            },
+        }
+    )
     client = mock.Mock()
     client.auth.owner = "foo"
     client.item.side_effect = [
@@ -189,7 +226,10 @@ def test_get_mergify_config_location_from_cache():
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
         {"content": encodebytes("whatever".encode()).decode()},
     ]
-    filename, content = rules.get_mergify_config_content(client, "bar")
+    filename, content = await rules.get_mergify_config_content(
+        client,
+        repo,
+    )
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
@@ -203,7 +243,10 @@ def test_get_mergify_config_location_from_cache():
     client.item.side_effect = [
         {"content": encodebytes("whatever".encode()).decode()},
     ]
-    filename, content = rules.get_mergify_config_content(client, "bar")
+    filename, content = await rules.get_mergify_config_content(
+        client,
+        repo,
+    )
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
@@ -240,11 +283,30 @@ def test_get_mergify_config_location_from_cache():
         ),
     ),
 )
-def test_get_mergify_config_invalid(invalid):
+@pytest.mark.asyncio
+async def test_get_mergify_config_invalid(invalid: str) -> None:
     with pytest.raises(InvalidRules):
         client = mock.Mock()
         client.item.return_value = {"content": encodebytes(invalid.encode()).decode()}
-        filename, schema = get_mergify_config(client, "xyz")
+        filename, schema = await get_mergify_config(
+            client,
+            github_types.GitHubRepository(
+                {
+                    "id": github_types.GitHubRepositoryIdType(0),
+                    "name": github_types.GitHubRepositoryName("xyz"),
+                    "private": False,
+                    "full_name": "foobar/xyz",
+                    "archived": False,
+                    "url": "",
+                    "default_branch": github_types.GitHubRefType(""),
+                    "owner": {
+                        "login": github_types.GitHubLogin("foobar"),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                    },
+                }
+            ),
+        )
 
 
 def test_user_configuration_schema():

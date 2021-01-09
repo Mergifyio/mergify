@@ -23,6 +23,7 @@ from werkzeug.http import http_date
 from werkzeug.wrappers import Response
 
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 
@@ -55,7 +56,9 @@ def test_client_installation_token(httpserver: httpserver.HTTPServer) -> None:
             "/", headers={"Authorization": "token <installation-token>"}
         ).respond_with_json({"work": True}, status=200)
 
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             ret = client.get(httpserver.url_for("/"))
             assert ret.json()["work"]
 
@@ -80,7 +83,9 @@ def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
             "/", headers={"Authorization": "token <user-token>"}
         ).respond_with_json({"work": True}, status=200)
 
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             ret = client.get(httpserver.url_for("/"), oauth_token="<user-token>")  # type: ignore[call-arg]
             assert ret.json()["work"]
 
@@ -89,7 +94,7 @@ def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> None:
-    owner = "owner"
+    owner = github_types.GitHubLogin("owner")
     repo = "repo"
 
     httpserver.expect_request("/users/owner/installation").respond_with_json(
@@ -249,7 +254,9 @@ def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -> None
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -275,7 +282,9 @@ def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -> None
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 
@@ -301,7 +310,9 @@ def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -> None
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 
@@ -323,7 +334,9 @@ def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -> None
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             with pytest.raises(exceptions.MergifyNotInstalled):
                 client.get(httpserver.url_for("/"))
 
@@ -364,7 +377,9 @@ def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> None:
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        with github.GithubInstallationClient(github.get_auth("owner")) as client:
+        with github.GithubInstallationClient(
+            github.get_auth(github_types.GitHubLogin("owner"))
+        ) as client:
             with pytest.raises(http.HTTPClientSideError) as exc_info:
                 client.get(httpserver.url_for("/"))
 

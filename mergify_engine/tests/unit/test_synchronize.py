@@ -60,7 +60,7 @@ async def test_summary_synchronization_cache() -> None:
                     "default_branch": github_types.GitHubRefType(""),
                     "id": github_types.GitHubRepositoryIdType(456),
                     "full_name": "user/ref",
-                    "name": "name",
+                    "name": github_types.GitHubRepositoryName("name"),
                     "private": False,
                     "owner": {
                         "login": github_types.GitHubLogin("user"),
@@ -84,7 +84,7 @@ async def test_summary_synchronization_cache() -> None:
                     "default_branch": github_types.GitHubRefType(""),
                     "id": github_types.GitHubRepositoryIdType(123),
                     "full_name": "fork/other",
-                    "name": "other",
+                    "name": github_types.GitHubRepositoryName("other"),
                     "private": False,
                     "owner": {
                         "login": github_types.GitHubLogin("user"),
