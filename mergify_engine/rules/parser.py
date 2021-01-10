@@ -61,7 +61,16 @@ def _match_with_operator(token):
 
 
 def _token_to_dict(s, loc, toks):
-    not_, key_op, key, op, value = toks
+    if len(toks) == 5:
+        # quantifiable_attributes
+        not_, key_op, key, op, value = toks
+    elif len(toks) == 4:
+        # non_quantifiable_attributes
+        key_op = ""
+        not_, key, op, value = toks
+    else:
+        raise RuntimeError("unexpected search parser format")
+
     if key_op == "#":
         value = int(value)
     d = {op: (key_op + key, value)}
@@ -74,19 +83,13 @@ _match_login_or_teams = _match_with_operator(github_login) | (
     simple_operators + github_team
 )
 
-
 head = "head" + _match_with_operator(git_branch)
 base = "base" + _match_with_operator(git_branch)
 author = "author" + _match_login_or_teams
-merged = _match_boolean("merged")
-closed = _match_boolean("closed")
-conflict = _match_boolean("conflict")
-draft = _match_boolean("draft")
 merged_by = "merged-by" + _match_login_or_teams
 body = "body" + _match_with_operator(text)
 assignee = "assignee" + _match_login_or_teams
 label = "label" + _match_with_operator(text)
-locked = _match_boolean("locked")
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
@@ -103,6 +106,39 @@ check_success = "check-success" + _match_with_operator(text)
 check_failure = "check-failure" + _match_with_operator(text)
 check_neutral = "check-neutral" + _match_with_operator(text)
 
+quantifiable_attributes = (
+    head
+    | base
+    | author
+    | merged_by
+    | body
+    | assignee
+    | label
+    | title
+    | files
+    | milestone
+    | number
+    | review_requests
+    | review_approved_by
+    | review_dismissed_by
+    | review_changes_requested_by
+    | review_commented_by
+    | status_success
+    | status_neutral
+    | status_failure
+    | check_success
+    | check_neutral
+    | check_failure
+)
+
+locked = _match_boolean("locked")
+merged = _match_boolean("merged")
+closed = _match_boolean("closed")
+conflict = _match_boolean("conflict")
+draft = _match_boolean("draft")
+
+non_quantifiable_attributes = locked | closed | conflict | draft | merged
+
 search = (
     pyparsing.Optional(
         (
@@ -112,34 +148,8 @@ search = (
         ),
         default=False,
     )
-    + pyparsing.Optional("#", default="")
     + (
-        head
-        | base
-        | author
-        | merged_by
-        | body
-        | assignee
-        | label
-        | locked
-        | closed
-        | conflict
-        | draft
-        | merged
-        | title
-        | files
-        | milestone
-        | number
-        | review_requests
-        | review_approved_by
-        | review_dismissed_by
-        | review_changes_requested_by
-        | review_commented_by
-        | status_success
-        | status_neutral
-        | status_failure
-        | check_success
-        | check_neutral
-        | check_failure
+        (pyparsing.Optional("#", default="") + quantifiable_attributes)
+        | non_quantifiable_attributes
     )
 ).setParseAction(_token_to_dict)
