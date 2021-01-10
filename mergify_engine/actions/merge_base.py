@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import abc
+import asyncio
 import enum
 import itertools
 import re
@@ -304,7 +305,7 @@ class MergeBaseAction(actions.Action):
                 output = branch_updater.pre_rebase_check(ctxt)
                 if output:
                     return output
-                branch_updater.rebase_with_git(ctxt, user)
+                asyncio.run(branch_updater.rebase_with_git(ctxt, user))
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
