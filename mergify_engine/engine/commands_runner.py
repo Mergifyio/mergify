@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
 import re
 import typing
 
@@ -164,7 +165,7 @@ def handle(
     if (
         user
         and user["id"] != config.BOT_USER_ID
-        and not ctxt.has_write_permission(user)
+        and not asyncio.run(ctxt.has_write_permission(user))
     ):
         message = "@{} is not allowed to run commands".format(user["login"])
         post_comment(ctxt, message + footer)

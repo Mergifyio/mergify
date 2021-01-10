@@ -37,11 +37,13 @@ global AREDIS_CONNECTION_CACHE
 AREDIS_CONNECTION_CACHE: typing.Optional[aredis.StrictRedis] = None
 
 
-async def get_aredis_for_cache() -> aredis.StrictRedis:
+async def get_aredis_for_cache(max_idle_time: int = 60) -> aredis.StrictRedis:
     global AREDIS_CONNECTION_CACHE
     if AREDIS_CONNECTION_CACHE is None:
         AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
-            config.STORAGE_URL, decode_responses=True, max_idle_time=60
+            config.STORAGE_URL,
+            decode_responses=True,
+            max_idle_time=max_idle_time,
         )
         await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
     return AREDIS_CONNECTION_CACHE

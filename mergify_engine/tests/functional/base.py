@@ -393,8 +393,7 @@ class FunctionalTestBase(unittest.TestCase):
         asyncio.run(web.startup())
         self.app = testclient.TestClient(web.app)
 
-        self.redis_cache = utils.get_redis_for_cache()
-        self.redis_cache.flushall()
+        asyncio.run(self.clear_redis_cache())
         self.subscription = subscription.Subscription(
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
@@ -501,6 +500,11 @@ class FunctionalTestBase(unittest.TestCase):
     @staticmethod
     async def clear_redis_stream():
         redis_stream = await utils.create_aredis_for_stream(max_idle_time=0)
+        await redis_stream.flushall()
+
+    @staticmethod
+    async def clear_redis_cache():
+        redis_stream = await utils.get_aredis_for_cache(max_idle_time=0)
         await redis_stream.flushall()
 
     def tearDown(self):

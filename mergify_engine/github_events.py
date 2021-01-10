@@ -30,7 +30,6 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine import worker
-from mergify_engine.clients import github
 from mergify_engine.engine import commands_runner
 
 
@@ -248,7 +247,9 @@ async def filter_and_dispatch(
         ignore_reason = "organization event"
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
-            context.Context.clear_user_permission_cache_for_org(event["organization"])
+            await context.Context.clear_user_permission_cache_for_org(
+                event["organization"]
+            )
 
     elif event_type == "member":
         event = typing.cast(github_types.GitHubEventMember, event)
@@ -256,7 +257,7 @@ async def filter_and_dispatch(
         repo_name = event["repository"]["name"]
         ignore_reason = "member event"
 
-        context.Context.clear_user_permission_cache_for_user(
+        await context.Context.clear_user_permission_cache_for_user(
             event["repository"]["owner"],
             event["repository"],
             event["member"],
@@ -268,7 +269,7 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
-        context.Context.clear_user_permission_cache_for_org(event["organization"])
+        await context.Context.clear_user_permission_cache_for_org(event["organization"])
 
     elif event_type == "team":
         event = typing.cast(github_types.GitHubEventTeam, event)
@@ -282,11 +283,11 @@ async def filter_and_dispatch(
             "removed_from_repository",
         ):
             if "repository" in event:
-                context.Context.clear_user_permission_cache_for_repo(
+                await context.Context.clear_user_permission_cache_for_repo(
                     event["organization"], event["repository"]
                 )
             else:
-                context.Context.clear_user_permission_cache_for_org(
+                await context.Context.clear_user_permission_cache_for_org(
                     event["organization"]
                 )
 
@@ -296,7 +297,7 @@ async def filter_and_dispatch(
         repo_name = event["repository"]["name"]
         ignore_reason = "team_add event"
 
-        context.Context.clear_user_permission_cache_for_repo(
+        await context.Context.clear_user_permission_cache_for_repo(
             event["repository"]["owner"], event["repository"]
         )
 
@@ -338,13 +339,13 @@ SHA_EXPIRATION = 60
 
 
 async def _get_github_pulls_from_sha(
-    client: github.AsyncGithubInstallationClient,
-    repo_name: str,
+    owner_login: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
     sha: github_types.SHAType,
     pulls: typing.List[github_types.GitHubPullRequest],
 ) -> typing.List[github_types.GitHubPullRequestNumber]:
     redis = await utils.get_aredis_for_cache()
-    cache_key = f"sha~{client.auth.owner}~{repo_name}~{sha}"
+    cache_key = f"sha~{owner_login}~{repo_name}~{sha}"
     pull_number = await redis.get(cache_key)
     if pull_number is None:
         for pull in pulls:
@@ -357,8 +358,8 @@ async def _get_github_pulls_from_sha(
 
 
 async def extract_pull_numbers_from_event(
-    client: github.AsyncGithubInstallationClient,
-    repo: str,
+    owner_login: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
     opened_pulls: typing.List[github_types.GitHubPullRequest],
@@ -377,11 +378,13 @@ async def extract_pull_numbers_from_event(
         return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "status":
         data = typing.cast(github_types.GitHubEventStatus, data)
-        return await _get_github_pulls_from_sha(client, repo, data["sha"], opened_pulls)
+        return await _get_github_pulls_from_sha(
+            owner_login, repo_name, data["sha"], opened_pulls
+        )
     elif event_type == "check_suite":
         data = typing.cast(github_types.GitHubEventCheckSuite, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
+        base_repo_url = f"{config.GITHUB_API_URL}/repos/{owner_login}/{repo_name}"
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
@@ -389,12 +392,14 @@ async def extract_pull_numbers_from_event(
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
-            pulls = await _get_github_pulls_from_sha(client, repo, sha, opened_pulls)
+            pulls = await _get_github_pulls_from_sha(
+                owner_login, repo_name, sha, opened_pulls
+            )
         return pulls
     elif event_type == "check_run":
         data = typing.cast(github_types.GitHubEventCheckRun, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        base_repo_url = f"{config.GITHUB_API_URL}/repos/{client.auth.owner}/{repo}"
+        base_repo_url = f"{config.GITHUB_API_URL}/repos/{owner_login}/{repo_name}"
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
@@ -402,7 +407,9 @@ async def extract_pull_numbers_from_event(
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
-            pulls = await _get_github_pulls_from_sha(client, repo, sha, opened_pulls)
+            pulls = await _get_github_pulls_from_sha(
+                owner_login, repo_name, sha, opened_pulls
+            )
         return pulls
     else:
         return []

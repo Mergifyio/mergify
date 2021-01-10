@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,13 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import pytest
+
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine.clients import github
 
 
-def test_user_permission_cache() -> None:
+@pytest.mark.asyncio
+async def test_user_permission_cache() -> None:
     class FakeClient(github.GithubInstallationClient):
         called: int
 
@@ -134,15 +137,15 @@ def test_user_permission_cache() -> None:
     client = FakeClient(owner["login"], repo["name"])
     c = context.Context(client, make_pr(repo, owner), sub)
     assert client.called == 0
-    assert c.has_write_permission(user_1)
+    assert await c.has_write_permission(user_1)
     assert client.called == 1
-    assert c.has_write_permission(user_1)
+    assert await c.has_write_permission(user_1)
     assert client.called == 1
-    assert not c.has_write_permission(user_2)
+    assert not await c.has_write_permission(user_2)
     assert client.called == 2
-    assert not c.has_write_permission(user_2)
+    assert not await c.has_write_permission(user_2)
     assert client.called == 2
-    assert not c.has_write_permission(user_3)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 3
 
     repo = github_types.GitHubRepository(
@@ -161,24 +164,24 @@ def test_user_permission_cache() -> None:
     client = FakeClient(owner["login"], repo["name"])
     c = context.Context(client, make_pr(repo, owner), sub)
     assert client.called == 0
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 1
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 1
-    assert not c.has_write_permission(user_1)
+    assert not await c.has_write_permission(user_1)
     assert client.called == 2
-    context.Context.clear_user_permission_cache_for_repo(owner, repo)
-    assert not c.has_write_permission(user_1)
+    await context.Context.clear_user_permission_cache_for_repo(owner, repo)
+    assert not await c.has_write_permission(user_1)
     assert client.called == 3
-    assert not c.has_write_permission(user_3)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 4
-    context.Context.clear_user_permission_cache_for_org(owner)
-    assert not c.has_write_permission(user_3)
+    await context.Context.clear_user_permission_cache_for_org(owner)
+    assert not await c.has_write_permission(user_3)
     assert client.called == 5
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 6
-    assert c.has_write_permission(user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 6
-    context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
-    assert c.has_write_permission(user_2)
+    await context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
+    assert await c.has_write_permission(user_2)
     assert client.called == 7
