@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import collections
+import contextlib
 import dataclasses
 import datetime
 import functools
@@ -292,87 +293,66 @@ class StreamProcessor:
     def close(self):
         self._thread.close()
 
+    @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
         self,
-        e: Exception,
         stream_name: str,
         attempts_key: typing.Optional[str] = None,
-    ) -> Exception:
-        if isinstance(e, exceptions.MergifyNotInstalled):
-            if attempts_key:
-                await self.redis.hdel("attempts", attempts_key)
-            await self.redis.hdel("attempts", stream_name)
-            return StreamUnused(stream_name)
-
-        if isinstance(e, github.TooManyPages):
-            # TODO(sileht): Ideally this should be catcher earlier to post an
-            # appropriate check-runs to inform user the PR is too big to be handled
-            # by Mergify, but this need a bit of refactory to do it, so in the
-            # meantimes...
-            if attempts_key:
-                await self.redis.hdel("attempts", attempts_key)
-            await self.redis.hdel("attempts", stream_name)
-            return IgnoredException()
-
-        if exceptions.should_be_ignored(e):
-            if attempts_key:
-                await self.redis.hdel("attempts", attempts_key)
-            await self.redis.hdel("attempts", stream_name)
-            return IgnoredException()
-
-        if isinstance(e, exceptions.RateLimited):
-            retry_at = utils.utcnow() + e.countdown
-            score = retry_at.timestamp()
-            if attempts_key:
-                await self.redis.hdel("attempts", attempts_key)
-            await self.redis.hdel("attempts", stream_name)
-            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-            return StreamRetry(stream_name, 0, retry_at)
-
-        backoff = exceptions.need_retry(e)
-        if backoff is None:
-            # NOTE(sileht): This is our fault, so retry until we fix the bug but
-            # without increasing the attempts
-            return e
-
-        attempts = await self.redis.hincrby("attempts", stream_name)
-        retry_in = 3 ** min(attempts, 3) * backoff
-        retry_at = utils.utcnow() + retry_in
-        score = retry_at.timestamp()
-        await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-        return StreamRetry(stream_name, attempts, retry_at)
-
-    async def _run_engine_and_translate_exception_to_retries(
-        self,
-        stream_name: str,
-        owner: str,
-        repo: str,
-        pull_number: int,
-        sources: typing.List[context.T_PayloadEventSource],
-    ) -> None:
-        attempts_key = f"pull~{owner}~{repo}~{pull_number}"
+    ) -> typing.AsyncIterator[None]:
         try:
-            await self._thread.exec(
-                run_engine,
-                owner,
-                repo,
-                pull_number,
-                sources,
-            )
-            await self.redis.hdel("attempts", attempts_key)
-        # Translate in more understandable exception
-        except exceptions.MergeableStateUnknown as e:
-            attempts = await self.redis.hincrby("attempts", attempts_key)
-            if attempts < MAX_RETRIES:
-                raise PullRetry(attempts) from e
-            else:
-                await self.redis.hdel("attempts", attempts_key)
-                raise MaxPullRetry(attempts) from e
-
+            yield
         except Exception as e:
-            raise await self._translate_exception_to_retries(
-                e, stream_name, attempts_key
-            ) from e
+            if isinstance(e, exceptions.MergeableStateUnknown) and attempts_key:
+                attempts = await self.redis.hincrby("attempts", attempts_key)
+                if attempts < MAX_RETRIES:
+                    raise PullRetry(attempts) from e
+                else:
+                    await self.redis.hdel("attempts", attempts_key)
+                    raise MaxPullRetry(attempts) from e
+
+            if isinstance(e, exceptions.MergifyNotInstalled):
+                if attempts_key:
+                    await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", stream_name)
+                raise StreamUnused(stream_name)
+
+            if isinstance(e, github.TooManyPages):
+                # TODO(sileht): Ideally this should be catcher earlier to post an
+                # appropriate check-runs to inform user the PR is too big to be handled
+                # by Mergify, but this need a bit of refactory to do it, so in the
+                # meantimes...
+                if attempts_key:
+                    await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", stream_name)
+                raise IgnoredException()
+
+            if exceptions.should_be_ignored(e):
+                if attempts_key:
+                    await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", stream_name)
+                raise IgnoredException()
+
+            if isinstance(e, exceptions.RateLimited):
+                retry_at = utils.utcnow() + e.countdown
+                score = retry_at.timestamp()
+                if attempts_key:
+                    await self.redis.hdel("attempts", attempts_key)
+                await self.redis.hdel("attempts", stream_name)
+                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+                raise StreamRetry(stream_name, 0, retry_at)
+
+            backoff = exceptions.need_retry(e)
+            if backoff is None:
+                # NOTE(sileht): This is our fault, so retry until we fix the bug but
+                # without increasing the attempts
+                raise
+
+            attempts = await self.redis.hincrby("attempts", stream_name)
+            retry_in = 3 ** min(attempts, 3) * backoff
+            retry_at = utils.utcnow() + retry_in
+            score = retry_at.timestamp()
+            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            raise StreamRetry(stream_name, attempts, retry_at)
 
     async def consume(self, stream_name: str) -> None:
         owner = stream_name.split("~", 1)[1]
@@ -461,9 +441,14 @@ end
                 )
                 if (owner, repo) not in opened_pulls_by_repo:
                     try:
-                        opened_pulls_by_repo[(owner, repo)] = await self._get_pulls_for(
-                            stream_name, owner, repo
-                        )
+                        async with self._translate_exception_to_retries(stream_name):
+                            async with await github.aget_client(owner) as client:
+                                opened_pulls_by_repo[(owner, repo)] = [
+                                    p
+                                    async for p in client.items(
+                                        f"/repos/{client.auth.owner}/{repo}/pulls"
+                                    )
+                                ]
                     except IgnoredException:
                         opened_pulls_by_repo[(owner, repo)] = []
 
@@ -496,26 +481,9 @@ end
                         )
         return pulls
 
-    async def _get_pulls_for(
-        self,
-        stream_name: str,
-        owner: github_types.GitHubLogin,
-        repo_name: github_types.GitHubRepositoryName,
-    ) -> typing.List[github_types.GitHubPullRequest]:
-        try:
-            async with await github.aget_client(owner) as client:
-                return [
-                    p
-                    async for p in client.items(
-                        f"/repos/{client.auth.owner}/{repo_name}/pulls"
-                    )
-                ]
-        except Exception as e:
-            raise await self._translate_exception_to_retries(e, stream_name)
-
     async def _convert_event_to_messages(
         self,
-        owner: github_types.GitHubLogin,
+        owner_login: github_types.GitHubLogin,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
@@ -525,14 +493,13 @@ end
         # handle retry later, add them to message to run engine on them now,
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
-        async with await github.aget_client(owner) as client:
-            pull_numbers = await github_events.extract_pull_numbers_from_event(
-                client,
-                repo_name,
-                source["event_type"],
-                source["data"],
-                pulls,
-            )
+        pull_numbers = await github_events.extract_pull_numbers_from_event(
+            owner_login,
+            repo_name,
+            source["event_type"],
+            source["data"],
+            pulls,
+        )
 
         messages = []
         for pull_number in pull_numbers:
@@ -544,7 +511,7 @@ end
             messages.append(
                 await push(
                     self.redis,
-                    owner,
+                    owner_login,
                     repo_name,
                     pull_number,
                     source["event_type"],
@@ -579,10 +546,19 @@ end
                 __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
             )
 
+            attempts_key = f"pull~{owner}~{repo}~{pull_number}"
             try:
-                await self._run_engine_and_translate_exception_to_retries(
-                    stream_name, owner, repo, pull_number, sources
-                )
+                async with self._translate_exception_to_retries(
+                    stream_name, attempts_key
+                ):
+                    await self._thread.exec(
+                        run_engine,
+                        owner,
+                        repo,
+                        pull_number,
+                        sources,
+                    )
+                await self.redis.hdel("attempts", attempts_key)
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
             except IgnoredException:
                 await self.redis.execute_command("XDEL", stream_name, *message_ids)
