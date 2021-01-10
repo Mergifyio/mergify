@@ -107,7 +107,7 @@ class MergeAction(merge_base.MergeBaseAction):
         else:
             raise RuntimeError("Unexpected strict")
 
-    def _should_be_cancel(
+    async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> bool:
         # It's closed, it's not going to change
@@ -137,7 +137,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 state
                 for name, state in ctxt.checks.items()
                 for cond in need_look_at_checks
-                if cond(FakePR(cond.attribute_name, name))
+                if await cond(FakePR(cond.attribute_name, name))
             ]
             if not states:
                 return False

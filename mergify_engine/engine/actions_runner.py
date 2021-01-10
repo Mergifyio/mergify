@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import base64
 import copy
 import typing
@@ -25,7 +24,6 @@ from mergify_engine import doc
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import utils
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -164,7 +162,7 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
-def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
+async def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     summary_title, summary = gen_summary(ctxt, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
@@ -189,11 +187,9 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
             previous_conclusions=previous_conclusions,
         )
 
-        utils.async_run(
-            ctxt.set_summary_check(
-                check_api.Result(
-                    check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
-                )
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
             )
         )
     else:
@@ -210,10 +206,20 @@ def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
         )
 
 
-def exec_action(method_name, rule, action, ctxt):
+async def exec_action(
+    method_name: typing.Literal["run", "cancel"],
+    rule: rules.EvaluatedRule,
+    action: str,
+    ctxt: context.Context,
+) -> check_api.Result:
     try:
-        method = getattr(rule.actions[action], method_name)
-        return method(ctxt, rule)
+        if method_name == "run":
+            method = rule.actions[action].run
+        elif method_name == "cancel":
+            method = rule.actions[action].cancel
+        else:
+            raise RuntimeError("wrong method_name")
+        return await method(ctxt, rule)
     except Exception as e:  # pragma: no cover
         # Forward those to worker
         if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
@@ -227,16 +233,18 @@ def exec_action(method_name, rule, action, ctxt):
 
 
 def load_conclusions_line(
-    summary_check: github_types.GitHubCheckRun,
+    summary_check: typing.Optional[github_types.GitHubCheckRun],
 ) -> typing.Optional[str]:
-    if summary_check and summary_check["output"]["summary"] is not None:
+    if summary_check is not None and summary_check["output"]["summary"] is not None:
         line = summary_check["output"]["summary"].splitlines()[-1]
         if line.startswith("<!-- ") and line.endswith(" -->"):
             return line
     return None
 
 
-def load_conclusions(ctxt, summary_check):
+def load_conclusions(
+    ctxt: context.Context, summary_check: typing.Optional[github_types.GitHubCheckRun]
+) -> typing.Dict[str, check_api.Conclusion]:
     line = load_conclusions_line(summary_check)
     if line:
         return dict(
@@ -276,12 +284,12 @@ def get_previous_conclusion(previous_conclusions, name, checks):
     return check_api.Conclusion.NEUTRAL
 
 
-def run_actions(
-    ctxt,
-    match,
-    checks,
-    previous_conclusions,
-):
+async def run_actions(
+    ctxt: context.Context,
+    match: rules.RulesEvaluator,
+    checks: typing.Dict[str, github_types.GitHubCheckRun],
+    previous_conclusions: typing.Dict[str, check_api.Conclusion],
+) -> typing.Dict[str, check_api.Conclusion]:
     """
     What action.run() and action.cancel() return should be reworked a bit. Currently the
     meaning is not really clear, it could be:
@@ -298,7 +306,13 @@ def run_actions(
     )
     forced_refresh_requested = any(
         [
-            (source["event_type"] == "refresh" and source["data"]["action"] == "forced")
+            (
+                source["event_type"] == "refresh"
+                and typing.cast(github_types.GitHubEventRefresh, source["data"])[
+                    "action"
+                ]
+                == "forced"
+            )
             for source in ctxt.sources
         ]
     )
@@ -313,6 +327,8 @@ def run_actions(
     matching_rules = sorted(
         match.matching_rules, key=lambda rule: len(rule.missing_conditions) == 0
     )
+
+    method_name: typing.Literal["run", "cancel"]
 
     for rule in matching_rules:
         for action, action_obj in rule.actions.items():
@@ -369,7 +385,7 @@ def run_actions(
 
             else:
                 # NOTE(sileht): check state change so we have to run "run" or "cancel"
-                report = exec_action(
+                report = await exec_action(
                     method_name,
                     rule,
                     action,
@@ -442,12 +458,14 @@ def run_actions(
     return conclusions
 
 
-def handle(pull_request_rules: rules.PullRequestRules, ctxt: context.Context) -> None:
-    match = pull_request_rules.get_pull_request_rule(ctxt)
+async def handle(
+    pull_request_rules: rules.PullRequestRules, ctxt: context.Context
+) -> None:
+    match = await pull_request_rules.get_pull_request_rule(ctxt)
     checks = dict((c["name"], c) for c in ctxt.pull_engine_check_runs)
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
 
-    conclusions = run_actions(ctxt, match, checks, previous_conclusions)
-    post_summary(ctxt, match, summary_check, conclusions, previous_conclusions)
+    conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
+    await post_summary(ctxt, match, summary_check, conclusions, previous_conclusions)

@@ -36,16 +36,18 @@ class AssignAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         # NOTE: "users" is deprecated, but kept as legacy code for old config
         if self.config["users"]:
-            self._add_assignees(ctxt, self.config["users"])
+            await self._add_assignees(ctxt, self.config["users"])
 
         if self.config["add_users"]:
-            self._add_assignees(ctxt, self.config["add_users"])
+            await self._add_assignees(ctxt, self.config["add_users"])
 
         if self.config["remove_users"]:
-            self._remove_assignees(ctxt, self.config["remove_users"])
+            await self._remove_assignees(ctxt, self.config["remove_users"])
 
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
@@ -53,10 +55,10 @@ class AssignAction(actions.Action):
             "",
         )
 
-    def _add_assignees(
+    async def _add_assignees(
         self, ctxt: context.Context, users_to_add: typing.List[str]
     ) -> check_api.Result:
-        assignees = self._wanted_users(ctxt, users_to_add)
+        assignees = await self._wanted_users(ctxt, users_to_add)
 
         if assignees:
             try:
@@ -82,10 +84,10 @@ class AssignAction(actions.Action):
             "No user added to assignees",
         )
 
-    def _remove_assignees(
+    async def _remove_assignees(
         self, ctxt: context.Context, users_to_remove: typing.List[str]
     ) -> check_api.Result:
-        assignees = self._wanted_users(ctxt, users_to_remove)
+        assignees = await self._wanted_users(ctxt, users_to_remove)
 
         if assignees:
             try:
@@ -112,13 +114,13 @@ class AssignAction(actions.Action):
             "No user removed from assignees",
         )
 
-    def _wanted_users(
+    async def _wanted_users(
         self, ctxt: context.Context, users: typing.List[str]
     ) -> typing.List[str]:
         wanted = set()
         for user in set(users):
             try:
-                user = ctxt.pull_request.render_template(user)
+                user = await ctxt.pull_request.render_template(user)
             except context.RenderTemplateFailure:
                 # NOTE: this should never happen since
                 # the template is validated when parsing the config 🤷

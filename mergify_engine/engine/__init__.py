@@ -10,7 +10,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import typing
 
 import daiquiri
@@ -122,7 +121,7 @@ class T_PayloadEventIssueCommentSource(typing.TypedDict):
     timestamp: str
 
 
-def run(
+async def run(
     client: github.GithubInstallationClient,
     pull: github_types.GitHubPullRequest,
     sub: subscription.Subscription,
@@ -143,12 +142,12 @@ def run(
             ctxt.sources.append(source)
 
     ctxt.log.debug("engine run pending commands")
-    commands_runner.run_pending_commands_tasks(ctxt)
+    await commands_runner.run_pending_commands_tasks(ctxt)
 
     if issue_comment_sources:
         ctxt.log.debug("engine handle commands")
         for ic_source in issue_comment_sources:
-            commands_runner.handle(
+            await commands_runner.handle(
                 ctxt,
                 ic_source["data"]["comment"]["body"],
                 ic_source["data"]["comment"]["user"],
@@ -158,27 +157,25 @@ def run(
         return
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        asyncio.run(
-            ctxt.set_summary_check(
-                check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    title="Required GitHub permissions are missing.",
-                    summary="You can accept them at https://dashboard.mergify.io/",
-                )
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Required GitHub permissions are missing.",
+                summary="You can accept them at https://dashboard.mergify.io/",
             )
         )
         return
 
     ctxt.log.debug("engine check configuration change")
-    if asyncio.run(_check_configuration_changes(ctxt)):
+    if await _check_configuration_changes(ctxt):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
     ctxt.log.debug("engine get configuration")
     # BRANCH CONFIGURATION CHECKING
     try:
-        filename, mergify_config = asyncio.run(
-            rules.get_mergify_config(ctxt.client, ctxt.pull["base"]["repo"])
+        filename, mergify_config = await rules.get_mergify_config(
+            ctxt.client, ctxt.pull["base"]["repo"]
         )
     except rules.NoRules:  # pragma: no cover
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
@@ -194,14 +191,12 @@ def run(
             if s["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
                 if event["action"] in ("opened", "synchronize"):
-                    asyncio.run(
-                        ctxt.set_summary_check(
-                            check_api.Result(
-                                check_api.Conclusion.FAILURE,
-                                title="The Mergify configuration is invalid",
-                                summary=str(e),
-                                annotations=e.get_annotations(e.filename),
-                            )
+                    await ctxt.set_summary_check(
+                        check_api.Result(
+                            check_api.Conclusion.FAILURE,
+                            title="The Mergify configuration is invalid",
+                            summary=str(e),
+                            annotations=e.get_annotations(e.filename),
                         )
                     )
                     break
@@ -214,18 +209,16 @@ def run(
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.log.info("mergify disabled: private repository")
-        asyncio.run(
-            ctxt.set_summary_check(
-                check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    title="Mergify is disabled",
-                    summary=sub.reason,
-                )
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Mergify is disabled",
+                summary=sub.reason,
             )
         )
         return
 
-    asyncio.run(_ensure_summary_on_head_sha(ctxt))
+    await _ensure_summary_on_head_sha(ctxt)
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
@@ -238,7 +231,7 @@ def run(
                 break
 
     ctxt.log.debug("engine handle actions")
-    actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+    await actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
 async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:

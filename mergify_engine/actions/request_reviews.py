@@ -117,7 +117,9 @@ class RequestReviewsAction(actions.Action):
 
         return user_reviews_to_request, team_reviews_to_request
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if "random_count" in self.config and not ctxt.subscription.has_feature(
             subscription.Features.RANDOM_REQUEST_REVIEWS
         ):
@@ -138,7 +140,9 @@ class RequestReviewsAction(actions.Action):
             "review-requested",
         )
         existing_reviews = set(
-            itertools.chain(*[getattr(ctxt.pull_request, key) for key in reviews_keys])
+            itertools.chain(
+                *[await getattr(ctxt.pull_request, key) for key in reviews_keys]
+            )
         )
 
         user_reviews_to_request, team_reviews_to_request = self._get_reviewers(
@@ -148,7 +152,7 @@ class RequestReviewsAction(actions.Action):
         )
 
         if user_reviews_to_request or team_reviews_to_request:
-            requested_reviews_nb = len(ctxt.pull_request.review_requested)
+            requested_reviews_nb = len(await ctxt.pull_request.review_requested)
 
             already_at_max = requested_reviews_nb == self.GITHUB_MAXIMUM_REVIEW_REQUEST
             will_exceed_max = (

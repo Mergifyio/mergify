@@ -31,7 +31,9 @@ class CloseAction(actions.Action):
     only_once = True
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if ctxt.pull["state"] == "closed":
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request is already closed", ""
@@ -47,7 +49,7 @@ class CloseAction(actions.Action):
             )
 
         try:
-            message = ctxt.pull_request.render_template(self.config["message"])
+            message = await ctxt.pull_request.render_template(self.config["message"])
         except context.RenderTemplateFailure as rmf:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,

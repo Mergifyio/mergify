@@ -178,7 +178,7 @@ async def get_pull_for_engine(
             return None
 
 
-def run_engine(
+async def run_engine(
     installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestNumber,
@@ -192,13 +192,13 @@ def run_engine(
     )
     logger.debug("engine in thread start")
     try:
-        pull = asyncio.run(
-            get_pull_for_engine(
-                installation.owner_login, repo_name, pull_number, logger
-            )
+        pull = await get_pull_for_engine(
+            installation.owner_login, repo_name, pull_number, logger
         )
         if pull is not None:
-            engine.run(installation.client, pull, installation.subscription, sources)
+            await engine.run(
+                installation.client, pull, installation.subscription, sources
+            )
     finally:
         logger.debug("engine in thread end")
 
@@ -208,9 +208,7 @@ class ThreadRunner(threading.Thread):
 
     def __init__(self):
         super().__init__(daemon=True)
-        self._method = None
-        self._args = None
-        self._kwargs = None
+        self._coro = None
         self._result = None
         self._exception = None
 
@@ -218,10 +216,8 @@ class ThreadRunner(threading.Thread):
         self._process = threading.Event()
         self.start()
 
-    async def exec(self, method, *args, **kwargs):
-        self._method = method
-        self._args = args
-        self._kwargs = kwargs
+    async def exec(self, coro):
+        self._coro = coro
         self._result = None
         self._exception = None
 
@@ -250,7 +246,7 @@ class ThreadRunner(threading.Thread):
                 return
 
             try:
-                self._result = self._method(*self._args, **self._kwargs)
+                self._result = asyncio.run(self._coro)
             except BaseException as e:
                 self._exception = e
             finally:
@@ -611,11 +607,7 @@ end
                     installation.stream_name, attempts_key
                 ):
                     await self._thread.exec(
-                        run_engine,
-                        installation,
-                        repo,
-                        pull_number,
-                        sources,
+                        run_engine(installation, repo, pull_number, sources)
                     )
                 await self.redis.hdel("attempts", attempts_key)
                 await self.redis.execute_command(

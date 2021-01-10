@@ -47,7 +47,9 @@ class ReviewAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         payload = {"event": self.config["type"]}
 
         if self.config["bot_account"] and not ctxt.subscription.has_feature(
@@ -63,7 +65,7 @@ class ReviewAction(actions.Action):
 
         if self.config["message"]:
             try:
-                body = ctxt.pull_request.render_template(self.config["message"])
+                body = await ctxt.pull_request.render_template(self.config["message"])
             except context.RenderTemplateFailure as rmf:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Invalid review message", str(rmf)

@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import inspect
 import operator
 import re
 import typing
@@ -129,12 +130,13 @@ class Filter:
         str, typing.Callable[[typing.Any], typing.List[typing.Any]]
     ] = dataclasses.field(default_factory=dict)
 
-    _eval: typing.Callable[["Filter", GetAttrObjectT], bool] = dataclasses.field(
-        init=False
-    )
+    _eval: typing.Callable[
+        ["Filter", GetAttrObjectT], typing.Awaitable[bool]
+    ] = dataclasses.field(init=False)
 
-    def __post_init__(self):
-        self._eval = self.build_evaluator(self.tree)
+    def __post_init__(self) -> None:
+        # https://github.com/python/mypy/issues/2427
+        self._eval = self.build_evaluator(self.tree)  # type: ignore
 
     def get_attribute_name(self):
         tree = self.tree.get("-", self.tree)
@@ -164,11 +166,11 @@ class Filter:
             return str(nodes[0]) + op + str(nodes[1])
         raise InvalidOperator(op)  # pragma: no cover
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return "%s(%s)" % (self.__class__.__name__, str(self))
 
-    def __call__(self, obj: GetAttrObjectT) -> bool:
-        return self._eval(obj)
+    async def __call__(self, obj: GetAttrObjectT) -> bool:
+        return await self._eval(obj)
 
     LENGTH_OPERATOR = "#"
 
@@ -181,7 +183,7 @@ class Filter:
 
         return [item]
 
-    def _get_attribute_values(
+    async def _get_attribute_values(
         self,
         obj: GetAttrObjectT,
         attribute_name: str,
@@ -194,6 +196,8 @@ class Filter:
             op = _identity
         try:
             attr = getattr(obj, self.attribute_name)
+            if inspect.iscoroutine(attr):
+                attr = await attr
         except KeyError:
             raise UnknownAttribute(self.attribute_name)
         try:
@@ -203,7 +207,9 @@ class Filter:
 
         return self._to_list(values)
 
-    def build_evaluator(self, tree: TreeT) -> typing.Callable[[typing.Any], bool]:
+    def build_evaluator(
+        self, tree: TreeT
+    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
         if len(tree) != 1:
             raise ParseError(tree)
         operator_name, nodes = list(tree.items())[0]
@@ -226,7 +232,7 @@ class Filter:
             except Exception as e:
                 raise InvalidArguments(str(e))
 
-            def _cmp(attribute_values: typing.Tuple[typing.Any]) -> bool:
+            def _cmp(attribute_values: typing.List[typing.Any]) -> bool:
                 reference_value_expander = self.value_expanders.get(
                     attribute_name, self._to_list
                 )
@@ -237,11 +243,15 @@ class Filter:
                     for ref_value in ref_values_expanded
                 )
 
-            def _op(obj):
-                return _cmp(self._get_attribute_values(obj, attribute_name))
+            async def _op(obj: GetAttrObjectT) -> bool:
+                return _cmp(await self._get_attribute_values(obj, attribute_name))
 
             return _op
 
         nodes = typing.cast(TreeT, nodes)
         element = self.build_evaluator(nodes)
-        return lambda values: unary_op(element(values))
+
+        async def _unary_op(values: GetAttrObjectT) -> bool:
+            return unary_op(await element(values))
+
+        return _unary_op

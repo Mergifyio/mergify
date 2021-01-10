@@ -32,7 +32,7 @@ class UpdateAction(actions.Action):
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     @staticmethod
-    def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
         if ctxt.is_behind:
             try:
                 branch_updater.update_with_api(ctxt)

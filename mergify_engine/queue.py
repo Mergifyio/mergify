@@ -104,8 +104,8 @@ class Queue:
         config.setdefault("update_bot_account", None)
         return config
 
-    def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
-        self._remove_pull_from_other_queues(ctxt)
+    async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
+        await self._remove_pull_from_other_queues(ctxt)
 
         self.redis.set(
             self._config_redis_queue_key(ctxt.pull["number"]),
@@ -126,7 +126,7 @@ class Queue:
             pull_requests_to_refresh = [
                 p for p in self.get_pulls() if p != ctxt.pull["number"]
             ]
-            self._refresh_pulls(pull_requests_to_refresh)
+            await self._refresh_pulls(pull_requests_to_refresh)
         else:
             self.log.info(
                 "pull request already in merge queue",
@@ -134,7 +134,7 @@ class Queue:
                 config=config,
             )
 
-    def _remove_pull_from_other_queues(self, ctxt: context.Context) -> None:
+    async def _remove_pull_from_other_queues(self, ctxt: context.Context) -> None:
         # TODO(sileht): Find if there is an event when the base branch change to do this
         # only is this case.
         for queue_name in self.redis.keys(self._get_redis_queue_key_for("*")):
@@ -148,16 +148,16 @@ class Queue:
                         old_branch=old_branch,
                         new_branch=ctxt.pull["base"]["ref"],
                     )
-                    old_queue.remove_pull(ctxt)
+                    await old_queue.remove_pull(ctxt)
 
-    def remove_pull(self, ctxt: context.Context) -> None:
+    async def remove_pull(self, ctxt: context.Context) -> None:
         removed = self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
         if removed > 0:
             self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
-            self._refresh_pulls(self.get_pulls())
+            await self._refresh_pulls(self.get_pulls())
         else:
             self.log.info(
                 "pull request not in merge queue", gh_pull=ctxt.pull["number"]
@@ -197,23 +197,21 @@ class Queue:
     def delete(self) -> None:
         self.redis.delete(self._redis_queue_key)
 
-    def _refresh_pulls(
+    async def _refresh_pulls(
         self,
         pull_requests_to_refresh: typing.List[github_types.GitHubPullRequestNumber],
     ) -> None:
         for pull in pull_requests_to_refresh:
-            utils.async_run(
-                github_events.send_refresh(
-                    {
-                        "number": pull,
-                        "base": {
-                            "repo": {
-                                "id": self.repo_id,
-                                "name": self.repo,
-                                "owner": {"login": self.owner, "id": self.owner_id},
-                                "full_name": f"{self.owner}/{self.repo}",
-                            }
-                        },
-                    }  # type: ignore
-                )
+            await github_events.send_refresh(
+                {
+                    "number": pull,
+                    "base": {
+                        "repo": {
+                            "id": self.repo_id,
+                            "name": self.repo,
+                            "owner": {"login": self.owner, "id": self.owner_id},
+                            "full_name": f"{self.owner}/{self.repo}",
+                        }
+                    },
+                }  # type: ignore
             )

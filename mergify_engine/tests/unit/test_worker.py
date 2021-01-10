@@ -774,7 +774,7 @@ async def test_stream_processor_retrying_after_read_error(run_engine, _, redis):
     installation = context.Installation(123, "owner", {}, None)
     with pytest.raises(worker.StreamRetry):
         async with p._translate_exception_to_retries(installation.stream_name):
-            await p._thread.exec(worker.run_engine, installation, "repo", 1234, [])
+            await p._thread.exec(worker.run_engine(installation, "repo", 1234, []))
 
 
 @pytest.mark.asyncio

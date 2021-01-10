@@ -150,7 +150,8 @@ def test_get_reviewers():
     assert reviewers == ({"jd"}, {"foobar"})
 
 
-def test_disabled():
+@pytest.mark.asyncio
+async def test_disabled():
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -201,7 +202,7 @@ def test_disabled():
         },
         sub,
     )
-    result = action.run(ctxt, None)
+    result = await action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Random request reviews are disabled"
     assert result.summary == (

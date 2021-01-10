@@ -95,12 +95,12 @@ class Action(abc.ABC):
         """Convert string to dict config"""
         return {}
 
-    def run(
+    async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         pass
 
-    def cancel(
+    async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         return self.cancelled_check_report

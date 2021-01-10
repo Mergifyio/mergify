@@ -31,7 +31,9 @@ class DeleteHeadBranchAction(actions.Action):
         {voluptuous.Optional("force", default=False): bool}, None
     )
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if ctxt.pull_from_fork:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request come from fork", ""

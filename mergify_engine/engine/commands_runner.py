@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import asyncio
 import re
 import typing
 
@@ -88,7 +87,7 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
             )  # type: ignore[call-arg]
 
 
-def run_pending_commands_tasks(ctxt: context.Context) -> None:
+async def run_pending_commands_tasks(ctxt: context.Context) -> None:
     pendings = set()
     for comment in ctxt.client.items(
         f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments"
@@ -105,10 +104,10 @@ def run_pending_commands_tasks(ctxt: context.Context) -> None:
                 pendings.remove(command)
 
     for pending in pendings:
-        handle(ctxt, "@Mergifyio %s" % pending, None, rerun=True)
+        await handle(ctxt, "@Mergifyio %s" % pending, None, rerun=True)
 
 
-def run_action(
+async def run_action(
     ctxt: context.Context,
     action: typing.Tuple[str, str, actions.Action],
     user: typing.Optional[github_types.GitHubAccount],
@@ -117,7 +116,7 @@ def run_action(
 
     statsd.increment("engine.commands.count", tags=["name:%s" % command])
 
-    report = method.run(
+    report = await method.run(
         ctxt,
         rules.EvaluatedRule(
             "", rules.RuleConditions([]), rules.RuleMissingConditions([]), {}
@@ -147,7 +146,7 @@ def run_action(
     return (report, message)
 
 
-def handle(
+async def handle(
     ctxt: context.Context,
     comment: str,
     user: typing.Optional[github_types.GitHubAccount],
@@ -165,7 +164,7 @@ def handle(
     if (
         user
         and user["id"] != config.BOT_USER_ID
-        and not asyncio.run(ctxt.has_write_permission(user))
+        and not await ctxt.has_write_permission(user)
     ):
         message = "@{} is not allowed to run commands".format(user["login"])
         post_comment(ctxt, message + footer)
@@ -177,7 +176,7 @@ def handle(
         post_comment(ctxt, message + footer)
         return
 
-    result, message = run_action(ctxt, action, user)
+    result, message = await run_action(ctxt, action, user)
     if result.conclusion is check_api.Conclusion.PENDING and rerun:
         return
 

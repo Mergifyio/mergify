@@ -98,6 +98,11 @@ class EvaluatedRule:
         )
 
 
+RuleToEvaluatedRuleCallable = typing.Callable[
+    ["Rule", RuleMissingConditions], "EvaluatedRule"
+]
+
+
 @dataclasses.dataclass
 class RulesEvaluator:
     """A rules that matches a pull request."""
@@ -121,14 +126,6 @@ class RulesEvaluator:
     # The list of pull request rules to match against.
     rules: typing.List[Rule]
 
-    # The context to test.
-    context: context.Context
-
-    rule_class: object
-
-    # The rules with BASE_ATTRIBUTES not matched are saved in ignored_rules
-    hide_rule: bool
-
     # The rules matching the pull request.
     matching_rules: typing.List[EvaluatedRule] = dataclasses.field(
         init=False, default_factory=list
@@ -139,27 +136,40 @@ class RulesEvaluator:
         init=False, default_factory=list
     )
 
-    def __post_init__(self):
+    @classmethod
+    async def create(
+        cls,
+        rules: typing.List[Rule],
+        ctxt: context.Context,
+        rule_to_evaluated_rule_method: RuleToEvaluatedRuleCallable,
+        hide_rule: bool,
+    ) -> "RulesEvaluator":
+        self = cls(rules)
         for rule in self.rules:
             ignore_rules = False
             next_conditions_to_validate = []
             for condition in rule.conditions:
                 for attrib in self.TEAM_ATTRIBUTES:
-                    condition.value_expanders[attrib] = self.context.resolve_teams
+                    condition.value_expanders[attrib] = ctxt.resolve_teams
 
-                if not condition(self.context.pull_request):
+                if not await condition(ctxt.pull_request):
                     next_conditions_to_validate.append(condition)
                     if condition.attribute_name in self.BASE_ATTRIBUTES:
                         ignore_rules = True
 
-            if ignore_rules and self.hide_rule:
+            if ignore_rules and hide_rule:
                 self.ignored_rules.append(
-                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                    rule_to_evaluated_rule_method(
+                        rule, RuleMissingConditions(next_conditions_to_validate)
+                    )
                 )
             else:
                 self.matching_rules.append(
-                    self.rule_class.from_rule(rule, next_conditions_to_validate)
+                    rule_to_evaluated_rule_method(
+                        rule, RuleMissingConditions(next_conditions_to_validate)
+                    )
                 )
+        return self
 
 
 @dataclasses.dataclass
@@ -180,8 +190,12 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    def get_pull_request_rule(self, pull_request: context.Context) -> RulesEvaluator:
-        return RulesEvaluator(self.rules, pull_request, EvaluatedRule, True)
+    async def get_pull_request_rule(
+        self, pull_request: context.Context
+    ) -> RulesEvaluator:
+        return await RulesEvaluator.create(
+            self.rules, pull_request, EvaluatedRule.from_rule, True
+        )
 
 
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
