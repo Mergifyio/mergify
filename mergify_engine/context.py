@@ -13,7 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
+import contextlib
 import dataclasses
 import functools
 import itertools
@@ -79,6 +79,7 @@ class Context(object):
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
+    _cache: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
 
     SUMMARY_NAME = "Summary"
     USER_PERMISSION_EXPIRATION = 3600  # 1 hour
@@ -252,7 +253,7 @@ class Context(object):
                 ex=SUMMARY_SHA_EXPIRATION,
             )
 
-    def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
+    async def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
         return {
             r["user"]["id"]
             for r in self.reviews
@@ -260,22 +261,34 @@ class Context(object):
                 r["user"] is not None
                 and (
                     r["user"]["type"] == "Bot"
-                    or asyncio.run(self.has_write_permission(r["user"]))
+                    or await self.has_write_permission(r["user"])
                 )
             )
         }
 
-    @functools.cached_property
-    def consolidated_reviews(
+    async def consolidated_reviews(
         self,
     ) -> typing.Tuple[
         typing.List[github_types.GitHubReview], typing.List[github_types.GitHubReview]
     ]:
+        if "consolidated_reviews" in self._cache:
+            return typing.cast(
+                typing.Tuple[
+                    typing.List[github_types.GitHubReview],
+                    typing.List[github_types.GitHubReview],
+                ],
+                self._cache["consolidated_reviews"],
+            )
+
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        comments = dict()
-        approvals = dict()
-        valid_user_ids = self._get_valid_user_ids()
+        comments: typing.Dict[
+            github_types.GitHubLogin, github_types.GitHubReview
+        ] = dict()
+        approvals: typing.Dict[
+            github_types.GitHubLogin, github_types.GitHubReview
+        ] = dict()
+        valid_user_ids = await self._get_valid_user_ids()
         for review in self.reviews:
             if not review["user"] or review["user"]["id"] not in valid_user_ids:
                 continue
@@ -284,9 +297,19 @@ class Context(object):
                 comments[review["user"]["login"]] = review
             else:
                 approvals[review["user"]["login"]] = review
-        return list(comments.values()), list(approvals.values())
 
-    def _get_consolidated_data(self, name):
+        self._cache["consolidated_reviews"] = list(comments.values()), list(
+            approvals.values()
+        )
+        return typing.cast(
+            typing.Tuple[
+                typing.List[github_types.GitHubReview],
+                typing.List[github_types.GitHubReview],
+            ],
+            self._cache["consolidated_reviews"],
+        )
+
+    async def _get_consolidated_data(self, name):
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
@@ -341,20 +364,20 @@ class Context(object):
             return [f["filename"] for f in self.files]
 
         elif name == "approved-reviews-by":
-            _, approvals = self.consolidated_reviews
+            _, approvals = await self.consolidated_reviews()
             return [r["user"]["login"] for r in approvals if r["state"] == "APPROVED"]
         elif name == "dismissed-reviews-by":
-            _, approvals = self.consolidated_reviews
+            _, approvals = await self.consolidated_reviews()
             return [r["user"]["login"] for r in approvals if r["state"] == "DISMISSED"]
         elif name == "changes-requested-reviews-by":
-            _, approvals = self.consolidated_reviews
+            _, approvals = await self.consolidated_reviews()
             return [
                 r["user"]["login"]
                 for r in approvals
                 if r["state"] == "CHANGES_REQUESTED"
             ]
         elif name == "commented-reviews-by":
-            comments, _ = self.consolidated_reviews
+            comments, _ = await self.consolidated_reviews()
             return [r["user"]["login"] for r in comments if r["state"] == "COMMENTED"]
 
         # NOTE(jd) The Check API set conclusion to None for pending.
@@ -618,29 +641,38 @@ class PullRequest:
         "files",
     }
 
-    def __getattr__(self, name):
-        return self.context._get_consolidated_data(name.replace("_", "-"))
+    async def __getattr__(self, name):
+        return await self.context._get_consolidated_data(name.replace("_", "-"))
 
     def __iter__(self):
         return iter(self.ATTRIBUTES | self.LIST_ATTRIBUTES)
 
-    def items(self):
+    async def items(self):
+        d = {}
         for k in self:
-            yield k, getattr(self, k)
+            d[k] = await getattr(self, k)
+        return d
 
-    def render_template(self, template, extra_variables=None):
+    async def render_template(self, template, extra_variables=None):
         """Render a template interpolating variables based on pull request attributes."""
-        env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-        try:
+        env = jinja2.sandbox.SandboxedEnvironment(
+            undefined=jinja2.StrictUndefined,
+        )
+        with self._template_exceptions_mapping():
             used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
             infos = {}
             for k in used_variables:
                 if extra_variables and k in extra_variables:
                     infos[k] = extra_variables[k]
                 else:
-                    infos[k] = getattr(self, k)
-
+                    infos[k] = await getattr(self, k)
             return env.from_string(template).render(**infos)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _template_exceptions_mapping():
+        try:
+            yield
         except jinja2.exceptions.TemplateSyntaxError as tse:
             raise RenderTemplateFailure(tse.message, tse.lineno)
         except jinja2.exceptions.TemplateError as te:

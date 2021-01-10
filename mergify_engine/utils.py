@@ -118,18 +118,6 @@ def compute_hmac(data):
     return str(mac.hexdigest())
 
 
-async def async_main(*awaitables):
-    # NOTE(sileht): This looks useless but
-    #   asyncio.run(asyncio.gather(...))
-    # does not work, because when the gather() coroutine is created, it need the current
-    # loop but asyncio.run() haven't create it yet, so it doesn't work.
-    return await asyncio.gather(*awaitables, return_exceptions=True)
-
-
-def async_run(*awaitables):
-    return asyncio.run(async_main(*awaitables))
-
-
 class Gitter(object):
     def __init__(self, logger):
         self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")

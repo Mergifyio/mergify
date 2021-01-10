@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 
 import voluptuous
 
@@ -39,7 +38,9 @@ class RebaseAction(actions.Action):
         ),
     }
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
@@ -61,9 +62,7 @@ class RebaseAction(actions.Action):
                 return output
 
             try:
-                asyncio.run(
-                    branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
-                )
+                await branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
                     "Branch has been successfully rebased",

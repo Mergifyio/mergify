@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mehdi Abaakouk <sileht@mergify.io>
+# Copyright © 2020–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import logging
 
 import pytest
@@ -40,7 +41,7 @@ class TestAttributes(base.FunctionalTestBase):
 
         pr, _ = self.create_pr()
         ctxt = context.Context(self.cli_integration, pr.raw_data, {})
-        assert not ctxt.pull_request.draft
+        assert not asyncio.run(ctxt.pull_request.draft)
 
         pr, _ = self.create_pr(draft=True)
 
@@ -67,16 +68,16 @@ class TestAttributes(base.FunctionalTestBase):
         self.assertEqual("draft pr", comments[-1].body)
 
         # Test underscore/dash attributes
-        assert ctxt.pull_request.review_requested == []
+        assert asyncio.run(ctxt.pull_request.review_requested) == []
 
         with pytest.raises(AttributeError):
-            assert ctxt.pull_request.foobar
+            assert asyncio.run(ctxt.pull_request.foobar)
 
         # Test items
         assert list(ctxt.pull_request) == list(
             context.PullRequest.ATTRIBUTES | context.PullRequest.LIST_ATTRIBUTES
         )
-        assert dict(ctxt.pull_request.items()) == {
+        assert asyncio.run(ctxt.pull_request.items()) == {
             "number": pr.number,
             "closed": False,
             "locked": False,

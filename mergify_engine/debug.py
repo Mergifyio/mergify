@@ -131,7 +131,7 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     print(f"* WORKER PENDING EVENTS for this installation: {size}")
 
 
-def report(
+async def report(
     url: str,
 ) -> typing.Union[context.Context, github.GithubInstallationClient, None]:
     path = url.replace("https://github.com/", "")
@@ -169,9 +169,9 @@ def report(
     if client.auth.owner_id is None:
         raise RuntimeError("Unable to get owner_id")
 
-    cached_sub, db_sub = utils.async_run(
-        subscription.Subscription.get_subscription(client.auth.owner_id),
-        subscription.Subscription._retrieve_subscription_from_db(client.auth.owner_id),
+    cached_sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
+    db_sub = await subscription.Subscription._retrieve_subscription_from_db(
+        client.auth.owner_id
     )
 
     if repo is None:
@@ -186,7 +186,7 @@ def report(
     report_sub(client.auth.installation["id"], cached_sub, "ENGINE-CACHE", slug)
     report_sub(client.auth.installation["id"], db_sub, "DASHBOARD", slug)
 
-    asyncio.run(report_worker_status(owner))
+    await report_worker_status(owner)
 
     if repo is not None:
 
@@ -196,8 +196,8 @@ def report(
         print("* CONFIGURATION:")
         mergify_config = None
         try:
-            filename, mergify_config_content = asyncio.run(
-                get_mergify_config_content(client, repo_info)
+            filename, mergify_config_content = await get_mergify_config_content(
+                client, repo_info
             )
         except rules.NoRules:  # pragma: no cover
             print(".mergify.yml is missing")
@@ -254,7 +254,7 @@ def report(
             q = queue.Queue.from_context(ctxt)
             print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
             print("* PULL REQUEST:")
-            pr_data = dict(ctxt.pull_request.items())
+            pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)
 
             print("is_behind: %s" % ctxt.is_behind)
@@ -278,7 +278,9 @@ def report(
 
             if mergify_config is not None:
                 print("* MERGIFY LIVE MATCHES:")
-                match = mergify_config["pull_request_rules"].get_pull_request_rule(ctxt)
+                match = await mergify_config[
+                    "pull_request_rules"
+                ].get_pull_request_rule(ctxt)
                 summary_title, summary = actions_runner.gen_summary(ctxt, match)
                 print("> %s" % summary_title)
                 print(summary)
@@ -292,4 +294,4 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Debugger for mergify")
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
-    report(args.url)
+    asyncio.run(report(args.url))

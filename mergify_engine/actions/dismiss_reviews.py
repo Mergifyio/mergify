@@ -42,7 +42,9 @@ class DismissReviewsAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if ctxt.have_been_synchronized():
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
@@ -59,7 +61,9 @@ class DismissReviewsAction(actions.Action):
                     )
 
             try:
-                message = ctxt.pull_request.render_template(self.config["message"])
+                message = await ctxt.pull_request.render_template(
+                    self.config["message"]
+                )
             except context.RenderTemplateFailure as rmf:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
@@ -68,7 +72,7 @@ class DismissReviewsAction(actions.Action):
                 )
 
             errors = set()
-            for review in ctxt.consolidated_reviews[1]:
+            for review in (await ctxt.consolidated_reviews())[1]:
                 conf = self.config.get(review["state"].lower(), False)
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:

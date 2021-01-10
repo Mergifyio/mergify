@@ -107,7 +107,9 @@ class CopyAction(actions.Action):
             f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
         )
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,

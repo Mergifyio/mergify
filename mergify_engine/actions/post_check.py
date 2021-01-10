@@ -49,7 +49,7 @@ class PostCheckAction(actions.Action):
     always_run = True
     allow_retrigger_mergify = True
 
-    def _post(
+    async def _post(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         # TODO(sileht): Don't run it if conditions contains the rule itself, as it can
@@ -76,7 +76,7 @@ class PostCheckAction(actions.Action):
             "check_conditions": check_conditions,
         }
         try:
-            title = ctxt.pull_request.render_template(
+            title = await ctxt.pull_request.render_template(
                 self.config["title"],
                 extra_variables,
             )
@@ -88,7 +88,7 @@ class PostCheckAction(actions.Action):
             )
 
         try:
-            summary = ctxt.pull_request.render_template(
+            summary = await ctxt.pull_request.render_template(
                 self.config["summary"], extra_variables
             )
         except context.RenderTemplateFailure as rmf:

@@ -39,7 +39,7 @@ class LineColumnPath(object):
 
 class DummyContext(context.Context):
 
-    # This is only used to check Jinja2 syntax validity
+    # This is only used to check Jinja2 syntax validity and must be sync
     @staticmethod
     def _get_consolidated_data(key):
         if key in context.PullRequest.ATTRIBUTES:
@@ -54,7 +54,28 @@ class DummyContext(context.Context):
         pass
 
 
-_DUMMY_PR = context.PullRequest(
+class DummyPullRequest(context.PullRequest):
+    # This is only used to check Jinja2 syntax validity and must be sync
+    def __getattr__(self, name):
+        return self.context._get_consolidated_data(name.replace("_", "-"))
+
+    def render_template(self, template, extra_variables=None):
+        """Render a template interpolating variables based on pull request attributes."""
+        env = jinja2.sandbox.SandboxedEnvironment(
+            undefined=jinja2.StrictUndefined,
+        )
+        with self._template_exceptions_mapping():
+            used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
+            infos = {}
+            for k in used_variables:
+                if extra_variables and k in extra_variables:
+                    infos[k] = extra_variables[k]
+                else:
+                    infos[k] = getattr(self, k)
+            return env.from_string(template).render(**infos)
+
+
+_DUMMY_PR = DummyPullRequest(
     DummyContext(
         None,  # type: ignore
         github_types.GitHubPullRequest(

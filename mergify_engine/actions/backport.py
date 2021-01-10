@@ -32,7 +32,9 @@ class BackportAction(copy.CopyAction):
     def command_to_config(string):
         return {"branches": string.split(" ")}
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
@@ -47,4 +49,4 @@ class BackportAction(copy.CopyAction):
                 "Waiting for the pull request to get merged",
                 "",
             )
-        return super().run(ctxt, rule)
+        return await super().run(ctxt, rule)

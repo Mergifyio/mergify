@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import typing
 
 from mergify_engine import actions
@@ -26,8 +25,10 @@ class RefreshAction(actions.Action):
     is_action = False
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        asyncio.run(github_events.send_refresh(ctxt.pull))
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
+        await github_events.send_refresh(ctxt.pull)
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
         )

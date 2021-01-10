@@ -35,7 +35,9 @@ class LabelAction(actions.Action):
 
     silent_report = True
 
-    def run(self, ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
         if self.config["add"]:
             all_label = [
                 label["name"] for label in ctxt.client.items(f"{ctxt.base_url}/labels")
