@@ -1494,7 +1494,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     def test_requested_reviews(self):
         team = list(self.o_admin.get_teams())[0]
-        team.set_repo_permission(self.r_o_admin, "push")
+        team.update_team_repository(self.r_o_admin, "push")
 
         rules = {
             "pull_request_rules": [

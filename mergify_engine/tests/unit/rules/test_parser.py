@@ -66,6 +66,7 @@ def test_search(line, result):
         "arf",
         "-heyo",
         "locked=1",
+        "#conflict",
         "++head=master",
         "foo=bar",
         "#foo=bar",
