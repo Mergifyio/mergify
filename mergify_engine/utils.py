@@ -13,6 +13,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import asyncio
+import contextlib
 import datetime
 import hashlib
 import hmac
@@ -47,6 +48,18 @@ async def get_aredis_for_cache(max_idle_time: int = 60) -> aredis.StrictRedis:
         )
         await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
     return AREDIS_CONNECTION_CACHE
+
+
+@contextlib.asynccontextmanager
+async def aredis_for_cache() -> typing.AsyncIterator[aredis.StrictRedis]:
+    client = aredis.StrictRedis.from_url(
+        config.STORAGE_URL, decode_responses=True, max_idle_time=0
+    )
+    try:
+        await client.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
+        yield client
+    finally:
+        client.connection_pool.disconnect()
 
 
 global REDIS_CONNECTION_CACHE

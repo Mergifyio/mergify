@@ -97,6 +97,14 @@ def report_sub(
         print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
+async def get_mergify_config_content(
+    client: github.GithubInstallationClient,
+    repo_info: github_types.GitHubRepository,
+) -> typing.Tuple[str, bytes]:
+    async with utils.aredis_for_cache() as redis:
+        return await rules.get_mergify_config_content(redis, client, repo_info)
+
+
 async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     stream_name = f"stream~{owner}".encode()
     r = await utils.create_aredis_for_stream()
@@ -189,7 +197,7 @@ def report(
         mergify_config = None
         try:
             filename, mergify_config_content = asyncio.run(
-                rules.get_mergify_config_content(client, repo_info)
+                get_mergify_config_content(client, repo_info)
             )
         except rules.NoRules:  # pragma: no cover
             print(".mergify.yml is missing")
