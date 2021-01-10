@@ -130,10 +130,10 @@ class Context(object):
         repo: github_types.GitHubRepository,
         user: github_types.GitHubAccount,
     ) -> None:
-        redis = await utils.get_aredis_for_cache()
-        await redis.hdel(
-            cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
-        )
+        async with utils.aredis_for_cache() as redis:
+            await redis.hdel(
+                cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
+            )
 
     @classmethod
     async def clear_user_permission_cache_for_repo(
@@ -141,33 +141,33 @@ class Context(object):
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
-        redis = await utils.get_aredis_for_cache()
-        await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
+        async with utils.aredis_for_cache() as redis:
+            await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
 
     @classmethod
     async def clear_user_permission_cache_for_org(
         cls, user: github_types.GitHubAccount
     ) -> None:
-        redis = await utils.get_aredis_for_cache()
-        pipeline = await redis.pipeline()
-        async for key in redis.scan_iter(
-            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
-        ):
-            await pipeline.delete(key)
-        await pipeline.execute()
+        async with utils.aredis_for_cache() as redis:
+            pipeline = await redis.pipeline()
+            async for key in redis.scan_iter(
+                f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+            ):
+                await pipeline.delete(key)
+            await pipeline.execute()
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
-        redis = await utils.get_aredis_for_cache()
-        key = self._users_permission_cache_key
-        permission = await redis.hget(key, user["id"])
-        if permission is None:
-            permission = self.client.item(
-                f"{self.base_url}/collaborators/{user['login']}/permission"
-            )["permission"]
-            pipe = await redis.pipeline()
-            await pipe.hset(key, user["id"], permission)
-            await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
-            await pipe.execute()
+        async with utils.aredis_for_cache() as redis:
+            key = self._users_permission_cache_key
+            permission = await redis.hget(key, user["id"])
+            if permission is None:
+                permission = self.client.item(
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
+                )["permission"]
+                pipe = await redis.pipeline()
+                await pipe.hset(key, user["id"], permission)
+                await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
+                await pipe.execute()
 
         return permission in (
             "admin",
@@ -214,11 +214,11 @@ class Context(object):
     async def get_cached_last_summary_head_sha(
         self,
     ) -> typing.Optional[github_types.SHAType]:
-        redis_cache = await utils.get_aredis_for_cache()
-        return await self.get_cached_last_summary_head_sha_from_pull(
-            redis_cache,
-            self.pull,
-        )
+        async with utils.aredis_for_cache() as redis_cache:
+            return await self.get_cached_last_summary_head_sha_from_pull(
+                redis_cache,
+                self.pull,
+            )
 
     def clear_cached_last_summary_head_sha(self) -> None:
         with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]

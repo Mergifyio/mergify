@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import get_mergify_config
@@ -226,10 +227,12 @@ async def test_get_mergify_config_location_from_cache() -> None:
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
         {"content": encodebytes("whatever".encode()).decode()},
     ]
-    filename, content = await rules.get_mergify_config_content(
-        client,
-        repo,
-    )
+    async with utils.aredis_for_cache() as redis:
+        filename, content = await rules.get_mergify_config_content(
+            redis,
+            client,
+            repo,
+        )
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
@@ -243,10 +246,12 @@ async def test_get_mergify_config_location_from_cache() -> None:
     client.item.side_effect = [
         {"content": encodebytes("whatever".encode()).decode()},
     ]
-    filename, content = await rules.get_mergify_config_content(
-        client,
-        repo,
-    )
+    async with utils.aredis_for_cache() as redis:
+        filename, content = await rules.get_mergify_config_content(
+            redis,
+            client,
+            repo,
+        )
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
