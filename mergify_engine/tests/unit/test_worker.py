@@ -16,13 +16,17 @@ import asyncio
 import datetime
 import json
 import time
+import typing
 from unittest import mock
 
+import aredis
 from freezegun import freeze_time
 import httpx
+import msgpack
 import pytest
 
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine import worker
@@ -63,9 +67,11 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
             for data in range(3):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
-                stream_names.append(f"stream~owner-{installation_id}")
+                owner_id = installation_id
+                stream_names.append(f"stream~owner-{installation_id}~{owner_id}")
                 await worker.push(
                     redis,
+                    owner_id,
                     owner,
                     repo,
                     pull_number,
@@ -130,7 +136,9 @@ async def test_worker_expanded_events(
         name="foo",
         owner="owner",
         repo="repo",
-        auth=mock.Mock(installation={"id": 12345}, owner="owner", repo="repo"),
+        auth=mock.Mock(
+            installation={"id": 12345}, owner="owner", repo="repo", owner_id=123
+        ),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
     client.__aexit__ = mock.AsyncMock()
@@ -141,6 +149,7 @@ async def test_worker_expanded_events(
     extract_pull_numbers_from_event.return_value = [123, 456, 789]
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -149,6 +158,7 @@ async def test_worker_expanded_events(
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         None,
@@ -158,7 +168,7 @@ async def test_worker_expanded_events(
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == (await redis.xlen("stream~owner"))
+    assert 2 == (await redis.xlen("stream~owner~123"))
 
     await run_worker()
 
@@ -217,6 +227,7 @@ async def test_worker_expanded_events(
 async def test_worker_with_one_task(run_engine, redis, logger_checker):
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -225,6 +236,7 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -234,7 +246,7 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == (await redis.xlen("stream~owner"))
+    assert 2 == (await redis.xlen("stream~owner~123"))
 
     await run_worker()
 
@@ -277,6 +289,7 @@ async def test_consume_unexisting_stream(run_engine, redis, logger_checker):
 async def test_consume_good_stream(run_engine, redis, logger_checker):
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -285,6 +298,7 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -294,11 +308,11 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == await redis.xlen("stream~owner")
+    assert 2 == await redis.xlen("stream~owner~123")
     assert 0 == len(await redis.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -343,6 +357,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -351,6 +366,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         42,
@@ -360,11 +376,11 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == await redis.xlen("stream~owner")
+    assert 2 == await redis.xlen("stream~owner~123")
     assert 0 == len(await redis.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
 
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
@@ -402,14 +418,14 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
         b"pull~owner~repo~123": b"1",
     } == await redis.hgetall("attempts")
 
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
     assert 1 == len(await redis.hgetall("attempts"))
     assert len(run_engine.mock_calls) == 4
     assert {b"pull~owner~repo~42": b"2"} == await redis.hgetall("attempts")
 
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
     assert len(run_engine.mock_calls) == 5
 
     # Too many retries, everything is gone
@@ -444,6 +460,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
 
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -452,6 +469,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -461,11 +479,11 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == await redis.xlen("stream~owner")
+    assert 2 == await redis.xlen("stream~owner~123")
     assert 0 == len(await redis.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -491,11 +509,11 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
     assert 1 == len(await redis.keys("stream~*"))
     assert 1 == len(await redis.hgetall("attempts"))
 
-    assert {b"stream~owner": b"1"} == await redis.hgetall("attempts")
+    assert {b"stream~owner~123": b"1"} == await redis.hgetall("attempts")
 
     run_engine.side_effect = None
 
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
     assert len(run_engine.mock_calls) == 2
     assert 0 == (await redis.zcard("streams"))
     assert 0 == len(await redis.keys("stream~*"))
@@ -521,6 +539,7 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
 
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -529,6 +548,7 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
     )
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -538,11 +558,11 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
 
     assert 1 == (await redis.zcard("streams"))
     assert 1 == len(await redis.keys("stream~*"))
-    assert 2 == await redis.xlen("stream~owner")
+    assert 2 == await redis.xlen("stream~owner~123")
     assert 0 == len(await redis.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -568,13 +588,13 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
     assert 1 == len(await redis.keys("stream~*"))
     assert 1 == len(await redis.hgetall("attempts"))
 
-    assert {b"stream~owner": b"1"} == await redis.hgetall("attempts")
+    assert {b"stream~owner~123": b"1"} == await redis.hgetall("attempts")
 
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
     assert len(run_engine.mock_calls) == 2
-    assert {b"stream~owner": b"2"} == await redis.hgetall("attempts")
+    assert {b"stream~owner~123": b"2"} == await redis.hgetall("attempts")
 
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
     assert len(run_engine.mock_calls) == 3
 
     # Still there
@@ -599,6 +619,7 @@ async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, 
 
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -607,8 +628,8 @@ async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, 
     )
 
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~owner")
-    await p.consume("stream~owner")
+    await p.consume("stream~owner~123")
+    await p.consume("stream~owner~123")
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
@@ -628,6 +649,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     with freeze_time("2040-01-01"):
         await worker.push(
             redis,
+            123,
             "owner1",
             "repo",
             123,
@@ -639,6 +661,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
     with freeze_time("2020-01-01"):
         await worker.push(
             redis,
+            123,
             "owner2",
             "repo",
             321,
@@ -694,15 +717,14 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
 
 @pytest.mark.asyncio
 async def test_worker_debug_report(redis, logger_checker):
-    stream_names = []
     for installation_id in range(8):
         for pull_number in range(2):
             for data in range(3):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
-                stream_names.append(f"stream~owner-{installation_id}")
                 await worker.push(
                     redis,
+                    123,
                     owner,
                     repo,
                     pull_number,
@@ -747,6 +769,7 @@ async def test_stream_processor_ignore_503(run_engine, redis, logger_checker):
 
     await worker.push(
         redis,
+        123,
         "owner1",
         "repo",
         123,
@@ -771,9 +794,11 @@ async def test_worker_with_multiple_workers(run_engine, redis, logger_checker):
             for data in range(3):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
-                stream_names.append(f"stream~owner-{installation_id}")
+                owner_id = installation_id
+                stream_names.append(f"stream~owner-{installation_id}~{owner_id}")
                 await worker.push(
                     redis,
+                    owner_id,
                     owner,
                     repo,
                     pull_number,
@@ -816,6 +841,7 @@ async def test_worker_reschedule(run_engine, redis, logger_checker, monkeypatch)
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -854,6 +880,7 @@ async def test_worker_stuck_shutdown(run_engine, redis, logger_checker):
 
     await worker.push(
         redis,
+        123,
         "owner",
         "repo",
         123,
@@ -861,3 +888,92 @@ async def test_worker_stuck_shutdown(run_engine, redis, logger_checker):
         {"payload": "whatever"},
     )
     await run_worker(test_timeout=2, shutdown_timeout=1)
+
+
+async def legacy_push(
+    redis: aredis.StrictRedis,
+    owner: github_types.GitHubLogin,
+    repo: github_types.GitHubRepositoryName,
+    pull_number: typing.Optional[int],
+    event_type: github_types.GitHubEventType,
+    data: github_types.GitHubEvent,
+) -> typing.Tuple[worker.T_MessageID, worker.T_MessagePayload]:
+    stream_name = f"stream~{owner}"
+    scheduled_at = utils.utcnow() + datetime.timedelta(seconds=0)
+    score = scheduled_at.timestamp()
+    transaction = await redis.pipeline()
+    # NOTE(sileht): Add this event to the pull request stream
+    payload = worker.T_MessagePayload(
+        {
+            b"event": msgpack.packb(
+                {
+                    "owner": owner,
+                    "repo": repo,
+                    "pull_number": pull_number,
+                    "source": {
+                        "event_type": event_type,
+                        "data": data,
+                        "timestamp": datetime.datetime.utcnow().isoformat(),
+                    },
+                },
+                use_bin_type=True,
+            ),
+        }
+    )
+
+    await transaction.xadd(stream_name, payload)
+    # NOTE(sileht): Add pull request stream to process to the list, only if it
+    # does not exists, to not update the score(date)
+    await transaction.zaddoption("streams", "NX", **{stream_name: score})
+    ret = await transaction.execute()
+    return (worker.T_MessageID(ret[0]), payload)
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_worker_with_multiple_workers_legacy_pusher(
+    run_engine, redis, logger_checker
+):
+    stream_names = []
+    for installation_id in range(100):
+        for pull_number in range(2):
+            for data in range(3):
+                owner = f"owner-{installation_id}"
+                repo = f"repo-{installation_id}"
+                stream_names.append(f"stream~owner-{installation_id}")
+                await legacy_push(
+                    redis,
+                    owner,
+                    repo,
+                    pull_number,
+                    "pull_request",
+                    {"payload": data},
+                )
+
+    # Check everything we push are in redis
+    assert 100 == (await redis.zcard("streams"))
+    assert 100 == len(await redis.keys("stream~*"))
+    for stream_name in stream_names:
+        assert 6 == (await redis.xlen(stream_name))
+
+    process_count = 4
+    worker_per_process = 3
+
+    await asyncio.gather(
+        *[
+            run_worker(
+                worker_per_process=worker_per_process,
+                process_count=process_count,
+                process_index=i,
+            )
+            for i in range(process_count)
+        ]
+    )
+
+    # Check redis is empty
+    assert 0 == (await redis.zcard("streams"))
+    assert 0 == len(await redis.keys("stream~*"))
+    assert 0 == len(await redis.hgetall("attempts"))
+
+    # Check engine have been run with expect data
+    assert 200 == len(run_engine.mock_calls)

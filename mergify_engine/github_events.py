@@ -125,6 +125,7 @@ async def filter_and_dispatch(
     if event_type == "pull_request":
         event = typing.cast(github_types.GitHubEventPullRequest, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
 
@@ -140,6 +141,7 @@ async def filter_and_dispatch(
     elif event_type == "refresh":
         event = typing.cast(github_types.GitHubEventRefresh, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
         if event["pull_request"] is not None:
@@ -148,6 +150,7 @@ async def filter_and_dispatch(
     elif event_type == "pull_request_review_comment":
         event = typing.cast(github_types.GitHubEventPullRequestReviewComment, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
 
@@ -157,11 +160,13 @@ async def filter_and_dispatch(
     elif event_type == "pull_request_review":
         event = typing.cast(github_types.GitHubEventPullRequestReview, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
     elif event_type == "issue_comment":
         event = typing.cast(github_types.GitHubEventIssueComment, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         pull_number = typing.cast(
             github_types.GitHubPullRequestNumber, event["issue"]["number"]
@@ -188,6 +193,7 @@ async def filter_and_dispatch(
     elif event_type == "status":
         event = typing.cast(github_types.GitHubEventStatus, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
@@ -196,6 +202,7 @@ async def filter_and_dispatch(
     elif event_type == "push":
         event = typing.cast(github_types.GitHubEventPush, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
@@ -210,6 +217,7 @@ async def filter_and_dispatch(
     elif event_type == "check_suite":
         event = typing.cast(github_types.GitHubEventCheckSuite, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
@@ -228,6 +236,7 @@ async def filter_and_dispatch(
     elif event_type == "check_run":
         event = typing.cast(github_types.GitHubEventCheckRun, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
         if event["repository"]["archived"]:
@@ -243,6 +252,7 @@ async def filter_and_dispatch(
     elif event_type == "organization":
         event = typing.cast(github_types.GitHubEventOrganization, event)
         owner_login = event["organization"]["login"]
+        owner_id = event["organization"]["id"]
         repo_name = None
         ignore_reason = "organization event"
 
@@ -254,6 +264,7 @@ async def filter_and_dispatch(
     elif event_type == "member":
         event = typing.cast(github_types.GitHubEventMember, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         ignore_reason = "member event"
 
@@ -266,6 +277,7 @@ async def filter_and_dispatch(
     elif event_type == "membership":
         event = typing.cast(github_types.GitHubEventMembership, event)
         owner_login = event["organization"]["login"]
+        owner_id = event["organization"]["id"]
         repo_name = None
         ignore_reason = "membership event"
 
@@ -274,6 +286,7 @@ async def filter_and_dispatch(
     elif event_type == "team":
         event = typing.cast(github_types.GitHubEventTeam, event)
         owner_login = event["organization"]["login"]
+        owner_id = event["organization"]["id"]
         repo_name = None
         ignore_reason = "team event"
 
@@ -294,6 +307,7 @@ async def filter_and_dispatch(
     elif event_type == "team_add":
         event = typing.cast(github_types.GitHubEventTeamAdd, event)
         owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         ignore_reason = "team_add event"
 
@@ -303,6 +317,7 @@ async def filter_and_dispatch(
 
     else:
         owner_login = "<unknown>"
+        owner_id = "<unknown>"
         repo_name = "<unknown>"
         ignore_reason = "unexpected event_type"
 
@@ -312,6 +327,7 @@ async def filter_and_dispatch(
 
         await worker.push(
             redis,
+            owner_id,
             owner_login,
             repo_name,
             pull_number,
@@ -435,11 +451,7 @@ async def send_refresh(
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
                 "id": 0,
-                "account": {
-                    "login": github_types.GitHubLogin(""),
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "User",
-                },
+                "account": pull["base"]["repo"]["owner"],
             },
         }
     )
