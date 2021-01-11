@@ -101,9 +101,9 @@ T_MessageID = typing.NewType("T_MessageID", str)
 
 
 class T_PayloadEvent(typing.TypedDict):
-    owner: str
-    repo: str
-    pull_number: int
+    owner: github_types.GitHubLogin
+    repo: github_types.GitHubRepositoryName
+    pull_number: github_types.GitHubPullRequestNumber
     source: context.T_PayloadEventSource
 
 
@@ -117,7 +117,7 @@ async def push(
     owner_id: github_types.GitHubAccountIdType,
     owner: github_types.GitHubLogin,
     repo: github_types.GitHubRepositoryName,
-    pull_number: typing.Optional[int],
+    pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
 ) -> typing.Tuple[T_MessageID, T_MessagePayload]:
@@ -163,7 +163,7 @@ async def push(
 async def get_pull_for_engine(
     owner: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
-    pull_number: github_types.GitHubPullRequestId,
+    pull_number: github_types.GitHubPullRequestNumber,
     logger: logging.LoggerAdapter,
 ) -> typing.Optional[github_types.GitHubPullRequest]:
     async with await github.aget_client(owner) as client:
@@ -181,7 +181,7 @@ async def get_pull_for_engine(
 def run_engine(
     installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
-    pull_number: github_types.GitHubPullRequestId,
+    pull_number: github_types.GitHubPullRequestNumber,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
@@ -260,7 +260,9 @@ class ThreadRunner(threading.Thread):
 PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
-        typing.Tuple[str, int],
+        typing.Tuple[
+            github_types.GitHubRepositoryName, github_types.GitHubPullRequestNumber
+        ],
         typing.Tuple[
             typing.List[T_MessageID], typing.List[context.T_PayloadEventSource]
         ],
@@ -490,7 +492,7 @@ end
             source = typing.cast(context.T_PayloadEventSource, data["source"])
 
             if data["pull_number"] is not None:
-                key = (repo, data["pull_number"])
+                key = (repo, github_types.GitHubPullRequestNumber(data["pull_number"]))
                 group = pulls.setdefault(key, ([], []))
                 group[0].append(message_id)
                 group[1].append(source)
@@ -510,7 +512,7 @@ end
                                 opened_pulls_by_repo[repo] = [
                                     p
                                     async for p in client.items(
-                                        f"/repos/{client.auth.owner}/{repo}/pulls"
+                                        f"/repos/{installation.owner_login}/{repo}/pulls"
                                     )
                                 ]
                     except IgnoredException:
