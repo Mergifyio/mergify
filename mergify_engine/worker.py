@@ -198,7 +198,7 @@ def run_engine(
             )
         )
         if pull is not None:
-            engine.run(installation.client, pull, installation.subcription, sources)
+            engine.run(installation.client, pull, installation.subscription, sources)
     finally:
         logger.debug("engine in thread end")
 
