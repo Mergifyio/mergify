@@ -69,6 +69,9 @@ WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
 
+StreamNameType = typing.NewType("StreamNameType", str)
+
+
 class IgnoredException(Exception):
     pass
 
@@ -84,13 +87,13 @@ class MaxPullRetry(PullRetry):
 
 @dataclasses.dataclass
 class StreamRetry(Exception):
-    stream_name: str
+    stream_name: StreamNameType
     attempts: int
     retry_at: datetime.datetime
 
 
 class StreamUnused(Exception):
-    stream_name: str
+    stream_name: StreamNameType
 
 
 T_MessagePayload = typing.NewType("T_MessagePayload", typing.Dict[bytes, bytes])
@@ -176,21 +179,26 @@ async def get_pull_for_engine(
 
 
 def run_engine(
-    client: github.GithubInstallationClient,
-    sub: subscription.Subscription,
-    owner: github_types.GitHubLogin,
+    installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestId,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
-        __name__, gh_repo=repo_name, gh_owner=owner, gh_pull=pull_number
+        __name__,
+        gh_repo=repo_name,
+        gh_owner=installation.owner_login,
+        gh_pull=pull_number,
     )
     logger.debug("engine in thread start")
     try:
-        pull = asyncio.run(get_pull_for_engine(owner, repo_name, pull_number, logger))
+        pull = asyncio.run(
+            get_pull_for_engine(
+                installation.owner_login, repo_name, pull_number, logger
+            )
+        )
         if pull is not None:
-            engine.run(client, pull, sub, sources)
+            engine.run(installation.client, pull, installation.subcription, sources)
     finally:
         logger.debug("engine in thread end")
 
@@ -252,7 +260,7 @@ class ThreadRunner(threading.Thread):
 PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
-        typing.Tuple[str, str, int],
+        typing.Tuple[str, int],
         typing.Tuple[
             typing.List[T_MessageID], typing.List[context.T_PayloadEventSource]
         ],
@@ -272,7 +280,7 @@ class StreamSelector:
     def _is_stream_for_me(self, stream: bytes) -> bool:
         return self.get_worker_id_for(stream) == self.worker_id
 
-    async def next_stream(self):
+    async def next_stream(self) -> typing.Optional[StreamNameType]:
         now = time.time()
         for stream in await self.redis.zrangebyscore(
             "streams",
@@ -283,7 +291,9 @@ class StreamSelector:
                 statsd.increment(
                     "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
                 )
-                return stream.decode()
+                return StreamNameType(stream.decode())
+
+        return None
 
 
 @dataclasses.dataclass
@@ -297,7 +307,7 @@ class StreamProcessor:
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
         self,
-        stream_name: str,
+        installation: context.Installation,
         attempts_key: typing.Optional[str] = None,
     ) -> typing.AsyncIterator[None]:
         try:
@@ -314,8 +324,8 @@ class StreamProcessor:
             if isinstance(e, exceptions.MergifyNotInstalled):
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
-                raise StreamUnused(stream_name)
+                await self.redis.hdel("attempts", installation.stream_name)
+                raise StreamUnused(installation.stream_name)
 
             if isinstance(e, github.TooManyPages):
                 # TODO(sileht): Ideally this should be catcher earlier to post an
@@ -324,13 +334,13 @@ class StreamProcessor:
                 # meantimes...
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
+                await self.redis.hdel("attempts", installation.stream_name)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
+                await self.redis.hdel("attempts", installation.stream_name)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
@@ -338,9 +348,11 @@ class StreamProcessor:
                 score = retry_at.timestamp()
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
-                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-                raise StreamRetry(stream_name, 0, retry_at)
+                await self.redis.hdel("attempts", installation.stream_name)
+                await self.redis.zaddoption(
+                    "streams", "XX", **{installation.stream_name: score}
+                )
+                raise StreamRetry(installation.stream_name, 0, retry_at)
 
             backoff = exceptions.need_retry(e)
             if backoff is None:
@@ -348,21 +360,14 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis.hincrby("attempts", stream_name)
+            attempts = await self.redis.hincrby("attempts", installation.stream_name)
             retry_in = 3 ** min(attempts, 3) * backoff
             retry_at = utils.utcnow() + retry_in
             score = retry_at.timestamp()
-            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
-            raise StreamRetry(stream_name, attempts, retry_at)
-
-    def _extract_owner(
-        self, stream_name: str
-    ) -> typing.Tuple[github_types.GitHubLogin, github_types.GitHubAccountIdType]:
-        stream_splitted = stream_name.split("~")[1:]
-        return (
-            github_types.GitHubLogin(stream_splitted[0]),
-            github_types.GitHubAccountIdType(int(stream_splitted[1])),
-        )
+            await self.redis.zaddoption(
+                "streams", "XX", **{installation.stream_name: score}
+            )
+            raise StreamRetry(installation.stream_name, attempts, retry_at)
 
     @contextlib.asynccontextmanager
     async def _github_get_client(
@@ -376,16 +381,32 @@ class StreamProcessor:
         finally:
             await asyncio.to_thread(client.close)
 
-    async def consume(self, stream_name: str) -> None:
-        owner, owner_id = self._extract_owner(stream_name)
+    def _extract_owner(
+        self, stream_name: StreamNameType
+    ) -> typing.Tuple[github_types.GitHubLogin, github_types.GitHubAccountIdType]:
+        stream_splitted = stream_name.split("~")[1:]
+        return (
+            github_types.GitHubLogin(stream_splitted[0]),
+            github_types.GitHubAccountIdType(int(stream_splitted[1])),
+        )
+
+    async def consume(self, stream_name: StreamNameType) -> None:
+        owner_login, owner_id = self._extract_owner(stream_name)
 
         try:
-            sub = await subscription.Subscription.get_subscription(owner_id)
-            pulls = await self._extract_pulls_from_stream(stream_name)
-            async with self._github_get_client(owner) as client:
-                await self._consume_pulls(stream_name, client, sub, pulls)
+            async with self._github_get_client(owner_login) as client:
+                sub = await subscription.Subscription.get_subscription(owner_id)
+                installation = context.Installation(
+                    stream_name, owner_id, owner_login, sub, client
+                )
+                pulls = await self._extract_pulls_from_stream(installation)
+                await self._consume_pulls(installation, pulls)
         except StreamUnused:
-            LOG.info("unused stream, dropping it", gh_owner=owner, exc_info=True)
+            LOG.info(
+                "unused stream, dropping it",
+                gh_owner=installation.owner_login,
+                exc_info=True,
+            )
             await self.redis.delete(stream_name)
         except StreamRetry as e:
             log_method = (
@@ -397,7 +418,7 @@ class StreamProcessor:
                 "failed to process stream, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
-                gh_owner=owner,
+                gh_owner=installation.owner_login,
                 exc_info=True,
             )
             return
@@ -411,7 +432,11 @@ class StreamProcessor:
 
         except Exception:
             # Ignore it, it will retried later
-            LOG.error("failed to process stream", gh_owner=owner, exc_info=True)
+            LOG.error(
+                "failed to process stream",
+                gh_owner=installation.owner_login,
+                exc_info=True,
+            )
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
         await self.redis.eval(
@@ -436,16 +461,24 @@ else
 end
 """
 
-    async def _extract_pulls_from_stream(self, stream_name: str) -> PullsToConsume:
+    async def _extract_pulls_from_stream(
+        self, installation: context.Installation
+    ) -> PullsToConsume:
         messages: typing.List[
             typing.Tuple[T_MessageID, T_MessagePayload]
-        ] = await self.redis.xrange(stream_name, count=config.STREAM_MAX_BATCH)
-        LOG.debug("read stream", stream_name=stream_name, messages_count=len(messages))
+        ] = await self.redis.xrange(
+            installation.stream_name, count=config.STREAM_MAX_BATCH
+        )
+        LOG.debug(
+            "read stream",
+            stream_name=installation.stream_name,
+            messages_count=len(messages),
+        )
         statsd.histogram("engine.streams.size", len(messages))
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
         opened_pulls_by_repo: typing.Dict[
-            typing.Tuple[github_types.GitHubLogin, github_types.GitHubRepositoryName],
+            github_types.GitHubRepositoryName,
             typing.List[github_types.GitHubPullRequest],
         ] = {}
 
@@ -453,46 +486,46 @@ end
         pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
-            owner = github_types.GitHubLogin(data["owner"])
             repo = github_types.GitHubRepositoryName(data["repo"])
             source = typing.cast(context.T_PayloadEventSource, data["source"])
 
             if data["pull_number"] is not None:
-                key = (owner, repo, data["pull_number"])
+                key = (repo, data["pull_number"])
                 group = pulls.setdefault(key, ([], []))
                 group[0].append(message_id)
                 group[1].append(source)
             else:
                 logger = daiquiri.getLogger(
-                    __name__, gh_repo=repo, gh_owner=owner, source=source
+                    __name__,
+                    gh_repo=repo,
+                    gh_owner=installation.owner_login,
+                    source=source,
                 )
-                if (owner, repo) not in opened_pulls_by_repo:
+                if repo not in opened_pulls_by_repo:
                     try:
-                        async with self._translate_exception_to_retries(stream_name):
-                            async with await github.aget_client(owner) as client:
-                                opened_pulls_by_repo[(owner, repo)] = [
+                        async with self._translate_exception_to_retries(installation):
+                            async with await github.aget_client(
+                                installation.owner_login
+                            ) as client:
+                                opened_pulls_by_repo[repo] = [
                                     p
                                     async for p in client.items(
                                         f"/repos/{client.auth.owner}/{repo}/pulls"
                                     )
                                 ]
                     except IgnoredException:
-                        opened_pulls_by_repo[(owner, repo)] = []
-
-                if client.auth.owner_id is None:
-                    raise RuntimeError("owner_id is None")
+                        opened_pulls_by_repo[repo] = []
 
                 converted_messages = await self._convert_event_to_messages(
-                    client.auth.owner_id,
-                    owner,
+                    installation,
                     repo,
                     source,
-                    opened_pulls_by_repo[(owner, repo)],
+                    opened_pulls_by_repo[repo],
                 )
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
                 messages.extend(converted_messages)
-                deleted = await self.redis.xdel(stream_name, message_id)
+                deleted = await self.redis.xdel(installation.stream_name, message_id)
                 if deleted != 1:
                     # FIXME(sileht): During shutdown, heroku may have already started
                     # another worker that have already take the lead of this stream_name
@@ -500,7 +533,7 @@ end
                     # be a big deal as the engine will not been ran by the worker that's
                     # shutdowning.
                     contents = await self.redis.xrange(
-                        stream_name, start=message_id, end=message_id
+                        installation.stream_name, start=message_id, end=message_id
                     )
                     if contents:
                         logger.error(
@@ -514,8 +547,7 @@ end
 
     async def _convert_event_to_messages(
         self,
-        owner_id: github_types.GitHubAccountIdType,
-        owner_login: github_types.GitHubLogin,
+        installation: context.Installation,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
@@ -526,7 +558,7 @@ end
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
         pull_numbers = await github_events.extract_pull_numbers_from_event(
-            owner_login,
+            installation.owner_login,
             repo_name,
             source["event_type"],
             source["data"],
@@ -543,8 +575,8 @@ end
             messages.append(
                 await push(
                     self.redis,
-                    owner_id,
-                    owner_login,
+                    installation.owner_id,
+                    installation.owner_login,
                     repo_name,
                     pull_number,
                     source["event_type"],
@@ -555,13 +587,13 @@ end
 
     async def _consume_pulls(
         self,
-        stream_name: str,
-        client: github.GithubInstallationClient,
-        sub: subscription.Subscription,
+        installation: context.Installation,
         pulls: PullsToConsume,
     ) -> None:
-        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
-        for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
+        LOG.debug(
+            "stream contains %d pulls", len(pulls), stream_name=installation.stream_name
+        )
+        for (repo, pull_number), (message_ids, sources) in pulls.items():
 
             statsd.histogram("engine.streams.batch-size", len(sources))
             for source in sources:
@@ -575,30 +607,37 @@ end
                     )
 
             logger = daiquiri.getLogger(
-                __name__, gh_repo=repo, gh_owner=owner, gh_pull=pull_number
+                __name__,
+                gh_repo=repo,
+                gh_owner=installation.owner_login,
+                gh_pull=pull_number,
             )
 
-            attempts_key = f"pull~{owner}~{repo}~{pull_number}"
+            attempts_key = f"pull~{installation.owner_login}~{repo}~{pull_number}"
             try:
                 async with self._translate_exception_to_retries(
-                    stream_name, attempts_key
+                    installation, attempts_key
                 ):
                     await self._thread.exec(
                         run_engine,
-                        client,
-                        sub,
-                        owner,
+                        installation,
                         repo,
                         pull_number,
                         sources,
                     )
                 await self.redis.hdel("attempts", attempts_key)
-                await self.redis.execute_command("XDEL", stream_name, *message_ids)
+                await self.redis.execute_command(
+                    "XDEL", installation.stream_name, *message_ids
+                )
             except IgnoredException:
-                await self.redis.execute_command("XDEL", stream_name, *message_ids)
+                await self.redis.execute_command(
+                    "XDEL", installation.stream_name, *message_ids
+                )
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
-                await self.redis.execute_command("XDEL", stream_name, *message_ids)
+                await self.redis.execute_command(
+                    "XDEL", installation.stream_name, *message_ids
+                )
                 logger.error(
                     "failed to process pull request, abandoning",
                     attempts=e.attempts,

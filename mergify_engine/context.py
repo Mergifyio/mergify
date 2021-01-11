@@ -39,6 +39,9 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
+if typing.TYPE_CHECKING:
+    from mergify_engine import worker
+
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
 
 
@@ -51,6 +54,15 @@ class T_PayloadEventSource(typing.TypedDict):
 @dataclasses.dataclass
 class PullRequestAttributeError(AttributeError):
     name: str
+
+
+@dataclasses.dataclass
+class Installation:
+    stream_name: "worker.StreamNameType"
+    owner_id: github_types.GitHubAccountIdType
+    owner_login: github_types.GitHubLogin
+    subcription: subscription.Subscription
+    client: github.GithubInstallationClient
 
 
 @dataclasses.dataclass
