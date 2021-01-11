@@ -94,6 +94,7 @@ async def test_worker_with_waiting_tasks(run_engine, _, redis, logger_checker):
     assert (
         mock.call(
             mock.ANY,
+            mock.ANY,
             "owner-0",
             "repo-0",
             0,
@@ -181,6 +182,7 @@ async def test_worker_expanded_events(
     assert 3 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
         mock.ANY,
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -199,6 +201,7 @@ async def test_worker_expanded_events(
     )
     assert run_engine.mock_calls[1] == mock.call(
         mock.ANY,
+        mock.ANY,
         "owner",
         "repo",
         456,
@@ -211,6 +214,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[2] == mock.call(
+        mock.ANY,
         mock.ANY,
         "owner",
         "repo",
@@ -262,6 +266,7 @@ async def test_worker_with_one_task(run_engine, _, redis, logger_checker):
     # Check engine have been run with expect data
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         mock.ANY,
         "owner",
         "repo",
@@ -323,6 +328,7 @@ async def test_consume_good_stream(run_engine, _, redis, logger_checker):
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         mock.ANY,
         "owner",
         "repo",
@@ -395,6 +401,7 @@ async def test_stream_processor_retrying_pull(run_engine, _, logger_class, redis
     assert run_engine.mock_calls == [
         mock.call(
             mock.ANY,
+            mock.ANY,
             "owner",
             "repo",
             123,
@@ -407,6 +414,7 @@ async def test_stream_processor_retrying_pull(run_engine, _, logger_class, redis
             ],
         ),
         mock.call(
+            mock.ANY,
             mock.ANY,
             "owner",
             "repo",
@@ -500,6 +508,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, _, logger,
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
         mock.ANY,
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -580,6 +589,7 @@ async def test_stream_processor_retrying_stream_failure(run_engine, _, logger, r
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         mock.ANY,
         "owner",
         "repo",
@@ -698,7 +708,7 @@ async def test_stream_processor_date_scheduling(run_engine, _, redis, logger_che
 
     received = []
 
-    def fake_engine(sub, owner, repo, pull_number, sources):
+    def fake_engine(client, sub, owner, repo, pull_number, sources):
         received.append(owner)
 
     run_engine.side_effect = fake_engine
