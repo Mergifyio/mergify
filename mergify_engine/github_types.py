@@ -35,9 +35,12 @@ class GitHubAccount(typing.TypedDict):
     type: GitHubAccountType
 
 
+GitHubInstallationIdType = typing.NewType("GitHubInstallationIdType", int)
+
+
 class GitHubInstallation(typing.TypedDict):
     # https://developer.github.com/v3/apps/#get-an-organization-installation-for-the-authenticated-app
-    id: int
+    id: GitHubInstallationIdType
     account: GitHubAccount
 
 

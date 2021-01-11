@@ -111,8 +111,7 @@ class T_PayloadEvent(typing.TypedDict):
 )
 async def push(
     redis: aredis.StrictRedis,
-    # NOTE(sileht): remove Optional when all stream have the new name format
-    owner_id: int,
+    owner_id: github_types.GitHubAccountIdType,
     owner: github_types.GitHubLogin,
     repo: github_types.GitHubRepositoryName,
     pull_number: typing.Optional[int],
@@ -498,7 +497,7 @@ end
 
     async def _convert_event_to_messages(
         self,
-        owner_id: int,
+        owner_id: github_types.GitHubAccountIdType,
         owner_login: github_types.GitHubLogin,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
