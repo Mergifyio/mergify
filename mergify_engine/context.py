@@ -61,7 +61,7 @@ class Installation:
     stream_name: "worker.StreamNameType"
     owner_id: github_types.GitHubAccountIdType
     owner_login: github_types.GitHubLogin
-    subcription: subscription.Subscription
+    subscription: subscription.Subscription
     client: github.GithubInstallationClient
 
 
