@@ -404,11 +404,7 @@ class StreamProcessor:
                 pulls = await self._extract_pulls_from_stream(installation)
                 await self._consume_pulls(installation, pulls)
         except StreamUnused:
-            LOG.info(
-                "unused stream, dropping it",
-                gh_owner=installation.owner_login,
-                exc_info=True,
-            )
+            LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             await self.redis.delete(stream_name)
         except StreamRetry as e:
             log_method = (
@@ -420,7 +416,7 @@ class StreamProcessor:
                 "failed to process stream, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
-                gh_owner=installation.owner_login,
+                gh_owner=owner_login,
                 exc_info=True,
             )
             return
@@ -434,11 +430,7 @@ class StreamProcessor:
 
         except Exception:
             # Ignore it, it will retried later
-            LOG.error(
-                "failed to process stream",
-                gh_owner=installation.owner_login,
-                exc_info=True,
-            )
+            LOG.error("failed to process stream", gh_owner=owner_login, exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
         await self.redis.eval(
