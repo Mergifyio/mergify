@@ -95,7 +95,7 @@ async def _refresh(
                 "type": "Organization",
             },
             "installation": {
-                "id": 0,
+                "id": github_types.GitHubInstallationIdType(0),
                 "account": {
                     "login": owner,
                     "id": github_types.GitHubAccountIdType(0),

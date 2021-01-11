@@ -450,7 +450,7 @@ async def send_refresh(
             },
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
-                "id": 0,
+                "id": github_types.GitHubInstallationIdType(0),
                 "account": pull["base"]["repo"]["owner"],
             },
         }

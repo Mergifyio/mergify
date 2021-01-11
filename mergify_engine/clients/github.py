@@ -45,9 +45,11 @@ class TooManyPages(Exception):
 
 @dataclasses.dataclass
 class CachedToken:
-    STORAGE: typing.ClassVar[typing.Dict[int, typing.Any]] = {}
+    STORAGE: typing.ClassVar[
+        typing.Dict[github_types.GitHubInstallationIdType, "CachedToken"]
+    ] = {}
 
-    installation_id: int
+    installation_id: github_types.GitHubInstallationIdType
     token: github_types.GitHubInstallationAccessToken
     expiration: datetime.datetime
 
@@ -55,7 +57,9 @@ class CachedToken:
         CachedToken.STORAGE[self.installation_id] = self
 
     @classmethod
-    def get(cls, installation_id):
+    def get(
+        cls, installation_id: github_types.GitHubInstallationIdType
+    ) -> typing.Optional["CachedToken"]:
         return cls.STORAGE.get(installation_id)
 
     def invalidate(self):
@@ -63,7 +67,7 @@ class CachedToken:
 
 
 class GithubActionAccessTokenAuth(httpx.Auth):
-    owner_id: int
+    owner_id: github_types.GitHubAccountIdType
     owner: typing.Optional[github_types.GitHubLogin]
 
     def __init__(self) -> None:
@@ -73,7 +77,7 @@ class GithubActionAccessTokenAuth(httpx.Auth):
         }
         # TODO(sileht): To be defined when we handle subscription for GitHub Action
         self.owner = None
-        self.owner_id = 0
+        self.owner_id = github_types.GitHubAccountIdType(0)
 
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
@@ -81,14 +85,14 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 
 class GithubTokenAuth(httpx.Auth):
-    owner_id: typing.Optional[int]
+    owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owner: github_types.GitHubLogin
 
     def __init__(
         self,
         owner: github_types.GitHubLogin,
         token: str,
-        owner_id: typing.Optional[int] = None,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> None:
         self._token = token
         self.owner = owner
@@ -117,7 +121,9 @@ class GithubTokenAuth(httpx.Auth):
                     "GET", f"{config.GITHUB_API_URL}/users/{self.owner}"
                 )
                 http.raise_for_status(user_response)
-                self.owner_id = user_response.json()["id"]
+                self.owner_id = typing.cast(
+                    github_types.GitHubAccount, user_response.json()
+                )["id"]
         yield request
 
     def build_request(self, method, url):
@@ -221,7 +227,9 @@ class GithubAppInstallationAuth(httpx.Auth):
         return httpx.Request(method, url, headers=headers)
 
     def _set_installation(self, installation_response):
-        self.installation = installation_response.json()
+        self.installation: github_types.GitHubInstallation = (
+            installation_response.json()
+        )
         self.owner_id = self.installation["account"]["id"]
         self.permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
             self.installation
