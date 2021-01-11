@@ -16,17 +16,13 @@ import asyncio
 import datetime
 import json
 import time
-import typing
 from unittest import mock
 
-import aredis
 from freezegun import freeze_time
 import httpx
-import msgpack
 import pytest
 
 from mergify_engine import exceptions
-from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine import worker
@@ -888,92 +884,3 @@ async def test_worker_stuck_shutdown(run_engine, redis, logger_checker):
         {"payload": "whatever"},
     )
     await run_worker(test_timeout=2, shutdown_timeout=1)
-
-
-async def legacy_push(
-    redis: aredis.StrictRedis,
-    owner: github_types.GitHubLogin,
-    repo: github_types.GitHubRepositoryName,
-    pull_number: typing.Optional[int],
-    event_type: github_types.GitHubEventType,
-    data: github_types.GitHubEvent,
-) -> typing.Tuple[worker.T_MessageID, worker.T_MessagePayload]:
-    stream_name = f"stream~{owner}"
-    scheduled_at = utils.utcnow() + datetime.timedelta(seconds=0)
-    score = scheduled_at.timestamp()
-    transaction = await redis.pipeline()
-    # NOTE(sileht): Add this event to the pull request stream
-    payload = worker.T_MessagePayload(
-        {
-            b"event": msgpack.packb(
-                {
-                    "owner": owner,
-                    "repo": repo,
-                    "pull_number": pull_number,
-                    "source": {
-                        "event_type": event_type,
-                        "data": data,
-                        "timestamp": datetime.datetime.utcnow().isoformat(),
-                    },
-                },
-                use_bin_type=True,
-            ),
-        }
-    )
-
-    await transaction.xadd(stream_name, payload)
-    # NOTE(sileht): Add pull request stream to process to the list, only if it
-    # does not exists, to not update the score(date)
-    await transaction.zaddoption("streams", "NX", **{stream_name: score})
-    ret = await transaction.execute()
-    return (worker.T_MessageID(ret[0]), payload)
-
-
-@pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_multiple_workers_legacy_pusher(
-    run_engine, redis, logger_checker
-):
-    stream_names = []
-    for installation_id in range(100):
-        for pull_number in range(2):
-            for data in range(3):
-                owner = f"owner-{installation_id}"
-                repo = f"repo-{installation_id}"
-                stream_names.append(f"stream~owner-{installation_id}")
-                await legacy_push(
-                    redis,
-                    owner,
-                    repo,
-                    pull_number,
-                    "pull_request",
-                    {"payload": data},
-                )
-
-    # Check everything we push are in redis
-    assert 100 == (await redis.zcard("streams"))
-    assert 100 == len(await redis.keys("stream~*"))
-    for stream_name in stream_names:
-        assert 6 == (await redis.xlen(stream_name))
-
-    process_count = 4
-    worker_per_process = 3
-
-    await asyncio.gather(
-        *[
-            run_worker(
-                worker_per_process=worker_per_process,
-                process_count=process_count,
-                process_index=i,
-            )
-            for i in range(process_count)
-        ]
-    )
-
-    # Check redis is empty
-    assert 0 == (await redis.zcard("streams"))
-    assert 0 == len(await redis.keys("stream~*"))
-    assert 0 == len(await redis.hgetall("attempts"))
-
-    # Check engine have been run with expect data
-    assert 200 == len(run_engine.mock_calls)
