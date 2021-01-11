@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import logging
 import os.path
 import time
@@ -1343,8 +1344,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    @pytest.mark.asyncio
-    async def test_command_refresh(self) -> None:
+    def test_command_refresh(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -1364,11 +1364,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
             p.raw_data,
             subscription.Subscription(1, False, "", {}, frozenset()),
         )
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.SUCCESS,
-                title="whatever",
-                summary="erased",
+        asyncio.run(
+            ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    title="whatever",
+                    summary="erased",
+                )
             )
         )
 

@@ -244,23 +244,23 @@ def run(
 async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:
     owner = event["repository"]["owner"]["login"]
 
-    redis = await utils.get_aredis_for_cache()
+    async with utils.aredis_for_cache() as redis:
+        if not await redis.exists(
+            rules.get_config_location_cache_key(event["pull_request"]["base"]["repo"])
+        ):
+            # Mergify is probably not activated on this repo
+            return
 
-    if not await redis.exists(
-        rules.get_config_location_cache_key(event["pull_request"]["base"]["repo"])
-    ):
-        # Mergify is probably not activated on this repo
-        return
+        # NOTE(sileht): It's possible that a "push" event creates a summary before we
+        # received the pull_request/opened event.
+        # So we check first if a summary does not already exists, to not post
+        # the summary twice. Since this method can ran in parallel of the worker
+        # this is not a 100% reliable solution, but if we post a duplicate summary
+        # check_api.set_check_run() handle this case and update both to not confuse users.
+        sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
+            redis, event["pull_request"]
+        )
 
-    # NOTE(sileht): It's possible that a "push" event creates a summary before we
-    # received the pull_request/opened event.
-    # So we check first if a summary does not already exists, to not post
-    # the summary twice. Since this method can ran in parallel of the worker
-    # this is not a 100% reliable solution, but if we post a duplicate summary
-    # check_api.set_check_run() handle this case and update both to not confuse users.
-    sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
-        redis, event["pull_request"]
-    )
     if sha is not None or sha == event["pull_request"]["head"]["sha"]:
         return
 

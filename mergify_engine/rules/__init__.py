@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import base64
 import dataclasses
 import functools
@@ -21,6 +20,7 @@ import itertools
 import operator
 import typing
 
+import aredis
 import daiquiri
 import voluptuous
 import yaml
@@ -317,6 +317,7 @@ def get_config_location_cache_key(repo: github_types.GitHubRepository) -> str:
 
 
 async def get_mergify_config_content(
+    redis_cache: aredis.StrictRedis,
     client: github.GithubInstallationClient,
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
@@ -333,7 +334,6 @@ async def get_mergify_config_content(
         kwargs["ref"] = ref
         cached_filename = None
     else:
-        redis_cache = await utils.get_aredis_for_cache()
         cached_filename = await redis_cache.get(config_location_cache)
 
     filenames = MERGIFY_CONFIG_FILENAMES.copy()
@@ -367,7 +367,10 @@ async def get_mergify_config(
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
 ) -> typing.Tuple[str, MergifyConfig]:
-    filename, content = await get_mergify_config_content(client, repo, ref)
+    async with utils.aredis_for_cache() as redis_cache:
+        filename, content = await get_mergify_config_content(
+            redis_cache, client, repo, ref
+        )
     try:
         return filename, typing.cast(MergifyConfig, UserConfigurationSchema(content))
     except voluptuous.Invalid as e:

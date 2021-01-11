@@ -103,7 +103,7 @@ def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def _do_rebase(ctxt: context.Context, token: str) -> None:
+async def _do_rebase(ctxt: context.Context, token: str) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -195,8 +195,8 @@ def _do_rebase(ctxt: context.Context, token: str) -> None:
 
         expected_sha = git("log", "-1", "--format=%H").stdout.strip()
         # NOTE(sileht): We store this for dismissal action
-        with utils.get_redis_for_cache() as redis:  # type: ignore
-            redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
+        async with utils.aredis_for_cache() as redis:
+            await redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         if in_exception.output == "":
             # SIGKILL...
@@ -271,7 +271,9 @@ def update_with_api(ctxt: context.Context) -> None:
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(AuthenticationFailure),
 )
-def rebase_with_git(ctxt: context.Context, user: typing.Optional[str] = None) -> None:
+async def rebase_with_git(
+    ctxt: context.Context, user: typing.Optional[str] = None
+) -> None:
     if user:
         token = ctxt.subscription.get_token_for(user)
         if token:
@@ -286,7 +288,7 @@ def rebase_with_git(ctxt: context.Context, user: typing.Optional[str] = None) ->
 
     for login, token in creds.items():
         try:
-            return _do_rebase(ctxt, token)
+            return await _do_rebase(ctxt, token)
         except AuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
