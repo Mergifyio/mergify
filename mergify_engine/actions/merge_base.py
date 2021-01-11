@@ -166,6 +166,9 @@ class MergeBaseAction(actions.Action):
                     "is only available with the Mergify GitHub App",
                 )
 
+        if self.config["bot_account"] is not None:
+            ctxt.log.info("legacy bot_account used")
+
         if self.config["update_bot_account"] and not ctxt.subscription.has_feature(
             subscription.Features.MERGE_BOT_ACCOUNT
         ):
