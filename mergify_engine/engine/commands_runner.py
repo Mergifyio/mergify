@@ -172,7 +172,7 @@ async def handle(
     if (
         user
         and user["id"] != config.BOT_USER_ID
-        and not await ctxt.has_write_permission(user)
+        and not await ctxt.repository.has_write_permission(user)
     ):
         message = "@{} is not allowed to run commands".format(user["login"])
         await post_comment(ctxt, message + footer)
