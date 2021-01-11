@@ -160,31 +160,26 @@ async def push(
 async def get_pull_for_engine(
     owner: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
-    pull_number: int,
+    pull_number: github_types.GitHubPullRequestId,
     logger: logging.LoggerAdapter,
-) -> typing.Optional[
-    typing.Tuple[subscription.Subscription, github_types.GitHubPullRequest]
-]:
+) -> typing.Optional[github_types.GitHubPullRequest]:
     async with await github.aget_client(owner) as client:
         try:
-            pull = await client.item(f"/repos/{owner}/{repo_name}/pulls/{pull_number}")
+            return typing.cast(
+                github_types.GitHubPullRequest,
+                await client.item(f"/repos/{owner}/{repo_name}/pulls/{pull_number}"),
+            )
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
             return None
 
-        if client.auth.owner_id is None:
-            raise RuntimeError("owner_id is None")
-
-        sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
-
-        return sub, pull
-
 
 def run_engine(
+    sub: subscription.Subscription,
     owner: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
-    pull_number: int,
+    pull_number: github_types.GitHubPullRequestId,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
@@ -192,11 +187,10 @@ def run_engine(
     )
     logger.debug("engine in thread start")
     try:
-        result = asyncio.run(get_pull_for_engine(owner, repo_name, pull_number, logger))
-        if result:
-            subscription, pull = result
+        pull = asyncio.run(get_pull_for_engine(owner, repo_name, pull_number, logger))
+        if pull is not None:
             with github.get_client(owner) as client:
-                engine.run(client, pull, subscription, sources)
+                engine.run(client, pull, sub, sources)
     finally:
         logger.debug("engine in thread end")
 
@@ -361,12 +355,22 @@ class StreamProcessor:
             await self.redis.zaddoption("streams", "XX", **{stream_name: score})
             raise StreamRetry(stream_name, attempts, retry_at)
 
+    def _extract_owner(
+        self, stream_name: str
+    ) -> typing.Tuple[github_types.GitHubLogin, github_types.GitHubAccountIdType]:
+        stream_splitted = stream_name.split("~")[1:]
+        return (
+            github_types.GitHubLogin(stream_splitted[0]),
+            github_types.GitHubAccountIdType(int(stream_splitted[1])),
+        )
+
     async def consume(self, stream_name: str) -> None:
-        owner = github_types.GitHubLogin(stream_name.split("~")[1])
+        owner, owner_id = self._extract_owner(stream_name)
 
         try:
+            sub = await subscription.Subscription.get_subscription(owner_id)
             pulls = await self._extract_pulls_from_stream(stream_name)
-            await self._consume_pulls(stream_name, pulls)
+            await self._consume_pulls(stream_name, sub, pulls)
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner, exc_info=True)
             await self.redis.delete(stream_name)
@@ -536,7 +540,9 @@ end
             )
         return messages
 
-    async def _consume_pulls(self, stream_name: str, pulls: PullsToConsume) -> None:
+    async def _consume_pulls(
+        self, stream_name: str, sub: subscription.Subscription, pulls: PullsToConsume
+    ) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
 
@@ -562,6 +568,7 @@ end
                 ):
                     await self._thread.exec(
                         run_engine,
+                        sub,
                         owner,
                         repo,
                         pull_number,
