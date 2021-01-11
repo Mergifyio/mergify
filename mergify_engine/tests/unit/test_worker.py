@@ -55,8 +55,9 @@ async def run_worker(test_timeout=10, **kwargs):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
+async def test_worker_with_waiting_tasks(run_engine, _, redis, logger_checker):
     stream_names = []
     for installation_id in range(8):
         for pull_number in range(2):
@@ -92,6 +93,7 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
     assert 16 == len(run_engine.mock_calls)
     assert (
         mock.call(
+            mock.ANY,
             "owner-0",
             "repo-0",
             0,
@@ -118,6 +120,7 @@ async def test_worker_with_waiting_tasks(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
 @mock.patch("mergify_engine.clients.github.aget_client")
 @mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
@@ -125,6 +128,7 @@ async def test_worker_expanded_events(
     extract_pull_numbers_from_event,
     aget_client,
     run_engine,
+    _,
     redis,
     logger_checker,
 ):
@@ -176,6 +180,7 @@ async def test_worker_expanded_events(
     # Check engine have been run with expect data
     assert 3 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -193,6 +198,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[1] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         456,
@@ -205,6 +211,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[2] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         789,
@@ -219,8 +226,9 @@ async def test_worker_expanded_events(
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_one_task(run_engine, redis, logger_checker):
+async def test_worker_with_one_task(run_engine, _, redis, logger_checker):
     await worker.push(
         redis,
         123,
@@ -254,6 +262,7 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
     # Check engine have been run with expect data
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -273,16 +282,18 @@ async def test_worker_with_one_task(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_consume_unexisting_stream(run_engine, redis, logger_checker):
+async def test_consume_unexisting_stream(run_engine, _, redis, logger_checker):
     p = worker.StreamProcessor(redis)
-    await p.consume("stream~notexists")
+    await p.consume("stream~notexists~2")
     assert len(run_engine.mock_calls) == 0
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_consume_good_stream(run_engine, redis, logger_checker):
+async def test_consume_good_stream(run_engine, _, redis, logger_checker):
     await worker.push(
         redis,
         123,
@@ -312,6 +323,7 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -337,8 +349,9 @@ async def test_consume_good_stream(run_engine, redis, logger_checker):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
+async def test_stream_processor_retrying_pull(run_engine, _, logger_class, redis):
     logs.setup_logging()
     logger = logger_class.return_value
 
@@ -381,6 +394,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
         mock.call(
+            mock.ANY,
             "owner",
             "repo",
             123,
@@ -393,6 +407,7 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
             ],
         ),
         mock.call(
+            mock.ANY,
             "owner",
             "repo",
             42,
@@ -443,8 +458,9 @@ async def test_stream_processor_retrying_pull(run_engine, logger_class, redis):
 
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_stream_recovered(run_engine, logger, redis):
+async def test_stream_processor_retrying_stream_recovered(run_engine, _, logger, redis):
     logs.setup_logging()
 
     response = mock.Mock()
@@ -483,6 +499,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -522,8 +539,9 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, logger, re
 
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_stream_failure(run_engine, logger, redis):
+async def test_stream_processor_retrying_stream_failure(run_engine, _, logger, redis):
     logs.setup_logging()
 
     response = mock.Mock()
@@ -562,6 +580,7 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
+        mock.ANY,
         "owner",
         "repo",
         123,
@@ -606,8 +625,11 @@ async def test_stream_processor_retrying_stream_failure(run_engine, logger, redi
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, redis):
+async def test_stream_processor_pull_unexpected_error(
+    run_engine, _, logger_class, redis
+):
     logs.setup_logging()
     logger = logger_class.return_value
 
@@ -638,8 +660,9 @@ async def test_stream_processor_pull_unexpected_error(run_engine, logger_class, 
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_date_scheduling(run_engine, redis, logger_checker):
+async def test_stream_processor_date_scheduling(run_engine, _, redis, logger_checker):
 
     # Don't process it before 2040
     with freeze_time("2040-01-01"):
@@ -675,7 +698,7 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
 
     received = []
 
-    def fake_engine(owner, repo, pull_number, sources):
+    def fake_engine(sub, owner, repo, pull_number, sources):
         received.append(owner)
 
     run_engine.side_effect = fake_engine
@@ -712,7 +735,8 @@ async def test_stream_processor_date_scheduling(run_engine, redis, logger_checke
 
 
 @pytest.mark.asyncio
-async def test_worker_debug_report(redis, logger_checker):
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+async def test_worker_debug_report(_, redis, logger_checker):
     for installation_id in range(8):
         for pull_number in range(2):
             for data in range(3):
@@ -732,8 +756,9 @@ async def test_worker_debug_report(redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_retrying_after_read_error(run_engine, redis):
+async def test_stream_processor_retrying_after_read_error(run_engine, _, redis):
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 503
@@ -752,8 +777,9 @@ async def test_stream_processor_retrying_after_read_error(run_engine, redis):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_stream_processor_ignore_503(run_engine, redis, logger_checker):
+async def test_stream_processor_ignore_503(run_engine, _, redis, logger_checker):
     response = mock.Mock()
     response.text = "Server Error: Sorry, this diff is taking too long to generate."
     response.status_code = 503
@@ -782,8 +808,9 @@ async def test_stream_processor_ignore_503(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_with_multiple_workers(run_engine, redis, logger_checker):
+async def test_worker_with_multiple_workers(run_engine, _, redis, logger_checker):
     stream_names = []
     for installation_id in range(100):
         for pull_number in range(2):
@@ -832,8 +859,9 @@ async def test_worker_with_multiple_workers(run_engine, redis, logger_checker):
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_reschedule(run_engine, redis, logger_checker, monkeypatch):
+async def test_worker_reschedule(run_engine, _, redis, logger_checker, monkeypatch):
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis,
@@ -870,8 +898,9 @@ async def test_worker_reschedule(run_engine, redis, logger_checker, monkeypatch)
 
 
 @pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_stuck_shutdown(run_engine, redis, logger_checker):
+async def test_worker_stuck_shutdown(run_engine, _, redis, logger_checker):
     run_engine.side_effect = lambda *args, **kwargs: time.sleep(10000000)
 
     await worker.push(
