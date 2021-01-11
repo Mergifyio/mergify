@@ -542,10 +542,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         {"context": "continuous-integration/fake-ci", "state": "success"}
     ]
 
-    async def get_permisions(*args, **kwargs):
-        return {"permission": "write"}  # get review user perm
-
-    client.item.side_effect = get_permisions
+    client.item = mock.AsyncMock(return_value={"permission": "write"})
 
     async def client_items(url, *args, **kwargs):
         if url == "/repos/another-jd/name/pulls/1/reviews":
@@ -576,7 +573,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("name")
+        installation,
+        github_types.GitHubRepositoryName("name"),
+        github_types.GitHubRepositoryIdType(123321),
     )
     ctxt = await context.Context.create(
         repository,
