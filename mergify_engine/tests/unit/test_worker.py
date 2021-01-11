@@ -13,6 +13,7 @@
 # under the License.
 
 import asyncio
+import dataclasses
 import datetime
 import json
 import time
@@ -22,6 +23,7 @@ from freezegun import freeze_time
 import httpx
 import pytest
 
+from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import logs
 from mergify_engine import utils
@@ -52,6 +54,16 @@ async def run_worker(test_timeout=10, **kwargs):
         await asyncio.sleep(0.5)
     w.stop()
     await w.wait_shutdown_complete()
+
+
+@dataclasses.dataclass
+class InstallationMatcher:
+    owner: str
+
+    def __eq__(self, installation: object) -> bool:
+        if not isinstance(installation, context.Installation):
+            return NotImplemented
+        return self.owner == installation.owner_login
 
 
 @pytest.mark.asyncio
@@ -93,9 +105,7 @@ async def test_worker_with_waiting_tasks(run_engine, _, redis, logger_checker):
     assert 16 == len(run_engine.mock_calls)
     assert (
         mock.call(
-            mock.ANY,
-            mock.ANY,
-            "owner-0",
+            InstallationMatcher(owner="owner-0"),
             "repo-0",
             0,
             [
@@ -181,9 +191,7 @@ async def test_worker_expanded_events(
     # Check engine have been run with expect data
     assert 3 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         123,
         [
@@ -200,9 +208,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[1] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         456,
         [
@@ -214,9 +220,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[2] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         789,
         [
@@ -266,9 +270,7 @@ async def test_worker_with_one_task(run_engine, _, redis, logger_checker):
     # Check engine have been run with expect data
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         123,
         [
@@ -328,9 +330,7 @@ async def test_consume_good_stream(run_engine, _, redis, logger_checker):
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         123,
         [
@@ -400,9 +400,7 @@ async def test_stream_processor_retrying_pull(run_engine, _, logger_class, redis
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
         mock.call(
-            mock.ANY,
-            mock.ANY,
-            "owner",
+            InstallationMatcher(owner="owner"),
             "repo",
             123,
             [
@@ -414,9 +412,7 @@ async def test_stream_processor_retrying_pull(run_engine, _, logger_class, redis
             ],
         ),
         mock.call(
-            mock.ANY,
-            mock.ANY,
-            "owner",
+            InstallationMatcher(owner="owner"),
             "repo",
             42,
             [
@@ -507,9 +503,7 @@ async def test_stream_processor_retrying_stream_recovered(run_engine, _, logger,
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         123,
         [
@@ -589,9 +583,7 @@ async def test_stream_processor_retrying_stream_failure(run_engine, _, logger, r
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        mock.ANY,
-        mock.ANY,
-        "owner",
+        InstallationMatcher(owner="owner"),
         "repo",
         123,
         [
@@ -708,8 +700,8 @@ async def test_stream_processor_date_scheduling(run_engine, _, redis, logger_che
 
     received = []
 
-    def fake_engine(client, sub, owner, repo, pull_number, sources):
-        received.append(owner)
+    def fake_engine(installation, repo, pull_number, sources):
+        received.append(installation.owner_login)
 
     run_engine.side_effect = fake_engine
 
@@ -779,11 +771,10 @@ async def test_stream_processor_retrying_after_read_error(run_engine, _, redis):
 
     p = worker.StreamProcessor(redis)
 
+    installation = context.Installation("stream-owner~123", 123, "owner", {}, None)
     with pytest.raises(worker.StreamRetry):
-        async with p._translate_exception_to_retries("stream-owner"):
-            await p._thread.exec(
-                worker.run_engine, "stream-owner", "owner", "repo", 1234, []
-            )
+        async with p._translate_exception_to_retries(installation):
+            await p._thread.exec(worker.run_engine, installation, "repo", 1234, [])
 
 
 @pytest.mark.asyncio
