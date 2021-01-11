@@ -176,6 +176,7 @@ async def get_pull_for_engine(
 
 
 def run_engine(
+    client: github.GithubInstallationClient,
     sub: subscription.Subscription,
     owner: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
@@ -189,8 +190,7 @@ def run_engine(
     try:
         pull = asyncio.run(get_pull_for_engine(owner, repo_name, pull_number, logger))
         if pull is not None:
-            with github.get_client(owner) as client:
-                engine.run(client, pull, sub, sources)
+            engine.run(client, pull, sub, sources)
     finally:
         logger.debug("engine in thread end")
 
@@ -364,13 +364,26 @@ class StreamProcessor:
             github_types.GitHubAccountIdType(int(stream_splitted[1])),
         )
 
+    @contextlib.asynccontextmanager
+    async def _github_get_client(
+        self, owner_login: github_types.GitHubLogin
+    ) -> typing.AsyncIterator[github.GithubInstallationClient]:
+        # NOTE(sileht): We don't use the httpx contextmanager because we want to close the
+        # blocking connection pool in a thread
+        client = github.get_client(owner_login)
+        try:
+            yield client
+        finally:
+            await asyncio.to_thread(client.close)
+
     async def consume(self, stream_name: str) -> None:
         owner, owner_id = self._extract_owner(stream_name)
 
         try:
             sub = await subscription.Subscription.get_subscription(owner_id)
             pulls = await self._extract_pulls_from_stream(stream_name)
-            await self._consume_pulls(stream_name, sub, pulls)
+            async with self._github_get_client(owner) as client:
+                await self._consume_pulls(stream_name, client, sub, pulls)
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner, exc_info=True)
             await self.redis.delete(stream_name)
@@ -541,7 +554,11 @@ end
         return messages
 
     async def _consume_pulls(
-        self, stream_name: str, sub: subscription.Subscription, pulls: PullsToConsume
+        self,
+        stream_name: str,
+        client: github.GithubInstallationClient,
+        sub: subscription.Subscription,
+        pulls: PullsToConsume,
     ) -> None:
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (owner, repo, pull_number), (message_ids, sources) in pulls.items():
@@ -568,6 +585,7 @@ end
                 ):
                     await self._thread.exec(
                         run_engine,
+                        client,
                         sub,
                         owner,
                         repo,
