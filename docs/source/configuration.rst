@@ -26,8 +26,11 @@ Here's what you need to know about the file format:
 
 - The file format is `YAML <http://yaml.org/>`_.
 
-- The file main type is a dictionary whose only key is named
-  ``pull_request_rules``.
+- The file main type is a dictionary whose keys are named
+  ``pull_request_rules`` and ``defaults``.
+
+Pull Request Rules
+~~~~~~~~~~~~~~~~~~
 
 - The value type of the ``pull_request_rules`` is list.
 
@@ -59,6 +62,57 @@ The rules are evaluated in the order they are defined in ``pull_request_rules``
 and, therefore, the actions are executed in that same order.
 
 See :ref:`Examples` for configuration file examples.
+
+Defaults
+~~~~~~~~
+
+- The value type of ``defaults`` is a dictionary.
+
+This dictionary must have the following key:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Value Description
+   * - ``actions``
+     - dictionary of :ref:`Actions`
+     - A dictionary made of :ref:`Actions` whose configuration will be used by default.
+
+The ``defaults`` section is used to define default configuration valued for actions run by pull request rules and by :ref:`Commands`.
+If the options are defined in ``pull_request_rules`` they are used, otherwise, the values set in ``defaults`` are used.
+
+See example below:
+
+.. code-block:: yaml
+
+  defaults:
+    actions:
+      comment:
+        bot_account: Autobot
+
+  pull_request_rules:
+    - name: comment with default
+      conditions:
+        - label=comment
+      actions:
+        comment:
+          message: I 💙 Mergify
+
+The config above is the same as below:
+
+.. code-block:: yaml
+
+  pull_request_rules:
+    - name: comment with default
+      conditions:
+        - label=comment
+      actions:
+        comment:
+          message: I 💙 Mergify
+          bot_account: Autobot
 
 Data Types
 ----------
