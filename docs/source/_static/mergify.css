@@ -2,7 +2,11 @@
 
 body {
     display: none;
-    font-family: Poppins, "Open Sans", sans-serif;
+    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji;
+}
+
+h1 {
+    font-weight: 700;
 }
 
 body div.body {
@@ -65,7 +69,6 @@ nav.navbar {
 }
 
 .navbar-light .navbar-nav .nav-link {
-    font-variant: all-small-caps;
     font-size: 1.3rem;
 }
 
@@ -146,11 +149,9 @@ ul.nav ul {
 }
 
 .toctree-l1 > a.nav-link{
-    font-size: .9rem;
-    text-transform: uppercase;
-    letter-spacing: .3px;
+    font-size: 1rem;
     color: inherit;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .toctree-l2 {
@@ -264,13 +265,6 @@ tr.row-odd {
     background-color: rgb(255, 255, 255);
 }
 
-
-/* Download */
-code.download {
-    background-color: inherit;
-    color: inherit;
-}
-
 div.icon {
     height: 1em;
     width: 1em;
@@ -278,37 +272,6 @@ div.icon {
     margin: 0px;
     overflow: visible;
     display: inline-block;
-}
-
-div.icon div.download {
-    width: 16px;
-    height: 6px;
-    border: 3px solid rgb(2, 117, 216);
-    border-top: none;
-    position: absolute;
-    bottom: -2px;
-}
-
-div.icon div.download:after {
-    width: 0px;
-    height: 0px;
-    content: '';
-    position: absolute;
-    border-style: solid;
-    border-color: rgb(2, 117, 216) transparent transparent transparent;
-    border-width: 6px;
-    left: -1px;
-    top: -4px;
-}
-
-div.icon div.download:before {
-    content: '';
-    position: absolute;
-    width: 4px;
-    height: 5px;
-    background: rgb(2, 117, 216);
-    top: -9px;
-    left: 3px;
 }
 
 /* Blockquote */
@@ -339,7 +302,7 @@ div.bodywrapper {
 
 /* Permalink */
 a.headerlink {
-    color: #888;
+    color: #034870;
     text-decoration: none;
     vertical-align: middle;
     font-size: 0.6em;
