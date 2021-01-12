@@ -137,8 +137,8 @@ GitHubPullRequestMergeableState = typing.Literal[
     "has_hooks",
 ]
 
-GitHubPullRequestId = typing.NewType("GitHubPullRequestId", GitHubIssueId)
-GitHubPullRequestNumber = typing.NewType("GitHubPullRequestNumber", GitHubIssueNumber)
+GitHubPullRequestId = typing.NewType("GitHubPullRequestId", int)
+GitHubPullRequestNumber = typing.NewType("GitHubPullRequestNumber", int)
 
 
 ISODateTimeType = typing.NewType("ISODateTimeType", str)

@@ -59,11 +59,9 @@ _DUMMY_PR = context.PullRequest(
         None,  # type: ignore
         github_types.GitHubPullRequest(
             {
-                "number": github_types.GitHubPullRequestNumber(
-                    github_types.GitHubIssueNumber(0)
-                ),
+                "number": github_types.GitHubPullRequestNumber(0),
                 "html_url": "",
-                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
+                "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "state": "open",
                 "merged": False,

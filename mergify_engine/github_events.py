@@ -168,9 +168,7 @@ async def filter_and_dispatch(
         owner_login = event["repository"]["owner"]["login"]
         owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
-        pull_number = typing.cast(
-            github_types.GitHubPullRequestNumber, event["issue"]["number"]
-        )
+        pull_number = github_types.GitHubPullRequestNumber(event["issue"]["number"])
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
@@ -370,7 +368,7 @@ async def _get_github_pulls_from_sha(
                 return [pull["number"]]
         return []
     else:
-        return [typing.cast(github_types.GitHubPullRequestNumber, int(pull_number))]
+        return [github_types.GitHubPullRequestNumber(int(pull_number))]
 
 
 async def extract_pull_numbers_from_event(

@@ -161,7 +161,7 @@ async def refresh_pull(
         pull_request=github_types.GitHubPullRequest(
             {
                 "number": pull_request_number,
-                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
+                "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "base": {
                     "label": "",

@@ -32,15 +32,13 @@ async def test_summary_synchronization_cache() -> None:
     ctxt = context.Context(
         client,
         {
-            "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
+            "id": github_types.GitHubPullRequestId(0),
             "maintainer_can_modify": False,
             "rebaseable": False,
             "draft": False,
             "merge_commit_sha": None,
             "labels": [],
-            "number": github_types.GitHubPullRequestNumber(
-                github_types.GitHubIssueNumber(6)
-            ),
+            "number": github_types.GitHubPullRequestNumber(6),
             "merged": True,
             "state": "closed",
             "html_url": "<html_url>",

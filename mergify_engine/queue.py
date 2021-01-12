@@ -190,7 +190,7 @@ class Queue:
 
     def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         return [
-            typing.cast(github_types.GitHubPullRequestNumber, int(pull))
+            github_types.GitHubPullRequestNumber(int(pull))
             for pull in self.redis.zrangebyscore(self._redis_queue_key, "-inf", "+inf")
         ]
 

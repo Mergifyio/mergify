@@ -78,7 +78,7 @@ async def test_user_permission_cache() -> None:
     ) -> github_types.GitHubPullRequest:
         return github_types.GitHubPullRequest(
             {
-                "id": github_types.GitHubPullRequestId(github_types.GitHubIssueId(0)),
+                "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "head": {
                     "user": owner,
@@ -88,9 +88,7 @@ async def test_user_permission_cache() -> None:
                     "repo": repo,
                 },
                 "user": owner,
-                "number": github_types.GitHubPullRequestNumber(
-                    github_types.GitHubIssueNumber(0)
-                ),
+                "number": github_types.GitHubPullRequestNumber(0),
                 "rebaseable": False,
                 "draft": False,
                 "merge_commit_sha": None,
