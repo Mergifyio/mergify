@@ -309,7 +309,7 @@ class StreamProcessor:
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
         self,
-        installation: context.Installation,
+        stream_name: StreamNameType,
         attempts_key: typing.Optional[str] = None,
     ) -> typing.AsyncIterator[None]:
         try:
@@ -326,8 +326,8 @@ class StreamProcessor:
             if isinstance(e, exceptions.MergifyNotInstalled):
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", installation.stream_name)
-                raise StreamUnused(installation.stream_name)
+                await self.redis.hdel("attempts", stream_name)
+                raise StreamUnused(stream_name)
 
             if isinstance(e, github.TooManyPages):
                 # TODO(sileht): Ideally this should be catcher earlier to post an
@@ -336,13 +336,13 @@ class StreamProcessor:
                 # meantimes...
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", installation.stream_name)
+                await self.redis.hdel("attempts", stream_name)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", installation.stream_name)
+                await self.redis.hdel("attempts", stream_name)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
@@ -350,11 +350,9 @@ class StreamProcessor:
                 score = retry_at.timestamp()
                 if attempts_key:
                     await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", installation.stream_name)
-                await self.redis.zaddoption(
-                    "streams", "XX", **{installation.stream_name: score}
-                )
-                raise StreamRetry(installation.stream_name, 0, retry_at)
+                await self.redis.hdel("attempts", stream_name)
+                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+                raise StreamRetry(stream_name, 0, retry_at)
 
             backoff = exceptions.need_retry(e)
             if backoff is None:
@@ -362,14 +360,12 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis.hincrby("attempts", installation.stream_name)
+            attempts = await self.redis.hincrby("attempts", stream_name)
             retry_in = 3 ** min(attempts, 3) * backoff
             retry_at = utils.utcnow() + retry_in
             score = retry_at.timestamp()
-            await self.redis.zaddoption(
-                "streams", "XX", **{installation.stream_name: score}
-            )
-            raise StreamRetry(installation.stream_name, attempts, retry_at)
+            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            raise StreamRetry(stream_name, attempts, retry_at)
 
     @contextlib.asynccontextmanager
     async def _github_get_client(
@@ -396,8 +392,10 @@ class StreamProcessor:
         owner_login, owner_id = self._extract_owner(stream_name)
 
         try:
-            async with self._github_get_client(owner_login) as client:
+            async with self._translate_exception_to_retries(stream_name):
                 sub = await subscription.Subscription.get_subscription(owner_id)
+
+            async with self._github_get_client(owner_login) as client:
                 installation = context.Installation(
                     stream_name, owner_id, owner_login, sub, client
                 )
@@ -497,7 +495,9 @@ end
                 )
                 if repo not in opened_pulls_by_repo:
                     try:
-                        async with self._translate_exception_to_retries(installation):
+                        async with self._translate_exception_to_retries(
+                            installation.stream_name
+                        ):
                             async with await github.aget_client(
                                 installation.owner_login
                             ) as client:
@@ -610,7 +610,7 @@ end
             attempts_key = f"pull~{installation.owner_login}~{repo}~{pull_number}"
             try:
                 async with self._translate_exception_to_retries(
-                    installation, attempts_key
+                    installation.stream_name, attempts_key
                 ):
                     await self._thread.exec(
                         run_engine,
