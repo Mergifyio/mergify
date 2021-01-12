@@ -771,7 +771,7 @@ async def test_stream_processor_retrying_after_read_error(run_engine, _, redis):
 
     p = worker.StreamProcessor(redis)
 
-    installation = context.Installation("stream-owner~123", 123, "owner", {}, None)
+    installation = context.Installation(123, "owner", {}, None)
     with pytest.raises(worker.StreamRetry):
         async with p._translate_exception_to_retries(installation.stream_name):
             await p._thread.exec(worker.run_engine, installation, "repo", 1234, [])
