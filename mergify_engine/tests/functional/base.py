@@ -448,8 +448,15 @@ class FunctionalTestBase(unittest.TestCase):
             f"{config.GITHUB_URL}/{self.u_fork.login}/{self.r_o_integration.name}"
         )
 
-        self.cli_integration = github.get_client(
+        self.cli_integration = github.get_client(config.TESTING_ORGANIZATION)
+        self.installation_ctxt = context.Installation(
+            config.TESTING_ORGANIZATION_ID,
             config.TESTING_ORGANIZATION,
+            self.subscription,
+            self.cli_integration,
+        )
+        self.repository_ctxt = context.Repository(
+            self.installation_ctxt, self.REPO_NAME
         )
 
         real_get_subscription = subscription.Subscription.get_subscription

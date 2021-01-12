@@ -67,8 +67,17 @@ def test_get_commits_to_cherry_pick_rebase(commits: mock.PropertyMock) -> None:
     client.auth.get_access_token.return_value = "<token>"
     client.items.side_effect = fake_get_github_pulls_from_sha
 
-    ctxt = context.Context(
+    installation = context.Installation(
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("user"),
+        subscription.Subscription(0, False, "", {}, frozenset()),
         client,
+    )
+    repository = context.Repository(
+        installation, github_types.GitHubRepositoryName("name")
+    )
+    ctxt = context.Context(
+        repository,
         {
             "labels": [],
             "draft": False,
@@ -138,7 +147,6 @@ def test_get_commits_to_cherry_pick_rebase(commits: mock.PropertyMock) -> None:
             "merged_at": None,
             "mergeable_state": "clean",
         },
-        subscription.Subscription(0, False, "", {}, frozenset()),
     )
 
     base_branch = github_types.GitHubBranchCommitParent(
@@ -186,8 +194,10 @@ def test_get_commits_to_cherry_pick_merge(commits):
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
 
+    installation = context.Installation(client, None, 123, "user")
+    repository = context.Repository(installation, "name")
     ctxt = context.Context(
-        client,
+        repository,
         {
             "number": 6,
             "merged": True,

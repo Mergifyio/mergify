@@ -99,10 +99,12 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
 
             sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
 
+            installation = context.Installation(
+                client.auth.owner_id, owner, sub, client
+            )
             ctxt = context.Context(
-                client,
+                context.Repository(installation, repo),
                 data,
-                sub,
                 [{"event_type": "mergify-simulator", "data": []}],
             )
             match = await pull_request_rules.get_pull_request_rule(ctxt)

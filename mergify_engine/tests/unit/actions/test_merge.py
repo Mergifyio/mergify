@@ -147,7 +147,9 @@ async def test_merge_commit_message(body, title, message, mode):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    ctxt = context.Context(client=client, pull=pull, subscription={})
+    installation = context.Installation(client, {}, 123, "whatever")
+    repository = context.Repository(installation, "whatever")
+    ctxt = context.Context(repository=repository, pull=pull)
     ctxt.checks = {"my CI": "success"}
     pr = ctxt.pull_request
     assert await merge.MergeAction._get_commit_message(pr, mode=mode) == (
@@ -183,9 +185,10 @@ on two lines"""
 async def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(
-        client=mock.MagicMock(), pull=pull, subscription={}
-    ).pull_request
+    client = mock.MagicMock()
+    installation = context.Installation(client, {}, 123, "whatever")
+    repository = context.Repository(installation, "whatever")
+    pr = context.Context(repository=repository, pull=pull).pull_request
     with pytest.raises(context.RenderTemplateFailure) as x:
         await merge.MergeAction._get_commit_message(pr)
         assert str(x) == "foobar"
@@ -210,9 +213,10 @@ here is my message {{ and broken template
 async def test_merge_commit_message_syntax_error(body, error):
     pull = PR.copy()
     pull["body"] = body
-    pr = context.Context(
-        client=mock.MagicMock(), pull=pull, subscription={}
-    ).pull_request
+    client = mock.MagicMock()
+    installation = context.Installation(client, {}, 123, "whatever")
+    repository = context.Repository(installation, "whatever")
+    pr = context.Context(repository=repository, pull=pull).pull_request
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         await merge.MergeAction._get_commit_message(pr)
         assert str(rmf) == error

@@ -115,7 +115,7 @@ class TestReviewAction(base.FunctionalTestBase):
         p, _ = self.create_pr()
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         assert len(ctxt.pull_engine_check_runs) == 1
         check = ctxt.pull_engine_check_runs[0]
         assert "failure" == check["conclusion"]

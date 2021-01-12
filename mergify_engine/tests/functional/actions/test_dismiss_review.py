@@ -66,9 +66,8 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         p.update()
 
         ctxt = context.Context(
-            self.cli_integration,
+            self.repository_ctxt,
             p.raw_data,
-            None,
         )
 
         assert len(ctxt.pull_engine_check_runs) == 1

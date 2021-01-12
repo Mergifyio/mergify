@@ -544,8 +544,10 @@ async def test_get_pull_request_rule():
 
     client.items.side_effect = client_items
 
+    installation = context.Installation(2644, "another-jd", {}, client)
+    repository = context.Repository(installation, "name")
     ctxt = context.Context(
-        client,
+        repository,
         {
             "number": 1,
             "html_url": "<html_url>",

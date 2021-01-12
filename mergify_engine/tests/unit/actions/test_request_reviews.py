@@ -174,8 +174,10 @@ async def test_disabled():
         {},
         frozenset({}),
     )
+    installation = context.Installation(123, "Mergifyio", sub, client)
+    repository = context.Repository(installation, "demo")
     ctxt = context.Context(
-        client,
+        repository,
         {
             "number": 123,
             "state": None,
@@ -200,7 +202,6 @@ async def test_disabled():
                 },
             },
         },
-        sub,
     )
     result = await action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
