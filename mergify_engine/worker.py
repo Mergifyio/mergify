@@ -396,9 +396,7 @@ class StreamProcessor:
                 sub = await subscription.Subscription.get_subscription(owner_id)
 
             async with self._github_get_client(owner_login) as client:
-                installation = context.Installation(
-                    stream_name, owner_id, owner_login, sub, client
-                )
+                installation = context.Installation(owner_id, owner_login, sub, client)
                 pulls = await self._extract_pulls_from_stream(installation)
                 await self._consume_pulls(installation, pulls)
         except StreamUnused:

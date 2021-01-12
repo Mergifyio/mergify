@@ -58,11 +58,16 @@ class PullRequestAttributeError(AttributeError):
 
 @dataclasses.dataclass
 class Installation:
-    stream_name: "worker.StreamNameType"
     owner_id: github_types.GitHubAccountIdType
     owner_login: github_types.GitHubLogin
     subscription: subscription.Subscription
     client: github.GithubInstallationClient
+
+    @property
+    def stream_name(self) -> "worker.StreamNameType":
+        return typing.cast(
+            "worker.StreamNameType", f"stream~{self.owner_login}~{self.owner_id}"
+        )
 
 
 @dataclasses.dataclass
