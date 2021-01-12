@@ -24,6 +24,7 @@ from urllib import parse
 import aredis
 import daiquiri
 import jinja2.exceptions
+import jinja2.meta
 import jinja2.runtime
 import jinja2.sandbox
 import jinja2.utils
@@ -630,61 +631,19 @@ class PullRequest:
     def render_template(self, template, extra_variables=None):
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-        PullRequestJinjaContext.inject(env, self, extra_variables)
         try:
-            return env.from_string(template).render()
+            used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
+            infos = {}
+            for k in used_variables:
+                if extra_variables and k in extra_variables:
+                    infos[k] = extra_variables[k]
+                else:
+                    infos[k] = getattr(self, k)
+
+            return env.from_string(template).render(**infos)
         except jinja2.exceptions.TemplateSyntaxError as tse:
             raise RenderTemplateFailure(tse.message, tse.lineno)
         except jinja2.exceptions.TemplateError as te:
             raise RenderTemplateFailure(te.message)
         except PullRequestAttributeError as e:
             raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
-
-
-class PullRequestJinjaContext(jinja2.runtime.Context):
-    """This is a special Context that resolves any attribute first in the "pull request" object.
-
-
-    This allows to write {{author}} instead of {{pull_request.author}}."""
-
-    _InvalidValue = object()
-
-    def resolve_or_missing(self, key):
-        if "extra_variables" in self.parent:
-            try:
-                return self.parent["extra_variables"][key]
-            except KeyError:
-                if "extra_variables" in self.vars:
-                    try:
-                        return self.vars["extra_variables"][key]
-                    except KeyError:
-                        pass
-
-        if "pull_request" in self.parent:
-            try:
-                return getattr(self.parent["pull_request"], key)
-            except AttributeError:
-                if "pull_request" in self.vars:
-                    return getattr(self.vars["pull_request"], key)
-                raise
-
-        value = super().resolve_or_missing(key)
-        if value == self._InvalidValue:
-            return jinja2.utils.missing
-
-    @classmethod
-    def inject(cls, env, pull_request, extra_variables=None):
-        """Inject this context into a Jinja Environment."""
-        # Set all the value to _InvalidValue as the PullRequestJinjaContext will resolve
-        # values correctly anyway. We still need to have those entries in
-        # the global dict so find_undeclared_variables works correctly.
-        env.globals["pull_request"] = pull_request
-        env.globals.update(
-            dict((k.replace("-", "_"), cls._InvalidValue) for k in pull_request)
-        )
-        if extra_variables:
-            env.globals["extra_variables"] = extra_variables
-            env.globals.update(
-                dict((k.replace("-", "_"), cls._InvalidValue) for k in extra_variables)
-            )
-        env.context_class = cls
