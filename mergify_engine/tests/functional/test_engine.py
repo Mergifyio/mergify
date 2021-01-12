@@ -26,7 +26,6 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
-from mergify_engine import subscription
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -62,7 +61,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -79,7 +78,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -133,7 +132,7 @@ expected alphabetic or numeric character, but found"""
 
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -164,7 +163,7 @@ expected alphabetic or numeric character, but found"""
         self.remove_label(p, "backport-3.1")
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -203,7 +202,7 @@ expected alphabetic or numeric character, but found"""
         self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -261,7 +260,7 @@ expected alphabetic or numeric character, but found"""
         self.run_engine()
         self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         return (
             p,
             list(
@@ -377,7 +376,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         bp_pull = pulls[0]
         assert bp_pull.title == f"Pull request n1 from fork (bp #{p.number})"
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -439,7 +438,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p.update()
         self.assertEqual(True, p.merged)
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: merge on master (merge)":
                 assert (
@@ -645,7 +644,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
         checks = list(
             c
             for c in ctxt.pull_engine_check_runs
@@ -766,7 +765,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             in commits2[-1].commit.message
         )
 
-        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
         for check in ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
@@ -887,7 +886,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, commits = self.create_pr()
 
         client = github.get_client(p.base.user.login)
-        pull = context.Context(client, p.raw_data, {})
+        installation = context.Installation(
+            p.base.user.id, p.base.user.login, self.subscription, client
+        )
+        repository = context.Repository(installation, p.base.repo.name)
+        pull = context.Context(repository, p.raw_data, {})
 
         logins = pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
@@ -925,7 +928,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, commits = self.create_pr()
 
         client = github.get_client(p.base.user.login)
-        pull = context.Context(client, p.raw_data, {})
+        installation = context.Installation(
+            p.base.user.id, p.base.user.login, self.subscription, client
+        )
+        repository = context.Repository(installation, p.base.repo.name)
+        pull = context.Context(repository, p.raw_data, {})
 
         logins = pull.resolve_teams(
             [
@@ -1034,7 +1041,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert 1 == len(pulls)
         assert pulls[0].merged is False
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1211,7 +1218,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1278,7 +1285,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.run_engine()
         self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = context.Context(self.cli_integration, p2.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
         checks = list(
             c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
         )
@@ -1360,9 +1367,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.run_engine()
 
         ctxt = context.Context(
-            self.cli_integration,
+            self.repository_ctxt,
             p.raw_data,
-            subscription.Subscription(1, False, "", {}, frozenset()),
         )
         asyncio.run(
             ctxt.set_summary_check(
@@ -1437,7 +1443,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         self.run_engine()
-        ctxt = context.Context(self.cli_integration, p1.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p1.raw_data, {})
         assert len(ctxt.pull_check_runs) == 1
         assert ctxt.pull_check_runs[0]["name"] == "Summary"
 
@@ -1545,7 +1551,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         pr, commits = self.create_pr()
         self.run_engine()
-        pull = context.Context(self.cli_integration, pr.raw_data, {})
+        pull = context.Context(self.repository_ctxt, pr.raw_data, {})
         check = check_api.set_check_run(
             pull,
             "Test",
@@ -1569,7 +1575,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]
         assert "unstable" == ctxt.pull["mergeable_state"]
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         assert len(ctxt.pull_engine_check_runs) == 1
         check = ctxt.pull_engine_check_runs[0]
         assert check["output"]["title"] == "Your rules are under evaluation"
@@ -1614,5 +1620,5 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = self.create_pr()
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         assert ctxt.pull_engine_check_runs == []

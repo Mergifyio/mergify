@@ -51,7 +51,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
         self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         sorted_checks = list(
             sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )
@@ -100,7 +100,7 @@ Rule list:
         self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         sorted_checks = list(
             sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )
@@ -153,7 +153,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         sorted_checks = list(
             sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )

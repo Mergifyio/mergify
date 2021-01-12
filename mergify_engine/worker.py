@@ -21,7 +21,6 @@ import datetime
 import functools
 import hashlib
 import itertools
-import logging
 import os
 import signal
 import threading
@@ -160,24 +159,6 @@ async def push(
     return (message_id, payload)
 
 
-async def get_pull_for_engine(
-    owner: github_types.GitHubLogin,
-    repo_name: github_types.GitHubRepositoryName,
-    pull_number: github_types.GitHubPullRequestNumber,
-    logger: logging.LoggerAdapter,
-) -> typing.Optional[github_types.GitHubPullRequest]:
-    async with await github.aget_client(owner) as client:
-        try:
-            return typing.cast(
-                github_types.GitHubPullRequest,
-                await client.item(f"/repos/{owner}/{repo_name}/pulls/{pull_number}"),
-            )
-        except http.HTTPNotFound:
-            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
-            logger.debug("pull request doesn't exists, skipping it")
-            return None
-
-
 async def run_engine(
     installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
@@ -192,13 +173,15 @@ async def run_engine(
     )
     logger.debug("engine in thread start")
     try:
-        pull = await get_pull_for_engine(
-            installation.owner_login, repo_name, pull_number, logger
-        )
-        if pull is not None:
-            await engine.run(
-                installation.client, pull, installation.subscription, sources
-            )
+        try:
+            repository = installation.get_repository(repo_name)
+            ctxt = repository.get_pull_request_context(pull_number)
+        except http.HTTPNotFound:
+            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            logger.debug("pull request doesn't exists, skipping it")
+            return None
+
+        await engine.run(ctxt, sources)
     finally:
         logger.debug("engine in thread end")
 
@@ -463,6 +446,7 @@ end
         statsd.histogram("engine.streams.size", len(messages))
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
+        # TODO(sileht): Put this cache in Repository context
         opened_pulls_by_repo: typing.Dict[
             github_types.GitHubRepositoryName,
             typing.List[github_types.GitHubPullRequest],

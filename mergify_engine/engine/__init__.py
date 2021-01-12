@@ -122,13 +122,10 @@ class T_PayloadEventIssueCommentSource(typing.TypedDict):
 
 
 async def run(
-    client: github.GithubInstallationClient,
-    pull: github_types.GitHubPullRequest,
-    sub: subscription.Subscription,
+    ctxt: context.Context,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     LOG.debug("engine get context")
-    ctxt = context.Context(client, pull, sub)
     ctxt.log.debug("engine start processing context")
 
     issue_comment_sources: typing.List[T_PayloadEventIssueCommentSource] = []
@@ -213,7 +210,7 @@ async def run(
             check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="Mergify is disabled",
-                summary=sub.reason,
+                summary=ctxt.subscription.reason,
             )
         )
         return

@@ -26,11 +26,40 @@ from mergify_engine import subscription
 
 @pytest.mark.asyncio
 async def test_summary_synchronization_cache() -> None:
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "archived": False,
+            "url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "id": github_types.GitHubRepositoryIdType(456),
+            "full_name": "user/ref",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "owner": gh_owner,
+        }
+    )
+
     client = mock.MagicMock()
     client.auth.get_access_token.return_value = "<token>"
 
-    ctxt = context.Context(
+    sub = subscription.Subscription(0, False, "", {}, frozenset())
+    installation = context.Installation(
+        gh_owner["id"],
+        gh_owner["login"],
+        sub,
         client,
+    )
+    repository = context.Repository(installation, gh_repo["name"])
+    ctxt = context.Context(
+        repository,
         {
             "title": "",
             "id": github_types.GitHubPullRequestId(0),
@@ -53,20 +82,7 @@ async def test_summary_synchronization_cache() -> None:
                 },
                 "ref": github_types.GitHubRefType("ref"),
                 "label": "",
-                "repo": {
-                    "archived": False,
-                    "url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                    "id": github_types.GitHubRepositoryIdType(456),
-                    "full_name": "user/ref",
-                    "name": github_types.GitHubRepositoryName("name"),
-                    "private": False,
-                    "owner": {
-                        "login": github_types.GitHubLogin("user"),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                    },
-                },
+                "repo": gh_repo,
             },
             "head": {
                 "label": "",
@@ -101,7 +117,6 @@ async def test_summary_synchronization_cache() -> None:
             "merged_at": None,
             "mergeable_state": "clean",
         },
-        subscription.Subscription(1, False, "", {}, frozenset()),
     )
     assert await ctxt.get_cached_last_summary_head_sha() is None
     await ctxt.set_summary_check(

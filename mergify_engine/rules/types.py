@@ -149,7 +149,6 @@ _DUMMY_PR = DummyPullRequest(
                 },
             }
         ),
-        None,  # type: ignore
         [],
     )
 )

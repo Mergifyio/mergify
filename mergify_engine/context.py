@@ -64,18 +64,51 @@ class Installation:
     subscription: subscription.Subscription
     client: github.GithubInstallationClient
 
+    repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
+        dataclasses.field(default_factory=dict)
+    )
+
     @property
     def stream_name(self) -> "worker.StreamNameType":
         return typing.cast(
             "worker.StreamNameType", f"stream~{self.owner_login}~{self.owner_id}"
         )
 
+    def get_repository(self, name: github_types.GitHubRepositoryName) -> "Repository":
+        if name not in self.repositories:
+            repository = Repository(self, name)
+            self.repositories[name] = repository
+        return self.repositories[name]
+
+
+@dataclasses.dataclass
+class Repository(object):
+    installation: Installation
+    name: str
+    pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
+        dataclasses.field(default_factory=dict)
+    )
+
+    @property
+    def base_url(self) -> str:
+        """The URL prefix to make GitHub request."""
+        return f"/repos/{self.installation.owner_login}/{self.name}"
+
+    def get_pull_request_context(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+    ) -> "Context":
+        if pull_number not in self.pull_contexts:
+            pull = self.installation.client.item(f"{self.base_url}/pulls/{pull_number}")
+            self.pull_contexts[pull_number] = Context(self, pull)
+
+        return self.pull_contexts[pull_number]
+
 
 @dataclasses.dataclass
 class Context(object):
-    client: github.GithubInstallationClient
+    repository: Repository
     pull: github_types.GitHubPullRequest
-    subscription: subscription.Subscription
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
@@ -83,6 +116,22 @@ class Context(object):
 
     SUMMARY_NAME = "Summary"
     USER_PERMISSION_EXPIRATION = 3600  # 1 hour
+
+    @property
+    def subscription(self) -> subscription.Subscription:
+        # TODO(sileht): remove me when context split if done
+        return self.repository.installation.subscription
+
+    @property
+    def client(self) -> github.GithubInstallationClient:
+        # TODO(sileht): remove me when context split if done
+        return self.repository.installation.client
+
+    @property
+    def base_url(self) -> str:
+        """The URL prefix to make GitHub request."""
+        # TODO(sileht): remove me when context split if done
+        return self.repository.base_url
 
     def __post_init__(self):
         self._ensure_complete()
@@ -122,11 +171,6 @@ class Context(object):
             ),
         )
 
-    @property
-    def base_url(self):
-        """The URL prefix to make GitHub request."""
-        return f"/repos/{self.pull['base']['user']['login']}/{self.pull['base']['repo']['name']}"
-
     USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
     USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
 
@@ -134,10 +178,12 @@ class Context(object):
     def _users_permission_cache_key_for_repo(
         cls, owner: github_types.GitHubAccount, repo: github_types.GitHubRepository
     ) -> str:
+        # TODO(sileht): move me in Repository
         return f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{owner['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{repo['id']}"
 
     @property
     def _users_permission_cache_key(self) -> str:
+        # TODO(sileht): move me in Repository
         return self._users_permission_cache_key_for_repo(
             self.pull["base"]["user"], self.pull["base"]["repo"]
         )
@@ -149,6 +195,7 @@ class Context(object):
         repo: github_types.GitHubRepository,
         user: github_types.GitHubAccount,
     ) -> None:
+        # TODO(sileht): move me in Repository
         async with utils.aredis_for_cache() as redis:
             await redis.hdel(
                 cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
@@ -160,6 +207,7 @@ class Context(object):
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
+        # TODO(sileht): move me in Repository
         async with utils.aredis_for_cache() as redis:
             await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
 
@@ -167,6 +215,7 @@ class Context(object):
     async def clear_user_permission_cache_for_org(
         cls, user: github_types.GitHubAccount
     ) -> None:
+        # TODO(sileht): move me in Repository
         async with utils.aredis_for_cache() as redis:
             pipeline = await redis.pipeline()
             async for key in redis.scan_iter(
@@ -176,6 +225,7 @@ class Context(object):
             await pipeline.execute()
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        # TODO(sileht): move me in Repository
         async with utils.aredis_for_cache() as redis:
             key = self._users_permission_cache_key
             permission = await redis.hget(key, user["id"])

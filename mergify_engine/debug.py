@@ -243,10 +243,16 @@ async def report(
                     print(f"** {formatted_pulls} (priority: {fancy_priority})")
         else:
             pull_raw = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
-            ctxt = context.Context(
-                client,
-                pull_raw,
+            installation = context.Installation(
+                client.auth.owner_id,
+                owner,
                 cached_sub,
+                client,
+            )
+            repository = context.Repository(installation, repo)
+            ctxt = context.Context(
+                repository,
+                pull_raw,
                 [],
             )
 

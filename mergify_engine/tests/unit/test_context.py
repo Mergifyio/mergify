@@ -52,7 +52,7 @@ async def test_user_permission_cache() -> None:
                     return {"permission": "loser"}
             raise ValueError(f"Unknown test URL `{url}` for repo {self.repo}")
 
-    owner = github_types.GitHubAccount(
+    gh_owner = github_types.GitHubAccount(
         {
             "id": github_types.GitHubAccountIdType(123),
             "login": github_types.GitHubLogin("jd"),
@@ -60,10 +60,10 @@ async def test_user_permission_cache() -> None:
         }
     )
 
-    repo = github_types.GitHubRepository(
+    gh_repo = github_types.GitHubRepository(
         {
             "id": github_types.GitHubRepositoryIdType(0),
-            "owner": owner,
+            "owner": gh_owner,
             "full_name": "",
             "archived": False,
             "url": "",
@@ -74,7 +74,7 @@ async def test_user_permission_cache() -> None:
     )
 
     def make_pr(
-        repo: github_types.GitHubRepository, owner: github_types.GitHubAccount
+        gh_repo: github_types.GitHubRepository, gh_owner: github_types.GitHubAccount
     ) -> github_types.GitHubPullRequest:
         return github_types.GitHubPullRequest(
             {
@@ -82,13 +82,13 @@ async def test_user_permission_cache() -> None:
                 "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "head": {
-                    "user": owner,
+                    "user": gh_owner,
                     "label": "",
                     "ref": github_types.GitHubRefType(""),
                     "sha": github_types.SHAType(""),
-                    "repo": repo,
+                    "repo": gh_repo,
                 },
-                "user": owner,
+                "user": gh_owner,
                 "number": github_types.GitHubPullRequestNumber(0),
                 "rebaseable": False,
                 "draft": False,
@@ -104,8 +104,8 @@ async def test_user_permission_cache() -> None:
                     "ref": github_types.GitHubRefType("main"),
                     "sha": github_types.SHAType(""),
                     "label": "",
-                    "repo": repo,
-                    "user": owner,
+                    "repo": gh_repo,
+                    "user": gh_owner,
                 },
             }
         )
@@ -133,8 +133,10 @@ async def test_user_permission_cache() -> None:
     )
 
     sub = subscription.Subscription(0, False, "", {}, frozenset())
-    client = FakeClient(owner["login"], repo["name"])
-    c = context.Context(client, make_pr(repo, owner), sub)
+    client = FakeClient(gh_owner["login"], gh_repo["name"])
+    installation = context.Installation(gh_owner["id"], gh_owner["login"], sub, client)
+    repository = context.Repository(installation, gh_repo["name"])
+    c = context.Context(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
     assert await c.has_write_permission(user_1)
     assert client.called == 1
@@ -147,10 +149,10 @@ async def test_user_permission_cache() -> None:
     assert not await c.has_write_permission(user_3)
     assert client.called == 3
 
-    repo = github_types.GitHubRepository(
+    gh_repo = github_types.GitHubRepository(
         {
             "id": github_types.GitHubRepositoryIdType(1),
-            "owner": owner,
+            "owner": gh_owner,
             "full_name": "",
             "archived": False,
             "url": "",
@@ -160,8 +162,10 @@ async def test_user_permission_cache() -> None:
         }
     )
 
-    client = FakeClient(owner["login"], repo["name"])
-    c = context.Context(client, make_pr(repo, owner), sub)
+    client = FakeClient(gh_owner["login"], gh_repo["name"])
+    installation = context.Installation(gh_owner["id"], gh_owner["login"], sub, client)
+    repository = context.Repository(installation, gh_repo["name"])
+    c = context.Context(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
     assert await c.has_write_permission(user_2)
     assert client.called == 1
@@ -169,18 +173,20 @@ async def test_user_permission_cache() -> None:
     assert client.called == 1
     assert not await c.has_write_permission(user_1)
     assert client.called == 2
-    await context.Context.clear_user_permission_cache_for_repo(owner, repo)
+    await context.Context.clear_user_permission_cache_for_repo(gh_owner, gh_repo)
     assert not await c.has_write_permission(user_1)
     assert client.called == 3
     assert not await c.has_write_permission(user_3)
     assert client.called == 4
-    await context.Context.clear_user_permission_cache_for_org(owner)
+    await context.Context.clear_user_permission_cache_for_org(gh_owner)
     assert not await c.has_write_permission(user_3)
     assert client.called == 5
     assert await c.has_write_permission(user_2)
     assert client.called == 6
     assert await c.has_write_permission(user_2)
     assert client.called == 6
-    await context.Context.clear_user_permission_cache_for_user(owner, repo, user_2)
+    await context.Context.clear_user_permission_cache_for_user(
+        gh_owner, gh_repo, user_2
+    )
     assert await c.has_write_permission(user_2)
     assert client.called == 7

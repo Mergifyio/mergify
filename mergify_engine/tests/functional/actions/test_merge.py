@@ -59,7 +59,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
     def test_merge_smart_ordered(self):
         p_need_rebase, p_ready = self._do_test_smart_order("smart+ordered")
-        ctxt = context.Context(self.cli_integration, p_need_rebase.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
@@ -69,7 +69,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
     def test_merge_smart_unordered(self):
         p_need_rebase, p_ready = self._do_test_smart_order("smart+fastpath")
-        ctxt = context.Context(self.cli_integration, p_need_rebase.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number]
@@ -78,7 +78,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
     def test_merge_smart_legacy(self):
         p_need_rebase, p_ready = self._do_test_smart_order("smart")
-        ctxt = context.Context(self.cli_integration, p_need_rebase.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
@@ -142,7 +142,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.create_status(p_high)
         self.run_engine(1)  # ensure we handle the 3 refresh here.
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
@@ -235,7 +235,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.create_status(p2)
         self.run_engine(1)
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
@@ -266,7 +266,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.add_label(p, "automerge")
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
@@ -279,7 +279,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         self.remove_label(p, "automerge")
         self.run_engine()
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
@@ -306,7 +306,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.add_label(p, "automerge")
         self.run_engine()
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
@@ -316,7 +316,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         self.remove_label(p, "automerge")
         self.run_engine()
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
@@ -425,7 +425,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         self.create_status(p_high)
         self.run_engine(1)  # ensure we handle the 3 refresh here.
 
-        ctxt = context.Context(self.cli_integration, p.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]

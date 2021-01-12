@@ -40,7 +40,7 @@ class TestAttributes(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         pr, _ = self.create_pr()
-        ctxt = context.Context(self.cli_integration, pr.raw_data, {})
+        ctxt = context.Context(self.repository_ctxt, pr.raw_data, {})
         assert not asyncio.run(ctxt.pull_request.draft)
 
         pr, _ = self.create_pr(draft=True)
@@ -49,7 +49,7 @@ class TestAttributes(base.FunctionalTestBase):
         self.wait_for("issue_comment", {"action": "created"})
 
         ctxt = context.Context(
-            self.cli_integration,
+            self.repository_ctxt,
             {
                 "number": pr.number,
                 "base": {

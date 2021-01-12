@@ -59,8 +59,10 @@ def test_pull_behind(commits_tree_generator):
     client.items.return_value = commits  # /pulls/X/commits
     client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
 
+    installation = context.Installation(123, "user", {}, client)
+    repository = context.Repository(installation, "name")
     ctxt = context.Context(
-        client,
+        repository,
         {
             "number": 1,
             "mergeable_state": "clean",
