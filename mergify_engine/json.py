@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2021 Mergify SAS
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -13,12 +15,13 @@
 # under the License.
 import enum
 import json
+import typing
 
 
 _JSON_TYPES = {}
 
 
-def register_type(enum_cls):
+def register_type(enum_cls: typing.Type[enum.Enum]) -> None:
     if enum_cls.__name__ in _JSON_TYPES:
         raise RuntimeError(f"{enum_cls.__name__} already registered")
     else:
@@ -26,7 +29,7 @@ def register_type(enum_cls):
 
 
 class Encoder(json.JSONEncoder):
-    def default(self, v):
+    def default(self, v: typing.Any) -> typing.Any:
         if isinstance(v, enum.Enum):
             return {
                 "__pytype__": "enum",
@@ -37,7 +40,14 @@ class Encoder(json.JSONEncoder):
             return super().default(v)
 
 
-def decode_enum(v):
+JSONPyType = typing.Literal["enum"]
+
+
+class JSONObjectDict(typing.TypedDict, total=False):
+    __pytype__: JSONPyType
+
+
+def _decode_enum(v: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
     if v.get("__pytype__") == "enum":
         cls_name = v["class"]
         enum_cls = _JSON_TYPES[cls_name]
@@ -46,9 +56,9 @@ def decode_enum(v):
     return v
 
 
-def dumps(v):
+def dumps(v: typing.Any) -> str:
     return json.dumps(v, cls=Encoder)
 
 
-def loads(v):
-    return json.loads(v, object_hook=decode_enum)
+def loads(v: typing.Union[str, bytes]) -> typing.Any:
+    return json.loads(v, object_hook=_decode_enum)

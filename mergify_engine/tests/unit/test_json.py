@@ -44,15 +44,15 @@ with_enum_encode = {
 mergify_json.register_type(Color)
 
 
-def test_register_type_fail():
+def test_register_type_fail() -> None:
     with pytest.raises(RuntimeError):
         mergify_json.register_type(Color)
 
 
-def test_encode_enum():
+def test_encode_enum() -> None:
     assert json.loads(mergify_json.dumps(with_enum)) == with_enum_encode
 
 
-def test_decode_enum():
+def test_decode_enum() -> None:
     json_file = mergify_json.dumps(with_enum)
     assert mergify_json.loads(json_file) == with_enum
