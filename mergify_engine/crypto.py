@@ -40,23 +40,23 @@ class CryptoError(Exception):
     pass
 
 
-def encrypt(value):
+def encrypt(value: bytes) -> bytes:
     """Encrypt a string.
 
     :param: An encrypted string."""
     iv = os.urandom(IV_BYTES_NEEDED)
     cipher = ciphers.Cipher(
-        ciphers.algorithms.AES(SECRET_KEY),
-        ciphers.modes.GCM(iv),
+        ciphers.algorithms.AES(SECRET_KEY),  # type: ignore[attr-defined]
+        ciphers.modes.GCM(iv),  # type: ignore[call-arg]
         backend=default_backend(),
     )
     encryptor = cipher.encryptor()
     encrypted = encryptor.update(value) + encryptor.finalize()
-    encrypted = base64.b64encode(iv + encryptor.tag + encrypted)
+    encrypted = base64.b64encode(iv + encryptor.tag + encrypted)  # type: ignore[attr-defined]
     return encrypted
 
 
-def decrypt(value):
+def decrypt(value: bytes) -> bytes:
     """Decrypt a string.
 
     :return: A decrypted string."""
@@ -72,8 +72,8 @@ def decrypt(value):
     tag = decrypted[IV_BYTES_NEEDED : IV_BYTES_NEEDED + TAG_SIZE_BYTES]
     decrypted = decrypted[IV_BYTES_NEEDED + TAG_SIZE_BYTES :]
     cipher = ciphers.Cipher(
-        ciphers.algorithms.AES(SECRET_KEY),
-        ciphers.modes.GCM(iv, tag),
+        ciphers.algorithms.AES(SECRET_KEY),  # type: ignore[attr-defined]
+        ciphers.modes.GCM(iv, tag),  # type: ignore[call-arg]
         backend=default_backend(),
     )
     decryptor = cipher.decryptor()
