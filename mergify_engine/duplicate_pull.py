@@ -259,7 +259,7 @@ def duplicate(
         git.cleanup()
 
     body = (
-        f"This is an automated {kind} of pull request #{ctxt.pull['number']} done by Mergify"
+        f"This is an automatic {kind} of pull request #{ctxt.pull['number']} done by [Mergify](https://mergify.io)."
         + body
     )
 
@@ -278,7 +278,7 @@ def duplicate(
                 "title": "{} ({} #{})".format(
                     ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
                 ),
-                "body": body + "\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
+                "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
                 "base": branch_name,
                 "head": bp_branch,
             },
