@@ -34,22 +34,22 @@ else:
 
 
 # NOTE(sileht) we coerce bool and int in case they are loaded from the environment
-def CoercedBool(value):
+def CoercedBool(value: typing.Any) -> bool:
     return bool(distutils.util.strtobool(str(value)))
 
 
-def CoercedLoggingLevel(value):
+def CoercedLoggingLevel(value: str) -> int:
     value = value.upper()
     if value in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
-        return getattr(logging, value)
+        return int(getattr(logging, value))
     raise ValueError(value)
 
 
-def CommaSeparatedStringList(value):
+def CommaSeparatedStringList(value: str) -> typing.List[str]:
     return value.split(",")
 
 
-def CommaSeparatedIntList(value):
+def CommaSeparatedIntList(value: str) -> typing.List[int]:
     return [int(s) for s in value.split(",")]
 
 
