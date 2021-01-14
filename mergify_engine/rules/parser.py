@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018—2020 Mergify SAS
+# Copyright © 2018—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,6 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
+
 import pyparsing
 
 
@@ -45,7 +47,7 @@ simple_operators = (
 )
 
 
-def _match_boolean(literal):
+def _match_boolean(literal: str) -> pyparsing.Token:
     return (
         literal
         + pyparsing.Empty().setParseAction(pyparsing.replaceWith("="))
@@ -56,11 +58,13 @@ def _match_boolean(literal):
 match_integer = simple_operators + integer
 
 
-def _match_with_operator(token):
+def _match_with_operator(token: pyparsing.Token) -> pyparsing.Token:
     return (simple_operators + token) | (regex_operators + regexp)
 
 
-def _token_to_dict(s, loc, toks):
+def _token_to_dict(
+    s: str, loc: int, toks: typing.List[pyparsing.Token]
+) -> typing.Dict[str, typing.Any]:
     if len(toks) == 5:
         # quantifiable_attributes
         not_, key_op, key, op, value = toks
