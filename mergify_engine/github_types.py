@@ -67,9 +67,14 @@ class GitHubBranchCommitParent(typing.TypedDict):
     sha: SHAType
 
 
+class GitHubBranchCommitCommit(typing.TypedDict):
+    message: str
+
+
 class GitHubBranchCommit(typing.TypedDict):
     sha: SHAType
     parents: typing.List[GitHubBranchCommitParent]
+    commit: GitHubBranchCommitCommit
 
 
 class GitHubBranch(typing.TypedDict):
@@ -162,6 +167,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     merge_commit_sha: typing.Optional[SHAType]
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
+    title: str
 
 
 # https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads

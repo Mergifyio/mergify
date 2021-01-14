@@ -569,9 +569,14 @@ class Context(object):
         )
 
     @functools.cached_property
-    def commits(self):
-        return list(
-            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/commits")
+    def commits(self) -> typing.List[github_types.GitHubBranchCommit]:
+        return typing.cast(
+            typing.List[github_types.GitHubBranchCommit],
+            list(
+                self.client.items(
+                    f"{self.base_url}/pulls/{self.pull['number']}/commits"
+                )
+            ),
         )
 
     @functools.cached_property

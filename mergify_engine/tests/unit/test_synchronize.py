@@ -32,6 +32,7 @@ async def test_summary_synchronization_cache() -> None:
     ctxt = context.Context(
         client,
         {
+            "title": "",
             "id": github_types.GitHubPullRequestId(0),
             "maintainer_can_modify": False,
             "rebaseable": False,

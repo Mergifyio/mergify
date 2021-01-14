@@ -78,6 +78,7 @@ async def test_user_permission_cache() -> None:
     ) -> github_types.GitHubPullRequest:
         return github_types.GitHubPullRequest(
             {
+                "title": "",
                 "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "head": {

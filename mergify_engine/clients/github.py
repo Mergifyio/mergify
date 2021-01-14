@@ -83,6 +83,10 @@ class GithubActionAccessTokenAuth(httpx.Auth):
         request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
         yield request
 
+    def get_access_token(self):
+        """Legacy method for backport/copy actions"""
+        raise NotImplementedError
+
 
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[github_types.GitHubAccountIdType]

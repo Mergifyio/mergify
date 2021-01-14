@@ -15,11 +15,14 @@
 import dataclasses
 import functools
 import subprocess
+import typing
 
 import tenacity
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import doc
+from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -47,11 +50,13 @@ GIT_MESSAGE_TO_EXCEPTION = {
 
 @functools.total_ordering
 class CommitOrderingKey(object):
-    def __init__(self, obj, *args):
+    def __init__(self, obj: github_types.GitHubBranchCommit) -> None:
         self.obj = obj
 
     @staticmethod
-    def order_commit(c1, c2):
+    def order_commit(
+        c1: github_types.GitHubBranchCommit, c2: github_types.GitHubBranchCommit
+    ) -> int:
         if c1["sha"] == c2["sha"]:
             return 0
 
@@ -61,21 +66,31 @@ class CommitOrderingKey(object):
 
         return -1
 
-    def __lt__(self, other):
-        return self.order_commit(self.obj, other.obj) < 0
+    def __lt__(self, other: "CommitOrderingKey") -> bool:
+        return (
+            isinstance(other, CommitOrderingKey)
+            and self.order_commit(self.obj, other.obj) < 0
+        )
 
-    def __eq__(self, other):
-        return self.order_commit(self.obj, other.obj) == 0
+    def __eq__(self, other: typing.Any) -> bool:
+        return (
+            isinstance(other, CommitOrderingKey)
+            and self.order_commit(self.obj, other.obj) == 0
+        )
 
 
-def is_base_branch_merge_commit(commit, base_branch):
+def is_base_branch_merge_commit(
+    commit: github_types.GitHubBranchCommit, base_branch: github_types.GitHubRefType
+) -> bool:
     return (
         commit["commit"]["message"].startswith("Merge branch '%s'" % base_branch)
         and len(commit["parents"]) == 2
     )
 
 
-def _get_commits_without_base_branch_merge(ctxt):
+def _get_commits_without_base_branch_merge(
+    ctxt: context.Context,
+) -> typing.List[github_types.GitHubBranchCommit]:
     base_branch = ctxt.pull["base"]["ref"]
     return list(
         filter(
@@ -85,29 +100,28 @@ def _get_commits_without_base_branch_merge(ctxt):
     )
 
 
-def _get_commits_to_cherrypick(ctxt, merge_commit):
+def _get_commits_to_cherrypick(
+    ctxt: context.Context, merge_commit: github_types.GitHubBranchCommit
+) -> typing.List[github_types.GitHubBranchCommit]:
     if len(merge_commit["parents"]) == 1:
         # NOTE(sileht): We have a rebase+merge or squash+merge
         # We pick all commits until a sha is not linked with our PR
 
-        out_commits = []
+        out_commits: typing.List[github_types.GitHubBranchCommit] = []
         commit = merge_commit
         while True:
-            if "parents" not in commit:
-                commit = ctxt.client.item(f"{ctxt.base_url}/commits/{commit['sha']}")
-
             if len(commit["parents"]) != 1:
                 # NOTE(sileht): What is that? A merge here?
                 ctxt.log.error("unhandled commit structure")
                 return []
 
             out_commits.insert(0, commit)
-            commit = commit["parents"][0]
+            parent_commit = commit["parents"][0]
 
             pull_numbers = [
                 p["number"]
                 for p in ctxt.client.items(
-                    f"{ctxt.base_url}/commits/{commit['sha']}/pulls",
+                    f"{ctxt.base_url}/commits/{parent_commit['sha']}/pulls",
                     api_version="groot",
                 )
                 if (
@@ -116,12 +130,12 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
                 )
             ]
 
-            # Head repo can be known if deleted in the meantime
+            # Head repo can be None if deleted in the meantime
             if ctxt.pull["head"]["repo"] is not None:
                 pull_numbers += [
                     p["number"]
                     for p in ctxt.client.items(
-                        f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{commit['sha']}/pulls",
+                        f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{parent_commit['sha']}/pulls",
                         api_version="groot",
                     )
                     if (
@@ -139,6 +153,12 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
                     ctxt.log.debug("Pull requests merged after rebase")
                 return out_commits
 
+            # Prepare next iteration
+            commit = typing.cast(
+                github_types.GitHubBranchCommit,
+                ctxt.client.item(f"{ctxt.base_url}/commits/{parent_commit['sha']}"),
+            )
+
     elif len(merge_commit["parents"]) == 2:
         ctxt.log.debug("Pull request merged with merge commit")
         return _get_commits_without_base_branch_merge(ctxt)
@@ -149,13 +169,16 @@ def _get_commits_to_cherrypick(ctxt, merge_commit):
         return []
 
 
+KindT = typing.Literal["backport", "copy"]
 BACKPORT = "backport"
 COPY = "copy"
 
 BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 
 
-def get_destination_branch_name(pull_number, branch_name, kind):
+def get_destination_branch_name(
+    pull_number: github_types.GitHubPullRequestNumber, branch_name: str, kind: KindT
+) -> str:
     return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch_name, pull_number)
 
 
@@ -165,8 +188,12 @@ def get_destination_branch_name(pull_number, branch_name, kind):
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
 def duplicate(
-    ctxt, branch_name, label_conflicts=None, ignore_conflicts=False, kind=BACKPORT
-):
+    ctxt: context.Context,
+    branch_name: str,
+    label_conflicts: typing.Optional[str] = None,
+    ignore_conflicts: bool = False,
+    kind: KindT = "backport",
+) -> typing.Optional[github_types.GitHubPullRequest]:
     """Duplicate a pull request.
 
     :param pull: The pull request.
@@ -240,7 +267,7 @@ def duplicate(
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
                 if out_exception is None:
-                    return
+                    return None
                 else:
                     raise out_exception(
                         "Git reported the following error:\n"
@@ -254,7 +281,7 @@ def duplicate(
                 kind=kind,
                 exc_info=True,
             )
-            return
+            return None
     finally:
         git.cleanup()
 
@@ -272,20 +299,23 @@ def duplicate(
         )
 
     try:
-        duplicate_pr = ctxt.client.post(
-            f"{ctxt.base_url}/pulls",
-            json={
-                "title": "{} ({} #{})".format(
-                    ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
-                ),
-                "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
-                "base": branch_name,
-                "head": bp_branch,
-            },
-        ).json()
+        duplicate_pr = typing.cast(
+            github_types.GitHubPullRequest,
+            ctxt.client.post(
+                f"{ctxt.base_url}/pulls",
+                json={
+                    "title": "{} ({} #{})".format(
+                        ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
+                    ),
+                    "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
+                    "base": branch_name,
+                    "head": bp_branch,
+                },
+            ).json(),
+        )
     except http.HTTPClientSideError as e:
         if e.status_code == 422 and "No commits between" in e.message:
-            return
+            return None
         raise
 
     if cherry_pick_fail and label_conflicts is not None:
