@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+#  Copyright © 2018–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -51,12 +51,11 @@ class DismissReviewsAction(actions.Action):
             # his access_token instead of the Mergify installation token.
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
-            # FIXME ignore type: https://github.com/python/typeshed/pull/4655
-            with utils.get_redis_for_cache() as redis:  # type: ignore
-                if redis.get("branch-update-%s" % ctxt.pull["head"]["sha"]):
+            async with utils.aredis_for_cache() as redis:
+                if await redis.get(f"branch-update-{ctxt.pull['head']['sha']}"):
                     return check_api.Result(
                         check_api.Conclusion.SUCCESS,
-                        "Rebased/Updated by us, nothing to do",
+                        "Updated by Mergify, ignoring",
                         "",
                     )
 
