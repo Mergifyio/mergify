@@ -20,7 +20,6 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -51,13 +50,12 @@ class DismissReviewsAction(actions.Action):
             # his access_token instead of the Mergify installation token.
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
-            async with utils.aredis_for_cache() as redis:
-                if await redis.get(f"branch-update-{ctxt.pull['head']['sha']}"):
-                    return check_api.Result(
-                        check_api.Conclusion.SUCCESS,
-                        "Updated by Mergify, ignoring",
-                        "",
-                    )
+            if await ctxt.redis.get(f"branch-update-{ctxt.pull['head']['sha']}"):
+                return check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    "Updated by Mergify, ignoring",
+                    "",
+                )
 
             try:
                 message = await ctxt.pull_request.render_template(

@@ -51,7 +51,7 @@ async def _check_configuration_changes(ctxt: context.Context) -> bool:
         if ref is not None:
             try:
                 await rules.get_mergify_config(
-                    ctxt.client, ctxt.pull["base"]["repo"], ref=ref
+                    ctxt.redis, ctxt.client, ctxt.pull["base"]["repo"], ref=ref
                 )
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
@@ -172,7 +172,7 @@ async def run(
     # BRANCH CONFIGURATION CHECKING
     try:
         filename, mergify_config = await rules.get_mergify_config(
-            ctxt.client, ctxt.pull["base"]["repo"]
+            ctxt.redis, ctxt.client, ctxt.pull["base"]["repo"]
         )
     except rules.NoRules:  # pragma: no cover
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
@@ -224,32 +224,33 @@ async def run(
         if s["event_type"] == "pull_request":
             event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
             if event["action"] == "closed":
-                ctxt.clear_cached_last_summary_head_sha()
+                await ctxt.clear_cached_last_summary_head_sha()
                 break
 
     ctxt.log.debug("engine handle actions")
     await actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
-async def create_initial_summary(event: github_types.GitHubEventPullRequest) -> None:
+async def create_initial_summary(
+    redis: utils.RedisCache, event: github_types.GitHubEventPullRequest
+) -> None:
     owner = event["repository"]["owner"]["login"]
 
-    async with utils.aredis_for_cache() as redis:
-        if not await redis.exists(
-            rules.get_config_location_cache_key(event["pull_request"]["base"]["repo"])
-        ):
-            # Mergify is probably not activated on this repo
-            return
+    if not await redis.exists(
+        rules.get_config_location_cache_key(event["pull_request"]["base"]["repo"])
+    ):
+        # Mergify is probably not activated on this repo
+        return
 
-        # NOTE(sileht): It's possible that a "push" event creates a summary before we
-        # received the pull_request/opened event.
-        # So we check first if a summary does not already exists, to not post
-        # the summary twice. Since this method can ran in parallel of the worker
-        # this is not a 100% reliable solution, but if we post a duplicate summary
-        # check_api.set_check_run() handle this case and update both to not confuse users.
-        sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
-            redis, event["pull_request"]
-        )
+    # NOTE(sileht): It's possible that a "push" event creates a summary before we
+    # received the pull_request/opened event.
+    # So we check first if a summary does not already exists, to not post
+    # the summary twice. Since this method can ran in parallel of the worker
+    # this is not a 100% reliable solution, but if we post a duplicate summary
+    # check_api.set_check_run() handle this case and update both to not confuse users.
+    sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
+        redis, event["pull_request"]
+    )
 
     if sha is not None or sha == event["pull_request"]["head"]["sha"]:
         return

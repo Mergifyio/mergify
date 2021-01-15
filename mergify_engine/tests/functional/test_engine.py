@@ -26,6 +26,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
+from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -887,7 +888,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         client = github.get_client(p.base.user.login)
         installation = context.Installation(
-            p.base.user.id, p.base.user.login, self.subscription, client
+            p.base.user.id,
+            p.base.user.login,
+            self.subscription,
+            client,
+            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
         pull = context.Context(repository, p.raw_data, {})
@@ -929,7 +934,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         client = github.get_client(p.base.user.login)
         installation = context.Installation(
-            p.base.user.id, p.base.user.login, self.subscription, client
+            p.base.user.id,
+            p.base.user.login,
+            self.subscription,
+            client,
+            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
         pull = context.Context(repository, p.raw_data, {})
