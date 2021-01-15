@@ -40,6 +40,7 @@ class Conclusion(enum.Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     NEUTRAL = "neutral"
+    STALE = "stale"
     ACTION_REQUIRED = "action_required"
 
 
