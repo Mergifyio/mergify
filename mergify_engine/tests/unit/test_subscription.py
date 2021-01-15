@@ -3,15 +3,23 @@ import pytest
 from mergify_engine import subscription
 
 
-def test_init():
+@pytest.mark.asyncio
+async def test_init(redis_cache):
     subscription.Subscription(
-        123, True, "friend", {}, frozenset({subscription.Features.PRIVATE_REPOSITORY})
+        redis_cache,
+        123,
+        True,
+        "friend",
+        {},
+        frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
 
 
-def test_dict():
+@pytest.mark.asyncio
+async def test_dict(redis_cache):
     owner_id = 1234
     sub = subscription.Subscription(
+        redis_cache,
         owner_id,
         True,
         "friend",
@@ -19,7 +27,7 @@ def test_dict():
         frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
 
-    assert sub.from_dict(owner_id, sub.to_dict()) == sub
+    assert sub.from_dict(redis_cache, owner_id, sub.to_dict()) == sub
 
 
 @pytest.mark.parametrize(
@@ -34,23 +42,31 @@ def test_dict():
     ),
 )
 @pytest.mark.asyncio
-async def test_save_sub(features):
+async def test_save_sub(features, redis_cache):
     owner_id = 1234
-    sub = subscription.Subscription(owner_id, True, "friend", {}, frozenset(features))
+    sub = subscription.Subscription(
+        redis_cache, owner_id, True, "friend", {}, frozenset(features)
+    )
 
     await sub.save_subscription_to_cache()
-    rsub = await subscription.Subscription._retrieve_subscription_from_cache(owner_id)
+    rsub = await subscription.Subscription._retrieve_subscription_from_cache(
+        redis_cache, owner_id
+    )
     assert rsub == sub
 
 
 @pytest.mark.asyncio
-async def test_unknown_sub():
-    sub = await subscription.Subscription._retrieve_subscription_from_cache(98732189)
+async def test_unknown_sub(redis_cache):
+    sub = await subscription.Subscription._retrieve_subscription_from_cache(
+        redis_cache, 98732189
+    )
     assert sub is None
 
 
-def test_from_dict_unknown_features():
+@pytest.mark.asyncio
+async def test_from_dict_unknown_features(redis_cache):
     assert subscription.Subscription.from_dict(
+        redis_cache,
         123,
         {
             "subscription_active": True,
@@ -59,6 +75,7 @@ def test_from_dict_unknown_features():
             "features": ["unknown feature"],
         },
     ) == subscription.Subscription(
+        redis_cache,
         123,
         True,
         "friend",
@@ -67,8 +84,10 @@ def test_from_dict_unknown_features():
     )
 
 
-def test_active_feature():
+@pytest.mark.asyncio
+async def test_active_feature(redis_cache):
     sub = subscription.Subscription(
+        redis_cache,
         123,
         True,
         "friend",
@@ -77,6 +96,7 @@ def test_active_feature():
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
     sub = subscription.Subscription(
+        redis_cache,
         123,
         False,
         "friend",
@@ -85,6 +105,7 @@ def test_active_feature():
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
     sub = subscription.Subscription(
+        redis_cache,
         123,
         True,
         "friend",

@@ -18,7 +18,6 @@ import dataclasses
 import typing
 import uuid
 
-import aredis
 import daiquiri
 from datadog import statsd
 
@@ -111,7 +110,8 @@ def _log_on_exception(exc: Exception, msg: str) -> None:
 
 
 async def filter_and_dispatch(
-    redis: aredis.StrictRedis,
+    redis_cache: utils.RedisCache,
+    redis_stream: utils.RedisStream,
     event_type: github_types.GitHubEventType,
     event_id: str,
     event: github_types.GitHubEvent,
@@ -134,7 +134,7 @@ async def filter_and_dispatch(
 
         elif event["action"] in ("opened", "synchronize"):
             try:
-                await engine.create_initial_summary(event)
+                await engine.create_initial_summary(redis_cache, event)
             except Exception as e:
                 _log_on_exception(e, "fail to create initial summary")
 
@@ -256,7 +256,7 @@ async def filter_and_dispatch(
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
             await context.Context.clear_user_permission_cache_for_org(
-                event["organization"]
+                redis_cache, event["organization"]
             )
 
     elif event_type == "member":
@@ -267,6 +267,7 @@ async def filter_and_dispatch(
         ignore_reason = "member event"
 
         await context.Context.clear_user_permission_cache_for_user(
+            redis_cache,
             event["repository"]["owner"],
             event["repository"],
             event["member"],
@@ -279,7 +280,9 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
-        await context.Context.clear_user_permission_cache_for_org(event["organization"])
+        await context.Context.clear_user_permission_cache_for_org(
+            redis_cache, event["organization"]
+        )
 
     elif event_type == "team":
         event = typing.cast(github_types.GitHubEventTeam, event)
@@ -295,11 +298,11 @@ async def filter_and_dispatch(
         ):
             if "repository" in event:
                 await context.Context.clear_user_permission_cache_for_repo(
-                    event["organization"], event["repository"]
+                    redis_cache, event["organization"], event["repository"]
                 )
             else:
                 await context.Context.clear_user_permission_cache_for_org(
-                    event["organization"]
+                    redis_cache, event["organization"]
                 )
 
     elif event_type == "team_add":
@@ -310,7 +313,7 @@ async def filter_and_dispatch(
         ignore_reason = "team_add event"
 
         await context.Context.clear_user_permission_cache_for_repo(
-            event["repository"]["owner"], event["repository"]
+            redis_cache, event["repository"]["owner"], event["repository"]
         )
 
     else:
@@ -324,7 +327,7 @@ async def filter_and_dispatch(
         slim_event = _extract_slim_event(event_type, event)
 
         await worker.push(
-            redis,
+            redis_stream,
             owner_id,
             owner_login,
             repo_name,
@@ -353,18 +356,19 @@ SHA_EXPIRATION = 60
 
 
 async def _get_github_pulls_from_sha(
-    owner_login: github_types.GitHubLogin,
+    installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     sha: github_types.SHAType,
     pulls: typing.List[github_types.GitHubPullRequest],
 ) -> typing.List[github_types.GitHubPullRequestNumber]:
-    redis = await utils.get_aredis_for_cache()
-    cache_key = f"sha~{owner_login}~{repo_name}~{sha}"
-    pull_number = await redis.get(cache_key)
+    cache_key = f"sha~{installation.owner_login}~{repo_name}~{sha}"
+    pull_number = await installation.redis.get(cache_key)
     if pull_number is None:
         for pull in pulls:
             if pull["head"]["sha"] == sha:
-                await redis.set(cache_key, pull["number"], ex=SHA_EXPIRATION)
+                await installation.redis.set(
+                    cache_key, pull["number"], ex=SHA_EXPIRATION
+                )
                 return [pull["number"]]
         return []
     else:
@@ -372,7 +376,7 @@ async def _get_github_pulls_from_sha(
 
 
 async def extract_pull_numbers_from_event(
-    owner_login: github_types.GitHubLogin,
+    installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
@@ -393,12 +397,14 @@ async def extract_pull_numbers_from_event(
     elif event_type == "status":
         data = typing.cast(github_types.GitHubEventStatus, data)
         return await _get_github_pulls_from_sha(
-            owner_login, repo_name, data["sha"], opened_pulls
+            installation, repo_name, data["sha"], opened_pulls
         )
     elif event_type == "check_suite":
         data = typing.cast(github_types.GitHubEventCheckSuite, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        base_repo_url = f"{config.GITHUB_API_URL}/repos/{owner_login}/{repo_name}"
+        base_repo_url = (
+            f"{config.GITHUB_API_URL}/repos/{installation.owner_login}/{repo_name}"
+        )
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
@@ -407,13 +413,15 @@ async def extract_pull_numbers_from_event(
         if not pulls:
             sha = data[event_type]["head_sha"]
             pulls = await _get_github_pulls_from_sha(
-                owner_login, repo_name, sha, opened_pulls
+                installation, repo_name, sha, opened_pulls
             )
         return pulls
     elif event_type == "check_run":
         data = typing.cast(github_types.GitHubEventCheckRun, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        base_repo_url = f"{config.GITHUB_API_URL}/repos/{owner_login}/{repo_name}"
+        base_repo_url = (
+            f"{config.GITHUB_API_URL}/repos/{installation.owner_login}/{repo_name}"
+        )
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
@@ -422,15 +430,16 @@ async def extract_pull_numbers_from_event(
         if not pulls:
             sha = data[event_type]["head_sha"]
             pulls = await _get_github_pulls_from_sha(
-                owner_login, repo_name, sha, opened_pulls
+                installation, repo_name, sha, opened_pulls
             )
         return pulls
     else:
         return []
 
 
-# TODO(sileht): use Enum for action
 async def send_refresh(
+    redis_cache: utils.RedisCache,
+    redis_stream: utils.RedisStream,
     pull: github_types.GitHubPullRequest,
     action: github_types.GitHubEventRefreshActionType = "user",
 ) -> None:
@@ -453,8 +462,6 @@ async def send_refresh(
             },
         }
     )
-    redis = await utils.create_aredis_for_stream()
-    try:
-        await filter_and_dispatch(redis, "refresh", str(uuid.uuid4()), data)
-    finally:
-        redis.connection_pool.disconnect()
+    await filter_and_dispatch(
+        redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
+    )

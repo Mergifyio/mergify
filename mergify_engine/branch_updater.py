@@ -195,8 +195,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
         expected_sha = git("log", "-1", "--format=%H").stdout.strip()
         # NOTE(sileht): We store this for dismissal action
-        async with utils.aredis_for_cache() as redis:
-            await redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
+        await ctxt.redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
     except subprocess.CalledProcessError as in_exception:  # pragma: no cover
         if in_exception.output == "":
             # SIGKILL...

@@ -53,13 +53,14 @@ def commits_tree_generator(request):
     return behind, commits
 
 
-def test_pull_behind(commits_tree_generator):
+@pytest.mark.asyncio
+async def test_pull_behind(commits_tree_generator, redis_cache):
     expected, commits = commits_tree_generator
     client = mock.Mock()
     client.items.return_value = commits  # /pulls/X/commits
     client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
 
-    installation = context.Installation(123, "user", {}, client)
+    installation = context.Installation(123, "user", {}, client, redis_cache)
     repository = context.Repository(installation, "name")
     ctxt = context.Context(
         repository,
