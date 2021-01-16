@@ -28,8 +28,8 @@ from unittest import mock
 
 import daiquiri
 import github as pygithub
+import httpx
 import pytest
-from starlette import testclient
 import vcr
 import vcr.stubs.urllib3_stubs
 import yaml
@@ -158,7 +158,7 @@ class EventReader:
         )
         r.raise_for_status()
 
-    def wait_for(self, event_type, expected_payload, timeout=15 if RECORD else 2):
+    async def wait_for(self, event_type, expected_payload, timeout=15 if RECORD else 2):
         LOG.log(
             42,
             "WAITING FOR %s/%s: %s",
@@ -171,7 +171,7 @@ class EventReader:
         while time.monotonic() - started_at < timeout:
             try:
                 event = self._handled_events.get(block=False)
-                self._forward_to_engine_api(event)
+                await self._forward_to_engine_api(event)
             except queue.Empty:
                 for event in self._get_events():
                     self._handled_events.put(event)
@@ -211,7 +211,7 @@ class EventReader:
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         ).json()
 
-    def _forward_to_engine_api(self, event):
+    async def _forward_to_engine_api(self, event):
         payload = event["payload"]
         if event["type"] in ["check_run", "check_suite"]:
             extra = "/%s/%s" % (
@@ -230,7 +230,7 @@ class EventReader:
             extra,
             self._remove_useless_links(copy.deepcopy(event)),
         )
-        r = self._app.post(
+        r = await self._app.post(
             "/event",
             headers={
                 "X-GitHub-Event": event["type"],
@@ -280,7 +280,7 @@ class EventReader:
 
 
 @pytest.mark.usefixtures("logger_checker")
-class FunctionalTestBase(unittest.TestCase):
+class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
     REPO_NAME = "functional-testing-repo"
@@ -292,7 +292,7 @@ class FunctionalTestBase(unittest.TestCase):
     # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
     # SUBSCRIPTION_ACTIVE = True
 
-    def setUp(self):
+    async def asyncSetUp(self):
         super(FunctionalTestBase, self).setUp()
         self.existing_labels = []
         self.pr_counter = 0
@@ -311,6 +311,7 @@ class FunctionalTestBase(unittest.TestCase):
             cassette_library_dir=self.cassette_library_dir,
             record_mode="all" if RECORD else "none",
             match_on=["method", "uri"],
+            ignore_localhost=True,
             filter_headers=[
                 ("Authorization", "<TOKEN>"),
                 ("X-Hub-Signature", "<SIGNATURE>"),
@@ -390,12 +391,13 @@ class FunctionalTestBase(unittest.TestCase):
         self.git = self.get_gitter(LOG)
         self.addCleanup(self.git.cleanup)
 
-        asyncio.run(web.startup())
-        self.app = testclient.TestClient(web.app)
+        await web.startup()
+        self.app = httpx.AsyncClient(app=web.app, base_url="http://localhost")
 
-        asyncio.run(self.clear_redis_cache())
+        await self.clear_redis_cache()
+        self.redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
         self.subscription = subscription.Subscription(
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
+            self.redis_cache,
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
@@ -410,7 +412,7 @@ class FunctionalTestBase(unittest.TestCase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        asyncio.run(self.subscription.save_subscription_to_cache())
+        await self.subscription.save_subscription_to_cache()
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -455,7 +457,7 @@ class FunctionalTestBase(unittest.TestCase):
             config.TESTING_ORGANIZATION,
             self.subscription,
             self.cli_integration,
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
+            self.redis_cache,
         )
         self.repository_ctxt = context.Repository(
             self.installation_ctxt, self.REPO_NAME
@@ -506,7 +508,7 @@ class FunctionalTestBase(unittest.TestCase):
         self._event_reader.drain()
 
         # NOTE(sileht): Prepare a fresh redis
-        asyncio.run(self.clear_redis_stream())
+        await self.clear_redis_stream()
 
     @staticmethod
     async def clear_redis_stream():
@@ -518,7 +520,7 @@ class FunctionalTestBase(unittest.TestCase):
         async with utils.aredis_for_cache() as redis_stream:
             await redis_stream.flushall()
 
-    def tearDown(self):
+    async def asyncTearDown(self):
         super(FunctionalTestBase, self).tearDown()
 
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
@@ -553,14 +555,15 @@ class FunctionalTestBase(unittest.TestCase):
             for pull in self.r_o_admin.get_pulls():
                 pull.edit(state="closed")
 
-        asyncio.run(web.shutdown())
+        await self.app.aclose()
+        await web.shutdown()
 
         self._event_reader.drain()
-        asyncio.run(self.clear_redis_stream())
+        await self.clear_redis_stream()
         mock.patch.stopall()
 
-    def wait_for(self, *args, **kwargs):
-        return self._event_reader.wait_for(*args, **kwargs)
+    async def wait_for(self, *args, **kwargs):
+        return await self._event_reader.wait_for(*args, **kwargs)
 
     @staticmethod
     async def _async_run_workers(timeout):
@@ -582,9 +585,9 @@ class FunctionalTestBase(unittest.TestCase):
         w.stop()
         await w.wait_shutdown_complete()
 
-    def run_engine(self, timeout=0.42 if RECORD else 0.02):
+    async def run_engine(self, timeout=0.42 if RECORD else 0.02):
         LOG.log(42, "RUNNING ENGINE")
-        asyncio.run(self._async_run_workers(timeout))
+        await self._async_run_workers(timeout)
 
     def get_gitter(self, logger):
         self.git_counter += 1
@@ -687,7 +690,7 @@ class FunctionalTestBase(unittest.TestCase):
     def get_full_branch_name(self, name):
         return f"{self.BRANCH_PREFIX}/{self._testMethodName}/{name}"
 
-    def create_pr(
+    async def create_pr(
         self,
         base=None,
         files=None,
@@ -744,7 +747,7 @@ class FunctionalTestBase(unittest.TestCase):
             draft=draft,
         )
 
-        self.wait_for("pull_request", {"action": "opened"})
+        await self.wait_for("pull_request", {"action": "opened"})
 
         # NOTE(sileht): We return the same but owned by the main project
         p = self.r_o_integration.get_pull(p.number)
@@ -752,7 +755,7 @@ class FunctionalTestBase(unittest.TestCase):
 
         return p, commits
 
-    def create_status(
+    async def create_status(
         self, pr, context="continuous-integration/fake-ci", state="success"
     ):
         # TODO(sileht): monkey patch PR with this
@@ -766,25 +769,25 @@ class FunctionalTestBase(unittest.TestCase):
             },
             headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
-        self.wait_for("status", {"state": state})
+        await self.wait_for("status", {"state": state})
 
-    def create_review(self, pr, commit, event="APPROVE"):
+    async def create_review(self, pr, commit, event="APPROVE"):
         pr_review = self.r_o_admin.get_pull(pr.number)
         r = pr_review.create_review(commit, "Perfect", event=event)
-        self.wait_for("pull_request_review", {"action": "submitted"})
+        await self.wait_for("pull_request_review", {"action": "submitted"})
         return r
 
-    def create_message(self, pr, message):
+    async def create_message(self, pr, message):
         pr_review = self.r_o_admin.get_pull(pr.number)
         comment = pr_review.create_issue_comment(message)
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.wait_for("issue_comment", {"action": "created"})
         return comment
 
-    def add_assignee(self, pr, assignee):
+    async def add_assignee(self, pr, assignee):
         pr.add_to_assignees(assignee)
-        self.wait_for("pull_request", {"action": "assigned"})
+        await self.wait_for("pull_request", {"action": "assigned"})
 
-    def add_label(self, pr, label):
+    async def add_label(self, pr, label):
         if label not in self.existing_labels:
             try:
                 self.r_o_admin.create_label(label, "000000")
@@ -795,11 +798,11 @@ class FunctionalTestBase(unittest.TestCase):
             self.existing_labels.append(label)
 
         pr.add_to_labels(label)
-        self.wait_for("pull_request", {"action": "labeled"})
+        await self.wait_for("pull_request", {"action": "labeled"})
 
-    def remove_label(self, pr, label):
+    async def remove_label(self, pr, label):
         pr.remove_from_labels(label)
-        self.wait_for("pull_request", {"action": "unlabeled"})
+        await self.wait_for("pull_request", {"action": "unlabeled"})
 
     def branch_protection_unprotect(self, branch):
         return self.r_o_admin._requester.requestJsonAndCheck(

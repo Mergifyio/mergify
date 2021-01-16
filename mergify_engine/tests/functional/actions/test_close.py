@@ -20,7 +20,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestCloseAction(base.FunctionalTestBase):
-    def test_close(self):
+    async def test_close(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -33,15 +33,15 @@ class TestCloseAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         p.update()
         self.assertEqual("closed", p.state)
         self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
 
-    def test_close_template(self):
+    async def test_close_template(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -54,16 +54,16 @@ class TestCloseAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         p.update()
         self.assertEqual("closed", p.state)
         comments = list(p.get_issue_comments())
         self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
 
-    def _test_close_template_error(self, msg):
+    async def _test_close_template_error(self, msg):
         rules = {
             "pull_request_rules": [
                 {
@@ -76,9 +76,9 @@ class TestCloseAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         p.update()
 
@@ -90,8 +90,8 @@ class TestCloseAction(base.FunctionalTestBase):
         assert "The Mergify configuration is invalid" == check["output"]["title"]
         return check
 
-    def test_close_template_syntax_error(self):
-        check = self._test_close_template_error(
+    async def test_close_template_syntax_error(self):
+        check = await self._test_close_template_error(
             msg="Thank you {{",
         )
         assert (
@@ -102,8 +102,8 @@ unexpected 'end of template'
             == check["output"]["summary"]
         )
 
-    def test_close_template_attribute_error(self):
-        check = self._test_close_template_error(
+    async def test_close_template_attribute_error(self):
+        check = await self._test_close_template_error(
             msg="Thank you {{hello}}",
         )
         assert (

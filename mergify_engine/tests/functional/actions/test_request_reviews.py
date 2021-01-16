@@ -24,7 +24,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestRequestReviewsAction(base.FunctionalTestBase):
-    def test_request_reviews_users(self):
+    async def test_request_reviews_users(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -37,15 +37,15 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
         requests = pulls[0].get_review_requests()
         assert sorted(["mergify-test1"]) == sorted([user.login for user in requests[0]])
 
-    def test_request_reviews_teams(self):
+    async def test_request_reviews_teams(self):
         # Add a team to the repo with write permissions  so it can review
         team = list(self.o_admin.get_teams())[0]
         team.set_repo_permission(self.r_o_admin, "push")
@@ -62,8 +62,8 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
@@ -73,7 +73,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
     @mock.patch.object(
         request_reviews.RequestReviewsAction, "GITHUB_MAXIMUM_REVIEW_REQUEST", new=1
     )
-    def test_request_reviews_already_max(self):
+    async def test_request_reviews_already_max(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -93,8 +93,8 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
@@ -122,7 +122,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
     @mock.patch.object(
         request_reviews.RequestReviewsAction, "GITHUB_MAXIMUM_REVIEW_REQUEST", new=2
     )
-    def test_request_reviews_going_above_max(self):
+    async def test_request_reviews_going_above_max(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -143,14 +143,14 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
         pulls[0].create_review_request(["mergify-test1"])
-        self.wait_for("pull_request", {"action": "review_requested"})
-        self.run_engine()
+        await self.wait_for("pull_request", {"action": "review_requested"})
+        await self.run_engine()
         requests = pulls[0].get_review_requests()
         assert sorted(["mergify-test1", "mergify-test3"]) == sorted(
             [user.login for user in requests[0]]

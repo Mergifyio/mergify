@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestLabelAction(base.FunctionalTestBase):
-    def test_label(self):
+    async def test_label(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -37,9 +37,9 @@ class TestLabelAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.add_label(p, "stable")
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.add_label(p, "stable")
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
@@ -48,7 +48,7 @@ class TestLabelAction(base.FunctionalTestBase):
             sorted([label.name for label in pulls[0].labels]),
         )
 
-    def test_label_empty(self):
+    async def test_label_empty(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -66,9 +66,9 @@ class TestLabelAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.add_label(p, "stable")
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.add_label(p, "stable")
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))
@@ -76,7 +76,7 @@ class TestLabelAction(base.FunctionalTestBase):
             sorted(["stable"]), sorted([label.name for label in pulls[0].labels])
         )
 
-    def test_label_remove_all(self):
+    async def test_label_remove_all(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -89,9 +89,9 @@ class TestLabelAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.add_label(p, "stable")
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.add_label(p, "stable")
+        await self.run_engine()
 
         pulls = list(self.r_o_admin.get_pulls())
         self.assertEqual(1, len(pulls))

@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import logging
 
 import pytest
@@ -27,7 +26,7 @@ LOG = logging.getLogger(__name__)
 
 
 class TestAttributes(base.FunctionalTestBase):
-    def test_draft(self):
+    async def test_draft(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -39,14 +38,14 @@ class TestAttributes(base.FunctionalTestBase):
         }
         self.setup_repo(yaml.dump(rules))
 
-        pr, _ = self.create_pr()
+        pr, _ = await self.create_pr()
         ctxt = context.Context(self.repository_ctxt, pr.raw_data, {})
-        assert not asyncio.run(ctxt.pull_request.draft)
+        assert not await ctxt.pull_request.draft
 
-        pr, _ = self.create_pr(draft=True)
+        pr, _ = await self.create_pr(draft=True)
 
-        self.run_engine()
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         ctxt = context.Context(
             self.repository_ctxt,
@@ -61,23 +60,23 @@ class TestAttributes(base.FunctionalTestBase):
             },
             {},
         )
-        assert ctxt.pull_request.draft
+        assert await ctxt.pull_request.draft
 
         pr.update()
         comments = list(pr.get_issue_comments())
         self.assertEqual("draft pr", comments[-1].body)
 
         # Test underscore/dash attributes
-        assert asyncio.run(ctxt.pull_request.review_requested) == []
+        assert await ctxt.pull_request.review_requested == []
 
         with pytest.raises(AttributeError):
-            assert asyncio.run(ctxt.pull_request.foobar)
+            assert await ctxt.pull_request.foobar
 
         # Test items
         assert list(ctxt.pull_request) == list(
             context.PullRequest.ATTRIBUTES | context.PullRequest.LIST_ATTRIBUTES
         )
-        assert asyncio.run(ctxt.pull_request.items()) == {
+        assert await ctxt.pull_request.items() == {
             "number": pr.number,
             "closed": False,
             "locked": False,

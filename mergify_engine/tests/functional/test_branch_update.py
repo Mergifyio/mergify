@@ -21,7 +21,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestBranchUpdatePublic(base.FunctionalTestBase):
-    def test_command_update(self):
+    async def test_command_update(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -32,21 +32,21 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
             ]
         }
         self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = self.create_pr(files={"TESTING2": "foobar"})
-        p2, _ = self.create_pr(files={"TESTING3": "foobar"})
+        p1, _ = await self.create_pr(files={"TESTING2": "foobar"})
+        p2, _ = await self.create_pr(files={"TESTING3": "foobar"})
         p1.merge()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
-        self.create_message(p2, "@mergifyio update")
-        self.run_engine()
+        await self.create_message(p2, "@mergifyio update")
+        await self.run_engine()
 
         oldsha = p2.head.sha
         p2.update()
         assert p2.commits == 2
         assert oldsha != p2.head.sha
 
-    def test_command_rebase_ok(self):
+    async def test_command_rebase_ok(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -57,15 +57,15 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
             ]
         }
         self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar\n"})
-        p1, _ = self.create_pr(files={"TESTING": "foobar\n\n\np1"})
-        p2, _ = self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
+        p1, _ = await self.create_pr(files={"TESTING": "foobar\n\n\np1"})
+        p2, _ = await self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
         p1.merge()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
-        self.create_message(p2, "@mergifyio rebase")
-        self.run_engine()
+        await self.create_message(p2, "@mergifyio rebase")
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
         oldsha = p2.head.sha
         p2.merge()

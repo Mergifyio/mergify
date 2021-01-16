@@ -22,7 +22,7 @@ from mergify_engine.tests.functional import base
 class TestReviewAction(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
-    def test_review(self):
+    async def test_review(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -45,11 +45,11 @@ class TestReviewAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
-        self.wait_for("pull_request_review", {}),
-        self.run_engine()
+        await self.wait_for("pull_request_review", {}),
+        await self.run_engine()
 
         p.update()
         comments = list(p.get_reviews())
@@ -58,7 +58,7 @@ class TestReviewAction(base.FunctionalTestBase):
         self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
         self.assertEqual("WTF?", comments[-1].body)
 
-    def test_review_template(self):
+    async def test_review_template(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -84,11 +84,11 @@ class TestReviewAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
-        self.wait_for("pull_request_review", {}),
-        self.run_engine()
+        await self.wait_for("pull_request_review", {}),
+        await self.run_engine()
 
         p.update()
         comments = list(p.get_reviews())
@@ -97,7 +97,7 @@ class TestReviewAction(base.FunctionalTestBase):
         self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
         self.assertEqual(f"WTF {self.u_fork.login}?", comments[-1].body)
 
-    def _test_review_template_error(self, msg):
+    async def _test_review_template_error(self, msg):
         rules = {
             "pull_request_rules": [
                 {
@@ -112,8 +112,8 @@ class TestReviewAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         assert len(ctxt.pull_engine_check_runs) == 1
@@ -122,8 +122,8 @@ class TestReviewAction(base.FunctionalTestBase):
         assert "The Mergify configuration is invalid" == check["output"]["title"]
         return check
 
-    def test_review_template_syntax_error(self):
-        check = self._test_review_template_error(
+    async def test_review_template_syntax_error(self):
+        check = await self._test_review_template_error(
             msg="Thank you {{",
         )
         assert (
@@ -134,8 +134,8 @@ unexpected 'end of template'
             == check["output"]["summary"]
         )
 
-    def test_review_template_attribute_error(self):
-        check = self._test_review_template_error(
+    async def test_review_template_attribute_error(self):
+        check = await self._test_review_template_error(
             msg="Thank you {{hello}}",
         )
         assert (
@@ -146,7 +146,7 @@ Unknown pull request attribute: hello
             == check["output"]["summary"]
         )
 
-    def test_review_with_oauth_token(self):
+    async def test_review_with_oauth_token(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -178,11 +178,11 @@ Unknown pull request attribute: hello
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
-        self.wait_for("pull_request_review", {}),
-        self.run_engine()
+        await self.wait_for("pull_request_review", {}),
+        await self.run_engine()
 
         p.update()
         comments = list(p.get_reviews())
