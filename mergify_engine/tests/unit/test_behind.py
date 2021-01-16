@@ -56,13 +56,22 @@ def commits_tree_generator(request):
 @pytest.mark.asyncio
 async def test_pull_behind(commits_tree_generator, redis_cache):
     expected, commits = commits_tree_generator
+
+    async def get_commits(*args, **kwargs):
+        for c in commits:
+            yield c
+
+    async def item(*args, **kwargs):
+        return {"commit": {"sha": "base"}}
+
     client = mock.Mock()
-    client.items.return_value = commits  # /pulls/X/commits
-    client.item.return_value = {"commit": {"sha": "base"}}  # /branch/#foo
+    client.items.return_value = get_commits()  # /pulls/X/commits
+
+    client.item.return_value = item()  # /branch/#foo
 
     installation = context.Installation(123, "user", {}, client, redis_cache)
     repository = context.Repository(installation, "name")
-    ctxt = context.Context(
+    ctxt = await context.Context.create(
         repository,
         {
             "number": 1,
@@ -81,4 +90,4 @@ async def test_pull_behind(commits_tree_generator, redis_cache):
         {},
     )
 
-    assert expected == ctxt.is_behind
+    assert expected == await ctxt.is_behind

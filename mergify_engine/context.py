@@ -15,7 +15,6 @@
 # under the License.
 import contextlib
 import dataclasses
-import functools
 import itertools
 import logging
 import typing
@@ -61,7 +60,7 @@ class Installation:
     owner_id: github_types.GitHubAccountIdType
     owner_login: github_types.GitHubLogin
     subscription: subscription.Subscription
-    client: github.GithubInstallationClient
+    client: github.AsyncGithubInstallationClient
     redis: utils.RedisCache
 
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
@@ -94,13 +93,16 @@ class Repository(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.installation.owner_login}/{self.name}"
 
-    def get_pull_request_context(
+    async def get_pull_request_context(
         self,
         pull_number: github_types.GitHubPullRequestNumber,
     ) -> "Context":
         if pull_number not in self.pull_contexts:
-            pull = self.installation.client.item(f"{self.base_url}/pulls/{pull_number}")
-            self.pull_contexts[pull_number] = Context(self, pull)
+            pull = await self.installation.client.item(
+                f"{self.base_url}/pulls/{pull_number}"
+            )
+            ctxt = await Context.create(self, pull)
+            self.pull_contexts[pull_number] = ctxt
 
         return self.pull_contexts[pull_number]
 
@@ -128,7 +130,7 @@ class Context(object):
         return self.repository.installation.subscription
 
     @property
-    def client(self) -> github.GithubInstallationClient:
+    def client(self) -> github.AsyncGithubInstallationClient:
         # TODO(sileht): remove me when context split if done
         return self.repository.installation.client
 
@@ -137,9 +139,17 @@ class Context(object):
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
 
-    def __post_init__(self):
-        self._ensure_complete()
-
+    @classmethod
+    async def create(
+        cls,
+        repository: Repository,
+        pull: github_types.GitHubPullRequest,
+        sources: typing.Optional[typing.List[T_PayloadEventSource]] = None,
+    ) -> "Context":
+        if sources is None:
+            sources = []
+        self = cls(repository, pull, sources)
+        await self._ensure_complete()
         self.pull_request = PullRequest(self)
 
         self.log = daiquiri.getLogger(
@@ -174,6 +184,7 @@ class Context(object):
                 else (self.pull.get("mergeable_state", "unknown") or "none")
             ),
         )
+        return self
 
     USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
     USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
@@ -232,8 +243,10 @@ class Context(object):
         key = self._users_permission_cache_key
         permission = await self.redis.hget(key, user["id"])
         if permission is None:
-            permission = self.client.item(
-                f"{self.base_url}/collaborators/{user['login']}/permission"
+            permission = (
+                await self.client.item(
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
+                )
             )["permission"]
             pipe = await self.redis.pipeline()
             await pipe.hset(key, user["id"], permission)
@@ -257,7 +270,7 @@ class Context(object):
         await self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
-            return check_api.set_check_run(self, self.SUMMARY_NAME, result)
+            return await check_api.set_check_run(self, self.SUMMARY_NAME, result)
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis
@@ -307,7 +320,7 @@ class Context(object):
     async def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
         return {
             r["user"]["id"]
-            for r in self.reviews
+            for r in await self.reviews
             if (
                 r["user"] is not None
                 and (
@@ -340,7 +353,7 @@ class Context(object):
             github_types.GitHubLogin, github_types.GitHubReview
         ] = dict()
         valid_user_ids = await self._get_valid_user_ids()
-        for review in self.reviews:
+        for review in await self.reviews:
             if not review["user"] or review["user"]["id"] not in valid_user_ids:
                 continue
             # Only keep latest review of an user
@@ -412,7 +425,7 @@ class Context(object):
             return self.pull["body"]
 
         elif name == "files":
-            return [f["filename"] for f in self.files]
+            return [f["filename"] for f in await self.files]
 
         elif name == "approved-reviews-by":
             _, approvals = await self.consolidated_reviews()
@@ -440,48 +453,74 @@ class Context(object):
         # quickly.
         # NOTE(sileht): Not handled for now: cancelled, timed_out, or action_required
         elif name in ("status-success", "check-success"):
-            return [ctxt for ctxt, state in self.checks.items() if state == "success"]
+            return [
+                ctxt
+                for ctxt, state in (await self.checks).items()
+                if state == "success"
+            ]
         elif name in ("status-failure", "check-failure"):
-            return [ctxt for ctxt, state in self.checks.items() if state == "failure"]
+            return [
+                ctxt
+                for ctxt, state in (await self.checks).items()
+                if state == "failure"
+            ]
         elif name in ("status-neutral", "check-neutral"):
-            return [ctxt for ctxt, state in self.checks.items() if state == "neutral"]
+            return [
+                ctxt
+                for ctxt, state in (await self.checks).items()
+                if state == "neutral"
+            ]
 
         else:
             raise PullRequestAttributeError(name)
 
-    def update_pull_check_runs(self, check):
-        self.pull_check_runs = [
-            c for c in self.pull_check_runs if c["name"] != check["name"]
+    async def update_pull_check_runs(self, check):
+        self._cache["pull_check_runs"] = [
+            c for c in await self.pull_check_runs if c["name"] != check["name"]
         ]
-        self.pull_check_runs.append(check)
-
-    @functools.cached_property
-    def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
-        return check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
+        self._cache["pull_check_runs"].append(check)
 
     @property
-    def pull_engine_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
+    async def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
+        if "pull_check_runs" in self._cache:
+            return typing.cast(
+                typing.List[github_types.GitHubCheckRun], self._cache["pull_check_runs"]
+            )
+
+        checks = await check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
+        self._cache["pull_check_runs"] = checks
+        return checks
+
+    @property
+    async def pull_engine_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         return [
-            c for c in self.pull_check_runs if c["app"]["id"] == config.INTEGRATION_ID
+            c
+            for c in await self.pull_check_runs
+            if c["app"]["id"] == config.INTEGRATION_ID
         ]
 
-    @functools.cached_property
-    def checks(self):
+    @property
+    async def checks(self):
+        if "checks" in self._cache:
+            return self._cache["checks"]
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        checks = dict((c["name"], c["conclusion"]) for c in self.pull_check_runs)
+        checks = dict((c["name"], c["conclusion"]) for c in await self.pull_check_runs)
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update(
-            (s["context"], s["state"])
-            for s in self.client.items(
-                f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
-                list_items="statuses",
-            )
+            [
+                (s["context"], s["state"])
+                async for s in self.client.items(
+                    f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
+                    list_items="statuses",
+                )
+            ]
         )
+        self._cache["checks"] = checks
         return checks
 
-    def _resolve_login(self, name):
+    async def _resolve_login(self, name):
         if not name:
             return []
         elif not isinstance(name, str):
@@ -502,7 +541,7 @@ class Context(object):
         try:
             return [
                 member["login"]
-                for member in self.client.items(
+                async for member in self.client.items(
                     f"/orgs/{organization}/teams/{team_slug}/members"
                 )
             ]
@@ -515,12 +554,17 @@ class Context(object):
             )
         return [name]
 
-    def resolve_teams(self, values):
+    async def resolve_teams(self, values):
         if not values:
             return []
         if not isinstance(values, (list, tuple)):
             values = [values]
-        values = list(itertools.chain.from_iterable((map(self._resolve_login, values))))
+
+        values = list(
+            itertools.chain.from_iterable(
+                [await self._resolve_login(value) for value in values]
+            )
+        )
         return values
 
     UNUSABLE_STATES = ["unknown", None]
@@ -533,12 +577,14 @@ class Context(object):
         retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
         reraise=True,
     )
-    def _ensure_complete(self):
+    async def _ensure_complete(self):
         if not (
             self._is_data_complete()
             and self._is_background_github_processing_completed()
         ):
-            self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
+            self.pull = await self.client.item(
+                f"{self.base_url}/pulls/{self.pull['number']}"
+            )
 
         if self._is_background_github_processing_completed():
             return
@@ -566,27 +612,35 @@ class Context(object):
             or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
         )
 
-    def update(self):
+    async def update(self):
         # TODO(sileht): Remove me,
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
-        self.pull = self.client.item(f"{self.base_url}/pulls/{self.pull['number']}")
+        self.pull = await self.client.item(
+            f"{self.base_url}/pulls/{self.pull['number']}"
+        )
         try:
-            del self.__dict__["pull_check_runs"]
+            del self._cache["pull_check_runs"]
         except KeyError:
             pass
 
-    @functools.cached_property
-    def is_behind(self) -> bool:
+    @property
+    async def is_behind(self) -> bool:
+        if "is_behind" in self._cache:
+            return typing.cast(bool, self._cache["is_behind"])
+
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
         branch = typing.cast(
             github_types.GitHubBranch,
-            self.client.item(f"{self.base_url}/branches/{branch_name_escaped}"),
+            await self.client.item(f"{self.base_url}/branches/{branch_name_escaped}"),
         )
-        for commit in self.commits:
+        for commit in await self.commits:
             for parent in commit["parents"]:
                 if parent["sha"] == branch["commit"]["sha"]:
+                    self._cache["is_behind"] = False
                     return False
+
+        self._cache["is_behind"] = True
         return True
 
     def have_been_synchronized(self) -> bool:
@@ -613,35 +667,59 @@ class Context(object):
             ),
         }
 
-    @functools.cached_property
-    def reviews(self) -> typing.List[github_types.GitHubReview]:
-        return list(
-            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/reviews")
-        )
+    @property
+    async def reviews(self) -> typing.List[github_types.GitHubReview]:
+        if "reviews" in self._cache:
+            return typing.cast(
+                typing.List[github_types.GitHubReview], self._cache["reviews"]
+            )
 
-    @functools.cached_property
-    def commits(self) -> typing.List[github_types.GitHubBranchCommit]:
-        return typing.cast(
+        reviews = [
+            review
+            async for review in self.client.items(
+                f"{self.base_url}/pulls/{self.pull['number']}/reviews"
+            )
+        ]
+        self._cache["reviews"] = reviews
+        return reviews
+
+    @property
+    async def commits(self) -> typing.List[github_types.GitHubBranchCommit]:
+        if "commits" in self._cache:
+            return typing.cast(
+                typing.List[github_types.GitHubBranchCommit], self._cache["commits"]
+            )
+        commits = typing.cast(
             typing.List[github_types.GitHubBranchCommit],
-            list(
-                self.client.items(
+            [
+                commit
+                async for commit in self.client.items(
                     f"{self.base_url}/pulls/{self.pull['number']}/commits"
                 )
-            ),
+            ],
         )
+        self._cache["commits"] = commits
+        return commits
 
-    @functools.cached_property
-    def files(self):
-        return list(
-            self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files")
-        )
+    @property
+    async def files(self):
+        if "files" in self._cache:
+            return self._cache["files"]
+        files = [
+            file
+            async for file in self.client.items(
+                f"{self.base_url}/pulls/{self.pull['number']}/files"
+            )
+        ]
+        self._cache["files"] = files
+        return files
 
     @property
     def pull_from_fork(self):
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
-    def github_workflow_changed(self):
-        for f in self.files:
+    async def github_workflow_changed(self):
+        for f in await self.files:
             if f["filename"].startswith(".github/workflows"):
                 return True
         return False

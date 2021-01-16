@@ -59,7 +59,9 @@ class TestMergeAction(base.FunctionalTestBase):
 
     async def test_merge_smart_ordered(self):
         p_need_rebase, p_ready = await self._do_test_smart_order("smart+ordered")
-        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p_need_rebase.raw_data, []
+        )
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p_ready.number]
@@ -69,7 +71,9 @@ class TestMergeAction(base.FunctionalTestBase):
 
     async def test_merge_smart_unordered(self):
         p_need_rebase, p_ready = await self._do_test_smart_order("smart+fastpath")
-        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p_need_rebase.raw_data, []
+        )
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p_need_rebase.number]
@@ -78,7 +82,9 @@ class TestMergeAction(base.FunctionalTestBase):
 
     async def test_merge_smart_legacy(self):
         p_need_rebase, p_ready = await self._do_test_smart_order("smart")
-        ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p_need_rebase.raw_data, []
+        )
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p_ready.number]
@@ -142,7 +148,7 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.create_status(p_high)
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
@@ -235,7 +241,7 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.create_status(p2)
         await self.run_engine(1)
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p1.number, p2.number]
@@ -266,8 +272,8 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.add_label(p, "automerge")
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
         assert check["conclusion"] == "action_required"
@@ -279,8 +285,8 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.remove_label(p, "automerge")
         await self.run_engine()
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
         assert check["conclusion"] == "cancelled"
@@ -306,8 +312,8 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.add_label(p, "automerge")
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
         assert check["conclusion"] is None
@@ -316,8 +322,8 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.remove_label(p, "automerge")
         await self.run_engine()
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
         assert check["conclusion"] == "cancelled"
@@ -425,7 +431,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         await self.create_status(p_high)
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         q = queue.Queue.from_context(ctxt)
         pulls_in_queue = await (q.get_pulls())
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]

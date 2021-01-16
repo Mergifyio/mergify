@@ -39,7 +39,7 @@ class TestAttributes(base.FunctionalTestBase):
         self.setup_repo(yaml.dump(rules))
 
         pr, _ = await self.create_pr()
-        ctxt = context.Context(self.repository_ctxt, pr.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, pr.raw_data)
         assert not await ctxt.pull_request.draft
 
         pr, _ = await self.create_pr(draft=True)
@@ -47,7 +47,7 @@ class TestAttributes(base.FunctionalTestBase):
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
-        ctxt = context.Context(
+        ctxt = await context.Context.create(
             self.repository_ctxt,
             {
                 "number": pr.number,
@@ -58,7 +58,6 @@ class TestAttributes(base.FunctionalTestBase):
                     },
                 },
             },
-            {},
         )
         assert await ctxt.pull_request.draft
 

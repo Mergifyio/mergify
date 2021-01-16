@@ -41,11 +41,12 @@ class DeleteHeadBranchAction(actions.Action):
 
         if ctxt.pull["state"] == "closed":
             if self.config is None or not self.config["force"]:
-                pulls_using_this_branch = list(
-                    ctxt.client.items(
+                pulls_using_this_branch = [
+                    branch
+                    async for branch in ctxt.client.items(
                         f"{ctxt.base_url}/pulls", base=ctxt.pull["head"]["ref"]
                     )
-                )
+                ]
                 if pulls_using_this_branch:
                     return check_api.Result(
                         check_api.Conclusion.NEUTRAL,
@@ -62,7 +63,9 @@ class DeleteHeadBranchAction(actions.Action):
 
             ref_to_delete = parse.quote(ctxt.pull["head"]["ref"], safe="")
             try:
-                ctxt.client.delete(f"{ctxt.base_url}/git/refs/heads/{ref_to_delete}")
+                await ctxt.client.delete(
+                    f"{ctxt.base_url}/git/refs/heads/{ref_to_delete}"
+                )
             except http.HTTPClientSideError as e:
                 if e.status_code not in [422, 404]:
                     return check_api.Result(

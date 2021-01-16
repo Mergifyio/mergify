@@ -33,9 +33,9 @@ class UpdateAction(actions.Action):
 
     @staticmethod
     async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        if ctxt.is_behind:
+        if await ctxt.is_behind:
             try:
-                branch_updater.update_with_api(ctxt)
+                await branch_updater.update_with_api(ctxt)
             except branch_updater.BranchUpdateFailure as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch update failed", str(e)

@@ -40,7 +40,7 @@ class CloseAction(actions.Action):
             )
 
         try:
-            ctxt.client.patch(
+            await ctxt.client.patch(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}", json={"state": "close"}
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
@@ -58,7 +58,7 @@ class CloseAction(actions.Action):
             )
 
         try:
-            ctxt.client.post(
+            await ctxt.client.post(
                 f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
                 json={"body": message},
             )

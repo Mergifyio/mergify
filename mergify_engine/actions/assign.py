@@ -62,7 +62,7 @@ class AssignAction(actions.Action):
 
         if assignees:
             try:
-                ctxt.client.post(
+                await ctxt.client.post(
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
                     json={"assignees": assignees},
                 )
@@ -91,7 +91,7 @@ class AssignAction(actions.Action):
 
         if assignees:
             try:
-                ctxt.client.request(
+                await ctxt.client.request(
                     "DELETE",
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
                     json={"assignees": assignees},

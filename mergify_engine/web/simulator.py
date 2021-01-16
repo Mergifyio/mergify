@@ -90,9 +90,9 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
         else:
             auth = github.get_auth(owner)
 
-        with github.get_client(auth=auth) as client:
+        async with github.aget_client(auth=auth) as client:
             try:
-                data = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
+                data = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
             except http.HTTPNotFound:
                 raise PullRequestUrlInvalid(
                     message=f"Pull request {owner}/{repo}/pulls/{pull_number} not found"
@@ -109,7 +109,7 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
                 client,
                 web._AREDIS_CACHE,
             )
-            ctxt = context.Context(
+            ctxt = await context.Context.create(
                 context.Repository(installation, repo),
                 data,
                 [{"event_type": "mergify-simulator", "data": []}],

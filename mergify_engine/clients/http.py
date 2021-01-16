@@ -188,11 +188,3 @@ class AsyncClient(httpx.AsyncClient):
         resp = await super().request(method, url, *args, **kwargs)
         raise_for_status(resp)
         return resp
-
-
-class Client(httpx.Client):
-    @connectivity_issue_retry
-    def request(self, method, url, *args, **kwargs):
-        resp = super().request(method, url, *args, **kwargs)
-        raise_for_status(resp)
-        return resp

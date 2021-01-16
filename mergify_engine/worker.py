@@ -175,7 +175,7 @@ async def _run_engine(
     try:
         try:
             repository = installation.get_repository(repo_name)
-            ctxt = repository.get_pull_request_context(pull_number)
+            ctxt = await repository.get_pull_request_context(pull_number)
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
@@ -192,15 +192,18 @@ async def run_engine(
     pull_number: github_types.GitHubPullRequestNumber,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
-    # TODO(sileht): Remove me when the engine thread is removed.
-    # redis client created in main thread should not share the client in engine thread
-    # otherwise we have a connection leaks
+    # TODO(sileht): Remove me, temporary method because client created in main thread
+    # should not share the client in engine thread.
+    main_thread_client = installation.client
     main_thread_redis = installation.redis
     try:
         async with utils.aredis_for_cache() as redis:
-            installation.redis = redis
-            await _run_engine(installation, repo_name, pull_number, sources)
+            async with github.aget_client(installation.owner_login) as client:
+                installation.redis = redis
+                installation.client = client
+                await _run_engine(installation, repo_name, pull_number, sources)
     finally:
+        installation.client = main_thread_client
         installation.redis = main_thread_redis
 
 
@@ -364,18 +367,6 @@ class StreamProcessor:
             await self.redis.zaddoption("streams", "XX", **{stream_name: score})
             raise StreamRetry(stream_name, attempts, retry_at)
 
-    @contextlib.asynccontextmanager
-    async def _github_get_client(
-        self, owner_login: github_types.GitHubLogin
-    ) -> typing.AsyncIterator[github.GithubInstallationClient]:
-        # NOTE(sileht): We don't use the httpx contextmanager because we want to close the
-        # blocking connection pool in a thread
-        client = github.get_client(owner_login)
-        try:
-            yield client
-        finally:
-            await asyncio.to_thread(client.close)
-
     def _extract_owner(
         self, stream_name: StreamNameType
     ) -> typing.Tuple[github_types.GitHubLogin, github_types.GitHubAccountIdType]:
@@ -395,7 +386,7 @@ class StreamProcessor:
                     sub = await subscription.Subscription.get_subscription(
                         redis_cache, owner_id
                     )
-                async with self._github_get_client(owner_login) as client:
+                async with github.aget_client(owner_login) as client:
                     installation = context.Installation(
                         owner_id, owner_login, sub, client, redis_cache
                     )
@@ -498,15 +489,12 @@ end
                         async with self._translate_exception_to_retries(
                             installation.stream_name
                         ):
-                            async with await github.aget_client(
-                                installation.owner_login
-                            ) as client:
-                                opened_pulls_by_repo[repo] = [
-                                    p
-                                    async for p in client.items(
-                                        f"/repos/{installation.owner_login}/{repo}/pulls"
-                                    )
-                                ]
+                            opened_pulls_by_repo[repo] = [
+                                p
+                                async for p in installation.client.items(
+                                    f"/repos/{installation.owner_login}/{repo}/pulls"
+                                )
+                            ]
                     except IgnoredException:
                         opened_pulls_by_repo[repo] = []
 

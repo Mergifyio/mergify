@@ -134,13 +134,13 @@ class TestCommentAction(base.FunctionalTestBase):
         await self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
 
-        assert len(ctxt.pull_engine_check_runs) == 1
-        check = ctxt.pull_engine_check_runs[0]
-        assert "failure" == check["conclusion"]
-        assert "The Mergify configuration is invalid" == check["output"]["title"]
-        return check
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert "failure" == checks[0]["conclusion"]
+        assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
+        return checks[0]
 
     async def test_comment_template_syntax_error(self):
         check = await self._test_comment_template_error(
@@ -189,8 +189,9 @@ Unknown pull request attribute: hello
         comments = list(p.get_issue_comments())
         assert len(comments) == 0
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        check = ctxt.pull_engine_check_runs[-1]
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert (
-            check["output"]["title"] == "Comments with `bot_account` set are disabled"
+            checks[-1]["output"]["title"]
+            == "Comments with `bot_account` set are disabled"
         )

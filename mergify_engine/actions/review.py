@@ -86,7 +86,8 @@ class ReviewAction(actions.Action):
         reviews = reversed(
             list(
                 filter(
-                    lambda r: r["user"]["id"] is not config.BOT_USER_ID, ctxt.reviews
+                    lambda r: r["user"]["id"] is not config.BOT_USER_ID,
+                    await ctxt.reviews,
                 )
             )
         )
@@ -124,7 +125,7 @@ class ReviewAction(actions.Action):
         else:
             oauth_token = None
 
-        ctxt.client.post(
+        await ctxt.client.post(
             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews",
             oauth_token=oauth_token,  # type: ignore
             json=payload,

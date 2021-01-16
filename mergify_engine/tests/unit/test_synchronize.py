@@ -50,8 +50,18 @@ async def test_summary_synchronization_cache(
         }
     )
 
-    client = mock.MagicMock()
+    async def items(*args, **kwargs):
+        if False:
+            yield
+        return
+
+    async def post_check(*args, **kwargs):
+        return mock.Mock()
+
+    client = mock.AsyncMock()
     client.auth.get_access_token.return_value = "<token>"
+    client.items = items
+    client.post.side_effect = post_check
 
     sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
     installation = context.Installation(
@@ -62,7 +72,7 @@ async def test_summary_synchronization_cache(
         redis_cache,
     )
     repository = context.Repository(installation, gh_repo["name"])
-    ctxt = context.Context(
+    ctxt = await context.Context.create(
         repository,
         {
             "title": "",

@@ -88,19 +88,19 @@ def is_base_branch_merge_commit(
     )
 
 
-def _get_commits_without_base_branch_merge(
+async def _get_commits_without_base_branch_merge(
     ctxt: context.Context,
 ) -> typing.List[github_types.GitHubBranchCommit]:
     base_branch = ctxt.pull["base"]["ref"]
     return list(
         filter(
             lambda c: not is_base_branch_merge_commit(c, base_branch),
-            sorted(ctxt.commits, key=CommitOrderingKey),
+            sorted(await ctxt.commits, key=CommitOrderingKey),
         )
     )
 
 
-def _get_commits_to_cherrypick(
+async def _get_commits_to_cherrypick(
     ctxt: context.Context, merge_commit: github_types.GitHubBranchCommit
 ) -> typing.List[github_types.GitHubBranchCommit]:
     if len(merge_commit["parents"]) == 1:
@@ -120,7 +120,7 @@ def _get_commits_to_cherrypick(
 
             pull_numbers = [
                 p["number"]
-                for p in ctxt.client.items(
+                async for p in ctxt.client.items(
                     f"{ctxt.base_url}/commits/{parent_commit['sha']}/pulls",
                     api_version="groot",
                 )
@@ -134,7 +134,7 @@ def _get_commits_to_cherrypick(
             if ctxt.pull["head"]["repo"] is not None:
                 pull_numbers += [
                     p["number"]
-                    for p in ctxt.client.items(
+                    async for p in ctxt.client.items(
                         f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{parent_commit['sha']}/pulls",
                         api_version="groot",
                     )
@@ -156,12 +156,14 @@ def _get_commits_to_cherrypick(
             # Prepare next iteration
             commit = typing.cast(
                 github_types.GitHubBranchCommit,
-                ctxt.client.item(f"{ctxt.base_url}/commits/{parent_commit['sha']}"),
+                await ctxt.client.item(
+                    f"{ctxt.base_url}/commits/{parent_commit['sha']}"
+                ),
             )
 
     elif len(merge_commit["parents"]) == 2:
         ctxt.log.debug("Pull request merged with merge commit")
-        return _get_commits_without_base_branch_merge(ctxt)
+        return await _get_commits_without_base_branch_merge(ctxt)
 
     else:  # pragma: no cover
         # NOTE(sileht): What is that?
@@ -187,7 +189,7 @@ def get_destination_branch_name(
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
-def duplicate(
+async def duplicate(
     ctxt: context.Context,
     branch_name: str,
     label_conflicts: typing.Optional[str] = None,
@@ -211,7 +213,7 @@ def duplicate(
 
     git = utils.Gitter(ctxt.log)
 
-    repo_info = ctxt.client.item(f"/repos/{repo_full_name}")
+    repo_info = await ctxt.client.item(f"/repos/{repo_full_name}")
     if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
         if not ctxt.subscription.has_feature(subscription.Features.LARGE_REPOSITORY):
             ctxt.log.warning(
@@ -238,10 +240,10 @@ def duplicate(
         git("fetch", "--quiet", "origin", branch_name)
         git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
-        merge_commit = ctxt.client.item(
+        merge_commit = await ctxt.client.item(
             f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
         )
-        for commit in _get_commits_to_cherrypick(ctxt, merge_commit):
+        for commit in await _get_commits_to_cherrypick(ctxt, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit
             # So we have to fetch the branch since the commit date ...
             # git("fetch", "origin", "%s:refs/remotes/origin/%s-commit" %
@@ -301,16 +303,20 @@ def duplicate(
     try:
         duplicate_pr = typing.cast(
             github_types.GitHubPullRequest,
-            ctxt.client.post(
-                f"{ctxt.base_url}/pulls",
-                json={
-                    "title": "{} ({} #{})".format(
-                        ctxt.pull["title"], BRANCH_PREFIX_MAP[kind], ctxt.pull["number"]
-                    ),
-                    "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
-                    "base": branch_name,
-                    "head": bp_branch,
-                },
+            (
+                await ctxt.client.post(
+                    f"{ctxt.base_url}/pulls",
+                    json={
+                        "title": "{} ({} #{})".format(
+                            ctxt.pull["title"],
+                            BRANCH_PREFIX_MAP[kind],
+                            ctxt.pull["number"],
+                        ),
+                        "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
+                        "base": branch_name,
+                        "head": bp_branch,
+                    },
+                )
             ).json(),
         )
     except http.HTTPClientSideError as e:
@@ -319,7 +325,7 @@ def duplicate(
         raise
 
     if cherry_pick_fail and label_conflicts is not None:
-        ctxt.client.post(
+        await ctxt.client.post(
             f"{ctxt.base_url}/issues/{duplicate_pr['number']}/labels",
             json={"labels": [label_conflicts]},
         )

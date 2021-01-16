@@ -40,33 +40,36 @@ class LabelAction(actions.Action):
     ) -> check_api.Result:
         if self.config["add"]:
             all_label = [
-                label["name"] for label in ctxt.client.items(f"{ctxt.base_url}/labels")
+                label["name"]
+                async for label in ctxt.client.items(f"{ctxt.base_url}/labels")
             ]
             for label in self.config["add"]:
                 if label not in all_label:
                     color = "%06x" % random.randrange(16 ** 6)
                     try:
-                        ctxt.client.post(
+                        await ctxt.client.post(
                             f"{ctxt.base_url}/labels",
                             json={"name": label, "color": color},
                         )
                     except http.HTTPClientSideError:
                         continue
 
-            ctxt.client.post(
+            await ctxt.client.post(
                 f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
                 json={"labels": self.config["add"]},
             )
 
         if self.config["remove_all"]:
-            ctxt.client.delete(f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels")
+            await ctxt.client.delete(
+                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels"
+            )
         elif self.config["remove"]:
             pull_labels = [label["name"] for label in ctxt.pull["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
                     label_escaped = parse.quote(label, safe="")
                     try:
-                        ctxt.client.delete(
+                        await ctxt.client.delete(
                             f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels/{label_escaped}"
                         )
                     except http.HTTPClientSideError:

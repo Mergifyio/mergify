@@ -39,12 +39,12 @@ UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command."
 WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 
 
-def post_comment(
+async def post_comment(
     ctxt: context.Context,
     message: str,
 ) -> None:
     try:
-        ctxt.client.post(
+        await ctxt.client.post(
             f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
             json={"body": message},
         )
@@ -79,7 +79,7 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
     if action:
         owner = event["repository"]["owner"]["login"]
         repo = event["repository"]["name"]
-        async with await github.aget_client(owner) as client:
+        async with github.aget_client(owner) as client:
             await client.post(
                 f"/repos/{owner}/{repo}/issues/comments/{event['comment']['id']}/reactions",
                 json={"content": "+1"},
@@ -89,7 +89,7 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
 
 async def run_pending_commands_tasks(ctxt: context.Context) -> None:
     pendings = set()
-    for comment in ctxt.client.items(
+    async for comment in ctxt.client.items(
         f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments"
     ):
         if comment["user"]["id"] != config.BOT_USER_ID:
@@ -167,17 +167,17 @@ async def handle(
         and not await ctxt.has_write_permission(user)
     ):
         message = "@{} is not allowed to run commands".format(user["login"])
-        post_comment(ctxt, message + footer)
+        await post_comment(ctxt, message + footer)
         return
 
     action = load_action(comment)
     if not action:
         message = UNKNOWN_COMMAND_MESSAGE
-        post_comment(ctxt, message + footer)
+        await post_comment(ctxt, message + footer)
         return
 
     result, message = await run_action(ctxt, action, user)
     if result.conclusion is check_api.Conclusion.PENDING and rerun:
         return
 
-    post_comment(ctxt, message + footer)
+    await post_comment(ctxt, message + footer)

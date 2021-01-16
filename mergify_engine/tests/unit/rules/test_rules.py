@@ -179,8 +179,11 @@ def test_jinja_with_wrong_syntax():
 )
 @pytest.mark.asyncio
 async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> None:
+    async def item(*args, **kwargs):
+        return {"content": encodebytes(valid.encode()).decode()}
+
     client = mock.Mock()
-    client.item.return_value = {"content": encodebytes(valid.encode()).decode()}
+    client.item.return_value = item()
     filename, schema = await get_mergify_config(
         redis_cache,
         client,
@@ -223,7 +226,7 @@ async def test_get_mergify_config_location_from_cache() -> None:
             },
         }
     )
-    client = mock.Mock()
+    client = mock.AsyncMock()
     client.auth.owner = "foo"
     client.item.side_effect = [
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
@@ -296,8 +299,12 @@ async def test_get_mergify_config_invalid(
     invalid: str, redis_cache: utils.RedisCache
 ) -> None:
     with pytest.raises(InvalidRules):
+
+        async def item(*args, **kwargs):
+            return {"content": encodebytes(invalid.encode()).decode()}
+
         client = mock.Mock()
-        client.item.return_value = {"content": encodebytes(invalid.encode()).decode()}
+        client.item.return_value = item()
         filename, schema = await get_mergify_config(
             redis_cache,
             client,
@@ -534,19 +541,28 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     get_statuses: typing.List[github_types.GitHubStatus] = [
         {"context": "continuous-integration/fake-ci", "state": "success"}
     ]
-    client.item.return_value = {"permission": "write"}  # get review user perm
 
-    def client_items(url, *args, **kwargs):
+    async def get_permisions(*args, **kwargs):
+        return {"permission": "write"}  # get review user perm
+
+    client.item.side_effect = get_permisions
+
+    async def client_items(url, *args, **kwargs):
         if url == "/repos/another-jd/name/pulls/1/reviews":
-            return get_reviews
+            for r in get_reviews:
+                yield r
         elif url == "/repos/another-jd/name/pulls/1/files":
-            return get_files
+            for f in get_files:
+                yield f
         elif url == "/repos/another-jd/name/commits/<sha>/check-runs":
-            return get_checks
+            for c in get_checks:
+                yield c
         elif url == "/repos/another-jd/name/commits/<sha>/status":
-            return get_statuses
+            for s in get_statuses:
+                yield s
         elif url == "/orgs/orgs/teams/my-reviewers/members":
-            return get_team_members
+            for tm in get_team_members:
+                yield tm
         else:
             raise RuntimeError(f"not handled url {url}")
 
@@ -560,7 +576,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         redis_cache,
     )
     repository = context.Repository(installation, "name")
-    ctxt = context.Context(
+    ctxt = await context.Context.create(
         repository,
         github_types.GitHubPullRequest(
             {
@@ -862,7 +878,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         }
     )
 
-    del ctxt.__dict__["reviews"]
+    del ctxt._cache["reviews"]
     del ctxt._cache["consolidated_reviews"]
 
     # Team conditions with no review missing

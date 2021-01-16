@@ -65,16 +65,16 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         await self.run_engine()
         p.update()
 
-        ctxt = context.Context(
+        ctxt = await context.Context.create(
             self.repository_ctxt,
             p.raw_data,
         )
 
-        assert len(ctxt.pull_engine_check_runs) == 1
-        check = ctxt.pull_engine_check_runs[0]
-        assert "failure" == check["conclusion"]
-        assert "The Mergify configuration is invalid" == check["output"]["title"]
-        return check
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert "failure" == checks[0]["conclusion"]
+        assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
+        return checks[0]
 
     async def test_dismiss_reviews_custom_message_syntax_error(self):
         check = await self._test_dismiss_reviews_fail("{{Loser")

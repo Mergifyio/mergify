@@ -73,7 +73,7 @@ class DismissReviewsAction(actions.Action):
                 conf = self.config.get(review["state"].lower(), False)
                 if conf and (conf is True or review["user"]["login"] in conf):
                     try:
-                        ctxt.client.put(
+                        await ctxt.client.put(
                             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
                             json={"message": message},
                         )

@@ -101,9 +101,10 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         requests = pulls[0].get_review_requests()
         assert ["mergify-test1"] == [user.login for user in requests[0]]
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        assert len(ctxt.pull_engine_check_runs) == 2
-        for check in ctxt.pull_engine_check_runs:
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        for check in checks:
             if check["name"] == "Rule: request_reviews (request_reviews)":
                 assert "neutral" == check["conclusion"]
                 assert (
@@ -156,9 +157,10 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
             [user.login for user in requests[0]]
         )
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        assert len(ctxt.pull_engine_check_runs) == 2
-        for check in ctxt.pull_engine_check_runs:
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        for check in checks:
             if check["name"] == "Rule: request_reviews (request_reviews)":
                 assert "neutral" == check["conclusion"]
                 assert (

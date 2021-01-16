@@ -44,7 +44,7 @@ with open(mergify_rule_path, "r") as f:
 async def _check_configuration_changes(ctxt: context.Context) -> bool:
     if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
-        for f in ctxt.files:
+        for f in await ctxt.files:
             if f["filename"] in rules.MERGIFY_CONFIG_FILENAMES:
                 ref = f["contents_url"].split("?ref=")[1]
 
@@ -76,8 +76,8 @@ async def _check_configuration_changes(ctxt: context.Context) -> bool:
     return False
 
 
-def get_summary_from_sha(ctxt, sha):
-    checks = check_api.get_checks_for_ref(
+async def _get_summary_from_sha(ctxt, sha):
+    checks = await check_api.get_checks_for_ref(
         ctxt,
         sha,
         check_name=ctxt.SUMMARY_NAME,
@@ -88,7 +88,7 @@ def get_summary_from_sha(ctxt, sha):
 
 
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
-    for check in ctxt.pull_engine_check_runs:
+    for check in await ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME and actions_runner.load_conclusions_line(
             check
         ):
@@ -101,7 +101,7 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
             "the pull request doesn't have the last summary head sha stored in redis"
         )
     else:
-        previous_summary = get_summary_from_sha(ctxt, sha)
+        previous_summary = await _get_summary_from_sha(ctxt, sha)
 
     if previous_summary:
         await ctxt.set_summary_check(
@@ -255,7 +255,7 @@ async def create_initial_summary(
     if sha is not None or sha == event["pull_request"]["head"]["sha"]:
         return
 
-    async with await github.aget_client(owner) as client:
+    async with github.aget_client(owner) as client:
         post_parameters = {
             "name": context.Context.SUMMARY_NAME,
             "head_sha": event["pull_request"]["head"]["sha"],

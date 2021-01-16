@@ -33,34 +33,33 @@ from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 
 
-def get_repositories_setuped(
+async def get_repositories_setuped(
     token: str, install_id: int
 ) -> typing.List[github_types.GitHubRepository]:  # pragma: no cover
     repositories = []
     url = f"{config.GITHUB_API_URL}/user/installations/{install_id}/repositories"
     token = f"token {token}"
-    session = http.Client()
-    while True:
-        response = session.get(
-            url,
-            headers={
-                "Authorization": token,
-                "Accept": "application/vnd.github.machine-man-preview+json",
-                "User-Agent": "PyGithub/Python",
-            },
-        )
-        if response.status_code == 200:
-            repositories.extend(response.json()["repositories"])
-            if "next" in response.links:
-                url = response.links["next"]["url"]
-                continue
+    async with http.AsyncClient(
+        headers={
+            "Authorization": token,
+            "Accept": "application/vnd.github.machine-man-preview+json",
+            "User-Agent": "PyGithub/Python",
+        },
+    ) as session:
+        while True:
+            response = await session.get(url)
+            if response.status_code == 200:
+                repositories.extend(response.json()["repositories"])
+                if "next" in response.links:
+                    url = response.links["next"]["url"]
+                    continue
+                else:
+                    return repositories
             else:
-                return repositories
-        else:
-            response.raise_for_status()
+                response.raise_for_status()
 
 
-def report_sub(
+async def report_sub(
     install_id: int,
     sub: subscription.Subscription,
     title: str,
@@ -73,7 +72,7 @@ def report_sub(
 
     for login, token in sub.tokens.items():
         try:
-            repos = get_repositories_setuped(token, install_id)
+            repos = await get_repositories_setuped(token, install_id)
         except http.HTTPNotFound:
             print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
             return
@@ -99,7 +98,7 @@ def report_sub(
 
 async def get_mergify_config_content(
     redis: utils.RedisCache,
-    client: github.GithubInstallationClient,
+    client: github.AsyncGithubInstallationClient,
     repo_info: github_types.GitHubRepository,
 ) -> typing.Tuple[str, bytes]:
     return await rules.get_mergify_config_content(redis, client, repo_info)
@@ -133,7 +132,7 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
 
 async def report(
     url: str,
-) -> typing.Union[context.Context, github.GithubInstallationClient, None]:
+) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
     redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
 
     path = url.replace("https://github.com/", "")
@@ -154,13 +153,13 @@ async def report(
     owner = typing.cast(github_types.GitHubLogin, owner)
 
     try:
-        client = github.get_client(owner)
+        client = github.aget_client(owner)
     except exceptions.MergifyNotInstalled:
         print(f"* Mergify is not installed on account {owner}")
         return None
 
     # Do a dumb request just to authenticate
-    client.get("/")
+    await client.get("/")
 
     if client.auth.installation is None:
         print("No installation detected")
@@ -187,14 +186,14 @@ async def report(
     print("* Features (cache):")
     for f in cached_sub.features:
         print(f"  - {f.value}")
-    report_sub(client.auth.installation["id"], cached_sub, "ENGINE-CACHE", slug)
-    report_sub(client.auth.installation["id"], db_sub, "DASHBOARD", slug)
+    await report_sub(client.auth.installation["id"], cached_sub, "ENGINE-CACHE", slug)
+    await report_sub(client.auth.installation["id"], db_sub, "DASHBOARD", slug)
 
     await report_worker_status(owner)
 
     if repo is not None:
 
-        repo_info = client.item(f"/repos/{owner}/{repo}")
+        repo_info = await client.item(f"/repos/{owner}/{repo}")
         print(f"* REPOSITORY IS {'PRIVATE' if repo_info['private'] else 'PUBLIC'}")
 
         print("* CONFIGURATION:")
@@ -218,8 +217,8 @@ async def report(
                 )
 
         if pull_number is None:
-            for branch in typing.cast(
-                typing.List[github_types.GitHubBranch],
+            async for branch in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubBranch, None],
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
                 q = queue.Queue(
@@ -255,12 +254,12 @@ async def report(
                     formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
                     print(f"** {formatted_pulls} (priority: {fancy_priority})")
         else:
-            pull_raw = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
+            pull_raw = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
             installation = context.Installation(
                 client.auth.owner_id, owner, cached_sub, client, redis_cache
             )
             repository = context.Repository(installation, repo)
-            ctxt = context.Context(
+            ctxt = await context.Context.create(
                 repository,
                 pull_raw,
                 [],
@@ -273,12 +272,12 @@ async def report(
             pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)
 
-            print("is_behind: %s" % ctxt.is_behind)
+            print("is_behind: %s" % await ctxt.is_behind)
 
             print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
 
             print("* MERGIFY LAST CHECKS:")
-            for c in ctxt.pull_engine_check_runs:
+            for c in await ctxt.pull_engine_check_runs:
                 print(
                     "[%s]: %s | %s"
                     % (c["name"], c["conclusion"], c["output"].get("title"))

@@ -52,7 +52,7 @@ class Result:
     annotations: typing.Optional[typing.List[str]] = None
 
 
-def get_checks_for_ref(
+async def get_checks_for_ref(
     ctxt: "context.Context",
     sha: github_types.SHAType,
     check_name: typing.Optional[str] = None,
@@ -61,14 +61,15 @@ def get_checks_for_ref(
         kwargs = {}
     else:
         kwargs = {"check_name": check_name}
-    checks = list(
-        ctxt.client.items(
+    checks = [
+        check
+        async for check in ctxt.client.items(
             f"{ctxt.base_url}/commits/{sha}/check-runs",
             api_version="antiope",
             list_items="check_runs",
             **kwargs,
         )
-    )
+    ]
 
     # FIXME(sileht): We currently have some issue to set back
     # conclusion to null, Maybe a GH bug or not.
@@ -88,7 +89,7 @@ def compare_dict(d1, d2, keys):
     return True
 
 
-def set_check_run(
+async def set_check_run(
     ctxt: "context.Context",
     name: str,
     result: Result,
@@ -127,18 +128,20 @@ def set_check_run(
         post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
-    checks = [c for c in ctxt.pull_engine_check_runs if c["name"] == name]
+    checks = [c for c in await ctxt.pull_engine_check_runs if c["name"] == name]
 
     if not checks:
         check = typing.cast(
             github_types.GitHubCheckRun,
-            ctxt.client.post(
-                f"{ctxt.base_url}/check-runs",
-                api_version="antiope",  # type: ignore[call-arg]
-                json=post_parameters,
+            (
+                await ctxt.client.post(
+                    f"{ctxt.base_url}/check-runs",
+                    api_version="antiope",  # type: ignore[call-arg]
+                    json=post_parameters,
+                )
             ).json(),
         )
-        ctxt.update_pull_check_runs(check)
+        await ctxt.update_pull_check_runs(check)
         return check
 
     elif len(checks) > 1:
@@ -169,12 +172,14 @@ def set_check_run(
 
         check = typing.cast(
             github_types.GitHubCheckRun,
-            ctxt.client.patch(
-                f"{ctxt.base_url}/check-runs/{check['id']}",
-                api_version="antiope",  # type: ignore[call-arg]
-                json=post_parameters,
+            (
+                await ctxt.client.patch(
+                    f"{ctxt.base_url}/check-runs/{check['id']}",
+                    api_version="antiope",  # type: ignore[call-arg]
+                    json=post_parameters,
+                )
             ).json(),
         )
 
-    ctxt.update_pull_check_runs(check)
+    await ctxt.update_pull_check_runs(check)
     return check

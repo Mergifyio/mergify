@@ -71,7 +71,7 @@ class CommentAction(actions.Action):
             oauth_token = None
 
         try:
-            ctxt.client.post(
+            await ctxt.client.post(
                 f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
                 oauth_token=oauth_token,  # type: ignore
                 json={"body": message},

@@ -331,7 +331,7 @@ def get_config_location_cache_key(repo: github_types.GitHubRepository) -> str:
 
 async def get_mergify_config_content(
     redis_cache: utils.RedisCache,
-    client: github.GithubInstallationClient,
+    client: github.AsyncGithubInstallationClient,
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
 ) -> typing.Tuple[str, bytes]:
@@ -356,9 +356,11 @@ async def get_mergify_config_content(
 
     for filename in filenames:
         try:
-            content = client.item(
-                f"/repos/{repo['owner']['login']}/{repo['name']}/contents/{filename}",
-                **kwargs,
+            content = (
+                await client.item(
+                    f"/repos/{repo['owner']['login']}/{repo['name']}/contents/{filename}",
+                    **kwargs,
+                )
             )["content"]
         except http.HTTPNotFound:
             continue
@@ -377,7 +379,7 @@ class MergifyConfig(typing.TypedDict):
 
 async def get_mergify_config(
     redis_cache: utils.RedisCache,
-    client: github.GithubInstallationClient,
+    client: github.AsyncGithubInstallationClient,
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
 ) -> typing.Tuple[str, MergifyConfig]:

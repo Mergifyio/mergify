@@ -193,8 +193,10 @@ class MergeBaseAction(actions.Action):
             )
 
         if self.config["merge_bot_account"]:
-            permission = ctxt.client.item(
-                f"{ctxt.base_url}/collaborators/{self.config['merge_bot_account']}/permission"
+            permission = (
+                await ctxt.client.item(
+                    f"{ctxt.base_url}/collaborators/{self.config['merge_bot_account']}/permission"
+                )
             )["permission"]
             if permission not in ("write", "maintain"):
                 return check_api.Result(
@@ -213,7 +215,7 @@ class MergeBaseAction(actions.Action):
 
         q = queue.Queue.from_context(ctxt)
 
-        report = self.merge_report(ctxt)
+        report = await self.merge_report(ctxt)
         if report is not None:
             await q.remove_pull(ctxt)
             return report
@@ -239,7 +241,7 @@ class MergeBaseAction(actions.Action):
                 result = await self._sync_with_base_branch(ctxt, rule, q)
             else:
                 result = await self.get_strict_status(
-                    ctxt, rule, q, is_behind=ctxt.is_behind
+                    ctxt, rule, q, is_behind=await ctxt.is_behind
                 )
         except Exception:
             await q.remove_pull(ctxt)
@@ -254,7 +256,7 @@ class MergeBaseAction(actions.Action):
         self._set_effective_priority(ctxt)
 
         q = queue.Queue.from_context(ctxt)
-        output = self.merge_report(ctxt)
+        output = await self.merge_report(ctxt)
         if output:
             await q.remove_pull(ctxt)
             if ctxt.pull["state"] == "closed":
@@ -274,14 +276,14 @@ class MergeBaseAction(actions.Action):
                 if await self._should_be_merged(ctxt, q):
                     # Just wait for CIs to finish
                     result = await self.get_strict_status(
-                        ctxt, rule, q, is_behind=ctxt.is_behind
+                        ctxt, rule, q, is_behind=await ctxt.is_behind
                     )
                 elif await self._should_be_synced(ctxt, q):
                     # Something got merged in the base branch in the meantime: rebase it again
                     result = await self._sync_with_base_branch(ctxt, rule, q)
                 else:
                     result = await self.get_strict_status(
-                        ctxt, rule, q, is_behind=ctxt.is_behind
+                        ctxt, rule, q, is_behind=await ctxt.is_behind
                     )
             except Exception:
                 await q.remove_pull(ctxt)
@@ -308,7 +310,7 @@ class MergeBaseAction(actions.Action):
 
         try:
             if method == "merge":
-                branch_updater.update_with_api(ctxt)
+                await branch_updater.update_with_api(ctxt)
             else:
                 output = branch_updater.pre_rebase_check(ctxt)
                 if output:
@@ -317,8 +319,8 @@ class MergeBaseAction(actions.Action):
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
-            ctxt.update()
-            output = self.merge_report(ctxt)
+            await ctxt.update()
+            output = await self.merge_report(ctxt)
             if output:
                 return output
             else:
@@ -431,22 +433,22 @@ class MergeBaseAction(actions.Action):
             oauth_token = None
 
         try:
-            ctxt.client.put(
+            await ctxt.client.put(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
                 oauth_token=oauth_token,  # type: ignore
                 json=data,
             )
         except http.HTTPClientSideError as e:  # pragma: no cover
-            ctxt.update()
+            await ctxt.update()
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")
             else:
                 return await self._handle_merge_error(e, ctxt, rule, q)
         else:
-            ctxt.update()
+            await ctxt.update()
             ctxt.log.info("merged")
 
-        result = self.merge_report(ctxt)
+        result = await self.merge_report(ctxt)
         if result:
             return result
         else:
@@ -489,7 +491,7 @@ class MergeBaseAction(actions.Action):
                 return await self._sync_with_base_branch(ctxt, rule, q)
             else:
                 return await self.get_strict_status(
-                    ctxt, rule, q, is_behind=ctxt.is_behind
+                    ctxt, rule, q, is_behind=await ctxt.is_behind
                 )
 
         elif e.status_code == 405:
@@ -536,7 +538,9 @@ class MergeBaseAction(actions.Action):
                 f"GitHub error message: `{e.message}`",
             )
 
-    def merge_report(self, ctxt: context.Context) -> typing.Optional[check_api.Result]:
+    async def merge_report(
+        self, ctxt: context.Context
+    ) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"
@@ -589,7 +593,7 @@ class MergeBaseAction(actions.Action):
             title = "Branch protection setting 'strict' conflicts with Mergify configuration"
             summary = ""
 
-        elif ctxt.github_workflow_changed():
+        elif await ctxt.github_workflow_changed():
             conclusion = check_api.Conclusion.ACTION_REQUIRED
             title = "Pull request must be merged manually."
             summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
