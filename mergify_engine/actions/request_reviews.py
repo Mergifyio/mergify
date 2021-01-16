@@ -164,7 +164,7 @@ class RequestReviewsAction(actions.Action):
 
             if not already_at_max:
                 try:
-                    ctxt.client.post(
+                    await ctxt.client.post(
                         f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/requested_reviewers",
                         json={
                             "reviewers": list(user_reviews_to_request),

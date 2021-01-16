@@ -49,7 +49,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
 
-    def _copy(self, ctxt, branch_name):
+    async def _copy(self, ctxt, branch_name):
         """Copy the PR to a branch.
 
         Returns a tuple of strings (state, reason).
@@ -58,7 +58,7 @@ class CopyAction(actions.Action):
         # NOTE(sileht): Ensure branch exists first
         escaped_branch_name = parse.quote(branch_name, safe="")
         try:
-            ctxt.client.item(f"{ctxt.base_url}/branches/{escaped_branch_name}")
+            await ctxt.client.item(f"{ctxt.base_url}/branches/{escaped_branch_name}")
         except http.HTTPStatusError as e:
             detail = "%s to branch `%s` failed: " % (
                 self.KIND.capitalize(),
@@ -72,12 +72,12 @@ class CopyAction(actions.Action):
             return state, detail
 
         # NOTE(sileht) does the duplicate have already been done ?
-        new_pull = self.get_existing_duplicate_pull(ctxt, branch_name)
+        new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
 
         # No, then do it
         if not new_pull:
             try:
-                new_pull = duplicate_pull.duplicate(
+                new_pull = await duplicate_pull.duplicate(
                     ctxt,
                     branch_name,
                     self.config["label_conflicts"],
@@ -93,7 +93,7 @@ class CopyAction(actions.Action):
             # NOTE(sileht): We relook again in case of concurrent duplicate
             # are done because of two events received too closely
             if not new_pull:
-                new_pull = self.get_existing_duplicate_pull(ctxt, branch_name)
+                new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
 
         if new_pull:
             return (
@@ -121,10 +121,10 @@ class CopyAction(actions.Action):
         branches = self.config["branches"]
         if self.config["regexes"]:
             branches.extend(
-                (
+                [
                     branch["name"]
-                    for branch in typing.cast(
-                        typing.List[github_types.GitHubBranch],
+                    async for branch in typing.cast(
+                        typing.AsyncGenerator[github_types.GitHubBranch, None],
                         ctxt.client.items(f"{ctxt.base_url}/branches"),
                     )
                     if any(
@@ -133,10 +133,10 @@ class CopyAction(actions.Action):
                             self.config["regexes"],
                         )
                     )
-                )
+                ]
             )
 
-        results = [self._copy(ctxt, branch_name) for branch_name in branches]
+        results = [await self._copy(ctxt, branch_name) for branch_name in branches]
 
         # Pick the first status as the final_status
         conclusion = results[0][0]
@@ -164,18 +164,19 @@ class CopyAction(actions.Action):
         )
 
     @classmethod
-    def get_existing_duplicate_pull(cls, ctxt, branch_name):
+    async def get_existing_duplicate_pull(cls, ctxt, branch_name):
         bp_branch = duplicate_pull.get_destination_branch_name(
             ctxt.pull["number"], branch_name, cls.KIND
         )
-        pulls = list(
-            ctxt.client.items(
+        pulls = [
+            pull
+            async for pull in ctxt.client.items(
                 f"{ctxt.base_url}/pulls",
                 base=branch_name,
                 sort="created",
                 state="all",
                 head=f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
             )
-        )
+        ]
         if pulls:
             return pulls[-1]

@@ -24,7 +24,7 @@ from mergify_engine.clients import github
 
 @pytest.mark.asyncio
 async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
-    class FakeClient(github.GithubInstallationClient):
+    class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
         def __init__(self, owner, repo):
@@ -33,7 +33,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
             self.repo = repo
             self.called = 0
 
-        def item(self, url, *args, **kwargs):
+        async def item(self, url, *args, **kwargs):
             self.called += 1
             if self.repo == "test":
                 if (
@@ -139,7 +139,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
     repository = context.Repository(installation, gh_repo["name"])
-    c = context.Context(repository, make_pr(gh_repo, gh_owner))
+    c = await context.Context.create(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
     assert await c.has_write_permission(user_1)
     assert client.called == 1
@@ -170,7 +170,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
     repository = context.Repository(installation, gh_repo["name"])
-    c = context.Context(repository, make_pr(gh_repo, gh_owner))
+    c = await context.Context.create(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
     assert await c.has_write_permission(user_2)
     assert client.called == 1

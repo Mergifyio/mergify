@@ -416,7 +416,7 @@ async def run_actions(
                         else None
                     )
                     try:
-                        check_api.set_check_run(
+                        await check_api.set_check_run(
                             ctxt,
                             check_name,
                             report,
@@ -462,7 +462,7 @@ async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> None:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
-    checks = dict((c["name"], c) for c in ctxt.pull_engine_check_runs)
+    checks = dict((c["name"], c) for c in await ctxt.pull_engine_check_runs)
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)

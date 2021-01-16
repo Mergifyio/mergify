@@ -61,8 +61,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
         assert check["output"]["title"] == "The Mergify configuration is invalid"
@@ -78,8 +78,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
         assert check["output"]["title"] == "The Mergify configuration is invalid"
@@ -94,12 +94,13 @@ while scanning an alias
 expected alphabetic or numeric character, but found"""
         )
         check_id = check["id"]
-        annotations = list(
-            ctxt.client.items(
+        annotations = [
+            annotation
+            async for annotation in ctxt.client.items(
                 f"{ctxt.base_url}/check-runs/{check_id}/annotations",
                 api_version="antiope",
             )
-        )
+        ]
         assert annotations == [
             {
                 "path": ".mergify.yml",
@@ -132,8 +133,8 @@ expected alphabetic or numeric character, but found"""
 
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        checks = ctxt.pull_engine_check_runs
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
         assert check["output"]["title"] == "The new Mergify configuration is invalid"
@@ -163,10 +164,10 @@ expected alphabetic or numeric character, but found"""
         await self.remove_label(p, "backport-3.1")
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         checks = list(
             c
-            for c in ctxt.pull_engine_check_runs
+            for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: backport (backport)"
         )
         assert "cancelled" == checks[0]["conclusion"]
@@ -202,10 +203,10 @@ expected alphabetic or numeric character, but found"""
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         checks = list(
             c
-            for c in ctxt.pull_engine_check_runs
+            for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: Backport (backport)"
         )
         assert "failure" == checks[0]["conclusion"]
@@ -260,12 +261,13 @@ expected alphabetic or numeric character, but found"""
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        print(await ctxt.pull_check_runs)
         return (
             p,
             list(
                 c
-                for c in ctxt.pull_engine_check_runs
+                for c in await ctxt.pull_engine_check_runs
                 if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
             ),
         )
@@ -376,10 +378,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         bp_pull = pulls[0]
         assert bp_pull.title == f"Pull request n1 from fork (bp #{p.number})"
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         checks = list(
             c
-            for c in ctxt.pull_engine_check_runs
+            for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
         )
         assert "success" == checks[0]["conclusion"]
@@ -440,8 +442,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p.update()
         self.assertEqual(True, p.merged)
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        for check in ctxt.pull_check_runs:
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        for check in await ctxt.pull_check_runs:
             if check["name"] == "Rule: merge on master (merge)":
                 assert (
                     "The pull request has been merged automatically"
@@ -646,10 +648,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
         checks = list(
             c
-            for c in ctxt.pull_engine_check_runs
+            for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: smart strict merge on master (merge)"
         )
         assert checks[0]["output"]["title"] == "Base branch update has failed"
@@ -767,8 +769,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
             in commits2[-1].commit.message
         )
 
-        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
-        for check in ctxt.pull_check_runs:
+        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
+        for check in await ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "The pull request is the 1st in the queue to be merged"
@@ -887,7 +889,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = await self.create_pr()
 
-        client = github.get_client(p.base.user.login)
+        client = github.aget_client(p.base.user.login)
         installation = context.Installation(
             p.base.user.id,
             p.base.user.login,
@@ -896,9 +898,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
-        pull = context.Context(repository, p.raw_data, {})
+        pull = await context.Context.create(repository, p.raw_data, [])
 
-        logins = pull.resolve_teams(
+        logins = await pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
         )
 
@@ -933,7 +935,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = await self.create_pr()
 
-        client = github.get_client(p.base.user.login)
+        client = github.aget_client(p.base.user.login)
         installation = context.Installation(
             p.base.user.id,
             p.base.user.login,
@@ -942,9 +944,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
-        pull = context.Context(repository, p.raw_data, {})
+        pull = await context.Context.create(repository, p.raw_data, [])
 
-        logins = pull.resolve_teams(
+        logins = await pull.resolve_teams(
             [
                 "user",
                 "@mergifyio-testing/testing",
@@ -1051,9 +1053,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert 1 == len(pulls)
         assert pulls[0].merged is False
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         checks = list(
-            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
         )
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "action_required"
@@ -1075,9 +1079,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         # delete check run cache
-        del ctxt.__dict__["pull_check_runs"]
+        del ctxt._cache["pull_check_runs"]
         checks = list(
-            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
         )
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "success"
@@ -1230,9 +1236,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
             {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         checks = list(
-            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
         )
         assert checks[0]["conclusion"] is None
         assert "in_progress" == checks[0]["status"]
@@ -1297,9 +1305,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
         checks = list(
-            c for c in ctxt.pull_engine_check_runs if c["name"] == "Rule: merge (merge)"
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
         )
         assert "failure" == checks[0]["conclusion"]
         assert (
@@ -1378,7 +1388,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.run_engine()
 
-        ctxt = context.Context(
+        ctxt = await context.Context.create(
             self.repository_ctxt,
             p.raw_data,
         )
@@ -1392,19 +1402,21 @@ no changes added to commit (use "git add" and/or "git commit -a")
             )
         )
 
-        assert len(ctxt.pull_check_runs) == 1
-        assert ctxt.pull_check_runs[0]["name"] == "Summary"
-        completed_at = ctxt.pull_check_runs[0]["completed_at"]
+        checks = await ctxt.pull_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        completed_at = checks[0]["completed_at"]
 
         p.create_issue_comment("@mergifyio refresh")
 
         await self.wait_for("issue_comment", {"action": "created"})
         await self.run_engine()
 
-        del ctxt.__dict__["pull_check_runs"]
-        assert len(ctxt.pull_check_runs) == 1
-        assert ctxt.pull_check_runs[0]["name"] == "Summary"
-        assert completed_at != ctxt.pull_check_runs[0]["completed_at"]
+        del ctxt._cache["pull_check_runs"]
+        checks = await ctxt.pull_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        assert completed_at != checks[0]["completed_at"]
 
         p.update()
         comments = list(p.get_issue_comments())
@@ -1455,9 +1467,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.run_engine()
-        ctxt = context.Context(self.repository_ctxt, p1.raw_data, {})
-        assert len(ctxt.pull_check_runs) == 1
-        assert ctxt.pull_check_runs[0]["name"] == "Summary"
+        ctxt = await context.Context.create(self.repository_ctxt, p1.raw_data, [])
+        checks = await ctxt.pull_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
 
     async def test_marketplace_event(self):
         with mock.patch(
@@ -1563,8 +1576,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
         pr, commits = await self.create_pr()
         await self.run_engine()
-        pull = context.Context(self.repository_ctxt, pr.raw_data, {})
-        check = check_api.set_check_run(
+        pull = await context.Context.create(self.repository_ctxt, pr.raw_data, [])
+        check = await check_api.set_check_run(
             pull,
             "Test",
             check_api.Result(
@@ -1582,14 +1595,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
-        client = github.get_client(p.base.user.login)
-        ctxt = context.Context(client, p.raw_data, {})
+        client = github.aget_client(p.base.user.login)
+        ctxt = await context.Context.create(client, p.raw_data, [])
         assert p.number == ctxt.pull["number"]
         assert "open" == ctxt.pull["state"]
         assert "unstable" == ctxt.pull["mergeable_state"]
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        assert len(ctxt.pull_engine_check_runs) == 1
-        check = ctxt.pull_engine_check_runs[0]
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        assert len(await ctxt.pull_engine_check_runs) == 1
+        check = await ctxt.pull_engine_check_runs[0]
         assert check["output"]["title"] == "Your rules are under evaluation"
         assert (
             check["output"]["summary"] == "Be patient, the page will be updated soon."
@@ -1632,5 +1645,5 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
-        assert ctxt.pull_engine_check_runs == []
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        assert await ctxt.pull_engine_check_runs == []

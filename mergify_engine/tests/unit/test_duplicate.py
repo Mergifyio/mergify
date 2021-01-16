@@ -15,6 +15,8 @@
 # under the License.
 from unittest import mock
 
+import pytest
+
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
@@ -22,7 +24,7 @@ from mergify_engine import subscription
 from mergify_engine import utils
 
 
-def fake_get_github_pulls_from_sha(url, api_version=None):
+async def fake_get_github_pulls_from_sha(url, api_version=None):
     pr = {
         "number": 6,
         "base": {
@@ -36,18 +38,19 @@ def fake_get_github_pulls_from_sha(url, api_version=None):
         },
     }
     if url.endswith("commits/rebased_c1/pulls"):
-        return [pr]
+        yield pr
     elif url.endswith("commits/rebased_c2/pulls"):
-        return [pr]
+        yield pr
     else:
-        return []
+        return
 
 
 @mock.patch(
     "mergify_engine.context.Context.commits",
     new_callable=mock.PropertyMock,
 )
-def test_get_commits_to_cherry_pick_rebase(
+@pytest.mark.asyncio
+async def test_get_commits_to_cherry_pick_rebase(
     commits: mock.PropertyMock,
     redis_cache: utils.RedisCache,
 ) -> None:
@@ -81,7 +84,7 @@ def test_get_commits_to_cherry_pick_rebase(
     repository = context.Repository(
         installation, github_types.GitHubRepositoryName("name")
     )
-    ctxt = context.Context(
+    ctxt = await context.Context.create(
         repository,
         {
             "labels": [],
@@ -172,7 +175,7 @@ def test_get_commits_to_cherry_pick_rebase(
         }
     )
 
-    def fake_get_github_commit_from_sha(url, api_version=None):
+    async def fake_get_github_commit_from_sha(url, api_version=None):
         if url.endswith("/commits/rebased_c1"):
             return rebased_c1
         if url.endswith("/commits/rebased_c2"):
@@ -181,7 +184,7 @@ def test_get_commits_to_cherry_pick_rebase(
 
     client.item.side_effect = fake_get_github_commit_from_sha
 
-    assert duplicate_pull._get_commits_to_cherrypick(ctxt, rebased_c2) == [
+    assert await duplicate_pull._get_commits_to_cherrypick(ctxt, rebased_c2) == [
         rebased_c1,
         rebased_c2,
     ]
@@ -191,7 +194,8 @@ def test_get_commits_to_cherry_pick_rebase(
     "mergify_engine.context.Context.commits",
     new_callable=mock.PropertyMock,
 )
-def test_get_commits_to_cherry_pick_merge(
+@pytest.mark.asyncio
+async def test_get_commits_to_cherry_pick_merge(
     commits: mock.PropertyMock,
     redis_cache: utils.RedisCache,
 ) -> None:
@@ -209,7 +213,11 @@ def test_get_commits_to_cherry_pick_merge(
             "commit": {"message": "foobar"},
         }
     )
-    commits.return_value = [c1, c2]
+
+    async def fake_commits():
+        return [c1, c2]
+
+    commits.return_value = fake_commits()
 
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
@@ -232,7 +240,7 @@ def test_get_commits_to_cherry_pick_merge(
     repository = context.Repository(
         installation, github_types.GitHubRepositoryName("name")
     )
-    ctxt = context.Context(
+    ctxt = await context.Context.create(
         repository,
         {
             "number": github_types.GitHubPullRequestNumber(6),
@@ -304,4 +312,7 @@ def test_get_commits_to_cherry_pick_merge(
         }
     )
 
-    assert duplicate_pull._get_commits_to_cherrypick(ctxt, merge_commit) == [c1, c2]
+    assert await duplicate_pull._get_commits_to_cherrypick(ctxt, merge_commit) == [
+        c1,
+        c2,
+    ]

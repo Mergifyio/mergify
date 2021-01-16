@@ -325,7 +325,7 @@ async def queues(installation_id):
     ):
         _, _, repo_id, branch = queue.split("~")
         owner = installation["account"]["login"]
-        async with await github.aget_client(owner) as client:
+        async with github.aget_client(owner) as client:
             try:
                 repo = await client.item(f"/repositories/{repo_id}")
             except exceptions.RateLimited:

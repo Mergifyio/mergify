@@ -49,8 +49,8 @@ class RebaseAction(actions.Action):
                 "with the Mergify GitHub App.",
             )
 
-        if ctxt.is_behind:
-            if ctxt.github_workflow_changed():
+        if await ctxt.is_behind:
+            if await ctxt.github_workflow_changed():
                 return check_api.Result(
                     check_api.Conclusion.ACTION_REQUIRED,
                     "Pull request must be rebased manually.",

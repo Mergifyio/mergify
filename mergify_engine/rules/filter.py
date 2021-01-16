@@ -232,11 +232,16 @@ class Filter:
             except Exception as e:
                 raise InvalidArguments(str(e))
 
-            def _cmp(attribute_values: typing.List[typing.Any]) -> bool:
+            async def _cmp(attribute_values: typing.List[typing.Any]) -> bool:
                 reference_value_expander = self.value_expanders.get(
                     attribute_name, self._to_list
                 )
                 ref_values_expanded = reference_value_expander(reference_value)
+                if inspect.iscoroutine(ref_values_expanded):
+                    ref_values_expanded = await typing.cast(
+                        typing.Awaitable[typing.Any], ref_values_expanded
+                    )
+
                 return iterable_op(
                     binary_op(attribute_value, ref_value)
                     for attribute_value in attribute_values
@@ -244,7 +249,7 @@ class Filter:
                 )
 
             async def _op(obj: GetAttrObjectT) -> bool:
-                return _cmp(await self._get_attribute_values(obj, attribute_name))
+                return await _cmp(await self._get_attribute_values(obj, attribute_name))
 
             return _op
 

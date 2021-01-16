@@ -51,9 +51,9 @@ class TestPostCheckAction(base.FunctionalTestBase):
         await self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         sorted_checks = list(
-            sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
+            sorted(await ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )
         assert len(sorted_checks) == 2
         check = sorted_checks[0]
@@ -100,9 +100,9 @@ Rule list:
         await self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         sorted_checks = list(
-            sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
+            sorted(await ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )
         assert len(sorted_checks) == 2
         check = sorted_checks[0]
@@ -154,9 +154,9 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         await self.run_engine()
         p.update()
 
-        ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         sorted_checks = list(
-            sorted(ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
+            sorted(await ctxt.pull_engine_check_runs, key=operator.itemgetter("name"))
         )
         assert len(sorted_checks) == 2
         check = sorted_checks[0]

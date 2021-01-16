@@ -139,7 +139,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
         git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
         git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
-        depth = len(ctxt.commits) + 1
+        depth = len(await ctxt.commits) + 1
         git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
         git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
@@ -227,16 +227,16 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
 )
-def update_with_api(ctxt: context.Context) -> None:
+async def update_with_api(ctxt: context.Context) -> None:
     try:
-        ctxt.client.put(
+        await ctxt.client.put(
             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
             api_version="lydian",  # type: ignore[call-arg]
             json={"expected_head_sha": ctxt.pull["head"]["sha"]},
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422:
-            refreshed_pull = ctxt.client.item(
+            refreshed_pull = await ctxt.client.item(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
             )
             if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:

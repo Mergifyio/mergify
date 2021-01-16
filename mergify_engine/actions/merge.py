@@ -82,11 +82,11 @@ class MergeAction(merge_base.MergeBaseAction):
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return ctxt.is_behind and await q.is_first_pull(ctxt)
+            return await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
-            return ctxt.is_behind
+            return await ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.true:
-            return ctxt.is_behind
+            return await ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.false:
             return False
         else:
@@ -97,11 +97,11 @@ class MergeAction(merge_base.MergeBaseAction):
 
     async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return not ctxt.is_behind and await q.is_first_pull(ctxt)
+            return not await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
-            return not ctxt.is_behind
+            return not await ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.true:
-            return not ctxt.is_behind
+            return not await ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.false:
             return True
         else:
@@ -130,12 +130,12 @@ class MergeAction(merge_base.MergeBaseAction):
                 return True
 
         if need_look_at_checks:
-            if not ctxt.checks:
+            if not await ctxt.checks:
                 return False
 
             states = [
                 state
-                for name, state in ctxt.checks.items()
+                for name, state in (await ctxt.checks).items()
                 for cond in need_look_at_checks
                 if await cond(FakePR(cond.attribute_name, name))
             ]

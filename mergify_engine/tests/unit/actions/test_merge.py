@@ -149,8 +149,8 @@ async def test_merge_commit_message(body, title, message, mode):
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever")
-    ctxt = context.Context(repository=repository, pull=pull)
-    ctxt.checks = {"my CI": "success"}
+    ctxt = await context.Context.create(repository=repository, pull=pull)
+    ctxt._cache["checks"] = {"my CI": "success"}
     pr = ctxt.pull_request
     assert await merge.MergeAction._get_commit_message(pr, mode=mode) == (
         title,
@@ -188,9 +188,9 @@ async def test_merge_commit_message_undefined(body):
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever")
-    pr = context.Context(repository=repository, pull=pull).pull_request
+    pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as x:
-        await merge.MergeAction._get_commit_message(pr)
+        await merge.MergeAction._get_commit_message(pr.pull_request)
         assert str(x) == "foobar"
 
 
@@ -216,9 +216,9 @@ async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, redis_cache)
     repository = context.Repository(installation, "whatever")
-    pr = context.Context(repository=repository, pull=pull).pull_request
+    pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as rmf:
-        await merge.MergeAction._get_commit_message(pr)
+        await merge.MergeAction._get_commit_message(pr.pull_request)
         assert str(rmf) == error
 
 

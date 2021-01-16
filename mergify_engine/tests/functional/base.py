@@ -144,13 +144,13 @@ class GitterRecorder(utils.Gitter):
 class EventReader:
     def __init__(self, app):
         self._app = app
-        self._session = http.Client()
+        self._session = http.AsyncClient()
         self._handled_events = queue.Queue()
         self._counter = 0
 
-    def drain(self):
+    async def drain(self):
         # NOTE(sileht): Drop any pending events still on the server
-        r = self._session.request(
+        r = await self._session.request(
             "DELETE",
             "https://gh.mergify.io/events-testing",
             data=FAKE_DATA,
@@ -173,7 +173,7 @@ class EventReader:
                 event = self._handled_events.get(block=False)
                 await self._forward_to_engine_api(event)
             except queue.Empty:
-                for event in self._get_events():
+                for event in await self._get_events():
                     self._handled_events.put(event)
                 else:
                     if RECORD:
@@ -201,14 +201,16 @@ class EventReader:
         else:
             return data == expected_data
 
-    def _get_events(self):
+    async def _get_events(self):
         # NOTE(sileht): we use a counter to make each call unique in cassettes
         self._counter += 1
-        return self._session.request(
-            "GET",
-            f"https://gh.mergify.io/events-testing?counter={self._counter}",
-            data=FAKE_DATA,
-            headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+        return (
+            await self._session.request(
+                "GET",
+                f"https://gh.mergify.io/events-testing?counter={self._counter}",
+                data=FAKE_DATA,
+                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+            )
         ).json()
 
     async def _forward_to_engine_api(self, event):
@@ -350,13 +352,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     auth.owner_id = config.TESTING_ORGANIZATION_ID
                 return auth
 
-            async def github_aclient(owner=None, auth=None):
+            def github_aclient(owner=None, auth=None):
                 return github.AsyncGithubInstallationClient(get_auth(owner, auth))
 
-            def github_client(owner=None, auth=None):
-                return github.GithubInstallationClient(get_auth(owner, auth))
-
-            mock.patch.object(github, "get_client", github_client).start()
             mock.patch.object(github, "aget_client", github_aclient).start()
 
         with open(engine.mergify_rule_path, "r") as f:
@@ -451,7 +449,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             f"{config.GITHUB_URL}/{self.u_fork.login}/{self.r_o_integration.name}"
         )
 
-        self.cli_integration = github.get_client(config.TESTING_ORGANIZATION)
+        self.cli_integration = github.aget_client(config.TESTING_ORGANIZATION)
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
             config.TESTING_ORGANIZATION,
@@ -505,7 +503,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         ).start()
 
         self._event_reader = EventReader(self.app)
-        self._event_reader.drain()
+        await self._event_reader.drain()
 
         # NOTE(sileht): Prepare a fresh redis
         await self.clear_redis_stream()
@@ -558,7 +556,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.app.aclose()
         await web.shutdown()
 
-        self._event_reader.drain()
+        await self._event_reader.drain()
         await self.clear_redis_stream()
         mock.patch.stopall()
 

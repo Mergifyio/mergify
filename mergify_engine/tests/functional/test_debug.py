@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import asyncio
-from concurrent import futures
 from unittest import mock
 
 import yaml
@@ -47,25 +45,15 @@ class TestDebugger(base.FunctionalTestBase):
 
         # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
         with mock.patch("sys.stdout") as stdout:
-            with futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, debug.report(p.html_url)).result()
-
+            await debug.report(p.html_url)
             s1 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         with mock.patch("sys.stdout") as stdout:
-            with futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(
-                    asyncio.run, debug.report(p.base.repo.html_url)
-                ).result()
-
+            await debug.report(p.base.repo.html_url)
             s2 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         with mock.patch("sys.stdout") as stdout:
-            with futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(
-                    asyncio.run, debug.report(p.base.user.html_url)
-                ).result()
-
+            await debug.report(p.base.user.html_url)
             s3 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         assert s1.startswith(s2)
