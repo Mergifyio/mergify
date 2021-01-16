@@ -22,7 +22,7 @@ from mergify_engine.tests.functional import base
 class TestCommentActionWithSub(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
-    def test_comment_with_bot_account(self):
+    async def test_comment_with_bot_account(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -37,8 +37,8 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         p.update()
         comments = list(p.get_issue_comments())
@@ -47,7 +47,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
 
 
 class TestCommentAction(base.FunctionalTestBase):
-    def test_comment(self):
+    async def test_comment(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -60,16 +60,16 @@ class TestCommentAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         p.update()
         comments = list(p.get_issue_comments())
         self.assertEqual("WTF?", comments[-1].body)
 
         # Add a label to trigger mergify
-        self.add_label(p, "stable")
-        self.run_engine()
+        await self.add_label(p, "stable")
+        await self.run_engine()
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
@@ -87,16 +87,16 @@ class TestCommentAction(base.FunctionalTestBase):
             self.get_full_branch_name("fork/pr%d" % self.pr_counter),
         )
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
-        self.run_engine()
+        await self.run_engine()
 
         # Ensure nothing changed
         new_comments = list(p.get_issue_comments())
         self.assertEqual(len(comments), len(new_comments))
         self.assertEqual("WTF?", new_comments[-1].body)
 
-    def test_comment_template(self):
+    async def test_comment_template(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -109,14 +109,14 @@ class TestCommentAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
         p.update()
         comments = list(p.get_issue_comments())
         self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
 
-    def _test_comment_template_error(self, msg):
+    async def _test_comment_template_error(self, msg):
         rules = {
             "pull_request_rules": [
                 {
@@ -129,9 +129,9 @@ class TestCommentAction(base.FunctionalTestBase):
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
         p.update()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
@@ -142,8 +142,8 @@ class TestCommentAction(base.FunctionalTestBase):
         assert "The Mergify configuration is invalid" == check["output"]["title"]
         return check
 
-    def test_comment_template_syntax_error(self):
-        check = self._test_comment_template_error(
+    async def test_comment_template_syntax_error(self):
+        check = await self._test_comment_template_error(
             msg="Thank you {{",
         )
         assert (
@@ -154,8 +154,8 @@ unexpected 'end of template'
             == check["output"]["summary"]
         )
 
-    def test_comment_template_attribute_error(self):
-        check = self._test_comment_template_error(
+    async def test_comment_template_attribute_error(self):
+        check = await self._test_comment_template_error(
             msg="Thank you {{hello}}",
         )
         assert (
@@ -166,7 +166,7 @@ Unknown pull request attribute: hello
             == check["output"]["summary"]
         )
 
-    def test_comment_with_bot_account(self):
+    async def test_comment_with_bot_account(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -181,8 +181,8 @@ Unknown pull request attribute: hello
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         p.update()
 

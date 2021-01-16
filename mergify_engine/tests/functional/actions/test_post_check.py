@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import operator
 
 import yaml
@@ -28,7 +27,7 @@ from mergify_engine.tests.functional import base
 class TestPostCheckAction(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
-    def test_checks_default(self):
+    async def test_checks_default(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -48,8 +47,8 @@ class TestPostCheckAction(base.FunctionalTestBase):
         }
 
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
         p.update()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
@@ -61,7 +60,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
         assert "failure" == check["conclusion"]
         assert "'body need sentry ticket' failed" == check["output"]["title"]
 
-    def test_checks_custom(self):
+    async def test_checks_custom(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -97,8 +96,8 @@ Rule list:
         }
 
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
         p.update()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
@@ -115,9 +114,9 @@ Rule list:
 
 
 class TestPostCheckActionNoSub(base.FunctionalTestBase):
-    def test_checks_feature_disabled(self):
+    async def test_checks_feature_disabled(self):
         self.subscription = subscription.Subscription(
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
+            await utils.create_aredis_for_cache(max_idle_time=0),
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
@@ -130,7 +129,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        asyncio.run(self.subscription.save_subscription_to_cache())
+        await self.subscription.save_subscription_to_cache()
 
         rules = {
             "pull_request_rules": [
@@ -151,8 +150,8 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         }
 
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
-        self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
         p.update()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})

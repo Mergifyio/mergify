@@ -17,7 +17,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestCommandBackport(base.FunctionalTestBase):
-    def test_command_backport(self):
+    async def test_command_backport(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         rules = {
@@ -35,15 +35,15 @@ class TestCommandBackport(base.FunctionalTestBase):
         }
 
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch, feature_branch])
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.run_engine()
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
         assert 1 == len(pulls)

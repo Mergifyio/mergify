@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import logging
 import os.path
 import time
@@ -41,14 +40,14 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
-    def setUp(self):
+    async def asyncSetUp(self):
         with open(engine.mergify_rule_path, "r") as f:
             engine.MERGIFY_RULE = yaml.safe_load(
                 f.read().replace("mergify[bot]", "mergify-test[bot]")
             )
-        super(TestEngineV2Scenario, self).setUp()
+        await super(TestEngineV2Scenario, self).asyncSetUp()
 
-    def test_invalid_configuration(self):
+    async def test_invalid_configuration(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -58,9 +57,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ],
         }
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
@@ -73,11 +72,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "* required key not provided @ pull_request_rules → item 0 → conditions"
         )
 
-    def test_invalid_yaml_configuration(self):
+    async def test_invalid_yaml_configuration(self):
         self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
@@ -116,7 +115,7 @@ expected alphabetic or numeric character, but found"""
             }
         ]
 
-    def test_invalid_new_configuration(self):
+    async def test_invalid_new_configuration(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -129,9 +128,9 @@ expected alphabetic or numeric character, but found"""
             ],
         }
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr(files={".mergify.yml": "not valid"})
+        p, _ = await self.create_pr(files={".mergify.yml": "not valid"})
 
-        self.run_engine()
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = ctxt.pull_engine_check_runs
@@ -140,7 +139,7 @@ expected alphabetic or numeric character, but found"""
         assert check["output"]["title"] == "The new Mergify configuration is invalid"
         assert check["output"]["summary"] == "expected a dictionary"
 
-    def test_backport_cancelled(self):
+    async def test_backport_cancelled(self):
         stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {
             "pull_request_rules": [
@@ -157,12 +156,12 @@ expected alphabetic or numeric character, but found"""
 
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.add_label(p, "backport-3.1")
-        self.run_engine()
-        self.remove_label(p, "backport-3.1")
-        self.run_engine()
+        await self.add_label(p, "backport-3.1")
+        await self.run_engine()
+        await self.remove_label(p, "backport-3.1")
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
@@ -173,7 +172,7 @@ expected alphabetic or numeric character, but found"""
         assert "cancelled" == checks[0]["conclusion"]
         assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
 
-    def test_backport_no_branch(self):
+    async def test_backport_no_branch(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -197,11 +196,11 @@ expected alphabetic or numeric character, but found"""
 
         self.setup_repo(yaml.dump(rules), test_branches=[])
 
-        p, commits = self.create_pr(two_commits=True)
+        p, commits = await self.create_pr(two_commits=True)
 
-        self.add_label(p, "backport-#3.1")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.add_label(p, "backport-#3.1")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         checks = list(
@@ -216,7 +215,7 @@ expected alphabetic or numeric character, but found"""
             == checks[0]["output"]["summary"]
         )
 
-    def _do_backport_conflicts(self, ignore_conflicts):
+    async def _do_backport_conflicts(self, ignore_conflicts):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -255,11 +254,11 @@ expected alphabetic or numeric character, but found"""
         self.git("commit", "--no-edit", "-m", "add conflict")
         self.git("push", "--quiet", "main", stable_branch)
 
-        p, commits = self.create_pr(files={"conflicts": "ohoh"})
+        p, commits = await self.create_pr(files={"conflicts": "ohoh"})
 
-        self.add_label(p, "backport-#3.1")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.add_label(p, "backport-#3.1")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         return (
@@ -271,9 +270,9 @@ expected alphabetic or numeric character, but found"""
             ),
         )
 
-    def test_backport_conflicts(self):
+    async def test_backport_conflicts(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
-        p, checks = self._do_backport_conflicts(False)
+        p, checks = await self._do_backport_conflicts(False)
 
         # Retrieve the new commit id that has been be cherry-picked
         self.git("fetch", "main")
@@ -308,9 +307,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == checks[0]["output"]["summary"]
         )
 
-    def test_backport_ignore_conflicts(self):
+    async def test_backport_ignore_conflicts(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
-        p, checks = self._do_backport_conflicts(True)
+        p, checks = await self._do_backport_conflicts(True)
 
         pull = list(self.r_o_admin.get_pulls(base=stable_branch))[0]
 
@@ -327,7 +326,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         assert [label.name for label in pull.labels] == ["conflicts"]
 
-    def _do_test_backport(self, method, config=None):
+    async def _do_test_backport(self, method, config=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -352,15 +351,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, commits = self.create_pr(two_commits=True)
+        p, commits = await self.create_pr(two_commits=True)
 
         # Create another PR to be sure we don't mess things up
         # see https://github.com/Mergifyio/mergify-engine/issues/849
-        self.create_pr(base=stable_branch)
+        await self.create_pr(base=stable_branch)
 
-        self.add_label(p, "backport-#3.1")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.add_label(p, "backport-#3.1")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -402,24 +401,26 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         return pulls[0]
 
-    def test_backport_merge_commit(self):
-        p = self._do_test_backport("merge")
+    async def test_backport_merge_commit(self):
+        p = await self._do_test_backport("merge")
         assert 2 == p.commits
 
-    def test_backport_merge_commit_regexes(self):
+    async def test_backport_merge_commit_regexes(self):
         prefix = self.get_full_branch_name("stable")
-        p = self._do_test_backport("merge", config={"regexes": [f"^{prefix}/.*$"]})
+        p = await self._do_test_backport(
+            "merge", config={"regexes": [f"^{prefix}/.*$"]}
+        )
         assert 2 == p.commits
 
-    def test_backport_squash_and_merge(self):
-        p = self._do_test_backport("squash")
+    async def test_backport_squash_and_merge(self):
+        p = await self._do_test_backport("squash")
         assert 1 == p.commits
 
-    def test_backport_rebase_and_merge(self):
-        p = self._do_test_backport("rebase")
+    async def test_backport_rebase_and_merge(self):
+        p = await self._do_test_backport("rebase")
         assert 2 == p.commits
 
-    def test_merge_with_not_merged_attribute(self):
+    async def test_merge_with_not_merged_attribute(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -432,9 +433,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        p, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         p.update()
         self.assertEqual(True, p.merged)
@@ -454,7 +455,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         else:
             assert False, "Merge check not found"
 
-    def test_merge_squash(self):
+    async def test_merge_squash(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -467,21 +468,21 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p1, _ = self.create_pr(files={"foo": "bar"})
-        p2, _ = self.create_pr(two_commits=True)
+        p1, _ = await self.create_pr(files={"foo": "bar"})
+        p2, _ = await self.create_pr(two_commits=True)
         p1.merge()
 
-        self.add_label(p2, "squash")
+        await self.add_label(p2, "squash")
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         p2.update()
         assert 2 == p2.commits
         assert p2.merged is True
 
-    def test_merge_strict_squash(self):
+    async def test_merge_strict_squash(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -494,22 +495,22 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p1, _ = self.create_pr(files={"foo": "bar"})
-        p2, _ = self.create_pr(two_commits=True)
+        p1, _ = await self.create_pr(files={"foo": "bar"})
+        p2, _ = await self.create_pr(two_commits=True)
         p1.merge()
 
-        self.add_label(p2, "squash")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.add_label(p2, "squash")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         p2.update()
         assert 3 == p2.commits
         assert p2.merged is True
 
-    def test_merge_strict_rebase(self):
+    async def test_merge_strict_rebase(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -527,20 +528,20 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"}),
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -550,11 +551,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert commits[0].commit.message == commits2[0].commit.message
 
         # Retry to merge pr2
-        self.create_status(p2)
+        await self.create_status(p2)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         assert previous_master_sha != master_sha
@@ -562,7 +563,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_merge_strict_rebase_with_user(self):
+    async def test_merge_strict_rebase_with_user(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -586,18 +587,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"}),
 
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -608,7 +609,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert commits[0].commit.message == commits2[0].commit.message
         assert events2[0].actor.login == "mergify-test1"
 
-    def test_merge_strict_rebase_with_invalid_user(self):
+    async def test_merge_strict_rebase_with_invalid_user(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -632,18 +633,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"}),
 
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
         checks = list(
@@ -657,7 +658,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Please make sure `not-exists` has logged in Mergify dashboard"
         )
 
-    def test_merge_strict_default(self):
+    async def test_merge_strict_default(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -675,20 +676,20 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -700,11 +701,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         # Retry to merge pr2
-        self.create_status(p2)
+        await self.create_status(p2)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         assert previous_master_sha != master_sha
@@ -712,7 +713,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_merge_smart_strict(self):
+    async def test_merge_smart_strict(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -730,22 +731,22 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
-        self.run_engine()
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
-        self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
 
-        r = self.app.get(
+        r = await self.app.get(
             "/queues/%s" % (config.INSTALLATION_ID),
             headers={
                 "X-Hub-Signature": "sha1=whatever",
@@ -786,10 +787,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
             assert False, "Merge check not found"
 
         # Retry to merge pr2
-        self.create_status(p2)
-        self.run_engine()
+        await self.create_status(p2)
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         assert previous_master_sha != master_sha
@@ -797,7 +798,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_merge_failure_smart_strict(self):
+    async def test_merge_failure_smart_strict(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -814,22 +815,22 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/3.1")
         self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, _ = self.create_pr()
-        p2, commits = self.create_pr()
-        p3, commits = self.create_pr()
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
+        p3, commits = await self.create_pr()
 
         p.merge()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
-        self.create_status(p2, "continuous-integration/fake-ci", "success")
-        self.run_engine()
+        await self.create_status(p2, "continuous-integration/fake-ci", "success")
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
-        self.create_status(p3, "continuous-integration/fake-ci", "success")
-        self.run_engine()
+        await self.create_status(p3, "continuous-integration/fake-ci", "success")
+        await self.run_engine()
 
         p2 = self.r_o_admin.get_pull(p2.number)
         commits2 = list(p2.get_commits())
@@ -838,17 +839,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == commits2[-1].commit.message
         )
 
-        self.create_status(p2, "continuous-integration/fake-ci", "failure")
-        self.run_engine()
+        await self.create_status(p2, "continuous-integration/fake-ci", "failure")
+        await self.run_engine()
 
         # FIXME(sileht): Previous actions tracker was posting a "Rule XXXX (merge)" with
         # neutral status saying the Merge doesn't match anymore, the new one doesn't
         # It's not a big deal as the rule doesn't match anymore anyway.
-        self.wait_for("check_run", {"check_run": {"conclusion": "cancelled"}})
+        await self.wait_for("check_run", {"check_run": {"conclusion": "cancelled"}})
 
         # Should got to the next PR
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
         p3 = self.r_o_admin.get_pull(p3.number)
         commits3 = list(p3.get_commits())
@@ -857,9 +858,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == commits3[-1].commit.message
         )
 
-        self.create_status(p3, "continuous-integration/fake-ci", "success")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.create_status(p3, "continuous-integration/fake-ci", "success")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
         master_sha = self.r_o_admin.get_commits()[0].sha
         assert previous_master_sha != master_sha
@@ -867,7 +868,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
 
-    def test_short_teams(self):
+    async def test_short_teams(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -884,7 +885,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p, commits = self.create_pr()
+        p, commits = await self.create_pr()
 
         client = github.get_client(p.base.user.login)
         installation = context.Installation(
@@ -892,7 +893,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             p.base.user.login,
             self.subscription,
             client,
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
+            await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
         pull = context.Context(repository, p.raw_data, {})
@@ -913,7 +914,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         )
 
-    def test_teams(self):
+    async def test_teams(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -930,7 +931,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p, commits = self.create_pr()
+        p, commits = await self.create_pr()
 
         client = github.get_client(p.base.user.login)
         installation = context.Installation(
@@ -938,7 +939,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             p.base.user.login,
             self.subscription,
             client,
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
+            await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
         repository = context.Repository(installation, p.base.repo.name)
         pull = context.Context(repository, p.raw_data, {})
@@ -964,7 +965,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         )
 
-    def _test_merge_custom_msg(
+    async def _test_merge_custom_msg(
         self, header, method="squash", msg=None, commit_msg=None
     ):
         rules = {
@@ -984,12 +985,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         if msg is None:
             msg = "This is the title\n\nAnd this is the message"
-        p, _ = self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
-        self.create_status(p)
+        p, _ = await self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
+        await self.create_status(p)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1002,27 +1003,27 @@ no changes added to commit (use "git add" and/or "git commit -a")
             commit_msg = msg
         assert commit_msg == commit.message
 
-    def test_merge_custom_msg(self):
-        return self._test_merge_custom_msg("Commit Message:\n")
+    async def test_merge_custom_msg(self):
+        return await self._test_merge_custom_msg("Commit Message:\n")
 
-    def test_merge_custom_msg_case(self):
-        return self._test_merge_custom_msg("Commit message\n")
+    async def test_merge_custom_msg_case(self):
+        return await self._test_merge_custom_msg("Commit message\n")
 
-    def test_merge_custom_msg_rn(self):
-        return self._test_merge_custom_msg("Commit Message\r\n")
+    async def test_merge_custom_msg_rn(self):
+        return await self._test_merge_custom_msg("Commit Message\r\n")
 
-    def test_merge_custom_msg_merge(self):
-        return self._test_merge_custom_msg("Commit Message:\n", "merge")
+    async def test_merge_custom_msg_merge(self):
+        return await self._test_merge_custom_msg("Commit Message:\n", "merge")
 
-    def test_merge_custom_msg_template(self):
-        return self._test_merge_custom_msg(
+    async def test_merge_custom_msg_template(self):
+        return await self._test_merge_custom_msg(
             "Commit Message:\n",
             "merge",
             msg="{{title}}\n\nThanks to {{author}}",
             commit_msg="Pull request n1 from fork\n\nThanks to mergify-test2",
         )
 
-    def test_merge_invalid_custom_msg(self):
+    async def test_merge_invalid_custom_msg(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1039,10 +1040,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
 
         msg = "This is the title\n\nAnd this is the message {{invalid}}"
-        p, _ = self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
-        self.create_status(p)
+        p, _ = await self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
+        await self.create_status(p)
 
-        self.run_engine()
+        await self.run_engine()
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1063,12 +1064,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Edit and fixes the typo
         p.edit(body="It fixes it\n\n## Commit Message\n\nHere it is valid now")
-        self.wait_for("pull_request", {"action": "edited"})
+        await self.wait_for("pull_request", {"action": "edited"})
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for(
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for(
             "check_run",
             {"check_run": {"conclusion": "success", "status": "completed"}},
         )
@@ -1086,7 +1087,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert 1 == len(pulls)
         assert pulls[0].merged
 
-    def test_merge_custom_msg_title_body(self):
+    async def test_merge_custom_msg_title_body(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1105,12 +1106,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.setup_repo(yaml.dump(rules))
 
         msg = "It fixes it"
-        p, _ = self.create_pr(message=msg)
-        self.create_status(p)
+        p, _ = await self.create_pr(message=msg)
+        await self.create_status(p)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1121,7 +1122,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         commit = self.r_o_admin.get_commits()[0].commit
         assert f"Pull request n1 from fork (#{p.number})\n\n{msg}" == commit.message
 
-    def test_merge_and_closes_issues(self):
+    async def test_merge_and_closes_issues(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1140,12 +1141,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
         i = self.r_o_admin.create_issue(
             title="Such a bug", body="I can't explain, but don't work"
         )
-        p, commits = self.create_pr(message="It fixes it\n\nCloses #%s" % i.number)
-        self.create_status(p)
+        p, commits = await self.create_pr(
+            message="It fixes it\n\nCloses #%s" % i.number
+        )
+        await self.create_status(p)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1158,7 +1161,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         issue = self.r_o_admin.get_issue(i.number)
         assert "closed" == issue.state
 
-    def test_rebase(self):
+    async def test_rebase(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1175,13 +1178,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.setup_repo(yaml.dump(rules))
 
-        p2, commits = self.create_pr()
-        self.create_status(p2)
-        self.create_review(p2, commits[0])
+        p2, commits = await self.create_pr()
+        await self.create_status(p2)
+        await self.create_review(p2, commits[0])
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1190,7 +1193,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert pulls[0].merged is True
         assert "closed" == pulls[0].state
 
-    def test_merge_branch_protection_ci(self):
+    async def test_merge_branch_protection_ci(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1218,11 +1221,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         self.branch_protection_protect(self.master_branch_name, rule)
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for(
+        await self.wait_for(
             "check_run",
             {"check_run": {"conclusion": None, "status": "in_progress"}},
         )
@@ -1238,11 +1241,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
             in checks[0]["output"]["title"]
         )
 
-        self.create_status(p)
+        await self.create_status(p)
 
-        self.run_engine()
+        await self.run_engine()
 
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -1250,7 +1253,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert 1 == len(pulls)
         assert pulls[0].merged is True
 
-    def test_merge_branch_protection_strict(self):
+    async def test_merge_branch_protection_strict(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1279,20 +1282,20 @@ no changes added to commit (use "git add" and/or "git commit -a")
             }
         }
 
-        p1, _ = self.create_pr()
-        p2, _ = self.create_pr()
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
 
         p1.merge()
 
         self.branch_protection_protect(self.master_branch_name, rule)
 
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
 
-        self.create_status(p2)
+        await self.create_status(p2)
 
-        self.run_engine()
-        self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+        await self.run_engine()
+        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = context.Context(self.repository_ctxt, p2.raw_data, {})
         checks = list(
@@ -1304,7 +1307,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == checks[0]["output"]["title"]
         )
 
-    def _init_test_refresh(self):
+    async def _init_test_refresh(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1315,9 +1318,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
         self.setup_repo(yaml.dump(rules))
-        p1, commits1 = self.create_pr()
-        p2, commits2 = self.create_pr()
-        self.run_engine()
+        p1, commits1 = await self.create_pr()
+        p2, commits2 = await self.create_pr()
+        await self.run_engine()
 
         rules = {
             "pull_request_rules": [
@@ -1335,32 +1338,32 @@ no changes added to commit (use "git add" and/or "git commit -a")
         self.git("add", ".mergify.yml")
         self.git("commit", "--no-edit", "-m", "automerge everything")
         self.git("push", "--quiet", "main", self.master_branch_name)
-        self.wait_for("push", {})
+        await self.wait_for("push", {})
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 2 == len(pulls)
         return p1, p2
 
-    def test_refresh_pull(self):
-        p1, p2 = self._init_test_refresh()
+    async def test_refresh_pull(self):
+        p1, p2 = await self._init_test_refresh()
 
-        self.app.post(
+        await self.app.post(
             "/refresh/%s/pull/%s" % (p1.base.repo.full_name, p1.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
 
-        self.app.post(
+        await self.app.post(
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_command_refresh(self) -> None:
+    async def test_command_refresh(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -1371,15 +1374,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
         self.setup_repo(yaml.dump(rules))
-        p, commits = self.create_pr()
+        p, commits = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         ctxt = context.Context(
             self.repository_ctxt,
             p.raw_data,
         )
-        asyncio.run(
+        await (
             ctxt.set_summary_check(
                 check_api.Result(
                     check_api.Conclusion.SUCCESS,
@@ -1395,8 +1398,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p.create_issue_comment("@mergifyio refresh")
 
-        self.wait_for("issue_comment", {"action": "created"})
-        self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
 
         del ctxt.__dict__["pull_check_runs"]
         assert len(ctxt.pull_check_runs) == 1
@@ -1410,33 +1413,33 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == comments[-1].body
         )
 
-    def test_refresh_branch(self):
-        p1, p2 = self._init_test_refresh()
+    async def test_refresh_branch(self):
+        p1, p2 = await self._init_test_refresh()
 
-        self.app.post(
+        await self.app.post(
             "/refresh/%s/branch/master" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_refresh_repo(self):
-        p1, p2 = self._init_test_refresh()
+    async def test_refresh_repo(self):
+        p1, p2 = await self._init_test_refresh()
 
-        self.app.post(
+        await self.app.post(
             "/refresh/%s" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 0 == len(pulls)
 
-    def test_change_mergify_yml(self):
+    async def test_change_mergify_yml(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1450,18 +1453,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
         rules["pull_request_rules"].append(
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
-        p1, commits1 = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        self.run_engine()
+        p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        await self.run_engine()
         ctxt = context.Context(self.repository_ctxt, p1.raw_data, {})
         assert len(ctxt.pull_check_runs) == 1
         assert ctxt.pull_check_runs[0]["name"] == "Summary"
 
-    def test_marketplace_event(self):
+    async def test_marketplace_event(self):
         with mock.patch(
             "mergify_engine.subscription.Subscription.get_subscription"
         ) as get_sub:
             get_sub.return_value = self.subscription
-            r = self.app.post(
+            r = await self.app.post(
                 "/marketplace",
                 headers={
                     "X-Hub-Signature": "sha1=whatever",
@@ -1480,7 +1483,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert r.content == b"Event queued"
         assert r.status_code == 202
 
-    def test_refresh_on_conflict(self):
+    async def test_refresh_on_conflict(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1491,25 +1494,25 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
         self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = self.create_pr(files={"TESTING": "p1"})
-        p2, _ = self.create_pr(files={"TESTING": "p2"})
+        p1, _ = await self.create_pr(files={"TESTING": "p1"})
+        p2, _ = await self.create_pr(files={"TESTING": "p2"})
         p1.merge()
 
-        self.run_engine()
+        await self.run_engine()
 
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
             time.sleep(10)
 
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for(
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for(
             "issue_comment",
             {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
-    def test_requested_reviews(self):
+    async def test_requested_reviews(self):
         team = list(self.o_admin.get_teams())[0]
         team.update_team_repository(self.r_o_admin, "push")
 
@@ -1535,31 +1538,31 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
 
-        p1, _ = self.create_pr()
+        p1, _ = await self.create_pr()
         p1.create_review_request(reviewers=["sileht"])
-        self.wait_for("pull_request", {"action": "review_requested"})
-        self.run_engine()
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.wait_for("pull_request", {"action": "review_requested"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         # FIXME(sileht): This doesn't work anymore MRGFY-227
-        # p2, _ = self.create_pr()
+        # p2, _ = await self.create_pr()
         # p2.create_review_request(team_reviewers=[team.slug])
-        # self.wait_for("pull_request", {"action": "review_requested"})
-        # self.run_engine()
-        # self.wait_for("issue_comment", {"action": "created"})
+        # await self.wait_for("pull_request", {"action": "review_requested"})
+        # await self.run_engine()
+        # await self.wait_for("issue_comment", {"action": "created"})
 
         assert "review-requested user" == list(p1.get_issue_comments())[0].body
 
         # assert "review-requested team" == list(p2.get_issue_comments())[0].body
 
-    def test_truncated_check_output(self):
+    async def test_truncated_check_output(self):
         # not used anyhow
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
         self.setup_repo(yaml.dump(rules))
-        pr, commits = self.create_pr()
-        self.run_engine()
+        pr, commits = await self.create_pr()
+        await self.run_engine()
         pull = context.Context(self.repository_ctxt, pr.raw_data, {})
         check = check_api.set_check_run(
             pull,
@@ -1573,12 +1576,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
     @pytest.mark.skip(
         "I wonder how we can get this state since we run the engine manually in tests"
     )
-    def test_pull_request_complete(self):
+    async def test_pull_request_complete(self):
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
         client = github.get_client(p.base.user.login)
         ctxt = context.Context(client, p.raw_data, {})
         assert p.number == ctxt.pull["number"]
@@ -1592,7 +1595,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             check["output"]["summary"] == "Be patient, the page will be updated soon."
         )
 
-    def test_pull_refreshed_after_config_change(self):
+    async def test_pull_refreshed_after_config_change(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1604,30 +1607,30 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr(files={"foo": "bar"})
-        self.run_engine()
+        p, _ = await self.create_pr(files={"foo": "bar"})
+        await self.run_engine()
 
         rules["pull_request_rules"][0]["conditions"][
             0
         ] = f"base={self.master_branch_name}"
-        p_config, _ = self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        p_config, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         p_config.merge()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.wait_for("push", {})
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("push", {})
 
-        self.run_engine()
-        self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         p.update()
         comments = list(p.get_issue_comments())
         assert "it works" == comments[-1].body
 
-    def test_unconfigured_repo_does_not_post_summary(self):
+    async def test_unconfigured_repo_does_not_post_summary(self):
         self.setup_repo()
 
-        self.run_engine()
-        p, _ = self.create_pr()
-        self.run_engine()
+        await self.run_engine()
+        p, _ = await self.create_pr()
+        await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         assert ctxt.pull_engine_check_runs == []

@@ -26,7 +26,7 @@ class TestSimulator(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
-    def test_simulator_with_token(self):
+    async def test_simulator_with_token(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -38,7 +38,7 @@ class TestSimulator(base.FunctionalTestBase):
         }
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
@@ -49,7 +49,7 @@ class TestSimulator(base.FunctionalTestBase):
           - mergify-test1
 """
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
@@ -61,7 +61,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.json()["title"] == "The configuration is valid"
         assert r.json()["summary"] is None
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
             headers={
@@ -85,7 +85,7 @@ class TestSimulator(base.FunctionalTestBase):
           - conflict:
 """
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
@@ -110,7 +110,7 @@ class TestSimulator(base.FunctionalTestBase):
           - conflict:
 """
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
@@ -126,7 +126,7 @@ class TestSimulator(base.FunctionalTestBase):
             ]
         }
 
-    def test_simulator_with_wrong_pull_request_url(self):
+    async def test_simulator_with_wrong_pull_request_url(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -138,7 +138,7 @@ class TestSimulator(base.FunctionalTestBase):
         }
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
@@ -149,7 +149,7 @@ class TestSimulator(base.FunctionalTestBase):
           - mergify-test1
 """
         mock_pr_url = f"{p.html_url}424242"
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": mock_pr_url, "mergify.yml": mergify_yaml},
             headers={
@@ -164,7 +164,7 @@ class TestSimulator(base.FunctionalTestBase):
             ]
         }
 
-    def test_simulator_with_signature(self):
+    async def test_simulator_with_signature(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -176,7 +176,7 @@ class TestSimulator(base.FunctionalTestBase):
         }
         self.setup_repo(yaml.dump(rules))
 
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
@@ -187,7 +187,7 @@ class TestSimulator(base.FunctionalTestBase):
           - mergify-test1
 """
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": None, "mergify.yml": mergify_yaml},
             headers={
@@ -199,7 +199,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.json()["title"] == "The configuration is valid"
         assert r.json()["summary"] is None
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
             headers={
@@ -213,7 +213,7 @@ class TestSimulator(base.FunctionalTestBase):
             f"#### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
         )
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"pull_request": p.html_url, "mergify.yml": "- no\n* way"},
             headers={
@@ -238,7 +238,7 @@ expected alphabetic or numeric character, but found ' '
             ],
         }
 
-        r = self.app.post(
+        r = await self.app.post(
             "/simulator/",
             json={"invalid": "json"},
             headers={

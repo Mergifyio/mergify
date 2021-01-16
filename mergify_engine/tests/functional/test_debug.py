@@ -26,7 +26,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestDebugger(base.FunctionalTestBase):
-    def test_debugger(self):
+    async def test_debugger(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -41,9 +41,9 @@ class TestDebugger(base.FunctionalTestBase):
         self.subscription.features = frozenset([subscription.Features.PRIORITY_QUEUES])
 
         self.setup_repo(yaml.dump(rules))
-        p, _ = self.create_pr()
+        p, _ = await self.create_pr()
 
-        self.run_engine()
+        await self.run_engine()
 
         # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
         with mock.patch("sys.stdout") as stdout:

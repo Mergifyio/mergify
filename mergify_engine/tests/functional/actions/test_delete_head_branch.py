@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestDeleteHeadBranchAction(base.FunctionalTestBase):
-    def test_delete_branch(self):
+    async def test_delete_branch(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -47,18 +47,18 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = self.create_pr(base_repo="main", branch=first_branch)
-        p2, _ = self.create_pr(base_repo="main", branch=second_branch)
-        self.add_label(p1, "merge")
-        self.add_label(p2, "close")
+        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
+        p2, _ = await self.create_pr(base_repo="main", branch=second_branch)
+        await self.add_label(p1, "merge")
+        await self.add_label(p2, "close")
 
         p1.merge()
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
         p2.edit(state="close")
-        self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("pull_request", {"action": "closed"})
 
-        self.run_engine()
+        await self.run_engine()
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -70,7 +70,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         self.assertEqual(self.master_branch_name, branches[0].name)
         self.assertEqual("master", branches[1].name)
 
-    def test_delete_branch_with_dep_no_force(self):
+    async def test_delete_branch_with_dep_no_force(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -89,17 +89,17 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = self.create_pr(base_repo="main", branch=first_branch)
-        p2, _ = self.create_pr(
+        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
+        p2, _ = await self.create_pr(
             base_repo="main", branch=second_branch, base=first_branch
         )
 
         p1.merge()
-        self.wait_for("pull_request", {"action": "closed"})
-        self.add_label(p1, "merge")
-        self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.add_label(p1, "merge")
+        await self.run_engine()
 
-        self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
+        await self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
@@ -114,7 +114,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             b.name for b in branches
         }
 
-    def test_delete_branch_with_dep_force(self):
+    async def test_delete_branch_with_dep_force(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -133,17 +133,17 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = self.create_pr(base_repo="main", branch=first_branch)
-        p2, _ = self.create_pr(
+        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
+        p2, _ = await self.create_pr(
             base_repo="main", branch=second_branch, base=first_branch
         )
 
         p1.merge()
-        self.wait_for("pull_request", {"action": "closed", "number": p1.number})
-        self.add_label(p1, "merge")
-        self.run_engine()
-        self.wait_for("pull_request", {"action": "closed", "number": p2.number})
-        self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed", "number": p1.number})
+        await self.add_label(p1, "merge")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed", "number": p2.number})
+        await self.run_engine()
 
         pulls = list(
             self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)

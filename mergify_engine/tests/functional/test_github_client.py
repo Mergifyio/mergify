@@ -23,7 +23,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestGithubClient(base.FunctionalTestBase):
-    def test_github_client(self):
+    async def test_github_client(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -35,9 +35,9 @@ class TestGithubClient(base.FunctionalTestBase):
         }
         other_branch = self.get_full_branch_name("other")
         self.setup_repo(yaml.dump(rules), test_branches=[other_branch])
-        p1, _ = self.create_pr()
-        p2, _ = self.create_pr()
-        self.create_pr(base=other_branch)
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        await self.create_pr(base=other_branch)
 
         client = github.get_client(self.o_integration.login)
 
