@@ -35,7 +35,7 @@ class TestLabelAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.add_label(p, "stable")
@@ -64,7 +64,7 @@ class TestLabelAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.add_label(p, "stable")
@@ -87,7 +87,7 @@ class TestLabelAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.add_label(p, "stable")

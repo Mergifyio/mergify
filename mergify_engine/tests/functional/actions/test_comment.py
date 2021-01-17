@@ -35,7 +35,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()
@@ -58,7 +58,7 @@ class TestCommentAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()
@@ -78,9 +78,9 @@ class TestCommentAction(base.FunctionalTestBase):
 
         # Add new commit to ensure Summary get copied and comment not reposted
         open(self.git.tmp + "/new_file", "wb").close()
-        self.git("add", self.git.tmp + "/new_file")
-        self.git("commit", "--no-edit", "-m", "new commit")
-        self.git(
+        await self.git("add", self.git.tmp + "/new_file")
+        await self.git("commit", "--no-edit", "-m", "new commit")
+        await self.git(
             "push",
             "--quiet",
             "fork",
@@ -107,7 +107,7 @@ class TestCommentAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
 
@@ -127,7 +127,7 @@ class TestCommentAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
 
@@ -179,7 +179,7 @@ Unknown pull request attribute: hello
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()

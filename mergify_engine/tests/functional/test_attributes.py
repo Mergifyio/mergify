@@ -36,7 +36,7 @@ class TestAttributes(base.FunctionalTestBase):
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         pr, _ = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, pr.raw_data)

@@ -14,7 +14,6 @@
 
 import dataclasses
 import functools
-import subprocess
 import typing
 
 import tenacity
@@ -23,8 +22,8 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import doc
 from mergify_engine import github_types
+from mergify_engine import gitter
 from mergify_engine import subscription
-from mergify_engine import utils
 from mergify_engine.clients import http
 
 
@@ -211,8 +210,6 @@ async def duplicate(
     cherry_pick_fail = False
     body = ""
 
-    git = utils.Gitter(ctxt.log)
-
     repo_info = await ctxt.client.item(f"/repos/{repo_full_name}")
     if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
         if not ctxt.subscription.has_feature(subscription.Features.LARGE_REPOSITORY):
@@ -229,16 +226,17 @@ async def duplicate(
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
+    git = gitter.Gitter(ctxt.log)
     try:
         token = ctxt.client.auth.get_access_token()
-        git("init")
-        git.configure()
-        git.add_cred("x-access-token", token, repo_full_name)
-        git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
-        git("fetch", "--quiet", "origin", "pull/%s/head" % ctxt.pull["number"])
-        git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
-        git("fetch", "--quiet", "origin", branch_name)
-        git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
+        await git.init()
+        await git.configure()
+        await git.add_cred("x-access-token", token, repo_full_name)
+        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
+        await git("fetch", "--quiet", "origin", "pull/%s/head" % ctxt.pull["number"])
+        await git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
+        await git("fetch", "--quiet", "origin", branch_name)
+        await git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
 
         merge_commit = await ctxt.client.item(
             f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
@@ -253,19 +251,19 @@ async def duplicate(
             # git("fetch", "origin", ctxt.pull["base"]["ref"],
             #    "--shallow-since='%s'" % last_commit_date)
             try:
-                git("cherry-pick", "-x", commit["sha"])
-            except subprocess.CalledProcessError as e:  # pragma: no cover
+                await git("cherry-pick", "-x", commit["sha"])
+            except gitter.GitError as e:  # pragma: no cover
                 ctxt.log.info("fail to cherry-pick %s: %s", commit["sha"], e.output)
-                git_status = git("status").stdout
-                body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{git_status}```\n\n"
+                output = await git("status")
+                body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{output}```\n\n"
                 if not ignore_conflicts:
                     raise DuplicateFailed(body)
                 cherry_pick_fail = True
-                git("add", "*")
-                git("commit", "-a", "--no-edit", "--allow-empty")
+                await git("add", "*")
+                await git("commit", "-a", "--no-edit", "--allow-empty")
 
-        git("push", "origin", bp_branch)
-    except subprocess.CalledProcessError as in_exception:  # pragma: no cover
+        await git("push", "origin", bp_branch)
+    except gitter.GitError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
                 if out_exception is None:
@@ -285,7 +283,7 @@ async def duplicate(
             )
             return None
     finally:
-        git.cleanup()
+        await git.cleanup()
 
     body = (
         f"This is an automatic {kind} of pull request #{ctxt.pull['number']} done by [Mergify](https://mergify.io)."

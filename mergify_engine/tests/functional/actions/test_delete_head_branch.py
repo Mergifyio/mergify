@@ -43,7 +43,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
@@ -85,7 +85,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
@@ -129,7 +129,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")

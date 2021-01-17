@@ -34,7 +34,7 @@ class TestGithubClient(base.FunctionalTestBase):
             ]
         }
         other_branch = self.get_full_branch_name("other")
-        self.setup_repo(yaml.dump(rules), test_branches=[other_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[other_branch])
         p1, _ = await self.create_pr()
         p2, _ = await self.create_pr()
         await self.create_pr(base=other_branch)

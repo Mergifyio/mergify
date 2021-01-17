@@ -21,7 +21,6 @@ import os
 import queue
 import re
 import shutil
-import subprocess
 import time
 import unittest
 from unittest import mock
@@ -39,6 +38,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import engine
+from mergify_engine import gitter
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine import web
@@ -55,7 +55,7 @@ FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
 
-class GitterRecorder(utils.Gitter):
+class GitterRecorder(gitter.Gitter):
     def __init__(self, logger, cassette_library_dir, suffix):
         super(GitterRecorder, self).__init__(logger)
         self.cassette_path = os.path.join(cassette_library_dir, "git-%s.json" % suffix)
@@ -76,18 +76,17 @@ class GitterRecorder(utils.Gitter):
             data = json.dumps(self.records)
             f.write(data.encode("utf8"))
 
-    def __call__(self, *args, **kwargs):
+    async def __call__(self, *args, **kwargs):
         if RECORD:
             try:
-                p = super(GitterRecorder, self).__call__(*args, **kwargs)
-            except subprocess.CalledProcessError as e:
+                output = await super(GitterRecorder, self).__call__(*args, **kwargs)
+            except gitter.GitError as e:
                 self.records.append(
                     {
                         "args": self.prepare_args(args),
                         "kwargs": self.prepare_kwargs(kwargs),
                         "exc": {
                             "returncode": e.returncode,
-                            "cmd": e.cmd,
                             "output": e.output,
                         },
                     }
@@ -98,17 +97,15 @@ class GitterRecorder(utils.Gitter):
                     {
                         "args": self.prepare_args(args),
                         "kwargs": self.prepare_kwargs(kwargs),
-                        "out": p.stdout,
-                        "returncode": p.returncode,
+                        "out": output,
                     }
                 )
-            return p
+            return output
         else:
             r = self.records.pop(0)
             if "exc" in r:
-                raise subprocess.CalledProcessError(
+                raise gitter.GitError(
                     returncode=r["exc"]["returncode"],
-                    cmd=r["exc"]["cmd"],
                     output=r["exc"]["output"],
                 )
             else:
@@ -120,11 +117,7 @@ class GitterRecorder(utils.Gitter):
                     r["kwargs"],
                     self.prepare_kwargs(kwargs),
                 )
-                return mock.Mock(
-                    stdout=r["out"],
-                    returncode=r.get("returncode", 0),
-                    args=r["args"],
-                )
+                return r["out"]
 
     def prepare_args(self, args):
         return [arg.replace(self.tmp, "/tmp/mergify-gitter<random>") for arg in args]
@@ -135,8 +128,8 @@ class GitterRecorder(utils.Gitter):
             kwargs["input"] = re.sub(r"://[^@]*@", "://<TOKEN>:@", kwargs["input"])
         return kwargs
 
-    def cleanup(self):
-        super(GitterRecorder, self).cleanup()
+    async def cleanup(self):
+        await super(GitterRecorder, self).cleanup()
         if RECORD:
             self.save_records()
 
@@ -362,8 +355,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 f.read().replace("mergify[bot]", "mergify-test[bot]")
             )
 
-        mock.patch.object(branch_updater.utils, "Gitter", self.get_gitter).start()
-        mock.patch.object(duplicate_pull.utils, "Gitter", self.get_gitter).start()
+        mock.patch.object(branch_updater.gitter, "Gitter", self.get_gitter).start()
+        mock.patch.object(duplicate_pull.gitter, "Gitter", self.get_gitter).start()
 
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
@@ -387,7 +380,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.master_branch_name = self.get_full_branch_name("master")
 
         self.git = self.get_gitter(LOG)
-        self.addCleanup(self.git.cleanup)
+        await self.git.init()
+        self.addAsyncCleanup(self.git.cleanup)
 
         await web.startup()
         self.app = httpx.AsyncClient(app=web.app, base_url="http://localhost")
@@ -591,44 +585,47 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.git_counter += 1
         return GitterRecorder(logger, self.cassette_library_dir, self.git_counter)
 
-    def setup_repo(self, mergify_config=None, test_branches=[], files=[]):
-        self.git("init")
-        self.git.configure()
-        self.git.add_cred(
+    async def setup_repo(self, mergify_config=None, test_branches=[], files=[]):
+        await self.git.configure()
+        await self.git.add_cred(
             config.ORG_ADMIN_PERSONAL_TOKEN, "", self.r_o_integration.full_name
         )
-        self.git.add_cred(
+        await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
             "%s/%s" % (self.u_fork.login, self.r_o_integration.name),
         )
-        self.git("config", "user.name", "%s-tester" % config.CONTEXT)
-        self.git("remote", "add", "main", self.url_main)
-        self.git("remote", "add", "fork", self.url_fork)
+        await self.git("config", "user.name", "%s-tester" % config.CONTEXT)
+        await self.git("remote", "add", "main", self.url_main)
+        await self.git("remote", "add", "fork", self.url_fork)
 
         if mergify_config:
             with open(self.git.tmp + "/.mergify.yml", "w") as f:
                 f.write(mergify_config)
-            self.git("add", ".mergify.yml")
+            await self.git("add", ".mergify.yml")
         else:
             with open(self.git.tmp + "/.gitkeep", "w") as f:
                 f.write("repo must not be empty")
-            self.git("add", ".gitkeep")
+            await self.git("add", ".gitkeep")
 
         if files:
             for name, content in files.items():
                 with open(self.git.tmp + "/" + name, "w") as f:
                     f.write(content)
-                self.git("add", name)
+                await self.git("add", name)
 
-        self.git("commit", "--no-edit", "-m", "initial commit")
-        self.git("branch", "-M", self.master_branch_name)
+        await self.git("commit", "--no-edit", "-m", "initial commit")
+        await self.git("branch", "-M", self.master_branch_name)
 
         for test_branch in test_branches:
-            self.git("branch", test_branch, self.master_branch_name)
+            await self.git("branch", test_branch, self.master_branch_name)
 
-        self.git("push", "--quiet", "main", self.master_branch_name, *test_branches)
-        self.git("push", "--quiet", "fork", self.master_branch_name, *test_branches)
+        await self.git(
+            "push", "--quiet", "main", self.master_branch_name, *test_branches
+        )
+        await self.git(
+            "push", "--quiet", "fork", self.master_branch_name, *test_branches
+        )
 
         self.r_o_admin.edit(default_branch=self.master_branch_name)
 
@@ -709,7 +706,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         title = "Pull request n%d from %s" % (self.pr_counter, base_repo)
 
-        self.git("checkout", "--quiet", "%s/%s" % (base_repo, base), "-b", branch)
+        await self.git("checkout", "--quiet", "%s/%s" % (base_repo, base), "-b", branch)
         if files:
             for name, content in files.items():
                 directory = name.rpartition("/")[0]
@@ -720,15 +717,17 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                         pass
                 with open(self.git.tmp + "/" + name, "w") as f:
                     f.write(content)
-                self.git("add", name)
+                await self.git("add", name)
         else:
             open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
-            self.git("add", "test%d" % self.pr_counter)
-        self.git("commit", "--no-edit", "-m", title)
+            await self.git("add", "test%d" % self.pr_counter)
+        await self.git("commit", "--no-edit", "-m", title)
         if two_commits:
-            self.git("mv", "test%d" % self.pr_counter, "test%d-moved" % self.pr_counter)
-            self.git("commit", "--no-edit", "-m", "%s, moved" % title)
-        self.git("push", "--quiet", base_repo, branch)
+            await self.git(
+                "mv", "test%d" % self.pr_counter, "test%d-moved" % self.pr_counter
+            )
+            await self.git("commit", "--no-edit", "-m", "%s, moved" % title)
+        await self.git("push", "--quiet", base_repo, branch)
 
         if base_repo == "fork":
             repo = self.r_fork.parent

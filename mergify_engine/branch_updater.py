@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import collections
-import subprocess
 import typing
 import uuid
 
@@ -23,7 +22,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import utils
+from mergify_engine import gitter
 from mergify_engine.clients import http
 
 
@@ -130,23 +129,23 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
     head_branch = ctxt.pull["head"]["ref"]
     base_branch = ctxt.pull["base"]["ref"]
-    git = utils.Gitter(ctxt.log)
+    git = gitter.Gitter(ctxt.log)
     try:
-        git("init")
-        git.configure()
-        git.add_cred(token, "", head_repo)
-        git.add_cred(token, "", base_repo)
-        git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
-        git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
+        await git.init()
+        await git.configure()
+        await git.add_cred(token, "", head_repo)
+        await git.add_cred(token, "", base_repo)
+        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
+        await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
         depth = len(await ctxt.commits) + 1
-        git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
-        git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
+        await git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
+        await git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
 
-        out = git("log", "--format=%cI").stdout
-        last_commit_date = [d for d in out.split("\n") if d.strip()][-1]
+        output = await git("log", "--format=%cI")
+        last_commit_date = [d for d in output.split("\n") if d.strip()][-1]
 
-        git(
+        await git(
             "fetch",
             "--quiet",
             "upstream",
@@ -156,27 +155,26 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
         # Try to find the merge base, but don't fetch more that 1000 commits.
         for _ in range(20):
-            git("repack", "-d")
-            result = git(
-                "merge-base",
-                f"upstream/{base_branch}",
-                f"origin/{head_branch}",
-                check=False,
-            )
-            if result.returncode == 0:
-                # We have enough commits
-                break
-            elif result.returncode == 1:
-                # We need more commits
-                continue
+            await git("repack", "-d")
+            try:
+                await git(
+                    "merge-base",
+                    f"upstream/{base_branch}",
+                    f"origin/{head_branch}",
+                )
+            except gitter.GitError as e:  # pragma: no cover
+                if e.returncode == 1:
+                    # We need more commits
+                    await git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
+                    continue
+                raise
             else:
-                result.check_returncode()
-            git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
+                break
 
         try:
-            git("rebase", "upstream/%s" % base_branch)
-            git("push", "--verbose", "origin", head_branch, "-f")
-        except subprocess.CalledProcessError as e:  # pragma: no cover
+            await git("rebase", "upstream/%s" % base_branch)
+            await git("push", "--verbose", "origin", head_branch, "-f")
+        except gitter.GitError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
                     ctxt.log.info("Complete history cloned")
@@ -184,19 +182,19 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
                     # commit in common. Since Git is a graph, in some case this
                     # graph can be more complicated.
                     # So, retrying with the whole git history for now
-                    git("fetch", "--unshallow")
-                    git("fetch", "--quiet", "origin", head_branch)
-                    git("fetch", "--quiet", "upstream", base_branch)
-                    git("rebase", "upstream/%s" % base_branch)
-                    git("push", "--verbose", "origin", head_branch, "-f")
+                    await git("fetch", "--unshallow")
+                    await git("fetch", "--quiet", "origin", head_branch)
+                    await git("fetch", "--quiet", "upstream", base_branch)
+                    await git("rebase", "upstream/%s" % base_branch)
+                    await git("push", "--verbose", "origin", head_branch, "-f")
                     break
             else:
                 raise
 
-        expected_sha = git("log", "-1", "--format=%H").stdout.strip()
+        expected_sha = await git("log", "-1", "--format=%H")
         # NOTE(sileht): We store this for dismissal action
         await ctxt.redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
-    except subprocess.CalledProcessError as in_exception:  # pragma: no cover
+    except gitter.GitError as in_exception:  # pragma: no cover
         if in_exception.output == "":
             # SIGKILL...
             raise BranchUpdateNeedRetry()
@@ -219,7 +217,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
         ctxt.log.error("update branch failed", exc_info=True)
         raise BranchUpdateFailure()
     finally:
-        git.cleanup()
+        await git.cleanup()
 
 
 @tenacity.retry(
