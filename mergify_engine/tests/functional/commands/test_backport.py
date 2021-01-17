@@ -34,7 +34,9 @@ class TestCommandBackport(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch, feature_branch])
+        await self.setup_repo(
+            yaml.dump(rules), test_branches=[stable_branch, feature_branch]
+        )
         p, _ = await self.create_pr()
 
         await self.run_engine()

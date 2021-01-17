@@ -156,6 +156,8 @@ OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
 ACTION_ID: int
 NOSUB_MAX_REPO_SIZE_KB: int
+GIT_EMAIL: str
+CONTEXT: str
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:

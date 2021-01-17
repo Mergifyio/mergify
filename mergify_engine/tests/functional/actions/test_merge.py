@@ -39,7 +39,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p_need_rebase, _ = await self.create_pr(base_repo="main")
 
@@ -49,7 +49,7 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "closed"}),
         await self.wait_for("push", {})
 
-        self.git("fetch", "--all")
+        await self.git("fetch", "--all")
         p_ready, _ = await self.create_pr(base_repo="main")
 
         await self.add_label(p_need_rebase, "ready")
@@ -127,7 +127,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p_high, _ = await self.create_pr()
         p_medium, _ = await self.create_pr()
@@ -224,7 +224,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
         p2, _ = await self.create_pr()
@@ -266,7 +266,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr(files={".github/workflows/foo.yml": "whatever"})
         await self.add_label(p, "automerge")
@@ -306,7 +306,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr(draft=True)
         await self.add_label(p, "automerge")
@@ -340,7 +340,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()
@@ -361,7 +361,7 @@ class TestMergeAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()
@@ -410,7 +410,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p_high, _ = await self.create_pr()
         p_medium, _ = await self.create_pr()

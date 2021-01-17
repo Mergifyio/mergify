@@ -26,11 +26,11 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
     async def test_dismiss_reviews_custom_message(self):
         return await self._test_dismiss_reviews(message="Loser")
 
-    def _push_for_synchronize(self, branch, filename="unwanted_changes"):
+    async def _push_for_synchronize(self, branch, filename="unwanted_changes"):
         open(self.git.tmp + f"/{filename}", "wb").close()
-        self.git("add", self.git.tmp + f"/{filename}")
-        self.git("commit", "--no-edit", "-m", filename)
-        self.git("push", "--quiet", "fork", branch)
+        await self.git("add", self.git.tmp + f"/{filename}")
+        await self.git("commit", "--no-edit", "-m", filename)
+        await self.git("push", "--quiet", "fork", branch)
 
     async def _test_dismiss_reviews_fail(self, msg):
         rules = {
@@ -49,7 +49,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
         branch = self.get_full_branch_name("fork/pr%d" % self.pr_counter)
         await self.create_review(p, commits[-1], "APPROVE")
@@ -59,7 +59,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
-        self._push_for_synchronize(branch)
+        await self._push_for_synchronize(branch)
 
         await self.wait_for("pull_request", {"action": "synchronize"})
         await self.run_engine()
@@ -117,7 +117,7 @@ Unknown pull request attribute: Loser
                 "message"
             ] = message
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
         branch = self.get_full_branch_name("fork/pr%d" % self.pr_counter)
         await self.create_review(p, commits[-1], "APPROVE")
@@ -127,7 +127,7 @@ Unknown pull request attribute: Loser
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
-        self._push_for_synchronize(branch)
+        await self._push_for_synchronize(branch)
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         await self.run_engine()
@@ -146,7 +146,7 @@ Unknown pull request attribute: Loser
             [(r.state, r.user.login) for r in p.get_reviews()],
         )
 
-        self._push_for_synchronize(branch, "unwanted_changes2")
+        await self._push_for_synchronize(branch, "unwanted_changes2")
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         await self.run_engine()

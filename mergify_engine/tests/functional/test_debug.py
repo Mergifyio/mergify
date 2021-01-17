@@ -38,7 +38,7 @@ class TestDebugger(base.FunctionalTestBase):
         # Enable one feature to see the debug output
         self.subscription.features = frozenset([subscription.Features.PRIORITY_QUEUES])
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
 
         await self.run_engine()

@@ -56,7 +56,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 },
             ],
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
 
         await self.run_engine()
@@ -73,7 +73,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
     async def test_invalid_yaml_configuration(self):
-        self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
+        await self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
         p, _ = await self.create_pr()
 
         await self.run_engine()
@@ -128,7 +128,7 @@ expected alphabetic or numeric character, but found"""
                 },
             ],
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr(files={".mergify.yml": "not valid"})
 
         await self.run_engine()
@@ -155,7 +155,7 @@ expected alphabetic or numeric character, but found"""
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
 
@@ -195,7 +195,7 @@ expected alphabetic or numeric character, but found"""
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=[])
+        await self.setup_repo(yaml.dump(rules), test_branches=[])
 
         p, commits = await self.create_pr(two_commits=True)
 
@@ -244,16 +244,16 @@ expected alphabetic or numeric character, but found"""
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         # Commit something in stable
-        self.git("checkout", "--quiet", stable_branch)
+        await self.git("checkout", "--quiet", stable_branch)
         # Write in the file that create_pr will create in master
         with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
             f.write(b"conflicts incoming")
-        self.git("add", "conflicts")
-        self.git("commit", "--no-edit", "-m", "add conflict")
-        self.git("push", "--quiet", "main", stable_branch)
+        await self.git("add", "conflicts")
+        await self.git("commit", "--no-edit", "-m", "add conflict")
+        await self.git("push", "--quiet", "main", stable_branch)
 
         p, commits = await self.create_pr(files={"conflicts": "ohoh"})
 
@@ -277,10 +277,10 @@ expected alphabetic or numeric character, but found"""
         p, checks = await self._do_backport_conflicts(False)
 
         # Retrieve the new commit id that has been be cherry-picked
-        self.git("fetch", "main")
-        commit_id = self.git(
-            "show-ref", "--hash", f"main/{self.master_branch_name}"
-        ).stdout.strip()
+        await self.git("fetch", "main")
+        commit_id = (
+            await self.git("show-ref", "--hash", f"main/{self.master_branch_name}")
+        ).strip()
 
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
@@ -351,7 +351,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, commits = await self.create_pr(two_commits=True)
 
@@ -433,7 +433,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
         await self.run_engine()
@@ -468,7 +468,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr(files={"foo": "bar"})
         p2, _ = await self.create_pr(two_commits=True)
@@ -495,7 +495,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr(files={"foo": "bar"})
         p2, _ = await self.create_pr(two_commits=True)
@@ -528,7 +528,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -587,7 +587,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -633,7 +633,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -676,7 +676,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -731,7 +731,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -815,7 +815,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         }
 
         stable_branch = self.get_full_branch_name("stable/3.1")
-        self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
@@ -885,7 +885,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, commits = await self.create_pr()
 
@@ -931,7 +931,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, commits = await self.create_pr()
 
@@ -983,7 +983,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         if msg is None:
             msg = "This is the title\n\nAnd this is the message"
@@ -1039,7 +1039,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         msg = "This is the title\n\nAnd this is the message {{invalid}}"
         p, _ = await self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
@@ -1109,7 +1109,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         msg = "It fixes it"
         p, _ = await self.create_pr(message=msg)
@@ -1142,7 +1142,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         i = self.r_o_admin.create_issue(
             title="Such a bug", body="I can't explain, but don't work"
@@ -1182,7 +1182,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p2, commits = await self.create_pr()
         await self.create_status(p2)
@@ -1210,7 +1210,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         # Check policy of that branch is the expected one
         rule = {
@@ -1275,7 +1275,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         # Check policy of that branch is the expected one
         rule = {
@@ -1327,7 +1327,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p1, commits1 = await self.create_pr()
         p2, commits2 = await self.create_pr()
         await self.run_engine()
@@ -1342,12 +1342,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
 
-        self.git("checkout", self.master_branch_name)
+        await self.git("checkout", self.master_branch_name)
         with open(self.git.tmp + "/.mergify.yml", "w") as f:
             f.write(yaml.dump(rules))
-        self.git("add", ".mergify.yml")
-        self.git("commit", "--no-edit", "-m", "automerge everything")
-        self.git("push", "--quiet", "main", self.master_branch_name)
+        await self.git("add", ".mergify.yml")
+        await self.git("commit", "--no-edit", "-m", "automerge everything")
+        await self.git("push", "--quiet", "main", self.master_branch_name)
         await self.wait_for("push", {})
 
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
@@ -1383,7 +1383,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
 
         await self.run_engine()
@@ -1461,7 +1461,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         rules["pull_request_rules"].append(
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
@@ -1506,7 +1506,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
+        await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
         p1, _ = await self.create_pr(files={"TESTING": "p1"})
         p2, _ = await self.create_pr(files={"TESTING": "p2"})
         p1.merge()
@@ -1549,7 +1549,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 },
             ],
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
         p1.create_review_request(reviewers=["sileht"])
@@ -1573,7 +1573,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         pr, commits = await self.create_pr()
         await self.run_engine()
         pull = await context.Context.create(self.repository_ctxt, pr.raw_data, [])
@@ -1593,7 +1593,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
         client = github.aget_client(p.base.user.login)
         ctxt = await context.Context.create(client, p.raw_data, [])
@@ -1618,7 +1618,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             ]
         }
-        self.setup_repo(yaml.dump(rules))
+        await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr(files={"foo": "bar"})
         await self.run_engine()
@@ -1639,7 +1639,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "it works" == comments[-1].body
 
     async def test_unconfigured_repo_does_not_post_summary(self):
-        self.setup_repo()
+        await self.setup_repo()
 
         await self.run_engine()
         p, _ = await self.create_pr()

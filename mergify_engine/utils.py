@@ -18,12 +18,8 @@ import datetime
 import hashlib
 import hmac
 import os
-import shutil
 import socket
-import subprocess
-import tempfile
 import typing
-import urllib.parse
 
 import aredis
 
@@ -106,56 +102,6 @@ def compute_hmac(data):
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
     return str(mac.hexdigest())
-
-
-class Gitter(object):
-    def __init__(self, logger):
-        self.tmp = tempfile.mkdtemp(prefix="mergify-gitter")
-        self.logger = logger
-        self.logger.info("working in: %s", self.tmp)
-
-    def __call__(self, *args, **kwargs):  # pragma: no cover
-        self.logger.info("calling: %s", " ".join(args))
-        kwargs["cwd"] = self.tmp
-        # Worker timeout at 5 minutes, so ensure subprocess return before
-        kwargs["timeout"] = 4 * 60 + 30
-        kwargs["encoding"] = "utf-8"
-        kwargs.setdefault("check", True)
-        kwargs.setdefault("stdout", subprocess.PIPE)
-        kwargs.setdefault("stderr", subprocess.STDOUT)
-        try:
-            return subprocess.run(["git"] + list(args), **kwargs)
-        except subprocess.CalledProcessError as e:
-            self.logger.info("output: %s", e.output)
-            raise
-        finally:
-            self.logger.debug("finish: %s", " ".join(args))
-
-    def cleanup(self):
-        self.logger.info("cleaning: %s", self.tmp)
-        try:
-            self("credential-cache", "--socket=%s/.git/creds/socket" % self.tmp, "exit")
-        except subprocess.CalledProcessError:  # pragma: no cover
-            self.logger.warning("git credential-cache exit fail")
-        shutil.rmtree(self.tmp)
-
-    def configure(self):
-        self("config", "user.name", "%s-bot" % config.CONTEXT)
-        self("config", "user.email", config.GIT_EMAIL)
-        # Use one git cache daemon per Gitter
-        self("config", "credential.useHttpPath", "true")
-        self(
-            "config",
-            "credential.helper",
-            "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp,
-        )
-
-    def add_cred(self, username, password, path):
-        parsed = list(urllib.parse.urlparse(config.GITHUB_URL))
-        parsed[1] = f"{username}:{password}@{parsed[1]}"
-        parsed[2] = path
-        url = urllib.parse.urlunparse(parsed)
-        self("credential", "approve", input=f"url={url}\n\n")
 
 
 class SupportsLessThan(typing.Protocol):
