@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 from base64 import encodebytes
+import typing
 from unittest import mock
 
 import pytest
@@ -22,6 +23,7 @@ import voluptuous
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
@@ -176,10 +178,11 @@ def test_jinja_with_wrong_syntax():
     ),
 )
 @pytest.mark.asyncio
-async def test_get_mergify_config(valid: str) -> None:
+async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> None:
     client = mock.Mock()
     client.item.return_value = {"content": encodebytes(valid.encode()).decode()}
     filename, schema = await get_mergify_config(
+        redis_cache,
         client,
         github_types.GitHubRepository(
             {
@@ -289,11 +292,14 @@ async def test_get_mergify_config_location_from_cache() -> None:
     ),
 )
 @pytest.mark.asyncio
-async def test_get_mergify_config_invalid(invalid: str) -> None:
+async def test_get_mergify_config_invalid(
+    invalid: str, redis_cache: utils.RedisCache
+) -> None:
     with pytest.raises(InvalidRules):
         client = mock.Mock()
         client.item.return_value = {"content": encodebytes(invalid.encode()).decode()}
         filename, schema = await get_mergify_config(
+            redis_cache,
             client,
             github_types.GitHubRepository(
                 {
@@ -510,7 +516,7 @@ def test_pull_request_rule_schema_invalid(invalid, match):
 
 
 @pytest.mark.asyncio
-async def test_get_pull_request_rule():
+async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     client = mock.Mock()
 
@@ -524,8 +530,10 @@ async def test_get_pull_request_rule():
     get_files = [{"filename": "README.rst"}, {"filename": "setup.py"}]
     get_team_members = [{"login": "sileht", "id": 12321}, {"login": "jd", "id": 2644}]
 
-    get_checks = []
-    get_statuses = [{"context": "continuous-integration/fake-ci", "state": "success"}]
+    get_checks: typing.List[github_types.GitHubCheckRun] = []
+    get_statuses: typing.List[github_types.GitHubStatus] = [
+        {"context": "continuous-integration/fake-ci", "state": "success"}
+    ]
     client.item.return_value = {"permission": "write"}  # get review user perm
 
     def client_items(url, *args, **kwargs):
@@ -544,49 +552,100 @@ async def test_get_pull_request_rule():
 
     client.items.side_effect = client_items
 
-    installation = context.Installation(2644, "another-jd", {}, client)
+    installation = context.Installation(
+        github_types.GitHubAccountIdType(2644),
+        github_types.GitHubLogin("another-jd"),
+        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        client,
+        redis_cache,
+    )
     repository = context.Repository(installation, "name")
     ctxt = context.Context(
         repository,
-        {
-            "number": 1,
-            "html_url": "<html_url>",
-            "state": "closed",
-            "merged_by": None,
-            "merged_at": None,
-            "merged": False,
-            "draft": False,
-            "milestone": None,
-            "mergeable_state": "unstable",
-            "assignees": [],
-            "labels": [],
-            "base": {
-                "ref": "master",
-                "repo": {"name": "name", "private": False, "id": 123321},
-                "user": {"login": "another-jd", "id": 2644},
-                "sha": "mew",
-            },
-            "head": {"ref": "myfeature", "sha": "<sha>"},
-            "locked": False,
-            "requested_reviewers": [],
-            "requested_teams": [],
-            "title": "My awesome job",
-            "body": "I rock",
-            "user": {"login": "another-jd", "id": 2644},
-        },
-        {},
+        github_types.GitHubPullRequest(
+            {
+                "id": github_types.GitHubPullRequestId(0),
+                "number": github_types.GitHubPullRequestNumber(1),
+                "html_url": "<html_url>",
+                "merge_commit_sha": None,
+                "maintainer_can_modify": True,
+                "rebaseable": True,
+                "state": "closed",
+                "merged_by": None,
+                "merged_at": None,
+                "merged": False,
+                "draft": False,
+                "mergeable_state": "unstable",
+                "labels": [],
+                "base": {
+                    "label": "repo",
+                    "ref": github_types.GitHubRefType("master"),
+                    "repo": {
+                        "id": github_types.GitHubRepositoryIdType(123321),
+                        "name": github_types.GitHubRepositoryName("name"),
+                        "full_name": "another-jd/name",
+                        "private": False,
+                        "archived": False,
+                        "url": "",
+                        "default_branch": github_types.GitHubRefType(""),
+                        "owner": {
+                            "login": github_types.GitHubLogin("another-jd"),
+                            "id": github_types.GitHubAccountIdType(2644),
+                            "type": "User",
+                        },
+                    },
+                    "user": {
+                        "login": github_types.GitHubLogin("another-jd"),
+                        "id": github_types.GitHubAccountIdType(2644),
+                        "type": "User",
+                    },
+                    "sha": github_types.SHAType("mew"),
+                },
+                "head": {
+                    "label": "foo",
+                    "ref": github_types.GitHubRefType("myfeature"),
+                    "sha": github_types.SHAType("<sha>"),
+                    "repo": {
+                        "id": github_types.GitHubRepositoryIdType(123321),
+                        "name": github_types.GitHubRepositoryName("head"),
+                        "full_name": "another-jd/head",
+                        "private": False,
+                        "archived": False,
+                        "url": "",
+                        "default_branch": github_types.GitHubRefType(""),
+                        "owner": {
+                            "login": github_types.GitHubLogin("another-jd"),
+                            "id": github_types.GitHubAccountIdType(2644),
+                            "type": "User",
+                        },
+                    },
+                    "user": {
+                        "login": github_types.GitHubLogin("another-jd"),
+                        "id": github_types.GitHubAccountIdType(2644),
+                        "type": "User",
+                    },
+                },
+                "title": "My awesome job",
+                "user": {
+                    "login": github_types.GitHubLogin("another-jd"),
+                    "id": github_types.GitHubAccountIdType(2644),
+                    "type": "User",
+                },
+            }
+        ),
     )
 
     # Empty conditions
     pull_request_rules = rules.PullRequestRules(
-        [rules.Rule(name="default", conditions=[], actions={})]
+        [rules.Rule(name="default", conditions=rules.RuleConditions([]), actions={})]
     )
 
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
     assert [r.name for r in match.matching_rules] == ["default"]
     assert [
-        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
@@ -599,7 +658,8 @@ async def test_get_pull_request_rule():
     assert [r.name for r in match.rules] == ["hello"]
     assert [r.name for r in match.matching_rules] == ["hello"]
     assert [
-        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
@@ -615,7 +675,8 @@ async def test_get_pull_request_rule():
     assert [r.name for r in match.rules] == ["hello", "backport"]
     assert [r.name for r in match.matching_rules] == ["hello", "backport"]
     assert [
-        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
@@ -644,7 +705,8 @@ async def test_get_pull_request_rule():
     assert [r.name for r in match.rules] == ["hello", "backport"]
     assert [r.name for r in match.matching_rules] == ["hello", "backport"]
     assert [
-        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
@@ -686,7 +748,8 @@ async def test_get_pull_request_rule():
     assert [r.name for r in match.rules] == ["merge"]
     assert [r.name for r in match.matching_rules] == ["merge"]
     assert [
-        rules.EvaluatedRule.from_rule(r, []) for r in match.rules
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
         assert rule.actions == {}
@@ -841,7 +904,9 @@ async def test_get_pull_request_rule():
     assert len(match.matching_rules[0].missing_conditions) == 0
 
     # Forbidden labels, when forbiden label set
-    ctxt.pull["labels"] = [{"name": "status/wip"}]
+    ctxt.pull["labels"] = [
+        {"id": 0, "color": "#1234", "default": False, "name": "status/wip"}
+    ]
 
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]
@@ -853,7 +918,9 @@ async def test_get_pull_request_rule():
     )
 
     # Forbidden labels, when other label set
-    ctxt.pull["labels"] = [{"name": "allowed"}]
+    ctxt.pull["labels"] = [
+        {"id": 0, "color": "#1234", "default": False, "name": "allowed"}
+    ]
 
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["default"]

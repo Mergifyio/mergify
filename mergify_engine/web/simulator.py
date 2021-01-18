@@ -28,6 +28,7 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine import web
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
@@ -97,10 +98,16 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
                     message=f"Pull request {owner}/{repo}/pulls/{pull_number} not found"
                 )
 
-            sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
+            sub = await subscription.Subscription.get_subscription(
+                web._AREDIS_CACHE, client.auth.owner_id
+            )
 
             installation = context.Installation(
-                client.auth.owner_id, owner, sub, client
+                client.auth.owner_id,
+                owner,
+                sub,
+                client,
+                web._AREDIS_CACHE,
             )
             ctxt = context.Context(
                 context.Repository(installation, repo),

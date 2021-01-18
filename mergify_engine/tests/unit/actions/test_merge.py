@@ -147,7 +147,7 @@ async def test_merge_commit_message(body, title, message, mode):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(client, {}, 123, "whatever")
+    installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever")
     ctxt = context.Context(repository=repository, pull=pull)
     ctxt.checks = {"my CI": "success"}
@@ -186,7 +186,7 @@ async def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(client, {}, 123, "whatever")
+    installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever")
     pr = context.Context(repository=repository, pull=pull).pull_request
     with pytest.raises(context.RenderTemplateFailure) as x:
@@ -210,11 +210,11 @@ here is my message {{ and broken template
     ],
 )
 @pytest.mark.asyncio
-async def test_merge_commit_message_syntax_error(body, error):
+async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(client, {}, 123, "whatever")
+    installation = context.Installation(123, "whatever", {}, client, redis_cache)
     repository = context.Repository(installation, "whatever")
     pr = context.Context(repository=repository, pull=pull).pull_request
     with pytest.raises(context.RenderTemplateFailure) as rmf:
@@ -254,9 +254,11 @@ The following pull requests are queued:
         ),
     ),
 )
-def test_queue_summary_subscription(active, summary):
+@pytest.mark.asyncio
+async def test_queue_summary_subscription(active, summary, redis_cache):
     ctxt = mock.Mock(
         subscription=subscription.Subscription(
+            redis_cache,
             123,
             active,
             "We're just testing",
@@ -274,14 +276,14 @@ def test_queue_summary_subscription(active, summary):
             },
         },
     }
-    q = mock.Mock(installation_id=12345)
+    q = mock.AsyncMock(installation_id=12345)
     q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     q.get_config.side_effect = gen_config(
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
     with mock.patch.object(merge.queue.Queue, "from_context", return_value=q):
         action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
-        assert summary == action.get_queue_summary(ctxt, q)
+        assert summary == await action.get_queue_summary(ctxt, q)
 
 
 @pytest.mark.parametrize(

@@ -22,10 +22,13 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
+from mergify_engine import utils
 
 
 @pytest.mark.asyncio
-async def test_summary_synchronization_cache() -> None:
+async def test_summary_synchronization_cache(
+    redis_cache: utils.RedisCache,
+) -> None:
     gh_owner = github_types.GitHubAccount(
         {
             "login": github_types.GitHubLogin("user"),
@@ -50,12 +53,13 @@ async def test_summary_synchronization_cache() -> None:
     client = mock.MagicMock()
     client.auth.get_access_token.return_value = "<token>"
 
-    sub = subscription.Subscription(0, False, "", {}, frozenset())
+    sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
     installation = context.Installation(
         gh_owner["id"],
         gh_owner["login"],
         sub,
         client,
+        redis_cache,
     )
     repository = context.Repository(installation, gh_repo["name"])
     ctxt = context.Context(
@@ -124,6 +128,6 @@ async def test_summary_synchronization_cache() -> None:
     )
 
     assert await ctxt.get_cached_last_summary_head_sha() == "old-sha-one"
-    ctxt.clear_cached_last_summary_head_sha()
+    await ctxt.clear_cached_last_summary_head_sha()
 
     assert await ctxt.get_cached_last_summary_head_sha() is None

@@ -151,7 +151,7 @@ def test_get_reviewers():
 
 
 @pytest.mark.asyncio
-async def test_disabled():
+async def test_disabled(redis_cache):
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -168,13 +168,14 @@ async def test_disabled():
     client = mock.MagicMock()
     client.auth.installation.__getitem__.return_value = 123
     sub = subscription.Subscription(
+        redis_cache,
         123,
         False,
         "No sub",
         {},
         frozenset({}),
     )
-    installation = context.Installation(123, "Mergifyio", sub, client)
+    installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
     repository = context.Repository(installation, "demo")
     ctxt = context.Context(
         repository,

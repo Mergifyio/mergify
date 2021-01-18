@@ -21,7 +21,6 @@ import logging
 import typing
 from urllib import parse
 
-import aredis
 import daiquiri
 import jinja2.exceptions
 import jinja2.meta
@@ -63,6 +62,7 @@ class Installation:
     owner_login: github_types.GitHubLogin
     subscription: subscription.Subscription
     client: github.GithubInstallationClient
+    redis: utils.RedisCache
 
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
         dataclasses.field(default_factory=dict)
@@ -118,6 +118,11 @@ class Context(object):
     USER_PERMISSION_EXPIRATION = 3600  # 1 hour
 
     @property
+    def redis(self) -> utils.RedisCache:
+        # TODO(sileht): remove me when context split if done
+        return self.repository.installation.redis
+
+    @property
     def subscription(self) -> subscription.Subscription:
         # TODO(sileht): remove me when context split if done
         return self.repository.installation.subscription
@@ -129,7 +134,6 @@ class Context(object):
 
     @property
     def base_url(self) -> str:
-        """The URL prefix to make GitHub request."""
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
 
@@ -191,52 +195,50 @@ class Context(object):
     @classmethod
     async def clear_user_permission_cache_for_user(
         cls,
+        redis: utils.RedisCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
         user: github_types.GitHubAccount,
     ) -> None:
         # TODO(sileht): move me in Repository
-        async with utils.aredis_for_cache() as redis:
-            await redis.hdel(
-                cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
-            )
+        await redis.hdel(
+            cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
+        )
 
     @classmethod
     async def clear_user_permission_cache_for_repo(
         cls,
+        redis: utils.RedisCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
         # TODO(sileht): move me in Repository
-        async with utils.aredis_for_cache() as redis:
-            await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
+        await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
 
     @classmethod
     async def clear_user_permission_cache_for_org(
-        cls, user: github_types.GitHubAccount
+        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
     ) -> None:
         # TODO(sileht): move me in Repository
-        async with utils.aredis_for_cache() as redis:
-            pipeline = await redis.pipeline()
-            async for key in redis.scan_iter(
-                f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
-            ):
-                await pipeline.delete(key)
-            await pipeline.execute()
+        pipeline = await redis.pipeline()
+        async for key in redis.scan_iter(
+            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+        ):
+            await pipeline.delete(key)
+        await pipeline.execute()
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
         # TODO(sileht): move me in Repository
-        async with utils.aredis_for_cache() as redis:
-            key = self._users_permission_cache_key
-            permission = await redis.hget(key, user["id"])
-            if permission is None:
-                permission = self.client.item(
-                    f"{self.base_url}/collaborators/{user['login']}/permission"
-                )["permission"]
-                pipe = await redis.pipeline()
-                await pipe.hset(key, user["id"], permission)
-                await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
-                await pipe.execute()
+        key = self._users_permission_cache_key
+        permission = await self.redis.hget(key, user["id"])
+        if permission is None:
+            permission = self.client.item(
+                f"{self.base_url}/collaborators/{user['login']}/permission"
+            )["permission"]
+            pipe = await self.redis.pipeline()
+            await pipe.hset(key, user["id"], permission)
+            await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
+            await pipe.execute()
 
         return permission in (
             "admin",
@@ -252,14 +254,14 @@ class Context(object):
         previous_sha = await self.get_cached_last_summary_head_sha()
         # NOTE(sileht): we first commit in redis the future sha,
         # so engine.create_initial_summary() cannot creates a second SUMMARY
-        self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
+        await self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
             return check_api.set_check_run(self, self.SUMMARY_NAME, result)
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis
-                self._save_cached_last_summary_head_sha(previous_sha)
+                await self._save_cached_last_summary_head_sha(previous_sha)
             raise
 
     @staticmethod
@@ -272,7 +274,7 @@ class Context(object):
     @classmethod
     async def get_cached_last_summary_head_sha_from_pull(
         cls,
-        redis_cache: aredis.StrictRedis,
+        redis_cache: utils.RedisCache,
         pull: github_types.GitHubPullRequest,
     ) -> typing.Optional[github_types.SHAType]:
         return typing.cast(
@@ -283,25 +285,24 @@ class Context(object):
     async def get_cached_last_summary_head_sha(
         self,
     ) -> typing.Optional[github_types.SHAType]:
-        async with utils.aredis_for_cache() as redis_cache:
-            return await self.get_cached_last_summary_head_sha_from_pull(
-                redis_cache,
-                self.pull,
-            )
+        return await self.get_cached_last_summary_head_sha_from_pull(
+            self.redis,
+            self.pull,
+        )
 
-    def clear_cached_last_summary_head_sha(self) -> None:
-        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
-            redis.delete(self.redis_last_summary_head_sha_key(self.pull))
+    async def clear_cached_last_summary_head_sha(self) -> None:
+        await self.redis.delete(self.redis_last_summary_head_sha_key(self.pull))
 
-    def _save_cached_last_summary_head_sha(self, sha: github_types.SHAType) -> None:
+    async def _save_cached_last_summary_head_sha(
+        self, sha: github_types.SHAType
+    ) -> None:
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
-        with utils.get_redis_for_cache() as redis:  # type: ignore[attr-defined]
-            redis.set(
-                self.redis_last_summary_head_sha_key(self.pull),
-                sha,
-                ex=SUMMARY_SHA_EXPIRATION,
-            )
+        await self.redis.set(
+            self.redis_last_summary_head_sha_key(self.pull),
+            sha,
+            ex=SUMMARY_SHA_EXPIRATION,
+        )
 
     async def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
         return {
