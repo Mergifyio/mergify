@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import abc
+import asyncio
 import enum
 import itertools
 import re
@@ -26,6 +27,7 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import subscription
@@ -93,11 +95,11 @@ class MergeBaseAction(actions.Action):
         pass
 
     @abc.abstractmethod
-    def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         pass
 
     @abc.abstractmethod
-    def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
         pass
 
     @abc.abstractmethod
@@ -114,7 +116,7 @@ class MergeBaseAction(actions.Action):
     ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
         pass
 
-    def get_strict_status(
+    async def get_strict_status(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
@@ -127,7 +129,7 @@ class MergeBaseAction(actions.Action):
             StrictMergeParameter.fasttrack,
             StrictMergeParameter.ordered,
         ):
-            position = q.get_position(ctxt)
+            position = await q.get_position(ctxt)
             if position is None:
                 ctxt.log.error("expected queued pull request not found in queue")
                 title = "The pull request is queued to be merged"
@@ -143,7 +145,7 @@ class MergeBaseAction(actions.Action):
         else:
             title = "The pull request will be merged soon"
 
-        summary += self.get_queue_summary(ctxt, q)
+        summary += await self.get_queue_summary(ctxt, q)
         conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
 
         summary += "\n\nRequired conditions for merge:\n"
@@ -231,12 +233,14 @@ class MergeBaseAction(actions.Action):
                 )
 
         try:
-            if self._should_be_merged(ctxt, q):
+            if await self._should_be_merged(ctxt, q):
                 result = await self._merge(ctxt, rule, q)
-            elif self._should_be_synced(ctxt, q):
+            elif await self._should_be_synced(ctxt, q):
                 result = await self._sync_with_base_branch(ctxt, rule, q)
             else:
-                result = self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
+                result = await self.get_strict_status(
+                    ctxt, rule, q, is_behind=ctxt.is_behind
+                )
         except Exception:
             await q.remove_pull(ctxt)
             raise
@@ -267,16 +271,16 @@ class MergeBaseAction(actions.Action):
             ctxt, rule
         ):
             try:
-                if self._should_be_merged(ctxt, q):
+                if await self._should_be_merged(ctxt, q):
                     # Just wait for CIs to finish
-                    result = self.get_strict_status(
+                    result = await self.get_strict_status(
                         ctxt, rule, q, is_behind=ctxt.is_behind
                     )
-                elif self._should_be_synced(ctxt, q):
+                elif await self._should_be_synced(ctxt, q):
                     # Something got merged in the base branch in the meantime: rebase it again
                     result = await self._sync_with_base_branch(ctxt, rule, q)
                 else:
-                    result = self.get_strict_status(
+                    result = await self.get_strict_status(
                         ctxt, rule, q, is_behind=ctxt.is_behind
                     )
             except Exception:
@@ -326,7 +330,7 @@ class MergeBaseAction(actions.Action):
                     e.message,
                 )
         else:
-            return self.get_strict_status(ctxt, rule, q, is_behind=False)
+            return await self.get_strict_status(ctxt, rule, q, is_behind=False)
 
     @staticmethod
     async def _get_commit_message(pull_request, mode="default"):
@@ -481,10 +485,12 @@ class MergeBaseAction(actions.Action):
             )
             # FIXME(sileht): Not sure this code handles all cases, maybe we should just
             # send a refresh to this PR to retry later
-            if self._should_be_synced(ctxt, q):
+            if await self._should_be_synced(ctxt, q):
                 return await self._sync_with_base_branch(ctxt, rule, q)
             else:
-                return self.get_strict_status(ctxt, rule, q, is_behind=ctxt.is_behind)
+                return await self.get_strict_status(
+                    ctxt, rule, q, is_behind=ctxt.is_behind
+                )
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):
@@ -597,8 +603,8 @@ This pull request must be merged manually."""
 
         return check_api.Result(conclusion, title, summary)
 
-    def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
-        pulls = q.get_pulls()
+    async def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
+        pulls = await q.get_pulls()
         if not pulls:
             return ""
 
@@ -607,8 +613,18 @@ This pull request must be merged manually."""
         priorities_configured = False
 
         summary = "\n\nThe following pull requests are queued:"
+
+        async def _get_config(
+            p: github_types.GitHubPullRequestNumber,
+        ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
+            return p, (await q.get_config(p))["priority"]
+
+        pulls_priorities: typing.Dict[github_types.GitHubPullRequestNumber, int] = dict(
+            await asyncio.gather(*(_get_config(p) for p in pulls))
+        )
+
         for priority, grouped_pulls in itertools.groupby(
-            pulls, key=lambda v: q.get_config(v)["priority"]
+            pulls, key=lambda p: pulls_priorities[p]
         ):
             if priority != PriorityAliases.medium.value:
                 priorities_configured = True

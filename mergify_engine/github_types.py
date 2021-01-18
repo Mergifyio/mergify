@@ -317,6 +317,19 @@ class GitHubCheckRunOutput(typing.TypedDict):
     text: typing.Optional[str]
 
 
+GitHubStatusState = typing.Literal[
+    "pending",
+    "success",
+    "failure",
+    "error",
+]
+
+
+class GitHubStatus(typing.TypedDict):
+    context: str
+    state: GitHubStatusState
+
+
 class GitHubCheckRun(typing.TypedDict):
     id: int
     app: GitHubApp

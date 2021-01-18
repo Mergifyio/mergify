@@ -80,9 +80,9 @@ class MergeAction(merge_base.MergeBaseAction):
         ),
     }
 
-    def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return ctxt.is_behind and q.is_first_pull(ctxt)
+            return ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
             return ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.true:
@@ -95,9 +95,9 @@ class MergeAction(merge_base.MergeBaseAction):
     def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
         return True
 
-    def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return not ctxt.is_behind and q.is_first_pull(ctxt)
+            return not ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
             return not ctxt.is_behind
         elif self.config["strict"] is merge_base.StrictMergeParameter.true:
