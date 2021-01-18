@@ -159,7 +159,7 @@ async def push(
     return (message_id, payload)
 
 
-async def run_engine(
+async def _run_engine(
     installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestNumber,
@@ -184,6 +184,24 @@ async def run_engine(
         await engine.run(ctxt, sources)
     finally:
         logger.debug("engine in thread end")
+
+
+async def run_engine(
+    installation: context.Installation,
+    repo_name: github_types.GitHubRepositoryName,
+    pull_number: github_types.GitHubPullRequestNumber,
+    sources: typing.List[context.T_PayloadEventSource],
+) -> None:
+    # TODO(sileht): Remove me when the engine thread is removed.
+    # redis client created in main thread should not share the client in engine thread
+    # otherwise we have a connection leaks
+    main_thread_redis = installation.redis
+    try:
+        async with utils.aredis_for_cache() as redis:
+            installation.redis = redis
+            await _run_engine(installation, repo_name, pull_number, sources)
+    finally:
+        installation.redis = main_thread_redis
 
 
 class ThreadRunner(threading.Thread):
