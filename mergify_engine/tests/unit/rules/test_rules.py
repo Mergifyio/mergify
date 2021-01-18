@@ -575,7 +575,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         client,
         redis_cache,
     )
-    repository = context.Repository(installation, "name")
+    repository = context.Repository(
+        installation, github_types.GitHubRepositoryName("name")
+    )
     ctxt = await context.Context.create(
         repository,
         github_types.GitHubPullRequest(
