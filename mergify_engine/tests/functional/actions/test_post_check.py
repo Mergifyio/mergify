@@ -21,7 +21,6 @@ import yaml
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import subscription
-from mergify_engine import utils
 from mergify_engine.tests.functional import base
 
 
@@ -117,7 +116,6 @@ Rule list:
 class TestPostCheckActionNoSub(base.FunctionalTestBase):
     def test_checks_feature_disabled(self):
         self.subscription = subscription.Subscription(
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",

@@ -98,11 +98,11 @@ def report_sub(
 
 
 async def get_mergify_config_content(
-    redis: utils.RedisCache,
     client: github.GithubInstallationClient,
     repo_info: github_types.GitHubRepository,
 ) -> typing.Tuple[str, bytes]:
-    return await rules.get_mergify_config_content(redis, client, repo_info)
+    async with utils.aredis_for_cache() as redis:
+        return await rules.get_mergify_config_content(redis, client, repo_info)
 
 
 async def report_worker_status(owner: github_types.GitHubLogin) -> None:
@@ -134,8 +134,6 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
 async def report(
     url: str,
 ) -> typing.Union[context.Context, github.GithubInstallationClient, None]:
-    redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
-
     path = url.replace("https://github.com/", "")
 
     pull_number: typing.Optional[str]
@@ -171,11 +169,9 @@ async def report(
     if client.auth.owner_id is None:
         raise RuntimeError("Unable to get owner_id")
 
-    cached_sub = await subscription.Subscription.get_subscription(
-        redis_cache, client.auth.owner_id
-    )
+    cached_sub = await subscription.Subscription.get_subscription(client.auth.owner_id)
     db_sub = await subscription.Subscription._retrieve_subscription_from_db(
-        redis_cache, client.auth.owner_id
+        client.auth.owner_id
     )
 
     if repo is None:
@@ -201,7 +197,7 @@ async def report(
         mergify_config = None
         try:
             filename, mergify_config_content = await get_mergify_config_content(
-                redis_cache, client, repo_info
+                client, repo_info
             )
         except rules.NoRules:  # pragma: no cover
             print(".mergify.yml is missing")
@@ -223,30 +219,21 @@ async def report(
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
                 q = queue.Queue(
-                    redis_cache,
+                    utils.get_redis_for_cache(),
                     repo_info["owner"]["id"],
                     repo_info["owner"]["login"],
                     repo_info["id"],
                     repo_info["name"],
                     branch["name"],
                 )
-                pulls = await q.get_pulls()
+                pulls = q.get_pulls()
                 if not pulls:
                     continue
 
                 print(f"* QUEUES {branch['name']}:")
 
-                async def _get_config(
-                    p: github_types.GitHubPullRequestNumber,
-                ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
-                    return p, (await q.get_config(p))["priority"]
-
-                pulls_priorities: typing.Dict[
-                    github_types.GitHubPullRequestNumber, int
-                ] = dict(await asyncio.gather(*(_get_config(p) for p in pulls)))
-
                 for priority, grouped_pulls in itertools.groupby(
-                    pulls, key=lambda p: pulls_priorities[p]
+                    pulls, key=lambda v: q.get_config(v)["priority"]
                 ):
                     try:
                         fancy_priority = merge_base.PriorityAliases(priority).name
@@ -257,7 +244,10 @@ async def report(
         else:
             pull_raw = client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
             installation = context.Installation(
-                client.auth.owner_id, owner, cached_sub, client, redis_cache
+                client.auth.owner_id,
+                owner,
+                cached_sub,
+                client,
             )
             repository = context.Repository(installation, repo)
             ctxt = context.Context(
@@ -268,7 +258,7 @@ async def report(
 
             # FIXME queues could also be printed if no pull number given
             q = queue.Queue.from_context(ctxt)
-            print("* QUEUES: %s" % ", ".join([f"#{p}" for p in await q.get_pulls()]))
+            print("* QUEUES: %s" % ", ".join([f"#{p}" for p in q.get_pulls()]))
             print("* PULL REQUEST:")
             pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)

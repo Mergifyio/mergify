@@ -18,12 +18,11 @@ import pytest
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
-from mergify_engine import utils
 from mergify_engine.clients import github
 
 
 @pytest.mark.asyncio
-async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
+async def test_user_permission_cache() -> None:
     class FakeClient(github.GithubInstallationClient):
         called: int
 
@@ -133,11 +132,9 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
         }
     )
 
-    sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
+    sub = subscription.Subscription(0, False, "", {}, frozenset())
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        gh_owner["id"], gh_owner["login"], sub, client, redis_cache
-    )
+    installation = context.Installation(gh_owner["id"], gh_owner["login"], sub, client)
     repository = context.Repository(installation, gh_repo["name"])
     c = context.Context(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
@@ -166,9 +163,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     )
 
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        gh_owner["id"], gh_owner["login"], sub, client, redis_cache
-    )
+    installation = context.Installation(gh_owner["id"], gh_owner["login"], sub, client)
     repository = context.Repository(installation, gh_repo["name"])
     c = context.Context(repository, make_pr(gh_repo, gh_owner))
     assert client.called == 0
@@ -178,14 +173,12 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 1
     assert not await c.has_write_permission(user_1)
     assert client.called == 2
-    await context.Context.clear_user_permission_cache_for_repo(
-        redis_cache, gh_owner, gh_repo
-    )
+    await context.Context.clear_user_permission_cache_for_repo(gh_owner, gh_repo)
     assert not await c.has_write_permission(user_1)
     assert client.called == 3
     assert not await c.has_write_permission(user_3)
     assert client.called == 4
-    await context.Context.clear_user_permission_cache_for_org(redis_cache, gh_owner)
+    await context.Context.clear_user_permission_cache_for_org(gh_owner)
     assert not await c.has_write_permission(user_3)
     assert client.called == 5
     assert await c.has_write_permission(user_2)
@@ -193,7 +186,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert await c.has_write_permission(user_2)
     assert client.called == 6
     await context.Context.clear_user_permission_cache_for_user(
-        redis_cache, gh_owner, gh_repo, user_2
+        gh_owner, gh_repo, user_2
     )
     assert await c.has_write_permission(user_2)
     assert client.called == 7

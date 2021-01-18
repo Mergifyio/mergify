@@ -16,6 +16,7 @@ import logging
 import typing
 
 import daiquiri
+import redis
 
 from mergify_engine import context
 from mergify_engine import github_events
@@ -37,7 +38,7 @@ class QueueConfig(typing.TypedDict):
 
 @dataclasses.dataclass
 class Queue:
-    redis: utils.RedisCache
+    redis: redis.Redis
     owner_id: int
     owner: str
     repo_id: int
@@ -54,7 +55,7 @@ class Queue:
     @classmethod
     def from_context(cls, ctxt: context.Context) -> "Queue":
         return cls(
-            ctxt.redis,
+            utils.get_redis_for_cache(),
             ctxt.pull["base"]["repo"]["owner"]["id"],
             ctxt.pull["base"]["repo"]["owner"]["login"],
             ctxt.pull["base"]["repo"]["id"],
@@ -74,7 +75,7 @@ class Queue:
     ) -> str:
         return f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
 
-    async def get_config(
+    def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
     ) -> QueueConfig:
         """Return merge config for a pull request.
@@ -83,7 +84,7 @@ class Queue:
 
         :param pull_number: The pull request number.
         """
-        config_str = await self.redis.get(self._config_redis_queue_key(pull_number))
+        config_str = self.redis.get(self._config_redis_queue_key(pull_number))
         if config_str is None:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
@@ -106,14 +107,14 @@ class Queue:
     async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
         await self._remove_pull_from_other_queues(ctxt)
 
-        await self.redis.set(
+        self.redis.set(
             self._config_redis_queue_key(ctxt.pull["number"]),
             json.dumps(config),
         )
 
         score = utils.utcnow().timestamp() / config["effective_priority"]
-        added = await self.redis.zaddoption(
-            self._redis_queue_key, "NX", **{str(ctxt.pull["number"]): score}
+        added = self.redis.zadd(
+            self._redis_queue_key, {str(ctxt.pull["number"]): score}, nx=True
         )
 
         if added:
@@ -123,7 +124,7 @@ class Queue:
                 config=config,
             )
             pull_requests_to_refresh = [
-                p for p in await self.get_pulls() if p != ctxt.pull["number"]
+                p for p in self.get_pulls() if p != ctxt.pull["number"]
             ]
             await self._refresh_pulls(pull_requests_to_refresh)
         else:
@@ -136,9 +137,9 @@ class Queue:
     async def _remove_pull_from_other_queues(self, ctxt: context.Context) -> None:
         # TODO(sileht): Find if there is an event when the base branch change to do this
         # only is this case.
-        for queue_name in await self.redis.keys(self._get_redis_queue_key_for("*")):
+        for queue_name in self.redis.keys(self._get_redis_queue_key_for("*")):
             if queue_name != self._redis_queue_key:
-                score = await self.redis.zscore(queue_name, ctxt.pull["number"])
+                score = self.redis.zscore(queue_name, ctxt.pull["number"])
                 if score is not None:
                     old_branch = queue_name.split("~")[-1]
                     old_queue = self.get_queue(old_branch)
@@ -150,13 +151,13 @@ class Queue:
                     await old_queue.remove_pull(ctxt)
 
     async def remove_pull(self, ctxt: context.Context) -> None:
-        removed = await self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
+        removed = self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
         if removed > 0:
-            await self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
+            self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
-            await self._refresh_pulls(await self.get_pulls())
+            await self._refresh_pulls(self.get_pulls())
         else:
             self.log.info(
                 "pull request not in merge queue", gh_pull=ctxt.pull["number"]
@@ -173,49 +174,44 @@ class Queue:
             ref,
         )
 
-    async def is_first_pull(self, ctxt: context.Context) -> bool:
-        pull_requests = await self.get_pulls()
+    def is_first_pull(self, ctxt: context.Context) -> bool:
+        pull_requests = self.get_pulls()
         if not pull_requests:
             ctxt.log.error("is_first_pull() called on empty queues")
             return True
         return pull_requests[0] == ctxt.pull["number"]
 
-    async def get_position(self, ctxt: context.Context) -> typing.Optional[int]:
-        pulls = await self.get_pulls()
+    def get_position(self, ctxt: context.Context) -> typing.Optional[int]:
+        pulls = self.get_pulls()
         try:
             return pulls.index(ctxt.pull["number"])
         except ValueError:
             return None
 
-    async def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
+    def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         return [
             github_types.GitHubPullRequestNumber(int(pull))
-            for pull in await self.redis.zrangebyscore(
-                self._redis_queue_key, "-inf", "+inf"
-            )
+            for pull in self.redis.zrangebyscore(self._redis_queue_key, "-inf", "+inf")
         ]
 
-    async def delete(self) -> None:
-        await self.redis.delete(self._redis_queue_key)
+    def delete(self) -> None:
+        self.redis.delete(self._redis_queue_key)
 
     async def _refresh_pulls(
         self,
         pull_requests_to_refresh: typing.List[github_types.GitHubPullRequestNumber],
     ) -> None:
-        async with utils.aredis_for_stream() as redis_stream:
-            for pull in pull_requests_to_refresh:
-                await github_events.send_refresh(
-                    self.redis,
-                    redis_stream,
-                    {
-                        "number": pull,
-                        "base": {
-                            "repo": {
-                                "id": self.repo_id,
-                                "name": self.repo,
-                                "owner": {"login": self.owner, "id": self.owner_id},
-                                "full_name": f"{self.owner}/{self.repo}",
-                            }
-                        },
-                    },  # type: ignore
-                )
+        for pull in pull_requests_to_refresh:
+            await github_events.send_refresh(
+                {
+                    "number": pull,
+                    "base": {
+                        "repo": {
+                            "id": self.repo_id,
+                            "name": self.repo,
+                            "owner": {"login": self.owner, "id": self.owner_id},
+                            "full_name": f"{self.owner}/{self.repo}",
+                        }
+                    },
+                }  # type: ignore
+            )

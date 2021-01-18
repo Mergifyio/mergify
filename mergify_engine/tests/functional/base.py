@@ -395,7 +395,6 @@ class FunctionalTestBase(unittest.TestCase):
 
         asyncio.run(self.clear_redis_cache())
         self.subscription = subscription.Subscription(
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
@@ -455,7 +454,6 @@ class FunctionalTestBase(unittest.TestCase):
             config.TESTING_ORGANIZATION,
             self.subscription,
             self.cli_integration,
-            asyncio.run(utils.create_aredis_for_cache(max_idle_time=0)),
         )
         self.repository_ctxt = context.Repository(
             self.installation_ctxt, self.REPO_NAME
@@ -463,11 +461,10 @@ class FunctionalTestBase(unittest.TestCase):
 
         real_get_subscription = subscription.Subscription.get_subscription
 
-        async def fake_retrieve_subscription_from_db(redis_cache, owner_id):
+        async def fake_retrieve_subscription_from_db(owner_id):
             if owner_id == config.TESTING_ORGANIZATION_ID:
                 return self.subscription
             return subscription.Subscription(
-                redis_cache,
                 owner_id,
                 False,
                 "We're just testing",
@@ -475,11 +472,10 @@ class FunctionalTestBase(unittest.TestCase):
                 set(),
             )
 
-        async def fake_subscription(redis_cache, owner_id):
+        async def fake_subscription(owner_id):
             if owner_id == config.TESTING_ORGANIZATION_ID:
-                return await real_get_subscription(redis_cache, owner_id)
+                return await real_get_subscription(owner_id)
             return subscription.Subscription(
-                redis_cache,
                 owner_id,
                 False,
                 "We're just testing",
@@ -515,8 +511,8 @@ class FunctionalTestBase(unittest.TestCase):
 
     @staticmethod
     async def clear_redis_cache():
-        async with utils.aredis_for_cache() as redis_stream:
-            await redis_stream.flushall()
+        redis_stream = await utils.get_aredis_for_cache(max_idle_time=0)
+        await redis_stream.flushall()
 
     def tearDown(self):
         super(FunctionalTestBase, self).tearDown()

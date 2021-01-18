@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
 import logging
 
 import yaml
@@ -62,7 +61,7 @@ class TestMergeAction(base.FunctionalTestBase):
         p_need_rebase, p_ready = self._do_test_smart_order("smart+ordered")
         ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
         assert p_need_rebase.merged
@@ -72,7 +71,7 @@ class TestMergeAction(base.FunctionalTestBase):
         p_need_rebase, p_ready = self._do_test_smart_order("smart+fastpath")
         ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number]
         p_ready.update()
         assert p_ready.merged
@@ -81,7 +80,7 @@ class TestMergeAction(base.FunctionalTestBase):
         p_need_rebase, p_ready = self._do_test_smart_order("smart")
         ctxt = context.Context(self.repository_ctxt, p_need_rebase.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
         assert p_need_rebase.merged
@@ -145,7 +144,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
 
         # Each PR can rebased, because we insert them in reserve order, but they are still
@@ -238,13 +237,13 @@ class TestMergeAction(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
         p2.remove_from_labels("low")
         self.add_label(p2, "high")
         self.run_engine()
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p2.number, p1.number]
 
     def test_merge_github_workflow(self):
@@ -428,7 +427,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data, {})
         q = queue.Queue.from_context(ctxt)
-        pulls_in_queue = asyncio.run(q.get_pulls())
+        pulls_in_queue = q.get_pulls()
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]
 
         p_low.update()

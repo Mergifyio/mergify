@@ -58,7 +58,6 @@ class SubscriptionDict(typing.TypedDict):
 
 @dataclasses.dataclass
 class Subscription:
-    redis: utils.RedisCache
     owner_id: int
     active: bool
     reason: str
@@ -86,11 +85,8 @@ class Subscription:
         return f"⚠ The [subscription](https://dashboard.mergify.io/github/{owner}/subscription) needs to be updated to enable this feature."
 
     @classmethod
-    def from_dict(
-        cls, redis: utils.RedisCache, owner_id: int, sub: SubscriptionDict
-    ) -> "Subscription":
+    def from_dict(cls, owner_id: int, sub: SubscriptionDict) -> "Subscription":
         return cls(
-            redis,
             owner_id,
             sub["subscription_active"],
             sub["subscription_reason"],
@@ -114,28 +110,25 @@ class Subscription:
         }
 
     @classmethod
-    async def get_subscription(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
+    async def get_subscription(cls, owner_id: int) -> "Subscription":
         """Get a subscription."""
-        sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
+        sub = await cls._retrieve_subscription_from_cache(owner_id)
         if sub is None:
-            sub = await cls._retrieve_subscription_from_db(redis, owner_id)
+            sub = await cls._retrieve_subscription_from_db(owner_id)
             await sub.save_subscription_to_cache()
         return sub
 
     async def save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
-        await self.redis.setex(
-            "subscription-cache-owner-%s" % self.owner_id,
-            3600,
-            crypto.encrypt(json.dumps(self.to_dict()).encode()),
-        )
+        async with utils.aredis_for_cache() as r:
+            await r.setex(
+                "subscription-cache-owner-%s" % self.owner_id,
+                3600,
+                crypto.encrypt(json.dumps(self.to_dict()).encode()),
+            )
 
     @classmethod
-    async def _retrieve_subscription_from_db(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
+    async def _retrieve_subscription_from_db(cls, owner_id: int) -> "Subscription":
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
@@ -143,18 +136,19 @@ class Subscription:
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
             except http.HTTPNotFound as e:
-                return cls(redis, owner_id, False, e.message, {}, frozenset())
+                return cls(owner_id, False, e.message, {}, frozenset())
             else:
                 sub = resp.json()
-                return cls.from_dict(redis, owner_id, sub)
+                return cls.from_dict(owner_id, sub)
 
     @classmethod
     async def _retrieve_subscription_from_cache(
-        cls, redis: utils.RedisCache, owner_id: int
+        cls, owner_id: int
     ) -> typing.Optional["Subscription"]:
-        encrypted_sub = await redis.get("subscription-cache-owner-%s" % owner_id)
+        async with utils.aredis_for_cache() as r:
+            encrypted_sub = await r.get("subscription-cache-owner-%s" % owner_id)
         if encrypted_sub:
             return cls.from_dict(
-                redis, owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())
+                owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())
             )
         return None

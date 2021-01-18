@@ -20,13 +20,11 @@ from unittest import mock
 
 import pytest
 
-from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import github_types
-from mergify_engine import utils
 
 
-async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls):
+async def _do_test_event_to_pull_check_run(filename, expected_pulls):
     owner = "CytopiaTeam"
     repo = "Cytopia"
     event_type = "check_run"
@@ -37,25 +35,20 @@ async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls
     ) as f:
         data = json.load(f)
 
-    installation = context.Installation(123, owner, {}, mock.Mock(), redis_cache)
     pulls = await github_events.extract_pull_numbers_from_event(
-        installation, repo, event_type, data, []
+        owner, repo, event_type, data, []
     )
     assert pulls == expected_pulls
 
 
 @pytest.mark.asyncio
-async def test_event_to_pull_check_run_forked_repo(redis_cache):
-    await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run_event_from_forked_repo.json", []
-    )
+async def test_event_to_pull_check_run_forked_repo():
+    await _do_test_event_to_pull_check_run("check_run_event_from_forked_repo.json", [])
 
 
 @pytest.mark.asyncio
-async def test_event_to_pull_check_run_same_repo(redis_cache):
-    await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run_event_from_same_repo.json", [409]
-    )
+async def test_event_to_pull_check_run_same_repo():
+    await _do_test_event_to_pull_check_run("check_run_event_from_same_repo.json", [409])
 
 
 GITHUB_SAMPLE_EVENTS = {}
@@ -73,14 +66,11 @@ async def test_filter_and_dispatch(
     worker_push: mock.Mock,
     event_type: github_types.GitHubEventType,
     event: github_types.GitHubEvent,
-    redis_cache: utils.RedisCache,
-    redis_stream: utils.RedisStream,
 ) -> None:
     event_id = "my_event_id"
     try:
         await github_events.filter_and_dispatch(
-            redis_cache,
-            redis_stream,
+            None,
             event_type,
             event_id,
             event,

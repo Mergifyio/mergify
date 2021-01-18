@@ -112,7 +112,7 @@ class T_PayloadEvent(typing.TypedDict):
     retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
 )
 async def push(
-    redis: utils.RedisStream,
+    redis: aredis.StrictRedis,
     owner_id: github_types.GitHubAccountIdType,
     owner: github_types.GitHubLogin,
     repo: github_types.GitHubRepositoryName,
@@ -251,7 +251,7 @@ PullsToConsume = typing.NewType(
 
 @dataclasses.dataclass
 class StreamSelector:
-    redis: utils.RedisStream
+    redis: aredis.StrictRedis
     worker_id: int
     worker_count: int
 
@@ -279,7 +279,7 @@ class StreamSelector:
 
 @dataclasses.dataclass
 class StreamProcessor:
-    redis: utils.RedisStream
+    redis: aredis.StrictRedis
     _thread: ThreadRunner = dataclasses.field(init=False, default_factory=ThreadRunner)
 
     def close(self):
@@ -369,20 +369,15 @@ class StreamProcessor:
 
     async def consume(self, stream_name: StreamNameType) -> None:
         owner_login, owner_id = self._extract_owner(stream_name)
-        LOG.debug("consoming stream", gh_owner=owner_login)
 
         try:
-            async with utils.aredis_for_cache() as redis_cache:
-                async with self._translate_exception_to_retries(stream_name):
-                    sub = await subscription.Subscription.get_subscription(
-                        redis_cache, owner_id
-                    )
-                async with self._github_get_client(owner_login) as client:
-                    installation = context.Installation(
-                        owner_id, owner_login, sub, client, redis_cache
-                    )
-                    pulls = await self._extract_pulls_from_stream(installation)
-                    await self._consume_pulls(installation, pulls)
+            async with self._translate_exception_to_retries(stream_name):
+                sub = await subscription.Subscription.get_subscription(owner_id)
+
+            async with self._github_get_client(owner_login) as client:
+                installation = context.Installation(owner_id, owner_login, sub, client)
+                pulls = await self._extract_pulls_from_stream(installation)
+                await self._consume_pulls(installation, pulls)
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             await self.redis.delete(stream_name)
@@ -463,6 +458,7 @@ end
             data = msgpack.unpackb(message[b"event"], raw=False)
             repo = github_types.GitHubRepositoryName(data["repo"])
             source = typing.cast(context.T_PayloadEventSource, data["source"])
+
             if data["pull_number"] is not None:
                 key = (repo, github_types.GitHubPullRequestNumber(data["pull_number"]))
                 group = pulls.setdefault(key, ([], []))
@@ -534,7 +530,7 @@ end
         # and delete the current message_id as we have unpack this incomplete event into
         # multiple complete event
         pull_numbers = await github_events.extract_pull_numbers_from_event(
-            installation,
+            installation.owner_login,
             repo_name,
             source["event_type"],
             source["data"],
@@ -651,9 +647,7 @@ class Worker:
         typing.Literal["stream", "stream-monitoring"]
     ] = dataclasses.field(default_factory=lambda: {"stream", "stream-monitoring"})
 
-    _redis: typing.Optional[utils.RedisStream] = dataclasses.field(
-        init=False, default=None
-    )
+    _redis: aredis.StrictRedis = dataclasses.field(init=False, default=None)
 
     _loop: asyncio.AbstractEventLoop = dataclasses.field(
         init=False, default_factory=asyncio.get_running_loop
@@ -677,9 +671,6 @@ class Worker:
         return self.worker_per_process * self.process_count
 
     async def stream_worker_task(self, worker_id: int) -> None:
-        if self._redis is None:
-            raise RuntimeError("redis client is not ready")
-
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis)
@@ -723,9 +714,6 @@ class Worker:
             pass
 
     async def monitoring_task(self) -> None:
-        if self._redis is None:
-            raise RuntimeError("redis client is not ready")
-
         while not self._stopping.is_set():
             try:
                 now = time.time()
