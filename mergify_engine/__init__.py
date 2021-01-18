@@ -14,7 +14,6 @@
 import os
 
 import sentry_sdk
-from sentry_sdk.integrations.redis import RedisIntegration
 
 from mergify_engine import config
 
@@ -25,6 +24,5 @@ if config.SENTRY_URL:  # pragma: no cover
         max_breadcrumbs=10,
         release=os.environ.get("HEROKU_RELEASE_VERSION"),
         environment=config.SENTRY_ENVIRONMENT,
-        integrations=[RedisIntegration()],
     )
     sentry_sdk.utils.MAX_STRING_LENGTH = 2048
