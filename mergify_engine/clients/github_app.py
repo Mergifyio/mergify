@@ -69,10 +69,9 @@ class JwtHandler:
                     "exp": self.jwt_expiration,
                     "iss": config.INTEGRATION_ID,
                 }
-                encrypted = jwt.encode(
+                self.jwt = jwt.encode(
                     payload, key=config.PRIVATE_KEY, algorithm="RS256"
                 )
-                self.jwt = encrypted.decode("utf-8")
                 LOG.debug("New JWT created", expire_at=self.jwt_expiration)
         return self.jwt
 
