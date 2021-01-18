@@ -34,7 +34,7 @@ class RebaseAction(actions.Action):
 
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
     }
 

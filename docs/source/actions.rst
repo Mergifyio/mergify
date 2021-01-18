@@ -162,7 +162,7 @@ The ``comment`` action adds a comment to the pull request.
      -
      - The message to write as a comment.
    * - ``bot_account``
-     - string
+     - :ref:`data type template`
      -
      - Mergify can impersonate a GitHub user to comment a pull request.
        If no ``bot_account`` is set, Mergify will comment the pull request
@@ -194,7 +194,7 @@ The ``review`` action reviews the pull request.
      -
      - The message to write as a comment.
    * - ``bot_account``
-     - string
+     - :ref:`data type template`
      -
      - Mergify can impersonate a GitHub user to review a pull request.
        If no ``bot_account`` is set, Mergify will review the pull request
@@ -384,7 +384,7 @@ The ``merge`` action merges the pull request into its base branch. The
        rebase`.
 
    * - ``merge_bot_account``
-     - string
+     - :ref:`data type template`
      -
      - Mergify can impersonate a GitHub user to merge pull request.
        If no ``merge_bot_account`` is set, Mergify will merge the pull request
@@ -394,7 +394,7 @@ The ``merge`` action merges the pull request into its base branch. The
        |premium plan tag|
 
    * - ``update_bot_account``
-     - string
+     - :ref:`data type template`
      -
      - For certain actions, such as rebasing branches, Mergify has to
        impersonate a GitHub user. You can specify the account to use with this
@@ -564,7 +564,7 @@ The ``rebase`` action will rebase the pull request against its base branch.
     - Value Description
 
   * - ``update_bot_account``
-    - string
+    - :ref:`data type template`
     -
     - For certain actions, such as rebasing branches, Mergify has to
       impersonate a GitHub user. You can specify the account to use with this
