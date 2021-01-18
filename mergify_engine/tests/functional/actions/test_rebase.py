@@ -15,45 +15,44 @@
 # under the License.
 import yaml
 
-from mergify_engine import config
 from mergify_engine.tests.functional import base
-
-# où/cm simuler une nouvelle PR sur le repo
-# où/cm similuer un repo à > 512Mo > config.NOSUB_MAX_REPO_SIZE_KB = 567 ?
-# input: quel(s) test(s) faire pour vérification ? assert
 
 
 class TestRebaseAction(base.FunctionalTestBase):
-    def test_rebase(self):
+    def test_rebase_ok(self):
         rules = {
             "pull_request_rules": [
                 {
                     "name": "rebase",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"merge": {"method": "rebase"}},
+                    "actions": {"rebase": {}},
                 }
             ]
         }
 
-        self.setup_repo(yaml.dump(rules))
+        ahead_branch = self.get_full_branch_name("main/head")
 
-        p, _ = self.create_pr()
+        self.setup_repo(
+            yaml.dump(rules),
+            test_branches=[
+                ahead_branch,
+            ],
+        )
+
+        p, commits = self.create_pr()
+        tmp_sha = commits[-1].sha
+
+        self.git("checkout", ahead_branch)
+
+        open(self.git.tmp + "/an_other_file", "wb").close()
+        self.git("add", "an_other_file")
+
+        self.git("commit", "--no-edit", "-m", "commit ahead")
+        self.git("push", "--quiet", "main", self.master_branch_name)
+
         self.run_engine()
-
         p.update()
-        pass
+        final_sha = p.head.sha
 
-
-class TestRebaseActionWithSub(base.FunctionalTestBase):
-    SUBSCRIPTION_ACTIVE = True
-    config.NOSUB_MAX_REPO_SIZE_KB = 567
-
-    async def test_rebase_repo_over_512lim_ok(self):
-        pass
-
-
-class TestRebaseActionWithoutSub(base.FunctionalTestBase):
-    config.NOSUB_MAX_REPO_SIZE_KB = 567
-
-    async def test_rebase_repo_over_512lim_fail(self):
-        pass
+        self.assertEqual("closed", p.state)
+        self.assertNotEqual(tmp_sha, final_sha)
