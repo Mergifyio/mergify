@@ -26,51 +26,61 @@ import typing
 import urllib.parse
 
 import aredis
+import redis
 
 from mergify_engine import config
 
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 
-# NOTE(sileht): I wonder with mypy thing aredis.StrictRedis is Any...
-RedisCache = typing.NewType("RedisCache", aredis.StrictRedis)  # type: ignore
-RedisStream = typing.NewType("RedisStream", aredis.StrictRedis)  # type: ignore
+
+global AREDIS_CONNECTION_CACHE
+AREDIS_CONNECTION_CACHE: typing.Optional[aredis.StrictRedis] = None
 
 
-async def create_aredis_for_cache(
-    max_idle_time: int = 60,
-) -> RedisCache:
-    client = aredis.StrictRedis.from_url(
-        config.STORAGE_URL,
-        decode_responses=True,
-        max_idle_time=max_idle_time,
-    )
-    await client.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
-    return RedisCache(client)
+async def get_aredis_for_cache(max_idle_time: int = 60) -> aredis.StrictRedis:
+    global AREDIS_CONNECTION_CACHE
+    if AREDIS_CONNECTION_CACHE is None:
+        AREDIS_CONNECTION_CACHE = aredis.StrictRedis.from_url(
+            config.STORAGE_URL,
+            decode_responses=True,
+            max_idle_time=max_idle_time,
+        )
+        await AREDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
+    return AREDIS_CONNECTION_CACHE
 
 
 @contextlib.asynccontextmanager
-async def aredis_for_cache() -> typing.AsyncIterator[RedisCache]:
-    client = await create_aredis_for_cache(max_idle_time=0)
+async def aredis_for_cache() -> typing.AsyncIterator[aredis.StrictRedis]:
+    client = aredis.StrictRedis.from_url(
+        config.STORAGE_URL, decode_responses=True, max_idle_time=0
+    )
     try:
+        await client.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
         yield client
     finally:
         client.connection_pool.disconnect()
 
 
-async def create_aredis_for_stream(max_idle_time: int = 60) -> RedisStream:
+global REDIS_CONNECTION_CACHE
+REDIS_CONNECTION_CACHE: typing.Optional[redis.StrictRedis] = None
+
+
+def get_redis_for_cache() -> redis.StrictRedis:
+    global REDIS_CONNECTION_CACHE
+    if REDIS_CONNECTION_CACHE is None:
+        REDIS_CONNECTION_CACHE = redis.StrictRedis.from_url(
+            config.STORAGE_URL,
+            decode_responses=True,
+        )
+        REDIS_CONNECTION_CACHE.client_setname("cache:%s" % _PROCESS_IDENTIFIER)
+    return REDIS_CONNECTION_CACHE
+
+
+async def create_aredis_for_stream(max_idle_time: int = 60) -> aredis.StrictRedis:
     r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=max_idle_time)
     await r.client_setname("stream:%s" % _PROCESS_IDENTIFIER)
-    return RedisStream(r)
-
-
-@contextlib.asynccontextmanager
-async def aredis_for_stream() -> typing.AsyncIterator[RedisCache]:
-    client = await create_aredis_for_stream(max_idle_time=0)
-    try:
-        yield client
-    finally:
-        client.connection_pool.disconnect()
+    return r
 
 
 async def stop_pending_aredis_tasks():

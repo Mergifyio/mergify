@@ -18,6 +18,7 @@ import json
 import typing
 import uuid
 
+import aredis
 import daiquiri
 import fastapi
 from starlette import requests
@@ -47,15 +48,15 @@ app.mount("/validate", config_validator.app)
 app.mount("/badges", badges.app)
 
 
-_AREDIS_STREAM: utils.RedisStream
-_AREDIS_CACHE: utils.RedisCache
+_AREDIS_STREAM: aredis.StrictRedis = None
+_AREDIS_CACHE: aredis.StrictRedis = None
 
 
 @app.on_event("startup")
 async def startup():
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_STREAM = await utils.create_aredis_for_stream()
-    _AREDIS_CACHE = await utils.create_aredis_for_cache()
+    _AREDIS_CACHE = await utils.get_aredis_for_cache()
 
 
 @app.on_event("shutdown")
@@ -126,7 +127,7 @@ async def _refresh(
     )
 
     await github_events.filter_and_dispatch(
-        _AREDIS_CACHE, _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
+        _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
     )
 
     return responses.Response("Refresh queued", status_code=202)
@@ -256,7 +257,7 @@ async def subscription_cache_update(
     if sub is None:
         return responses.Response("Empty content", status_code=400)
     await subscription.Subscription.from_dict(
-        _AREDIS_CACHE, int(owner_id), sub
+        int(owner_id), sub
     ).save_subscription_to_cache()
     return responses.Response("Cache updated", status_code=200)
 
@@ -352,7 +353,7 @@ async def event_handler(
 
     try:
         await github_events.filter_and_dispatch(
-            _AREDIS_CACHE, _AREDIS_STREAM, event_type, event_id, data
+            _AREDIS_STREAM, event_type, event_id, data
         )
     except github_events.IgnoredEvent as ie:
         status_code = 200

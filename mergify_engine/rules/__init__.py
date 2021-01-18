@@ -20,6 +20,7 @@ import itertools
 import operator
 import typing
 
+import aredis
 import daiquiri
 import voluptuous
 import yaml
@@ -330,7 +331,7 @@ def get_config_location_cache_key(repo: github_types.GitHubRepository) -> str:
 
 
 async def get_mergify_config_content(
-    redis_cache: utils.RedisCache,
+    redis_cache: aredis.StrictRedis,
     client: github.GithubInstallationClient,
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
@@ -376,12 +377,14 @@ class MergifyConfig(typing.TypedDict):
 
 
 async def get_mergify_config(
-    redis_cache: utils.RedisCache,
     client: github.GithubInstallationClient,
     repo: github_types.GitHubRepository,
     ref: typing.Optional[github_types.GitHubRefType] = None,
 ) -> typing.Tuple[str, MergifyConfig]:
-    filename, content = await get_mergify_config_content(redis_cache, client, repo, ref)
+    async with utils.aredis_for_cache() as redis_cache:
+        filename, content = await get_mergify_config_content(
+            redis_cache, client, repo, ref
+        )
     try:
         return filename, typing.cast(MergifyConfig, UserConfigurationSchema(content))
     except voluptuous.Invalid as e:
