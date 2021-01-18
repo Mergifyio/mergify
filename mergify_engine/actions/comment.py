@@ -29,7 +29,7 @@ class CommentAction(actions.Action):
     validator = {
         voluptuous.Required("message"): types.Jinja2,
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
     }
 

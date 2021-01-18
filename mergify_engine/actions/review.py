@@ -41,7 +41,7 @@ class ReviewAction(actions.Action):
             types.Jinja2, None
         ),
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
     }
 

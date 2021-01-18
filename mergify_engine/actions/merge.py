@@ -59,13 +59,13 @@ class MergeAction(merge_base.MergeBaseAction):
         # NOTE(sileht): Alias of update_bot_account, it's now undocumented but we have
         # users that use it so, we have to keep it
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
         voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
         voluptuous.Required("update_bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+            None, types.Jinja2
         ),
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
             "default", "title+body"
