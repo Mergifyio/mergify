@@ -118,6 +118,13 @@ class CopyAction(actions.Action):
                 "available with the Mergify GitHub App.",
             )
 
+        if await ctxt.github_workflow_changed():
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                self.FAILURE_MESSAGE,
+                "GitHub App like Mergify are not allowed to create pull request where `.github/workflows` is changed.",
+            )
+
         branches = self.config["branches"]
         if self.config["regexes"]:
             branches.extend(
