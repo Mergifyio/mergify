@@ -37,42 +37,34 @@ class QueueConfig(typing.TypedDict):
 
 @dataclasses.dataclass
 class Queue:
-    redis: utils.RedisCache
-    owner_id: int
-    owner: str
-    repo_id: int
-    repo: str
+    repository: context.Repository
     ref: str
 
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
     def __post_init__(self):
         self.log = daiquiri.getLogger(
-            __name__, gh_owner=self.owner, gh_repo=self.repo, gh_branch=self.ref
+            __name__,
+            gh_owner=self.repository.installation.owner_login,
+            gh_repo=self.repository.name,
+            gh_branch=self.ref,
         )
 
     @classmethod
     def from_context(cls, ctxt: context.Context) -> "Queue":
-        return cls(
-            ctxt.redis,
-            ctxt.pull["base"]["repo"]["owner"]["id"],
-            ctxt.pull["base"]["repo"]["owner"]["login"],
-            ctxt.pull["base"]["repo"]["id"],
-            ctxt.pull["base"]["repo"]["name"],
-            ctxt.pull["base"]["ref"],
-        )
+        return cls(ctxt.repository, ctxt.pull["base"]["ref"])
 
     @property
     def _redis_queue_key(self) -> str:
         return self._get_redis_queue_key_for(self.ref)
 
     def _get_redis_queue_key_for(self, ref: str) -> str:
-        return f"merge-queue~{self.owner_id}~{self.repo_id}~{ref}"
+        return f"merge-queue~{self.repository.installation.owner_id}~{self.repository.id}~{ref}"
 
     def _config_redis_queue_key(
         self, pull_number: github_types.GitHubPullRequestNumber
     ) -> str:
-        return f"merge-config~{self.owner_id}~{self.repo_id}~{pull_number}"
+        return f"merge-config~{self.repository.installation.owner_id}~{self.repository.id}~{pull_number}"
 
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
@@ -83,7 +75,9 @@ class Queue:
 
         :param pull_number: The pull request number.
         """
-        config_str = await self.redis.get(self._config_redis_queue_key(pull_number))
+        config_str = await self.repository.installation.redis.get(
+            self._config_redis_queue_key(pull_number)
+        )
         if config_str is None:
             # TODO(sileht): Everything about queue should be done in redis transaction
             # e.g.: add/update/get/del of a pull in queue
@@ -106,13 +100,13 @@ class Queue:
     async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
         await self._remove_pull_from_other_queues(ctxt)
 
-        await self.redis.set(
+        await self.repository.installation.redis.set(
             self._config_redis_queue_key(ctxt.pull["number"]),
             json.dumps(config),
         )
 
         score = utils.utcnow().timestamp() / config["effective_priority"]
-        added = await self.redis.zaddoption(
+        added = await self.repository.installation.redis.zaddoption(
             self._redis_queue_key, "NX", **{str(ctxt.pull["number"]): score}
         )
 
@@ -136,9 +130,13 @@ class Queue:
     async def _remove_pull_from_other_queues(self, ctxt: context.Context) -> None:
         # TODO(sileht): Find if there is an event when the base branch change to do this
         # only is this case.
-        for queue_name in await self.redis.keys(self._get_redis_queue_key_for("*")):
+        for queue_name in await self.repository.installation.redis.keys(
+            self._get_redis_queue_key_for("*")
+        ):
             if queue_name != self._redis_queue_key:
-                score = await self.redis.zscore(queue_name, ctxt.pull["number"])
+                score = await self.repository.installation.redis.zscore(
+                    queue_name, ctxt.pull["number"]
+                )
                 if score is not None:
                     old_branch = queue_name.split("~")[-1]
                     old_queue = self.get_queue(old_branch)
@@ -150,9 +148,13 @@ class Queue:
                     await old_queue.remove_pull(ctxt)
 
     async def remove_pull(self, ctxt: context.Context) -> None:
-        removed = await self.redis.zrem(self._redis_queue_key, ctxt.pull["number"])
+        removed = await self.repository.installation.redis.zrem(
+            self._redis_queue_key, ctxt.pull["number"]
+        )
         if removed > 0:
-            await self.redis.delete(self._config_redis_queue_key(ctxt.pull["number"]))
+            await self.repository.installation.redis.delete(
+                self._config_redis_queue_key(ctxt.pull["number"])
+            )
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
@@ -164,14 +166,7 @@ class Queue:
 
     def get_queue(self, ref: str) -> "Queue":
         """Get a queue for another ref of this repository."""
-        return self.__class__(
-            self.redis,
-            self.owner_id,
-            self.owner,
-            self.repo_id,
-            self.repo,
-            ref,
-        )
+        return self.__class__(self.repository, ref)
 
     async def is_first_pull(self, ctxt: context.Context) -> bool:
         pull_requests = await self.get_pulls()
@@ -190,13 +185,13 @@ class Queue:
     async def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         return [
             github_types.GitHubPullRequestNumber(int(pull))
-            for pull in await self.redis.zrangebyscore(
+            for pull in await self.repository.installation.redis.zrangebyscore(
                 self._redis_queue_key, "-inf", "+inf"
             )
         ]
 
     async def delete(self) -> None:
-        await self.redis.delete(self._redis_queue_key)
+        await self.repository.installation.redis.delete(self._redis_queue_key)
 
     async def _refresh_pulls(
         self,
@@ -205,16 +200,19 @@ class Queue:
         async with utils.aredis_for_stream() as redis_stream:
             for pull in pull_requests_to_refresh:
                 await github_events.send_refresh(
-                    self.redis,
+                    self.repository.installation.redis,
                     redis_stream,
                     {
                         "number": pull,
                         "base": {
                             "repo": {
-                                "id": self.repo_id,
-                                "name": self.repo,
-                                "owner": {"login": self.owner, "id": self.owner_id},
-                                "full_name": f"{self.owner}/{self.repo}",
+                                "id": self.repository.id,
+                                "name": self.repository.name,
+                                "owner": {
+                                    "login": self.repository.installation.owner_login,
+                                    "id": self.repository.installation.owner_id,
+                                },
+                                "full_name": f"{self.repository.installation.owner_login}/{self.repository.name}",
                             }
                         },
                     },  # type: ignore

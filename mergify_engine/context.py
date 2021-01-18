@@ -21,6 +21,7 @@ import typing
 from urllib import parse
 
 import daiquiri
+import first
 import jinja2.exceptions
 import jinja2.meta
 import jinja2.runtime
@@ -83,7 +84,8 @@ class Installation:
 @dataclasses.dataclass
 class Repository(object):
     installation: Installation
-    name: str
+    name: github_types.GitHubRepositoryName
+    _id: typing.Optional[github_types.GitHubRepositoryIdType] = None
     pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
         dataclasses.field(default_factory=dict)
     )
@@ -92,6 +94,19 @@ class Repository(object):
     def base_url(self) -> str:
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.installation.owner_login}/{self.name}"
+
+    @property
+    def id(self) -> github_types.GitHubRepositoryIdType:
+        # TODO(sileht): Ensure all events push to worker have repo id set, to be able to
+        # remove this
+        if self._id is None:
+            ctxt = first.first(c for _, c in self.pull_contexts.items())
+            if ctxt is None:
+                raise RuntimeError(
+                    "Can't get repo id if Repository.pull_contexts is empty"
+                )
+            self._id = ctxt.pull["base"]["repo"]["id"]
+        return self._id
 
     async def get_pull_request_context(
         self,

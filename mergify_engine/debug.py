@@ -191,9 +191,18 @@ async def report(
 
     await report_worker_status(owner)
 
-    if repo is not None:
+    installation = context.Installation(
+        client.auth.owner_id, owner, cached_sub, client, redis_cache
+    )
 
-        repo_info = await client.item(f"/repos/{owner}/{repo}")
+    if repo is not None:
+        repo_info: github_types.GitHubRepository = await client.item(
+            f"/repos/{owner}/{repo}"
+        )
+        repository = context.Repository(
+            installation, repo_info["name"], repo_info["id"]
+        )
+
         print(f"* REPOSITORY IS {'PRIVATE' if repo_info['private'] else 'PUBLIC'}")
 
         print("* CONFIGURATION:")
@@ -221,14 +230,7 @@ async def report(
                 typing.AsyncGenerator[github_types.GitHubBranch, None],
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
-                q = queue.Queue(
-                    redis_cache,
-                    repo_info["owner"]["id"],
-                    repo_info["owner"]["login"],
-                    repo_info["id"],
-                    repo_info["name"],
-                    branch["name"],
-                )
+                q = queue.Queue(repository, branch["name"])
                 pulls = await q.get_pulls()
                 if not pulls:
                     continue
@@ -254,15 +256,11 @@ async def report(
                     formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
                     print(f"** {formatted_pulls} (priority: {fancy_priority})")
         else:
-            pull_raw = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
-            installation = context.Installation(
-                client.auth.owner_id, owner, cached_sub, client, redis_cache
+            repository = context.Repository(
+                installation, github_types.GitHubRepositoryName(repo)
             )
-            repository = context.Repository(installation, repo)
-            ctxt = await context.Context.create(
-                repository,
-                pull_raw,
-                [],
+            ctxt = await repository.get_pull_request_context(
+                github_types.GitHubPullRequestNumber(int(pull_number))
             )
 
             # FIXME queues could also be printed if no pull number given

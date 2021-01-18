@@ -452,7 +452,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.redis_cache,
         )
         self.repository_ctxt = context.Repository(
-            self.installation_ctxt, self.REPO_NAME
+            self.installation_ctxt, self.REPO_NAME, self.r_o_integration.id
         )
 
         real_get_subscription = subscription.Subscription.get_subscription
