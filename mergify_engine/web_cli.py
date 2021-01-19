@@ -14,8 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 import argparse
+import asyncio
 import os
 
 from mergify_engine import config
@@ -23,12 +23,12 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
-def api_call(url, method="post"):
+async def api_call(url, method="post"):
     data = os.urandom(250)
     hmac = utils.compute_hmac(data)
 
-    with http.Client() as client:
-        r = client.request(
+    async with http.AsyncClient() as client:
+        r = await client.request(
             method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, data=data
         )
     r.raise_for_status()
@@ -39,9 +39,11 @@ def clear_token_cache():
     parser = argparse.ArgumentParser(description="Force refresh of installation token")
     parser.add_argument("owner_id")
     args = parser.parse_args()
-    api_call(
-        config.BASE_URL + "/subscription-cache/%s" % args.owner_id,
-        method="delete",
+    asyncio.run(
+        api_call(
+            config.BASE_URL + "/subscription-cache/%s" % args.owner_id,
+            method="delete",
+        )
     )
 
 
@@ -63,7 +65,9 @@ def refresher():
     if args.urls:
         for url in args.urls:
             url = url.replace("https://github.com/", "")
-            api_call(f"{config.BASE_URL}/refresh/{url}?action={args.action}")
+            asyncio.run(
+                api_call(f"{config.BASE_URL}/refresh/{url}?action={args.action}")
+            )
     else:
         parser.print_help()
 
@@ -73,4 +77,6 @@ def queues():
     parser.add_argument("installation_id")
 
     args = parser.parse_args()
-    api_call(config.BASE_URL + "/queues/%s" % args.installation_id, method="GET")
+    asyncio.run(
+        api_call(config.BASE_URL + "/queues/%s" % args.installation_id, method="GET")
+    )
