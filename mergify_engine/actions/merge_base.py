@@ -254,7 +254,7 @@ class MergeBaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.CANCELLED,
                     "The pull request have been removed from the queue",
-                    "The queue conditions cannot be reach due to failing checks.",
+                    "The queue conditions cannot be satisfied due to failing checks.",
                 )
 
         try:
