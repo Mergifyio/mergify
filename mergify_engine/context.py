@@ -17,6 +17,7 @@ import base64
 import contextlib
 import dataclasses
 import itertools
+import json
 import logging
 import typing
 from urllib import parse
@@ -81,6 +82,63 @@ class Installation:
             repository = Repository(self, name)
             self.repositories[name] = repository
         return self.repositories[name]
+
+    TEAM_MEMBERS_CACHE_KEY_PREFIX = "team_members"
+    TEAM_MEMBERS_CACHE_KEY_DELIMITER = "/"
+    TEAM_MEMBERS_EXPIRATION = 3600  # 1 hour
+
+    @classmethod
+    def _team_members_cache_key_for_repo(
+        cls,
+        owner_id: github_types.GitHubAccountIdType,
+    ) -> str:
+        return (
+            f"{cls.TEAM_MEMBERS_CACHE_KEY_PREFIX}"
+            f"{cls.TEAM_MEMBERS_CACHE_KEY_DELIMITER}{owner_id}"
+        )
+
+    @classmethod
+    async def clear_team_members_cache_for_team(
+        cls,
+        redis: utils.RedisCache,
+        owner: github_types.GitHubAccount,
+        team_slug: github_types.GitHubTeamSlug,
+    ) -> None:
+        await redis.hdel(
+            cls._team_members_cache_key_for_repo(owner["id"]),
+            team_slug,
+        )
+
+    @classmethod
+    async def clear_team_members_cache_for_org(
+        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
+    ) -> None:
+        await redis.delete(cls._team_members_cache_key_for_repo(user["id"]))
+
+    async def get_team_members(
+        self, team_slug: github_types.GitHubTeamSlug
+    ) -> typing.List[github_types.GitHubLogin]:
+
+        key = self._team_members_cache_key_for_repo(self.owner_id)
+        members_raw = await self.redis.hget(key, team_slug)
+        if members_raw is None:
+            members = [
+                github_types.GitHubLogin(member["login"])
+                async for member in self.client.items(
+                    f"/orgs/{self.owner_login}/teams/{team_slug}/members"
+                )
+            ]
+            # TODO(sileht): move to msgpack when we remove redis-cache connection
+            # from decode_responses=True (eg: MRGFY-285)
+            pipe = await self.redis.pipeline()
+            await pipe.hset(key, team_slug, json.dumps(members))
+            await pipe.expire(key, self.TEAM_MEMBERS_EXPIRATION)
+            await pipe.execute()
+            return members
+        else:
+            return typing.cast(
+                typing.List[github_types.GitHubLogin], json.loads(members_raw)
+            )
 
 
 class RepositoryCache(typing.TypedDict, total=False):
@@ -623,31 +681,29 @@ class Context(object):
         checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
         return checks
 
-    async def _resolve_login(self, name):
+    async def _resolve_login(self, name: str) -> typing.List[github_types.GitHubLogin]:
         if not name:
             return []
         elif not isinstance(name, str):
-            return [name]
+            return [github_types.GitHubLogin(name)]
         elif name[0] != "@":
-            return [name]
+            return [github_types.GitHubLogin(name)]
 
         if "/" in name:
             organization, _, team_slug = name.partition("/")
             if not team_slug or "/" in team_slug:
                 # Not a team slug
-                return [name]
-            organization = organization[1:]
+                return [github_types.GitHubLogin(name)]
+            organization = github_types.GitHubLogin(organization[1:])
+            if organization != self.pull["base"]["repo"]["owner"]["login"]:
+                # TODO(sileht): We don't have the permissions, maybe we should report this
+                return [github_types.GitHubLogin(name)]
+            team_slug = github_types.GitHubTeamSlug(team_slug)
         else:
-            organization = self.pull["base"]["repo"]["owner"]["login"]
-            team_slug = name[1:]
+            team_slug = github_types.GitHubTeamSlug(name[1:])
 
         try:
-            return [
-                member["login"]
-                async for member in self.client.items(
-                    f"/orgs/{organization}/teams/{team_slug}/members"
-                )
-            ]
+            return await self.repository.installation.get_team_members(team_slug)
         except http.HTTPClientSideError as e:
             self.log.warning(
                 "fail to get the organization, team or members",
@@ -655,7 +711,7 @@ class Context(object):
                 status_code=e.status_code,
                 detail=e.message,
             )
-        return [name]
+        return [github_types.GitHubLogin(name)]
 
     async def resolve_teams(self, values):
         if not values:
