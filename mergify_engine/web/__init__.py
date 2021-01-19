@@ -131,7 +131,9 @@ async def _refresh(
     return responses.Response("Refresh queued", status_code=202)
 
 
-@app.post("/refresh/{owner}/{repo}", dependencies=[fastapi.Depends(auth.signature)])
+@app.post(
+    "/refresh/{owner}/{repo_name}", dependencies=[fastapi.Depends(auth.signature)]
+)
 async def refresh_repo(
     owner: github_types.GitHubLogin, repo_name: github_types.GitHubRepositoryName
 ) -> responses.Response:
@@ -142,7 +144,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 
 
 @app.post(
-    "/refresh/{owner}/{repo}/pull/{pull}",
+    "/refresh/{owner}/{repo_name}/pull/{pull_request_number}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
@@ -231,7 +233,7 @@ async def refresh_pull(
 
 
 @app.post(
-    "/refresh/{owner}/{repo}/branch/{branch}",
+    "/refresh/{owner}/{repo_name}/branch/{branch}",
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_branch(

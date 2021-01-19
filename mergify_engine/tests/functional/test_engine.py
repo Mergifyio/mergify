@@ -1317,7 +1317,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == checks[0]["output"]["title"]
         )
 
-    async def _init_test_refresh(self):
+    async def test_refresh_api(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -1328,50 +1328,32 @@ no changes added to commit (use "git add" and/or "git commit -a")
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p1, commits1 = await self.create_pr()
-        p2, commits2 = await self.create_pr()
-        await self.run_engine()
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
 
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "automerge",
-                    "conditions": ["label!=wip"],
-                    "actions": {"merge": {}},
-                }
-            ]
-        }
-
-        await self.git("checkout", self.master_branch_name)
-        with open(self.git.tmp + "/.mergify.yml", "w") as f:
-            f.write(yaml.dump(rules))
-        await self.git("add", ".mergify.yml")
-        await self.git("commit", "--no-edit", "-m", "automerge everything")
-        await self.git("push", "--quiet", "main", self.master_branch_name)
-        await self.wait_for("push", {})
-
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 2 == len(pulls)
-        return p1, p2
-
-    async def test_refresh_pull(self):
-        p1, p2 = await self._init_test_refresh()
-
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s/pull/%s" % (p1.base.repo.full_name, p1.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        assert resp.status_code == 202, resp.text
 
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-        await self.wait_for("pull_request", {"action": "closed"})
+        assert resp.status_code == 202, resp.text
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 0 == len(pulls)
+        resp = await self.app.post(
+            "/refresh/%s/branch/master" % (p1.base.repo.full_name),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
+        )
+        assert resp.status_code == 202, resp.text
+
+        resp = await self.app.post(
+            "/refresh/%s" % (p1.base.repo.full_name),
+            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
+        )
+        assert resp.status_code == 202, resp.text
 
     async def test_command_refresh(self) -> None:
         rules = {
@@ -1424,32 +1406,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
             == comments[-1].body
         )
-
-    async def test_refresh_branch(self):
-        p1, p2 = await self._init_test_refresh()
-
-        await self.app.post(
-            "/refresh/%s/branch/master" % (p1.base.repo.full_name),
-            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
-        )
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-        await self.wait_for("pull_request", {"action": "closed"})
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 0 == len(pulls)
-
-    async def test_refresh_repo(self):
-        p1, p2 = await self._init_test_refresh()
-
-        await self.app.post(
-            "/refresh/%s" % (p1.base.repo.full_name),
-            headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
-        )
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-        await self.wait_for("pull_request", {"action": "closed"})
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
-        assert 0 == len(pulls)
 
     async def test_change_mergify_yml(self):
         rules = {
