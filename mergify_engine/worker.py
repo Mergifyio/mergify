@@ -23,7 +23,6 @@ import hashlib
 import itertools
 import os
 import signal
-import threading
 import time
 import typing
 
@@ -159,7 +158,7 @@ async def push(
     return (message_id, payload)
 
 
-async def _run_engine(
+async def run_engine(
     installation: context.Installation,
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestNumber,
@@ -184,77 +183,6 @@ async def _run_engine(
         await engine.run(ctxt, sources)
     finally:
         logger.debug("engine in thread end")
-
-
-async def run_engine(
-    installation: context.Installation,
-    repo_name: github_types.GitHubRepositoryName,
-    pull_number: github_types.GitHubPullRequestNumber,
-    sources: typing.List[context.T_PayloadEventSource],
-) -> None:
-    # TODO(sileht): Remove me, temporary method because client created in main thread
-    # should not share the client in engine thread.
-    main_thread_client = installation.client
-    main_thread_redis = installation.redis
-    try:
-        async with utils.aredis_for_cache() as redis:
-            async with github.aget_client(installation.owner_login) as client:
-                installation.redis = redis
-                installation.client = client
-                await _run_engine(installation, repo_name, pull_number, sources)
-    finally:
-        installation.client = main_thread_client
-        installation.redis = main_thread_redis
-
-
-class ThreadRunner(threading.Thread):
-    """This thread propagate exception to main thread."""
-
-    def __init__(self):
-        super().__init__(daemon=True)
-        self._coro = None
-        self._result = None
-        self._exception = None
-
-        self._stopping = threading.Event()
-        self._process = threading.Event()
-        self.start()
-
-    async def exec(self, coro):
-        self._coro = coro
-        self._result = None
-        self._exception = None
-
-        self._process.set()
-        while self._process.is_set():
-            await asyncio.sleep(0.01)
-
-        if self._stopping.is_set():
-            return
-
-        if self._exception:
-            raise self._exception
-
-        return self._result
-
-    def close(self):
-        self._stopping.set()
-        self._process.set()
-        self.join()
-
-    def run(self):
-        while not self._stopping.is_set():
-            self._process.wait()
-            if self._stopping.is_set():
-                self._process.clear()
-                return
-
-            try:
-                self._result = asyncio.run(self._coro)
-            except BaseException as e:
-                self._exception = e
-            finally:
-                self._process.clear()
 
 
 PullsToConsume = typing.NewType(
@@ -301,10 +229,6 @@ class StreamSelector:
 @dataclasses.dataclass
 class StreamProcessor:
     redis: utils.RedisStream
-    _thread: ThreadRunner = dataclasses.field(init=False, default_factory=ThreadRunner)
-
-    def close(self):
-        self._thread.close()
 
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
@@ -600,9 +524,7 @@ end
                 async with self._translate_exception_to_retries(
                     installation.stream_name, attempts_key
                 ):
-                    await self._thread.exec(
-                        run_engine(installation, repo, pull_number, sources)
-                    )
+                    await run_engine(installation, repo, pull_number, sources)
                 await self.redis.hdel("attempts", attempts_key)
                 await self.redis.execute_command(
                     "XDEL", installation.stream_name, *message_ids
@@ -709,15 +631,12 @@ class Worker:
                     LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
                     await self._sleep_or_stop()
             except asyncio.CancelledError:
-                # NOTE(sileht): We don't wait for the thread and just return, the thread
-                # will be killed when the program exits.
                 LOG.debug("worker %s killed", worker_id)
                 return
             except Exception:
                 LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
                 await self._sleep_or_stop()
 
-        stream_processor.close()
         LOG.debug("worker %s exited", worker_id)
 
     async def _sleep_or_stop(self, timeout=None):

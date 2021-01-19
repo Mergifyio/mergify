@@ -774,7 +774,7 @@ async def test_stream_processor_retrying_after_read_error(run_engine, _, redis):
     installation = context.Installation(123, "owner", {}, None, None)
     with pytest.raises(worker.StreamRetry):
         async with p._translate_exception_to_retries(installation.stream_name):
-            await p._thread.exec(worker.run_engine(installation, "repo", 1234, []))
+            await worker.run_engine(installation, "repo", 1234, [])
 
 
 @pytest.mark.asyncio
@@ -902,8 +902,10 @@ async def test_worker_reschedule(run_engine, _, redis, logger_checker, monkeypat
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_stuck_shutdown(run_engine, _, redis, logger_checker):
-    run_engine.side_effect = lambda *args, **kwargs: time.sleep(10000000)
+    async def fake_engine(*args, **kwargs):
+        await asyncio.sleep(10000000)
 
+    run_engine.side_effect = fake_engine
     await worker.push(
         redis,
         123,
