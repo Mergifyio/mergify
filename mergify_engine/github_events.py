@@ -257,6 +257,11 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "organization event"
 
+        if event["action"] == "deleted":
+            await context.Installation.clear_team_members_cache_for_org(
+                redis_cache, event["organization"]
+            )
+
         if event["action"] in ("deleted", "member_added", "member_removed"):
             await context.Repository.clear_user_permission_cache_for_org(
                 redis_cache, event["organization"]
@@ -283,6 +288,9 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
+        await context.Installation.clear_team_members_cache_for_team(
+            redis_cache, event["organization"], event["team"]["slug"]
+        )
         await context.Repository.clear_user_permission_cache_for_org(
             redis_cache, event["organization"]
         )
@@ -293,6 +301,11 @@ async def filter_and_dispatch(
         owner_id = event["organization"]["id"]
         repo_name = None
         ignore_reason = "team event"
+
+        if event["action"] in ("edited", "deleted"):
+            await context.Installation.clear_team_members_cache_for_team(
+                redis_cache, event["organization"], event["team"]["slug"]
+            )
 
         if event["action"] in (
             "edited",

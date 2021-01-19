@@ -530,7 +530,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         elif url == "/repos/another-jd/name/commits/<sha>/status":
             for s in get_statuses:
                 yield s
-        elif url == "/orgs/orgs/teams/my-reviewers/members":
+        elif url == "/orgs/another-jd/teams/my-reviewers/members":
             for tm in get_team_members:
                 yield tm
         else:
@@ -826,7 +826,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "default",
                 "conditions": [
-                    "approved-reviews-by=@orgs/my-reviewers",
+                    "approved-reviews-by=@another-jd/my-reviewers",
                     "#approved-reviews-by>=2",
                 ],
                 "actions": {},
@@ -861,7 +861,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "default",
                 "conditions": [
-                    "approved-reviews-by=@orgs/my-reviewers",
+                    "approved-reviews-by=@another-jd/my-reviewers",
                     "#approved-reviews-by>=2",
                 ],
                 "actions": {},
