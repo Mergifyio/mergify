@@ -11,4 +11,4 @@
 
 .. |beta tag| raw:: html
 
-   <div style="text-align: right"><a href="https://mergify.io/pricing" target="_blank"><span class="badge badge-warning">Beta feature ⚙️</span></a></div>
+   <div style="text-align: right"><a href="https://mergify.io/pricing" target="_blank"><span class="badge badge-info">Beta feature ⚙️</span></a></div>
