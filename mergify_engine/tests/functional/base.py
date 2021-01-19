@@ -444,6 +444,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
 
         self.cli_integration = github.aget_client(config.TESTING_ORGANIZATION)
+        self.addAsyncCleanup(self.cli_integration.aclose)
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
             config.TESTING_ORGANIZATION,
