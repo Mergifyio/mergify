@@ -79,8 +79,10 @@ class Queue:
             self._config_redis_queue_key(pull_number)
         )
         if config_str is None:
-            # TODO(sileht): Everything about queue should be done in redis transaction
-            # e.g.: add/update/get/del of a pull in queue
+            self.log.error(
+                "pull request queued without associated configuration",
+                gh_pull=pull_number,
+            )
             return QueueConfig(
                 {
                     "strict_method": "merge",
@@ -100,15 +102,17 @@ class Queue:
     async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
         await self._remove_pull_from_other_queues(ctxt)
 
-        await self.repository.installation.redis.set(
-            self._config_redis_queue_key(ctxt.pull["number"]),
-            json.dumps(config),
-        )
+        async with await self.repository.installation.redis.pipeline() as pipeline:
+            await pipeline.set(
+                self._config_redis_queue_key(ctxt.pull["number"]),
+                json.dumps(config),
+            )
 
-        score = utils.utcnow().timestamp() / config["effective_priority"]
-        added = await self.repository.installation.redis.zaddoption(
-            self._redis_queue_key, "NX", **{str(ctxt.pull["number"]): score}
-        )
+            score = utils.utcnow().timestamp() / config["effective_priority"]
+            await pipeline.zaddoption(
+                self._redis_queue_key, "NX", **{str(ctxt.pull["number"]): score}
+            )
+            added = (await pipeline.execute())[-1]
 
         if added:
             self.log.info(
@@ -147,14 +151,17 @@ class Queue:
                     )
                     await old_queue.remove_pull(ctxt)
 
-    async def remove_pull(self, ctxt: context.Context) -> None:
-        removed = await self.repository.installation.redis.zrem(
-            self._redis_queue_key, ctxt.pull["number"]
-        )
+    async def remove_pull(
+        self,
+        ctxt: context.Context,
+    ) -> None:
+
+        async with await self.repository.installation.redis.pipeline() as pipeline:
+            await pipeline.zrem(self._redis_queue_key, ctxt.pull["number"])
+            await pipeline.delete(self._config_redis_queue_key(ctxt.pull["number"]))
+            removed = (await pipeline.execute())[0]
+
         if removed > 0:
-            await self.repository.installation.redis.delete(
-                self._config_redis_queue_key(ctxt.pull["number"])
-            )
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
