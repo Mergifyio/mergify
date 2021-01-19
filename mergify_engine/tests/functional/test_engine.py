@@ -1357,15 +1357,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
     async def test_refresh_pull(self):
         p1, p2 = await self._init_test_refresh()
 
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s/pull/%s" % (p1.base.repo.full_name, p1.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        assert resp.status_code == 202, resp.text
 
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        assert resp.status_code == 202, resp.text
+
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1428,10 +1431,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
     async def test_refresh_branch(self):
         p1, p2 = await self._init_test_refresh()
 
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s/branch/master" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        assert resp.status_code == 202, resp.text
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1441,10 +1445,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
     async def test_refresh_repo(self):
         p1, p2 = await self._init_test_refresh()
 
-        await self.app.post(
+        resp = await self.app.post(
             "/refresh/%s" % (p1.base.repo.full_name),
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
+        assert resp.status_code == 202, resp.text
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("pull_request", {"action": "closed"})
