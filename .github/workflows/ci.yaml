@@ -6,6 +6,7 @@ on:
 
 jobs:
   datadog:
+    timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -18,6 +19,7 @@ jobs:
           python datadog/validate.py
 
   requirements:
+    timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -33,6 +35,8 @@ jobs:
 
 
   pep8:
+    timeout-minutes: 5
+    runs-on: ubuntu-20.04
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -44,6 +48,7 @@ jobs:
           tox -e pep8
 
   py39:
+    timeout-minutes: 10
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -56,6 +61,7 @@ jobs:
           tox -e py39
 
   docs:
+    timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
