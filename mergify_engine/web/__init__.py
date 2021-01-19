@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import collections
-import json
 import typing
 import uuid
 
@@ -380,61 +379,6 @@ async def event_handler(
         )
 
     return responses.Response(reason, status_code=status_code)
-
-
-# NOTE(sileht): These endpoints are used for recording cassetes, we receive
-# Github event on POST, we store them is redis, GET to retreive and delete
-@app.delete("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_delete() -> responses.Response:  # pragma: no cover
-    await _AREDIS_CACHE.delete("events-testing")
-    return responses.Response("Event queued", status_code=202)
-
-
-@app.post("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_post(
-    request: requests.Request,
-) -> responses.Response:  # pragma: no cover
-    event_type = request.headers.get("X-GitHub-Event")
-    event_id = request.headers.get("X-GitHub-Delivery")
-    data = await request.json()
-    await _AREDIS_CACHE.rpush(
-        "events-testing",
-        json.dumps({"id": event_id, "type": event_type, "payload": data}),
-    )
-    return responses.Response("Event queued", status_code=202)
-
-
-@app.get("/events-testing", dependencies=[fastapi.Depends(auth.signature)])
-async def event_testing_handler_get(
-    number: typing.Optional[int] = None,
-) -> responses.Response:  # pragma: no cover
-    async with await _AREDIS_CACHE.pipeline() as p:
-        if number is None:
-            await p.lrange("events-testing", 0, -1)
-            await p.delete("events-testing")
-            values = (await p.execute())[0]
-        else:
-            for _ in range(number):
-                await p.lpop("events-testing")
-            values = await p.execute()
-    data = [json.loads(i) for i in values if i is not None]
-    return responses.JSONResponse(content=data)
-
-
-@app.post("/marketplace-testing")
-async def marketplace_testng_handler(
-    request: requests.Request,
-) -> responses.Response:  # pragma: no cover
-    event_type = request.headers.get("X-GitHub-Event")
-    event_id = request.headers.get("X-GitHub-Delivery")
-    data = await request.json()
-    LOG.debug(
-        "received marketplace testing events",
-        event_type=event_type,
-        event_id=event_id,
-        data=data,
-    )
-    return responses.Response("Event ignored", status_code=202)
 
 
 @app.get("/")

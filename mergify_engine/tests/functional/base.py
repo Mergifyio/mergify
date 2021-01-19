@@ -135,6 +135,8 @@ class GitterRecorder(gitter.Gitter):
 
 
 class EventReader:
+    FORWARDER_ENDPOINT = "https://test-forwarder.mergify.io/events-testing"
+
     def __init__(self, app):
         self._app = app
         self._session = http.AsyncClient()
@@ -145,7 +147,7 @@ class EventReader:
         # NOTE(sileht): Drop any pending events still on the server
         r = await self._session.request(
             "DELETE",
-            "https://gh.mergify.io/events-testing",
+            self.FORWARDER_ENDPOINT,
             data=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
@@ -200,7 +202,7 @@ class EventReader:
         return (
             await self._session.request(
                 "GET",
-                f"https://gh.mergify.io/events-testing?counter={self._counter}",
+                f"{self.FORWARDER_ENDPOINT}?counter={self._counter}",
                 data=FAKE_DATA,
                 headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
             )
