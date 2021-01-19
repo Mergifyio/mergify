@@ -1,3 +1,12 @@
+queue_rules:
+  - name: default
+    conditions:
+      - "status-success=requirements"
+      - "status-success=datadog"
+      - "status-success=pep8"
+      - "status-success=py39"
+      - "status-success=docs"
+
 pull_request_rules:
   - name: automatic merge
     conditions:
@@ -12,8 +21,8 @@ pull_request_rules:
       - label!=work-in-progress
       - label!=manual merge
     actions:
-      merge:
-        strict: "smart"
+      queue:
+        name: default
         method: rebase
   - name: automatic merge for hotfix
     conditions:
@@ -31,8 +40,8 @@ pull_request_rules:
       - label!=work-in-progress
       - label!=manual merge
     actions:
-      merge:
-        strict: "smart"
+      queue:
+        name: default
         method: rebase
         priority: high
   - name: automatic merge from dependabot
@@ -41,14 +50,9 @@ pull_request_rules:
       - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
-      - "status-success=requirements"
-      - "status-success=datadog"
-      - "status-success=pep8"
-      - "status-success=py39"
-      - "status-success=docs"
     actions:
-      merge:
-        strict: "smart"
+      queue:
+        name: default
         method: rebase
         priority: low
   - name: dismiss reviews except for core devs
