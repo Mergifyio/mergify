@@ -357,7 +357,7 @@ interactions:
       host:
       - gh.mergify.io
     method: DELETE
-    uri: https://gh.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events-testing
   response:
     content: Event queued
     headers:
@@ -647,7 +647,7 @@ interactions:
       host:
       - gh.mergify.io
     method: DELETE
-    uri: https://gh.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events-testing
   response:
     content: Event queued
     headers:
