@@ -118,10 +118,6 @@ class Queue:
                 }
             )
         config: QueueConfig = json.loads(config_str)
-        # TODO(sileht): for compatibility purpose, we can drop that in a couple of week
-        config.setdefault("effective_priority", config["priority"])
-        config.setdefault("bot_account", None)
-        config.setdefault("update_bot_account", None)
         return config
 
     async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
