@@ -49,6 +49,9 @@ BRANCH_PROTECTION_FAQ_URL = (
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
+FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository."
+FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
+FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
 
 class PriorityAliases(enum.Enum):
@@ -509,6 +512,48 @@ class MergeBaseAction(actions.Action):
                     "the [required status check](https://docs.github.com/en/github/administering-a-repository/about-required-status-checks) "
                     f"validate the pull request. (detail: {e.message})",
                 )
+            elif FORBIDDEN_REBASE_MERGE_MSG in e.message:
+                ctxt.log.info(
+                    "Repository configuration doesn't allow rebase merge",
+                    status_code=e.status_code,
+                    error_message=e.message,
+                )
+                return check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    e.message,
+                    "The repository configuration doesn't allow rebase merge. "
+                    "The merge `method` configured in Mergify configuration must be "
+                    "allowed in the repository configuration settings.",
+                )
+
+            elif FORBIDDEN_SQUASH_MERGE_MSG in e.message:
+                ctxt.log.info(
+                    "Repository configuration doesn't allow squash merge",
+                    status_code=e.status_code,
+                    error_message=e.message,
+                )
+                return check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    e.message,
+                    "The repository configuration doesn't allow squash merge. "
+                    "The merge `method` configured in Mergify configuration must be "
+                    "allowed in the repository configuration settings.",
+                )
+
+            elif FORBIDDEN_MERGE_COMMITS_MSG in e.message:
+                ctxt.log.info(
+                    "Repository configuration doesn't allow merge commit",
+                    status_code=e.status_code,
+                    error_message=e.message,
+                )
+                return check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    e.message,
+                    "The repository configuration doesn't allow merge commits. "
+                    "The merge `method` configured in Mergify configuration must be "
+                    "allowed in the repository configuration settings.",
+                )
+
             else:
                 ctxt.log.info(
                     "Branch protection settings are not validated anymore",
