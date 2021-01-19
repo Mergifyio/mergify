@@ -62,10 +62,6 @@ class QueueAction(merge_base.MergeBaseAction):
         self.config["update_bot_account"] = None
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
 
-        # TODO(sileht): implements rebase and squash ?
-        self.config["method"] = "merge"
-        self.config["rebase_fallback"] = None
-
         for rule in mergify_config["queue_rules"]:
             if rule.name == self.config["name"]:
                 self.queue_rule = rule
