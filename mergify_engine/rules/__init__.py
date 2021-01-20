@@ -297,20 +297,20 @@ class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
         return []
 
 
-def YAML(v):
+def YAML(v: bytes) -> typing.Any:
     try:
         return yaml.safe_load(v)
-    except yaml.YAMLError as e:
+    except yaml.MarkedYAMLError as e:
         error_message = str(e)
-        path = (
-            [types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)]
-            if hasattr(e, "problem_mark")
-            else None
-        )
+        path = [
+            types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)
+        ]
         raise YAMLInvalid(
             message="Invalid YAML", error_message=error_message, path=path
         )
-    return v
+    except yaml.YAMLError as e:
+        error_message = str(e)
+        raise YAMLInvalid(message="Invalid YAML", error_message=error_message)
 
 
 PullRequestRulesSchema = voluptuous.All(
