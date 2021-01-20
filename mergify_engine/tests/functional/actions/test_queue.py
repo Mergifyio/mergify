@@ -410,10 +410,7 @@ class TestQueueAction(base.FunctionalTestBase):
         assert (
             check["output"]["title"] == "This pull request cannot be embarked for merge"
         )
-        assert (
-            check["output"]["summary"]
-            == "This pull request can't be embarked for merge: Merge conflict"
-        )
+        assert check["output"]["summary"] == "Merge conflict"
 
         # Merge the train
         for pull in pulls:
@@ -689,7 +686,4 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         assert (
             check["output"]["title"] == "This pull request cannot be embarked for merge"
         )
-        assert (
-            check["output"]["summary"]
-            == "This pull request can't be embarked for merge: Merge conflict"
-        )
+        assert check["output"]["summary"] == "Merge conflict"

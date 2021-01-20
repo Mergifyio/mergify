@@ -76,6 +76,16 @@ class TrainCar:
     def deserialize(cls, train: "Train", data: "TrainCar.Serialized") -> "TrainCar":
         return cls(train, **data)
 
+    def _get_embarked_refs(self, include_my_self=True):
+        pull_refs = ", ".join(
+            [
+                f"#{p}"
+                for p in self.parent_pull_request_numbers
+                + ([self.user_pull_request_number] if include_my_self else [])
+            ]
+        )
+        return f"{self.train.ref} ({self.initial_current_base_sha[:7]}), {pull_refs}"
+
     async def create_pull(self) -> None:
         # TODO(sileht): reuse branch instead of recreating PRs ?
 
@@ -129,14 +139,7 @@ class TrainCar:
         # TODO(sileht): Maybe we should handle the case the pull request already exists?
         # Since we plan to reuse pull request soon, we don't care for now
         try:
-            pulls_for_title = ", ".join(
-                [
-                    f"#{p}"
-                    for p in self.parent_pull_request_numbers
-                    + [self.user_pull_request_number]
-                ]
-            )
-            title = f"merge-queue: embarking {self.initial_current_base_sha[:7]}, {pulls_for_title} together"
+            title = f"merge-queue: embarking {self._get_embarked_refs()} together"
             body = ""
             tmp_pull = (
                 await self.train.repository.installation.client.post(
@@ -231,16 +234,7 @@ class TrainCar:
         else:
             queue_summary = ""
 
-        pulls_for_title = ", ".join(
-            [
-                f"#{p}"
-                for p in self.parent_pull_request_numbers
-                + [self.user_pull_request_number]
-            ]
-        )
-        summary = (
-            f"Embarking {self.initial_current_base_sha[:7]}, {pulls_for_title} together"
-        )
+        summary = f"Embarking {self._get_embarked_refs()} together"
         summary += queue_summary
 
         await tmp_pull_ctxt.set_summary_check(
@@ -255,28 +249,28 @@ class TrainCar:
         original_ctxt = await self.train.repository.get_pull_request_context(
             self.user_pull_request_number
         )
-        title = f"The pull request is embarked with {pulls_for_title} to be merged"
+
         if will_be_reset:
             # TODO(sileht): display train cars ?
-            summary = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
+            title = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
         else:
-            summary = f"You can follow the pull request embarked here: {tmp_pull_ctxt.pull['html_url']}"
-        summary += queue_summary
+            if status == check_api.Conclusion.SUCCESS:
+                title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
+            elif status == check_api.Conclusion.PENDING:
+                title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
+            else:
+                title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
 
+        report = check_api.Result(status, title=title, summary=queue_summary)
         original_ctxt.log.info(
             "pull request train car status update",
-            status=status,
-            title=title,
-            summary=summary,
+            conclusion=status.value,
+            report=report,
         )
         await check_api.set_check_run(
             original_ctxt,
             constants.MERGE_QUEUE_SUMMARY_NAME,
-            check_api.Result(
-                status,
-                title=title,
-                summary=summary,
-            ),
+            report,
         )
 
         async with utils.aredis_for_stream() as redis_stream:
