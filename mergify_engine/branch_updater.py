@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018–2020 Mergify SAS
+# Copyright © 2018–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -165,7 +165,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
             except gitter.GitError as e:  # pragma: no cover
                 if e.returncode == 1:
                     # We need more commits
-                    await git("fetch", "-q", "--deepen=50", "upsteam", base_branch)
+                    await git("fetch", "-q", "--deepen=50", "upstream", base_branch)
                     continue
                 raise
             else:
