@@ -71,8 +71,13 @@ class RebaseAction(actions.Action):
             ):
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
-                    "Branch rebase failed: repository too big and no subscription active",
-                    "",
+                    "Branch rebase failed",
+                    "Your repository is above {} KB.\n{}".format(
+                        config.NOSUB_MAX_REPO_SIZE_KB,
+                        ctxt.subscription.missing_feature_reason(
+                            ctxt.pull["base"]["repo"]["owner"]["login"]
+                        ),
+                    ),
                 )
 
             try:
