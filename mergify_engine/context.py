@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import base64
 import contextlib
 import dataclasses
 import itertools
@@ -108,6 +109,64 @@ class Repository(object):
                 )
             self._id = ctxt.pull["base"]["repo"]["id"]
         return self._id
+
+    MERGIFY_CONFIG_FILENAMES = [
+        ".mergify.yml",
+        ".mergify/config.yml",
+        ".github/mergify.yml",
+    ]
+
+    @staticmethod
+    def get_config_location_cache_key(
+        owner_login: github_types.GitHubLogin,
+        repo_name: github_types.GitHubRepositoryName,
+    ) -> str:
+        return f"config-location~{owner_login}~{repo_name}"
+
+    async def get_mergify_config_content(
+        self,
+        ref: typing.Optional[github_types.GitHubRefType] = None,
+    ) -> typing.Union[typing.Tuple[None, None], typing.Tuple[str, bytes]]:
+        """Get the Mergify configuration file content.
+
+        :return: The filename and its content.
+        """
+
+        config_location_cache = self.get_config_location_cache_key(
+            self.installation.owner_login, self.name
+        )
+
+        kwargs = {}
+        if ref:
+            kwargs["ref"] = ref
+            cached_filename = None
+        else:
+            cached_filename = await self.installation.redis.get(config_location_cache)
+
+        filenames = self.MERGIFY_CONFIG_FILENAMES.copy()
+        if cached_filename:
+            filenames.remove(cached_filename)
+            filenames.insert(0, cached_filename)
+
+        for filename in filenames:
+            try:
+                content = (
+                    await self.installation.client.item(
+                        f"{self.base_url}/contents/{filename}",
+                        **kwargs,
+                    )
+                )["content"]
+            except http.HTTPNotFound:
+                continue
+            if ref is None and filename != cached_filename:
+                await self.installation.redis.set(
+                    config_location_cache, filename, ex=60 * 60 * 24 * 31
+                )
+
+            return filename, base64.b64decode(bytearray(content, "utf-8"))
+
+        await self.installation.redis.delete(config_location_cache)
+        return None, None
 
     async def get_pull_request_context(
         self,
