@@ -34,6 +34,13 @@ rebase
   * - Example
     - ``@Mergifyio rebase``
 
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``rebase`` action is only
+   available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
+   |essential plan tag|
+   |premium plan tag|
+
 .. _update command:
 
 update
