@@ -625,6 +625,13 @@ The ``rebase`` action will rebase the pull request against its base branch.
    Be aware that rebasing force-pushes the pull request head branch: any change
    done to that branch while Mergify is rebasing will be lost.
 
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``rebase`` action is only
+   available for `Essential and Premium  Plan subscribers <https://mergify.io/pricing>`_.
+   |essential plan tag|
+   |premium plan tag|
+
 .. _update action:
 
 update
