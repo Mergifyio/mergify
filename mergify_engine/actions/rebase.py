@@ -22,6 +22,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine.rules import types
 
 
@@ -61,6 +62,24 @@ class RebaseAction(actions.Action):
             if output:
                 return output
 
+            repo_info = await ctxt.client.item(ctxt.pull["base"]["repo"]["url"])
+
+            if repo_info[
+                "size"
+            ] > config.NOSUB_MAX_REPO_SIZE_KB and not ctxt.subscription.has_feature(
+                subscription.Features.LARGE_REPOSITORY
+            ):
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Branch rebase failed",
+                    "Your repository is above {} KB.\n{}".format(
+                        config.NOSUB_MAX_REPO_SIZE_KB,
+                        ctxt.subscription.missing_feature_reason(
+                            ctxt.pull["base"]["repo"]["owner"]["login"]
+                        ),
+                    ),
+                )
+
             try:
                 await branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
                 return check_api.Result(
@@ -75,6 +94,7 @@ class RebaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
                 )
+
         else:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
