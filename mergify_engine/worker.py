@@ -205,7 +205,7 @@ class StreamSelector:
     worker_count: int
 
     def get_worker_id_for(self, stream: bytes) -> int:
-        return int(hashlib.md5(stream).hexdigest(), 16) % self.worker_count
+        return int(hashlib.md5(stream).hexdigest(), 16) % self.worker_count  # nosec
 
     def _is_stream_for_me(self, stream: bytes) -> bool:
         return self.get_worker_id_for(stream) == self.worker_id

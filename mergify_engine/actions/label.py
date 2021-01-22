@@ -45,7 +45,7 @@ class LabelAction(actions.Action):
             ]
             for label in self.config["add"]:
                 if label not in all_label:
-                    color = "%06x" % random.randrange(16 ** 6)
+                    color = "%06x" % random.randrange(16 ** 6)  # nosec
                     try:
                         await ctxt.client.post(
                             f"{ctxt.base_url}/labels",
