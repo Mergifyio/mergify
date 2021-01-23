@@ -23,6 +23,7 @@ from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import queue
+from mergify_engine import subscription
 from mergify_engine.actions import merge_base
 from mergify_engine.rules import types
 
@@ -56,6 +57,19 @@ class QueueAction(merge_base.MergeBaseAction):
 
     # NOTE(sileht): We use the max priority as an offset to order queue
     QUEUE_PRIORITY_OFFSET: int = merge_base.MAX_PRIORITY
+
+    async def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        if not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Queue action is disabled",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+        return await super().run(ctxt, rule)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["bot_account"] = None
