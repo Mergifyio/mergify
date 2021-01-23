@@ -118,6 +118,11 @@ Here's the relevant configuration file content:
   ``merge`` action with a ``method`` parameter containing the merge method to
   use.
 
+.. note::
+
+    Mergify is event-driven: rules are only executed when pull requests are updated
+    or when the bot is manually triggered in a comment with `@Mergifyio refresh` (see :ref:`Commands`).
+
 Fore more details about the configuration file format, check
 :ref:`configuration file format`.
 

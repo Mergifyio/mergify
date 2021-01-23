@@ -639,6 +639,11 @@ update
 
 The ``update`` action updates the pull request against its base branch.
 
+.. code-block:: yaml
+
+    actions:
+      update: {}
+
 
 post_check
 ==========
