@@ -237,6 +237,7 @@ async def test_get_mergify_config_location_from_cache(
     client.item.side_effect = [
         {"content": encodebytes("whatever".encode()).decode()},
     ]
+    repository._cache = context.RepositoryCache()
     filename, content = await repository.get_mergify_config_content()
     assert client.item.call_count == 1
     client.item.assert_has_calls(
