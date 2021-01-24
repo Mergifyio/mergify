@@ -83,6 +83,10 @@ class Installation:
         return self.repositories[name]
 
 
+class RepositoryCache(typing.TypedDict, total=False):
+    mergify_config: typing.Union[typing.Tuple[None, None], typing.Tuple[str, bytes]]
+
+
 @dataclasses.dataclass
 class Repository(object):
     installation: Installation
@@ -91,6 +95,9 @@ class Repository(object):
     pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
         dataclasses.field(default_factory=dict)
     )
+
+    # FIXME(sileht): https://github.com/python/mypy/issues/5723
+    _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache)  # type: ignore
 
     @property
     def base_url(self) -> str:
@@ -132,6 +139,9 @@ class Repository(object):
         :return: The filename and its content.
         """
 
+        if ref is None and "mergify_config" in self._cache:
+            return self._cache["mergify_config"]
+
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.name
         )
@@ -163,9 +173,14 @@ class Repository(object):
                     config_location_cache, filename, ex=60 * 60 * 24 * 31
                 )
 
-            return filename, base64.b64decode(bytearray(content, "utf-8"))
+            content = base64.b64decode(bytearray(content, "utf-8"))
+            if ref is None:
+                self._cache["mergify_config"] = filename, content
+            return filename, content
 
-        await self.installation.redis.delete(config_location_cache)
+        if ref is None:
+            await self.installation.redis.delete(config_location_cache)
+            self._cache["mergify_config"] = None, None
         return None, None
 
     async def get_pull_request_context(
