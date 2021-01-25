@@ -16,7 +16,7 @@ from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
 from mergify_engine import config
 from mergify_engine import logs
-from mergify_engine.web import app as application  # noqa
+from mergify_engine.web import app as application
 
 
 if config.SENTRY_URL:
