@@ -34,7 +34,7 @@ app.add_middleware(
 
 @app.post("/")
 async def config_validator(
-    data: fastapi.UploadFile = fastapi.File(...),
+    data: fastapi.UploadFile = fastapi.File(...),  # noqa: B008
 ) -> responses.PlainTextResponse:  # pragma: no cover
     try:
         rules.UserConfigurationSchema(await data.read())
