@@ -247,12 +247,10 @@ def load_conclusions(
 ) -> typing.Dict[str, check_api.Conclusion]:
     line = load_conclusions_line(summary_check)
     if line:
-        return dict(
-            (name, check_api.Conclusion(conclusion))
+        return {name: check_api.Conclusion(conclusion)
             for name, conclusion in yaml.safe_load(
                 base64.b64decode(line[5:-4].encode()).decode()
-            ).items()
-        )
+            ).items()}
 
     ctxt.log.warning(
         "previous conclusion not found in summary",
@@ -266,9 +264,7 @@ def serialize_conclusions(conclusions):
         "<!-- %s -->"
         % base64.b64encode(
             yaml.safe_dump(
-                dict(
-                    (name, conclusion.value) for name, conclusion in conclusions.items()
-                )
+                {name: conclusion.value for name, conclusion in conclusions.items()}
             ).encode()
         ).decode()
     )
@@ -462,7 +458,7 @@ async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> None:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
-    checks = dict((c["name"], c) for c in await ctxt.pull_engine_check_runs)
+    checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
