@@ -48,7 +48,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
 
 
 @functools.total_ordering
-class CommitOrderingKey(object):
+class CommitOrderingKey:
     def __init__(self, obj: github_types.GitHubBranchCommit) -> None:
         self.obj = obj
 

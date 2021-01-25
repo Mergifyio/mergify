@@ -27,7 +27,7 @@ _JINJA_ENV = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefine
 
 
 @dataclasses.dataclass
-class LineColumnPath(object):
+class LineColumnPath:
     line: int
     column: int
 
