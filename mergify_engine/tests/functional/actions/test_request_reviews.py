@@ -43,7 +43,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
         requests = pulls[0].get_review_requests()
-        assert sorted(["mergify-test1"]) == sorted([user.login for user in requests[0]])
+        assert sorted(["mergify-test1"]) == sorted(user.login for user in requests[0])
 
     async def test_request_reviews_teams(self):
         # Add a team to the repo with write permissions  so it can review
@@ -68,7 +68,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
         assert 1 == len(pulls)
         requests = pulls[0].get_review_requests()
-        assert sorted([team.slug]) == sorted([team.slug for team in requests[1]])
+        assert sorted([team.slug]) == sorted(team.slug for team in requests[1])
 
     @mock.patch.object(
         request_reviews.RequestReviewsAction, "GITHUB_MAXIMUM_REVIEW_REQUEST", new=1
@@ -154,7 +154,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         await self.run_engine()
         requests = pulls[0].get_review_requests()
         assert sorted(["mergify-test1", "mergify-test3"]) == sorted(
-            [user.login for user in requests[0]]
+            user.login for user in requests[0]
         )
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])

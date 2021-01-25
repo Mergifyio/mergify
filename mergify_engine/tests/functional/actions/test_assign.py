@@ -40,7 +40,7 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted([user.login for user in pulls[0].assignees]),
+            sorted(user.login for user in pulls[0].assignees),
         )
 
     async def test_assign_with_add_users(self):
@@ -64,7 +64,7 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted([user.login for user in pulls[0].assignees]),
+            sorted(user.login for user in pulls[0].assignees),
         )
 
     async def test_assign_valid_template(self):
@@ -88,7 +88,7 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted([self.u_fork.login]),
-            sorted([user.login for user in pulls[0].assignees]),
+            sorted(user.login for user in pulls[0].assignees),
         )
 
     async def test_assign_user_already_assigned(self):
@@ -112,7 +112,7 @@ class TestAssignAction(base.FunctionalTestBase):
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted([user.login for user in pulls[0].assignees]),
+            sorted(user.login for user in pulls[0].assignees),
         )
 
     async def test_remove_assignee(self):
