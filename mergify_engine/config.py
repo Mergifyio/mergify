@@ -165,7 +165,7 @@ if configuration_file:
     dotenv.load_dotenv(stream=configuration_file, override=True)  # type: ignore
 
 CONFIG: typing.Dict[str, typing.Any] = {}
-for key, value in Schema.schema.items():
+for key, _ in Schema.schema.items():
     val = os.getenv("MERGIFYENGINE_%s" % key)
     if val is not None:
         CONFIG[key] = val

@@ -455,7 +455,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 )
                 break
         else:
-            assert False, "Merge check not found"
+            pytest.fail("Merge check not found")
 
     async def test_merge_squash(self):
         rules = {
@@ -786,7 +786,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 ) in check["output"]["summary"]
                 break
         else:
-            assert False, "Merge check not found"
+            pytest.fail("Merge check not found")
 
         # Retry to merge pr2
         await self.create_status(p2)

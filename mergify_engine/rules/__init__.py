@@ -235,7 +235,7 @@ class PullRequestRules:
         # Make sure each rule has a unique name
         sorted_rules = sorted(self.rules, key=operator.attrgetter("name"))
         grouped_rules = itertools.groupby(sorted_rules, operator.attrgetter("name"))
-        for name, sub_rules in grouped_rules:
+        for _, sub_rules in grouped_rules:
             sub_rules = list(sub_rules)
             if len(sub_rules) == 1:
                 continue
