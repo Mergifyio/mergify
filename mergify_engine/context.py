@@ -371,12 +371,8 @@ class Context(object):
 
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
-        comments: typing.Dict[
-            github_types.GitHubLogin, github_types.GitHubReview
-        ] = dict()
-        approvals: typing.Dict[
-            github_types.GitHubLogin, github_types.GitHubReview
-        ] = dict()
+        comments: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
+        approvals: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
         valid_user_ids = await self._get_valid_user_ids()
         for review in await self.reviews:
             if not review["user"] or review["user"]["id"] not in valid_user_ids:
@@ -530,17 +526,17 @@ class Context(object):
             return self._cache["checks"]
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        checks = dict((c["name"], c["conclusion"]) for c in await self.pull_check_runs)
+        checks = {c["name"]: c["conclusion"] for c in await self.pull_check_runs}
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update(
-            [
-                (s["context"], s["state"])
+            {
+                s["context"]: s["state"]
                 async for s in self.client.items(
                     f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
                     list_items="statuses",
                 )
-            ]
+            }
         )
         self._cache["checks"] = checks
         return checks

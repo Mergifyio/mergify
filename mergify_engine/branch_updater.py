@@ -60,7 +60,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     ]
 )
 
-GIT_MESSAGE_TO_UNSHALLOW = set(["shallow update not allowed", "unrelated histories"])
+GIT_MESSAGE_TO_UNSHALLOW = {"shallow update not allowed", "unrelated histories"}
 
 
 def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]:

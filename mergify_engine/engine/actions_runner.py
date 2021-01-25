@@ -247,12 +247,12 @@ def load_conclusions(
 ) -> typing.Dict[str, check_api.Conclusion]:
     line = load_conclusions_line(summary_check)
     if line:
-        return dict(
-            (name, check_api.Conclusion(conclusion))
+        return {
+            name: check_api.Conclusion(conclusion)
             for name, conclusion in yaml.safe_load(
                 base64.b64decode(line[5:-4].encode()).decode()
             ).items()
-        )
+        }
 
     ctxt.log.warning(
         "previous conclusion not found in summary",
@@ -266,9 +266,7 @@ def serialize_conclusions(conclusions):
         "<!-- %s -->"
         % base64.b64encode(
             yaml.safe_dump(
-                dict(
-                    (name, conclusion.value) for name, conclusion in conclusions.items()
-                )
+                {name: conclusion.value for name, conclusion in conclusions.items()}
             ).encode()
         ).decode()
     )
@@ -302,19 +300,15 @@ async def run_actions(
     """
 
     user_refresh_requested = any(
-        [source["event_type"] == "refresh" for source in ctxt.sources]
+        source["event_type"] == "refresh" for source in ctxt.sources
     )
     forced_refresh_requested = any(
-        [
-            (
-                source["event_type"] == "refresh"
-                and typing.cast(github_types.GitHubEventRefresh, source["data"])[
-                    "action"
-                ]
-                == "forced"
-            )
-            for source in ctxt.sources
-        ]
+        (
+            source["event_type"] == "refresh"
+            and typing.cast(github_types.GitHubEventRefresh, source["data"])["action"]
+            == "forced"
+        )
+        for source in ctxt.sources
     )
 
     actions_ran = set()
@@ -462,7 +456,7 @@ async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> None:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
-    checks = dict((c["name"], c) for c in await ctxt.pull_engine_check_runs)
+    checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
