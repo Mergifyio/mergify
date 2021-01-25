@@ -165,7 +165,7 @@ async def report(
         print("No installation detected")
         return None
 
-    print("* INSTALLATION ID: %s" % client.auth.installation["id"])
+    print(f"* INSTALLATION ID: {client.auth.installation['id']}")
 
     if client.auth.owner_id is None:
         raise RuntimeError("Unable to get owner_id")
@@ -182,7 +182,7 @@ async def report(
     else:
         slug = owner + "/" + repo
 
-    print("* SUBSCRIBED (cache/db): %s / %s" % (cached_sub.active, db_sub.active))
+    print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
     for f in cached_sub.features:
         print(f"  - {f.value}")
@@ -219,7 +219,7 @@ async def report(
             try:
                 mergify_config = rules.UserConfigurationSchema(mergify_config_content)
             except rules.InvalidRules as e:  # pragma: no cover
-                print("configuration is invalid %s" % str(e))
+                print(f"configuration is invalid {str(e)}")
             else:
                 mergify_config["pull_request_rules"].rules.extend(
                     engine.DEFAULT_PULL_REQUEST_RULES.rules
@@ -267,21 +267,19 @@ async def report(
             # FIXME queues could also be printed if no pull number given
             # TODO(sileht): display train if any
             q = await queue.Queue.from_context(ctxt, with_train=False)
-            print("* QUEUES: %s" % ", ".join([f"#{p}" for p in await q.get_pulls()]))
+            print(f"* QUEUES: {', '.join([f'#{p}' for p in await q.get_pulls()])}")
             print("* PULL REQUEST:")
             pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)
 
-            print("is_behind: %s" % await ctxt.is_behind)
+            is_behind = await ctxt.is_behind
+            print(f"is_behind: {is_behind}")
 
-            print("mergeable_state: %s" % ctxt.pull["mergeable_state"])
+            print(f"mergeable_state: {ctxt.pull['mergeable_state']}")
 
             print("* MERGIFY LAST CHECKS:")
             for c in await ctxt.pull_engine_check_runs:
-                print(
-                    "[%s]: %s | %s"
-                    % (c["name"], c["conclusion"], c["output"].get("title"))
-                )
+                print(f"[{c['name']}]: {c['conclusion']} | {c['output'].get('title')}")
                 print(
                     "> "
                     + "\n> ".join(
@@ -297,7 +295,7 @@ async def report(
                     "pull_request_rules"
                 ].get_pull_request_rule(ctxt)
                 summary_title, summary = actions_runner.gen_summary(ctxt, match)
-                print("> %s" % summary_title)
+                print(f"> {summary_title}")
                 print(summary)
 
             return ctxt

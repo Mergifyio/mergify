@@ -132,7 +132,8 @@ async def _refresh(
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}", dependencies=[fastapi.Depends(auth.signature)]
+    "/refresh/{owner}/{repo_name}",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_repo(
     owner: github_types.GitHubLogin, repo_name: github_types.GitHubRepositoryName
@@ -144,7 +145,7 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}/pull/{pull_request_number}",
+    "/refresh/{owner}/{repo_name}/pull/{pull_request_number}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
@@ -233,7 +234,7 @@ async def refresh_pull(
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}/branch/{branch}",
+    "/refresh/{owner}/{repo_name}/branch/{branch}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_branch(
@@ -247,7 +248,7 @@ async def refresh_branch(
 
 
 @app.put(
-    "/subscription-cache/{owner_id}",
+    "/subscription-cache/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_update(
@@ -263,11 +264,11 @@ async def subscription_cache_update(
 
 
 @app.delete(
-    "/subscription-cache/{owner_id}",
+    "/subscription-cache/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
-    await _AREDIS_CACHE.delete("subscription-cache-owner-%s" % owner_id)
+    await _AREDIS_CACHE.delete(f"subscription-cache-owner-{owner_id}")
     return responses.Response("Cache cleaned", status_code=200)
 
 
@@ -279,7 +280,7 @@ async def cleanup_subscription(data):
     except exceptions.MergifyNotInstalled:
         return
 
-    await _AREDIS_CACHE.delete("subscription-cache-%s" % installation["id"])
+    await _AREDIS_CACHE.delete(f"subscription-cache-{installation['id']}")
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
@@ -317,7 +318,10 @@ async def marketplace_handler(
     return responses.Response("Event queued", status_code=202)
 
 
-@app.get("/queues/{installation_id}", dependencies=[fastapi.Depends(auth.signature)])
+@app.get(
+    "/queues/{installation_id}",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
+)
 async def queues(installation_id):
     installation = await github_app.get_installation_from_id(installation_id)
     queues = collections.defaultdict(dict)

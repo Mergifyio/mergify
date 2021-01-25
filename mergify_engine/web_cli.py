@@ -41,7 +41,7 @@ def clear_token_cache():
     args = parser.parse_args()
     asyncio.run(
         api_call(
-            config.BASE_URL + "/subscription-cache/%s" % args.owner_id,
+            config.BASE_URL + f"/subscription-cache/{args.owner_id}",
             method="delete",
         )
     )
@@ -78,5 +78,5 @@ def queues():
 
     args = parser.parse_args()
     asyncio.run(
-        api_call(config.BASE_URL + "/queues/%s" % args.installation_id, method="GET")
+        api_call(config.BASE_URL + f"/queues/{args.installation_id}", method="GET")
     )

@@ -166,7 +166,7 @@ if configuration_file:
 
 CONFIG: typing.Dict[str, typing.Any] = {}
 for key, _ in Schema.schema.items():
-    val = os.getenv("MERGIFYENGINE_%s" % key)
+    val = os.getenv(f"MERGIFYENGINE_{key}")
     if val is not None:
         CONFIG[key] = val
 

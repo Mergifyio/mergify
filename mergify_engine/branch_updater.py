@@ -28,7 +28,7 @@ from mergify_engine.clients import http
 
 class BranchUpdateFailure(Exception):
     def __init__(self, msg=""):
-        error_code = "err-code: %s" % uuid.uuid4().hex[-5:].upper()
+        error_code = "err-code: " + uuid.uuid4().hex[-5:].upper()
         self.message = msg + "\n" + error_code
         super(BranchUpdateFailure, self).__init__(self.message)
 
@@ -139,8 +139,8 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
         await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
         depth = len(await ctxt.commits) + 1
-        await git("fetch", "--quiet", "--depth=%d" % depth, "origin", head_branch)
-        await git("checkout", "-q", "-b", head_branch, "origin/%s" % head_branch)
+        await git("fetch", "--quiet", f"--depth={depth}", "origin", head_branch)
+        await git("checkout", "-q", "-b", head_branch, f"origin/{head_branch}")
 
         output = await git("log", "--format=%cI")
         last_commit_date = [d for d in output.split("\n") if d.strip()][-1]
@@ -150,7 +150,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
             "--quiet",
             "upstream",
             base_branch,
-            "--shallow-since='%s'" % last_commit_date,
+            f"--shallow-since='{last_commit_date}'",
         )
 
         # Try to find the merge base, but don't fetch more that 1000 commits.
@@ -172,7 +172,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
                 break
 
         try:
-            await git("rebase", "upstream/%s" % base_branch)
+            await git("rebase", f"upstream/{base_branch}")
             await git("push", "--verbose", "origin", head_branch, "-f")
         except gitter.GitError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
@@ -185,7 +185,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
                     await git("fetch", "--unshallow")
                     await git("fetch", "--quiet", "origin", head_branch)
                     await git("fetch", "--quiet", "upstream", base_branch)
-                    await git("rebase", "upstream/%s" % base_branch)
+                    await git("rebase", f"upstream/{base_branch}")
                     await git("push", "--verbose", "origin", head_branch, "-f")
                     break
             else:
@@ -193,7 +193,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
         expected_sha = await git("log", "-1", "--format=%H")
         # NOTE(sileht): We store this for dismissal action
-        await ctxt.redis.setex("branch-update-%s" % expected_sha, 60 * 60, expected_sha)
+        await ctxt.redis.setex(f"branch-update-{expected_sha}", 60 * 60, expected_sha)
     except gitter.GitError as in_exception:  # pragma: no cover
         if in_exception.output == "":
             # SIGKILL...

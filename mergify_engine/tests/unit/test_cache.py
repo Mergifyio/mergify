@@ -26,7 +26,7 @@ def test_subscription_cache_delete():
 
     data = None
     headers = {
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
     }
     with testclient.TestClient(web.app) as client:
         reply = client.delete(
@@ -49,7 +49,7 @@ def test_subscription_cache_update():
         }
     ).encode(charset)
     headers = {
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data),
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
         "Content-Type": f"application/json; charset={charset}",
     }
     with testclient.TestClient(web.app) as client:

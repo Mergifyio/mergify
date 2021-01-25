@@ -749,15 +749,16 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
 
         r = await self.app.get(
-            "/queues/%s" % (config.INSTALLATION_ID),
+            f"/queues/{config.INSTALLATION_ID}",
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
             },
         )
         assert r.json() == {
-            "mergifyio-testing/%s"
-            % self.REPO_NAME: {self.master_branch_name: [p2.number]}
+            f"mergifyio-testing/{self.REPO_NAME}": {
+                self.master_branch_name: [p2.number]
+            }
         }
 
         p2 = self.r_o_admin.get_pull(p2.number)
@@ -1147,9 +1148,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         i = self.r_o_admin.create_issue(
             title="Such a bug", body="I can't explain, but don't work"
         )
-        p, commits = await self.create_pr(
-            message="It fixes it\n\nCloses #%s" % i.number
-        )
+        p, commits = await self.create_pr(message=f"It fixes it\n\nCloses #{i.number}")
         await self.create_status(p)
 
         await self.run_engine()
@@ -1332,25 +1331,25 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, _ = await self.create_pr()
 
         resp = await self.app.post(
-            "/refresh/%s/pull/%s" % (p1.base.repo.full_name, p1.number),
+            f"/refresh/{p1.base.repo.full_name}/pull/{p1.number}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            "/refresh/%s/pull/%s" % (p2.base.repo.full_name, p2.number),
+            f"/refresh/{p2.base.repo.full_name}/pull/{p2.number}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            "/refresh/%s/branch/master" % (p1.base.repo.full_name),
+            f"/refresh/{p1.base.repo.full_name}/branch/master",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            "/refresh/%s" % (p1.base.repo.full_name),
+            f"/refresh/{p1.base.repo.full_name}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text

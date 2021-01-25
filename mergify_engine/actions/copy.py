@@ -60,10 +60,7 @@ class CopyAction(actions.Action):
         try:
             await ctxt.client.item(f"{ctxt.base_url}/branches/{escaped_branch_name}")
         except http.HTTPStatusError as e:
-            detail = "%s to branch `%s` failed: " % (
-                self.KIND.capitalize(),
-                branch_name,
-            )
+            detail = f"{self.KIND.capitalize()} to branch `{branch_name}` failed: "
             if e.response.status_code >= 500:
                 state = check_api.Conclusion.PENDING
             else:

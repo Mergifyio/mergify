@@ -681,17 +681,16 @@ class Context(object):
         return False
 
     def __str__(self) -> str:
-        return "%(login)s/%(repo)s/pull/%(number)d@%(branch)s " "s:%(pr_state)s" % {
-            "login": self.pull["base"]["user"]["login"],
-            "repo": self.pull["base"]["repo"]["name"],
-            "number": self.pull["number"],
-            "branch": self.pull["base"]["ref"],
-            "pr_state": (
-                "merged"
-                if self.pull["merged"]
-                else (self.pull["mergeable_state"] or "none")
-            ),
-        }
+        login = self.pull["base"]["user"]["login"]
+        repo = self.pull["base"]["repo"]["name"]
+        number = self.pull["number"]
+        branch = self.pull["base"]["ref"]
+        pr_state = (
+            "merged"
+            if self.pull["merged"]
+            else (self.pull["mergeable_state"] or "none")
+        )
+        return f"{login}/{repo}/pull/{number}@{branch} s:{pr_state}"
 
     @property
     async def reviews(self) -> typing.List[github_types.GitHubReview]:

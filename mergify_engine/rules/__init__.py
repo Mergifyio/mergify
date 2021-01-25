@@ -42,11 +42,11 @@ def RuleCondition(value: str) -> filter.Filter:
         return filter.Filter.parse(value)
     except filter.parser.pyparsing.ParseException as e:
         raise voluptuous.Invalid(
-            message="Invalid condition '%s'. %s" % (value, str(e)), error_message=str(e)
+            message=f"Invalid condition '{value}'. {str(e)}", error_message=str(e)
         )
     except filter.InvalidQuery as e:
         raise voluptuous.Invalid(
-            message="Invalid condition '%s'. %s" % (value, str(e)), error_message=str(e)
+            message=f"Invalid condition '{value}'. {str(e)}", error_message=str(e)
         )
 
 
@@ -240,7 +240,7 @@ class PullRequestRules:
             if len(sub_rules) == 1:
                 continue
             for n, rule in enumerate(sub_rules):
-                rule.name += " #%d" % (n + 1)
+                rule.name += f" #{n + 1}"
 
     def __iter__(self):
         return iter(self.rules)

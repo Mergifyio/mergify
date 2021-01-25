@@ -48,7 +48,7 @@ def commits_tree_generator(request):
         elif elem == "O":
             cur["parents"].append(create_commit("outdated"))
         else:
-            cur["parents"].append(create_commit("sha-%s" % elem))
+            cur["parents"].append(create_commit(f"sha-{elem}"))
     commits.append(cur)
     return behind, commits
 
