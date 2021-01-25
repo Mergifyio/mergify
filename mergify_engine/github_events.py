@@ -298,6 +298,7 @@ async def filter_and_dispatch(
             "edited",
             "added_to_repository",
             "removed_from_repository",
+            "deleted",
         ):
             if "repository" in event:
                 await context.Repository.clear_user_permission_cache_for_repo(
