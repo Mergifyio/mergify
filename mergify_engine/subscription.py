@@ -112,7 +112,7 @@ class Subscription:
             "subscription_active": self.active,
             "subscription_reason": self.reason,
             "tokens": self.tokens,
-            "features": list(f.value for f in self.features),
+            "features": [f.value for f in self.features],
         }
 
     @classmethod
