@@ -32,6 +32,24 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
+CHECK_ASSERTS = {
+    # green check mark
+    "success": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/check-green-16.png",
+    # red x
+    "failure": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    "error": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    "cancelled": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    "action_required": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    "timed_out": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    # yellow dot
+    "pending": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/dot-yellow-16.png",
+    None: "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/dot-yellow-16.png",
+    # grey square
+    "neutral": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/square-grey-16.png",
+    "stale": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/square-grey-16.png",
+}
+
+
 @dataclasses.dataclass
 class TrainCarPullRequestCreationFailure(Exception):
     car: "TrainCar"
@@ -189,7 +207,7 @@ class TrainCar:
         )
         original_ctxt.log.info(
             "pull request cannot be embarked for merge",
-            status=check_api.Conclusion.ACTION_REQUIRED,
+            conclusion=check_api.Conclusion.ACTION_REQUIRED,
             title=title,
             summary=summary,
             exc_info=True,
@@ -215,14 +233,14 @@ class TrainCar:
     async def update_summaries(
         self,
         tmp_pull_ctxt: context.Context,
-        status: check_api.Conclusion,
+        conclusion: check_api.Conclusion,
         *,
         queue_rule: typing.Optional[rules.EvaluatedQueueRule] = None,
         will_be_reset: bool = False,
     ) -> None:
-        if status == check_api.Conclusion.SUCCESS:
+        if conclusion == check_api.Conclusion.SUCCESS:
             title = f"The pull request #{self.user_pull_request_number} is mergeable"
-        elif status == check_api.Conclusion.PENDING:
+        elif conclusion == check_api.Conclusion.PENDING:
             title = f"The pull request #{self.user_pull_request_number} is embarked for merge"
         else:
             title = f"The pull request #{self.user_pull_request_number} cannot be merged and has been disembarked"
@@ -240,11 +258,49 @@ class TrainCar:
 
         await tmp_pull_ctxt.set_summary_check(
             check_api.Result(
-                status,
+                conclusion,
                 title=title,
                 summary=summary,
             )
         )
+
+        checks = await tmp_pull_ctxt.pull_check_runs
+        statuses = await tmp_pull_ctxt.pull_statuses
+        if checks or statuses:
+            checks_copy_summary = (
+                "\n\nCheck-runs and statuses of the embarked "
+                f"pull request #{self.queue_pull_request_number}:\n\n<table>"
+            )
+            for check in checks:
+                title = ""
+                if check["output"]:
+                    title = check["output"]["title"]
+
+                check_icon_url = CHECK_ASSERTS[check["conclusion"]]
+
+                checks_copy_summary += (
+                    "<tr>"
+                    f'<td><img src="{check_icon_url}" /></td>'
+                    f'<td><img src="{check["app"]["owner"]["avatar_url"]}" width="16" height="16"/></td>'
+                    f'<td><b>{check["app"]["name"]}/{check["name"]}</b> — {title}</td>'
+                    f'<td><a href="{check["html_url"]}">details</a></td>'
+                    "</tr>"
+                )
+
+            for status in statuses:
+                status_icon_url = CHECK_ASSERTS[status["state"]]
+
+                checks_copy_summary += (
+                    "<tr>"
+                    f'<td><img src="{status_icon_url}" /></td>'
+                    f'<td><img src="{status["avatar_url"]}" width="16" height="16" /></td>'
+                    f'<td><b>{status["context"]}</b> — {status["description"]}</td>'
+                    f'<td><a href="{status["target_url"]}">details</a></td>'
+                    "</tr>"
+                )
+            checks_copy_summary += "</table>\n"
+        else:
+            checks_copy_summary = ""
 
         # Update the original Pull Request
         original_ctxt = await self.train.repository.get_pull_request_context(
@@ -255,17 +311,19 @@ class TrainCar:
             # TODO(sileht): display train cars ?
             title = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
         else:
-            if status == check_api.Conclusion.SUCCESS:
+            if conclusion == check_api.Conclusion.SUCCESS:
                 title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
-            elif status == check_api.Conclusion.PENDING:
+            elif conclusion == check_api.Conclusion.PENDING:
                 title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
             else:
                 title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
 
-        report = check_api.Result(status, title=title, summary=queue_summary)
+        report = check_api.Result(
+            conclusion, title=title, summary=queue_summary + checks_copy_summary
+        )
         original_ctxt.log.info(
             "pull request train car status update",
-            conclusion=status.value,
+            conclusion=conclusion.value,
             report=report,
         )
         await check_api.set_check_run(

@@ -33,6 +33,7 @@ class GitHubAccount(typing.TypedDict):
     login: GitHubLogin
     id: GitHubAccountIdType
     type: GitHubAccountType
+    avatar_url: str
 
 
 GitHubInstallationIdType = typing.NewType("GitHubInstallationIdType", int)
@@ -311,6 +312,8 @@ class GitHubEventStatus(GitHubEvent):
 
 class GitHubApp(typing.TypedDict):
     id: int
+    name: str
+    owner: GitHubAccount
 
 
 GitHubCheckRunConclusion = typing.Literal[
@@ -325,8 +328,8 @@ GitHubCheckRunConclusion = typing.Literal[
 
 
 class GitHubCheckRunOutput(typing.TypedDict):
-    title: typing.Optional[str]
-    summary: typing.Optional[str]
+    title: str
+    summary: str
     text: typing.Optional[str]
 
 
@@ -341,6 +344,9 @@ GitHubStatusState = typing.Literal[
 class GitHubStatus(typing.TypedDict):
     context: str
     state: GitHubStatusState
+    description: str
+    target_url: str
+    avatar_url: str
 
 
 GitHubCheckRunStatus = typing.Literal["queued", "in_progress", "completed"]
@@ -359,6 +365,7 @@ class GitHubCheckRun(typing.TypedDict):
     output: GitHubCheckRunOutput
     conclusion: typing.Optional[GitHubCheckRunConclusion]
     completed_at: ISODateTimeType
+    html_url: str
 
 
 class GitHubCheckSuite(typing.TypedDict):

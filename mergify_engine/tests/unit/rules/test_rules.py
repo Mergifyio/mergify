@@ -512,7 +512,13 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     get_checks: typing.List[github_types.GitHubCheckRun] = []
     get_statuses: typing.List[github_types.GitHubStatus] = [
-        {"context": "continuous-integration/fake-ci", "state": "success"}
+        {
+            "context": "continuous-integration/fake-ci",
+            "state": "success",
+            "description": "foobar",
+            "target_url": "http://example.com",
+            "avatar_url": "",
+        }
     ]
 
     client.item = mock.AsyncMock(return_value={"permission": "write"})
@@ -582,12 +588,14 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                             "login": github_types.GitHubLogin("another-jd"),
                             "id": github_types.GitHubAccountIdType(2644),
                             "type": "User",
+                            "avatar_url": "",
                         },
                     },
                     "user": {
                         "login": github_types.GitHubLogin("another-jd"),
                         "id": github_types.GitHubAccountIdType(2644),
                         "type": "User",
+                        "avatar_url": "",
                     },
                     "sha": github_types.SHAType("mew"),
                 },
@@ -607,12 +615,14 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                             "login": github_types.GitHubLogin("another-jd"),
                             "id": github_types.GitHubAccountIdType(2644),
                             "type": "User",
+                            "avatar_url": "",
                         },
                     },
                     "user": {
                         "login": github_types.GitHubLogin("another-jd"),
                         "id": github_types.GitHubAccountIdType(2644),
                         "type": "User",
+                        "avatar_url": "",
                     },
                 },
                 "title": "My awesome job",
@@ -620,6 +630,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                     "login": github_types.GitHubLogin("another-jd"),
                     "id": github_types.GitHubAccountIdType(2644),
                     "type": "User",
+                    "avatar_url": "",
                 },
             }
         ),

@@ -34,6 +34,7 @@ async def test_summary_synchronization_cache(
             "login": github_types.GitHubLogin("user"),
             "id": github_types.GitHubAccountIdType(0),
             "type": "User",
+            "avatar_url": "",
         }
     )
 
@@ -93,6 +94,7 @@ async def test_summary_synchronization_cache(
                     "login": github_types.GitHubLogin("user"),
                     "id": github_types.GitHubAccountIdType(0),
                     "type": "User",
+                    "avatar_url": "",
                 },
                 "ref": github_types.GitHubRefType("ref"),
                 "label": "",
@@ -106,6 +108,7 @@ async def test_summary_synchronization_cache(
                     "login": github_types.GitHubLogin("user"),
                     "id": github_types.GitHubAccountIdType(0),
                     "type": "User",
+                    "avatar_url": "",
                 },
                 "repo": {
                     "archived": False,
@@ -119,6 +122,7 @@ async def test_summary_synchronization_cache(
                         "login": github_types.GitHubLogin("user"),
                         "id": github_types.GitHubAccountIdType(0),
                         "type": "User",
+                        "avatar_url": "",
                     },
                 },
             },
@@ -126,6 +130,7 @@ async def test_summary_synchronization_cache(
                 "login": github_types.GitHubLogin("user"),
                 "id": github_types.GitHubAccountIdType(0),
                 "type": "User",
+                "avatar_url": "",
             },
             "merged_by": None,
             "merged_at": None,
