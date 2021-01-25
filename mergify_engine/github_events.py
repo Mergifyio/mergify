@@ -481,6 +481,7 @@ async def send_refresh(
                 "login": github_types.GitHubLogin("<internal>"),
                 "id": github_types.GitHubAccountIdType(0),
                 "type": "User",
+                "avatar_url": "",
             },
             "organization": pull["base"]["repo"]["owner"],
             "installation": {
