@@ -93,7 +93,7 @@ def strict_merge_parameter(v):
     elif v == "smart+fastpath":
         return StrictMergeParameter.fasttrack
     else:
-        for name, member in StrictMergeParameter.__members__.items():
+        for _, member in StrictMergeParameter.__members__.items():
             if v == member.value:
                 return member
 
