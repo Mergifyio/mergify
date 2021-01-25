@@ -76,7 +76,11 @@ class TestPostCheckAction(base.FunctionalTestBase):
                     ],
                     "actions": {
                         "post_check": {
-                            "title": "Pull request #{{ number }} does{% if not check_succeed %} not{% endif %} follow our guideline",
+                            "title": (
+                                "Pull request #{{ number }} does"  # noqa: FS003
+                                "{% if not check_succeed %} not{% endif %}"  # noqa: FS003
+                                " follow our guideline"
+                            ),
                             "summary": """
 Full markdown of my awesome pull request guideline:
 

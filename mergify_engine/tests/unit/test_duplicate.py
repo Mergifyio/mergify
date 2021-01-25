@@ -180,7 +180,7 @@ async def test_get_commits_to_cherry_pick_rebase(
             return rebased_c1
         if url.endswith("/commits/rebased_c2"):
             return rebased_c2
-        raise RuntimeError("Unknown URL %s" % url)
+        raise RuntimeError(f"Unknown URL {url}")
 
     client.item.side_effect = fake_get_github_commit_from_sha
 

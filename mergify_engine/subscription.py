@@ -129,7 +129,7 @@ class Subscription:
     async def save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         await self.redis.setex(
-            "subscription-cache-owner-%s" % self.owner_id,
+            f"subscription-cache-owner-{self.owner_id}",
             3600,
             crypto.encrypt(json.dumps(self.to_dict()).encode()),
         )
@@ -154,7 +154,7 @@ class Subscription:
     async def _retrieve_subscription_from_cache(
         cls, redis: utils.RedisCache, owner_id: int
     ) -> typing.Optional["Subscription"]:
-        encrypted_sub = await redis.get("subscription-cache-owner-%s" % owner_id)
+        encrypted_sub = await redis.get(f"subscription-cache-owner-{owner_id}")
         if encrypted_sub:
             return cls.from_dict(
                 redis, owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())

@@ -71,21 +71,21 @@ class Gitter(object):
         self.logger.info("cleaning: %s", self.tmp)
         try:
             await self(
-                "credential-cache", "--socket=%s/.git/creds/socket" % self.tmp, "exit"
+                "credential-cache", f"--socket={self.tmp}/.git/creds/socket", "exit"
             )
         except GitError:  # pragma: no cover
             self.logger.warning("git credential-cache exit fail")
         await asyncio.to_thread(shutil.rmtree, self.tmp)
 
     async def configure(self) -> None:
-        await self("config", "user.name", "%s-bot" % config.CONTEXT)
+        await self("config", "user.name", f"{config.CONTEXT}-bot")
         await self("config", "user.email", config.GIT_EMAIL)
         # Use one git cache daemon per Gitter
         await self("config", "credential.useHttpPath", "true")
         await self(
             "config",
             "credential.helper",
-            "cache --timeout=300 --socket=%s/.git/creds/socket" % self.tmp,
+            f"cache --timeout=300 --socket={self.tmp}/.git/creds/socket",
         )
 
     async def add_cred(self, username: str, password: str, path: str) -> None:

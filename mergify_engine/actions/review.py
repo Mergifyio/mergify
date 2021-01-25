@@ -75,8 +75,7 @@ class ReviewAction(actions.Action):
 
         if not body and self.config["type"] != "APPROVE":
             body = (
-                "Pull request automatically reviewed by Mergify: %s"
-                % self.config["type"]
+                f"Pull request automatically reviewed by Mergify: {self.config['type']}"
             )
 
         if body:

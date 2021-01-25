@@ -74,7 +74,7 @@ def get_already_merged_summary(ctxt, match):
     else:
         return (
             "⚠️ The pull request has been merged by "
-            "@%s\n\n" % ctxt.pull["merged_by"]["login"]
+            f"@{ctxt.pull['merged_by']['login']}\n\n"
         )
 
 
@@ -83,11 +83,11 @@ def gen_summary_rules(rules):
     for rule in rules:
         if rule.hidden:
             continue
-        summary += "#### Rule: %s" % rule.name
-        summary += " (%s)" % ", ".join(rule.actions)
+        summary += f"#### Rule: {rule.name}"
+        summary += f" ({', '.join(rule.actions)})"
         for cond in rule.conditions:
             checked = " " if cond in rule.missing_conditions else "X"
-            summary += "\n- [%s] `%s`" % (checked, cond)
+            summary += f"\n- [{checked}] `{cond}`"
         summary += "\n\n"
     return summary
 
@@ -111,9 +111,9 @@ def gen_summary(ctxt, match):
     if ignored_rules > 0:
         summary += "<details>\n"
         if ignored_rules == 1:
-            summary += "<summary>%d not applicable rule</summary>\n\n" % ignored_rules
+            summary += f"<summary>{ignored_rules} not applicable rule</summary>\n\n"
         else:
-            summary += "<summary>%d not applicable rules</summary>\n\n" % ignored_rules
+            summary += f"<summary>{ignored_rules} not applicable rules</summary>\n\n"
         summary += gen_summary_rules(match.ignored_rules)
         summary += "</details>\n"
 
@@ -124,14 +124,14 @@ def gen_summary(ctxt, match):
 
     summary_title = []
     if completed_rules == 1:
-        summary_title.append("%d rule matches" % completed_rules)
+        summary_title.append(f"{completed_rules} rule matches")
     elif completed_rules > 1:
-        summary_title.append("%d rules match" % completed_rules)
+        summary_title.append(f"{completed_rules} rules match")
 
     if potential_rules == 1:
-        summary_title.append("%s potential rule" % potential_rules)
+        summary_title.append(f"{potential_rules} potential rule")
     elif potential_rules > 1:
-        summary_title.append("%s potential rules" % potential_rules)
+        summary_title.append(f"{potential_rules} potential rules")
 
     if completed_rules == 0 and potential_rules == 0:
         summary_title.append("no rules match, no planned actions")
@@ -228,7 +228,7 @@ async def exec_action(
         # TODO(sileht): extract sentry event id and post it, so
         # we can track it easly
         return check_api.Result(
-            check_api.Conclusion.FAILURE, "action '%s' failed" % action, ""
+            check_api.Conclusion.FAILURE, f"action '{action}' failed", ""
         )
 
 
@@ -263,12 +263,13 @@ def load_conclusions(
 
 def serialize_conclusions(conclusions):
     return (
-        "<!-- %s -->"
-        % base64.b64encode(
+        "<!-- "
+        + base64.b64encode(
             yaml.safe_dump(
                 {name: conclusion.value for name, conclusion in conclusions.items()}
             ).encode()
         ).decode()
+        + " -->"
     )
 
 
@@ -326,7 +327,7 @@ async def run_actions(
 
     for rule in matching_rules:
         for action, action_obj in rule.actions.items():
-            check_name = "Rule: %s (%s)" % (rule.name, action)
+            check_name = f"Rule: {rule.name} ({action})"
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
@@ -372,7 +373,7 @@ async def run_actions(
                 # This assumes the action produce a report
                 report = check_api.Result(
                     check_api.Conclusion.SUCCESS,
-                    "Another %s action already ran" % action,
+                    f"Another {action} action already ran",
                     "",
                 )
                 message = "ignored, another has already been run"
@@ -392,7 +393,7 @@ async def run_actions(
                 and report.conclusion is not check_api.Conclusion.PENDING
                 and method_name == "run"
             ):
-                statsd.increment("engine.actions.count", tags=["name:%s" % action])
+                statsd.increment("engine.actions.count", tags=[f"name:{action}"])
 
             if report:
                 if need_to_be_run and (

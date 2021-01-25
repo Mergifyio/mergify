@@ -58,7 +58,7 @@ FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 class GitterRecorder(gitter.Gitter):
     def __init__(self, logger, cassette_library_dir, suffix):
         super(GitterRecorder, self).__init__(logger)
-        self.cassette_path = os.path.join(cassette_library_dir, "git-%s.json" % suffix)
+        self.cassette_path = os.path.join(cassette_library_dir, f"git-{suffix}.json")
         if RECORD:
             self.records = []
         else:
@@ -66,7 +66,7 @@ class GitterRecorder(gitter.Gitter):
 
     def load_records(self):
         if not os.path.exists(self.cassette_path):
-            raise RuntimeError("Cassette %s not found" % self.cassette_path)
+            raise RuntimeError(f"Cassette {self.cassette_path} not found")
         with open(self.cassette_path, "rb") as f:
             data = f.read().decode("utf8")
             self.records = json.loads(data)
@@ -109,14 +109,12 @@ class GitterRecorder(gitter.Gitter):
                     output=r["exc"]["output"],
                 )
             else:
-                assert r["args"] == self.prepare_args(args), "%s != %s" % (
-                    r["args"],
-                    self.prepare_args(args),
-                )
-                assert r["kwargs"] == self.prepare_kwargs(kwargs), "%s != %s" % (
-                    r["kwargs"],
-                    self.prepare_kwargs(kwargs),
-                )
+                assert r["args"] == self.prepare_args(
+                    args
+                ), f'{r["args"]} != {self.prepare_args(args)}'
+                assert r["kwargs"] == self.prepare_kwargs(
+                    kwargs
+                ), f'{r["kwargs"]} != {self.prepare_kwargs(kwargs)}'
                 return r["out"]
 
     def prepare_args(self, args):
@@ -211,12 +209,12 @@ class EventReader:
     async def _forward_to_engine_api(self, event):
         payload = event["payload"]
         if event["type"] in ["check_run", "check_suite"]:
-            extra = "/%s/%s" % (
-                payload[event["type"]].get("status"),
-                payload[event["type"]].get("conclusion"),
+            extra = (
+                f"/{payload[event['type']].get('status')}"
+                f"/{payload[event['type']].get('conclusion')}"
             )
         elif event["type"] == "status":
-            extra = "/%s" % payload.get("state")
+            extra = f"/{payload.get('state')}"
         else:
             extra = ""
         LOG.log(
@@ -602,9 +600,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
-            "%s/%s" % (self.u_fork.login, self.r_o_integration.name),
+            f"{self.u_fork.login}/{self.r_o_integration.name}",
         )
-        await self.git("config", "user.name", "%s-tester" % config.CONTEXT)
+        await self.git("config", "user.name", f"{config.CONTEXT}-tester")
         await self.git("remote", "add", "main", self.url_main)
         await self.git("remote", "add", "fork", self.url_fork)
 
@@ -710,12 +708,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             base = self.master_branch_name
 
         if not branch:
-            branch = "%s/pr%d" % (base_repo, self.pr_counter)
+            branch = f"{base_repo}/pr{self.pr_counter}"
             branch = self.get_full_branch_name(branch)
 
-        title = "Pull request n%d from %s" % (self.pr_counter, base_repo)
+        title = f"Pull request n{self.pr_counter} from {base_repo}"
 
-        await self.git("checkout", "--quiet", "%s/%s" % (base_repo, base), "-b", branch)
+        await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
         if files:
             for name, content in files.items():
                 directory = name.rpartition("/")[0]
@@ -728,14 +726,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     f.write(content)
                 await self.git("add", name)
         else:
-            open(self.git.tmp + "/test%d" % self.pr_counter, "wb").close()
-            await self.git("add", "test%d" % self.pr_counter)
+            open(self.git.tmp + f"/test{self.pr_counter}", "wb").close()
+            await self.git("add", f"test{self.pr_counter}")
         await self.git("commit", "--no-edit", "-m", title)
         if two_commits:
             await self.git(
-                "mv", "test%d" % self.pr_counter, "test%d-moved" % self.pr_counter
+                "mv", f"test{self.pr_counter}", f"test{self.pr_counter}-moved"
             )
-            await self.git("commit", "--no-edit", "-m", "%s, moved" % title)
+            await self.git("commit", "--no-edit", "-m", f"{title}, moved")
         await self.git("push", "--quiet", base_repo, branch)
 
         if base_repo == "fork":
@@ -747,7 +745,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         p = repo.create_pull(
             base=base,
-            head="%s:%s" % (login, branch),
+            head=f"{login}:{branch}",
             title=title,
             body=message or title,
             draft=draft,
@@ -813,9 +811,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     def branch_protection_unprotect(self, branch):
         return self.r_o_admin._requester.requestJsonAndCheck(
             "DELETE",
-            "{base_url}/branches/{branch}/protection".format(
-                base_url=self.r_o_admin.url, branch=branch
-            ),
+            f"{self.r_o_admin.url}/branches/{branch}/protection",
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
 
@@ -833,9 +829,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # maybe soon https://github.com/PyGithub/PyGithub/pull/527
         return self.r_o_admin._requester.requestJsonAndCheck(
             "PUT",
-            "{base_url}/branches/{branch}/protection".format(
-                base_url=self.r_o_admin.url, branch=branch
-            ),
+            f"{self.r_o_admin.url}/branches/{branch}/protection",
             input=rule["protection"],
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )

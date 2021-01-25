@@ -28,31 +28,31 @@ class InvalidQuery(Exception):
 
 class ParseError(InvalidQuery):
     def __init__(self, tree):
-        super().__init__("Unable to parse tree: %s" % str(tree))
+        super().__init__(f"Unable to parse tree: {str(tree)}")
         self.tree = tree
 
 
 class UnknownAttribute(InvalidQuery, ValueError):
     def __init__(self, key):
-        super().__init__("Unknown attribute: %s" % str(key))
+        super().__init__(f"Unknown attribute: {str(key)}")
         self.key = key
 
 
 class UnknownOperator(InvalidQuery, ValueError):
     def __init__(self, operator):
-        super().__init__("Unknown operator: %s" % str(operator))
+        super().__init__(f"Unknown operator: {str(operator)}")
         self.operator = operator
 
 
 class InvalidOperator(InvalidQuery, TypeError):
     def __init__(self, operator):
-        super().__init__("Invalid operator: %s" % str(operator))
+        super().__init__(f"Invalid operator: {str(operator)}")
         self.operator = operator
 
 
 class InvalidArguments(InvalidQuery, ValueError):
     def __init__(self, arguments):
-        super().__init__("Invalid arguments: %s" % str(arguments))
+        super().__init__(f"Invalid arguments: {str(arguments)}")
         self.arguments = arguments
 
 
@@ -167,7 +167,7 @@ class Filter:
         raise InvalidOperator(op)  # pragma: no cover
 
     def __repr__(self) -> str:  # pragma: no cover
-        return "%s(%s)" % (self.__class__.__name__, str(self))
+        return f"{self.__class__.__name__}({str(self)})"
 
     async def __call__(self, obj: GetAttrObjectT) -> bool:
         return await self._eval(obj)
