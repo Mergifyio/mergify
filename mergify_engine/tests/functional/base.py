@@ -588,7 +588,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.git_counter += 1
         return GitterRecorder(logger, self.cassette_library_dir, self.git_counter)
 
-    async def setup_repo(self, mergify_config=None, test_branches=[], files=[]):
+    async def setup_repo(self, mergify_config=None, test_branches=None, files=None):
+        if test_branches is None:
+            test_branches = []
+        if files is None:
+            files = []
         await self.git.configure()
         await self.git.add_cred(
             config.ORG_ADMIN_PERSONAL_TOKEN, "", self.r_o_integration.full_name
