@@ -298,11 +298,10 @@ async def run_actions(
     """
 
     user_refresh_requested = any(
-        [source["event_type"] == "refresh" for source in ctxt.sources]
+        source["event_type"] == "refresh" for source in ctxt.sources
     )
     forced_refresh_requested = any(
-        [
-            (
+        (
                 source["event_type"] == "refresh"
                 and typing.cast(github_types.GitHubEventRefresh, source["data"])[
                     "action"
@@ -310,7 +309,6 @@ async def run_actions(
                 == "forced"
             )
             for source in ctxt.sources
-        ]
     )
 
     actions_ran = set()
