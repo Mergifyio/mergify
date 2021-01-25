@@ -258,7 +258,7 @@ async def filter_and_dispatch(
         ignore_reason = "organization event"
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
-            await context.Context.clear_user_permission_cache_for_org(
+            await context.Repository.clear_user_permission_cache_for_org(
                 redis_cache, event["organization"]
             )
 
@@ -269,7 +269,7 @@ async def filter_and_dispatch(
         repo_name = event["repository"]["name"]
         ignore_reason = "member event"
 
-        await context.Context.clear_user_permission_cache_for_user(
+        await context.Repository.clear_user_permission_cache_for_user(
             redis_cache,
             event["repository"]["owner"],
             event["repository"],
@@ -283,7 +283,7 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
-        await context.Context.clear_user_permission_cache_for_org(
+        await context.Repository.clear_user_permission_cache_for_org(
             redis_cache, event["organization"]
         )
 
@@ -300,11 +300,11 @@ async def filter_and_dispatch(
             "removed_from_repository",
         ):
             if "repository" in event:
-                await context.Context.clear_user_permission_cache_for_repo(
+                await context.Repository.clear_user_permission_cache_for_repo(
                     redis_cache, event["organization"], event["repository"]
                 )
             else:
-                await context.Context.clear_user_permission_cache_for_org(
+                await context.Repository.clear_user_permission_cache_for_org(
                     redis_cache, event["organization"]
                 )
 
@@ -315,7 +315,7 @@ async def filter_and_dispatch(
         repo_name = event["repository"]["name"]
         ignore_reason = "team_add event"
 
-        await context.Context.clear_user_permission_cache_for_repo(
+        await context.Repository.clear_user_permission_cache_for_repo(
             redis_cache, event["repository"]["owner"], event["repository"]
         )
 
