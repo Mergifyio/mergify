@@ -621,11 +621,8 @@ class MergeBaseAction(actions.Action):
             else:
                 mode = "manually"
             conclusion = check_api.Conclusion.SUCCESS
-            title = "The pull request has been merged %s" % mode
-            summary = "The pull request has been merged %s at *%s*" % (
-                mode,
-                ctxt.pull["merge_commit_sha"],
-            )
+            title = f"The pull request has been merged {mode}"
+            summary = f"The pull request has been merged {mode} at *{ctxt.pull['merge_commit_sha']}*"
         elif ctxt.pull["state"] == "closed":
             conclusion = check_api.Conclusion.CANCELLED
             title = "The pull request has been closed manually"

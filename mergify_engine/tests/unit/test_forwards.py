@@ -42,7 +42,7 @@ def test_app_event_forward(_, __, httpserver):
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "push",
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data.encode()),
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode())}",
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
@@ -75,7 +75,7 @@ def test_market_event_forward(_, __, httpserver):
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "purchased",
-        "X-Hub-Signature": "sha1=%s" % utils.compute_hmac(data.encode()),
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode())}",
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }

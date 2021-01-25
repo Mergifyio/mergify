@@ -108,7 +108,7 @@ async def run_pending_commands_tasks(ctxt: context.Context) -> None:
                 pendings.remove(command)
 
     for pending in pendings:
-        await handle(ctxt, "@Mergifyio %s" % pending, None, rerun=True)
+        await handle(ctxt, f"@Mergifyio {pending}", None, rerun=True)
 
 
 async def run_action(
@@ -118,7 +118,7 @@ async def run_action(
 ) -> typing.Tuple[check_api.Result, str]:
     command, command_args, method = action
 
-    statsd.increment("engine.commands.count", tags=["name:%s" % command])
+    statsd.increment("engine.commands.count", tags=[f"name:{command}"])
 
     report = await method.run(
         ctxt,
@@ -132,22 +132,20 @@ async def run_action(
     else:
         command_full = command
 
+    conclusion = report.conclusion.name.lower()
+    summary = "> " + "\n> ".join(report.summary.split("\n")).strip()
+
     ctxt.log.info(
         "command %s",
-        report.conclusion.name.lower(),
+        conclusion,
         command_full=command_full,
         report=report,
         user=user["login"] if user else None,
     )
-    message = (
-        "**Command `{command}`: {conclusion}**\n> **{title}**\n{summary}\n".format(
-            command=command_full,
-            conclusion=report.conclusion.name.lower(),
-            title=report.title,
-            summary="> " + "\n> ".join(report.summary.split("\n")).strip(),
-        )
+    return (
+        report,
+        f"**Command `{command_full}`: {conclusion}**\n> **{report.title}**\n{summary}\n",
     )
-    return (report, message)
 
 
 async def handle(
@@ -174,7 +172,7 @@ async def handle(
         and user["id"] != config.BOT_USER_ID
         and not await ctxt.repository.has_write_permission(user)
     ):
-        message = "@{} is not allowed to run commands".format(user["login"])
+        message = f"@{user['login']} is not allowed to run commands"
         await post_comment(ctxt, message + footer)
         return
 

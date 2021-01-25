@@ -82,7 +82,7 @@ def is_base_branch_merge_commit(
     commit: github_types.GitHubBranchCommit, base_branch: github_types.GitHubRefType
 ) -> bool:
     return (
-        commit["commit"]["message"].startswith("Merge branch '%s'" % base_branch)
+        commit["commit"]["message"].startswith(f"Merge branch '{base_branch}'")
         and len(commit["parents"]) == 2
     )
 
@@ -180,7 +180,7 @@ BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 def get_destination_branch_name(
     pull_number: github_types.GitHubPullRequestNumber, branch_name: str, kind: KindT
 ) -> str:
-    return "mergify/%s/%s/pr-%s" % (BRANCH_PREFIX_MAP[kind], branch_name, pull_number)
+    return f"mergify/{BRANCH_PREFIX_MAP[kind]}/{branch_name}/pr-{pull_number}"
 
 
 @tenacity.retry(
@@ -233,10 +233,10 @@ async def duplicate(
         await git.configure()
         await git.add_cred("x-access-token", token, repo_full_name)
         await git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
-        await git("fetch", "--quiet", "origin", "pull/%s/head" % ctxt.pull["number"])
+        await git("fetch", "--quiet", "origin", f"pull/{ctxt.pull['number']}/head")
         await git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
         await git("fetch", "--quiet", "origin", branch_name)
-        await git("checkout", "--quiet", "-b", bp_branch, "origin/%s" % branch_name)
+        await git("checkout", "--quiet", "-b", bp_branch, f"origin/{branch_name}")
 
         merge_commit = await ctxt.client.item(
             f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
@@ -305,11 +305,7 @@ async def duplicate(
                 await ctxt.client.post(
                     f"{ctxt.base_url}/pulls",
                     json={
-                        "title": "{} ({} #{})".format(
-                            ctxt.pull["title"],
-                            BRANCH_PREFIX_MAP[kind],
-                            ctxt.pull["number"],
-                        ),
+                        "title": f"{ctxt.pull['title']} ({BRANCH_PREFIX_MAP[kind]} #{ctxt.pull['number']})",
                         "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
                         "base": branch_name,
                         "head": bp_branch,

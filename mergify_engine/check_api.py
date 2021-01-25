@@ -149,7 +149,7 @@ async def set_check_run(
             "Multiple mergify checks have been created, we got the known race.",
         )
 
-    post_parameters["details_url"] += "?check_run_id=%s" % checks[0]["id"]
+    post_parameters["details_url"] += f"?check_run_id={checks[0]['id']}"
 
     # FIXME(sileht): We have no (simple) way to ensure we don't have multiple
     # worker doing POST at the same time. It's unlike to happen, but it has

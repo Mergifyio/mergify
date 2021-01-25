@@ -84,7 +84,7 @@ class TestCommentAction(base.FunctionalTestBase):
             "push",
             "--quiet",
             "fork",
-            self.get_full_branch_name("fork/pr%d" % self.pr_counter),
+            self.get_full_branch_name(f"fork/pr{self.pr_counter}"),
         )
 
         await self.wait_for("pull_request", {"action": "synchronize"})

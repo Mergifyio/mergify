@@ -72,7 +72,7 @@ async def main():
                         headers={
                             "X-GitHub-Event": event["type"],
                             "X-GitHub-Delivery": event["id"],
-                            "X-Hub-Signature": "sha1=%s" % hmac,
+                            "X-Hub-Signature": f"sha1={hmac}",
                             "Content-type": "application/json",
                         },
                         data=data,

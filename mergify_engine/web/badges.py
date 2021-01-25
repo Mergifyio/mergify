@@ -31,21 +31,21 @@ def _get_badge_url(
     )
 
 
-@app.get("/{owner}/{repo}.png")
+@app.get("/{owner}/{repo}.png")  # noqa: FS003
 async def badge_png(
     owner: str, repo: str, style: str = "flat"
 ) -> responses.RedirectResponse:  # pragma: no cover
     return _get_badge_url(owner, repo, "png", style)
 
 
-@app.get("/{owner}/{repo}.svg")
+@app.get("/{owner}/{repo}.svg")  # noqa: FS003
 async def badge_svg(
     owner: str, repo: str, style: str = "flat"
 ) -> responses.RedirectResponse:  # pragma: no cover
     return _get_badge_url(owner, repo, "svg", style)
 
 
-@app.get("/{owner}/{repo}")
+@app.get("/{owner}/{repo}")  # noqa: FS003
 async def badge(owner: str, repo: str) -> responses.RedirectResponse:
     return responses.RedirectResponse(
         url=f"https://dashboard.mergify.io/badges/{owner}/{repo}"

@@ -48,17 +48,15 @@ class DeleteHeadBranchAction(actions.Action):
                     )
                 ]
                 if pulls_using_this_branch:
+                    pulls_using_this_branch_formatted = "\n".join(
+                        f"* Pull request #{p['number']}"
+                        for p in pulls_using_this_branch
+                    )
                     return check_api.Result(
                         check_api.Conclusion.NEUTRAL,
                         "Not deleting the head branch",
-                        "Branch `{}` was not deleted "
-                        "because it is used by:\n{}".format(
-                            ctxt.pull["head"]["ref"],
-                            "\n".join(
-                                "* Pull request #%d" % p["number"]
-                                for p in pulls_using_this_branch
-                            ),
-                        ),
+                        f"Branch `{ctxt.pull['head']['ref']}` was not deleted "
+                        f"because it is used by:\n{pulls_using_this_branch_formatted}",
                     )
 
             ref_to_delete = parse.quote(ctxt.pull["head"]["ref"], safe="")
