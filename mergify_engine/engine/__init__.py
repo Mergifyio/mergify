@@ -47,7 +47,9 @@ async def _check_configuration_changes(ctxt: context.Context) -> bool:
         ref = None
         for f in await ctxt.files:
             if f["filename"] in context.Repository.MERGIFY_CONFIG_FILENAMES:
-                ref = f["contents_url"].split("?ref=")[1]
+                ref = typing.cast(
+                    github_types.GitHubRefType, f["contents_url"].split("?ref=")[1]
+                )
 
         if ref is not None:
             try:

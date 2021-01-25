@@ -103,6 +103,11 @@ class GitHubComment(typing.TypedDict):
     user: GitHubAccount
 
 
+class GitHubFile(typing.TypedDict):
+    filename: str
+    contents_url: str
+
+
 class GitHubIssueOrPullRequest(typing.TypedDict):
     pass
 
@@ -330,6 +335,9 @@ class GitHubStatus(typing.TypedDict):
     state: GitHubStatusState
 
 
+GitHubCheckRunStatus = typing.Literal["queued", "in_progress", "completed"]
+
+
 class GitHubCheckRun(typing.TypedDict):
     id: int
     app: GitHubApp
@@ -339,6 +347,7 @@ class GitHubCheckRun(typing.TypedDict):
     before: SHAType
     after: SHAType
     name: str
+    status: GitHubCheckRunStatus
     output: GitHubCheckRunOutput
     conclusion: typing.Optional[GitHubCheckRunConclusion]
     completed_at: ISODateTimeType
