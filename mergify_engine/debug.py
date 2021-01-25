@@ -109,7 +109,7 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     r = await utils.create_aredis_for_stream()
     streams = await r.zrangebyscore("streams", min=0, max="+inf", withscores=True)
 
-    for pos, item in enumerate(streams):
+    for pos, item in enumerate(streams):  # noqa: B007
         if item[0] == stream_name:
             break
     else:
