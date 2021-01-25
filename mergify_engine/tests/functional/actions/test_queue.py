@@ -62,7 +62,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
 
         await self.add_label(p1, "queue")
@@ -125,7 +125,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         p.update()
         await self.run_engine()
 
@@ -228,7 +228,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
 
         # Queue two pulls
@@ -312,7 +312,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
 
         await self.add_label(p1, "queue")
@@ -458,7 +458,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p3, _ = await self.create_pr()
         p3.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         p3.update()
         await self.run_engine()
 
@@ -489,7 +489,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Merge a not queued PR manually
         p4, _ = await self.create_pr()
         p4.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         p4.update()
 
         await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
@@ -565,7 +565,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # To force others to be rebased
         p3, _ = await self.create_pr()
         p3.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
         p3.update()
 
@@ -658,7 +658,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         p3, _ = await self.create_pr(files={"conflicts": "boom"})
 
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
         q = await queue.Queue.from_context(ctxt, with_train=True)
