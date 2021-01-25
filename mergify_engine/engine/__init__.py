@@ -46,14 +46,12 @@ async def _check_configuration_changes(ctxt: context.Context) -> bool:
     if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
         ref = None
         for f in await ctxt.files:
-            if f["filename"] in rules.MERGIFY_CONFIG_FILENAMES:
+            if f["filename"] in context.Repository.MERGIFY_CONFIG_FILENAMES:
                 ref = f["contents_url"].split("?ref=")[1]
 
         if ref is not None:
             try:
-                await rules.get_mergify_config(
-                    ctxt.redis, ctxt.client, ctxt.pull["base"]["repo"], ref=ref
-                )
+                await rules.get_mergify_config(ctxt.repository, ref)
             except rules.InvalidRules as e:
                 # Not configured, post status check with the error message
                 await ctxt.set_summary_check(
@@ -172,9 +170,7 @@ async def run(
     ctxt.log.debug("engine get configuration")
     # BRANCH CONFIGURATION CHECKING
     try:
-        filename, mergify_config = await rules.get_mergify_config(
-            ctxt.redis, ctxt.client, ctxt.pull["base"]["repo"]
-        )
+        mergify_config = await rules.get_mergify_config(ctxt.repository)
     except rules.NoRules:  # pragma: no cover
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
@@ -241,7 +237,10 @@ async def create_initial_summary(
     owner = event["repository"]["owner"]["login"]
 
     if not await redis.exists(
-        rules.get_config_location_cache_key(event["pull_request"]["base"]["repo"])
+        context.Repository.get_config_location_cache_key(
+            event["pull_request"]["base"]["repo"]["owner"]["login"],
+            event["pull_request"]["base"]["repo"]["name"],
+        )
     ):
         # Mergify is probably not activated on this repo
         return
