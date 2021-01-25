@@ -280,6 +280,19 @@ class Repository(object):
         )
 
 
+class ContextCache(typing.TypedDict, total=False):
+    consolidated_reviews: typing.Tuple[
+        typing.List[github_types.GitHubReview],
+        typing.List[github_types.GitHubReview],
+    ]
+    pull_check_runs: typing.List[github_types.GitHubCheckRun]
+    pull_statuses: typing.List[github_types.GitHubStatus]
+    reviews: typing.List[github_types.GitHubReview]
+    is_behind: bool
+    files: typing.List[github_types.GitHubFile]
+    commits: typing.List[github_types.GitHubBranchCommit]
+
+
 @dataclasses.dataclass
 class Context(object):
     repository: Repository
@@ -287,7 +300,9 @@ class Context(object):
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
-    _cache: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
+
+    # FIXME(sileht): https://github.com/python/mypy/issues/5723
+    _cache: ContextCache = dataclasses.field(default_factory=ContextCache)  # type: ignore
 
     SUMMARY_NAME = "Summary"
 
@@ -435,13 +450,7 @@ class Context(object):
         typing.List[github_types.GitHubReview], typing.List[github_types.GitHubReview]
     ]:
         if "consolidated_reviews" in self._cache:
-            return typing.cast(
-                typing.Tuple[
-                    typing.List[github_types.GitHubReview],
-                    typing.List[github_types.GitHubReview],
-                ],
-                self._cache["consolidated_reviews"],
-            )
+            return self._cache["consolidated_reviews"]
 
         # Ignore reviews that are not from someone with admin/write permissions
         # And only keep the last review for each user.
@@ -460,13 +469,7 @@ class Context(object):
         self._cache["consolidated_reviews"] = list(comments.values()), list(
             approvals.values()
         )
-        return typing.cast(
-            typing.Tuple[
-                typing.List[github_types.GitHubReview],
-                typing.List[github_types.GitHubReview],
-            ],
-            self._cache["consolidated_reviews"],
-        )
+        return self._cache["consolidated_reviews"]
 
     async def _get_consolidated_data(self, name):
         if name == "assignee":
@@ -578,9 +581,7 @@ class Context(object):
     @property
     async def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
         if "pull_check_runs" in self._cache:
-            return typing.cast(
-                typing.List[github_types.GitHubCheckRun], self._cache["pull_check_runs"]
-            )
+            return self._cache["pull_check_runs"]
 
         checks = await check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
         self._cache["pull_check_runs"] = checks
@@ -595,24 +596,31 @@ class Context(object):
         ]
 
     @property
+    async def pull_statuses(self) -> typing.List[github_types.GitHubStatus]:
+        if "pull_statuses" in self._cache:
+            return self._cache["pull_statuses"]
+
+        statuses = [
+            s
+            async for s in typing.cast(
+                typing.AsyncIterable[github_types.GitHubStatus],
+                self.client.items(
+                    f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
+                    list_items="statuses",
+                ),
+            )
+        ]
+        self._cache["pull_statuses"] = statuses
+        return statuses
+
+    @property
     async def checks(self):
-        if "checks" in self._cache:
-            return self._cache["checks"]
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
         checks = {c["name"]: c["conclusion"] for c in await self.pull_check_runs}
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
-        checks.update(
-            {
-                s["context"]: s["state"]
-                async for s in self.client.items(
-                    f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
-                    list_items="statuses",
-                )
-            }
-        )
-        self._cache["checks"] = checks
+        checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
         return checks
 
     async def _resolve_login(self, name):
@@ -714,6 +722,7 @@ class Context(object):
         self.pull = await self.client.item(
             f"{self.base_url}/pulls/{self.pull['number']}"
         )
+
         try:
             del self._cache["pull_check_runs"]
         except KeyError:
@@ -722,7 +731,7 @@ class Context(object):
     @property
     async def is_behind(self) -> bool:
         if "is_behind" in self._cache:
-            return typing.cast(bool, self._cache["is_behind"])
+            return self._cache["is_behind"]
 
         branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
         branch = typing.cast(
@@ -769,14 +778,15 @@ class Context(object):
     @property
     async def reviews(self) -> typing.List[github_types.GitHubReview]:
         if "reviews" in self._cache:
-            return typing.cast(
-                typing.List[github_types.GitHubReview], self._cache["reviews"]
-            )
+            return self._cache["reviews"]
 
         reviews = [
             review
-            async for review in self.client.items(
-                f"{self.base_url}/pulls/{self.pull['number']}/reviews"
+            async for review in typing.cast(
+                typing.AsyncIterable[github_types.GitHubReview],
+                self.client.items(
+                    f"{self.base_url}/pulls/{self.pull['number']}/reviews"
+                ),
             )
         ]
         self._cache["reviews"] = reviews
@@ -785,29 +795,28 @@ class Context(object):
     @property
     async def commits(self) -> typing.List[github_types.GitHubBranchCommit]:
         if "commits" in self._cache:
-            return typing.cast(
-                typing.List[github_types.GitHubBranchCommit], self._cache["commits"]
-            )
-        commits = typing.cast(
-            typing.List[github_types.GitHubBranchCommit],
-            [
-                commit
-                async for commit in self.client.items(
+            return self._cache["commits"]
+        commits = [
+            commit
+            async for commit in typing.cast(
+                typing.AsyncIterable[github_types.GitHubBranchCommit],
+                self.client.items(
                     f"{self.base_url}/pulls/{self.pull['number']}/commits"
-                )
-            ],
-        )
+                ),
+            )
+        ]
         self._cache["commits"] = commits
         return commits
 
     @property
-    async def files(self):
+    async def files(self) -> typing.List[github_types.GitHubFile]:
         if "files" in self._cache:
             return self._cache["files"]
         files = [
             file
-            async for file in self.client.items(
-                f"{self.base_url}/pulls/{self.pull['number']}/files"
+            async for file in typing.cast(
+                typing.AsyncIterable[github_types.GitHubFile],
+                self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files"),
             )
         ]
         self._cache["files"] = files
