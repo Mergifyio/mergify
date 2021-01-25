@@ -534,7 +534,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, commits = await self.create_pr()
 
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
 
         previous_master_sha = self.r_o_admin.get_commits()[0].sha
 
@@ -593,7 +593,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, commits = await self.create_pr()
 
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
 
         await self.create_status(p2)
         await self.create_review(p2, commits[0])
@@ -639,7 +639,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, commits = await self.create_pr()
 
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
 
         await self.create_status(p2)
         await self.create_review(p2, commits[0])

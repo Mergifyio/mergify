@@ -46,7 +46,7 @@ class TestMergeAction(base.FunctionalTestBase):
         # To force previous to be rebased to be rebased
         p, _ = await self.create_pr(base_repo="main")
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {})
 
         await self.git("fetch", "--all")
@@ -136,7 +136,7 @@ class TestMergeAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
 
         # Merge them in reverse priority to ensure there are reordered
@@ -232,7 +232,7 @@ class TestMergeAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
 
         # Merge them in reverse priority to ensure there are reordered
         await self.add_label(p1, "medium")
@@ -419,7 +419,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         # To force others to be rebased
         p, _ = await self.create_pr()
         p.merge()
-        await self.wait_for("pull_request", {"action": "closed"}),
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
 
         # Merge them in reverse priority to ensure there are reordered
