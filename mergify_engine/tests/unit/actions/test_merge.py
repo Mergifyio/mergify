@@ -19,6 +19,7 @@ import pytest
 import voluptuous
 
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine.actions import merge
 from mergify_engine.actions import merge_base
@@ -150,7 +151,10 @@ async def test_merge_commit_message(body, title, message, mode):
     installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever")
     ctxt = await context.Context.create(repository=repository, pull=pull)
-    ctxt._cache["checks"] = {"my CI": "success"}
+    ctxt._cache["pull_statuses"] = [
+        github_types.GitHubStatus({"context": "my CI", "state": "success"})
+    ]
+    ctxt._cache["pull_check_runs"] = []
     pr = ctxt.pull_request
     assert await merge.MergeAction._get_commit_message(pr, mode=mode) == (
         title,
