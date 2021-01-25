@@ -74,43 +74,6 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
         }
     )
 
-    def make_pr(
-        gh_repo: github_types.GitHubRepository, gh_owner: github_types.GitHubAccount
-    ) -> github_types.GitHubPullRequest:
-        return github_types.GitHubPullRequest(
-            {
-                "title": "",
-                "id": github_types.GitHubPullRequestId(0),
-                "maintainer_can_modify": False,
-                "head": {
-                    "user": gh_owner,
-                    "label": "",
-                    "ref": github_types.GitHubRefType(""),
-                    "sha": github_types.SHAType(""),
-                    "repo": gh_repo,
-                },
-                "user": gh_owner,
-                "number": github_types.GitHubPullRequestNumber(0),
-                "rebaseable": False,
-                "draft": False,
-                "merge_commit_sha": None,
-                "html_url": "",
-                "state": "closed",
-                "mergeable_state": "unknown",
-                "merged_by": None,
-                "merged": False,
-                "merged_at": None,
-                "labels": [],
-                "base": {
-                    "ref": github_types.GitHubRefType("main"),
-                    "sha": github_types.SHAType(""),
-                    "label": "",
-                    "repo": gh_repo,
-                    "user": gh_owner,
-                },
-            }
-        )
-
     user_1 = github_types.GitHubAccount(
         {
             "id": github_types.GitHubAccountIdType(1),
@@ -138,18 +101,17 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"])
-    c = await context.Context.create(repository, make_pr(gh_repo, gh_owner))
+    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
     assert client.called == 0
-    assert await c.has_write_permission(user_1)
+    assert await repository.has_write_permission(user_1)
     assert client.called == 1
-    assert await c.has_write_permission(user_1)
+    assert await repository.has_write_permission(user_1)
     assert client.called == 1
-    assert not await c.has_write_permission(user_2)
+    assert not await repository.has_write_permission(user_2)
     assert client.called == 2
-    assert not await c.has_write_permission(user_2)
+    assert not await repository.has_write_permission(user_2)
     assert client.called == 2
-    assert not await c.has_write_permission(user_3)
+    assert not await repository.has_write_permission(user_3)
     assert client.called == 3
 
     gh_repo = github_types.GitHubRepository(
@@ -169,31 +131,30 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"])
-    c = await context.Context.create(repository, make_pr(gh_repo, gh_owner))
+    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
     assert client.called == 0
-    assert await c.has_write_permission(user_2)
+    assert await repository.has_write_permission(user_2)
     assert client.called == 1
-    assert await c.has_write_permission(user_2)
+    assert await repository.has_write_permission(user_2)
     assert client.called == 1
-    assert not await c.has_write_permission(user_1)
+    assert not await repository.has_write_permission(user_1)
     assert client.called == 2
-    await context.Context.clear_user_permission_cache_for_repo(
+    await context.Repository.clear_user_permission_cache_for_repo(
         redis_cache, gh_owner, gh_repo
     )
-    assert not await c.has_write_permission(user_1)
+    assert not await repository.has_write_permission(user_1)
     assert client.called == 3
-    assert not await c.has_write_permission(user_3)
+    assert not await repository.has_write_permission(user_3)
     assert client.called == 4
-    await context.Context.clear_user_permission_cache_for_org(redis_cache, gh_owner)
-    assert not await c.has_write_permission(user_3)
+    await context.Repository.clear_user_permission_cache_for_org(redis_cache, gh_owner)
+    assert not await repository.has_write_permission(user_3)
     assert client.called == 5
-    assert await c.has_write_permission(user_2)
+    assert await repository.has_write_permission(user_2)
     assert client.called == 6
-    assert await c.has_write_permission(user_2)
+    assert await repository.has_write_permission(user_2)
     assert client.called == 6
-    await context.Context.clear_user_permission_cache_for_user(
+    await context.Repository.clear_user_permission_cache_for_user(
         redis_cache, gh_owner, gh_repo, user_2
     )
-    assert await c.has_write_permission(user_2)
+    assert await repository.has_write_permission(user_2)
     assert client.called == 7

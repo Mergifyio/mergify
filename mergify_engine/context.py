@@ -128,6 +128,83 @@ class Repository(object):
 
         return self.pull_contexts[pull_number]
 
+    USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
+    USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
+    USERS_PERMISSION_EXPIRATION = 3600  # 1 hour
+
+    @classmethod
+    def _users_permission_cache_key_for_repo(
+        cls,
+        owner_id: github_types.GitHubAccountIdType,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> str:
+        return (
+            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}"
+            f"{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{owner_id}"
+            f"{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{repo_id}"
+        )
+
+    @property
+    def _users_permission_cache_key(self) -> str:
+        return self._users_permission_cache_key_for_repo(
+            self.installation.owner_id, self.id
+        )
+
+    @classmethod
+    async def clear_user_permission_cache_for_user(
+        cls,
+        redis: utils.RedisCache,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+        user: github_types.GitHubAccount,
+    ) -> None:
+        await redis.hdel(
+            cls._users_permission_cache_key_for_repo(owner["id"], repo["id"]),
+            user["id"],
+        )
+
+    @classmethod
+    async def clear_user_permission_cache_for_repo(
+        cls,
+        redis: utils.RedisCache,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+    ) -> None:
+        await redis.delete(
+            cls._users_permission_cache_key_for_repo(owner["id"], repo["id"])
+        )
+
+    @classmethod
+    async def clear_user_permission_cache_for_org(
+        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
+    ) -> None:
+        pipeline = await redis.pipeline()
+        async for key in redis.scan_iter(
+            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+        ):
+            await pipeline.delete(key)
+        await pipeline.execute()
+
+    async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        key = self._users_permission_cache_key
+        permission = await self.installation.redis.hget(key, user["id"])
+        if permission is None:
+            permission = (
+                await self.installation.client.item(
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
+                )
+            )["permission"]
+            pipe = await self.installation.redis.pipeline()
+            await pipe.hset(key, user["id"], permission)
+            await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
+            await pipe.execute()
+
+        return permission in (
+            "admin",
+            "maintain",
+            "write",
+        )
+
 
 @dataclasses.dataclass
 class Context(object):
@@ -139,7 +216,6 @@ class Context(object):
     _cache: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
 
     SUMMARY_NAME = "Summary"
-    USER_PERMISSION_EXPIRATION = 3600  # 1 hour
 
     @property
     def redis(self) -> utils.RedisCache:
@@ -208,79 +284,6 @@ class Context(object):
         )
         return self
 
-    USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
-    USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"
-
-    @classmethod
-    def _users_permission_cache_key_for_repo(
-        cls, owner: github_types.GitHubAccount, repo: github_types.GitHubRepository
-    ) -> str:
-        # TODO(sileht): move me in Repository
-        return f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{owner['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{repo['id']}"
-
-    @property
-    def _users_permission_cache_key(self) -> str:
-        # TODO(sileht): move me in Repository
-        return self._users_permission_cache_key_for_repo(
-            self.pull["base"]["user"], self.pull["base"]["repo"]
-        )
-
-    @classmethod
-    async def clear_user_permission_cache_for_user(
-        cls,
-        redis: utils.RedisCache,
-        owner: github_types.GitHubAccount,
-        repo: github_types.GitHubRepository,
-        user: github_types.GitHubAccount,
-    ) -> None:
-        # TODO(sileht): move me in Repository
-        await redis.hdel(
-            cls._users_permission_cache_key_for_repo(owner, repo), user["id"]
-        )
-
-    @classmethod
-    async def clear_user_permission_cache_for_repo(
-        cls,
-        redis: utils.RedisCache,
-        owner: github_types.GitHubAccount,
-        repo: github_types.GitHubRepository,
-    ) -> None:
-        # TODO(sileht): move me in Repository
-        await redis.delete(cls._users_permission_cache_key_for_repo(owner, repo))
-
-    @classmethod
-    async def clear_user_permission_cache_for_org(
-        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
-    ) -> None:
-        # TODO(sileht): move me in Repository
-        pipeline = await redis.pipeline()
-        async for key in redis.scan_iter(
-            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
-        ):
-            await pipeline.delete(key)
-        await pipeline.execute()
-
-    async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
-        # TODO(sileht): move me in Repository
-        key = self._users_permission_cache_key
-        permission = await self.redis.hget(key, user["id"])
-        if permission is None:
-            permission = (
-                await self.client.item(
-                    f"{self.base_url}/collaborators/{user['login']}/permission"
-                )
-            )["permission"]
-            pipe = await self.redis.pipeline()
-            await pipe.hset(key, user["id"], permission)
-            await pipe.expire(key, self.USER_PERMISSION_EXPIRATION)
-            await pipe.execute()
-
-        return permission in (
-            "admin",
-            "maintain",
-            "write",
-        )
-
     async def set_summary_check(
         self, result: check_api.Result
     ) -> github_types.GitHubCheckRun:
@@ -347,7 +350,7 @@ class Context(object):
                 r["user"] is not None
                 and (
                     r["user"]["type"] == "Bot"
-                    or await self.has_write_permission(r["user"])
+                    or await self.repository.has_write_permission(r["user"])
                 )
             )
         }
