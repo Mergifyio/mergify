@@ -165,11 +165,11 @@ expected alphabetic or numeric character, but found"""
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: backport (backport)"
-        )
+        ]
         assert "cancelled" == checks[0]["conclusion"]
         assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
 
@@ -204,11 +204,11 @@ expected alphabetic or numeric character, but found"""
         await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: Backport (backport)"
-        )
+        ]
         assert "failure" == checks[0]["conclusion"]
         assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
@@ -265,11 +265,11 @@ expected alphabetic or numeric character, but found"""
         print(await ctxt.pull_check_runs)
         return (
             p,
-            list(
+            [
                 c
                 for c in await ctxt.pull_engine_check_runs
                 if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
-            ),
+            ],
         )
 
     async def test_backport_conflicts(self):
@@ -379,11 +379,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert bp_pull.title == f"Pull request n1 from fork (bp #{p.number})"
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
-        )
+        ]
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
@@ -649,11 +649,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: smart strict merge on master (merge)"
-        )
+        ]
         assert checks[0]["output"]["title"] == "Base branch update has failed"
         assert checks[0]["output"]["summary"].startswith(
             "Unable to rebase: user `not-exists` is unknown. "
@@ -1054,11 +1054,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert pulls[0].merged is False
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: merge (merge)"
-        )
+        ]
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "action_required"
         assert (
@@ -1080,11 +1080,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # delete check run cache
         del ctxt._cache["pull_check_runs"]
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: merge (merge)"
-        )
+        ]
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "success"
         pulls = list(
@@ -1237,11 +1237,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: merge (merge)"
-        )
+        ]
         assert checks[0]["conclusion"] is None
         assert "in_progress" == checks[0]["status"]
         assert (
@@ -1306,11 +1306,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
         ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
-        checks = list(
+        checks = [
             c
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: merge (merge)"
-        )
+        ]
         assert "failure" == checks[0]["conclusion"]
         assert (
             "Branch protection setting 'strict' conflicts with Mergify configuration"

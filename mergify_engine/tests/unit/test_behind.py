@@ -22,7 +22,7 @@ from mergify_engine import context
 
 
 def create_commit(sha=None):
-    return dict(sha=sha, parents=[])
+    return {"sha": sha, "parents": []}
 
 
 @pytest.fixture(params=["U-A-B-C", "O-A-B-C", "O-A-BO-C", "O-A-BU-C", "O-A-B-CU"])

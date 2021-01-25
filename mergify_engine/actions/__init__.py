@@ -30,27 +30,27 @@ if typing.TYPE_CHECKING:
 
 
 global _ACTIONS_CLASSES
-_ACTIONS_CLASSES = None
+_ACTIONS_CLASSES: typing.Optional[typing.Dict[str, "Action"]] = None
 
 
-def get_classes():
+def get_classes() -> typing.Dict[str, "Action"]:
     global _ACTIONS_CLASSES
     if _ACTIONS_CLASSES is None:
-        _ACTIONS_CLASSES = dict(
-            (ep.name, ep.load())
+        _ACTIONS_CLASSES = {
+            ep.name: ep.load()
             for ep in pkg_resources.iter_entry_points("mergify_actions")
-        )
+        }
     return _ACTIONS_CLASSES
 
 
-def get_action_schemas():
-    return dict(
-        (name, obj.get_schema()) for name, obj in get_classes().items() if obj.is_action
-    )
+def get_action_schemas() -> typing.Dict[str, "Action"]:
+    return {
+        name: obj.get_schema() for name, obj in get_classes().items() if obj.is_action
+    }
 
 
-def get_commands():
-    return dict((name, obj) for name, obj in get_classes().items() if obj.is_command)
+def get_commands() -> typing.Dict[str, "Action"]:
+    return {name: obj for name, obj in get_classes().items() if obj.is_command}
 
 
 @dataclasses.dataclass  # type: ignore
