@@ -233,19 +233,23 @@ async def exec_action(
 
 
 def load_conclusions_line(
+    ctxt: context.Context,
     summary_check: typing.Optional[github_types.GitHubCheckRun],
 ) -> typing.Optional[str]:
     if summary_check is not None and summary_check["output"]["summary"] is not None:
-        line = summary_check["output"]["summary"].splitlines()[-1]
-        if line.startswith("<!-- ") and line.endswith(" -->"):
-            return line
+        lines = summary_check["output"]["summary"].splitlines()
+        if not lines:
+            ctxt.log.error("got summary without content", summary_check=summary_check)
+            return None
+        if lines[-1].startswith("<!-- ") and lines[-1].endswith(" -->"):
+            return lines[-1]
     return None
 
 
 def load_conclusions(
     ctxt: context.Context, summary_check: typing.Optional[github_types.GitHubCheckRun]
 ) -> typing.Dict[str, check_api.Conclusion]:
-    line = load_conclusions_line(summary_check)
+    line = load_conclusions_line(ctxt, summary_check)
     if line:
         return {
             name: check_api.Conclusion(conclusion)
