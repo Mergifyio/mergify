@@ -111,7 +111,7 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
             )
             repository = context.Repository(installation, repo)
             ctxt = await repository.get_pull_request_context(data["number"], data)
-            ctxt.sources = ([{"event_type": "mergify-simulator", "data": []}],)
+            ctxt.sources = [{"event_type": "mergify-simulator", "data": []}]
             match = await pull_request_rules.get_pull_request_rule(ctxt)
             return actions_runner.gen_summary(ctxt, match)
     except exceptions.MergifyNotInstalled:
