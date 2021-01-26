@@ -1316,6 +1316,54 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == checks[0]["output"]["title"]
         )
 
+    async def test_refresh_via_check_suite_rerequest(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "nothing",
+                    "conditions": [f"base!={self.master_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+
+        await self.run_engine()
+
+        ctxt = await self.repository_ctxt.get_pull_request_context(p.number, p.raw_data)
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        check_suite_id = checks[0]["check_suite"]["id"]
+
+        check_suite = (
+            await self.installation_ctxt.client.get(
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+            )
+        ).json()
+        assert check_suite["status"] == "completed"
+
+        # Click on rerequest btn
+        await self.installation_ctxt.client.post(
+            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest"
+        )
+        await self.wait_for("check_suite", {"action": "rerequested"})
+
+        check_suite = (
+            await self.installation_ctxt.client.get(
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+            )
+        ).json()
+        assert check_suite["status"] == "queued"
+
+        await self.run_engine()
+        check_suite = (
+            await self.installation_ctxt.client.get(
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+            )
+        ).json()
+        assert check_suite["status"] == "completed"
+
     async def test_refresh_api(self):
         rules = {
             "pull_request_rules": [
