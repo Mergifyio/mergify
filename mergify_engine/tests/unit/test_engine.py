@@ -62,6 +62,7 @@ GH_PULL = github_types.GitHubPullRequest(
         "labels": [],
         "number": github_types.GitHubPullRequestNumber(6),
         "merged": True,
+        "commits": 1,
         "state": "closed",
         "html_url": "<html_url>",
         "base": {

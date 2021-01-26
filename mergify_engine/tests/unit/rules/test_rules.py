@@ -595,6 +595,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "id": github_types.GitHubPullRequestId(0),
                 "number": github_types.GitHubPullRequestNumber(1),
+                "commits": 1,
                 "html_url": "<html_url>",
                 "merge_commit_sha": None,
                 "maintainer_can_modify": True,

@@ -65,6 +65,7 @@ async def fake_context(repository, number, **kwargs):
         "draft": False,
         "merge_commit_sha": None,
         "number": number,
+        "commits": 1,
         "mergeable_state": "clean",
         "state": "open",
         "changed_files": 1,
