@@ -146,15 +146,15 @@ mergeable_state: clean
 > </details>
 > <!-- J1J1bGU6IGNvbW1lbnQgKGNvbW1lbnQpJzogc3VjY2Vzcwo= -->
 * MERGIFY LIVE MATCHES:
-> 1 rule matches
-#### Rule: comment (comment)
-- [X] `base={self.master_branch_name}`
-
-<hr />
-:sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
-
-:rocket:&nbsp;&nbsp;You can help us by [becoming a sponsor](/sponsors/Mergifyio)!
-<hr />"""  # noqa:W291
+[Summary]: success | 1 rule matches
+> #### Rule: comment (comment)
+> - [X] `base={self.master_branch_name}`
+> 
+> <hr />
+> :sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
+> 
+> :rocket:&nbsp;&nbsp;You can help us by [becoming a sponsor](/sponsors/Mergifyio)!
+> <hr />"""  # noqa:W291
         )
 
         assert (

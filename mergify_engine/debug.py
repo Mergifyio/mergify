@@ -284,8 +284,8 @@ async def report(
                     "pull_request_rules"
                 ].get_pull_request_rule(ctxt)
                 summary_title, summary = actions_runner.gen_summary(ctxt, match)
-                print(f"> {summary_title}")
-                print(summary)
+                print(f"[Summary]: success | {summary_title}")
+                print("> " + "\n> ".join(summary.strip().split("\n")))
 
             return ctxt
 
