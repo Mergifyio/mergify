@@ -49,6 +49,11 @@ jobs:
   py39:
     timeout-minutes: 10
     runs-on: ubuntu-20.04
+    services:
+      redis:
+        image: redis:latest
+        ports:
+        - 6363:6379
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
