@@ -290,9 +290,17 @@ async def filter_and_dispatch(
         repo_name = None
         ignore_reason = "membership event"
 
-        await context.Installation.clear_team_members_cache_for_team(
-            redis_cache, event["organization"], event["team"]["slug"]
-        )
+        if "slug" in event["team"]:
+            await context.Installation.clear_team_members_cache_for_team(
+                redis_cache, event["organization"], event["team"]["slug"]
+            )
+        else:
+            # Deleted team
+            await context.Installation.clear_team_members_cache_for_org(
+                redis_cache,
+                event["organization"],
+            )
+
         await context.Repository.clear_user_permission_cache_for_org(
             redis_cache, event["organization"]
         )
