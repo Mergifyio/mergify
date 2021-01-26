@@ -267,5 +267,4 @@ class Queue:
                             }
                         },
                     },  # type: ignore
-                    "internal",
                 )

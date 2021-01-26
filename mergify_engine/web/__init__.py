@@ -141,7 +141,7 @@ async def refresh_repo(
     return await _refresh(owner, repo_name)
 
 
-RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "admin", "internal"))
+RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "forced"))
 
 
 @app.post(
