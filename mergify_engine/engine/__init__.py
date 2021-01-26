@@ -91,7 +91,7 @@ async def _get_summary_from_sha(ctxt, sha):
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     for check in await ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME and actions_runner.load_conclusions_line(
-            check
+            ctxt, check
         ):
             return
 
