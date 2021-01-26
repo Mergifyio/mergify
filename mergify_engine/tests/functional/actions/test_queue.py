@@ -255,7 +255,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.create_status(tmp_p2)
         await self.run_engine()
         pulls = list(self.r_o_admin.get_pulls())
-        assert len(pulls) == 4
+        assert len(pulls) == 3
         q = await queue.Queue.from_context(ctxt, with_train=True)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]

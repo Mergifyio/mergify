@@ -239,11 +239,13 @@ class TrainCar:
         will_be_reset: bool = False,
     ) -> None:
         if conclusion == check_api.Conclusion.SUCCESS:
-            title = f"The pull request #{self.user_pull_request_number} is mergeable"
+            tmp_pull_title = (
+                f"The pull request #{self.user_pull_request_number} is mergeable"
+            )
         elif conclusion == check_api.Conclusion.PENDING:
-            title = f"The pull request #{self.user_pull_request_number} is embarked for merge"
+            tmp_pull_title = f"The pull request #{self.user_pull_request_number} is embarked for merge"
         else:
-            title = f"The pull request #{self.user_pull_request_number} cannot be merged and has been disembarked"
+            tmp_pull_title = f"The pull request #{self.user_pull_request_number} cannot be merged and has been disembarked"
 
         if queue_rule:
             queue_summary = "\n\nRequired conditions for merge:\n"
@@ -259,7 +261,7 @@ class TrainCar:
         await tmp_pull_ctxt.set_summary_check(
             check_api.Result(
                 conclusion,
-                title=title,
+                title=tmp_pull_title,
                 summary=summary,
             )
         )
@@ -309,17 +311,19 @@ class TrainCar:
 
         if will_be_reset:
             # TODO(sileht): display train cars ?
-            title = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
+            original_pull_title = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
         else:
             if conclusion == check_api.Conclusion.SUCCESS:
-                title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
+                original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
             elif conclusion == check_api.Conclusion.PENDING:
-                title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
+                original_pull_title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
             else:
-                title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
+                original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
 
         report = check_api.Result(
-            conclusion, title=title, summary=queue_summary + checks_copy_summary
+            conclusion,
+            title=original_pull_title,
+            summary=queue_summary + checks_copy_summary,
         )
         original_ctxt.log.info(
             "pull request train car status update",
@@ -332,12 +336,24 @@ class TrainCar:
             report,
         )
 
+        # NOTE(sileht): refresh it, so the queue action will merge it and delete the
+        # tmp_pull_ctxt branch
         async with utils.aredis_for_stream() as redis_stream:
             await github_events.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
                 original_ctxt.pull,
                 "internal",
+            )
+
+        if conclusion in [check_api.Conclusion.SUCCESS, check_api.Conclusion.FAILURE]:
+            await tmp_pull_ctxt.client.post(
+                f"{tmp_pull_ctxt.base_url}/issues/{self.queue_pull_request_number}/comments",
+                json={"body": tmp_pull_title},
+            )
+            await tmp_pull_ctxt.client.patch(
+                f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
+                json={"state": "closed"},
             )
 
 
