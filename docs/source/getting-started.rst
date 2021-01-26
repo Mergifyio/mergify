@@ -19,26 +19,16 @@ working.
    :alt: Mergify Dashboard
    :align: center
 
-2. Click on ``Enable Mergify on a new account`` or go to |https://github.com/marketplace/mergify|
+2. Click on ``Enable Mergify on a new account`` or go to |https://github.com/apps/mergify/installations/new|
 
-.. image:: _static/github-marketplace.png
-   :alt: GitHub Marketplace for Mergify
-   :align: center
-
-3. Once on the GitHub Marketplace page, scroll down and pick the plan you need.
-
-.. image:: _static/marketplace-plan.png
-   :alt: GitHub Marketplace plan for Mergify
-   :align: center
-
-4. GitHub will now offer you to select the repositories you want to give
+3. GitHub will now offer you to select the repositories you want to give
    Mergify access to. Select any repository you like, or all if you wish.
 
 .. image:: _static/github-app-install-repos.png
    :alt: GitHub select repositories for Mergify
    :align: center
 
-5. You will be redirected to the dashboard.
+4. You will be redirected to the dashboard.
 
 .. image:: _static/dashboard-setup.png
    :alt: Mergify dashboard once setup
@@ -48,9 +38,10 @@ working.
 
    <a href="https://dashboard.mergify.io/" target="_blank">https://dashboard.mergify.io/</a>
 
-.. |https://github.com/marketplace/mergify| raw:: html
 
-   <a href="https://github.com/marketplace/mergify" target="_blank">https://github.com/marketplace/mergify/</a>
+.. |https://github.com/apps/mergify/installations/new| raw:: html
+
+   <a href="https://github.com/apps/mergify/installations/new" target="_blank">https://github.com/apps/mergify/installations/new</a>
 
 Configuration
 -------------
