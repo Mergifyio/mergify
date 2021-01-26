@@ -84,6 +84,7 @@ async def test_summary_synchronization_cache(
             "merge_commit_sha": None,
             "labels": [],
             "number": github_types.GitHubPullRequestNumber(6),
+            "commits": 1,
             "merged": True,
             "state": "closed",
             "changed_files": 1,

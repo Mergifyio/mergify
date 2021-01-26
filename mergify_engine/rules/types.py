@@ -92,6 +92,7 @@ _DUMMY_PR = DummyPullRequest(
                 "merged_at": None,
                 "draft": False,
                 "merge_commit_sha": None,
+                "commits": 0,
                 "mergeable_state": "unknown",
                 "rebaseable": False,
                 "changed_files": 1,

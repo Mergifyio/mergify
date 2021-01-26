@@ -166,6 +166,7 @@ async def refresh_pull(
         pull_request=github_types.GitHubPullRequest(
             {
                 "title": "",
+                "commits": 0,
                 "number": pull_request_number,
                 "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,

@@ -189,6 +189,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     html_url: str
     title: str
     changed_files: int
+    commits: int
 
 
 # https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads

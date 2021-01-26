@@ -91,6 +91,7 @@ async def test_get_commits_to_cherry_pick_rebase(
             "draft": False,
             "merge_commit_sha": github_types.SHAType(""),
             "title": "",
+            "commits": 1,
             "rebaseable": False,
             "maintainer_can_modify": False,
             "id": github_types.GitHubPullRequestId(0),
@@ -251,6 +252,7 @@ async def test_get_commits_to_cherry_pick_merge(
         repository,
         {
             "number": github_types.GitHubPullRequestNumber(6),
+            "commits": 1,
             "merged": True,
             "state": "closed",
             "html_url": "<html_url>",
