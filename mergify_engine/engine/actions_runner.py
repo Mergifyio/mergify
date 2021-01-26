@@ -172,6 +172,10 @@ async def post_summary(ctxt, match, summary_check, conclusions, previous_conclus
         not summary_check
         or summary_check["output"]["title"] != summary_title
         or summary_check["output"]["summary"] != summary
+        # Even the check-run content didn't change we must report the same content to
+        # update the check_suite
+        or ctxt.user_refresh_requested()
+        or ctxt.admin_refresh_requested()
     )
 
     if summary_changed:
@@ -304,18 +308,8 @@ async def run_actions(
     - ("cancelled", "<title>", "<summary>")
     """
 
-    user_refresh_requested = any(
-        source["event_type"] == "refresh" for source in ctxt.sources
-    )
-    forced_refresh_requested = any(
-        (
-            source["event_type"] == "refresh"
-            and typing.cast(github_types.GitHubEventRefresh, source["data"])["action"]
-            == "forced"
-        )
-        for source in ctxt.sources
-    )
-
+    user_refresh_requested = ctxt.user_refresh_requested()
+    admin_refresh_requested = ctxt.admin_refresh_requested()
     actions_ran = set()
     conclusions = {}
 
@@ -355,7 +349,7 @@ async def run_actions(
 
             need_to_be_run = (
                 action_obj.always_run
-                or forced_refresh_requested
+                or admin_refresh_requested
                 or (
                     user_refresh_requested
                     and previous_conclusion == check_api.Conclusion.FAILURE
