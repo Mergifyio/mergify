@@ -209,6 +209,7 @@ class TrainCar:
                 self.train.repository.installation.redis,
                 redis_stream,
                 original_ctxt.pull,
+                "internal",
             )
 
     async def update_summaries(
@@ -278,6 +279,7 @@ class TrainCar:
                 self.train.repository.installation.redis,
                 redis_stream,
                 original_ctxt.pull,
+                "internal",
             )
 
 

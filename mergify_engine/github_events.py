@@ -73,6 +73,8 @@ def _extract_slim_event(event_type, data):
 
     elif event_type in ("check_suite", "check_run"):
         # To get PR from sha
+        slim_data["action"] = data["action"]
+        slim_data["app"] = {"id": data[event_type]["app"]["id"]}
         slim_data[event_type] = {
             "head_sha": data[event_type]["head_sha"],
             "pull_requests": [
