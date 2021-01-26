@@ -100,14 +100,16 @@ class QueueAction(merge_base.MergeBaseAction):
             check_api.Conclusion.PENDING,
         ]
 
-    async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> bool:
-        return True
-
     async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
         if not await q.is_first_pull(ctxt):
             return False
+
+        if not await ctxt.is_behind:
+            # TODO(sileht): Even if we merged the pull request here, the train car may
+            # have been created. We should postpone the train car.
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            if not queue_rule_evaluated.missing_conditions:
+                return True
 
         check = first(
             await ctxt.pull_engine_check_runs,
@@ -118,12 +120,16 @@ class QueueAction(merge_base.MergeBaseAction):
                 check_api.Conclusion(check["conclusion"])
                 == check_api.Conclusion.SUCCESS
             )
-        else:
-            return False
+        return False
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
         # NOTE(sileht): since we create dedicated branch we don't need to sync PR
         return False
+
+    async def _should_be_cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> bool:
+        return True
 
     async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
         return await queue.Queue.from_context(ctxt, with_train=True)
