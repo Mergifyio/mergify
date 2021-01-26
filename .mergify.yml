@@ -74,6 +74,11 @@ pull_request_rules:
       - label!=work-in-progress
       - -merged
       - -closed
+      - "status-success=requirements"
+      - "status-success=datadog"
+      - "status-success=pep8"
+      - "status-success=py39"
+      - "status-success=docs"
       - "#approved-reviews-by=0"
       - "#changes-requested-reviews-by=0"
     actions:
@@ -86,13 +91,13 @@ pull_request_rules:
       - label=hotfix
     actions:
       comment:
-        message: Your pull request is a hotfix but does not fix a Sentry issue.
+        message: Your pull request is a hotfix but does not fix a Sentry issue. 🤔
   - name: warn on conflicts
     conditions:
       - conflict
     actions:
       comment:
-        message: This pull request is now in conflict :(
+        message: "@{author} this pull request is now in conflict 😩"
       label:
         add:
           - conflict
