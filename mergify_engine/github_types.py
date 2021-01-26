@@ -63,6 +63,13 @@ class GitHubRepository(typing.TypedDict):
     default_branch: GitHubRefType
 
 
+GitHubTeamSlug = typing.NewType("GitHubTeamSlug", str)
+
+
+class GitHubTeam(typing.TypedDict):
+    slug: GitHubTeamSlug
+
+
 class GitHubBranchCommitParent(typing.TypedDict):
     sha: SHAType
 
@@ -420,6 +427,7 @@ GitHubEventMembershipActionType = typing.Literal["added", "removed"]
 
 class GitHubEventMembership(GitHubEvent):
     action: GitHubEventMembershipActionType
+    team: GitHubTeam
 
 
 GitHubEventTeamActionType = typing.Literal[
@@ -434,6 +442,7 @@ GitHubEventTeamActionType = typing.Literal[
 class GitHubEventTeam(GitHubEvent):
     action: GitHubEventTeamActionType
     repository: typing.Optional[GitHubRepository]
+    team: GitHubTeam
 
 
 class GitHubEventTeamAdd(GitHubEvent, total=False):
