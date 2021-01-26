@@ -823,14 +823,60 @@ class Context(object):
         return files
 
     @property
-    def pull_from_fork(self):
+    def pull_from_fork(self) -> bool:
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
-    async def github_workflow_changed(self):
+    async def github_workflow_changed(self) -> bool:
         for f in await self.files:
             if f["filename"].startswith(".github/workflows"):
                 return True
         return False
+
+    def user_refresh_requested(self) -> bool:
+        return any(
+            (
+                source["event_type"] == "refresh"
+                and typing.cast(github_types.GitHubEventRefresh, source["data"])[
+                    "action"
+                ]
+                == "user"
+            )
+            or (
+                source["event_type"] == "check_suite"
+                and typing.cast(github_types.GitHubEventCheckSuite, source["data"])[
+                    "action"
+                ]
+                == "rerequested"
+                and typing.cast(github_types.GitHubEventCheckSuite, source["data"])[
+                    "app"
+                ]["id"]
+                == config.INTEGRATION_ID
+            )
+            or (
+                source["event_type"] == "check_run"
+                and typing.cast(github_types.GitHubEventCheckRun, source["data"])[
+                    "action"
+                ]
+                == "rerequested"
+                and typing.cast(github_types.GitHubEventCheckRun, source["data"])[
+                    "app"
+                ]["id"]
+                == config.INTEGRATION_ID
+            )
+            for source in self.sources
+        )
+
+    def admin_refresh_requested(self) -> bool:
+        return any(
+            (
+                source["event_type"] == "refresh"
+                and typing.cast(github_types.GitHubEventRefresh, source["data"])[
+                    "action"
+                ]
+                == "admin"
+            )
+            for source in self.sources
+        )
 
 
 @dataclasses.dataclass

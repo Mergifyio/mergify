@@ -198,7 +198,8 @@ class GitHubEvent(typing.TypedDict):
 
 GitHubEventRefreshActionType = typing.Literal[
     "user",
-    "forced",
+    "internal",
+    "admin",
 ]
 
 
@@ -374,6 +375,7 @@ GitHubCheckRunActionType = typing.Literal[
 class GitHubEventCheckRun(GitHubEvent):
     repository: GitHubRepository
     action: GitHubCheckRunActionType
+    app: GitHubApp
     check_run: GitHubCheckRun
 
 
@@ -388,6 +390,7 @@ GitHubCheckSuiteActionType = typing.Literal[
 class GitHubEventCheckSuite(GitHubEvent):
     repository: GitHubRepository
     action: GitHubCheckSuiteActionType
+    app: GitHubApp
     check_suite: GitHubCheckSuite
 
 
