@@ -191,7 +191,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
             else:
                 raise
 
-        expected_sha = await git("log", "-1", "--format=%H")
+        expected_sha = (await git("log", "-1", "--format=%H")).strip()
         # NOTE(sileht): We store this for dismissal action
         await ctxt.redis.setex(f"branch-update-{expected_sha}", 60 * 60, expected_sha)
     except gitter.GitError as in_exception:  # pragma: no cover

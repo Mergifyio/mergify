@@ -26,11 +26,13 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
     async def test_dismiss_reviews_custom_message(self):
         return await self._test_dismiss_reviews(message="Loser")
 
-    async def _push_for_synchronize(self, branch, filename="unwanted_changes"):
+    async def _push_for_synchronize(
+        self, branch, filename="unwanted_changes", remote="fork"
+    ):
         open(self.git.tmp + f"/{filename}", "wb").close()
         await self.git("add", self.git.tmp + f"/{filename}")
         await self.git("commit", "--no-edit", "-m", filename)
-        await self.git("push", "--quiet", "fork", branch)
+        await self.git("push", "--quiet", remote, branch)
 
     async def _test_dismiss_reviews_fail(self, msg):
         rules = {
@@ -159,3 +161,42 @@ Unknown pull request attribute: Loser
         )
 
         return p
+
+    async def test_dismiss_reviews_ignored(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "dismiss reviews",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {
+                        "dismiss_reviews": {
+                            "approved": True,
+                        }
+                    },
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, commits = await self.create_pr()
+        await self.create_review(p, commits[-1], "APPROVE")
+
+        self.assertEqual(
+            [("APPROVED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()],
+        )
+
+        # Move base branch
+        await self.git("checkout", self.master_branch_name)
+        await self._push_for_synchronize(self.master_branch_name, remote="main")
+        await self.run_engine()
+
+        p.create_issue_comment("@mergifyio refresh")
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+
+        # Ensure review have not been dismiss
+        self.assertEqual(
+            [("APPROVED", "mergify-test1")],
+            [(r.state, r.user.login) for r in p.get_reviews()],
+        )
