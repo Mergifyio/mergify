@@ -232,9 +232,9 @@ that is the branch which hosts the commits. This only works if the branch is
 stored in the same repository that the pull request target, i.e., if the pull
 request comes from the same repository and not from a fork.
 
-This action takes no configuration options. The action will only happen if and
-when the pull request is closed or merged: you can decide what suits you best
-using :ref:`Conditions`.
+.. note::
+
+   The action will only happen if and when the pull request is closed or merged.
 
 .. list-table::
    :header-rows: 1
