@@ -315,7 +315,9 @@ class StreamProcessor:
                         owner_id, owner_login, sub, client, redis_cache
                     )
                     pulls = await self._extract_pulls_from_stream(installation)
-                    await self._consume_pulls(installation, pulls)
+                    if pulls:
+                        client.set_requests_ratio(len(pulls))
+                        await self._consume_pulls(installation, pulls)
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             await self.redis.delete(stream_name)

@@ -32,7 +32,8 @@ from mergify_engine.clients import http
 
 
 RATE_LIMIT_THRESHOLD = 20
-LOGGING_REQUESTS_THRESHOLD = 100
+LOGGING_REQUESTS_THRESHOLD = 20
+LOGGING_REQUESTS_THRESHOLD_ABSOLUTE = 200
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -320,6 +321,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
 
     def __init__(self, auth: _T_get_auth):
         self._requests: typing.List[typing.Tuple[str, str]] = []
+        self._requests_ratio: int = 1
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
@@ -406,6 +408,9 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         await super().__aexit__(exc_type, exc_value, traceback)
         self._generate_metrics()
 
+    def set_requests_ratio(self, ratio: int) -> None:
+        self._requests_ratio = ratio
+
     def _generate_metrics(self):
         nb_requests = len(self._requests)
         statsd.histogram(
@@ -413,13 +418,19 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             nb_requests,
             tags=[f"hostname:{self.base_url.host}"],
         )
-        if nb_requests >= LOGGING_REQUESTS_THRESHOLD:
+        if (
+            (nb_requests / self._requests_ratio) >= LOGGING_REQUESTS_THRESHOLD
+            or nb_requests >= LOGGING_REQUESTS_THRESHOLD_ABSOLUTE
+        ):
             LOG.warning(
-                "number of GitHub requests for this session crossed the threshold (%s): %s",
+                "number of GitHub requests for this session crossed the threshold (%s/%s): %s/%s",
                 LOGGING_REQUESTS_THRESHOLD,
+                LOGGING_REQUESTS_THRESHOLD_ABSOLUTE,
+                nb_requests / self._requests_ratio,
                 nb_requests,
                 gh_owner=self.auth.owner,
                 requests=self._requests,
+                requests_ratio=self._requests_ratio,
             )
         self._requests = []
 
