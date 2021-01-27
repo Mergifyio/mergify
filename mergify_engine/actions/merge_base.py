@@ -154,8 +154,8 @@ class MergeBaseAction(actions.Action):
                 ctxt.log.error("expected queued pull request not found in queue")
                 title = "The pull request is queued to be merged"
             else:
-                ord = utils.to_ordinal_numeric(position + 1)
-                title = f"The pull request is the {ord} in the queue to be merged"
+                _ord = utils.to_ordinal_numeric(position + 1)
+                title = f"The pull request is the {_ord} in the queue to be merged"
 
             if is_behind:
                 summary = "\nThe pull request base branch will be updated before being merged."

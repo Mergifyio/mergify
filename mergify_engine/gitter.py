@@ -43,7 +43,7 @@ class Gitter(object):
         self.logger.info("working in: %s", self.tmp)
         await self("init")
 
-    async def __call__(self, *args: str, input: typing.Optional[str] = None) -> str:
+    async def __call__(self, *args: str, _input: typing.Optional[str] = None) -> str:
         self.logger.info("calling: %s", " ".join(args))
         try:
             p = await asyncio.create_subprocess_exec(
@@ -52,11 +52,11 @@ class Gitter(object):
                 cwd=self.tmp,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                stdin=None if input is None else asyncio.subprocess.PIPE,
+                stdin=None if _input is None else asyncio.subprocess.PIPE,
             )
 
             stdout, _ = await asyncio.wait_for(
-                p.communicate(input=None if input is None else input.encode("utf8")),
+                p.communicate(input=None if _input is None else _input.encode("utf8")),
                 self.GIT_COMMAND_TIMEOUT,
             )
             output = stdout.decode("utf-8")
@@ -93,4 +93,4 @@ class Gitter(object):
         parsed[1] = f"{username}:{password}@{parsed[1]}"
         parsed[2] = path
         url = urllib.parse.urlunparse(parsed)
-        await self("credential", "approve", input=f"url={url}\n\n")
+        await self("credential", "approve", _input=f"url={url}\n\n")

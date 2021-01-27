@@ -122,8 +122,8 @@ class GitterRecorder(gitter.Gitter):
 
     @staticmethod
     def prepare_kwargs(kwargs):
-        if "input" in kwargs:
-            kwargs["input"] = re.sub(r"://[^@]*@", "://<TOKEN>:@", kwargs["input"])
+        if "_input" in kwargs:
+            kwargs["_input"] = re.sub(r"://[^@]*@", "://<TOKEN>:@", kwargs["_input"])
         return kwargs
 
     async def cleanup(self):
