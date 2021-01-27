@@ -1589,26 +1589,25 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         assert check["output"]["summary"] == ("a" * 65532 + "…")
 
-    @pytest.mark.skip(
-        "I wonder how we can get this state since we run the engine manually in tests"
-    )
-    async def test_pull_request_complete(self):
+    async def test_pull_request_init_summary(self):
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
         await self.setup_repo(yaml.dump(rules))
+
+        # Run the engine once, to initialiaze the config location cache
+        await self.create_pr()
+        await self.run_engine()
+
+        # Check initial summary is submitted
         p, _ = await self.create_pr()
-        client = github.aget_client(p.base.user.login)
-        ctxt = await context.Context.create(client, p.raw_data, [])
-        assert p.number == ctxt.pull["number"]
-        assert "open" == ctxt.pull["state"]
-        assert "unstable" == ctxt.pull["mergeable_state"]
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        assert len(await ctxt.pull_engine_check_runs) == 1
-        check = await ctxt.pull_engine_check_runs[0]
-        assert check["output"]["title"] == "Your rules are under evaluation"
+        ctxt = await self.repository_ctxt.get_pull_request_context(p.number, p.raw_data)
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["output"]["title"] == "Your rules are under evaluation"
         assert (
-            check["output"]["summary"] == "Be patient, the page will be updated soon."
+            checks[0]["output"]["summary"]
+            == "Be patient, the page will be updated soon."
         )
 
     async def test_pull_refreshed_after_config_change(self):
