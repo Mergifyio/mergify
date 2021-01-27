@@ -97,7 +97,7 @@ pull_request_rules:
       - conflict
     actions:
       comment:
-        message: "@{author} this pull request is now in conflict 😩"
+        message: "@{{author}} this pull request is now in conflict 😩"
       label:
         add:
           - conflict
