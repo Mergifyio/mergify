@@ -172,20 +172,20 @@ def Jinja2(value, extra_variables=None):
     return value
 
 
-def _check_GitHubLogin_format(value, type="login"):
+def _check_GitHubLogin_format(value, _type="login"):
     # GitHub says login cannot:
     # - start with an hyphen
     # - ends with an hyphen
     # - contains something else than hyphen and alpha numericals characters
     if not value:
-        raise voluptuous.Invalid(f"A GitHub {type} cannot be an empty string")
+        raise voluptuous.Invalid(f"A GitHub {_type} cannot be an empty string")
     if (
         value[0] == "-"
         or value[-1] == "-"
         or not value.isascii()
         or not value.replace("-", "").isalnum()
     ):
-        raise voluptuous.Invalid(f"GitHub {type} contains invalid characters")
+        raise voluptuous.Invalid(f"GitHub {_type} contains invalid characters")
     return value
 
 
