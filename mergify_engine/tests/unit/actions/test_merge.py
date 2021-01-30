@@ -152,7 +152,15 @@ async def test_merge_commit_message(body, title, message, mode):
     repository = context.Repository(installation, "whatever")
     ctxt = await context.Context.create(repository=repository, pull=pull)
     ctxt._cache["pull_statuses"] = [
-        github_types.GitHubStatus({"context": "my CI", "state": "success"})
+        github_types.GitHubStatus(
+            {
+                "target_url": "http://example.com",
+                "context": "my CI",
+                "state": "success",
+                "description": "foobar",
+                "avatar_url": "",
+            }
+        )
     ]
     ctxt._cache["pull_check_runs"] = []
     pr = ctxt.pull_request

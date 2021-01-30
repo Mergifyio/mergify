@@ -105,6 +105,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                     "login": github_types.GitHubLogin("user"),
                     "id": github_types.GitHubAccountIdType(0),
                     "type": "User",
+                    "avatar_url": "",
                 },
                 "ref": github_types.GitHubRefType("ref"),
                 "repo": {
@@ -116,6 +117,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                         "login": github_types.GitHubLogin("user"),
                         "id": github_types.GitHubAccountIdType(0),
                         "type": "User",
+                        "avatar_url": "",
                     },
                     "archived": False,
                     "url": "",
@@ -130,6 +132,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                     "login": github_types.GitHubLogin("user"),
                     "id": github_types.GitHubAccountIdType(0),
                     "type": "User",
+                    "avatar_url": "",
                 },
                 "repo": {
                     "full_name": "fork/other",
@@ -143,6 +146,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                         "login": github_types.GitHubLogin("user"),
                         "id": github_types.GitHubAccountIdType(0),
                         "type": "User",
+                        "avatar_url": "",
                     },
                 },
             },
@@ -150,6 +154,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                 "login": github_types.GitHubLogin("user"),
                 "id": github_types.GitHubAccountIdType(0),
                 "type": "User",
+                "avatar_url": "",
             },
             "merged_by": None,
             "merged_at": None,
@@ -227,6 +232,7 @@ async def test_get_commits_to_cherry_pick_merge(
             "login": github_types.GitHubLogin("user"),
             "id": github_types.GitHubAccountIdType(0),
             "type": "User",
+            "avatar_url": "",
         }
     )
 

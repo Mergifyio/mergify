@@ -58,6 +58,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
             "id": github_types.GitHubAccountIdType(123),
             "login": github_types.GitHubLogin("jd"),
             "type": "User",
+            "avatar_url": "",
         }
     )
 
@@ -79,6 +80,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
             "id": github_types.GitHubAccountIdType(1),
             "login": github_types.GitHubLogin("foo"),
             "type": "User",
+            "avatar_url": "",
         }
     )
     user_2 = github_types.GitHubAccount(
@@ -86,6 +88,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
             "id": github_types.GitHubAccountIdType(2),
             "login": github_types.GitHubLogin("bar"),
             "type": "User",
+            "avatar_url": "",
         }
     )
     user_3 = github_types.GitHubAccount(
@@ -93,6 +96,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
             "id": github_types.GitHubAccountIdType(3),
             "login": github_types.GitHubLogin("baz"),
             "type": "User",
+            "avatar_url": "",
         }
     )
 
@@ -188,6 +192,7 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
             "id": github_types.GitHubAccountIdType(123),
             "login": github_types.GitHubLogin("jd"),
             "type": "User",
+            "avatar_url": "",
         }
     )
 
