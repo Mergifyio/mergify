@@ -68,3 +68,25 @@ class TestGithubClient(base.FunctionalTestBase):
             await client.item(f"{url}/10000000000")
 
         self.assertEqual(404, ctxt.exception.response.status_code)
+
+    async def test_github_async_client_with_owner_id(self):
+
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "fake PR",
+                    "conditions": ["base=master"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+
+        client = github.aget_client(owner_id=self.o_integration.id)
+
+        url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
+
+        pulls = [p async for p in client.items(url)]
+        self.assertEqual(1, len(pulls))

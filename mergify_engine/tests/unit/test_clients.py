@@ -15,6 +15,7 @@
 # under the License.
 
 import datetime
+import typing
 from unittest import mock
 
 import pytest
@@ -28,14 +29,19 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
-@mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
-async def test_client_installation_token(httpserver: httpserver.HTTPServer) -> None:
+async def _do_test_client_installation_token(
+    httpserver: httpserver.HTTPServer,
+    endpoint: str,
+    owner_name: typing.Optional[github_types.GitHubLogin] = None,
+    owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+) -> None:
+
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        httpserver.expect_request("/users/owner/installation").respond_with_json(
+
+        httpserver.expect_request(endpoint).respond_with_json(
             {
                 "id": 12345,
                 "target_type": "User",
@@ -47,6 +53,7 @@ async def test_client_installation_token(httpserver: httpserver.HTTPServer) -> N
                 "account": {"login": "testing", "id": 12345},
             }
         )
+
         httpserver.expect_request(
             "/app/installations/12345/access_tokens"
         ).respond_with_json(
@@ -58,14 +65,41 @@ async def test_client_installation_token(httpserver: httpserver.HTTPServer) -> N
         ).respond_with_json({"work": True}, status=200)
 
         async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubLogin("owner"))
+            github.get_auth(owner_name=owner_name, owner_id=owner_id)
         ) as client:
+
             ret = await client.get(httpserver.url_for("/"))
             assert ret.json()["work"]
+            assert client.auth.owner == "testing"
+            assert client.auth.owner_id == 12345
 
     assert len(httpserver.log) == 3
 
     httpserver.check_assertions()
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.asyncio
+async def test_client_installation_token_with_owner_name(
+    httpserver: httpserver.HTTPServer,
+) -> None:
+    await _do_test_client_installation_token(
+        httpserver,
+        "/users/owner/installation",
+        owner_name=github_types.GitHubLogin("owner"),
+    )
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.asyncio
+async def test_client_installation_token_with_owner_id(
+    httpserver: httpserver.HTTPServer,
+) -> None:
+    await _do_test_client_installation_token(
+        httpserver,
+        "/user/12345/installation",
+        owner_id=github_types.GitHubAccountIdType(12345),
+    )
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
