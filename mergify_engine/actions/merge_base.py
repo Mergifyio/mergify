@@ -253,7 +253,7 @@ class MergeBaseAction(actions.Action):
                 await q.remove_pull(ctxt)
                 return check_api.Result(
                     check_api.Conclusion.CANCELLED,
-                    "The pull request have been removed from the queue",
+                    "The pull request has been removed from the queue",
                     "The queue conditions cannot be satisfied due to failing checks.",
                 )
 
@@ -478,7 +478,7 @@ class MergeBaseAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 "Unexpected after merge pull request state",
-                "The pull request have been merged, but GitHub API still report it open",
+                "The pull request has been merged while GitHub API still reports it as opened.",
             )
 
     async def _handle_merge_error(
@@ -497,7 +497,7 @@ class MergeBaseAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.CANCELLED,
                 "Head branch was modified in the meantime",
-                "The head branch was modified, the merge action have been cancelled.",
+                "The head branch was modified, the merge action has been cancelled.",
             )
         elif "Base branch was modified" in e.message:
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
