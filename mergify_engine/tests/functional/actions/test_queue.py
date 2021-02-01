@@ -614,6 +614,43 @@ class TestQueueAction(base.FunctionalTestBase):
 
         assert expected_commits == []
 
+    async def test_queue_no_tmp_pull_request(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                },
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge train",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        await self.create_status(p1)
+        await self.add_label(p1, "queue")
+        await self.run_engine()
+
+        ctxt_p1 = context.Context(self.repository_ctxt, p1.raw_data)
+        q = await queue.Queue.from_context(ctxt_p1, with_train=True)
+        pulls_in_queue = await q.get_pulls()
+        assert pulls_in_queue == []
+
+        # pull merged without need of a train car
+        p1.update()
+        assert p1.merged
+
 
 class TestTrainApiCalls(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
