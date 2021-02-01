@@ -7,3 +7,10 @@ updates:
     time: "09:00"
     timezone: Europe/Paris
   open-pull-requests-limit: 10
+- package-ecosystem: npm
+  directory: "/docs"
+  schedule:
+    interval: daily
+    time: "09:00"
+    timezone: Europe/Paris
+  open-pull-requests-limit: 10
