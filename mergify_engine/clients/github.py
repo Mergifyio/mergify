@@ -141,12 +141,16 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     installation: typing.Optional[github_types.GitHubInstallation]
 
-    def __init__(self, owner: github_types.GitHubLogin) -> None:
-        self.owner = owner
+    def __init__(
+        self,
+        owner_name: typing.Optional[github_types.GitHubLogin] = None,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+    ) -> None:
+        self.owner = owner_name
+        self.owner_id = owner_id
 
         self._cached_token = None
         self.installation = None
-        self.owner_id = None
         self.permissions_need_to_be_updated = None
 
     @contextlib.contextmanager
@@ -176,6 +180,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                     LOG.debug(
                         "Mergify not installed",
                         gh_owner=self.owner,
+                        gh_owner_id=self.owner_id,
                         error_message=installation_response.json()["message"],
                     )
                     raise exceptions.MergifyNotInstalled()
@@ -216,7 +221,10 @@ class GithubAppInstallationAuth(httpx.Auth):
 
     def build_installation_request(self, url=None, force=False):
         if url is None:
-            url = f"{config.GITHUB_API_URL}/users/{self.owner}/installation"
+            if self.owner_id:
+                url = f"{config.GITHUB_API_URL}/user/{self.owner_id}/installation"
+            else:
+                url = f"{config.GITHUB_API_URL}/users/{self.owner}/installation"
         return self.build_github_app_request("GET", url, force=force)
 
     def build_access_token_request(self, force=False):
@@ -236,6 +244,7 @@ class GithubAppInstallationAuth(httpx.Auth):
             installation_response.json()
         )
         self.owner_id = self.installation["account"]["id"]
+        self.owner = self.installation["account"]["login"]
         self.permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
             self.installation
         )
@@ -282,11 +291,14 @@ class GithubAppInstallationAuth(httpx.Auth):
 _T_get_auth = typing.Union[GithubAppInstallationAuth, GithubActionAccessTokenAuth]
 
 
-def get_auth(owner: typing.Optional[github_types.GitHubLogin]) -> _T_get_auth:
+def get_auth(
+    owner_name: typing.Optional[github_types.GitHubLogin] = None,
+    owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+) -> _T_get_auth:
     if config.GITHUB_APP:
-        if owner is None:
+        if owner_name is None and owner_id is None:
             raise ValueError("No owner provided")
-        return GithubAppInstallationAuth(owner)
+        return GithubAppInstallationAuth(owner_name=owner_name, owner_id=owner_id)
     else:
         return GithubActionAccessTokenAuth()
 
@@ -436,7 +448,10 @@ class AsyncGithubInstallationClient(http.AsyncClient):
 
 
 def aget_client(
-    owner: typing.Optional[github_types.GitHubLogin] = None,
+    owner_name: typing.Optional[github_types.GitHubLogin] = None,
+    owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     auth: typing.Optional[_T_get_auth] = None,
 ) -> AsyncGithubInstallationClient:
-    return AsyncGithubInstallationClient(auth or get_auth(owner))
+    return AsyncGithubInstallationClient(
+        auth or get_auth(owner_name=owner_name, owner_id=owner_id)
+    )
