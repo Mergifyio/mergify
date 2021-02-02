@@ -872,7 +872,9 @@ class Context(object):
             file
             async for file in typing.cast(
                 typing.AsyncIterable[github_types.GitHubFile],
-                self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files"),
+                self.client.items(
+                    f"{self.base_url}/pulls/{self.pull['number']}/files?per_page=100"
+                ),
             )
         ]
         self._cache["files"] = files
