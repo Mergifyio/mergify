@@ -639,6 +639,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def response_filter(response):
         for h in [
+            "CF-Cache-Status",
+            "CF-RAY",
+            "Expect-CT",
+            "Report-To",
+            "NEL",
+            "cf-request-id",
+            "Via",
             "X-GitHub-Request-Id",
             "Date",
             "ETag",
