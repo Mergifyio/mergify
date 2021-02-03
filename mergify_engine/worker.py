@@ -200,7 +200,7 @@ PullsToConsume = typing.NewType(
 
 @dataclasses.dataclass
 class StreamSelector:
-    redis: utils.RedisStream
+    redis_stream: utils.RedisStream
     worker_id: int
     worker_count: int
 
@@ -212,7 +212,7 @@ class StreamSelector:
 
     async def next_stream(self) -> typing.Optional[StreamNameType]:
         now = time.time()
-        for stream in await self.redis.zrangebyscore(
+        for stream in await self.redis_stream.zrangebyscore(
             "streams",
             min=0,
             max=now,
@@ -228,7 +228,8 @@ class StreamSelector:
 
 @dataclasses.dataclass
 class StreamProcessor:
-    redis: utils.RedisStream
+    redis_stream: utils.RedisStream
+    redis_cache: utils.RedisCache
 
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
@@ -240,17 +241,17 @@ class StreamProcessor:
             yield
         except Exception as e:
             if isinstance(e, exceptions.MergeableStateUnknown) and attempts_key:
-                attempts = await self.redis.hincrby("attempts", attempts_key)
+                attempts = await self.redis_stream.hincrby("attempts", attempts_key)
                 if attempts < MAX_RETRIES:
                     raise PullRetry(attempts) from e
                 else:
-                    await self.redis.hdel("attempts", attempts_key)
+                    await self.redis_stream.hdel("attempts", attempts_key)
                     raise MaxPullRetry(attempts) from e
 
             if isinstance(e, exceptions.MergifyNotInstalled):
                 if attempts_key:
-                    await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
+                    await self.redis_stream.hdel("attempts", attempts_key)
+                await self.redis_stream.hdel("attempts", stream_name)
                 raise StreamUnused(stream_name)
 
             if isinstance(e, github.TooManyPages):
@@ -259,23 +260,25 @@ class StreamProcessor:
                 # by Mergify, but this need a bit of refactory to do it, so in the
                 # meantimes...
                 if attempts_key:
-                    await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
+                    await self.redis_stream.hdel("attempts", attempts_key)
+                await self.redis_stream.hdel("attempts", stream_name)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
                 if attempts_key:
-                    await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
+                    await self.redis_stream.hdel("attempts", attempts_key)
+                await self.redis_stream.hdel("attempts", stream_name)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
                 retry_at = utils.utcnow() + e.countdown
                 score = retry_at.timestamp()
                 if attempts_key:
-                    await self.redis.hdel("attempts", attempts_key)
-                await self.redis.hdel("attempts", stream_name)
-                await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+                    await self.redis_stream.hdel("attempts", attempts_key)
+                await self.redis_stream.hdel("attempts", stream_name)
+                await self.redis_stream.zaddoption(
+                    "streams", "XX", **{stream_name: score}
+                )
                 raise StreamRetry(stream_name, 0, retry_at)
 
             backoff = exceptions.need_retry(e)
@@ -284,11 +287,11 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis.hincrby("attempts", stream_name)
+            attempts = await self.redis_stream.hincrby("attempts", stream_name)
             retry_in = 3 ** min(attempts, 3) * backoff
             retry_at = utils.utcnow() + retry_in
             score = retry_at.timestamp()
-            await self.redis.zaddoption("streams", "XX", **{stream_name: score})
+            await self.redis_stream.zaddoption("streams", "XX", **{stream_name: score})
             raise StreamRetry(stream_name, attempts, retry_at)
 
     def _extract_owner(
@@ -305,22 +308,21 @@ class StreamProcessor:
         LOG.debug("consoming stream", gh_owner=owner_login)
 
         try:
-            async with utils.aredis_for_cache() as redis_cache:
-                async with self._translate_exception_to_retries(stream_name):
-                    sub = await subscription.Subscription.get_subscription(
-                        redis_cache, owner_id
-                    )
-                async with github.aget_client(owner_login) as client:
-                    installation = context.Installation(
-                        owner_id, owner_login, sub, client, redis_cache
-                    )
-                    pulls = await self._extract_pulls_from_stream(installation)
-                    if pulls:
-                        client.set_requests_ratio(len(pulls))
-                        await self._consume_pulls(installation, pulls)
+            async with self._translate_exception_to_retries(stream_name):
+                sub = await subscription.Subscription.get_subscription(
+                    self.redis_cache, owner_id
+                )
+            async with github.aget_client(owner_login) as client:
+                installation = context.Installation(
+                    owner_id, owner_login, sub, client, self.redis_cache
+                )
+                pulls = await self._extract_pulls_from_stream(installation)
+                if pulls:
+                    client.set_requests_ratio(len(pulls))
+                    await self._consume_pulls(installation, pulls)
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
-            await self.redis.delete(stream_name)
+            await self.redis_stream.delete(stream_name)
         except StreamRetry as e:
             log_method = (
                 LOG.error
@@ -336,19 +338,19 @@ class StreamProcessor:
             )
             return
         except vcr_errors_CannotOverwriteExistingCassetteException:
-            messages = await self.redis.xrange(
+            messages = await self.redis_stream.xrange(
                 stream_name, count=config.STREAM_MAX_BATCH
             )
             for message_id, message in messages:
                 LOG.info(msgpack.unpackb(message[b"event"], raw=False))
-                await self.redis.execute_command("XDEL", stream_name, message_id)
+                await self.redis_stream.execute_command("XDEL", stream_name, message_id)
 
         except Exception:
             # Ignore it, it will retried later
             LOG.error("failed to process stream", gh_owner=owner_login, exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
-        await self.redis.eval(
+        await self.redis_stream.eval(
             self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
         )
         LOG.debug("cleanup stream end", stream_name=stream_name)
@@ -375,7 +377,7 @@ end
     ) -> PullsToConsume:
         messages: typing.List[
             typing.Tuple[T_MessageID, T_MessagePayload]
-        ] = await self.redis.xrange(
+        ] = await self.redis_stream.xrange(
             installation.stream_name, count=config.STREAM_MAX_BATCH
         )
         LOG.debug(
@@ -433,14 +435,16 @@ end
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
                 messages.extend(converted_messages)
-                deleted = await self.redis.xdel(installation.stream_name, message_id)
+                deleted = await self.redis_stream.xdel(
+                    installation.stream_name, message_id
+                )
                 if deleted != 1:
                     # FIXME(sileht): During shutdown, heroku may have already started
                     # another worker that have already take the lead of this stream_name
                     # This can create duplicate events in the streams but that should not
                     # be a big deal as the engine will not been ran by the worker that's
                     # shutdowning.
-                    contents = await self.redis.xrange(
+                    contents = await self.redis_stream.xrange(
                         installation.stream_name, start=message_id, end=message_id
                     )
                     if contents:
@@ -482,7 +486,7 @@ end
                 raise RuntimeError("Got an empty pull number")
             messages.append(
                 await push(
-                    self.redis,
+                    self.redis_stream,
                     installation.owner_id,
                     installation.owner_login,
                     repo_name,
@@ -527,17 +531,17 @@ end
                     installation.stream_name, attempts_key
                 ):
                     await run_engine(installation, repo, pull_number, sources)
-                await self.redis.hdel("attempts", attempts_key)
-                await self.redis.execute_command(
+                await self.redis_stream.hdel("attempts", attempts_key)
+                await self.redis_stream.execute_command(
                     "XDEL", installation.stream_name, *message_ids
                 )
             except IgnoredException:
-                await self.redis.execute_command(
+                await self.redis_stream.execute_command(
                     "XDEL", installation.stream_name, *message_ids
                 )
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
-                await self.redis.execute_command(
+                await self.redis_stream.execute_command(
                     "XDEL", installation.stream_name, *message_ids
                 )
                 logger.error(
@@ -581,7 +585,10 @@ class Worker:
         typing.Literal["stream", "stream-monitoring"]
     ] = dataclasses.field(default_factory=lambda: {"stream", "stream-monitoring"})
 
-    _redis: typing.Optional[utils.RedisStream] = dataclasses.field(
+    _redis_stream: typing.Optional[utils.RedisStream] = dataclasses.field(
+        init=False, default=None
+    )
+    _redis_cache: typing.Optional[utils.RedisCache] = dataclasses.field(
         init=False, default=None
     )
 
@@ -607,13 +614,15 @@ class Worker:
         return self.worker_per_process * self.process_count
 
     async def stream_worker_task(self, worker_id: int) -> None:
-        if self._redis is None:
-            raise RuntimeError("redis client is not ready")
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
 
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
-        stream_processor = StreamProcessor(self._redis)
-        stream_selector = StreamSelector(self._redis, worker_id, self.worker_count)
+        stream_processor = StreamProcessor(self._redis_stream, self._redis_cache)
+        stream_selector = StreamSelector(
+            self._redis_stream, worker_id, self.worker_count
+        )
 
         while not self._stopping.is_set():
             try:
@@ -650,13 +659,13 @@ class Worker:
             pass
 
     async def monitoring_task(self) -> None:
-        if self._redis is None:
-            raise RuntimeError("redis client is not ready")
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
 
         while not self._stopping.is_set():
             try:
                 now = time.time()
-                streams = await self._redis.zrangebyscore(
+                streams = await self._redis_stream.zrangebyscore(
                     "streams",
                     min=0,
                     max=now,
@@ -695,7 +704,8 @@ class Worker:
     async def _run(self):
         self._stopping.clear()
 
-        self._redis = await utils.create_aredis_for_stream()
+        self._redis_stream = await utils.create_aredis_for_stream()
+        self._redis_cache = await utils.create_aredis_for_cache()
 
         if "stream" in self.enabled_services:
             worker_ids = self.get_worker_ids()
@@ -727,12 +737,17 @@ class Worker:
             await asyncio.wait(pending)
 
         self._worker_tasks = []
+        if self._redis_stream:
+            self._redis_stream.connection_pool.max_idle_time = 0
+            self._redis_stream.connection_pool.disconnect()
+            self._redis_stream = None
 
-        if self._redis:
-            self._redis.connection_pool.max_idle_time = 0
-            self._redis.connection_pool.disconnect()
-            self._redis = None
-            await utils.stop_pending_aredis_tasks()
+        if self._redis_cache:
+            self._redis_cache.connection_pool.max_idle_time = 0
+            self._redis_cache.connection_pool.disconnect()
+            self._redis_cache = None
+
+        await utils.stop_pending_aredis_tasks()
 
         self._tombstone.set()
         LOG.debug("exiting")
@@ -781,15 +796,15 @@ async def async_status() -> None:
     process_count: int = config.STREAM_PROCESSES
     worker_count: int = worker_per_process * process_count
 
-    redis = await utils.create_aredis_for_stream()
-    stream_selector = StreamSelector(redis, 0, worker_count)
+    redis_stream = await utils.create_aredis_for_stream()
+    stream_selector = StreamSelector(redis_stream, 0, worker_count)
 
     def sorter(item):
         stream, score = item
         return stream_selector.get_worker_id_for(stream)
 
     streams = sorted(
-        await redis.zrangebyscore("streams", min=0, max="+inf", withscores=True),
+        await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
         key=sorter,
     )
 
@@ -797,7 +812,7 @@ async def async_status() -> None:
         for stream, score in streams_by_worker:
             owner = stream.split(b"~")[1]
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
-            items = await redis.xlen(stream)
+            items = await redis_stream.xlen(stream)
             print(f"{{{worker_id:02}}} [{date}] {owner.decode()}: {items} events")
 
 

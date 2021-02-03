@@ -567,7 +567,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         started_at = None
         while True:
-            if w._redis is None or (await w._redis.zcard("streams")) > 0:
+            if w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0:
                 started_at = None
             elif started_at is None:
                 started_at = time.monotonic()
