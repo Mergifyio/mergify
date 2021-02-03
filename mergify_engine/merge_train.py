@@ -34,19 +34,19 @@ from mergify_engine.clients import http
 
 CHECK_ASSERTS = {
     # green check mark
-    "success": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/check-green-16.png",
+    "success": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/check-green-16.png",
     # red x
-    "failure": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
-    "error": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
-    "cancelled": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
-    "action_required": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
-    "timed_out": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/x-red-16.png",
+    "failure": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
+    "error": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
+    "cancelled": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
+    "action_required": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
+    "timed_out": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
     # yellow dot
-    "pending": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/dot-yellow-16.png",
-    None: "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/dot-yellow-16.png",
+    "pending": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/dot-yellow-16.png",
+    None: "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/dot-yellow-16.png",
     # grey square
-    "neutral": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/square-grey-16.png",
-    "stale": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/assets/square-grey-16.png",
+    "neutral": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/square-grey-16.png",
+    "stale": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/square-grey-16.png",
 }
 
 
