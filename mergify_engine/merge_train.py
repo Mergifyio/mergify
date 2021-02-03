@@ -375,13 +375,36 @@ class Train:
         waiting_pulls: typing.List[WaitingPull]
         current_base_sha: typing.Optional[github_types.SHAType]
 
-    def _get_train_queue_key(self) -> str:
-        return f"merge-train~{self.repository.installation.owner_id}~{self.repository.id}~{self.ref}"
+    @staticmethod
+    def get_redis_key_for(
+        owner_id: github_types.GitHubAccountIdType,
+        repository_id: typing.Union[
+            github_types.GitHubRepositoryIdType, typing.Literal["*"]
+        ],
+        ref: typing.Union[github_types.GitHubRefType, typing.Literal["*"]],
+    ) -> str:
+        return f"merge-train~{owner_id}~{repository_id}~{ref}"
+
+    def _get_redis_key(self) -> str:
+        return self.get_redis_key_for(
+            self.repository.installation.owner_id, self.repository.id, self.ref
+        )
+
+    @classmethod
+    async def iter_trains(
+        cls, installation: context.Installation
+    ) -> typing.AsyncIterator["Train"]:
+        for train_name in await installation.redis.keys(
+            cls.get_redis_key_for(installation.owner_id, "*", "*")
+        ):
+            train_name_split = train_name.split("~")
+            repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
+            ref = github_types.GitHubRefType(train_name_split[3])
+            repository = await installation.get_repository_by_id(repo_id)
+            yield cls(repository, ref)
 
     async def load(self):
-        train_raw = await self.repository.installation.redis.get(
-            self._get_train_queue_key()
-        )
+        train_raw = await self.repository.installation.redis.get(self._get_redis_key())
 
         if train_raw:
             train = self.Serialized(json.loads(train_raw))
@@ -411,11 +434,9 @@ class Train:
                 cars=[c.serialized() for c in self._cars],
             )
             raw = json.dumps(prepared)
-            await self.repository.installation.redis.set(
-                self._get_train_queue_key(), raw
-            )
+            await self.repository.installation.redis.set(self._get_redis_key(), raw)
         else:
-            await self.repository.installation.redis.delete(self._get_train_queue_key())
+            await self.repository.installation.redis.delete(self._get_redis_key())
 
     def get_car_by_tmp_pull(self, ctxt: context.Context) -> typing.Optional[TrainCar]:
         return first.first(
@@ -450,7 +471,6 @@ class Train:
         self._waiting_pulls.insert(
             position - len(self._cars), WaitingPull(ctxt.pull["number"], queue_name)
         )
-        await self._populate_cars()
         await self._save()
         ctxt.log.info("added to train", position=position, queue_name=queue_name)
 
@@ -476,7 +496,6 @@ class Train:
             for car in self._cars:
                 car.current_base_sha = self._current_base_sha
 
-            await self._populate_cars()
             await self._save()
             ctxt.log.info("removed from train", position=0)
             return
@@ -487,7 +506,6 @@ class Train:
         ).index(ctxt.pull["number"])
         await self._slice_cars_at(position)
         del self._waiting_pulls[0]
-        await self._populate_cars()
         await self._save()
         ctxt.log.info("removed from train", position=position)
 

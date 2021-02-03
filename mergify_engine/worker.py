@@ -39,6 +39,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
+from mergify_engine import merge_train
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -320,6 +321,9 @@ class StreamProcessor:
                 if pulls:
                     client.set_requests_ratio(len(pulls))
                     await self._consume_pulls(installation, pulls)
+
+                await self._refresh_merge_trains(installation)
+
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             await self.redis_stream.delete(stream_name)
@@ -354,6 +358,14 @@ class StreamProcessor:
             self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
         )
         LOG.debug("cleanup stream end", stream_name=stream_name)
+
+    async def _refresh_merge_trains(self, installation):
+        async with self._translate_exception_to_retries(
+            installation.stream_name,
+        ):
+            async for train in merge_train.Train.iter_trains(installation):
+                await train.load()
+                await train.refresh()
 
     # NOTE(sileht): If the stream still have messages, we update the score to reschedule the
     # pull later
