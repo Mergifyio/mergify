@@ -157,12 +157,15 @@ async def test_train_add_pull(repository, monkepatched_traincar):
     await t.load()
 
     await t.insert_pull_at(await fake_context(repository, 1), 0, "foo")
+    await t.refresh()
     assert [[1]] == get_cars_content(t)
 
     await t.insert_pull_at(await fake_context(repository, 2), 1, "foo")
+    await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
 
     await t.insert_pull_at(await fake_context(repository, 3), 2, "foo")
+    await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     t = merge_train.Train(repository, "branch")
@@ -170,6 +173,7 @@ async def test_train_add_pull(repository, monkepatched_traincar):
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
     t = merge_train.Train(repository, "branch")
@@ -185,11 +189,13 @@ async def test_train_remove_middle_merged(repository, monkepatched_traincar):
     await t.insert_pull_at(await fake_context(repository, 1), 0, "foo")
     await t.insert_pull_at(await fake_context(repository, 2), 1, "foo")
     await t.insert_pull_at(await fake_context(repository, 3), 2, "foo")
+    await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(
         await fake_context(repository, 2, merged=True, merge_commit_sha="new_sha1")
     )
+    await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
@@ -201,9 +207,11 @@ async def test_train_remove_middle_not_merged(repository, monkepatched_traincar)
     await t.insert_pull_at(await fake_context(repository, 1), 0, "foo")
     await t.insert_pull_at(await fake_context(repository, 3), 1, "foo")
     await t.insert_pull_at(await fake_context(repository, 2), 1, "foo")
+    await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
@@ -215,9 +223,11 @@ async def test_train_remove_head_not_merged(repository, monkepatched_traincar):
     await t.insert_pull_at(await fake_context(repository, 1), 0, "foo")
     await t.insert_pull_at(await fake_context(repository, 2), 1, "foo")
     await t.insert_pull_at(await fake_context(repository, 3), 2, "foo")
+    await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(await fake_context(repository, 1))
+    await t.refresh()
     assert [[2], [2, 3]] == get_cars_content(t)
 
 
@@ -229,9 +239,11 @@ async def test_train_remove_head_merged(repository, monkepatched_traincar):
     await t.insert_pull_at(await fake_context(repository, 1), 0, "foo")
     await t.insert_pull_at(await fake_context(repository, 2), 1, "foo")
     await t.insert_pull_at(await fake_context(repository, 3), 2, "foo")
+    await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(
         await fake_context(repository, 1, merged=True, merge_commit_sha="new_sha1")
     )
+    await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)

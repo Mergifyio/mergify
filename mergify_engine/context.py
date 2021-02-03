@@ -77,11 +77,26 @@ class Installation:
             "worker.StreamNameType", f"stream~{self.owner_login}~{self.owner_id}"
         )
 
-    def get_repository(self, name: github_types.GitHubRepositoryName) -> "Repository":
+    def get_repository(
+        self,
+        name: github_types.GitHubRepositoryName,
+        _id: typing.Optional[github_types.GitHubRepositoryIdType] = None,
+    ) -> "Repository":
         if name not in self.repositories:
-            repository = Repository(self, name)
+            repository = Repository(self, name, _id)
             self.repositories[name] = repository
         return self.repositories[name]
+
+    async def get_repository_by_id(
+        self, _id: github_types.GitHubRepositoryIdType
+    ) -> "Repository":
+        for repository in self.repositories.values():
+            if repository.id == _id:
+                return repository
+        repo_data: github_types.GitHubRepository = await self.client.item(
+            f"/repo/{_id}"
+        )
+        return self.get_repository(repo_data["name"], repo_data["id"])
 
     TEAM_MEMBERS_CACHE_KEY_PREFIX = "team_members"
     TEAM_MEMBERS_CACHE_KEY_DELIMITER = "/"
