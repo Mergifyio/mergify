@@ -111,6 +111,13 @@ class GitHubComment(typing.TypedDict):
     user: GitHubAccount
 
 
+class GitHubContentFile(typing.TypedDict):
+    type: typing.Literal["file"]
+    content: str
+    sha: SHAType
+    path: str
+
+
 class GitHubFile(typing.TypedDict):
     filename: str
     contents_url: str
@@ -181,6 +188,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
     title: str
+    changed_files: int
 
 
 # https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads

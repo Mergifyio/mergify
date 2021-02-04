@@ -1474,6 +1474,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         checks = await ctxt.pull_check_runs
         assert len(checks) == 1
         assert checks[0]["name"] == "Summary"
+        assert checks[0]["output"]["title"] == "The new Mergify configuration is valid"
 
     async def test_marketplace_event(self):
         with mock.patch(

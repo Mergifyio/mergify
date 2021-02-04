@@ -94,6 +94,7 @@ _DUMMY_PR = DummyPullRequest(
                 "merge_commit_sha": None,
                 "mergeable_state": "unknown",
                 "rebaseable": False,
+                "changed_files": 1,
                 "user": {
                     "id": github_types.GitHubAccountIdType(0),
                     "login": github_types.GitHubLogin(""),

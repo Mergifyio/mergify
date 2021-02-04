@@ -86,6 +86,7 @@ async def test_summary_synchronization_cache(
             "number": github_types.GitHubPullRequestNumber(6),
             "merged": True,
             "state": "closed",
+            "changed_files": 1,
             "html_url": "<html_url>",
             "base": {
                 "label": "",

@@ -199,14 +199,14 @@ async def report(
 
         print("* CONFIGURATION:")
         mergify_config = None
-        filename, mergify_config_content = await repository.get_mergify_config_content()
-        if filename is None or mergify_config_content is None:
+        config_file = await repository.get_mergify_config_file()
+        if config_file is None:
             print(".mergify.yml is missing")
         else:
-            print(f"Config filename: {filename}")
-            print(mergify_config_content.decode())
+            print(f"Config filename: {config_file['path']}")
+            print(config_file["decoded_content"].decode())
             try:
-                mergify_config = rules.UserConfigurationSchema(mergify_config_content)
+                mergify_config = rules.get_mergify_config(config_file)
             except rules.InvalidRules as e:  # pragma: no cover
                 print(f"configuration is invalid {str(e)}")
             else:

@@ -98,6 +98,7 @@ async def test_get_commits_to_cherry_pick_rebase(
             "merged": True,
             "state": "closed",
             "html_url": "<html_url>",
+            "changed_files": 1,
             "base": {
                 "label": "",
                 "sha": github_types.SHAType("sha"),
@@ -260,6 +261,7 @@ async def test_get_commits_to_cherry_pick_merge(
             "draft": True,
             "merge_commit_sha": None,
             "title": "foobar",
+            "changed_files": 1,
             "base": {
                 "label": "user:ref",
                 "sha": github_types.SHAType("sha"),
