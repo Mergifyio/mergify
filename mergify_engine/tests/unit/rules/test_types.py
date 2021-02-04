@@ -28,10 +28,20 @@ from mergify_engine.rules import types
 def test_jinja2_valid(s):
     assert types.Jinja2(s) == s
 
+    assert types.Jinja2WithNone(s) == s
+
 
 def test_jinja2_invalid():
     with pytest.raises(voluptuous.Invalid) as x:
         types.Jinja2("{{foo")
+    assert str(x.value) == "Template syntax error @ data[line 1]"
+    assert (
+        str(x.value.error_message)
+        == "unexpected end of template, expected 'end of print statement'."
+    )
+
+    with pytest.raises(voluptuous.Invalid) as x:
+        types.Jinja2WithNone("{{foo")
     assert str(x.value) == "Template syntax error @ data[line 1]"
     assert (
         str(x.value.error_message)
@@ -44,6 +54,8 @@ def test_jinja2_None():
         types.Jinja2(None)
     assert str(x.value) == "Template cannot be null"
 
+    assert types.Jinja2WithNone(None) is None
+
 
 def test_jinja2_unknown_attr():
     with pytest.raises(voluptuous.Invalid) as x:
@@ -51,10 +63,18 @@ def test_jinja2_unknown_attr():
     assert str(x.value) == "Template syntax error"
     assert str(x.value.error_message) == "Unknown pull request attribute: foo"
 
+    with pytest.raises(voluptuous.Invalid) as x:
+        types.Jinja2WithNone("{{foo}}")
+    assert str(x.value) == "Template syntax error"
+    assert str(x.value.error_message) == "Unknown pull request attribute: foo"
+
 
 def test_jinja2_custom_attr():
     s = "{{ role_status }}"
+
     assert types.Jinja2(s, {"role_status": "passed"}) == s
+
+    assert types.Jinja2WithNone(s, {"role_status": "passed"}) == s
 
 
 @pytest.mark.parametrize(

@@ -37,12 +37,8 @@ class ReviewAction(actions.Action):
         voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
             "APPROVE", "REQUEST_CHANGES", "COMMENT"
         ),
-        voluptuous.Required("message", default=None): voluptuous.Any(
-            types.Jinja2, None
-        ),
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.Jinja2
-        ),
+        voluptuous.Required("message", default=None): types.Jinja2WithNone,
+        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
     }
 
     silent_report = True
@@ -50,6 +46,11 @@ class ReviewAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
+        if self.config["message"] is None:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Message is not set", ""
+            )
+
         payload = {"event": self.config["type"]}
 
         if self.config["bot_account"] and not ctxt.subscription.has_feature(
