@@ -67,6 +67,7 @@ async def fake_context(repository, number, **kwargs):
         "number": number,
         "mergeable_state": "clean",
         "state": "open",
+        "changed_files": 1,
         "head": {
             "sha": "azertyu",
             "label": "Mergifyio:feature-branch",

@@ -48,6 +48,10 @@ if typing.TYPE_CHECKING:
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
 
 
+class MergifyConfigFile(github_types.GitHubContentFile):
+    decoded_content: bytes
+
+
 class T_PayloadEventSource(typing.TypedDict):
     event_type: github_types.GitHubEventType
     data: github_types.GitHubEvent
@@ -157,7 +161,7 @@ class Installation:
 
 
 class RepositoryCache(typing.TypedDict, total=False):
-    mergify_config: typing.Union[typing.Tuple[None, None], typing.Tuple[str, bytes]]
+    mergify_config: typing.Optional[MergifyConfigFile]
 
 
 @dataclasses.dataclass
@@ -203,58 +207,68 @@ class Repository(object):
     ) -> str:
         return f"config-location~{owner_login}~{repo_name}"
 
-    async def get_mergify_config_content(
+    async def iter_mergify_config_files(
         self,
-        ref: typing.Optional[github_types.GitHubRefType] = None,
-    ) -> typing.Union[typing.Tuple[None, None], typing.Tuple[str, bytes]]:
+        ref: typing.Optional[github_types.SHAType] = None,
+        preferred_filename: typing.Optional[str] = None,
+    ) -> typing.AsyncIterator[MergifyConfigFile]:
         """Get the Mergify configuration file content.
 
         :return: The filename and its content.
         """
 
-        if ref is None and "mergify_config" in self._cache:
+        kwargs = {}
+        if ref:
+            kwargs["ref"] = ref
+
+        filenames = self.MERGIFY_CONFIG_FILENAMES.copy()
+        if preferred_filename:
+            filenames.remove(preferred_filename)
+            filenames.insert(0, preferred_filename)
+
+        for filename in filenames:
+            try:
+                content = typing.cast(
+                    github_types.GitHubContentFile,
+                    await self.installation.client.item(
+                        f"{self.base_url}/contents/{filename}",
+                        **kwargs,
+                    ),
+                )
+            except http.HTTPNotFound:
+                continue
+
+            yield MergifyConfigFile(
+                type=content["type"],
+                content=content["content"],
+                path=content["path"],
+                sha=content["sha"],
+                decoded_content=base64.b64decode(
+                    bytearray(content["content"], "utf-8")
+                ),
+            )
+
+    async def get_mergify_config_file(self) -> typing.Optional[MergifyConfigFile]:
+        if "mergify_config" in self._cache:
             return self._cache["mergify_config"]
 
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.name
         )
-
-        kwargs = {}
-        if ref:
-            kwargs["ref"] = ref
-            cached_filename = None
-        else:
-            cached_filename = await self.installation.redis.get(config_location_cache)
-
-        filenames = self.MERGIFY_CONFIG_FILENAMES.copy()
-        if cached_filename:
-            filenames.remove(cached_filename)
-            filenames.insert(0, cached_filename)
-
-        for filename in filenames:
-            try:
-                content = (
-                    await self.installation.client.item(
-                        f"{self.base_url}/contents/{filename}",
-                        **kwargs,
-                    )
-                )["content"]
-            except http.HTTPNotFound:
-                continue
-            if ref is None and filename != cached_filename:
+        cached_filename = await self.installation.redis.get(config_location_cache)
+        async for config_file in self.iter_mergify_config_files(
+            preferred_filename=cached_filename
+        ):
+            if cached_filename != config_file["path"]:
                 await self.installation.redis.set(
-                    config_location_cache, filename, ex=60 * 60 * 24 * 31
+                    config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
                 )
+            self._cache["mergify_config"] = config_file
+            return config_file
 
-            content = base64.b64decode(bytearray(content, "utf-8"))
-            if ref is None:
-                self._cache["mergify_config"] = filename, content
-            return filename, content
-
-        if ref is None:
-            await self.installation.redis.delete(config_location_cache)
-            self._cache["mergify_config"] = None, None
-        return None, None
+        await self.installation.redis.delete(config_location_cache)
+        self._cache["mergify_config"] = None
+        return None
 
     async def get_pull_request_context(
         self,

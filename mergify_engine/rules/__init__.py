@@ -25,7 +25,6 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
-from mergify_engine import github_types
 from mergify_engine.rules import filter
 from mergify_engine.rules import types
 
@@ -368,11 +367,6 @@ UserConfigurationSchema = voluptuous.Schema(
 )
 
 
-class NoRules(Exception):
-    def __init__(self):
-        super().__init__("Mergify configuration file is missing")
-
-
 @dataclasses.dataclass
 class InvalidRules(Exception):
     error: voluptuous.Invalid
@@ -427,14 +421,12 @@ class MergifyConfig(typing.TypedDict):
     queue_rules: QueueRules
 
 
-async def get_mergify_config(
-    repository: context.Repository,
-    ref: typing.Optional[github_types.GitHubRefType] = None,
+def get_mergify_config(
+    config_file: context.MergifyConfigFile,
 ) -> MergifyConfig:
-    filename, content = await repository.get_mergify_config_content(ref)
-    if content is None or filename is None:
-        raise NoRules()
     try:
-        return typing.cast(MergifyConfig, UserConfigurationSchema(content))
+        return typing.cast(
+            MergifyConfig, UserConfigurationSchema(config_file["decoded_content"])
+        )
     except voluptuous.Invalid as e:
-        raise InvalidRules(e, filename)
+        raise InvalidRules(e, config_file["path"])

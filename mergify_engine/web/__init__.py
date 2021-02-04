@@ -236,6 +236,7 @@ async def refresh_pull(
                 "draft": False,
                 "merge_commit_sha": None,
                 "mergeable_state": "unknown",
+                "changed_files": 1,
                 "html_url": "",
             }
         ),

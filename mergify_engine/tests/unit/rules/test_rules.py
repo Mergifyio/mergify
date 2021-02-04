@@ -180,7 +180,14 @@ def test_jinja_with_wrong_syntax():
 @pytest.mark.asyncio
 async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> None:
     async def item(*args, **kwargs):
-        return {"content": encodebytes(valid.encode()).decode()}
+        return github_types.GitHubContentFile(
+            {
+                "content": encodebytes(valid.encode()).decode(),
+                "path": ".mergify.yml",
+                "type": "file",
+                "sha": "azertyu",
+            }
+        )
 
     client = mock.Mock()
     client.item.return_value = item()
@@ -195,7 +202,10 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
     repository = context.Repository(
         installation, github_types.GitHubRepositoryName("xyz")
     )
-    schema = await get_mergify_config(repository)
+
+    config_file = await repository.get_mergify_config_file()
+    assert config_file is not None
+    schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
 
@@ -209,7 +219,14 @@ async def test_get_mergify_config_location_from_cache(
     client.item.side_effect = [
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
-        {"content": encodebytes("whatever".encode()).decode()},
+        github_types.GitHubContentFile(
+            {
+                "content": encodebytes("whatever".encode()).decode(),
+                "type": "file",
+                "path": ".github/mergify.yml",
+                "sha": github_types.SHAType("zeazeaze"),
+            }
+        ),
     ]
 
     installation = context.Installation(
@@ -223,7 +240,7 @@ async def test_get_mergify_config_location_from_cache(
         installation, github_types.GitHubRepositoryName("bar")
     )
 
-    filename, content = await repository.get_mergify_config_content()
+    await repository.get_mergify_config_file()
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
@@ -235,10 +252,17 @@ async def test_get_mergify_config_location_from_cache(
 
     client.item.reset_mock()
     client.item.side_effect = [
-        {"content": encodebytes("whatever".encode()).decode()},
+        github_types.GitHubContentFile(
+            {
+                "content": encodebytes("whatever".encode()).decode(),
+                "type": "file",
+                "path": ".github/mergify.yml",
+                "sha": github_types.SHAType("zeazeaze"),
+            }
+        ),
     ]
     repository._cache = context.RepositoryCache()
-    filename, content = await repository.get_mergify_config_content()
+    await repository.get_mergify_config_file()
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
@@ -282,7 +306,14 @@ async def test_get_mergify_config_invalid(
     with pytest.raises(InvalidRules):
 
         async def item(*args, **kwargs):
-            return {"content": encodebytes(invalid.encode()).decode()}
+            return github_types.GitHubContentFile(
+                {
+                    "content": encodebytes(invalid.encode()).decode(),
+                    "path": ".mergify.yml",
+                    "type": "file",
+                    "sha": "azertyu",
+                }
+            )
 
         client = mock.Mock()
         client.item.return_value = item()
@@ -297,7 +328,9 @@ async def test_get_mergify_config_invalid(
             installation, github_types.GitHubRepositoryName("xyz")
         )
 
-        await get_mergify_config(repository)
+        config_file = await repository.get_mergify_config_file()
+        assert config_file is not None
+        get_mergify_config(config_file)
 
 
 def test_user_configuration_schema():
@@ -573,6 +606,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "draft": False,
                 "mergeable_state": "unstable",
                 "labels": [],
+                "changed_files": 1,
                 "base": {
                     "label": "repo",
                     "ref": github_types.GitHubRefType("master"),

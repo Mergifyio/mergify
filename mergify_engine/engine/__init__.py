@@ -42,39 +42,65 @@ with open(mergify_rule_path, "r") as f:
     )
 
 
-async def _check_configuration_changes(ctxt: context.Context) -> bool:
-    if ctxt.pull["base"]["repo"]["default_branch"] == ctxt.pull["base"]["ref"]:
-        ref = None
+async def _check_configuration_changes(
+    ctxt: context.Context,
+    current_mergify_config_file: typing.Optional[context.MergifyConfigFile],
+) -> bool:
+    if ctxt.pull["base"]["repo"]["default_branch"] != ctxt.pull["base"]["ref"]:
+        return False
+
+    config_file_to_validate: typing.Optional[context.MergifyConfigFile] = None
+    preferred_filename = (
+        None
+        if current_mergify_config_file is None
+        else current_mergify_config_file["path"]
+    )
+    # NOTE(sileht): Just a shorcut to do two requests instead of three.
+    if ctxt.pull["changed_files"] <= 100:
         for f in await ctxt.files:
             if f["filename"] in context.Repository.MERGIFY_CONFIG_FILENAMES:
-                ref = typing.cast(
-                    github_types.GitHubRefType, f["contents_url"].split("?ref=")[1]
-                )
+                preferred_filename = f["filename"]
+                break
+        else:
+            return False
 
-        if ref is not None:
-            try:
-                await rules.get_mergify_config(ctxt.repository, ref)
-            except rules.InvalidRules as e:
-                # Not configured, post status check with the error message
-                await ctxt.set_summary_check(
-                    check_api.Result(
-                        check_api.Conclusion.FAILURE,
-                        title="The new Mergify configuration is invalid",
-                        summary=str(e),
-                        annotations=e.get_annotations(e.filename),
-                    )
-                )
-            else:
-                await ctxt.set_summary_check(
-                    check_api.Result(
-                        check_api.Conclusion.SUCCESS,
-                        title="The new Mergify configuration is valid",
-                        summary="This pull request must be merged manually because it modifies Mergify configuration",
-                    )
-                )
+    async for config_file in ctxt.repository.iter_mergify_config_files(
+        ref=ctxt.pull["head"]["sha"], preferred_filename=preferred_filename
+    ):
+        if (
+            current_mergify_config_file is None
+            or config_file["path"] != current_mergify_config_file["path"]
+        ):
+            config_file_to_validate = config_file
+            break
+        elif config_file["sha"] != current_mergify_config_file["sha"]:
+            config_file_to_validate = config_file
+            break
 
-            return True
-    return False
+    if config_file_to_validate is None:
+        return False
+
+    try:
+        rules.get_mergify_config(config_file_to_validate)
+    except rules.InvalidRules as e:
+        # Not configured, post status check with the error message
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="The new Mergify configuration is invalid",
+                summary=str(e),
+                annotations=e.get_annotations(e.filename),
+            )
+        )
+    else:
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                title="The new Mergify configuration is valid",
+                summary="This pull request must be merged manually because it modifies Mergify configuration",
+            )
+        )
+    return True
 
 
 async def _get_summary_from_sha(ctxt, sha):
@@ -164,18 +190,21 @@ async def run(
         )
         return
 
+    config_file = await ctxt.repository.get_mergify_config_file()
+
     ctxt.log.debug("engine check configuration change")
-    if await _check_configuration_changes(ctxt):
+    if await _check_configuration_changes(ctxt, config_file):
         ctxt.log.info("Configuration changed, ignoring")
         return
 
     ctxt.log.debug("engine get configuration")
-    # BRANCH CONFIGURATION CHECKING
-    try:
-        mergify_config = await rules.get_mergify_config(ctxt.repository)
-    except rules.NoRules:  # pragma: no cover
+    if config_file is None:
         ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
         return
+
+    # BRANCH CONFIGURATION CHECKING
+    try:
+        mergify_config = rules.get_mergify_config(config_file)
     except rules.InvalidRules as e:  # pragma: no cover
         ctxt.log.info(
             "The Mergify configuration is invalid",
