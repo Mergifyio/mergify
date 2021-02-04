@@ -116,6 +116,33 @@ class TestCommentAction(base.FunctionalTestBase):
         comments = list(p.get_issue_comments())
         self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
 
+    async def test_comment_with_none(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"comment": {"message": None}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+
+        await self.run_engine()
+        p.update()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert "success" == checks[0]["conclusion"]
+
+        comments = list(p.get_issue_comments())
+        assert len(comments) == 0
+
     async def _test_comment_template_error(self, msg):
         rules = {
             "pull_request_rules": [

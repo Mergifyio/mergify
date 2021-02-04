@@ -27,10 +27,8 @@ from mergify_engine.rules import types
 
 class CommentAction(actions.Action):
     validator = {
-        voluptuous.Required("message"): types.Jinja2,
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.Jinja2
-        ),
+        voluptuous.Required("message", default=None): types.Jinja2WithNone,
+        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
     }
 
     silent_report = True
@@ -38,6 +36,11 @@ class CommentAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
+
+        if self.config["message"] is None:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Message is not set", ""
+            )
 
         if self.config["bot_account"] and not ctxt.subscription.has_feature(
             subscription.Features.BOT_ACCOUNT

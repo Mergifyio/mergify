@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import typing
 
 import jinja2.exceptions
 import jinja2.sandbox
@@ -29,7 +30,7 @@ _JINJA_ENV = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefine
 @dataclasses.dataclass
 class LineColumnPath:
     line: int
-    column: int
+    column: typing.Optional[int] = None
 
     def __repr__(self):
         if self.column is None:
@@ -159,7 +160,9 @@ _DUMMY_PR = DummyPullRequest(
 )
 
 
-def Jinja2(value, extra_variables=None):
+def Jinja2(
+    value: str, extra_variables: typing.Optional[typing.Dict[str, typing.Any]] = None
+) -> typing.Optional[str]:
     """A Jinja2 type for voluptuous Schemas."""
     if value is None:
         raise voluptuous.Invalid("Template cannot be null")
@@ -175,6 +178,15 @@ def Jinja2(value, extra_variables=None):
             "Template syntax error", error_message=str(rtf), path=path
         )
     return value
+
+
+def Jinja2WithNone(
+    value: str, extra_variables: typing.Optional[typing.Dict[str, typing.Any]] = None
+) -> typing.Optional[str]:
+    if value is None:
+        return None
+
+    return Jinja2(value, extra_variables)
 
 
 def _check_GitHubLogin_format(value, _type="login"):
