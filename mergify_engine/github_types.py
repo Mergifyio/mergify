@@ -331,6 +331,7 @@ class GitHubCheckRunOutput(typing.TypedDict):
     title: str
     summary: str
     text: typing.Optional[str]
+    annotations: typing.Optional[typing.List[str]]
 
 
 GitHubStatusState = typing.Literal[
