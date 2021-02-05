@@ -29,7 +29,28 @@ if typing.TYPE_CHECKING:
 USER_CREATED_CHECKS = "user-created-checkrun"
 
 
+class GitHubCheckRunOutputParameters(typing.TypedDict, total=False):
+    title: str
+    summary: str
+    text: typing.Optional[str]
+    annotations: typing.Optional[typing.List[str]]
+
+
+class GitHubCheckRunParameters(typing.TypedDict, total=False):
+    external_id: str
+    head_sha: github_types.SHAType
+    name: str
+    status: github_types.GitHubCheckRunStatus
+    output: GitHubCheckRunOutputParameters
+    conclusion: typing.Optional[github_types.GitHubCheckRunConclusion]
+    completed_at: github_types.ISODateTimeType
+    started_at: github_types.ISODateTimeType
+    details_url: str
+
+
 class Status(enum.Enum):
+    # TODO(sileht): Since we have mypy, this enum is a bit useless, we can replace it
+    # with github_types.GitHubCheckRunStatus
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
 
@@ -65,20 +86,10 @@ async def get_checks_for_ref(
         check
         async for check in ctxt.client.items(
             f"{ctxt.base_url}/commits/{sha}/check-runs",
-            api_version="antiope",
             list_items="check_runs",
             **kwargs,
         )
     ]
-
-    # FIXME(sileht): We currently have some issue to set back
-    # conclusion to null, Maybe a GH bug or not.
-    # As we rely heavily on conclusion to known if we have something to
-    # evaluate or not, here a workaround:
-    for check in checks:
-        if check["status"] == "in_progress":
-            check["conclusion"] = None
-
     return checks
 
 
@@ -86,6 +97,25 @@ def compare_dict(d1, d2, keys):
     for key in keys:
         if d1.get(key) != d2.get(key):
             return False
+    return True
+
+
+def check_need_update(
+    previous_check: github_types.GitHubCheckRun,
+    expected_check: GitHubCheckRunParameters,
+) -> bool:
+    if compare_dict(
+        expected_check,
+        previous_check,
+        ("head_sha", "status", "conclusion", "details_url"),
+    ):
+        if previous_check["output"] == expected_check["output"]:
+            return False
+        elif previous_check["output"] is not None and compare_dict(
+            expected_check["output"], previous_check["output"], ("title", "summary")
+        ):
+            return False
+
     return True
 
 
@@ -100,17 +130,19 @@ async def set_check_run(
     else:
         status = Status.COMPLETED
 
-    post_parameters = {
-        "name": name,
-        "head_sha": ctxt.pull["head"]["sha"],
-        "status": status.value,
-        "started_at": utils.utcnow().isoformat(),
-        "details_url": f"{ctxt.pull['html_url']}/checks",
-        "output": {
-            "title": result.title,
-            "summary": result.summary,
-        },
-    }
+    post_parameters = GitHubCheckRunParameters(
+        {
+            "name": name,
+            "head_sha": ctxt.pull["head"]["sha"],
+            "status": typing.cast(github_types.GitHubCheckRunStatus, status.value),
+            "started_at": utils.utcnow().isoformat(),
+            "details_url": f"{ctxt.pull['html_url']}/checks",
+            "output": {
+                "title": result.title,
+                "summary": result.summary,
+            },
+        }
+    )
 
     if result.annotations is not None:
         post_parameters["output"]["annotations"] = result.annotations
@@ -128,58 +160,54 @@ async def set_check_run(
         post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = utils.utcnow().isoformat()
 
-    checks = [c for c in await ctxt.pull_engine_check_runs if c["name"] == name]
+    checks = sorted(
+        (c for c in await ctxt.pull_engine_check_runs if c["name"] == name),
+        key=lambda c: c["id"],
+        reverse=True,
+    )
 
-    if not checks:
-        check = typing.cast(
+    # Only keep the newer checks, cancelled others
+    for check_to_cancelled in checks[1:]:
+        if Status(check_to_cancelled["status"]) != Status.COMPLETED:
+            await ctxt.client.patch(
+                f"{ctxt.base_url}/check-runs/{check_to_cancelled['id']}",
+                json={
+                    "conclusion": Conclusion.CANCELLED.value,
+                    "status": Status.COMPLETED.value,
+                },
+            )
+
+    if not checks or (
+        Status(checks[0]["status"]) == Status.COMPLETED and status == Status.IN_PROGRESS
+    ):
+        # NOTE(sileht): First time we see it, or the previous one have been completed and
+        # now go back to in_progress. Since GitHub doesn't allow to change status of
+        # completed check-runs, we have to create a new one.
+        new_check = typing.cast(
             github_types.GitHubCheckRun,
             (
                 await ctxt.client.post(
                     f"{ctxt.base_url}/check-runs",
-                    api_version="antiope",  # type: ignore[call-arg]
                     json=post_parameters,
                 )
             ).json(),
         )
-        await ctxt.update_pull_check_runs(check)
-        return check
+    else:
+        post_parameters["details_url"] += f"?check_run_id={checks[0]['id']}"
 
-    elif len(checks) > 1:
-        ctxt.log.warning(
-            "Multiple mergify checks have been created, we got the known race.",
-        )
-
-    post_parameters["details_url"] += f"?check_run_id={checks[0]['id']}"
-
-    # FIXME(sileht): We have no (simple) way to ensure we don't have multiple
-    # worker doing POST at the same time. It's unlike to happen, but it has
-    # happen once, so to ensure Mergify continue to work, we update all
-    # checks. User will see the check twice for a while, but it's better than
-    # having Mergify stuck
-    for check in checks:
         # Don't do useless update
-        if compare_dict(
-            post_parameters,
-            check,
-            ("name", "head_sha", "status", "conclusion", "details_url"),
-        ):
-            if check["output"] == post_parameters["output"]:
-                continue
-            elif check["output"] is not None and compare_dict(
-                post_parameters["output"], check["output"], ("title", "summary")
-            ):
-                continue
+        if check_need_update(checks[0], post_parameters):
+            new_check = typing.cast(
+                github_types.GitHubCheckRun,
+                (
+                    await ctxt.client.patch(
+                        f"{ctxt.base_url}/check-runs/{checks[0]['id']}",
+                        json=post_parameters,
+                    )
+                ).json(),
+            )
+        else:
+            new_check = checks[0]
 
-        check = typing.cast(
-            github_types.GitHubCheckRun,
-            (
-                await ctxt.client.patch(
-                    f"{ctxt.base_url}/check-runs/{check['id']}",
-                    api_version="antiope",  # type: ignore[call-arg]
-                    json=post_parameters,
-                )
-            ).json(),
-        )
-
-    await ctxt.update_pull_check_runs(check)
-    return check
+    await ctxt.update_pull_check_runs(new_check)
+    return new_check

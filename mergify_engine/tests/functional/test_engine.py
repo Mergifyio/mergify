@@ -1649,3 +1649,55 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
         assert await ctxt.pull_engine_check_runs == []
+
+    async def test_check_run_api(self):
+        await self.setup_repo()
+        p, _ = await self.create_pr()
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+
+        await check_api.set_check_run(
+            ctxt,
+            "Test",
+            check_api.Result(
+                check_api.Conclusion.PENDING, title="PENDING", summary="PENDING"
+            ),
+        )
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "in_progress"
+        assert checks[0]["conclusion"] is None
+        assert checks[0]["completed_at"] is None
+        assert checks[0]["output"]["title"] == "PENDING"
+        assert checks[0]["output"]["summary"] == "PENDING"
+
+        await check_api.set_check_run(
+            ctxt,
+            "Test",
+            check_api.Result(
+                check_api.Conclusion.CANCELLED, title="CANCELLED", summary="CANCELLED"
+            ),
+        )
+        ctxt._cache = {}
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "completed"
+        assert checks[0]["conclusion"] == "cancelled"
+        assert checks[0]["completed_at"] is not None
+        assert checks[0]["output"]["title"] == "CANCELLED"
+        assert checks[0]["output"]["summary"] == "CANCELLED"
+
+        await check_api.set_check_run(
+            ctxt,
+            "Test",
+            check_api.Result(
+                check_api.Conclusion.PENDING, title="PENDING", summary="PENDING"
+            ),
+        )
+        ctxt._cache = {}
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "in_progress"
+        assert checks[0]["conclusion"] is None
+        assert checks[0]["completed_at"] is None
+        assert checks[0]["output"]["title"] == "PENDING"
+        assert checks[0]["output"]["summary"] == "PENDING"
