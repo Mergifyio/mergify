@@ -90,7 +90,7 @@ class QueueAction(merge_base.MergeBaseAction):
             + self.queue_rule.config["priority"] * self.QUEUE_PRIORITY_OFFSET,
         )
 
-    async def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_queued(self, ctxt: context.Context) -> bool:
         check = first(
             await ctxt.pull_engine_check_runs,
             key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,

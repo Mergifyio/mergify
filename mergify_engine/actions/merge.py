@@ -83,7 +83,7 @@ class MergeAction(merge_base.MergeBaseAction):
         else:
             raise RuntimeError("Unexpected strict")
 
-    async def _should_be_queued(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_queued(self, ctxt: context.Context) -> bool:
         return True
 
     async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
