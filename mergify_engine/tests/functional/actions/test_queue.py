@@ -429,6 +429,88 @@ class TestQueueAction(base.FunctionalTestBase):
         assert len(pulls_in_queue) == 0
         assert len(q.train._cars) == 0
 
+    async def test_queue_cancel_and_refresh(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Tchou tchou",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p_merged, _ = await self.create_pr()
+        p_merged.merge()
+        await self.wait_for("pull_request", {"action": "closed"})
+        p_merged.update()
+        await self.run_engine()
+
+        # Queue PRs
+        await self.add_label(p1, "queue")
+        await self.run_engine()
+
+        ctxt_p_merged = context.Context(self.repository_ctxt, p_merged.raw_data)
+        q = await queue.Queue.from_context(ctxt_p_merged, with_train=True)
+        pulls_in_queue = await q.get_pulls()
+        assert pulls_in_queue == [p1.number]
+
+        await self.run_engine()
+
+        pulls = list(self.r_o_admin.get_pulls())
+        assert len(pulls) == 2
+
+        # Check train is correct and post failure
+        p_merged.update()
+        tmp_pull = [p for p in pulls if p.number not in [p1.number]][0]
+        assert p_merged.merge_commit_sha == tmp_pull.base.sha
+        await self.create_status(tmp_pull, state="failure")
+
+        await self.run_engine(3)
+
+        # Check tmp pull have been closed
+        pulls = list(self.r_o_admin.get_pulls())
+        assert len(pulls) == 1
+        pulls_in_queue = await q.get_pulls()
+        assert len(pulls_in_queue) == 0
+
+        ctxt = await self.repository_ctxt.get_pull_request_context(
+            p1.number, p1.raw_data
+        )
+        check = first(
+            await ctxt.pull_engine_check_runs,
+            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        )
+        check_suite_id = check["check_suite"]["id"]
+
+        # click on refresh btn
+        await self.installation_ctxt.client.post(
+            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest"
+        )
+        await self.wait_for("check_suite", {"action": "rerequested"})
+        await self.run_engine(3)
+
+        # Check pull is back to the queue
+        pulls = list(self.r_o_admin.get_pulls())
+        assert len(pulls) == 2
+        pulls_in_queue = await q.get_pulls()
+        assert len(pulls_in_queue) == 1
+
     async def test_queue_manual_merge(self):
         rules = {
             "queue_rules": [

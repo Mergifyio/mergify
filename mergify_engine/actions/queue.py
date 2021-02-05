@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
@@ -69,6 +70,25 @@ class QueueAction(merge_base.MergeBaseAction):
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
+
+        if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
+            # NOTE(sileht): user ask a refresh, we just remove the previous state of this
+            # check and the method _should_be_queue will become true again :)
+            check = await self._get_merge_queue_check(ctxt)
+            if check and check_api.Conclusion(check["conclusion"]) not in [
+                check_api.Conclusion.SUCCESS,
+                check_api.Conclusion.PENDING,
+            ]:
+                await check_api.set_check_run(
+                    ctxt,
+                    constants.MERGE_QUEUE_SUMMARY_NAME,
+                    check_api.Result(
+                        check_api.Conclusion.PENDING,
+                        "The pull request has been refreshed and is going to be re-embarked soon",
+                        "",
+                    ),
+                )
+
         return await super().run(ctxt, rule)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
@@ -83,6 +103,14 @@ class QueueAction(merge_base.MergeBaseAction):
         else:
             raise voluptuous.error.Invalid(f"{self.config['name']} queue not found")
 
+    async def _get_merge_queue_check(
+        self, ctxt: context.Context
+    ) -> typing.Optional[github_types.GitHubCheckRun]:
+        return first(
+            await ctxt.pull_engine_check_runs,
+            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        )
+
     def _compute_priority(self) -> int:
         return typing.cast(
             int,
@@ -91,10 +119,7 @@ class QueueAction(merge_base.MergeBaseAction):
         )
 
     async def _should_be_queued(self, ctxt: context.Context) -> bool:
-        check = first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
+        check = await self._get_merge_queue_check(ctxt)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
             check_api.Conclusion.PENDING,
@@ -111,10 +136,7 @@ class QueueAction(merge_base.MergeBaseAction):
             if not queue_rule_evaluated.missing_conditions:
                 return True
 
-        check = first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
+        check = await self._get_merge_queue_check(ctxt)
         if check:
             return (
                 check_api.Conclusion(check["conclusion"])
