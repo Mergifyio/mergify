@@ -42,7 +42,7 @@ async def main():
     payload_hmac = utils.compute_hmac(payload_data)
 
     async with http.AsyncClient(
-        base_url="https://events-forwarder.mergify.io",
+        base_url="https://test-forwarder.mergify.io",
         headers={"X-Hub-Signature": "sha1=" + payload_hmac},
     ) as session:
 
