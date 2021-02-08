@@ -46,11 +46,6 @@ class ReviewAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if self.config["message"] is None:
-            return check_api.Result(
-                check_api.Conclusion.SUCCESS, "Message is not set", ""
-            )
-
         payload = {"event": self.config["type"]}
 
         if self.config["bot_account"] and not ctxt.subscription.has_feature(
@@ -71,13 +66,12 @@ class ReviewAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Invalid review message", str(rmf)
                 )
-        else:
-            body = None
-
-        if not body and self.config["type"] != "APPROVE":
+        elif self.config["type"] != "APPROVE":
             body = (
                 f"Pull request automatically reviewed by Mergify: {self.config['type']}"
             )
+        else:
+            body = None
 
         if body:
             payload["body"] = body
