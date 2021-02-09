@@ -59,7 +59,10 @@ def PullRequestUrl(v):
 SimulatorSchema = voluptuous.Schema(
     {
         voluptuous.Required("pull_request"): voluptuous.Any(None, PullRequestUrl()),
-        voluptuous.Required("mergify.yml"): rules.UserConfigurationSchema,
+        voluptuous.Required("mergify.yml"): voluptuous.And(
+            voluptuous.Coerce(rules.YAML),
+            rules.UserConfigurationSchema,
+        ),
     }
 )
 
@@ -127,6 +130,7 @@ async def simulator(request: requests.Request) -> responses.JSONResponse:
         token = token[6:]  # Drop 'token '
 
     data = SimulatorSchema(await request.json())
+
     if data["pull_request"]:
         # TODO(sileht): remove threads when all httpx call are async
         loop = asyncio.get_running_loop()

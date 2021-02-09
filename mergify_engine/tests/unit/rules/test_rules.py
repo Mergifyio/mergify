@@ -72,29 +72,31 @@ def test_same_names():
 
 def test_jinja_with_list_attribute():
     pull_request_rules = rules.UserConfigurationSchema(
-        """
-        pull_request_rules:
-          - name: ahah
-            conditions:
-            - base=master
-            actions:
-              comment:
-                message: |
-                  This pull request has been approved by:
-                  {% for name in label %}
-                  @{{name}}
-                  {% endfor %}
-                  {% for name in files %}
-                  @{{name}}
-                  {% endfor %}
-                  {% for name in assignee %}
-                  @{{name}}
-                  {% endfor %}
-                  {% for name in approved_reviews_by %}
-                  @{{name}}
-                  {% endfor %}
-                  Thank you @{{author}} for your contributions!
-        """
+        rules.YamlSchema(
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by:
+                      {% for name in label %}
+                      @{{name}}
+                      {% endfor %}
+                      {% for name in files %}
+                      @{{name}}
+                      {% endfor %}
+                      {% for name in assignee %}
+                      @{{name}}
+                      {% endfor %}
+                      {% for name in approved_reviews_by %}
+                      @{{name}}
+                      {% endfor %}
+                      Thank you @{{author}} for your contributions!
+            """
+        )
     )["pull_request_rules"]
     assert [rule.name for rule in pull_request_rules] == [
         "ahah",
@@ -104,18 +106,19 @@ def test_jinja_with_list_attribute():
 def test_jinja_with_wrong_syntax():
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """
-            pull_request_rules:
-              - name: ahah
-                conditions:
-                - base=master
-                actions:
-                  comment:
-                    message: |
-                      This pull request has been approved by:
-                      {% for name in approved_reviews_by %}
-                      Thank you @{{author}} for your contributions!
-            """
+            rules.YamlSchema(
+                """pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+        message: |
+          This pull request has been approved by:
+          {% for name in approved_reviews_by %}
+          Thank you @{{author}} for your contributions!
+"""
+            )
         )
     assert str(i.value) == (
         "Template syntax error @ data['pull_request_rules']"
@@ -124,20 +127,21 @@ def test_jinja_with_wrong_syntax():
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """
-            pull_request_rules:
-              - name: ahah
-                conditions:
-                - base=master
-                actions:
-                  comment:
-                    message: |
-                      This pull request has been approved by:
-                      {% for name in approved_reviews_by %}
-                      @{{ name }}
-                      {% endfor %}
-                      Thank you @{{foo}} for your contributions!
-            """
+            rules.YamlSchema(
+                """pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+        message: |
+          This pull request has been approved by:
+          {% for name in approved_reviews_by %}
+          @{{ name }}
+          {% endfor %}
+          Thank you @{{foo}} for your contributions!
+"""
+            )
         )
     assert str(i.value) == (
         "Template syntax error for dictionary value @ data['pull_request_rules']"
@@ -175,6 +179,39 @@ def test_jinja_with_wrong_syntax():
                       {% endfor %}
             """
         ),
+        (
+            """
+            defaults:
+              actions:
+                rebase:
+                  bot_account: test-bot-account
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment:
+                    message: |
+                      This pull request has been approved by
+            """
+        ),
+        (
+            """
+            defaults:
+              actions:
+                comment:
+                  message: I love Mergify
+                rebase:
+                  bot_account: test-bot-account
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  comment: {}
+                  rebase: {}
+            """
+        ),
     ),
 )
 @pytest.mark.asyncio
@@ -208,6 +245,103 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
     schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
+
+
+@pytest.mark.asyncio
+async def test_get_mergify_config_with_defaults(redis_cache: utils.RedisCache) -> None:
+
+    config = """
+defaults:
+  actions:
+    comment:
+      bot_account: foo-bot
+    rebase:
+      bot_account: test-bot-account
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+        message: I love Mergify
+      rebase: {}
+"""
+
+    async def item(*args, **kwargs):
+        return github_types.GitHubContentFile(
+            {
+                "content": encodebytes(config.encode()).decode(),
+                "path": ".mergify.yml",
+                "type": "file",
+                "sha": "azertyu",
+            }
+        )
+
+    client = mock.Mock()
+    client.item.return_value = item()
+
+    installation = context.Installation(
+        github_types.GitHubAccountIdType(0),
+        github_types.GitHubLogin("foobar"),
+        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        client,
+        redis_cache,
+    )
+    repository = context.Repository(
+        installation, github_types.GitHubRepositoryName("xyz")
+    )
+    config_file = await repository.get_mergify_config_file()
+    assert config_file is not None
+
+    schema = get_mergify_config(config_file)
+    assert isinstance(schema, dict)
+
+    assert len(schema["pull_request_rules"].rules) == 1
+
+    comment = schema["pull_request_rules"].rules[0].actions["comment"].config
+    assert comment == {"message": "I love Mergify", "bot_account": "foo-bot"}
+
+    rebase = schema["pull_request_rules"].rules[0].actions["rebase"].config
+    assert rebase == {"bot_account": "test-bot-account"}
+
+    config = """
+defaults:
+  actions:
+    comment:
+      message: I love Mergify
+      bot_account: AutoBot
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+        message: I really love Mergify
+"""
+
+    client = mock.Mock()
+    client.item.return_value = item()
+
+    installation = context.Installation(
+        github_types.GitHubAccountIdType(0),
+        github_types.GitHubLogin("foobar"),
+        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        client,
+        redis_cache,
+    )
+    repository = context.Repository(
+        installation, github_types.GitHubRepositoryName("xyz")
+    )
+    config_file = await repository.get_mergify_config_file()
+    assert config_file is not None
+
+    schema = get_mergify_config(config_file)
+    assert isinstance(schema, dict)
+
+    assert len(schema["pull_request_rules"].rules) == 1
+
+    comment = schema["pull_request_rules"].rules[0].actions["comment"].config
+    assert comment == {"message": "I really love Mergify", "bot_account": "AutoBot"}
 
 
 @pytest.mark.asyncio
@@ -335,16 +469,18 @@ async def test_get_mergify_config_invalid(
 
 def test_user_configuration_schema():
     with pytest.raises(voluptuous.Invalid) as exc_info:
-        rules.UserConfigurationSchema("- no\n* way")
+        rules.UserConfigurationSchema(rules.YamlSchema("- no\n* way"))
     assert str(exc_info.value) == "Invalid YAML at [line 2, column 2]"
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """
-            pull_request_rules:
-              - name: ahah
-                key: not really what we expected
-            """
+            rules.YamlSchema(
+                """
+                pull_request_rules:
+                  - name: ahah
+                    key: not really what we expected
+                """
+            )
         )
     assert (
         str(i.value) == "extra keys not allowed @ data['pull_request_rules'][0]['key']"
@@ -360,9 +496,11 @@ def test_user_configuration_schema():
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """invalid:
+            rules.YamlSchema(
+                """invalid:
 - *yaml
-"""
+                """
+            )
         )
     assert str(i.value) == "Invalid YAML at [line 2, column 3]"
 
@@ -395,9 +533,11 @@ found undefined alias 'yaml'
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """
-pull_request_rules:
-"""
+            rules.YamlSchema(
+                """
+                pull_request_rules:
+                """
+            )
         )
     assert (
         str(i.value)
@@ -407,23 +547,25 @@ pull_request_rules:
     assert str(ir) == "expected a list for dictionary value @ pull_request_rules"
 
     with pytest.raises(voluptuous.Invalid) as i:
-        rules.UserConfigurationSchema("")
+        rules.UserConfigurationSchema(rules.YamlSchema(""))
     assert str(i.value) == "expected a dictionary"
     ir = rules.InvalidRules(i.value, ".mergify.yml")
     assert str(ir) == "expected a dictionary"
 
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
-            """
-            pull_request_rules:
-              - name: add label
-                conditions:
-                  - conflict
-                actions:
-                  label:
-                    add:
-                      - conflict:
-            """
+            rules.YamlSchema(
+                """
+                pull_request_rules:
+                  - name: add label
+                    conditions:
+                      - conflict
+                    actions:
+                      label:
+                        add:
+                          - conflict:
+                """
+            )
         )
     assert (
         str(i.value)
@@ -438,7 +580,7 @@ pull_request_rules:
 
 def test_user_binary_file():
     with pytest.raises(voluptuous.Invalid) as i:
-        rules.UserConfigurationSchema(chr(4))
+        rules.UserConfigurationSchema(rules.YamlSchema(chr(4)))
     assert str(i.value) == "Invalid YAML at []"
     ir = rules.InvalidRules(i.value, ".mergify.yml")
     assert (
@@ -983,21 +1125,22 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
 def test_check_runs_custom():
     pull_request_rules = rules.UserConfigurationSchema(
-        """
-pull_request_rules:
-  - name: ahah
-    conditions:
-    - base=master
-    actions:
-      post_check:
-        title: '{{ check_rule_name }} whatever'
-        summary: |
-          This pull request has been checked!
-          Thank you @{{author}} for your contributions!
+        rules.YamlSchema(
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  post_check:
+                    title: '{{ check_rule_name }} whatever'
+                    summary: |
+                      This pull request has been checked!
+                      Thank you @{{author}} for your contributions!
 
-          {{ check_conditions }}
-
-"""
+                      {{ check_conditions }}
+            """
+        )
     )["pull_request_rules"]
     assert [rule.name for rule in pull_request_rules] == [
         "ahah",
@@ -1006,15 +1149,73 @@ pull_request_rules:
 
 def test_check_runs_default():
     pull_request_rules = rules.UserConfigurationSchema(
-        """
-pull_request_rules:
-  - name: ahah
-    conditions:
-    - base=master
-    actions:
-      post_check: {}
-"""
+        rules.YamlSchema(
+            """
+            pull_request_rules:
+              - name: ahah
+                conditions:
+                - base=master
+                actions:
+                  post_check: {}
+            """
+        )
     )["pull_request_rules"]
     assert [rule.name for rule in pull_request_rules] == [
         "ahah",
     ]
+
+
+def test_merge_config():
+    config = {
+        "defaults": {"actions": {"rebase": {"bot_account": "foo"}}},
+        "pull_request_rules": [
+            {
+                "name": "hello",
+                "conditions": ["head:master"],
+                "actions": {"rebase": {}},
+            }
+        ],
+    }
+
+    merged_config = rules.merge_config(config)
+
+    expected_config = config.copy()
+    expected_config["pull_request_rules"][0]["actions"].update(
+        expected_config["defaults"]["actions"]
+    )
+
+    assert merged_config == expected_config
+
+    config = {
+        "defaults": {
+            "actions": {
+                "rebase": {"bot_account": "foo"},
+                "comment": {"message": "Hello World!"},
+            }
+        },
+        "pull_request_rules": [
+            {
+                "name": "hello",
+                "conditions": ["head:master"],
+                "actions": {"rebase": {"bot_account": "bar"}},
+            }
+        ],
+    }
+
+    merged_config = rules.merge_config(config)
+
+    assert merged_config == config
+
+    config = {
+        "pull_request_rules": [
+            {
+                "name": "hello",
+                "conditions": ["head:master"],
+                "actions": {"rebase": {"bot_account": "bar"}},
+            }
+        ],
+    }
+
+    merged_config = rules.merge_config(config)
+
+    assert merged_config == config

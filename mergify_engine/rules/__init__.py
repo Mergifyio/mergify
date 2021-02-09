@@ -270,6 +270,11 @@ class QueueRules:
             names.add(rule.name)
 
 
+@dataclasses.dataclass
+class Defaults:
+    actions: typing.Dict[str, actions.Action]
+
+
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
         return f"{self.msg} at {self.path}"
@@ -341,6 +346,10 @@ QueueRulesSchema = voluptuous.All(
     voluptuous.Coerce(QueueRules),
 )
 
+DefaultsSchema = {
+    voluptuous.Required("actions", default={}): actions.get_action_schemas(),
+}
+
 
 def FullifyPullRequestRules(v):
     try:
@@ -357,14 +366,16 @@ def FullifyPullRequestRules(v):
 
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
-        voluptuous.Coerce(YAML),
         {
             voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
             voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
+            voluptuous.Required("defaults", default={}): DefaultsSchema,
         },
         voluptuous.Coerce(FullifyPullRequestRules),
     )
 )
+
+YamlSchema = voluptuous.Schema(voluptuous.Coerce(YAML))
 
 
 @dataclasses.dataclass
@@ -419,14 +430,40 @@ class InvalidRules(Exception):
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
     queue_rules: QueueRules
+    defaults: Defaults
+
+
+def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+    if defaults := config.get("defaults"):
+        if defaults_actions := defaults.get("actions"):
+            for rule in config["pull_request_rules"]:
+                actions = rule["actions"]
+
+                for action_name, action in actions.items():
+                    if action_name not in defaults_actions:
+                        continue
+
+                    merged_action = defaults_actions[action_name] | action
+                    rule["actions"][action_name].update(merged_action)
+    return config
 
 
 def get_mergify_config(
     config_file: context.MergifyConfigFile,
 ) -> MergifyConfig:
     try:
-        return typing.cast(
-            MergifyConfig, UserConfigurationSchema(config_file["decoded_content"])
-        )
+        config = YamlSchema(config_file["decoded_content"])
+    except voluptuous.Invalid as e:
+        raise InvalidRules(e, config_file["path"])
+
+    try:
+        UserConfigurationSchema(config)
+    except voluptuous.Invalid as e:
+        raise InvalidRules(e, config_file["path"])
+
+    merged_config = merge_config(config)
+
+    try:
+        return typing.cast(MergifyConfig, UserConfigurationSchema(merged_config))
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
