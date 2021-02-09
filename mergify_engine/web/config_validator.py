@@ -15,10 +15,15 @@
 # under the License.
 
 
+import base64
+import hashlib
+
 import fastapi
 from starlette import responses
 from starlette.middleware import cors
 
+from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import rules
 
 
@@ -37,7 +42,26 @@ async def config_validator(
     data: fastapi.UploadFile = fastapi.File(...),  # noqa: B008
 ) -> responses.PlainTextResponse:  # pragma: no cover
     try:
-        rules.UserConfigurationSchema(await data.read())
+        bytes_or_str = await data.read()
+
+        if isinstance(bytes_or_str, str):
+            content_bytes = bytes_or_str.encode()
+        else:
+            content_bytes = bytes_or_str
+
+        rules.get_mergify_config(
+            context.MergifyConfigFile(
+                {
+                    "path": data.filename,
+                    "type": "file",
+                    "content": base64.b64encode(content_bytes).decode(),
+                    "decoded_content": content_bytes,
+                    "sha": github_types.SHAType(
+                        hashlib.sha1(content_bytes).hexdigest()  # nosec
+                    ),
+                }
+            )
+        )
     except Exception as e:
         status = 400
         message = str(e)
