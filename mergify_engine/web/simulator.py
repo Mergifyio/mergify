@@ -15,7 +15,6 @@
 # under the License.
 
 
-import asyncio
 from urllib.parse import urlsplit
 
 import fastapi
@@ -132,18 +131,12 @@ async def simulator(request: requests.Request) -> responses.JSONResponse:
     data = SimulatorSchema(await request.json())
 
     if data["pull_request"]:
-        # TODO(sileht): remove threads when all httpx call are async
-        loop = asyncio.get_running_loop()
-        title, summary = await loop.run_in_executor(  # type: ignore
-            None,
-            asyncio.run,
-            _simulator(
-                data["mergify.yml"]["pull_request_rules"],
-                owner=data["pull_request"][0],
-                repo=data["pull_request"][1],
-                pull_number=data["pull_request"][2],
-                token=token,
-            ),
+        title, summary = await _simulator(
+            data["mergify.yml"]["pull_request_rules"],
+            owner=data["pull_request"][0],
+            repo=data["pull_request"][1],
+            pull_number=data["pull_request"][2],
+            token=token,
         )
     else:
         title, summary = ("The configuration is valid", None)
