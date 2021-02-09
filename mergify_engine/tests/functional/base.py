@@ -343,6 +343,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     }
                     auth.permissions_need_to_be_updated = False
                     auth.owner_id = config.TESTING_ORGANIZATION_ID
+                    auth.owner = config.TESTING_ORGANIZATION
                 return auth
 
             def github_aclient(owner_name=None, owner_id=None, auth=None):
