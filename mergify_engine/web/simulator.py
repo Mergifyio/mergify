@@ -141,6 +141,17 @@ async def simulator(request: requests.Request) -> responses.JSONResponse:
     else:
         title, summary = ("The configuration is valid", None)
 
+    pull_request_rules_conditions = [
+        [cond.tree for cond in rule.conditions]
+        for rule in data["mergify.yml"]["pull_request_rules"]
+    ]
     return responses.JSONResponse(
-        status_code=200, content={"title": title, "summary": summary}
+        status_code=200,
+        content={
+            "title": title,
+            "summary": summary,
+            "conditions": {
+                "pull_request_rules": pull_request_rules_conditions,
+            },
+        },
     )
