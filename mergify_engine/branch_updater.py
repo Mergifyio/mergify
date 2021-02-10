@@ -263,11 +263,6 @@ async def update_with_api(ctxt: context.Context) -> None:
         raise BranchUpdateNeedRetry()
 
 
-@tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),
-    stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(AuthenticationFailure),
-)
 async def rebase_with_git(
     ctxt: context.Context, user: typing.Optional[str] = None
 ) -> None:
@@ -300,6 +295,4 @@ async def rebase_with_git(
             "Rebasing a branch for a forked private repository is not supported by GitHub"
         )
 
-    raise AuthenticationFailure(
-        f"No registered tokens allows Mergify to push to `{ctxt.pull['head']['label']}`"
-    )
+    raise BranchUpdateFailure("No oauth valid tokens")
