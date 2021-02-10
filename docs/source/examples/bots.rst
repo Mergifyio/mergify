@@ -31,9 +31,9 @@ project dependencies.
           merge:
             method: merge
 
-Greenkeeper
------------
-`Greenkeeper <https://greenkeeper.io>`_ sends automatic update of your `npm`
+Snyk
+----
+`Snyk <https://snyk.io>`_ sends automatic security update of your project 
 dependencies.
 
 .. code-block:: yaml
@@ -41,9 +41,9 @@ dependencies.
     pull_request_rules:
       - name: automatic merge for Greenkeeper pull requests
         conditions:
-          - author=greenkeeper[bot]
-          - check-success=Travis CI - Pull Request
-          - check-success=greenkeeper/verify
+          - title~=^\[Snyk\]
+          - head~=^snyk-fix
+          - check-success~=^security/snyk
         actions:
           merge:
             method: merge
