@@ -358,6 +358,31 @@ async def queues(installation_id):
     return responses.JSONResponse(status_code=200, content=queues)
 
 
+@app.get(
+    "/queues-by-owner-id/{owner_id}",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
+)
+async def queues_by_owner_id(owner_id):
+    queues = collections.defaultdict(dict)
+    async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
+        _, _, repo_id, branch = queue.split("~")
+        async with github.aget_client(owner_id=owner_id) as client:
+            try:
+                repo = await client.item(f"/repositories/{repo_id}")
+            except exceptions.RateLimited:
+                return responses.JSONResponse(
+                    status_code=403,
+                    content={
+                        "message": f"{client.auth.owner} account with {client.auth.owner_id} ID, rate limited by GitHub"
+                    },
+                )
+            queues[client.auth.owner + "/" + repo["name"]][branch] = [
+                int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+            ]
+
+    return responses.JSONResponse(status_code=200, content=queues)
+
+
 @app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(
     request: requests.Request,
