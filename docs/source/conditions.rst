@@ -130,7 +130,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - Boolean
      - Whether the pull request is in draft state.
    * - ``files``
-     - string
+     - list of string
      - The files that are modified, deleted or added by the pull request.
    * - ``head``
      - string
