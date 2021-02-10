@@ -46,14 +46,14 @@ def encrypt(value: bytes) -> bytes:
     :param: An encrypted string."""
     iv = os.urandom(IV_BYTES_NEEDED)
     cipher = ciphers.Cipher(
-        ciphers.algorithms.AES(SECRET_KEY),  # type: ignore[attr-defined]
-        ciphers.modes.GCM(iv),  # type: ignore[call-arg]
+        ciphers.algorithms.AES(SECRET_KEY),
+        ciphers.modes.GCM(iv),
         backend=default_backend(),
     )
     encryptor = cipher.encryptor()
     encrypted = encryptor.update(value) + encryptor.finalize()
-    encrypted = base64.b64encode(iv + encryptor.tag + encrypted)  # type: ignore[attr-defined]
-    return encrypted
+    encrypted = base64.b64encode(iv + encryptor.tag + encrypted)
+    return encrypted  # type: ignore[no-any-return]
 
 
 def decrypt(value: bytes) -> bytes:
@@ -72,12 +72,12 @@ def decrypt(value: bytes) -> bytes:
     tag = decrypted[IV_BYTES_NEEDED : IV_BYTES_NEEDED + TAG_SIZE_BYTES]
     decrypted = decrypted[IV_BYTES_NEEDED + TAG_SIZE_BYTES :]
     cipher = ciphers.Cipher(
-        ciphers.algorithms.AES(SECRET_KEY),  # type: ignore[attr-defined]
-        ciphers.modes.GCM(iv, tag),  # type: ignore[call-arg]
+        ciphers.algorithms.AES(SECRET_KEY),
+        ciphers.modes.GCM(iv, tag),
         backend=default_backend(),
     )
     decryptor = cipher.decryptor()
     try:
-        return decryptor.update(decrypted) + decryptor.finalize()
+        return decryptor.update(decrypted) + decryptor.finalize()  # type: ignore[no-any-return]
     except cryptography.exceptions.InvalidTag:
         raise CryptoError("Invalid encrypted token: decryptor() failure")
