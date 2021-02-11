@@ -64,6 +64,23 @@ project's dependencies.
           merge:
             method: merge
 
+Requires.io
+-----------
+`Requires.io <https://requires.io/>`_ sends automatic updates for your
+project's dependencies (only Python's packages).
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for Requires.io pull requests
+        conditions:
+          - title~=^\[requires.io\]
+          - head~=^requires-io
+          - check-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
 PyUp
 ----
 `PyUp <https://pyup.io/>`_ sends automatic update for your project's Python
