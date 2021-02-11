@@ -191,9 +191,11 @@ async def subscription_cache_update(
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
-    await subscription.Subscription.from_dict(
-        redis_cache, int(owner_id), sub
-    ).save_subscription_to_cache()
+    try:
+        subscription.Subscription.update_subscription(redis_cache, int(owner_id), sub)
+    except NotImplementedError:
+        return responses.Response("updating subscription is disabled", status_code=400)
+
     return responses.Response("Cache updated", status_code=200)
 
 
@@ -207,7 +209,10 @@ async def subscription_cache_delete(
         redis.get_redis_cache
     ),
 ) -> responses.Response:
-    await subscription.Subscription.delete(redis_cache, owner_id)
+    try:
+        await subscription.Subscription.delete_subscription(redis_cache, owner_id)
+    except NotImplementedError:
+        return responses.Response("deleting subscription is disabled", status_code=400)
     return responses.Response("Cache cleaned", status_code=200)
 
 
@@ -230,7 +235,7 @@ async def marketplace_handler(
         gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
 
-    await subscription.Subscription.delete(
+    await subscription.Subscription.delete_subscription(
         redis_cache, data["marketplace_purchase"]["account"]["id"]
     )
 

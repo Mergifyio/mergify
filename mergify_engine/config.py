@@ -23,6 +23,9 @@ import typing
 import dotenv
 import voluptuous
 
+from mergify_engine import subscription_key
+from mergify_engine import types
+
 
 GITHUB_APP = os.environ.get("MERGIFYENGINE_MODE", "github_app") == "github_app"
 if GITHUB_APP:
@@ -95,6 +98,16 @@ Schema = voluptuous.Schema(
         voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
         voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
         # Mergify website for subscription
+        voluptuous.Required("SUBSCRIPTION_KEY", default=None): voluptuous.Any(
+            None, voluptuous.Coerce(subscription_key.DecryptedSubscriptionKey)
+        ),
+        voluptuous.Required("SUBSCRIPTION_PRIVATE_KEY", default=None): voluptuous.Any(
+            None,
+            str,
+        ),
+        voluptuous.Required("ACCOUNT_TOKENS", default=None): voluptuous.Any(
+            None, voluptuous.Coerce(AccountTokens)
+        ),
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
@@ -193,6 +206,8 @@ WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
 REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
+SUBSCRIPTION_KEY: typing.Dict[int, types.SubscriptionDict]
+SUBSCRIPTION_PRIVATE_KEY: str
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:

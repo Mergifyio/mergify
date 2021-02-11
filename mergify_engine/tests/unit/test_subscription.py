@@ -1,8 +1,12 @@
 from unittest import mock
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 import pytest
 
+from mergify_engine import config
 from mergify_engine import subscription
+from mergify_engine import subscription_key
 from mergify_engine.clients import http
 
 
@@ -53,7 +57,7 @@ async def test_save_sub(features, redis_cache):
         frozenset(features),
     )
 
-    await sub.save_subscription_to_cache()
+    await sub._save_subscription_to_cache()
     rsub = await subscription.Subscription._retrieve_subscription_from_cache(
         redis_cache, owner_id
     )
@@ -174,3 +178,60 @@ async def test_active_feature(redis_cache):
     assert sub.has_feature(subscription.Features.PRIVATE_REPOSITORY) is True
     assert sub.has_feature(subscription.Features.LARGE_REPOSITORY) is True
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
+
+
+@pytest.mark.asyncio
+async def test_subscription_key_generators(capsys, monkeypatch, redis_cache):
+    private_key = ed25519.Ed25519PrivateKey.generate()
+    private_key_str = (
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        .strip()
+        .split(b"\n")[1]
+        .decode()
+    )
+    monkeypatch.setattr(config, "SUBSCRIPTION_PRIVATE_KEY", private_key_str)
+    monkeypatch.setattr(
+        subscription_key, "SUBSCRIPTION_PUBLIC_KEY", private_key.public_key()
+    )
+
+    monkeypatch.setattr("sys.argv", ["mergify-subscitption-generator", "12345"])
+    ret = subscription_key.generate()
+    assert ret == 0
+    key = capsys.readouterr().out.strip()
+
+    data = subscription_key.DecryptedSubscriptionKey(key)
+    assert data == {
+        12345: {
+            "subscription_active": True,
+            "subscription_reason": "Subscription for 12345 is active",
+            "tokens": {},
+            "features": [
+                "private_repository",
+                "large_repository",
+                "priority_queues",
+                "custom_checks",
+                "random_request_reviews",
+                "merge_bot_account",
+                "bot_account",
+                "queue_action",
+            ],
+        }
+    }
+
+    monkeypatch.setattr(
+        config, "BOT_ACCOUNTS", config.BotAccounts("foo:bar,login:token")
+    )
+    monkeypatch.setattr(config, "SUBSCRIPTION_KEY", data)
+
+    sub = await subscription.Subscription.get_subscription(redis_cache, 12345)
+    assert sub.active
+    assert sub.get_token_for("foo") == "bar"
+    assert sub.get_token_for("login") == "token"
+    assert sub.get_token_for("nop") is None
+
+    sub = await subscription.Subscription.get_subscription(redis_cache, 54321)
+    assert not sub.active
