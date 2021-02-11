@@ -17,8 +17,8 @@ CI check name here — adjust it to whatever you use.
 
 Dependabot
 ----------
-`Dependabot <https://dependabot.io>`_ sends automatic security update of your
-project dependencies.
+`Dependabot <https://dependabot.io>`_ sends automatic updates for your
+project's dependencies.
 
 .. code-block:: yaml
 
@@ -33,13 +33,13 @@ project dependencies.
 
 Snyk
 ----
-`Snyk <https://snyk.io>`_ sends automatic security update of your project 
-dependencies.
+`Snyk <https://snyk.io>`_ sends automatic updates for your
+project's dependencies.
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for Greenkeeper pull requests
+      - name: automatic merge for Snyk pull requests
         conditions:
           - title~=^\[Snyk\]
           - head~=^snyk-fix
@@ -50,7 +50,7 @@ dependencies.
 
 Renovate
 --------
-`Renovate <https://renovatebot.com/>`_ sends automatic update for your
+`Renovate <https://renovatebot.com/>`_ sends automatic updates for your
 project's dependencies.
 
 .. code-block:: yaml
@@ -83,8 +83,8 @@ project's dependencies (only Python's packages).
 
 PyUp
 ----
-`PyUp <https://pyup.io/>`_ sends automatic update for your project's Python
-dependencies.
+`PyUp <https://pyup.io/>`_ sends automatic updates for your project's
+Python dependencies.
 
 .. code-block:: yaml
 
