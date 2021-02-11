@@ -1,22 +1,22 @@
 queue_rules:
   - name: default
     conditions:
-      - "status-success=requirements"
-      - "status-success=datadog"
-      - "status-success=pep8"
-      - "status-success=py39"
-      - "status-success=docs"
+      - check-success=requirements
+      - check-success=datadog
+      - check-success=pep8
+      - check-success=py39
+      - check-success=docs
 
 pull_request_rules:
   - name: automatic merge
     conditions:
       - base=master
-      - status-success=Semantic Pull Request
-      - "status-success=requirements"
-      - "status-success=datadog"
-      - "status-success=pep8"
-      - "status-success=py39"
-      - "status-success=docs"
+      - check-success=Semantic Pull Request
+      - check-success=requirements
+      - check-success=datadog
+      - check-success=pep8
+      - check-success=py39
+      - check-success=docs
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
       - label!=work-in-progress
@@ -29,7 +29,7 @@ pull_request_rules:
     conditions:
       - base=master
       - author=@devs
-      - status-success=Semantic Pull Request
+      - check-success=Semantic Pull Request
       - body~=(?m)^Fixes MERGIFY-ENGINE-
       - label=hotfix
       - "#changes-requested-reviews-by=0"
@@ -42,7 +42,7 @@ pull_request_rules:
         priority: high
   - name: automatic merge from dependabot
     conditions:
-      - status-success=Semantic Pull Request
+      - check-success=Semantic Pull Request
       - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
@@ -75,11 +75,11 @@ pull_request_rules:
       - label!=work-in-progress
       - -merged
       - -closed
-      - "status-success=requirements"
-      - "status-success=datadog"
-      - "status-success=pep8"
-      - "status-success=py39"
-      - "status-success=docs"
+      - check-success=requirements
+      - check-success=datadog
+      - check-success=pep8
+      - check-success=py39
+      - check-success=docs
       - "#approved-reviews-by=0"
       - "#changes-requested-reviews-by=0"
     actions:
