@@ -1,0 +1,35 @@
+### BASE ###
+FROM python:3.9-slim-buster as base-image
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update -y && apt upgrade -y && apt install -y git && apt autoremove --purge -y
+
+### BUILDER ###
+FROM base-image as builder
+RUN apt install -y gcc nodejs yarnpkg
+RUN ln -s /usr/bin/yarnpkg /usr/bin/yarn
+
+RUN python3 -m venv /venv
+ENV VIRTUAL_ENV=/venv
+ENV PATH="/venv/bin:${PATH}"
+
+RUN python3 -m pip install wheel
+
+# Just to be able cache a layer with all deps
+ADD requirements.txt /
+RUN sed -e '/^-e ./d' /requirements.txt > /constraints.txt
+RUN python3 -m pip install --no-cache-dir -r /constraints.txt
+
+# Real install that can't be cached
+ADD . /app
+WORKDIR /app
+RUN python3 -m pip install --no-cache-dir -r ./requirements.txt
+
+### RUNNER ###
+FROM base-image as runner
+RUN apt clean -y && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app /app
+COPY --from=builder /venv /venv
+WORKDIR /app
+ENV VIRTUAL_ENV=/venv
+ENV PATH="/venv/bin:${PATH}"
+ENTRYPOINT ["/app/entrypoint.sh"]
