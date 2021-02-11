@@ -132,7 +132,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        await self.subscription.save_subscription_to_cache()
+        await self.subscription._save_subscription_to_cache()
 
         rules = {
             "pull_request_rules": [
