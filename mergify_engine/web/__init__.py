@@ -28,6 +28,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import subscription
+from mergify_engine import types
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
@@ -265,12 +266,13 @@ async def refresh_branch(
 async def subscription_cache_update(
     owner_id: str, request: requests.Request
 ) -> responses.Response:  # pragma: no cover
-    sub = await request.json()
+    sub: typing.Optional[types.SubscriptionDict] = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
-    await subscription.Subscription.from_dict(
-        _AREDIS_CACHE, int(owner_id), sub
-    ).save_subscription_to_cache()
+    try:
+        subscription.Subscription.update_subscription(_AREDIS_CACHE, int(owner_id), sub)
+    except NotImplementedError:
+        return responses.Response("updating subscription is disabled", status_code=400)
     return responses.Response("Cache updated", status_code=200)
 
 
@@ -279,7 +281,10 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
-    await _AREDIS_CACHE.delete(f"subscription-cache-owner-{owner_id}")
+    try:
+        subscription.Subscription.delete_subscription(int(owner_id))
+    except NotImplementedError:
+        return responses.Response("deleting subscription is disabled", status_code=400)
     return responses.Response("Cache cleaned", status_code=200)
 
 

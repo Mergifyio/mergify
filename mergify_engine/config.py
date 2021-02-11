@@ -23,6 +23,9 @@ import typing
 import dotenv
 import voluptuous
 
+from mergify_engine import subscription_key
+from mergify_engine import types
+
 
 GITHUB_APP = os.environ.get("MERGIFYENGINE_MODE", "github_app") == "github_app"
 if GITHUB_APP:
@@ -51,6 +54,17 @@ def CommaSeparatedStringList(value: str) -> typing.List[str]:
 
 def CommaSeparatedIntList(value: str) -> typing.List[int]:
     return [int(s) for s in value.split(",")]
+
+
+def AccountTokens(v: str) -> typing.Dict[str, str]:
+    try:
+        return dict(
+            typing.cast(typing.Tuple[str, str], tuple(map(str.strip, bot.split(":"))))
+            for bot in v.split(",")
+            if bot.strip()
+        )
+    except ValueError:
+        raise ValueError("wrong format, expect `login1:token1,login2:token2`")
 
 
 Schema = voluptuous.Schema(
@@ -83,6 +97,16 @@ Schema = voluptuous.Schema(
         voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
         voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
         # Mergify website for subscription
+        voluptuous.Required("SUBSCRIPTION_KEY", default=None): voluptuous.Any(
+            None, voluptuous.Coerce(subscription_key.DecryptedSubscriptionKey)
+        ),
+        voluptuous.Required("SUBSCRIPTION_PRIVATE_KEY", default=None): voluptuous.Any(
+            None,
+            str,
+        ),
+        voluptuous.Required("ACCOUNT_TOKENS", default=None): voluptuous.Any(
+            None, voluptuous.Coerce(AccountTokens)
+        ),
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
@@ -158,6 +182,9 @@ ACTION_ID: int
 NOSUB_MAX_REPO_SIZE_KB: int
 GIT_EMAIL: str
 CONTEXT: str
+ACCOUNT_TOKENS: typing.Dict[str, str]
+SUBSCRIPTION_KEY: typing.Dict[int, types.SubscriptionDict]
+SUBSCRIPTION_PRIVATE_KEY: str
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:

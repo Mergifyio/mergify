@@ -13,6 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
+import abc
 import dataclasses
 import enum
 import json
@@ -22,11 +25,21 @@ import daiquiri
 
 from mergify_engine import config
 from mergify_engine import crypto
+from mergify_engine import types
 from mergify_engine import utils
 from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+SubscriptionT = typing.TypeVar("SubscriptionT", bound="SubscriptionBase")
+SubscriptionDashboardT = typing.TypeVar(
+    "SubscriptionDashboardT", bound="SubscriptionDashboard"
+)
+SubscriptionFromEnvT = typing.TypeVar(
+    "SubscriptionFromEnvT", bound="SubscriptionFromEnv"
+)
 
 
 @enum.unique
@@ -41,25 +54,8 @@ class Features(enum.Enum):
     QUEUE_ACTION = "queue_action"
 
 
-class SubscriptionDict(typing.TypedDict):
-    subscription_active: bool
-    subscription_reason: str
-    tokens: typing.Dict[str, str]
-    features: typing.List[
-        typing.Literal[
-            "private_repository",
-            "large_repository",
-            "priority_queues",
-            "custom_checks",
-            "random_request_reviews",
-            "merge_bot_account",
-            "queue_action",
-        ]
-    ]
-
-
-@dataclasses.dataclass
-class Subscription:
+@dataclasses.dataclass  # type: ignore
+class SubscriptionBase(abc.ABC):
     redis: utils.RedisCache
     owner_id: int
     active: bool
@@ -89,8 +85,11 @@ class Subscription:
 
     @classmethod
     def from_dict(
-        cls, redis: utils.RedisCache, owner_id: int, sub: SubscriptionDict
-    ) -> "Subscription":
+        cls: typing.Type[SubscriptionT],
+        redis: utils.RedisCache,
+        owner_id: int,
+        sub: types.SubscriptionDict,
+    ) -> SubscriptionT:
         return cls(
             redis,
             owner_id,
@@ -107,7 +106,7 @@ class Subscription:
                 return token
         return None
 
-    def to_dict(self) -> SubscriptionDict:
+    def to_dict(self) -> types.SubscriptionDict:
         return {
             "subscription_active": self.active,
             "subscription_reason": self.reason,
@@ -116,17 +115,81 @@ class Subscription:
         }
 
     @classmethod
+    @abc.abstractmethod
     async def get_subscription(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionT:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    async def update_subscription(
+        cls, redis: utils.RedisCache, owner_id: int, sub: types.SubscriptionDict
+    ) -> None:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    async def delete_subscription(cls, redis: utils.RedisCache, owner_id: int) -> None:
+        pass
+
+
+@dataclasses.dataclass
+class SubscriptionFromEnv(SubscriptionBase):
+    @classmethod
+    async def get_subscription(
+        cls: typing.Type[SubscriptionFromEnvT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionFromEnvT:
+        sub = config.SUBSCRIPTION_KEY.get(
+            owner_id,
+            types.SubscriptionDict(
+                {
+                    "subscription_active": False,
+                    "subscription_reason": f"owner id `{owner_id}` is not part of the subscriptions",
+                    "tokens": {},
+                    "features": [],
+                }
+            ),
+        )
+        if config.ACCOUNT_TOKENS is not None:
+            sub["tokens"] = config.ACCOUNT_TOKENS
+        return cls.from_dict(redis, owner_id, sub)
+
+    @classmethod
+    async def update_subscription(
+        cls, redis: utils.RedisCache, owner_id: int, sub: types.SubscriptionDict
+    ) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    async def delete_subscription(cls, redis: utils.RedisCache, owner_id: int) -> None:
+        raise NotImplementedError
+
+
+@dataclasses.dataclass
+class SubscriptionDashboard(SubscriptionBase):
+    @classmethod
+    async def get_subscription(
+        cls: typing.Type[SubscriptionDashboardT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionDashboardT:
         """Get a subscription."""
         sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
         if sub is None:
             sub = await cls._retrieve_subscription_from_db(redis, owner_id)
-            await sub.save_subscription_to_cache()
+            await sub._save_subscription_to_cache()
         return sub
 
-    async def save_subscription_to_cache(self) -> None:
+    @classmethod
+    async def update_subscription(
+        cls, redis: utils.RedisCache, owner_id: int, sub: types.SubscriptionDict
+    ) -> None:
+        await cls.from_dict(redis, owner_id, sub)._save_subscription_to_cache()
+
+    @classmethod
+    async def delete_subscription(cls, redis: utils.RedisCache, owner_id: int) -> None:
+        await redis.delete(f"subscription-cache-owner-{owner_id}")
+
+    async def _save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         await self.redis.setex(
             f"subscription-cache-owner-{self.owner_id}",
@@ -136,8 +199,8 @@ class Subscription:
 
     @classmethod
     async def _retrieve_subscription_from_db(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
+        cls: typing.Type[SubscriptionDashboardT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionDashboardT:
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
@@ -152,11 +215,24 @@ class Subscription:
 
     @classmethod
     async def _retrieve_subscription_from_cache(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> typing.Optional["Subscription"]:
+        cls: typing.Type[SubscriptionDashboardT], redis: utils.RedisCache, owner_id: int
+    ) -> typing.Optional[SubscriptionDashboardT]:
         encrypted_sub = await redis.get(f"subscription-cache-owner-{owner_id}")
         if encrypted_sub:
             return cls.from_dict(
                 redis, owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())
             )
         return None
+
+
+if config.SUBSCRIPTION_KEY is None:
+
+    @dataclasses.dataclass
+    class Subscription(SubscriptionDashboard):
+        pass
+
+
+else:
+
+    class Subscription(SubscriptionFromEnv):  # type: ignore [no-redef]
+        pass

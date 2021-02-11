@@ -407,7 +407,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        await self.subscription.save_subscription_to_cache()
+        await self.subscription._save_subscription_to_cache()
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
