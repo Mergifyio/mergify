@@ -21,6 +21,10 @@ RUN python3 -m pip install --no-cache-dir -r /constraints.txt
 
 # Real install that can't be cached
 ADD . /app
+WORKDIR /app/installer
+RUN yarn
+RUN yarn build
+RUN rm -rf node_modules
 WORKDIR /app
 RUN python3 -m pip install --no-cache-dir -r ./requirements.txt
 
