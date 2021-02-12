@@ -38,7 +38,7 @@ Contact `our support <mailto:support@mergify.io>`_ or our `sales team
    getting-started
    configuration
    conditions
-   actions
+   actions/index
    commands
    queues
    merge-action
