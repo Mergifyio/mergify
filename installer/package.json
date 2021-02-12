@@ -1,0 +1,73 @@
+{
+  "name": "installer",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@octokit/request": "^5.4.14",
+    "bootstrap": "^4.6.0",
+    "prop-types": "^15.7.2",
+    "react": "^17.0.1",
+    "react-bootstrap": "^1.4.3",
+    "react-dom": "^17.0.1",
+    "react-helmet": "^6.1.0",
+    "react-hook-form": "^6.15.1",
+    "react-router-dom": "^5.2.0",
+    "react-scripts": "4.0.2"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eslint": "eslint --ext .js --ext .jsx src"
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "jest": true
+    },
+    "extends": [
+      "airbnb",
+      "plugin:import/errors",
+      "plugin:import/warnings"
+    ],
+    "plugins": [
+      "eslint-plugin-import-order-alphabetical"
+    ],
+    "rules": {
+      "import/order": [
+        "error",
+        {
+          "newlines-between": "always-and-inside-groups"
+        }
+      ],
+      "import-order-alphabetical/order": "error",
+      "jsx-a11y/click-events-have-key-events": "off",
+      "jsx-a11y/no-static-element-interactions": "off",
+      "jsx-a11y/no-autofocus": "off",
+      "jsx-a11y/label-has-associated-control": "off",
+      "react/jsx-one-expression-per-line": "off",
+      "react/jsx-props-no-spreading": "off"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "eslint": "^7.20.0",
+    "eslint-config-airbnb": "^18.2.1",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-import-order-alphabetical": "^1.0.1",
+    "eslint-plugin-jsx-a11y": "^6.4.1",
+    "eslint-plugin-react": "^7.22.0",
+    "eslint-plugin-react-hooks": "^4.2.0"
+  }
+}
