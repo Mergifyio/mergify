@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import datetime
+import os
+import sys
 
 import pkg_resources
 
 
-extensions = ["sphinx.ext.githubpages"]
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+extensions = ["sphinx.ext.githubpages", "mergify_engine_gendoc"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
