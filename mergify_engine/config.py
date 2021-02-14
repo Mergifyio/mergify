@@ -98,7 +98,7 @@ Schema = voluptuous.Schema(
         # Mergify
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
-        voluptuous.Required("STREAM_URL", default="redis://localhost:6379?db=7"): str,
+        voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_PROCESSES", default=1): voluptuous.Coerce(int),
         voluptuous.Required("STREAM_WORKERS_PER_PROCESS", default=7): voluptuous.Coerce(
             int
@@ -171,6 +171,9 @@ for key, _ in Schema.schema.items():
         CONFIG[key] = val
 
 globals().update(Schema(CONFIG))
+
+if CONFIG["STREAM_URL"] is None:
+    STREAM_URL = CONFIG["STORAGE_URL"]
 
 # NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
 # it in base64 format
