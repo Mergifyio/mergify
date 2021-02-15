@@ -17,8 +17,13 @@ CI check name here — adjust it to whatever you use.
 
 Dependabot
 ----------
-`Dependabot <https://dependabot.io>`_ sends automatic updates for your
-project's dependencies.
+
+`Dependabot <https://github.com/features/security>`_ is the bot behind GitHub
+automatica security update. It sends automatic updates for your project's
+dependencies, making sure they are secure.
+
+You can automate the merge of pull request created by `dependabot` with a rule
+such as:
 
 .. code-block:: yaml
 
@@ -30,6 +35,25 @@ project's dependencies.
         actions:
           merge:
             method: merge
+
+Alternatively, you can also enable the automatic merge for `dependabot` pull
+request only if they are for the same major version.
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for Dependabot pull requests
+        conditions:
+          - author~=^dependabot(|-preview)\[bot\]$
+          - check-success=Travis CI - Pull Request
+          - title~=^Bump [^\s]+ from ([\d]+)\..+ to \1\.
+        actions:
+          merge:
+            method: merge
+
+The additional `title` based rule in ``conditions`` make sure that only the
+updates from `1.x` to `1.y` will be automatically merged. Updates from, e.g.,
+`2.x` to `3.x` will be ignored by Mergify.
 
 Snyk
 ----
