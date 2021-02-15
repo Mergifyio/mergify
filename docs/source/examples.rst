@@ -529,25 +529,5 @@ request.
               {{ check_conditions }}
 
 
-🐍 Updating PR for linear history
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As GitHub supports linear history in pull request settings, it is very handy to use a rule
-to keep your pull requests up-to-date. As you do not want to trigger your CI too often by always
-re-running it on every pull request — especially when there is still work in progress — you can
-limit this action to labeled pull requests.
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic update for PR marked as “Ready-to-Go“
-        conditions:
-          - -conflict # skip PRs with conflicts
-          - -draft # filter-out GH draft PRs
-          - label="Ready-to-Go"
-        actions:
-          update: {}
-
-
 .. include:: examples/bots.rst
 .. include:: global-substitutions.rst
