@@ -15,10 +15,6 @@ working.
 
 1. Login to |https://dashboard.mergify.io/|
 
-.. image:: _static/dashboard-welcome.png
-   :alt: Mergify Dashboard
-   :align: center
-
 2. Click on ``Enable Mergify on a new account`` or go to |https://github.com/apps/mergify/installations/new|
 
 3. GitHub will now offer you to select the repositories you want to give
@@ -29,10 +25,6 @@ working.
    :align: center
 
 4. You will be redirected to the dashboard.
-
-.. image:: _static/dashboard-setup.png
-   :alt: Mergify dashboard once setup
-   :align: center
 
 .. |https://dashboard.mergify.io/| raw:: html
 
