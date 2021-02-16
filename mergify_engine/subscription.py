@@ -154,9 +154,11 @@ class Subscription:
     async def _retrieve_subscription_from_cache(
         cls, redis: utils.RedisCache, owner_id: int
     ) -> typing.Optional["Subscription"]:
-        encrypted_sub = await redis.get(f"subscription-cache-owner-{owner_id}")
+        encrypted_sub: str = await redis.get(f"subscription-cache-owner-{owner_id}")
         if encrypted_sub:
             return cls.from_dict(
-                redis, owner_id, json.loads(crypto.decrypt(encrypted_sub).decode())
+                redis,
+                owner_id,
+                json.loads(crypto.decrypt(encrypted_sub.encode()).decode()),
             )
         return None
