@@ -1,23 +1,17 @@
 init_config:
 
 instances:
- - host: <CACHE HOST>
-   port: <CACHE PORT>
-   password: <CACHE PASSWORD>
-   tags:
-     - role:cache
+  - host: <CACHE HOST>
+    port: <CACHE PORT>
+    password: <CACHE PASSWORD>
+    tags:
+      - role:cache
 
- - host: <STREAM HOST>
-   port: <STREAM PORT>
-   password: <STREAM PASSWORD>
-   keys:
-     - streams
-     - attempts
-   tags:
-     - role:streams
-
-# - host: <HTTPCACHE HOST>
-#   port: <HTTPCACHE PORT>
-#   password: <HTTPCACHE PASSWORD>
-#   tags:
-#     - role:httpcache
+  - host: <STREAM HOST>
+    port: <STREAM PORT>
+    password: <STREAM PASSWORD>
+    keys:
+      - streams
+      - attempts
+    tags:
+      - role:streams
