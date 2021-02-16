@@ -27,5 +27,5 @@ jobs:
         with:
           push: true
           tags: |
-            Mergifyio/engine:latest
-            Mergifyio/engine:${{ steps.tag.outputs.value }}
+            mergifyio/engine:latest
+            mergifyio/engine:${{ steps.tag.outputs.value }}
