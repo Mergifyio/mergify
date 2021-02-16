@@ -1,5 +1,6 @@
 import pytest
 
+from mergify_engine import config
 from mergify_engine import subscription
 
 
@@ -113,3 +114,27 @@ async def test_active_feature(redis_cache):
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True
+
+
+@pytest.mark.asyncio
+async def test_subscription_tokens_via_env(monkeypatch, redis_cache):
+    sub = subscription.Subscription(
+        redis_cache,
+        123,
+        True,
+        "friend",
+        {},
+        frozenset(),
+    )
+
+    assert sub.get_token_for("foo") is None
+    assert sub.get_token_for("login") is None
+    assert sub.get_token_for("nop") is None
+
+    monkeypatch.setattr(
+        config, "ACCOUNT_TOKENS", config.AccountTokens("foo:bar,login:token")
+    )
+
+    assert sub.get_token_for("foo") == "bar"
+    assert sub.get_token_for("login") == "token"
+    assert sub.get_token_for("nop") is None
