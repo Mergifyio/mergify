@@ -22,7 +22,7 @@ jobs:
         id: tag
         run: echo ::set-output name=value::${GITHUB_REF#refs/*/}
 
-      - name: Push to GitHub Packages
+      - name: Push to DockerHub
         uses: docker/build-push-action@v2
         with:
           push: true
