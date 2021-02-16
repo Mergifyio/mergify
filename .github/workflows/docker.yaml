@@ -26,6 +26,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags:
-            - Mergifyio/engine:latest
-            - Mergifyio/engine:${{ steps.tag.outputs.value }}
+          tags: |
+            Mergifyio/engine:latest
+            Mergifyio/engine:${{ steps.tag.outputs.value }}
