@@ -172,7 +172,7 @@ async def test_configuration_changed(
         installation = context.Installation(
             GH_OWNER["id"],
             GH_OWNER["login"],
-            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset(), 0),
             client,
             redis_cache,
         )
@@ -264,7 +264,7 @@ async def test_configuration_duplicated(
         installation = context.Installation(
             GH_OWNER["id"],
             GH_OWNER["login"],
-            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset(), 0),
             client,
             redis_cache,
         )
@@ -346,7 +346,7 @@ async def test_configuration_not_changed(
         installation = context.Installation(
             GH_OWNER["id"],
             GH_OWNER["login"],
-            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset(), 0),
             client,
             redis_cache,
         )
@@ -416,7 +416,7 @@ async def test_configuration_initial(
         installation = context.Installation(
             GH_OWNER["id"],
             GH_OWNER["login"],
-            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset(), 0),
             client,
             redis_cache,
         )
