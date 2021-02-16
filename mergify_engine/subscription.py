@@ -22,6 +22,7 @@ import daiquiri
 
 from mergify_engine import config
 from mergify_engine import crypto
+from mergify_engine import exceptions
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -66,6 +67,7 @@ class Subscription:
     reason: str
     tokens: typing.Dict[str, str]
     features: typing.FrozenSet[enum.Enum]
+    ttl: int = -2
 
     @staticmethod
     def _to_features(feature_list: typing.Iterable[str]) -> typing.FrozenSet[Features]:
@@ -89,7 +91,11 @@ class Subscription:
 
     @classmethod
     def from_dict(
-        cls, redis: utils.RedisCache, owner_id: int, sub: SubscriptionDict
+        cls,
+        redis: utils.RedisCache,
+        owner_id: int,
+        sub: SubscriptionDict,
+        ttl: int = -2,
     ) -> "Subscription":
         return cls(
             redis,
@@ -98,6 +104,7 @@ class Subscription:
             sub["subscription_reason"],
             sub["tokens"],
             cls._to_features(sub.get("features", [])),
+            ttl,
         )
 
     def get_token_for(self, wanted_login: str) -> typing.Optional[str]:
@@ -115,24 +122,45 @@ class Subscription:
             "features": [f.value for f in self.features],
         }
 
+    RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
+    VALIDITY_SECONDS = 3600
+
+    async def _has_expired(self) -> bool:
+        if self.ttl < 0:  # not cached
+            return True
+        elapsed_since_stored = self.RETENTION_SECONDS - self.ttl
+        return elapsed_since_stored > self.VALIDITY_SECONDS
+
     @classmethod
     async def get_subscription(
         cls, redis: utils.RedisCache, owner_id: int
     ) -> "Subscription":
         """Get a subscription."""
-        sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
-        if sub is None:
-            sub = await cls._retrieve_subscription_from_db(redis, owner_id)
-            await sub.save_subscription_to_cache()
-        return sub
+
+        cached_sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
+        if cached_sub is None or await cached_sub._has_expired():
+            try:
+                db_sub = await cls._retrieve_subscription_from_db(redis, owner_id)
+            except Exception as exc:
+                if cached_sub is not None and (
+                    exceptions.should_be_ignored(exc) or exceptions.need_retry(exc)
+                ):
+                    # NOTE(sileht): return the cached sub, instead of retry the stream,
+                    # just because the dashboard have connectivity issue.
+                    return cached_sub
+                raise
+            await db_sub.save_subscription_to_cache()
+            return db_sub
+        return cached_sub
 
     async def save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         await self.redis.setex(
             f"subscription-cache-owner-{self.owner_id}",
-            3600,
+            self.RETENTION_SECONDS,
             crypto.encrypt(json.dumps(self.to_dict()).encode()),
         )
+        self.ttl = self.RETENTION_SECONDS
 
     @classmethod
     async def _retrieve_subscription_from_db(
@@ -154,11 +182,17 @@ class Subscription:
     async def _retrieve_subscription_from_cache(
         cls, redis: utils.RedisCache, owner_id: int
     ) -> typing.Optional["Subscription"]:
-        encrypted_sub: str = await redis.get(f"subscription-cache-owner-{owner_id}")
+        async with await redis.pipeline() as pipe:
+            await pipe.get(f"subscription-cache-owner-{owner_id}")
+            await pipe.ttl(f"subscription-cache-owner-{owner_id}")
+            encrypted_sub, ttl = typing.cast(
+                typing.Tuple[str, int], await pipe.execute()
+            )
         if encrypted_sub:
             return cls.from_dict(
                 redis,
                 owner_id,
                 json.loads(crypto.decrypt(encrypted_sub.encode()).decode()),
+                ttl,
             )
         return None
