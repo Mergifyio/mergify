@@ -1,0 +1,12 @@
+extends: default
+ignore: |
+  .git
+rules:
+  document-start: disable
+  truthy: disable
+  comments:
+    level: error
+  comments-indentation:
+    level: error
+  line-length:
+    max: 110

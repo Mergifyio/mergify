@@ -64,8 +64,8 @@ pull_request_rules:
       - author=@devs
     actions:
       dismiss_reviews:
-          # Do not remove approval for core devs
-          approved: False
+        # Do not remove approval for core devs
+        approved: False
   - name: auto add wip
     conditions:
       - title~=^(wip|WIP).*

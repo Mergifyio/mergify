@@ -53,7 +53,7 @@ jobs:
       redis:
         image: redis:latest
         ports:
-        - 6363:6379
+          - 6363:6379
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
