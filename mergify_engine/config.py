@@ -53,6 +53,17 @@ def CommaSeparatedIntList(value: str) -> typing.List[int]:
     return [int(s) for s in value.split(",")]
 
 
+def AccountTokens(v: str) -> typing.Dict[str, str]:
+    try:
+        return dict(
+            typing.cast(typing.Tuple[str, str], tuple(map(str.strip, bot.split(":"))))
+            for bot in v.split(",")
+            if bot.strip()
+        )
+    except ValueError:
+        raise ValueError("wrong format, expect `login1:token1,login2:token2`")
+
+
 Schema = voluptuous.Schema(
     {
         # Logging
@@ -86,6 +97,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
+        voluptuous.Required("ACCOUNT_TOKENS", default=""): voluptuous.Coerce(
+            AccountTokens
+        ),
         voluptuous.Required("WEBHOOK_APP_FORWARD_URL", default=None): voluptuous.Any(
             None, str
         ),
@@ -158,6 +172,7 @@ ACTION_ID: int
 NOSUB_MAX_REPO_SIZE_KB: int
 GIT_EMAIL: str
 CONTEXT: str
+ACCOUNT_TOKENS: typing.Dict[str, str]
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
