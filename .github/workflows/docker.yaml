@@ -1,19 +1,31 @@
 name: Publish Docker image
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - *
+
 jobs:
   push_to_registry:
-    name: Push Docker image to GitHub Packages
+    name: Push Docker image to DockerHub
     runs-on: ubuntu-20.04
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
-      - name: Push to GitHub Packages
-        uses: docker/build-push-action@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
         with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: docker.pkg.github.com
-          repository: Mergifyio/engine
-          tag_with_ref: true
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get tag
+        id: tag
+        run: echo ::set-output name=value::${GITHUB_REF#refs/*/}
+
+      - name: Push to GitHub Packages
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags:
+            - Mergifyio/engine:latest
+            - Mergifyio/engine:${{ steps.tag.outputs.value }}
