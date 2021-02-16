@@ -102,7 +102,7 @@ class Subscription:
 
     def get_token_for(self, wanted_login: str) -> typing.Optional[str]:
         wanted_login = wanted_login.lower()
-        for login, token in self.tokens.items():
+        for login, token in (self.tokens | config.ACCOUNT_TOKENS).items():
             if login.lower() == wanted_login:
                 return token
         return None
