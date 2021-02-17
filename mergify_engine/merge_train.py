@@ -119,19 +119,11 @@ class TrainCar:
             )
         except http.HTTPClientSideError as exc:
             if exc.status_code == 422 and "Reference already exists" in exc.message:
-                escaped_branch_name = (
-                    f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
-                    f"{parse.quote(self.train.ref, safe='')}/"
-                    f"{self.user_pull_request_number}"
-                )
                 try:
-                    await self.train.repository.installation.client.delete(
-                        f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/git/refs/heads/{escaped_branch_name}"
-                    )
+                    self._delete_branch()
                 except http.HTTPClientSideError as exc_patch:
                     await self._report_failure(exc_patch)
                     raise TrainCarPullRequestCreationFailure(self) from exc_patch
-
             else:
                 await self._report_failure(exc)
                 raise TrainCarPullRequestCreationFailure(self) from exc
@@ -152,6 +144,7 @@ class TrainCar:
                 )
             except http.HTTPClientSideError as e:
                 await self._report_failure(e)
+                await self._delete_branch()
                 raise TrainCarPullRequestCreationFailure(self) from e
 
         # TODO(sileht): Maybe we should handle the case the pull request already exists?
@@ -188,11 +181,17 @@ class TrainCar:
     async def delete_pull(self) -> None:
         if not self.queue_pull_request_number:
             return
+        await self._delete_branch()
 
-        branch = f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.user_pull_request_number}"
+    async def _delete_branch(self) -> None:
+        escaped_branch_name = (
+            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
+            f"{parse.quote(self.train.ref, safe='')}/"
+            f"{self.user_pull_request_number}"
+        )
         try:
             await self.train.repository.installation.client.delete(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/git/refs/heads/{branch}"
+                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/git/refs/heads/{escaped_branch_name}"
             )
         except http.HTTPNotFound:
             pass
