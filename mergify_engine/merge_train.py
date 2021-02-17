@@ -198,7 +198,13 @@ class TrainCar:
 
     async def _report_failure(self, exception: http.HTTPClientSideError) -> None:
         title = "This pull request cannot be embarked for merge"
-        summary = exception.message
+
+        if self.queue_pull_request_number is None:
+            summary = "The merge-queue pull request can't be created"
+        else:
+            summary = f"The merge-queue pull request (#{self.queue_pull_request_number}) can't be prepared"
+
+        summary += f"\nDetails: `{exception.message}`"
 
         # Update the original Pull Request
         original_ctxt = await self.train.repository.get_pull_request_context(
