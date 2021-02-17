@@ -4,12 +4,14 @@ instances:
   - host: <CACHE HOST>
     port: <CACHE PORT>
     password: <CACHE PASSWORD>
+    slowlog-max-len: 0
     tags:
       - role:cache
 
   - host: <STREAM HOST>
     port: <STREAM PORT>
     password: <STREAM PASSWORD>
+    slowlog-max-len: 0
     keys:
       - streams
       - attempts
