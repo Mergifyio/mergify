@@ -67,17 +67,12 @@ TreeT = typing.TypedDict(
     {
         # mypy does not support recursive definition yet
         "-": "TreeT",  # type: ignore[misc]
-        "¬": "TreeT",  # type: ignore[misc]
         "=": TreeBinaryLeafT,
-        "==": TreeBinaryLeafT,
         "<": TreeBinaryLeafT,
         ">": TreeBinaryLeafT,
         "<=": TreeBinaryLeafT,
-        "≤": TreeBinaryLeafT,
         ">=": TreeBinaryLeafT,
-        "≥": TreeBinaryLeafT,
         "!=": TreeBinaryLeafT,
-        "≠": TreeBinaryLeafT,
         "~=": TreeBinaryLeafT,
     },
     total=False,
@@ -98,7 +93,7 @@ class Filter:
 
     unary_operators: typing.ClassVar[
         typing.Dict[str, typing.Callable[[typing.Any], bool]]
-    ] = {"-": operator.not_, "¬": operator.not_}
+    ] = {"-": operator.not_}
 
     binary_operators: typing.ClassVar[
         typing.Dict[
@@ -111,15 +106,11 @@ class Filter:
         ]
     ] = {
         "=": (operator.eq, any, _identity),
-        "==": (operator.eq, any, _identity),
         "<": (operator.lt, any, _identity),
         ">": (operator.gt, any, _identity),
         "<=": (operator.le, any, _identity),
-        "≤": (operator.le, any, _identity),
         ">=": (operator.ge, any, _identity),
-        "≥": (operator.ge, any, _identity),
         "!=": (operator.ne, all, _identity),
-        "≠": (operator.ne, all, _identity),
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
