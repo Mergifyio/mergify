@@ -1,34 +1,45 @@
 .. meta::
-   :description: Mergify Documentation for Queues rules
+   :description: Mergify Documentation for Merge Queue
    :keywords: mergify, queues
 
-.. _Queue rules:
+.. _merge queues:
 
-==============
-🔀 Queue Rules
-==============
+===============
+🔀 Merge Queues
+===============
 
 |premium plan tag|
 |beta tag|
 
-``queues_rules`` are used by the ``queue`` action. They define the conditions
-to get a queued pull request merged and the configuration of the merge
-behavior.
+Merge queues prevent merging broken pull requests by serializing their merge. They work like :ref:`strict merge`, 
+but also provides some delightful enhancements, like:
 
-The ``queues_rules`` and the ``queue`` action allow writing complex merge queue
-workflows that couldn't be achieved with the ``merge`` action.
-
-The Merge Train
-~~~~~~~~~~~~~~~
-
+* faster pull requests merging when multiple pull requests are ready to merge
+* speculative identification of merge conflicts, tests failure, and continuous integration breakage
+* different policies for queuing and merging pull requests
 
 When using the ``merge`` action with strict mode, pull requests are updated and
 merged one by one serially.
 
-On the other hand, queues allow pull request to get embarked into a merge
-train. Mergify creates temporary pull requests to embedding multiple pull
-requests at once to check if the resulting branch can be merged according to
-your ``queue_rules```.
+.. figure:: _static/queue-strict-merge.png
+   :alt: strict merge
+
+With the ``queue`` action, pull requests are embarked in a merge train. A merge
+train consists of two or more pull requests embarked together to be tested
+speculatively.
+
+.. figure:: _static/queue-train.png
+   :alt: merge train
+
+Conditions to get pull requests embarked in the ``merge train`` can be configured
+with ``queues_rules``.
+
+The Merge Train
+~~~~~~~~~~~~~~~
+
+When a pull request gets embarked into a merge train, Mergify creates temporary
+pull requests to embed multiple pull requests at once. Those temporary pull requests check if the
+resulting branch can be merged according to the ``queue_rules``.
 
 For example, let's say the base branch head commit is ``abcdef12`` and there are 3 pull
 requests, ``A``, ``B`` and ``C``.
@@ -63,8 +74,16 @@ If an embarked pull request doesn't match the ``queue_rules`` anymore, it
 is removed from the merge train. All pull requests embarked after it
 are disembarked and re-embarked.
 
-Working with Queue Rules
-~~~~~~~~~~~~~~~~~~~~~~~~
+Configuring the Merge Queues
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `merge queues` relies on two configuration items: the ``queues_rules`` and
+the ``queue`` action. They allow writing complex merge queue
+workflows that couldn't be achieved with the ``merge`` action alone.
+
+The ``queues_rules`` are used by the ``queue`` action. They define the conditions
+to get a queued pull request merged and the configuration of the merge
+behavior.
 
 With a ``queue`` action, a pull request has to match two sets of conditions
 to get merged. The first set of conditions described in ``pull_request_rules``
