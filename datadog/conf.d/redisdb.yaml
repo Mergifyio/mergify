@@ -5,6 +5,7 @@ instances:
     port: <CACHE PORT>
     password: <CACHE PASSWORD>
     db: <CACHE DB>
+    ssl: <CACHE SSL>
     slowlog-max-len: 0
     tags:
       - role:cache
@@ -13,6 +14,7 @@ instances:
     port: <STREAM PORT>
     password: <STREAM PASSWORD>
     db: <STREAM DB>
+    ssl: <STREAM SSL>
     slowlog-max-len: 0
     keys:
       - streams
