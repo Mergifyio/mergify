@@ -73,13 +73,14 @@ EOF
         ;;
 esac
 
-REDIS_REGEX='^rediss?://([^:]*):([^@]+)@([^:]+):([^/]+)$'
+REDIS_REGEX='^rediss?://([^:]*):([^@]+)@([^:]+):([^/?]+)\?db=([^&]*)'
 
 if [ -n "$MERGIFYENGINE_STORAGE_URL" ]; then
     if [[ $MERGIFYENGINE_STORAGE_URL =~ $REDIS_REGEX ]]; then
         sed -i "s/<CACHE HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CACHE PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<CACHE PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<CACHE DB>/${BASH_REMATCH[5]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
     fi
 fi
 
@@ -88,6 +89,7 @@ if [ -n "$MERGIFYENGINE_STREAM_URL" ]; then
         sed -i "s/<STREAM HOST>/${BASH_REMATCH[3]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<STREAM PASSWORD>/${BASH_REMATCH[2]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
         sed -i "s/<STREAM PORT>/${BASH_REMATCH[4]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
+        sed -i "s/<STREAM DB>/${BASH_REMATCH[5]}/" "$DD_CONF_DIR/conf.d/redisdb.d/conf.yaml"
     fi
 fi
 
