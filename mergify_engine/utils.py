@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import os
 import socket
+import ssl
 import typing
 
 import aredis
@@ -33,10 +34,23 @@ RedisCache = typing.NewType("RedisCache", aredis.StrictRedis)  # type: ignore
 RedisStream = typing.NewType("RedisStream", aredis.StrictRedis)  # type: ignore
 
 
+def redis_from_url(url: str, **options: typing.Any) -> aredis.StrictRedis:
+    ssl_scheme = "rediss://"
+    if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith(ssl_scheme):
+        final_url = f"redis://{url[len(ssl_scheme):]}"
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        options["ssl_context"] = ctx
+    else:
+        final_url = url
+    return aredis.StrictRedis.from_url(final_url, **options)
+
+
 async def create_aredis_for_cache(
     max_idle_time: int = 60,
 ) -> RedisCache:
-    client = aredis.StrictRedis.from_url(
+    client = redis_from_url(
         config.STORAGE_URL,
         decode_responses=True,
         max_idle_time=max_idle_time,
@@ -55,7 +69,7 @@ async def aredis_for_cache() -> typing.AsyncIterator[RedisCache]:
 
 
 async def create_aredis_for_stream(max_idle_time: int = 60) -> RedisStream:
-    r = aredis.StrictRedis.from_url(config.STREAM_URL, max_idle_time=max_idle_time)
+    r = redis_from_url(config.STREAM_URL, max_idle_time=max_idle_time)
     await r.client_setname(f"stream:{_PROCESS_IDENTIFIER}")
     return RedisStream(r)
 

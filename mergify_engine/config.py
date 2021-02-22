@@ -111,6 +111,9 @@ Schema = voluptuous.Schema(
         ): voluptuous.Any(None, CommaSeparatedStringList),
         # Mergify
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
+        voluptuous.Required(
+            "REDIS_SSL_VERIFY_MODE_CERT_NONE", default=False
+        ): CoercedBool,
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_PROCESSES", default=1): voluptuous.Coerce(int),
@@ -173,6 +176,7 @@ NOSUB_MAX_REPO_SIZE_KB: int
 GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]
+REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
