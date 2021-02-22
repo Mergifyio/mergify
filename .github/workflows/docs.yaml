@@ -24,6 +24,7 @@ jobs:
 
       - name: Build 🔧
         run: |
+          sudo apt-get install graphviz
           pip install tox
           tox -e docs
 
