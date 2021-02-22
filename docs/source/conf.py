@@ -8,7 +8,9 @@ import pkg_resources
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-extensions = ["sphinx.ext.githubpages", "mergify_engine_gendoc"]
+extensions = ["sphinx.ext.githubpages", "sphinx.ext.graphviz", "mergify_engine_gendoc"]
+
+graphviz_dot_args = ["-Gdpi=200"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
