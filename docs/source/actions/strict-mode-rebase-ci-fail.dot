@@ -1,19 +1,15 @@
 strict digraph g {
     rankdir="LR";
-    nodesep=0.25;
-    ranksep=0.25;
     forcelabels=false;
     newrank=false;
-    fontname="Inconsolata Regular";
     splines=true;
-    fontsize="10pt";
 
     // general
-    node [style=filled, color="black", fontcolor="black", fontsize="10pt", fontname="Inconsolata Regular"];
-    edge [color="black", arrowhead=none, penwidth=1.8, fontname="Inconsolata Regular"];
+    node [style=filled, color="black", fontcolor="black"];
+    edge [color="black", arrowhead=none];
 
     // graph
-    node [width=0.2, height=0.2, fixedsize=true, label="", shape=circle, penwidth=1.8, fillcolor="#FF0000"]
+    node [width=0.2, height=0.2, fixedsize=true, label="", shape=circle, fillcolor="#FF0000"]
     subgraph pr {
         subgraph cluster_pr {
             subgraph {
@@ -57,15 +53,14 @@ strict digraph g {
         me [label="master", shape=none, fixedsize=false, fillcolor=none, fontcolor=black];
     }
 
-
-    m2:e -> pr11:w;
-    m2bis:e -> prm:sw;
+    m2:ne -> pr11:w;
+    m2bis:ne -> prm:sw;
 
     subgraph ci {
         // CI connections
         ci [label="Continuous\nIntegration", fixedsize=false, shape="box", style="filled", fillcolor="#034870", fontcolor=white, penwidth=1.5]
-        edge [arrowhead=none, style=dashed, arrowsize=0.5, arrowtail=normal, color="#34AD58", dir=both, penwidth=1, label="Pass ✔", fontcolor="#34AD58", fontsize="8pt"];
-        prm -> ci [label="Fail ❌", color="red", fontcolor="red"];
-        m2bis -> ci [label="Pass ✔"];
+        edge [arrowhead=none, style=dashed, arrowsize=0.5, arrowtail=normal, color="#34AD58", dir=both, penwidth=1, label="Pass", fontcolor="#34AD58", fontsize="6pt"];
+        prm -> ci [label="Fail", color="red", fontcolor="red"];
+        m2bis -> ci [label="Pass"];
     }
 }

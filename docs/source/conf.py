@@ -10,7 +10,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 extensions = ["sphinx.ext.githubpages", "sphinx.ext.graphviz", "mergify_engine_gendoc"]
 
-graphviz_dot_args = ["-Gdpi=200"]
+graphviz_dot_args = [
+    "-Gdpi=200",
+    "-Gnodesep=0.1",
+    "-Granksep=0.2",
+    "-Gfontname=Open Sans",
+    "-Efontname=Open Sans",
+    "-Nfontname=Open Sans",
+    "-Gfontsize=8pt",
+    "-Efontsize=8pt",
+    "-Nfontsize=8pt",
+    "-Npenwidth=1.75",
+    "-Epenwidth=1.75",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
