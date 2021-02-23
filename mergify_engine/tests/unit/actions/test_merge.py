@@ -274,7 +274,6 @@ async def test_queue_summary_subscription(active, summary, redis_cache):
             123,
             active,
             "We're just testing",
-            {},
             frozenset({subscription.Features.PRIORITY_QUEUES}),
         )
     )

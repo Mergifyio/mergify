@@ -37,6 +37,7 @@ from mergify_engine import constants
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import subscription
+from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
@@ -74,12 +75,20 @@ class Installation:
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
         dataclasses.field(default_factory=dict)
     )
+    _user_tokens: typing.Optional[user_tokens.UserTokens] = None
 
     @property
     def stream_name(self) -> "worker.StreamNameType":
         return typing.cast(
             "worker.StreamNameType", f"stream~{self.owner_login}~{self.owner_id}"
         )
+
+    async def get_user_tokens(self) -> user_tokens.UserTokens:
+        if self._user_tokens is None:
+            self._user_tokens = await user_tokens.UserTokens.get(
+                self.redis, self.owner_id
+            )
+        return self._user_tokens
 
     def get_repository(
         self,

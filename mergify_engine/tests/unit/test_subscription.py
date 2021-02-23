@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 
-from mergify_engine import config
 from mergify_engine import subscription
 from mergify_engine.clients import http
 
@@ -14,7 +13,6 @@ async def test_init(redis_cache):
         123,
         True,
         "friend",
-        {},
         frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
 
@@ -27,7 +25,6 @@ async def test_dict(redis_cache):
         owner_id,
         True,
         "friend",
-        {},
         frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
 
@@ -53,7 +50,6 @@ async def test_save_sub(features, redis_cache):
         owner_id,
         True,
         "friend",
-        {},
         frozenset(features),
     )
 
@@ -70,9 +66,7 @@ async def test_subscription_db_unavailable(
     retrieve_subscription_from_db_mock, redis_cache
 ):
     owner_id = 1234
-    sub = subscription.Subscription(
-        redis_cache, owner_id, True, "friend", {}, frozenset()
-    )
+    sub = subscription.Subscription(redis_cache, owner_id, True, "friend", frozenset())
     retrieve_subscription_from_db_mock.return_value = sub
 
     # no cache, no db -> reraise
@@ -127,17 +121,17 @@ async def test_unknown_sub(redis_cache):
 
 @pytest.mark.asyncio
 async def test_from_dict_unknown_features(redis_cache):
-    assert subscription.Subscription.from_dict(
-        redis_cache,
-        123,
-        {
-            "subscription_active": True,
-            "subscription_reason": "friend",
-            "tokens": {},
-            "features": ["unknown feature"],
-        },
-    ) == subscription.Subscription(
-        redis_cache, 123, True, "friend", {}, frozenset(), -2
+    assert (
+        subscription.Subscription.from_dict(
+            redis_cache,
+            123,
+            {
+                "subscription_active": True,
+                "subscription_reason": "friend",
+                "features": ["unknown feature"],
+            },
+        )
+        == subscription.Subscription(redis_cache, 123, True, "friend", frozenset(), -2)
     )
 
 
@@ -148,7 +142,6 @@ async def test_active_feature(redis_cache):
         123,
         True,
         "friend",
-        {},
         frozenset(),
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
@@ -157,7 +150,6 @@ async def test_active_feature(redis_cache):
         123,
         False,
         "friend",
-        {},
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
@@ -166,31 +158,6 @@ async def test_active_feature(redis_cache):
         123,
         True,
         "friend",
-        {},
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True
-
-
-@pytest.mark.asyncio
-async def test_subscription_tokens_via_env(monkeypatch, redis_cache):
-    sub = subscription.Subscription(
-        redis_cache,
-        123,
-        True,
-        "friend",
-        {},
-        frozenset(),
-    )
-
-    assert sub.get_token_for("foo") is None
-    assert sub.get_token_for("login") is None
-    assert sub.get_token_for("nop") is None
-
-    monkeypatch.setattr(
-        config, "ACCOUNT_TOKENS", config.AccountTokens("foo:bar,login:token")
-    )
-
-    assert sub.get_token_for("foo") == "bar"
-    assert sub.get_token_for("login") == "token"
-    assert sub.get_token_for("nop") is None
