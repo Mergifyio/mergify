@@ -15,46 +15,10 @@ import typing
 from first import first
 
 from mergify_engine import check_api
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.queue import merge_train
-
-
-async def are_checks_pending(
-    ctxt: context.Context, queue_rule: rules.EvaluatedQueueRule
-) -> bool:
-    missing_checks_conditions = [
-        condition
-        for condition in queue_rule.missing_conditions
-        if condition.attribute_name.startswith("check-")
-        or condition.attribute_name.startswith("status-")
-    ]
-    if not missing_checks_conditions:
-        return True
-
-    states_of_missing_checks = [
-        state
-        for name, state in (await ctxt.checks).items()
-        for cond in missing_checks_conditions
-        if await cond(utils.FakePR(cond.attribute_name, name))
-    ]
-    #  We have missing conditions but no associated states, this means
-    #  that some checks are missing, we assume they are pending
-    if not states_of_missing_checks:
-        return True
-
-    for state in states_of_missing_checks:
-        # We found a missing condition with the check pending, keep the PR
-        # in queue
-        if state in ("pending", None):
-            return True
-
-    # We don't have any checks pending, but some conditions still don't match,
-    # so can never ever merge this PR, removing it from the queue
-    return False
 
 
 async def have_unexpected_changes(
@@ -120,59 +84,37 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     unexpected_changes = await have_unexpected_changes(ctxt, car)
     if unexpected_changes:
-        mergeable = False
+        need_reset = True
     else:
-        mergeable = await train.is_synced_with_the_base_branch()
+        need_reset = not await train.is_synced_with_the_base_branch()
 
-    if unexpected_changes:
-        status = check_api.Conclusion.FAILURE
-    elif not mergeable:
-        status = check_api.Conclusion.PENDING
-    elif not evaluated_queue_rule.missing_conditions:
-        status = check_api.Conclusion.SUCCESS
-    elif await are_checks_pending(ctxt, evaluated_queue_rule):
-        status = check_api.Conclusion.PENDING
+    if need_reset:
+        real_status = status = check_api.Conclusion.PENDING
     else:
-        previous_car = car.get_previous_car()
-        if previous_car is None:
-            status = check_api.Conclusion.FAILURE
-        else:
-            previous_car_ctxt = await previous_car.get_context_to_evaluate()
-            if previous_car_ctxt:
-                previous_car_check = await previous_car_ctxt.get_engine_check_run(
-                    constants.MERGE_QUEUE_SUMMARY_NAME
-                )
-            else:
-                previous_car_check = None
-
-            if (
-                previous_car_check
-                and check_api.Conclusion(previous_car_check["conclusion"])
-                == check_api.Conclusion.SUCCESS
-            ):
-                status = check_api.Conclusion.FAILURE
-            else:
-                # We can't known yet if the failure is due to this train car or a previous
-                # one.
-                status = check_api.Conclusion.PENDING
+        real_status = status = await merge_train.get_queue_rule_checks_status(
+            ctxt, evaluated_queue_rule
+        )
+        if (
+            real_status == check_api.Conclusion.FAILURE
+            and not await car.has_previous_car_status_succeed()
+        ):
+            status = check_api.Conclusion.PENDING
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
         evaluated_queue_rule=evaluated_queue_rule,
         unexpected_changes=unexpected_changes,
-        mergeable=mergeable,
+        reseted=need_reset,
         status=status,
+        real_status=real_status,
         event_types=[se["event_type"] for se in ctxt.sources],
     )
 
     await car.update_summaries(
-        ctxt,
-        status,
-        queue_rule=evaluated_queue_rule,
-        will_be_reset=not mergeable,
+        status, queue_rule=evaluated_queue_rule, will_be_reset=need_reset
     )
 
-    if not mergeable:
+    if need_reset:
         ctxt.log.info("train will be reset")
         await train.reset()
 

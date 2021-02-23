@@ -115,7 +115,6 @@ class QueueBase(abc.ABC):
                     and except_pull_request == pull_number
                 ):
                     continue
-
                 await github_events.send_refresh(
                     self.repository.installation.redis,
                     redis_stream,

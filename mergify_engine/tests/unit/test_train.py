@@ -29,12 +29,21 @@ async def fake_train_car_create_pull(inner_self):
     inner_self.queue_pull_request_number = inner_self.user_pull_request_number + 10
 
 
+async def fake_train_car_update_user_pull(inner_self):
+    pass
+
+
 async def fake_train_car_delete_pull(inner_self):
     pass
 
 
 @pytest.fixture
 def monkepatched_traincar(monkeypatch):
+    monkeypatch.setattr(
+        "mergify_engine.queue.merge_train.TrainCar.update_user_pull",
+        fake_train_car_update_user_pull,
+    )
+
     monkeypatch.setattr(
         "mergify_engine.queue.merge_train.TrainCar.create_pull",
         fake_train_car_create_pull,
