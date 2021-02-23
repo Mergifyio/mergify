@@ -106,7 +106,7 @@ class MergeBaseAction(actions.Action):
     only_once = True
 
     @abc.abstractmethod
-    async def _should_be_queued(self, ctxt: context.Context) -> bool:
+    async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         pass
 
     def _compute_priority(self) -> int:
@@ -281,7 +281,7 @@ class MergeBaseAction(actions.Action):
             StrictMergeParameter.fasttrack,
             StrictMergeParameter.ordered,
         ):
-            if await self._should_be_queued(ctxt):
+            if await self._should_be_queued(ctxt, q):
                 await q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
             else:
                 await q.remove_pull(ctxt)

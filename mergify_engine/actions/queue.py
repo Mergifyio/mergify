@@ -55,6 +55,7 @@ class QueueAction(merge_base.MergeBaseAction):
         voluptuous.Required(
             "priority", default=merge_base.PriorityAliases.medium.value
         ): merge_base.PrioritySchema,
+        # TODO(sileht): Add support for strict method and  update_bot_account
     }
 
     # NOTE(sileht): We use the max priority as an offset to order queue
@@ -71,6 +72,23 @@ class QueueAction(merge_base.MergeBaseAction):
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
+
+        q = await merge_train.Train.from_context(ctxt)
+        car = q.get_car(ctxt)
+        if car and car.state == "updated":
+            # NOTE(sileht): This car doesn't have tmp pull, so we have the
+            # MERGE_QUEUE_SUMMARY and train reset here
+            need_reset = ctxt.have_been_synchronized() or await ctxt.is_behind
+            if need_reset:
+                status = check_api.Conclusion.PENDING
+                ctxt.log.info("train will be reset")
+                await q.reset()
+            else:
+                queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+                status = await merge_train.get_queue_rule_checks_status(
+                    ctxt, queue_rule_evaluated
+                )
+            await car.update_summaries(status, will_be_reset=need_reset)
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
@@ -119,7 +137,7 @@ class QueueAction(merge_base.MergeBaseAction):
             + self.queue_rule.config["priority"] * self.QUEUE_PRIORITY_OFFSET,
         )
 
-    async def _should_be_queued(self, ctxt: context.Context) -> bool:
+    async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
@@ -131,8 +149,6 @@ class QueueAction(merge_base.MergeBaseAction):
             return False
 
         if not await ctxt.is_behind:
-            # TODO(sileht): Even if we merged the pull request here, the train car may
-            # have been created. We should postpone the train car.
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
             if not queue_rule_evaluated.missing_conditions:
                 return True
@@ -146,7 +162,7 @@ class QueueAction(merge_base.MergeBaseAction):
         return False
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
-        # NOTE(sileht): since we create dedicated branch we don't need to sync PR
+        # NOTE(sileht): done by the train itself
         return False
 
     async def _should_be_cancel(

@@ -66,6 +66,51 @@ class WaitingPull(typing.NamedTuple):
     config: queue.QueueConfig
 
 
+TrainCarState = typing.Literal[
+    "pending",
+    "created",
+    "updated",
+    "failed",
+]
+
+
+async def get_queue_rule_checks_status(
+    ctxt: context.Context, queue_rule: rules.EvaluatedQueueRule
+) -> check_api.Conclusion:
+    if not queue_rule.missing_conditions:
+        return check_api.Conclusion.SUCCESS
+
+    missing_checks_conditions = [
+        condition
+        for condition in queue_rule.missing_conditions
+        if condition.attribute_name.startswith("check-")
+        or condition.attribute_name.startswith("status-")
+    ]
+    if not missing_checks_conditions:
+        return check_api.Conclusion.PENDING
+
+    states_of_missing_checks = [
+        state
+        for name, state in (await ctxt.checks).items()
+        for cond in missing_checks_conditions
+        if await cond(utils.FakePR(cond.attribute_name, name))
+    ]
+    #  We have missing conditions but no associated states, this means
+    #  that some checks are missing, we assume they are pending
+    if not states_of_missing_checks:
+        return check_api.Conclusion.PENDING
+
+    for state in states_of_missing_checks:
+        # We found a missing condition with the check pending, keep the PR
+        # in queue
+        if state in ("pending", None):
+            return check_api.Conclusion.PENDING
+
+    # We don't have any checks pending, but some conditions still don't match,
+    # so can never ever merge this PR, removing it from the queue
+    return check_api.Conclusion.FAILURE
+
+
 @dataclasses.dataclass
 class TrainCar(PseudoTrainCar):
     train: "Train" = dataclasses.field(repr=False)
@@ -74,6 +119,7 @@ class TrainCar(PseudoTrainCar):
     config: queue.QueueConfig
     initial_current_base_sha: github_types.SHAType
     current_base_sha: github_types.SHAType
+    state: TrainCarState = "pending"
     queue_pull_request_number: typing.Optional[
         github_types.GitHubPullRequestNumber
     ] = dataclasses.field(default=None)
@@ -84,6 +130,7 @@ class TrainCar(PseudoTrainCar):
         config: queue.QueueConfig
         initial_current_base_sha: github_types.SHAType
         current_base_sha: github_types.SHAType
+        state: TrainCarState
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
 
     def serialized(self) -> "TrainCar.Serialized":
@@ -92,12 +139,16 @@ class TrainCar(PseudoTrainCar):
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
             current_base_sha=self.current_base_sha,
+            state=self.state,
             queue_pull_request_number=self.queue_pull_request_number,
             config=self.config,
         )
 
     @classmethod
     def deserialize(cls, train: "Train", data: "TrainCar.Serialized") -> "TrainCar":
+        # NOTE(sileht): Backward compat, can be removed soon
+        if "state" not in data:
+            data["state"] = "created"
         return cls(train, **data)
 
     def _get_embarked_refs(self, include_my_self=True):
@@ -111,12 +162,47 @@ class TrainCar(PseudoTrainCar):
         return f"{self.train.ref} ({self.initial_current_base_sha[:7]}), {pull_refs}"
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
-        if self.queue_pull_request_number:
+        if self.state == "created" and self.queue_pull_request_number is not None:
             return await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
+        elif self.state == "updated":
+            return await self.train.repository.get_pull_request_context(
+                self.user_pull_request_number
+            )
         else:
             return None
+
+    async def update_user_pull(self) -> None:
+        # TODO(sileht): Add support for strict method and  update_bot_account
+        # TODO(sileht): rework branch_updater to be able to use it here.
+        ctxt = await self.train.repository.get_pull_request_context(
+            self.user_pull_request_number
+        )
+        if not await ctxt.is_behind:
+            # Already done
+            return
+
+        try:
+            await ctxt.client.put(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
+                api_version="lydian",  # type: ignore[call-arg]
+                json={"expected_head_sha": ctxt.pull["head"]["sha"]},
+            )
+        except http.HTTPClientSideError as exc:
+            if exc.status_code == 422:
+                refreshed_pull = await ctxt.client.item(
+                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
+                )
+                if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
+                    ctxt.log.info(
+                        "branch updated in the meantime",
+                        status_code=exc.status_code,
+                        error=exc.message,
+                    )
+                    return
+            await self._report_failure(exc, "update")
+            raise TrainCarPullRequestCreationFailure(self) from exc
 
     async def create_pull(self) -> None:
         # TODO(sileht): reuse branch instead of recreating PRs ?
@@ -184,13 +270,11 @@ class TrainCar(PseudoTrainCar):
         self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
             tmp_pull["number"]
         )
-
-        await self.update_summaries(
-            await self.train.repository.get_pull_request_context(
-                self.queue_pull_request_number, tmp_pull
-            ),
-            check_api.Conclusion.PENDING,
+        await self.train.repository.get_pull_request_context(
+            self.queue_pull_request_number, tmp_pull
         )
+
+        await self.update_summaries(check_api.Conclusion.PENDING)
 
     async def delete_pull(self) -> None:
         if not self.queue_pull_request_number:
@@ -210,11 +294,15 @@ class TrainCar(PseudoTrainCar):
         except http.HTTPNotFound:
             pass
 
-    async def _report_failure(self, exception: http.HTTPClientSideError) -> None:
+    async def _report_failure(
+        self,
+        exception: http.HTTPClientSideError,
+        operation: typing.Literal["created", "update"] = "created",
+    ) -> None:
         title = "This pull request cannot be embarked for merge"
 
         if self.queue_pull_request_number is None:
-            summary = "The merge-queue pull request can't be created"
+            summary = f"The merge-queue pull request can't be {operation}"
         else:
             summary = f"The merge-queue pull request (#{self.queue_pull_request_number}) can't be prepared"
 
@@ -252,7 +340,6 @@ class TrainCar(PseudoTrainCar):
 
     async def update_summaries(
         self,
-        tmp_pull_ctxt: context.Context,
         conclusion: check_api.Conclusion,
         *,
         queue_rule: typing.Optional[rules.EvaluatedQueueRule] = None,
@@ -275,19 +362,39 @@ class TrainCar(PseudoTrainCar):
         else:
             queue_summary = ""
 
-        summary = f"Embarking {self._get_embarked_refs()} together"
-        summary += queue_summary
-
-        await tmp_pull_ctxt.set_summary_check(
-            check_api.Result(
-                conclusion,
-                title=tmp_pull_title,
-                summary=summary,
-            )
+        original_ctxt = await self.train.repository.get_pull_request_context(
+            self.user_pull_request_number
         )
 
-        checks = await tmp_pull_ctxt.pull_check_runs
-        statuses = await tmp_pull_ctxt.pull_statuses
+        if self.state == "created":
+            summary = f"Embarking {self._get_embarked_refs()} together"
+            summary += queue_summary
+
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    "car state is created, but queue_pull_request_number is None"
+                )
+
+            tmp_pull_ctxt = await self.train.repository.get_pull_request_context(
+                self.queue_pull_request_number
+            )
+            await tmp_pull_ctxt.set_summary_check(
+                check_api.Result(
+                    conclusion,
+                    title=tmp_pull_title,
+                    summary=summary,
+                )
+            )
+
+            checks = await tmp_pull_ctxt.pull_check_runs
+            statuses = await tmp_pull_ctxt.pull_statuses
+        elif self.state == "updated":
+            checks = await original_ctxt.pull_check_runs
+            statuses = await original_ctxt.pull_statuses
+        else:
+            checks = []
+            statuses = []
+
         if checks or statuses:
             checks_copy_summary = (
                 "\n\nCheck-runs and statuses of the embarked "
@@ -325,13 +432,9 @@ class TrainCar(PseudoTrainCar):
             checks_copy_summary = ""
 
         # Update the original Pull Request
-        original_ctxt = await self.train.repository.get_pull_request_context(
-            self.user_pull_request_number
-        )
-
         if will_be_reset:
             # TODO(sileht): display train cars ?
-            original_pull_title = f"The pull request is going to be re-embarked soon: {tmp_pull_ctxt.pull['html_url']}"
+            original_pull_title = "The pull request is going to be re-embarked soon"
         else:
             if conclusion == check_api.Conclusion.SUCCESS:
                 original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
@@ -356,6 +459,9 @@ class TrainCar(PseudoTrainCar):
             report,
         )
 
+        if self.state != "created":
+            return
+
         # NOTE(sileht): refresh it, so the queue action will merge it and delete the
         # tmp_pull_ctxt branch
         async with utils.aredis_for_stream() as redis_stream:
@@ -377,12 +483,32 @@ class TrainCar(PseudoTrainCar):
                 json={"state": "closed"},
             )
 
-    def get_previous_car(self) -> typing.Optional["TrainCar"]:
+    def _get_previous_car(self) -> typing.Optional["TrainCar"]:
         position = self.train._cars.index(self)
         if position == 0:
             return None
         else:
             return self.train._cars[position - 1]
+
+    async def has_previous_car_status_succeed(self) -> bool:
+        previous_car = self._get_previous_car()
+        if previous_car is None:
+            return True
+
+        previous_car_ctxt = await previous_car.get_context_to_evaluate()
+        if previous_car_ctxt is None:
+            return False
+
+        previous_car_check = await previous_car_ctxt.get_engine_check_run(
+            constants.MERGE_QUEUE_SUMMARY_NAME
+        )
+        if previous_car_check is None:
+            return False
+
+        return (
+            check_api.Conclusion(previous_car_check["conclusion"])
+            == check_api.Conclusion.SUCCESS
+        )
 
 
 @dataclasses.dataclass
@@ -438,6 +564,10 @@ class Train(queue.QueueBase):
             self._waiting_pulls = [WaitingPull(*wp) for wp in train["waiting_pulls"]]
             self._current_base_sha = train["current_base_sha"]
             self._cars = [TrainCar.deserialize(self, c) for c in train["cars"]]
+        else:
+            self._cars = []
+            self._waiting_pulls = []
+            self._current_base_sha = None
 
     @property
     def log(self):
@@ -464,6 +594,25 @@ class Train(queue.QueueBase):
             await self.repository.installation.redis.set(self._get_redis_key(), raw)
         else:
             await self.repository.installation.redis.delete(self._get_redis_key())
+
+    def _should_be_updated(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> bool:
+        if self._cars:
+            return (
+                self._cars[0].user_pull_request_number == pull_number
+                and len(self._cars[0].parent_pull_request_numbers) == 0
+            )
+        elif self._waiting_pulls:
+            return self._waiting_pulls[0].user_pull_request_number == pull_number
+
+        return False
+
+    def get_car(self, ctxt: context.Context) -> typing.Optional[TrainCar]:
+        return first.first(
+            self._cars,
+            key=lambda car: car.user_pull_request_number == ctxt.pull["number"],
+        )
 
     def get_car_by_tmp_pull(self, ctxt: context.Context) -> typing.Optional[TrainCar]:
         return first.first(
@@ -593,7 +742,7 @@ class Train(queue.QueueBase):
             self._cars = self._cars[: self.max_size]
 
         elif missing_cars > 0 and self._waiting_pulls:
-            if self._cars and self._cars[-1].queue_pull_request_number is None:
+            if self._cars and self._cars[-1].state == "failed":
                 # NOTE(sileht): the last created pull request have failed, so don't create
                 # the next one, we wait it got removed from the queue
                 return
@@ -617,13 +766,21 @@ class Train(queue.QueueBase):
                     self._current_base_sha,
                 )
                 self._cars.append(car)
+
                 try:
-                    await car.create_pull()
+                    if self._should_be_updated(user_pull_request_number):
+                        # No need to create a pull request
+                        await car.update_user_pull()
+                        car.state = "updated"
+                    else:
+                        await car.create_pull()
+                        car.state = "created"
                 except TrainCarPullRequestCreationFailure:
                     # NOTE(sileht): We posted failure merge-queue check-run on
                     # car.user_pull_request_number and refreshed it, so it will be removed
                     # from the train soon. We don't need to create remaining cars now.
                     # When this car will be removed the remaining one will be created
+                    car.state = "failed"
                     return
 
     async def get_head_sha(self) -> github_types.SHAType:
