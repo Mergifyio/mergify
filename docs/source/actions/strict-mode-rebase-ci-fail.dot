@@ -59,7 +59,7 @@ strict digraph g {
     subgraph ci {
         // CI connections
         ci [label="Continuous\nIntegration", fixedsize=false, shape="box", style="filled", fillcolor="#034870", fontcolor=white, penwidth=1.5]
-        edge [arrowhead=none, style=dashed, arrowsize=0.5, arrowtail=normal, color="#34AD58", dir=both, penwidth=1, label="Pass", fontcolor="#34AD58", fontsize="6pt"];
+        edge [arrowhead=none, style=dashed, arrowsize=0.5, arrowtail=normal, color="#19d642", dir=both, penwidth=1, label="Pass", fontcolor="#19d642", fontsize="6pt"];
         prm -> ci [label="Fail", color="red", fontcolor="red"];
         m2bis -> ci [label="Pass"];
     }
