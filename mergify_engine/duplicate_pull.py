@@ -19,12 +19,15 @@ import typing
 import tenacity
 
 from mergify_engine import config
-from mergify_engine import context
 from mergify_engine import doc
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import subscription
 from mergify_engine.clients import http
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 class DuplicateNeedRetry(Exception):
@@ -88,7 +91,7 @@ def is_base_branch_merge_commit(
 
 
 async def _get_commits_without_base_branch_merge(
-    ctxt: context.Context,
+    ctxt: "context.Context",
 ) -> typing.List[github_types.GitHubBranchCommit]:
     base_branch = ctxt.pull["base"]["ref"]
     return list(
@@ -100,7 +103,7 @@ async def _get_commits_without_base_branch_merge(
 
 
 async def _get_commits_to_cherrypick(
-    ctxt: context.Context, merge_commit: github_types.GitHubBranchCommit
+    ctxt: "context.Context", merge_commit: github_types.GitHubBranchCommit
 ) -> typing.List[github_types.GitHubBranchCommit]:
     if len(merge_commit["parents"]) == 1:
         # NOTE(sileht): We have a rebase+merge or squash+merge
@@ -189,7 +192,7 @@ def get_destination_branch_name(
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
 )
 async def duplicate(
-    ctxt: context.Context,
+    ctxt: "context.Context",
     branch_name: str,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
@@ -198,7 +201,7 @@ async def duplicate(
     """Duplicate a pull request.
 
     :param pull: The pull request.
-    :type pull: py:class:mergify_engine.context.Context
+    :type pull: py:class:mergify_engine."context.Context"
     :param branch: The branch to copy to.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.

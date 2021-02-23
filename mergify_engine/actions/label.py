@@ -15,15 +15,19 @@
 # under the License.
 
 import random
+import typing
 from urllib import parse
 
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine.clients import http
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class LabelAction(actions.Action):
@@ -36,7 +40,7 @@ class LabelAction(actions.Action):
     silent_report = True
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if self.config["add"]:
             all_label = [

@@ -14,15 +14,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.clients import http
 from mergify_engine.rules import types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class CommentAction(actions.Action):
@@ -34,7 +39,7 @@ class CommentAction(actions.Action):
     silent_report = True
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
 
         if self.config["message"] is None:

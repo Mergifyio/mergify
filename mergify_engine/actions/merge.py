@@ -20,7 +20,6 @@ import typing
 import daiquiri
 import voluptuous
 
-from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
@@ -28,6 +27,7 @@ from mergify_engine.rules import types
 
 
 if typing.TYPE_CHECKING:
+    from mergify_engine import context
     from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
@@ -71,7 +71,7 @@ class MergeAction(merge_base.MergeBaseAction):
     def _compute_priority(self) -> int:
         return typing.cast(int, self.config["priority"])
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
@@ -83,10 +83,10 @@ class MergeAction(merge_base.MergeBaseAction):
         else:
             raise RuntimeError("Unexpected strict")
 
-    async def _should_be_queued(self, ctxt: context.Context) -> bool:
+    async def _should_be_queued(self, ctxt: "context.Context") -> bool:
         return True
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return not await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
@@ -99,7 +99,7 @@ class MergeAction(merge_base.MergeBaseAction):
             raise RuntimeError("Unexpected strict")
 
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> bool:
         # It's closed, it's not going to change
         if ctxt.pull["state"] == "closed":
@@ -139,12 +139,12 @@ class MergeAction(merge_base.MergeBaseAction):
 
         return True
 
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
+    async def _get_queue(self, ctxt: "context.Context") -> queue.Queue:
         return await queue.Queue.from_context(ctxt, with_train=False)
 
     def get_merge_conditions(
         self,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
     ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
         return rule.conditions, rule.missing_conditions

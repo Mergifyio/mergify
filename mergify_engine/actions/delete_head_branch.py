@@ -14,15 +14,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
 from urllib import parse
 
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine.clients import http
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class DeleteHeadBranchAction(actions.Action):
@@ -32,7 +36,7 @@ class DeleteHeadBranchAction(actions.Action):
     )
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if ctxt.pull_from_fork:
             return check_api.Result(

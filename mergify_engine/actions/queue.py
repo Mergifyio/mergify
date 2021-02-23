@@ -21,7 +21,6 @@ import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import constants
-from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import subscription
@@ -30,6 +29,7 @@ from mergify_engine.rules import types
 
 
 if typing.TYPE_CHECKING:
+    from mergify_engine import context
     from mergify_engine import rules
 
 
@@ -60,7 +60,7 @@ class QueueAction(merge_base.MergeBaseAction):
     QUEUE_PRIORITY_OFFSET: int = merge_base.MAX_PRIORITY
 
     async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
             return check_api.Result(
@@ -104,7 +104,7 @@ class QueueAction(merge_base.MergeBaseAction):
             raise voluptuous.error.Invalid(f"{self.config['name']} queue not found")
 
     async def _get_merge_queue_check(
-        self, ctxt: context.Context
+        self, ctxt: "context.Context"
     ) -> typing.Optional[github_types.GitHubCheckRun]:
         return first(
             await ctxt.pull_engine_check_runs,
@@ -118,14 +118,14 @@ class QueueAction(merge_base.MergeBaseAction):
             + self.queue_rule.config["priority"] * self.QUEUE_PRIORITY_OFFSET,
         )
 
-    async def _should_be_queued(self, ctxt: context.Context) -> bool:
+    async def _should_be_queued(self, ctxt: "context.Context") -> bool:
         check = await self._get_merge_queue_check(ctxt)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
             check_api.Conclusion.PENDING,
         ]
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         if not await q.is_first_pull(ctxt):
             return False
 
@@ -144,21 +144,21 @@ class QueueAction(merge_base.MergeBaseAction):
             )
         return False
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         # NOTE(sileht): since we create dedicated branch we don't need to sync PR
         return False
 
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> bool:
         return True
 
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
+    async def _get_queue(self, ctxt: "context.Context") -> queue.Queue:
         return await queue.Queue.from_context(ctxt, with_train=True)
 
     def get_merge_conditions(
         self,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
     ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
         # TODO(sileht): A bit wrong, we should use the context of the testing PR instead

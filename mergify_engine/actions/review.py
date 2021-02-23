@@ -14,16 +14,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.rules import types
 
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 EVENT_STATE_MAP = {
     "APPROVE": "APPROVED",

@@ -14,11 +14,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine.actions import copy
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class BackportAction(copy.CopyAction):
@@ -33,7 +38,7 @@ class BackportAction(copy.CopyAction):
         return {"branches": string.split(" ")}
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(

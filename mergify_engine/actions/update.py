@@ -18,8 +18,11 @@ import typing
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class UpdateAction(actions.Action):
@@ -32,7 +35,9 @@ class UpdateAction(actions.Action):
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     @staticmethod
-    async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        ctxt: "context.Context", rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
         if await ctxt.is_behind:
             try:
                 await branch_updater.update_with_api(ctxt)

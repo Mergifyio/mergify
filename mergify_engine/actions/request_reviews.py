@@ -18,12 +18,15 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class RequestReviewsAction(actions.Action):
@@ -118,7 +121,7 @@ class RequestReviewsAction(actions.Action):
         return user_reviews_to_request, team_reviews_to_request
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if "random_count" in self.config and not ctxt.subscription.has_feature(
             subscription.Features.RANDOM_REQUEST_REVIEWS

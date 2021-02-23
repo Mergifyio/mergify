@@ -27,15 +27,17 @@ from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -104,41 +106,41 @@ class MergeBaseAction(actions.Action):
     only_once = True
 
     @abc.abstractmethod
-    async def _should_be_queued(self, ctxt: context.Context) -> bool:
+    async def _should_be_queued(self, ctxt: "context.Context") -> bool:
         pass
 
     def _compute_priority(self) -> int:
         pass
 
     @abc.abstractmethod
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         pass
 
     @abc.abstractmethod
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: "context.Context", q: queue.Queue) -> bool:
         pass
 
     @abc.abstractmethod
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> bool:
         pass
 
     @abc.abstractmethod
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
+    async def _get_queue(self, ctxt: "context.Context") -> queue.Queue:
         pass
 
     @abc.abstractmethod
     def get_merge_conditions(
         self,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
     ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
         pass
 
     async def get_strict_status(
         self,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
         q: queue.Queue,
         is_behind: bool = False,
@@ -179,7 +181,7 @@ class MergeBaseAction(actions.Action):
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
@@ -277,7 +279,7 @@ class MergeBaseAction(actions.Action):
         return result
 
     async def cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         self._set_effective_priority(ctxt)
 
@@ -329,7 +331,7 @@ class MergeBaseAction(actions.Action):
             self.config["effective_priority"] = PriorityAliases.medium.value
 
     async def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.Queue
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule", q: queue.Queue
     ) -> check_api.Result:
         method = self.config["strict_method"]
         user = self.config["update_bot_account"] or self.config["bot_account"]
@@ -407,7 +409,7 @@ class MergeBaseAction(actions.Action):
 
     async def _merge(
         self,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
         q: queue.Queue,
     ) -> check_api.Result:
@@ -487,7 +489,7 @@ class MergeBaseAction(actions.Action):
     async def _handle_merge_error(
         self,
         e: http.HTTPClientSideError,
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule: "rules.EvaluatedRule",
         q: queue.Queue,
     ) -> check_api.Result:
@@ -607,7 +609,7 @@ class MergeBaseAction(actions.Action):
             )
 
     async def merge_report(
-        self, ctxt: context.Context
+        self, ctxt: "context.Context"
     ) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
@@ -672,7 +674,7 @@ This pull request must be merged manually."""
 
         return check_api.Result(conclusion, title, summary)
 
-    async def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
+    async def get_queue_summary(self, ctxt: "context.Context", q: queue.Queue) -> str:
         pulls = await q.get_pulls()
         if not pulls:
             return ""

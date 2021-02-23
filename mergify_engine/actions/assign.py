@@ -20,10 +20,13 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.rules import types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class AssignAction(actions.Action):
@@ -37,7 +40,7 @@ class AssignAction(actions.Action):
     silent_report = True
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         # NOTE: "users" is deprecated, but kept as legacy code for old config
         if self.config["users"]:
@@ -56,7 +59,7 @@ class AssignAction(actions.Action):
         )
 
     async def _add_assignees(
-        self, ctxt: context.Context, users_to_add: typing.List[str]
+        self, ctxt: "context.Context", users_to_add: typing.List[str]
     ) -> check_api.Result:
         assignees = await self._wanted_users(ctxt, users_to_add)
 
@@ -85,7 +88,7 @@ class AssignAction(actions.Action):
         )
 
     async def _remove_assignees(
-        self, ctxt: context.Context, users_to_remove: typing.List[str]
+        self, ctxt: "context.Context", users_to_remove: typing.List[str]
     ) -> check_api.Result:
         assignees = await self._wanted_users(ctxt, users_to_remove)
 
@@ -115,7 +118,7 @@ class AssignAction(actions.Action):
         )
 
     async def _wanted_users(
-        self, ctxt: context.Context, users: typing.List[str]
+        self, ctxt: "context.Context", users: typing.List[str]
     ) -> typing.List[str]:
         wanted = set()
         for user in set(users):

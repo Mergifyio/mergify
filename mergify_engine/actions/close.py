@@ -14,17 +14,21 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
 MSG = "This pull request has been automatically closed by Mergify."
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 class CloseAction(actions.Action):
@@ -32,7 +36,7 @@ class CloseAction(actions.Action):
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if ctxt.pull["state"] == "closed":
             return check_api.Result(

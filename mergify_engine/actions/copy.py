@@ -23,11 +23,14 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
-from mergify_engine import rules
 from mergify_engine.clients import http
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 def Regex(value: str) -> typing.Pattern[str]:
@@ -105,7 +108,7 @@ class CopyAction(actions.Action):
         )
 
     async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         if not config.GITHUB_APP:
             return check_api.Result(

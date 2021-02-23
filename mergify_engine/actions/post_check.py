@@ -14,14 +14,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import context
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.rules import types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 
 def CheckRunJinja2(v):
@@ -50,7 +55,7 @@ class PostCheckAction(actions.Action):
     allow_retrigger_mergify = True
 
     async def _post(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         # TODO(sileht): Don't run it if conditions contains the rule itself, as it can
         # created an endless loop of events.
