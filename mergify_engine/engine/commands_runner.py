@@ -35,7 +35,7 @@ COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
 
 MERGE_QUEUE_COMMAND_MESSAGE = "Command not allowed on merge queue pull request."
-UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command."
+UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command. Please consult [the commands documentation](https://docs.mergify.io/commands.html) \U0001F4DA."
 WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 
 
