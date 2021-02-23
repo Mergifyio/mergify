@@ -22,10 +22,10 @@ import pkg_resources
 import voluptuous
 
 from mergify_engine import check_api
-from mergify_engine import context
 
 
 if typing.TYPE_CHECKING:
+    from mergify_engine import context
     from mergify_engine import rules
 
 
@@ -101,11 +101,11 @@ class Action(abc.ABC):
         return {}
 
     async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         pass
 
     async def cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: "context.Context", rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         return self.cancelled_check_report

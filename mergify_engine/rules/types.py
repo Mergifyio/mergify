@@ -22,20 +22,10 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine import rules
 
 
 _JINJA_ENV = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
-
-
-@dataclasses.dataclass
-class LineColumnPath:
-    line: int
-    column: typing.Optional[int] = None
-
-    def __repr__(self):
-        if self.column is None:
-            return f"line {self.line}"
-        return f"line {self.line}, column {self.column}"
 
 
 class DummyContext(context.Context):
@@ -175,7 +165,7 @@ def Jinja2(
         if rtf.lineno is None:
             path = None
         else:
-            path = [LineColumnPath(rtf.lineno, None)]
+            path = [rules.LineColumnPath(rtf.lineno, None)]
         raise voluptuous.Invalid(
             "Template syntax error", error_message=str(rtf), path=path
         )
