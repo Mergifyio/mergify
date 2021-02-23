@@ -43,6 +43,7 @@ from mergify_engine.clients import http
 
 
 if typing.TYPE_CHECKING:
+    from mergify_engine import rules
     from mergify_engine import worker
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
@@ -161,7 +162,8 @@ class Installation:
 
 
 class RepositoryCache(typing.TypedDict, total=False):
-    mergify_config: typing.Optional[MergifyConfigFile]
+    mergify_config_file: typing.Optional[MergifyConfigFile]
+    mergify_config: "rules.MergifyConfig"
 
 
 @dataclasses.dataclass
@@ -249,8 +251,8 @@ class Repository(object):
             )
 
     async def get_mergify_config_file(self) -> typing.Optional[MergifyConfigFile]:
-        if "mergify_config" in self._cache:
-            return self._cache["mergify_config"]
+        if "mergify_config_file" in self._cache:
+            return self._cache["mergify_config_file"]
 
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.name
@@ -263,12 +265,33 @@ class Repository(object):
                 await self.installation.redis.set(
                     config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
                 )
-            self._cache["mergify_config"] = config_file
+            self._cache["mergify_config_file"] = config_file
             return config_file
 
         await self.installation.redis.delete(config_location_cache)
-        self._cache["mergify_config"] = None
+        self._cache["mergify_config_file"] = None
         return None
+
+    def get_mergify_config(self) -> "rules.MergifyConfig":
+        if "mergify_config" in self._cache:
+            return self._cache["mergify_config"]
+
+        if (
+            "mergify_config_file" in self._cache
+            and self._cache["mergify_config_file"] is not None
+        ):
+            config_file = self._cache["mergify_config_file"]
+        else:
+            raise RuntimeError(
+                "Config file not cached, get_mergify_config_file() must be called first"
+            )
+
+        # Break recursive import
+        from mergify_engine import rules
+
+        mergify_config = rules.get_mergify_config(config_file)
+        self._cache["mergify_config"] = mergify_config
+        return mergify_config
 
     async def get_pull_request_context(
         self,

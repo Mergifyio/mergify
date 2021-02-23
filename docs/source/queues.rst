@@ -160,4 +160,10 @@ A ``queue_rules`` takes the following parameter:
      -
      - The list of ``conditions`` to match to get the queued pull request merged.
 
+Speculative Queue Length
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The number of pull request to embark into the merge train can be configured
+with ``speculative_queue_length``. The default is ``5``.
+
 .. include:: global-substitutions.rst

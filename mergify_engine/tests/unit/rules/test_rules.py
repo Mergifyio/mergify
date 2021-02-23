@@ -296,7 +296,7 @@ pull_request_rules:
     schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
 
-    assert len(schema["pull_request_rules"].rules) == 1
+    assert len(schema["pull_request_rules"].rules) == 2
 
     comment = schema["pull_request_rules"].rules[0].actions["comment"].config
     assert comment == {"message": "I love Mergify", "bot_account": "foo-bot"}
@@ -338,7 +338,7 @@ pull_request_rules:
     schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
 
-    assert len(schema["pull_request_rules"].rules) == 1
+    assert len(schema["pull_request_rules"].rules) == 2
 
     comment = schema["pull_request_rules"].rules[0].actions["comment"].config
     assert comment == {"message": "I really love Mergify", "bot_account": "AutoBot"}

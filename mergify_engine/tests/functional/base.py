@@ -37,8 +37,8 @@ from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import engine
 from mergify_engine import gitter
+from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine import web
@@ -353,8 +353,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
             mock.patch.object(github, "aget_client", github_aclient).start()
 
-        with open(engine.mergify_rule_path, "r") as f:
-            engine.MERGIFY_RULE = yaml.safe_load(
+        with open(rules.mergify_rule_path, "r") as f:
+            rules.MERGIFY_RULE = yaml.safe_load(
                 f.read().replace("mergify[bot]", "mergify-test[bot]")
             )
 

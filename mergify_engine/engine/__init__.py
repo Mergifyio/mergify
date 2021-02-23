@@ -13,9 +13,6 @@
 import typing
 
 import daiquiri
-import pkg_resources
-import voluptuous
-import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -31,15 +28,6 @@ from mergify_engine.engine import queue_runner
 
 
 LOG = daiquiri.getLogger(__name__)
-
-mergify_rule_path = pkg_resources.resource_filename(
-    __name__, "../data/default_pull_request_rules.yml"
-)
-
-with open(mergify_rule_path, "r") as f:
-    DEFAULT_PULL_REQUEST_RULES = voluptuous.Schema(rules.PullRequestRulesSchema)(
-        yaml.safe_load(f.read())["rules"]
-    )
 
 
 async def _check_configuration_changes(
@@ -204,7 +192,7 @@ async def run(
 
     # BRANCH CONFIGURATION CHECKING
     try:
-        mergify_config = rules.get_mergify_config(config_file)
+        mergify_config = ctxt.repository.get_mergify_config()
     except rules.InvalidRules as e:  # pragma: no cover
         ctxt.log.info(
             "The Mergify configuration is invalid",
@@ -226,9 +214,6 @@ async def run(
                     )
                     break
         return
-
-    # Add global and mandatory rules
-    mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
 
     if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
         subscription.Features.PRIVATE_REPOSITORY

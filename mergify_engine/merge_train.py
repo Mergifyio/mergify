@@ -366,7 +366,6 @@ class TrainCar:
 class Train:
     repository: context.Repository
     ref: github_types.GitHubRefType
-    max_size: int = 5  # Allow to be configured
 
     # Stored in redis
     _cars: typing.List[TrainCar] = dataclasses.field(default_factory=list)
@@ -374,6 +373,11 @@ class Train:
     _current_base_sha: typing.Optional[github_types.SHAType] = dataclasses.field(
         default=None
     )
+
+    @property
+    def max_size(self):
+        # TODO(sileht): move subscription check here for queue action and just put one
+        return self.repository.get_mergify_config()["queue_speculative_length"]
 
     class Serialized(typing.TypedDict):
         cars: typing.List[TrainCar.Serialized]

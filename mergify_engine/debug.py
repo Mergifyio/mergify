@@ -20,7 +20,6 @@ import typing
 
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import queue
@@ -206,13 +205,9 @@ async def report(
             print(f"Config filename: {config_file['path']}")
             print(config_file["decoded_content"].decode())
             try:
-                mergify_config = rules.get_mergify_config(config_file)
+                mergify_config = repository.get_mergify_config()
             except rules.InvalidRules as e:  # pragma: no cover
                 print(f"configuration is invalid {str(e)}")
-            else:
-                mergify_config["pull_request_rules"].rules.extend(
-                    engine.DEFAULT_PULL_REQUEST_RULES.rules
-                )
 
         if pull_number is None:
             async for branch in typing.cast(

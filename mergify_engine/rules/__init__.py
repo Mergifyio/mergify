@@ -20,16 +20,30 @@ import operator
 import typing
 
 import daiquiri
+import pkg_resources
 import voluptuous
 import yaml
 
 from mergify_engine import actions
-from mergify_engine import context
 from mergify_engine.rules import filter
-from mergify_engine.rules import types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class LineColumnPath:
+    line: int
+    column: typing.Optional[int] = None
+
+    def __repr__(self):
+        if self.column is None:
+            return f"line {self.line}"
+        return f"line {self.line}, column {self.column}"
 
 
 def RuleCondition(value: str) -> filter.Filter:
@@ -136,7 +150,9 @@ class QueueRule:
         conditions = d.pop("conditions")
         return cls(name, conditions, d)
 
-    async def get_pull_request_rule(self, ctxt: context.Context) -> EvaluatedQueueRule:
+    async def get_pull_request_rule(
+        self, ctxt: "context.Context"
+    ) -> EvaluatedQueueRule:
         queue_rules_evaluator = await QueuesRulesEvaluator.create(
             [self], ctxt, EvaluatedQueueRule.from_rule, False
         )
@@ -184,7 +200,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
     async def create(
         cls,
         rules: typing.List[T_Rule],
-        ctxt: context.Context,
+        ctxt: "context.Context",
         rule_to_evaluated_rule_method: typing.Callable[
             [T_Rule, RuleMissingConditions], T_EvaluatedRule
         ],
@@ -240,7 +256,7 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
+    async def get_pull_request_rule(self, ctxt: "context.Context") -> RulesEvaluator:
         return await RulesEvaluator.create(
             self.rules, ctxt, EvaluatedRule.from_rule, True
         )
@@ -302,9 +318,7 @@ def YAML(v: bytes) -> typing.Any:
         return yaml.safe_load(v)
     except yaml.MarkedYAMLError as e:
         error_message = str(e)
-        path = [
-            types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)
-        ]
+        path = [LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)]
         raise YAMLInvalid(
             message="Invalid YAML", error_message=error_message, path=path
         )
@@ -369,6 +383,9 @@ UserConfigurationSchema = voluptuous.Schema(
         {
             voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
             voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
+            voluptuous.Required("queue_speculative_length", default=5): voluptuous.All(
+                int, voluptuous.Range(min=1, max=10)
+            ),
             voluptuous.Required("defaults", default={}): DefaultsSchema,
         },
         voluptuous.Coerce(FullifyPullRequestRules),
@@ -448,8 +465,18 @@ def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typin
     return config
 
 
+mergify_rule_path = pkg_resources.resource_filename(
+    __name__, "../data/default_pull_request_rules.yml"
+)
+
+with open(mergify_rule_path, "r") as f:
+    DEFAULT_PULL_REQUEST_RULES = voluptuous.Schema(PullRequestRulesSchema)(
+        yaml.safe_load(f.read())["rules"]
+    )
+
+
 def get_mergify_config(
-    config_file: context.MergifyConfigFile,
+    config_file: "context.MergifyConfigFile",
 ) -> MergifyConfig:
     try:
         config = YamlSchema(config_file["decoded_content"])
@@ -464,6 +491,12 @@ def get_mergify_config(
     merged_config = merge_config(config)
 
     try:
-        return typing.cast(MergifyConfig, UserConfigurationSchema(merged_config))
+        mergify_config = typing.cast(
+            MergifyConfig, UserConfigurationSchema(merged_config)
+        )
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
+
+    # Add global and mandatory rules
+    mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
+    return mergify_config

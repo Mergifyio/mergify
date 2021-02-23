@@ -146,11 +146,13 @@ def repository(redis_cache, fake_client):
         fake_client,
         redis_cache,
     )
-    return context.Repository(
+    repository = context.Repository(
         installation,
         github_types.GitHubRepositoryName("name"),
         github_types.GitHubRepositoryIdType(123),
     )
+    repository._cache["mergify_config"] = {"speculative_queue_length": 5}
+    return repository
 
 
 @pytest.mark.asyncio
