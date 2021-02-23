@@ -100,7 +100,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
         }
     )
 
-    sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
+    sub = subscription.Subscription(redis_cache, 0, False, "", frozenset())
     client = FakeClient(gh_owner["login"], gh_repo["name"])
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
@@ -200,7 +200,7 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     team_slug2 = github_types.GitHubTeamSlug("team2")
     team_slug3 = github_types.GitHubTeamSlug("team3")
 
-    sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
+    sub = subscription.Subscription(redis_cache, 0, False, "", frozenset())
     client = FakeClient(gh_owner["login"])
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache

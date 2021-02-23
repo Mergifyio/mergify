@@ -142,7 +142,7 @@ def repository(redis_cache, fake_client):
     installation = context.Installation(
         github_types.GitHubAccountIdType(123),
         github_types.GitHubLogin("user"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         fake_client,
         redis_cache,
     )

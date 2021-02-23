@@ -63,7 +63,8 @@ class CommentAction(actions.Action):
             )
 
         if bot_account := self.config["bot_account"]:
-            oauth_token = ctxt.subscription.get_token_for(bot_account)
+            user_tokens = await ctxt.repository.installation.get_user_tokens()
+            oauth_token = user_tokens.get_token_for(bot_account)
             if not oauth_token:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,

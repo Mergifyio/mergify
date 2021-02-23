@@ -266,8 +266,9 @@ async def update_with_api(ctxt: context.Context) -> None:
 async def rebase_with_git(
     ctxt: context.Context, user: typing.Optional[str] = None
 ) -> None:
+    user_tokens = await ctxt.repository.installation.get_user_tokens()
     if user:
-        token = ctxt.subscription.get_token_for(user)
+        token = user_tokens.get_token_for(user)
         if token:
             creds = {user.lower(): token}
         else:
@@ -276,7 +277,7 @@ async def rebase_with_git(
                 f"Please make sure `{user}` has logged in Mergify dashboard."
             )
     else:
-        creds = ctxt.subscription.tokens
+        creds = user_tokens.tokens
 
     for login, token in creds.items():
         try:

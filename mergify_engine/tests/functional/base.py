@@ -40,6 +40,7 @@ from mergify_engine import duplicate_pull
 from mergify_engine import engine
 from mergify_engine import gitter
 from mergify_engine import subscription
+from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine import web
 from mergify_engine import worker
@@ -393,13 +394,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
         self.subscription = subscription.Subscription(
             self.redis_cache,
-            config.INSTALLATION_ID,
+            config.TESTING_ORGANIZATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
-            {
-                "mergify-test1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
-                "mergify-test3": config.ORG_USER_PERSONAL_TOKEN,
-            },
             frozenset(
                 getattr(subscription.Features, f)
                 for f in subscription.Features.__members__
@@ -408,6 +405,15 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             else frozenset(),
         )
         await self.subscription.save_subscription_to_cache()
+        self.user_tokens = user_tokens.UserTokens(
+            self.redis_cache,
+            config.TESTING_ORGANIZATION_ID,
+            {
+                "mergify-test1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
+                "mergify-test3": config.ORG_USER_PERSONAL_TOKEN,
+            },
+        )
+        await self.user_tokens.save_to_cache()
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -469,7 +475,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 owner_id,
                 False,
                 "We're just testing",
-                {},
                 set(),
             )
 
@@ -481,7 +486,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 owner_id,
                 False,
                 "We're just testing",
-                {},
                 set(),
             )
 
@@ -493,6 +497,28 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         mock.patch(
             "mergify_engine.subscription.Subscription.get_subscription",
             side_effect=fake_subscription,
+        ).start()
+
+        async def fake_retrieve_user_tokens_from_db(redis_cache, owner_id):
+            if owner_id == config.TESTING_ORGANIZATION_ID:
+                return self.user_tokens
+            return user_tokens.UserTokens(redis_cache, owner_id, {})
+
+        real_get_user_tokens = user_tokens.UserTokens.get
+
+        async def fake_user_tokens(redis_cache, owner_id):
+            if owner_id == config.TESTING_ORGANIZATION_ID:
+                return await real_get_user_tokens(redis_cache, owner_id)
+            return user_tokens.UserTokens(redis_cache, owner_id, {})
+
+        mock.patch(
+            "mergify_engine.user_tokens.UserTokens._retrieve_from_db",
+            side_effect=fake_retrieve_user_tokens_from_db,
+        ).start()
+
+        mock.patch(
+            "mergify_engine.user_tokens.UserTokens.get",
+            side_effect=fake_user_tokens,
         ).start()
 
         mock.patch(

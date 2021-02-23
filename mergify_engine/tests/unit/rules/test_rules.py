@@ -232,7 +232,7 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foobar"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
@@ -283,7 +283,7 @@ pull_request_rules:
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foobar"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
@@ -325,7 +325,7 @@ pull_request_rules:
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foobar"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
@@ -366,7 +366,7 @@ async def test_get_mergify_config_location_from_cache(
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foo"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
@@ -454,7 +454,7 @@ async def test_get_mergify_config_invalid(
         installation = context.Installation(
             github_types.GitHubAccountIdType(0),
             github_types.GitHubLogin("foobar"),
-            subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+            subscription.Subscription(redis_cache, 0, False, "", frozenset()),
             client,
             redis_cache,
         )
@@ -722,7 +722,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         github_types.GitHubAccountIdType(2644),
         github_types.GitHubLogin("another-jd"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
