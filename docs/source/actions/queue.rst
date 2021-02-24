@@ -27,6 +27,17 @@ in ``queue_rules``. The ``queue`` action takes the following parameter:
      - string
      -
      - The name of the merge queue where to move the pull request.
+   * - ``method``
+     - string
+     - ``merge``
+     - Merge method to use. Possible values are ``merge``, ``squash`` or
+       ``rebase``.
+   * - ``rebase_fallback``
+     - string
+     - ``merge``
+     - If ``method`` is set to ``rebase``, but the pull request cannot be
+       rebased, the method defined in ``rebase_fallback`` will be used instead.
+       Possible values are ``merge``, ``squash``, ``null``.
    * - ``merge_bot_account``
      - string
      -
