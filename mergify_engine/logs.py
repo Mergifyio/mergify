@@ -40,7 +40,7 @@ class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[
 
 
 CUSTOM_FORMATTER = CustomFormatter(
-    fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: %(message)s%(extras)s%(color_stop)s"
+    fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: \033[1m%(message)s\033[0m%(extras)s%(color_stop)s"
 )
 
 
