@@ -83,6 +83,7 @@ pull_request_rules:
   name: comment
 
 * QUEUES: 
+* TRAIN: 
 * PULL REQUEST:
 {{'approved-reviews-by': [],
  'assignee': [],

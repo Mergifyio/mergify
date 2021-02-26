@@ -32,6 +32,8 @@ from mergify_engine.actions import merge_base
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
+from mergify_engine.queue import merge_train
+from mergify_engine.queue import naive
 
 
 async def get_repositories_setuped(
@@ -121,6 +123,33 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
 
     size = await r.xlen(stream_name)
     print(f"* WORKER PENDING EVENTS for this installation: {size}")
+
+
+async def report_queue(title: str, q: queue.QueueT) -> None:
+    pulls = await q.get_pulls()
+    if not pulls:
+        return
+
+    print(f"* {title} {q.ref}")
+
+    async def _get_config(
+        p: github_types.GitHubPullRequestNumber,
+    ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
+        return p, (await q.get_config(p))["priority"]
+
+    pulls_priorities: typing.Dict[github_types.GitHubPullRequestNumber, int] = dict(
+        await asyncio.gather(*(_get_config(p) for p in pulls))
+    )
+
+    for priority, grouped_pulls in itertools.groupby(
+        pulls, key=lambda p: pulls_priorities[p]
+    ):
+        try:
+            fancy_priority = merge_base.PriorityAliases(priority).name
+        except ValueError:
+            fancy_priority = str(priority)
+        formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+        print(f"** {formatted_pulls} (priority: {fancy_priority})")
 
 
 async def report(
@@ -231,31 +260,13 @@ async def report(
                 client.items(f"/repos/{owner}/{repo}/branches"),
             ):
                 # TODO(sileht): Add some informations on the train
-                q = queue.Queue(repository, branch["name"], None)
-                pulls = await q.get_pulls()
-                if not pulls:
-                    continue
+                q: queue.QueueBase = naive.Queue(repository, branch["name"])
+                await report_queue("QUEUES", q)
 
-                print(f"* QUEUES {branch['name']}:")
+                q = merge_train.Train(repository, branch["name"])
+                await q.load()
+                await report_queue("TRAIN", q)
 
-                async def _get_config(
-                    p: github_types.GitHubPullRequestNumber,
-                ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
-                    return p, (await q.get_config(p))["priority"]
-
-                pulls_priorities: typing.Dict[
-                    github_types.GitHubPullRequestNumber, int
-                ] = dict(await asyncio.gather(*(_get_config(p) for p in pulls)))
-
-                for priority, grouped_pulls in itertools.groupby(
-                    pulls, key=lambda p: pulls_priorities[p]
-                ):
-                    try:
-                        fancy_priority = merge_base.PriorityAliases(priority).name
-                    except ValueError:
-                        fancy_priority = str(priority)
-                    formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
-                    print(f"** {formatted_pulls} (priority: {fancy_priority})")
         else:
             repository = context.Repository(
                 installation, github_types.GitHubRepositoryName(repo)
@@ -266,8 +277,10 @@ async def report(
 
             # FIXME queues could also be printed if no pull number given
             # TODO(sileht): display train if any
-            q = await queue.Queue.from_context(ctxt, with_train=False)
+            q = await naive.Queue.from_context(ctxt)
             print(f"* QUEUES: {', '.join([f'#{p}' for p in await q.get_pulls()])}")
+            q = await merge_train.Train.from_context(ctxt)
+            print(f"* TRAIN: {', '.join([f'#{p}' for p in await q.get_pulls()])}")
             print("* PULL REQUEST:")
             pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)

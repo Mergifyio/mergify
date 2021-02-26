@@ -292,7 +292,7 @@ async def test_queue_summary_subscription(active, summary, redis_cache):
     q.get_config.side_effect = gen_config(
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
-    with mock.patch.object(merge.queue.Queue, "from_context", return_value=q):
+    with mock.patch.object(merge.naive.Queue, "from_context", return_value=q):
         action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
         assert summary == await action.get_queue_summary(ctxt, q)
 
