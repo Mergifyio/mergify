@@ -24,6 +24,7 @@ from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
+from mergify_engine.queue import naive
 from mergify_engine.rules import types
 
 
@@ -71,7 +72,7 @@ class MergeAction(merge_base.MergeBaseAction):
     def _compute_priority(self) -> int:
         return typing.cast(int, self.config["priority"])
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
@@ -86,7 +87,7 @@ class MergeAction(merge_base.MergeBaseAction):
     async def _should_be_queued(self, ctxt: context.Context) -> bool:
         return True
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return not await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
@@ -139,8 +140,8 @@ class MergeAction(merge_base.MergeBaseAction):
 
         return True
 
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
-        return await queue.Queue.from_context(ctxt, with_train=False)
+    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
+        return await naive.Queue.from_context(ctxt)
 
     def get_merge_conditions(
         self,

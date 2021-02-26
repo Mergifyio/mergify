@@ -26,6 +26,7 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
+from mergify_engine.queue import merge_train
 from mergify_engine.rules import types
 
 
@@ -125,7 +126,7 @@ class QueueAction(merge_base.MergeBaseAction):
             check_api.Conclusion.PENDING,
         ]
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if not await q.is_first_pull(ctxt):
             return False
 
@@ -144,7 +145,7 @@ class QueueAction(merge_base.MergeBaseAction):
             )
         return False
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         # NOTE(sileht): since we create dedicated branch we don't need to sync PR
         return False
 
@@ -153,8 +154,8 @@ class QueueAction(merge_base.MergeBaseAction):
     ) -> bool:
         return True
 
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
-        return await queue.Queue.from_context(ctxt, with_train=True)
+    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
+        return await merge_train.Train.from_context(ctxt)
 
     def get_merge_conditions(
         self,

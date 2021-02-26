@@ -18,7 +18,7 @@ import logging
 import yaml
 
 from mergify_engine import context
-from mergify_engine.actions.merge import queue
+from mergify_engine.queue import naive
 from mergify_engine.tests.functional import base
 
 
@@ -62,7 +62,7 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
@@ -74,7 +74,7 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_need_rebase.number]
         p_ready.update()
@@ -85,7 +85,7 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt, p_need_rebase.raw_data, []
         )
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_ready.number]
         p_need_rebase.update()
@@ -149,7 +149,7 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_high.number, p_medium.number, p_low.number]
 
@@ -242,7 +242,7 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.run_engine(1)
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
@@ -432,7 +432,7 @@ class TestMergeNoSubAction(base.FunctionalTestBase):
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
-        q = await queue.Queue.from_context(ctxt, with_train=False)
+        q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_low.number, p_medium.number, p_high.number]
 
