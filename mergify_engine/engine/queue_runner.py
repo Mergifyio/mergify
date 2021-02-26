@@ -67,15 +67,6 @@ async def have_unexpected_changes(
         )
         return True
 
-    expected_commits = (len(car.parent_pull_request_numbers) + 1) * 2
-    if ctxt.pull["commits"] != expected_commits:
-        ctxt.log.info(
-            "train car has an unexpected number of commits",
-            commits=ctxt.pull["commits"],
-            expected_commits=expected_commits,
-        )
-        return True
-
     if ctxt.have_been_synchronized():
         ctxt.log.info(
             "train car has unexpectedly been synchronized",
