@@ -57,7 +57,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p2, _ = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
         p, _ = await self.create_pr()
@@ -83,9 +83,14 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # TODO(sileht): Add some assertion on check-runs content
 
-        for pull in pulls:
-            if pull.number not in [p1.number, p2.number]:
-                await self.create_status(pull)
+        tmp_pulls = sorted(
+            (pull for pull in pulls if pull.number not in [p1.number, p2.number]),
+            key=lambda p: p.number,
+        )
+        assert len(tmp_pulls) == 2
+        assert [p.commits for p in tmp_pulls] == [2, 5]
+        for p in tmp_pulls:
+            await self.create_status(p)
 
         await self.run_engine(3)
 
