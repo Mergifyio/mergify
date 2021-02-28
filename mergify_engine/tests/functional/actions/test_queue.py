@@ -22,8 +22,8 @@ import yaml
 
 from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine import merge_train
-from mergify_engine.actions.merge import queue
+from mergify_engine import queue
+from mergify_engine.queue import merge_train
 from mergify_engine.tests.functional import base
 
 
@@ -70,11 +70,11 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
-        assert q.train._cars[0].user_pull_request_number == p1.number
-        assert q.train._cars[1].user_pull_request_number == p2.number
+        assert q._cars[0].user_pull_request_number == p1.number
+        assert q._cars[1].user_pull_request_number == p2.number
 
         await self.run_engine(3)
 
@@ -97,6 +97,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 0
 
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 0
 
@@ -144,22 +145,22 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 5
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
-        assert q.train._cars[0].user_pull_request_number == p1.number
-        assert q.train._cars[0].initial_current_base_sha == p.merge_commit_sha
-        assert q.train._cars[0].current_base_sha == p.merge_commit_sha
-        assert q.train._cars[0].parent_pull_request_numbers == []
-        assert q.train._cars[1].user_pull_request_number == p2.number
-        assert q.train._cars[1].initial_current_base_sha == p.merge_commit_sha
-        assert q.train._cars[1].current_base_sha == p.merge_commit_sha
-        assert q.train._cars[1].parent_pull_request_numbers == [p1.number]
+        assert q._cars[0].user_pull_request_number == p1.number
+        assert q._cars[0].initial_current_base_sha == p.merge_commit_sha
+        assert q._cars[0].current_base_sha == p.merge_commit_sha
+        assert q._cars[0].parent_pull_request_numbers == []
+        assert q._cars[1].user_pull_request_number == p2.number
+        assert q._cars[1].initial_current_base_sha == p.merge_commit_sha
+        assert q._cars[1].current_base_sha == p.merge_commit_sha
+        assert q._cars[1].parent_pull_request_numbers == [p1.number]
 
         # Merge p1
         tmp_p1 = first(
-            pulls, key=lambda p: p.number == q.train._cars[0].queue_pull_request_number
+            pulls, key=lambda p: p.number == q._cars[0].queue_pull_request_number
         )
         await self.create_status(tmp_p1)
         await self.run_engine()
@@ -167,7 +168,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine(3)
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 3
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number]
         p1.update()
@@ -175,10 +176,10 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # ensure base is p, it's tested with p1, but current_base_sha have changed since
         # we create the tmp pull request
-        assert q.train._cars[0].user_pull_request_number == p2.number
-        assert q.train._cars[0].initial_current_base_sha == p.merge_commit_sha
-        assert q.train._cars[0].current_base_sha == p1.merge_commit_sha
-        assert q.train._cars[0].parent_pull_request_numbers == [p1.number]
+        assert q._cars[0].user_pull_request_number == p2.number
+        assert q._cars[0].initial_current_base_sha == p.merge_commit_sha
+        assert q._cars[0].current_base_sha == p1.merge_commit_sha
+        assert q._cars[0].parent_pull_request_numbers == [p1.number]
 
         # Queue p3
         await self.add_label(p3, "queue")
@@ -187,22 +188,22 @@ class TestQueueAction(base.FunctionalTestBase):
         # Check train state
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 4
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number, p3.number]
 
         # ensure base is p, it's tested with p1, but current_base_sha have changed since
         # we create the tmp pull request
-        assert q.train._cars[0].user_pull_request_number == p2.number
-        assert q.train._cars[0].initial_current_base_sha == p.merge_commit_sha
-        assert q.train._cars[0].current_base_sha == p1.merge_commit_sha
-        assert q.train._cars[0].parent_pull_request_numbers == [p1.number]
+        assert q._cars[0].user_pull_request_number == p2.number
+        assert q._cars[0].initial_current_base_sha == p.merge_commit_sha
+        assert q._cars[0].current_base_sha == p1.merge_commit_sha
+        assert q._cars[0].parent_pull_request_numbers == [p1.number]
 
         # Ensure base is p1 and only p2 is tested with p3
-        assert q.train._cars[1].user_pull_request_number == p3.number
-        assert q.train._cars[1].initial_current_base_sha == p1.merge_commit_sha
-        assert q.train._cars[1].current_base_sha == p1.merge_commit_sha
-        assert q.train._cars[1].parent_pull_request_numbers == [p2.number]
+        assert q._cars[1].user_pull_request_number == p3.number
+        assert q._cars[1].initial_current_base_sha == p1.merge_commit_sha
+        assert q._cars[1].current_base_sha == p1.merge_commit_sha
+        assert q._cars[1].parent_pull_request_numbers == [p2.number]
 
     async def test_ongoing_train_second_pr_ready_first(self):
         rules = {
@@ -242,11 +243,11 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
-        assert q.train._cars[0].user_pull_request_number == p1.number
-        assert q.train._cars[1].user_pull_request_number == p2.number
+        assert q._cars[0].user_pull_request_number == p1.number
+        assert q._cars[1].user_pull_request_number == p2.number
 
         # Create all temporary PRs for merge queue
         await self.run_engine(3)
@@ -255,23 +256,23 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # p2 is ready first, ensure it's not merged
         tmp_p2 = first(
-            pulls, key=lambda p: p.number == q.train._cars[1].queue_pull_request_number
+            pulls, key=lambda p: p.number == q._cars[1].queue_pull_request_number
         )
         await self.create_status(tmp_p2)
         await self.run_engine()
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 3
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
-        assert q.train._cars[0].user_pull_request_number == p1.number
-        assert q.train._cars[1].user_pull_request_number == p2.number
+        assert q._cars[0].user_pull_request_number == p1.number
+        assert q._cars[1].user_pull_request_number == p2.number
 
         # TODO(sileht): look state of p2 merge queue check-run
 
         # p1 is ready, check both are merged in a row
         tmp_p1 = first(
-            pulls, key=lambda p: p.number == q.train._cars[0].queue_pull_request_number
+            pulls, key=lambda p: p.number == q._cars[0].queue_pull_request_number
         )
         await self.create_status(tmp_p1)
         await self.run_engine()
@@ -280,7 +281,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine(3)
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 0
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == []
         p1.update()
@@ -325,11 +326,11 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
-        assert q.train._cars[0].user_pull_request_number == p1.number
-        assert q.train._cars[1].user_pull_request_number == p2.number
+        assert q._cars[0].user_pull_request_number == p1.number
+        assert q._cars[1].user_pull_request_number == p2.number
 
         await self.run_engine(3)
 
@@ -337,7 +338,7 @@ class TestQueueAction(base.FunctionalTestBase):
         assert len(pulls) == 4
 
         tmp_p1 = first(
-            pulls, key=lambda p: p.number == q.train._cars[0].queue_pull_request_number
+            pulls, key=lambda p: p.number == q._cars[0].queue_pull_request_number
         )
         await self.create_status(tmp_p1, state="failure")
         await self.run_engine()
@@ -346,14 +347,14 @@ class TestQueueAction(base.FunctionalTestBase):
 
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 3
-        q = await queue.Queue.from_context(ctxt, with_train=True)
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number]
-        assert q.train._cars[0].user_pull_request_number == p2.number
+        assert q._cars[0].user_pull_request_number == p2.number
 
         # Merge p2
         tmp_p2 = first(
-            pulls, key=lambda p: p.number == q.train._cars[0].queue_pull_request_number
+            pulls, key=lambda p: p.number == q._cars[0].queue_pull_request_number
         )
         await self.create_status(tmp_p2)
         await self.run_engine()
@@ -398,7 +399,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # Check everything is in queue and train
         ctxt_p1 = context.Context(self.repository_ctxt, p1.raw_data)
-        q = await queue.Queue.from_context(ctxt_p1, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p1)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p3.number]
 
@@ -429,10 +430,10 @@ class TestQueueAction(base.FunctionalTestBase):
         assert len(pulls) == 1
         assert pulls[0].number == p2.number
 
-        q = await queue.Queue.from_context(ctxt_p1, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p1)
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 0
-        assert len(q.train._cars) == 0
+        assert len(q._cars) == 0
 
     async def test_queue_cancel_and_refresh(self):
         rules = {
@@ -471,7 +472,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt_p_merged = context.Context(self.repository_ctxt, p_merged.raw_data)
-        q = await queue.Queue.from_context(ctxt_p_merged, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p_merged)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number]
 
@@ -491,6 +492,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Check tmp pull have been closed
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 1
+        q = await merge_train.Train.from_context(ctxt_p_merged)
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 0
 
@@ -513,6 +515,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Check pull is back to the queue
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 2
+        q = await merge_train.Train.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 1
 
@@ -556,7 +559,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt_p3 = context.Context(self.repository_ctxt, p3.raw_data)
-        q = await queue.Queue.from_context(ctxt_p3, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p3)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number, p2.number]
 
@@ -606,6 +609,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 0
 
+        q = await merge_train.Train.from_context(ctxt_p3)
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 0
 
@@ -661,7 +665,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt_p3 = context.Context(self.repository_ctxt, p3.raw_data)
-        q = await queue.Queue.from_context(ctxt_p3, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p3)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p1.number]
 
@@ -681,7 +685,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt_p3 = context.Context(self.repository_ctxt, p3.raw_data)
-        q = await queue.Queue.from_context(ctxt_p3, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p3)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number, p1.number]
 
@@ -730,7 +734,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt_p1 = context.Context(self.repository_ctxt, p1.raw_data)
-        q = await queue.Queue.from_context(ctxt_p1, with_train=True)
+        q = await merge_train.Train.from_context(ctxt_p1)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == []
 
@@ -749,14 +753,23 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         p2, _ = await self.create_pr()
 
         ctxt = context.Context(self.repository_ctxt, p1.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
-        head_sha = await q.train.get_head_sha()
+        q = await merge_train.Train.from_context(ctxt)
+        head_sha = await q.get_head_sha()
+
+        config = queue.QueueConfig(
+            name="foo",
+            strict_method="merge",
+            priority=0,
+            effective_priority=0,
+            bot_account=None,
+            update_bot_account=None,
+        )
 
         car = merge_train.TrainCar(
-            q.train,
+            q,
             p2.number,
-            "whatever",
             [p1.number],
+            config,
             head_sha,
             head_sha,
         )
@@ -785,14 +798,23 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = context.Context(self.repository_ctxt, p.raw_data)
-        q = await queue.Queue.from_context(ctxt, with_train=True)
-        head_sha = await q.train.get_head_sha()
+        q = await merge_train.Train.from_context(ctxt)
+        head_sha = await q.get_head_sha()
+
+        config = queue.QueueConfig(
+            name="foo",
+            strict_method="merge",
+            priority=0,
+            effective_priority=0,
+            bot_account=None,
+            update_bot_account=None,
+        )
 
         car = merge_train.TrainCar(
-            q.train,
+            q,
             p3.number,
-            "whatever",
             [p1.number, p2.number],
+            config,
             head_sha,
             head_sha,
         )
