@@ -857,6 +857,14 @@ class Context(object):
                     return True
         return False
 
+    def has_been_opened(self) -> bool:
+        for source in self.sources:
+            if source["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
+                if event["action"] == "opened":
+                    return True
+        return False
+
     def __str__(self) -> str:
         login = self.pull["base"]["user"]["login"]
         repo = self.pull["base"]["repo"]["name"]
