@@ -17,9 +17,9 @@ from first import first
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import merge_train
 from mergify_engine import rules
 from mergify_engine import utils
+from mergify_engine.queue import merge_train
 
 
 async def are_checks_pending(
@@ -98,8 +98,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         ctxt.log.info("train car temporary pull request has been closed")
         return
 
-    train = merge_train.Train(ctxt.repository, ctxt.pull["base"]["ref"])
-    await train.load()
+    train = await merge_train.Train.from_context(ctxt)
 
     car = train.get_car_by_tmp_pull(ctxt)
     if not car:
@@ -107,12 +106,12 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         return
 
     try:
-        queue_rule = queue_rules[car.queue_name]
+        queue_rule = queue_rules[car.config["name"]]
     except KeyError:
         ctxt.log.warning(
             "queue_rule not found for this train car",
             queue_rules=queue_rules,
-            queue_name=car.queue_name,
+            queue_name=car.config["name"],
         )
         return
 

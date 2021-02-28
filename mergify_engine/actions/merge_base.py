@@ -35,6 +35,7 @@ from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
+from mergify_engine.queue import naive
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -111,11 +112,11 @@ class MergeBaseAction(actions.Action):
         pass
 
     @abc.abstractmethod
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         pass
 
     @abc.abstractmethod
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.Queue) -> bool:
+    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         pass
 
     @abc.abstractmethod
@@ -125,7 +126,7 @@ class MergeBaseAction(actions.Action):
         pass
 
     @abc.abstractmethod
-    async def _get_queue(self, ctxt: context.Context) -> queue.Queue:
+    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
         pass
 
     @abc.abstractmethod
@@ -140,7 +141,7 @@ class MergeBaseAction(actions.Action):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.Queue,
+        q: queue.QueueT,
         is_behind: bool = False,
     ) -> check_api.Result:
 
@@ -168,7 +169,7 @@ class MergeBaseAction(actions.Action):
         summary += await self.get_queue_summary(ctxt, q)
         conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
 
-        if q.train is None:
+        if isinstance(q, naive.Queue) is None:
             summary += "\n\nRequired conditions for merge:\n"
         else:
             summary += "\n\nRequired conditions for queue:\n"
@@ -329,7 +330,7 @@ class MergeBaseAction(actions.Action):
             self.config["effective_priority"] = PriorityAliases.medium.value
 
     async def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.Queue
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
     ) -> check_api.Result:
         method = self.config["strict_method"]
         user = self.config["update_bot_account"] or self.config["bot_account"]
@@ -409,7 +410,7 @@ class MergeBaseAction(actions.Action):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.Queue,
+        q: queue.QueueT,
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
@@ -489,7 +490,7 @@ class MergeBaseAction(actions.Action):
         e: http.HTTPClientSideError,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.Queue,
+        q: queue.QueueT,
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
@@ -672,7 +673,7 @@ This pull request must be merged manually."""
 
         return check_api.Result(conclusion, title, summary)
 
-    async def get_queue_summary(self, ctxt: context.Context, q: queue.Queue) -> str:
+    async def get_queue_summary(self, ctxt: context.Context, q: queue.QueueT) -> str:
         pulls = await q.get_pulls()
         if not pulls:
             return ""

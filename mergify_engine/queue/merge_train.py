@@ -15,7 +15,6 @@
 # under the License.
 
 import dataclasses
-import json
 import typing
 from urllib import parse
 
@@ -27,6 +26,8 @@ from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import github_types
+from mergify_engine import json
+from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -55,17 +56,22 @@ class TrainCarPullRequestCreationFailure(Exception):
     car: "TrainCar"
 
 
+class PseudoTrainCar(typing.Protocol):
+    user_pull_request_number: github_types.GitHubPullRequestNumber
+    config: queue.QueueConfig
+
+
 class WaitingPull(typing.NamedTuple):
     user_pull_request_number: github_types.GitHubPullRequestNumber
-    queue_name: rules.QueueName
+    config: queue.QueueConfig
 
 
 @dataclasses.dataclass
-class TrainCar:
+class TrainCar(PseudoTrainCar):
     train: "Train" = dataclasses.field(repr=False)
     user_pull_request_number: github_types.GitHubPullRequestNumber
-    queue_name: rules.QueueName
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
+    config: queue.QueueConfig
     initial_current_base_sha: github_types.SHAType
     current_base_sha: github_types.SHAType
     queue_pull_request_number: typing.Optional[
@@ -74,8 +80,8 @@ class TrainCar:
 
     class Serialized(typing.TypedDict):
         user_pull_request_number: github_types.GitHubPullRequestNumber
-        queue_name: rules.QueueName
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
+        config: queue.QueueConfig
         initial_current_base_sha: github_types.SHAType
         current_base_sha: github_types.SHAType
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
@@ -83,11 +89,11 @@ class TrainCar:
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
             user_pull_request_number=self.user_pull_request_number,
-            queue_name=self.queue_name,
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
             current_base_sha=self.current_base_sha,
             queue_pull_request_number=self.queue_pull_request_number,
+            config=self.config,
         )
 
     @classmethod
@@ -363,9 +369,8 @@ class TrainCar:
 
 
 @dataclasses.dataclass
-class Train:
-    repository: context.Repository
-    ref: github_types.GitHubRefType
+class Train(queue.QueueBase):
+
     max_size: int = 5  # Allow to be configured
 
     # Stored in redis
@@ -463,21 +468,57 @@ class Train:
     async def _slice_cars_at(self, position: int) -> None:
         for c in reversed(self._cars[position:]):
             self._waiting_pulls.insert(
-                0, WaitingPull(c.user_pull_request_number, c.queue_name)
+                0, WaitingPull(c.user_pull_request_number, c.config)
             )
             await c.delete_pull()
         self._cars = self._cars[:position]
 
-    async def insert_pull_at(
-        self, ctxt: context.Context, position: int, queue_name: rules.QueueName
-    ) -> None:
-        ctxt.log.info("adding to train", position=position, queue_name=queue_name)
-        await self._slice_cars_at(position)
+    def _iter_pseudo_cars(self) -> typing.Iterable[PseudoTrainCar]:
+        for car in self._cars:
+            yield car
+        for wp in self._waiting_pulls:
+            # NOTE(sileht): NamedTuple doesn't support multiple inheritance
+            # the Protocol can't be inherited
+            yield typing.cast(PseudoTrainCar, wp)
+
+    async def add_pull(self, ctxt: context.Context, config: queue.QueueConfig) -> None:
+        # TODO(sileht): handle base branch change
+
+        best_position = -1
+        for position, pseudo_car in enumerate(self._iter_pseudo_cars()):
+            if (
+                pseudo_car.user_pull_request_number == ctxt.pull["number"]
+                and config["effective_priority"]
+                == pseudo_car.config["effective_priority"]
+            ):
+                # already in queue and priority doesn't change, we are good
+                return
+
+            if (
+                best_position == -1
+                and config["effective_priority"]
+                > pseudo_car.config["effective_priority"]
+            ):
+                # We found a car with lower priority
+                best_position = position
+
+        if best_position == -1:
+            best_position = len(self._cars) + len(self._waiting_pulls)
+
+        ctxt.log.info(
+            "adding to train", position=best_position, queue_name=config["name"]
+        )
+        await self._slice_cars_at(best_position)
         self._waiting_pulls.insert(
-            position - len(self._cars), WaitingPull(ctxt.pull["number"], queue_name)
+            best_position - len(self._cars), WaitingPull(ctxt.pull["number"], config)
         )
         await self._save()
-        ctxt.log.info("added to train", position=position, queue_name=queue_name)
+        ctxt.log.info(
+            "added to train", position=best_position, queue_name=config["name"]
+        )
+
+        # Refresh summary of others
+        await self._refresh_pulls(except_pull_request=ctxt.pull["number"])
 
     async def remove_pull(self, ctxt: context.Context) -> None:
         ctxt.log.info("removing from train")
@@ -503,16 +544,18 @@ class Train:
 
             await self._save()
             ctxt.log.info("removed from train", position=0)
+            await self._refresh_pulls()
             return
 
-        position = (
-            [c.user_pull_request_number for c in self._cars]
-            + [wp.user_pull_request_number for wp in self._waiting_pulls]
-        ).index(ctxt.pull["number"])
+        position = await self.get_position(ctxt)
+        if position is None:
+            return
+
         await self._slice_cars_at(position)
         del self._waiting_pulls[0]
         await self._save()
         ctxt.log.info("removed from train", position=position)
+        await self._refresh_pulls()
 
     async def _populate_cars(self) -> None:
         if self._current_base_sha is None or not self._cars:
@@ -526,7 +569,7 @@ class Train:
             for car in to_delete:
                 await car.delete_pull()
                 self._waiting_pulls.append(
-                    WaitingPull(car.user_pull_request_number, car.queue_name)
+                    WaitingPull(car.user_pull_request_number, car.config)
                 )
             self._cars = self._cars[: self.max_size]
 
@@ -539,7 +582,7 @@ class Train:
             # Not enough cars
             for _ in range(missing_cars):
                 try:
-                    user_pull_request_number, queue_name = self._waiting_pulls.pop(0)
+                    user_pull_request_number, config = self._waiting_pulls.pop(0)
                 except IndexError:
                     break
 
@@ -549,8 +592,8 @@ class Train:
                 car = TrainCar(
                     self,
                     user_pull_request_number,
-                    queue_name,
                     parent_pull_request_numbers,
+                    config,
                     self._current_base_sha,
                     self._current_base_sha,
                 )
@@ -596,3 +639,22 @@ class Train:
             f"{self.repository.base_url}/pulls/{self._cars[0].user_pull_request_number}"
         )
         return pull["merged"] and pull["merge_commit_sha"] == head_sha
+
+    async def get_config(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> queue.QueueConfig:
+        item = first.first(
+            self._iter_pseudo_cars(),
+            key=lambda c: c.user_pull_request_number == pull_number,
+        )
+        if item is not None:
+            return item.config
+
+        raise RuntimeError("get_config on unknown pull request")
+
+    async def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
+        return [item.user_pull_request_number for item in self._iter_pseudo_cars()]
+
+    async def is_first_pull(self, ctxt: context.Context) -> bool:
+        item = first.first(self._iter_pseudo_cars())
+        return item is not None and item.user_pull_request_number == ctxt.pull["number"]
