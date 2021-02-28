@@ -124,7 +124,6 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
             config.INSTALLATION_ID,
             self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
-            {"mergify-test1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN},
             frozenset(
                 getattr(subscription.Features, f)
                 for f in subscription.Features.__members__

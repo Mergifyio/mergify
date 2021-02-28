@@ -60,12 +60,11 @@ def test_app_event_forward(_, __, httpserver):
     httpserver.check_assertions()
 
 
-@mock.patch("mergify_engine.web.cleanup_subscription")
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["purchased"]),
 )
-def test_market_event_forward(_, __, httpserver):
+def test_market_event_forward(_, httpserver):
 
     with open(
         os.path.join(os.path.dirname(__file__), "events", "market_event.json")
