@@ -262,10 +262,11 @@ def load_conclusions(
             ).items()
         }
 
-    ctxt.log.warning(
-        "previous conclusion not found in summary",
-        summary_check=summary_check,
-    )
+    if not ctxt.has_been_opened():
+        ctxt.log.warning(
+            "previous conclusion not found in summary",
+            summary_check=summary_check,
+        )
     return {}
 
 
