@@ -45,7 +45,6 @@ class Features(enum.Enum):
 class SubscriptionDict(typing.TypedDict):
     subscription_active: bool
     subscription_reason: str
-    tokens: typing.Dict[str, str]
     features: typing.List[
         typing.Literal[
             "private_repository",
@@ -65,9 +64,12 @@ class Subscription:
     owner_id: int
     active: bool
     reason: str
-    tokens: typing.Dict[str, str]
     features: typing.FrozenSet[enum.Enum]
     ttl: int = -2
+
+    @staticmethod
+    def _cache_key(owner_id: int) -> str:
+        return f"subscription-cache-owner-{owner_id}"
 
     @staticmethod
     def _to_features(feature_list: typing.Iterable[str]) -> typing.FrozenSet[Features]:
@@ -102,23 +104,14 @@ class Subscription:
             owner_id,
             sub["subscription_active"],
             sub["subscription_reason"],
-            sub["tokens"],
             cls._to_features(sub.get("features", [])),
             ttl,
         )
-
-    def get_token_for(self, wanted_login: str) -> typing.Optional[str]:
-        wanted_login = wanted_login.lower()
-        for login, token in (self.tokens | config.ACCOUNT_TOKENS).items():
-            if login.lower() == wanted_login:
-                return token
-        return None
 
     def to_dict(self) -> SubscriptionDict:
         return {
             "subscription_active": self.active,
             "subscription_reason": self.reason,
-            "tokens": self.tokens,
             "features": [f.value for f in self.features],
         }
 
@@ -130,6 +123,10 @@ class Subscription:
             return True
         elapsed_since_stored = self.RETENTION_SECONDS - self.ttl
         return elapsed_since_stored > self.VALIDITY_SECONDS
+
+    @classmethod
+    async def delete(cls, redis: utils.RedisCache, owner_id: int) -> None:
+        await redis.delete(cls._cache_key(owner_id))
 
     @classmethod
     async def get_subscription(
@@ -156,7 +153,7 @@ class Subscription:
     async def save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         await self.redis.setex(
-            f"subscription-cache-owner-{self.owner_id}",
+            self._cache_key(self.owner_id),
             self.RETENTION_SECONDS,
             crypto.encrypt(json.dumps(self.to_dict()).encode()),
         )
@@ -169,11 +166,11 @@ class Subscription:
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/github-account/{owner_id}",
+                    f"{config.SUBSCRIPTION_BASE_URL}/engine/subscription/{owner_id}",
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
             except http.HTTPNotFound as e:
-                return cls(redis, owner_id, False, e.message, {}, frozenset())
+                return cls(redis, owner_id, False, e.message, frozenset())
             else:
                 sub = resp.json()
                 return cls.from_dict(redis, owner_id, sub)
@@ -183,8 +180,8 @@ class Subscription:
         cls, redis: utils.RedisCache, owner_id: int
     ) -> typing.Optional["Subscription"]:
         async with await redis.pipeline() as pipe:
-            await pipe.get(f"subscription-cache-owner-{owner_id}")
-            await pipe.ttl(f"subscription-cache-owner-{owner_id}")
+            await pipe.get(cls._cache_key(owner_id))
+            await pipe.ttl(cls._cache_key(owner_id))
             encrypted_sub, ttl = typing.cast(
                 typing.Tuple[str, int], await pipe.execute()
             )
