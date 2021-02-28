@@ -26,6 +26,7 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.clients import github
@@ -61,18 +62,18 @@ async def get_repositories_setuped(
                 response.raise_for_status()
 
 
-async def report_sub(
+async def report_dashboard_synchro(
     install_id: int,
     sub: subscription.Subscription,
+    uts: user_tokens.UserTokens,
     title: str,
     slug: typing.Optional[str] = None,
 ) -> None:
     print(f"* {title} SUB DETAIL: {sub.reason}")
     print(
-        f"* {title} SUB NUMBER OF TOKENS: {len(sub.tokens)} ({', '.join(sub.tokens)})"
+        f"* {title} SUB NUMBER OF TOKENS: {len(uts.tokens)} ({', '.join(uts.tokens)})"
     )
-
-    for login, token in sub.tokens.items():
+    for login, token in uts.tokens.items():
         try:
             repos = await get_repositories_setuped(token, install_id)
         except http.HTTPNotFound:
@@ -191,6 +192,11 @@ async def report(
     if client.auth.owner_id is None:
         raise RuntimeError("Unable to get owner_id")
 
+    if repo is None:
+        slug = None
+    else:
+        slug = owner + "/" + repo
+
     cached_sub = await subscription.Subscription.get_subscription(
         redis_cache, client.auth.owner_id
     )
@@ -198,17 +204,22 @@ async def report(
         redis_cache, client.auth.owner_id
     )
 
-    if repo is None:
-        slug = None
-    else:
-        slug = owner + "/" + repo
+    cached_tokens = await user_tokens.UserTokens.get(redis_cache, client.auth.owner_id)
+    db_tokens = await user_tokens.UserTokens._retrieve_from_db(
+        redis_cache, client.auth.owner_id
+    )
 
     print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
     for f in cached_sub.features:
         print(f"  - {f.value}")
-    await report_sub(client.auth.installation["id"], cached_sub, "ENGINE-CACHE", slug)
-    await report_sub(client.auth.installation["id"], db_sub, "DASHBOARD", slug)
+
+    await report_dashboard_synchro(
+        client.auth.installation["id"], cached_sub, cached_tokens, "ENGINE-CACHE", slug
+    )
+    await report_dashboard_synchro(
+        client.auth.installation["id"], db_sub, db_tokens, "DASHBOARD", slug
+    )
 
     await report_worker_status(owner)
 

@@ -77,7 +77,7 @@ async def test_get_commits_to_cherry_pick_rebase(
     installation = context.Installation(
         github_types.GitHubAccountIdType(123),
         github_types.GitHubLogin("user"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
@@ -241,7 +241,7 @@ async def test_get_commits_to_cherry_pick_merge(
     installation = context.Installation(
         github_types.GitHubAccountIdType(123),
         github_types.GitHubLogin("user"),
-        subscription.Subscription(redis_cache, 0, False, "", {}, frozenset()),
+        subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )

@@ -287,19 +287,8 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
-    await _AREDIS_CACHE.delete(f"subscription-cache-owner-{owner_id}")
+    await subscription.Subscription.delete(_AREDIS_CACHE, owner_id)
     return responses.Response("Cache cleaned", status_code=200)
-
-
-async def cleanup_subscription(data):
-    try:
-        installation = await github_app.get_installation(
-            data["marketplace_purchase"]["account"]
-        )
-    except exceptions.MergifyNotInstalled:
-        return
-
-    await _AREDIS_CACHE.delete(f"subscription-cache-{installation['id']}")
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
@@ -318,7 +307,9 @@ async def marketplace_handler(
         gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
 
-    await cleanup_subscription(data)
+    await subscription.Subscription.delete(
+        _AREDIS_CACHE, data["marketplace_purchase"]["account"]["id"]
+    )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()

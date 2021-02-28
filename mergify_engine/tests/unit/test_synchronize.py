@@ -64,7 +64,7 @@ async def test_summary_synchronization_cache(
     client.items = items
     client.post.side_effect = post_check
 
-    sub = subscription.Subscription(redis_cache, 0, False, "", {}, frozenset())
+    sub = subscription.Subscription(redis_cache, 0, False, "", frozenset())
     installation = context.Installation(
         gh_owner["id"],
         gh_owner["login"],
