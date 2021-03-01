@@ -100,7 +100,7 @@ class UserTokens:
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/tokens/{owner_id}",
+                    f"{config.SUBSCRIPTION_BASE_URL}/engine/user_tokens/{owner_id}",
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
             except http.HTTPNotFound:
