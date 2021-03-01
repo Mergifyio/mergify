@@ -691,6 +691,13 @@ class Context(object):
             if c["app"]["id"] == config.INTEGRATION_ID
         ]
 
+    async def get_engine_check_run(
+        self, name: str
+    ) -> typing.Optional[github_types.GitHubCheckRun]:
+        return first.first(
+            await self.pull_engine_check_runs, key=lambda c: c["name"] == name
+        )
+
     @property
     async def pull_statuses(self) -> typing.List[github_types.GitHubStatus]:
         if "pull_statuses" in self._cache:

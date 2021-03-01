@@ -337,6 +337,11 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = list(self.r_o_admin.get_pulls())
         assert len(pulls) == 4
 
+        tmp_p2 = first(
+            pulls, key=lambda p: p.number == q._cars[1].queue_pull_request_number
+        )
+        await self.create_status(tmp_p2, state="failure")
+
         tmp_p1 = first(
             pulls, key=lambda p: p.number == q._cars[0].queue_pull_request_number
         )
@@ -351,6 +356,8 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2.number]
         assert q._cars[0].user_pull_request_number == p2.number
+        # Ensure tmp pr have been recreated
+        assert q._cars[0].queue_pull_request_number != tmp_p2.number
 
         # Merge p2
         tmp_p2 = first(
