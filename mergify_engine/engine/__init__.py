@@ -121,15 +121,16 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         ):
             return
 
+    opened = ctxt.has_been_opened()
     sha = await ctxt.get_cached_last_summary_head_sha()
     if sha is None:
-        previous_summary = None
-        ctxt.log.warning(
-            "the pull request doesn't have the last summary head sha stored in redis"
-        )
-    else:
-        previous_summary = await _get_summary_from_sha(ctxt, sha)
+        if not opened:
+            ctxt.log.warning(
+                "the pull request doesn't have the last summary head sha stored in redis"
+            )
+        return
 
+    previous_summary = await _get_summary_from_sha(ctxt, sha)
     if previous_summary:
         await ctxt.set_summary_check(
             check_api.Result(
@@ -138,7 +139,7 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
                 summary=previous_summary["output"]["summary"],
             )
         )
-    else:
+    elif not opened:
         ctxt.log.warning("the pull request doesn't have a summary")
 
 
