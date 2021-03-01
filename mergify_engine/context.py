@@ -107,7 +107,7 @@ class Installation:
             if repository.id == _id:
                 return repository
         repo_data: github_types.GitHubRepository = await self.client.item(
-            f"/repo/{_id}"
+            f"/repositories/{_id}"
         )
         return self.get_repository(repo_data["name"], repo_data["id"])
 
