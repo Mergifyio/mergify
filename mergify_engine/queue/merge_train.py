@@ -110,6 +110,14 @@ class TrainCar(PseudoTrainCar):
         )
         return f"{self.train.ref} ({self.initial_current_base_sha[:7]}), {pull_refs}"
 
+    async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
+        if self.queue_pull_request_number:
+            return await self.train.repository.get_pull_request_context(
+                self.queue_pull_request_number
+            )
+        else:
+            return None
+
     async def create_pull(self) -> None:
         # TODO(sileht): reuse branch instead of recreating PRs ?
 
@@ -366,6 +374,13 @@ class TrainCar(PseudoTrainCar):
                 f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
                 json={"state": "closed"},
             )
+
+    def get_previous_car(self) -> typing.Optional["TrainCar"]:
+        position = self.train._cars.index(self)
+        if position == 0:
+            return None
+        else:
+            return self.train._cars[position - 1]
 
 
 @dataclasses.dataclass

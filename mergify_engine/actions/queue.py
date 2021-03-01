@@ -75,7 +75,7 @@ class QueueAction(merge_base.MergeBaseAction):
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
             # check and the method _should_be_queue will become true again :)
-            check = await self._get_merge_queue_check(ctxt)
+            check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
             if check and check_api.Conclusion(check["conclusion"]) not in [
                 check_api.Conclusion.SUCCESS,
                 check_api.Conclusion.PENDING,
@@ -120,7 +120,7 @@ class QueueAction(merge_base.MergeBaseAction):
         )
 
     async def _should_be_queued(self, ctxt: context.Context) -> bool:
-        check = await self._get_merge_queue_check(ctxt)
+        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
             check_api.Conclusion.PENDING,
@@ -137,7 +137,7 @@ class QueueAction(merge_base.MergeBaseAction):
             if not queue_rule_evaluated.missing_conditions:
                 return True
 
-        check = await self._get_merge_queue_check(ctxt)
+        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         if check:
             return (
                 check_api.Conclusion(check["conclusion"])
