@@ -1720,3 +1720,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert checks[0]["completed_at"] is None
         assert checks[0]["output"]["title"] == "PENDING"
         assert checks[0]["output"]["summary"] == "PENDING"
+
+    async def test_get_repository_by_id(self):
+        repo = await self.installation_ctxt.get_repository_by_id(
+            self.r_o_integration.id
+        )
+        assert repo.name == self.repository_ctxt.name
