@@ -33,7 +33,7 @@ class GitError(Exception):
 @dataclasses.dataclass
 class Gitter(object):
     logger: logging.LoggerAdapter
-    tmp: str = dataclasses.field(init=False)
+    tmp: typing.Optional[str] = None
 
     # Worker timeout at 5 minutes, so ensure subprocess return before
     GIT_COMMAND_TIMEOUT: int = dataclasses.field(init=False, default=4 * 60 + 30)
@@ -44,6 +44,9 @@ class Gitter(object):
         await self("init")
 
     async def __call__(self, *args: str, _input: typing.Optional[str] = None) -> str:
+        if self.tmp is None:
+            raise RuntimeError("__call__() called before init()")
+
         self.logger.info("calling: %s", " ".join(args))
         try:
             p = await asyncio.create_subprocess_exec(
@@ -68,6 +71,9 @@ class Gitter(object):
             self.logger.debug("finish: %s", " ".join(args))
 
     async def cleanup(self) -> None:
+        if self.tmp is None:
+            return
+
         self.logger.info("cleaning: %s", self.tmp)
         try:
             await self(
