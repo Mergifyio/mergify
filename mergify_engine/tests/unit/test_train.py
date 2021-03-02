@@ -319,3 +319,52 @@ async def test_train_remove_head_merged(repository, monkepatched_traincar):
     )
     await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_add_remove_pull_idempotant(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    config = queue.QueueConfig(
+        name="foo",
+        strict_method="merge",
+        priority=0,
+        effective_priority=0,
+        bot_account=None,
+        update_bot_account=None,
+    )
+
+    await t.add_pull(await fake_context(repository, 1), config)
+    await t.add_pull(await fake_context(repository, 2), config)
+    await t.add_pull(await fake_context(repository, 3), config)
+    await t.refresh()
+    assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
+
+    config = queue.QueueConfig(
+        name="foo",
+        strict_method="merge",
+        priority=10,
+        effective_priority=10,
+        bot_account=None,
+        update_bot_account=None,
+    )
+    await t.add_pull(await fake_context(repository, 1), config)
+    await t.refresh()
+    assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
+
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+    assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
+
+    await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
+    assert [[1], [1, 3]] == get_cars_content(t)
+
+    await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
+    assert [[1], [1, 3]] == get_cars_content(t)
+
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+    assert [[1], [1, 3]] == get_cars_content(t)
