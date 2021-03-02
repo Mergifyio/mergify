@@ -81,16 +81,18 @@ class CopyAction(actions.Action):
                     self.config["ignore_conflicts"],
                     self.KIND,
                 )
+            except duplicate_pull.DuplicateAlreadyExists:
+                new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
             except duplicate_pull.DuplicateFailed as e:
                 return (
                     check_api.Conclusion.FAILURE,
                     f"Backport to branch `{branch_name}` failed\n{e.reason}",
                 )
-
-            # NOTE(sileht): We relook again in case of concurrent duplicate
-            # are done because of two events received too closely
-            if not new_pull:
-                new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
+            except duplicate_pull.DuplicateNotNeeded:
+                return (
+                    check_api.Conclusion.SUCCESS,
+                    f"Backport to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
+                )
 
         if new_pull:
             return (
@@ -98,6 +100,13 @@ class CopyAction(actions.Action):
                 f"[#{new_pull['number']} {new_pull['title']}]({new_pull['html_url']}) "
                 f"has been created for branch `{branch_name}`",
             )
+
+        ctxt.log.error(
+            "unexpected %s to branch `%s` failure, "
+            "duplicate() report pull copy already exists but it doesn't",
+            self.KIND.capitalize(),
+            branch_name,
+        )
 
         return (
             check_api.Conclusion.FAILURE,
