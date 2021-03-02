@@ -15,6 +15,7 @@ import typing
 from first import first
 
 from mergify_engine import check_api
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
@@ -132,7 +133,28 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     elif await are_checks_pending(ctxt, evaluated_queue_rule):
         status = check_api.Conclusion.PENDING
     else:
-        status = check_api.Conclusion.FAILURE
+        previous_car = car.get_previous_car()
+        if previous_car is None:
+            status = check_api.Conclusion.FAILURE
+        else:
+            previous_car_ctxt = await previous_car.get_context_to_evaluate()
+            if previous_car_ctxt:
+                previous_car_check = await previous_car_ctxt.get_engine_check_run(
+                    constants.MERGE_QUEUE_SUMMARY_NAME
+                )
+            else:
+                previous_car_check = None
+
+            if (
+                previous_car_check
+                and check_api.Conclusion(previous_car_check["conclusion"])
+                == check_api.Conclusion.SUCCESS
+            ):
+                status = check_api.Conclusion.FAILURE
+            else:
+                # We can't known yet if the failure is due to this train car or a previous
+                # one.
+                status = check_api.Conclusion.PENDING
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
