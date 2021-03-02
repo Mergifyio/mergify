@@ -19,7 +19,6 @@ import typing
 import daiquiri
 
 from mergify_engine import context
-from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
@@ -105,6 +104,9 @@ class QueueBase(abc.ABC):
             github_types.GitHubPullRequestNumber
         ] = None,
     ) -> None:
+
+        from mergify_engine import github_events  # circular reference
+
         async with utils.aredis_for_stream() as redis_stream:
             for pull in await self.get_pulls():
                 if except_pull_request is not None and except_pull_request == pull:
