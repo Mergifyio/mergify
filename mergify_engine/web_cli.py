@@ -76,9 +76,12 @@ def refresher():
 
 def queues():
     parser = argparse.ArgumentParser(description="Show queue of mergify_engine")
-    parser.add_argument("installation_id")
+    parser.add_argument("owner_id")
 
     args = parser.parse_args()
     asyncio.run(
-        api_call(config.BASE_URL + f"/queues/{args.installation_id}", method="GET")
+        api_call(
+            config.BASE_URL + f"/queues/{args.owner_id}",
+            method="GET",
+        )
     )

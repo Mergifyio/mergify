@@ -28,7 +28,6 @@ from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
-from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 from mergify_engine.web import auth
 from mergify_engine.web import badges
@@ -223,34 +222,10 @@ async def marketplace_handler(
 
 
 @app.get(
-    "/queues/{installation_id}",  # noqa: FS003
+    "/queues/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def queues(installation_id):
-    installation = await github_app.get_installation_from_id(installation_id)
-    queues = collections.defaultdict(dict)
-    async for queue in _AREDIS_CACHE.scan_iter(
-        match=f"merge-queue~{installation['account']['id']}~*"
-    ):
-        _, _, repo_id, branch = queue.split("~")
-        owner = installation["account"]["login"]
-        async with github.aget_client(owner) as client:
-            try:
-                repo = await client.item(f"/repositories/{repo_id}")
-            except exceptions.RateLimited:
-                return responses.JSONResponse(
-                    status_code=403,
-                    content={
-                        "message": f"{installation['account']['type']} account `{owner}` rate limited by GitHub"
-                    },
-                )
-            queues[owner + "/" + repo["name"]][branch] = [
-                int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
-            ]
-
-    return responses.JSONResponse(status_code=200, content=queues)
-
-
+# TODO(cam): remove this route when the front is update + update functional test
 @app.get(
     "/queues-by-owner-id/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
