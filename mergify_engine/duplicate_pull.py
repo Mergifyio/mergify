@@ -27,8 +27,19 @@ from mergify_engine import subscription
 from mergify_engine.clients import http
 
 
+@dataclasses.dataclass
+class DuplicateAlreadyExists(Exception):
+    reason: str
+
+
+@dataclasses.dataclass
 class DuplicateNeedRetry(Exception):
-    pass
+    reason: str
+
+
+@dataclasses.dataclass
+class DuplicateNotNeeded(Exception):
+    reason: str
 
 
 @dataclasses.dataclass
@@ -41,9 +52,9 @@ GIT_MESSAGE_TO_EXCEPTION = {
     "Could not resolve host": DuplicateNeedRetry,
     "remote end hung up unexpectedly": DuplicateNeedRetry,
     "Operation timed out": DuplicateNeedRetry,
-    "reference already exists": None,
-    "Aborting commit due to empty commit message": None,
-    "You may want to first integrate the remote changes": None,
+    "reference already exists": DuplicateAlreadyExists,
+    "Aborting commit due to empty commit message": DuplicateNotNeeded,
+    "You may want to first integrate the remote changes": DuplicateNeedRetry,
 }
 
 
@@ -266,13 +277,10 @@ async def duplicate(
     except gitter.GitError as in_exception:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
-                if out_exception is None:
-                    return None
-                else:
-                    raise out_exception(
-                        "Git reported the following error:\n"
-                        f"```\n{in_exception.output}\n```\n"
-                    )
+                raise out_exception(
+                    "Git reported the following error:\n"
+                    f"```\n{in_exception.output}\n```\n"
+                )
         else:
             ctxt.log.error(
                 "duplicate failed: %s",
