@@ -161,3 +161,16 @@ async def test_active_feature(redis_cache):
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True
+
+    sub = subscription.Subscription.from_dict(
+        redis_cache,
+        123,
+        {
+            "subscription_active": True,
+            "subscription_reason": "friend",
+            "features": ["private_repository", "large_repository"],
+        },
+    )
+    assert sub.has_feature(subscription.Features.PRIVATE_REPOSITORY) is True
+    assert sub.has_feature(subscription.Features.LARGE_REPOSITORY) is True
+    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
