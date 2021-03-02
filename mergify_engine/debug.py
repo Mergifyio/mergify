@@ -211,6 +211,9 @@ async def report(
 
     print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
+    for f in db_sub.features:
+        print(f"  - {f.value}")
+    print("* Features (db):")
     for f in cached_sub.features:
         print(f"  - {f.value}")
 
