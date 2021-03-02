@@ -64,6 +64,8 @@ class TestDebugger(base.FunctionalTestBase):
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
+* Features (db):
+  - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
@@ -163,6 +165,8 @@ mergeable_state: clean
             == """* INSTALLATION ID: 499592
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
+  - priority_queues
+* Features (db):
   - priority_queues
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
