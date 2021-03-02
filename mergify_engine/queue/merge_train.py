@@ -501,12 +501,13 @@ class Train(queue.QueueBase):
 
         best_position = -1
         for position, pseudo_car in enumerate(self._iter_pseudo_cars()):
-            if (
-                pseudo_car.user_pull_request_number == ctxt.pull["number"]
-                and config["effective_priority"]
-                == pseudo_car.config["effective_priority"]
-            ):
-                # already in queue and priority doesn't change, we are good
+            if pseudo_car.user_pull_request_number == ctxt.pull["number"]:
+                # already in queue, we are good
+                self.log.info(
+                    "pull request already in train",
+                    gh_pull=ctxt.pull["number"],
+                    config=config,
+                )
                 return
 
             if (
@@ -520,16 +521,15 @@ class Train(queue.QueueBase):
         if best_position == -1:
             best_position = len(self._cars) + len(self._waiting_pulls)
 
-        ctxt.log.info(
-            "adding to train", position=best_position, queue_name=config["name"]
-        )
         await self._slice_cars_at(best_position)
         self._waiting_pulls.insert(
             best_position - len(self._cars), WaitingPull(ctxt.pull["number"], config)
         )
         await self._save()
         ctxt.log.info(
-            "added to train", position=best_position, queue_name=config["name"]
+            "pull request added to train",
+            position=best_position,
+            queue_name=config["name"],
         )
 
         # Refresh summary of others
