@@ -102,7 +102,9 @@ class Queue(queue.QueueBase):
                 config=config,
             )
 
-            await self._refresh_pulls(except_pull_request=ctxt.pull["number"])
+            await self._refresh_pulls(
+                ctxt.pull["base"]["repo"], except_pull_request=ctxt.pull["number"]
+            )
         else:
             self.log.info(
                 "pull request already in merge queue",
@@ -143,7 +145,7 @@ class Queue(queue.QueueBase):
             self.log.info(
                 "pull request removed from merge queue", gh_pull=ctxt.pull["number"]
             )
-            await self._refresh_pulls()
+            await self._refresh_pulls(ctxt.pull["base"]["repo"])
         else:
             self.log.info(
                 "pull request not in merge queue", gh_pull=ctxt.pull["number"]

@@ -149,8 +149,8 @@ async def filter_and_dispatch(
         owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
 
-        if event["pull_request"] is not None:
-            pull_number = event["pull_request"]["number"]
+        if event["pull_request_number"] is not None:
+            pull_number = event["pull_request_number"]
 
     elif event_type == "pull_request_review_comment":
         event = typing.cast(github_types.GitHubEventPullRequestReviewComment, event)
@@ -168,6 +168,7 @@ async def filter_and_dispatch(
         owner_id = event["repository"]["owner"]["id"]
         repo_name = event["repository"]["name"]
         pull_number = event["pull_request"]["number"]
+
     elif event_type == "issue_comment":
         event = typing.cast(github_types.GitHubEventIssueComment, event)
         owner_login = event["repository"]["owner"]["login"]
@@ -412,7 +413,9 @@ async def extract_pull_numbers_from_event(
     # NOTE(sileht): Don't fail if we received even on repo that doesn't exists anymore
     if event_type == "refresh":
         data = typing.cast(github_types.GitHubEventRefresh, data)
-        if (ref := data.get("ref")) is None:
+        if (pull_request_number := data.get("pull_request_number")) is not None:
+            return [pull_request_number]
+        elif (ref := data.get("ref")) is None:
             return [p["number"] for p in opened_pulls]
         else:
             branch = ref[11:]  # refs/heads/
@@ -467,26 +470,27 @@ async def extract_pull_numbers_from_event(
 async def send_refresh(
     redis_cache: utils.RedisCache,
     redis_stream: utils.RedisStream,
-    pull: github_types.GitHubPullRequest,
+    repository: github_types.GitHubRepository,
+    pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber] = None,
+    ref: typing.Optional[github_types.GitHubRefType] = None,
     action: github_types.GitHubEventRefreshActionType = "user",
 ) -> None:
     data = github_types.GitHubEventRefresh(
         {
             "action": action,
-            "ref": None,
-            "repository": pull["base"]["repo"],
-            "pull_request": pull,
-            "ref": None,
+            "ref": ref,
+            "repository": repository,
+            "pull_request_number": pull_request_number,
             "sender": {
                 "login": github_types.GitHubLogin("<internal>"),
                 "id": github_types.GitHubAccountIdType(0),
                 "type": "User",
                 "avatar_url": "",
             },
-            "organization": pull["base"]["repo"]["owner"],
+            "organization": repository["owner"],
             "installation": {
                 "id": github_types.GitHubInstallationIdType(0),
-                "account": pull["base"]["repo"]["owner"],
+                "account": repository["owner"],
             },
         }
     )

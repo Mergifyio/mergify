@@ -100,6 +100,7 @@ class QueueBase(abc.ABC):
 
     async def _refresh_pulls(
         self,
+        repository: github_types.GitHubRepository,
         except_pull_request: typing.Optional[
             github_types.GitHubPullRequestNumber
         ] = None,
@@ -108,26 +109,17 @@ class QueueBase(abc.ABC):
         from mergify_engine import github_events  # circular reference
 
         async with utils.aredis_for_stream() as redis_stream:
-            for pull in await self.get_pulls():
-                if except_pull_request is not None and except_pull_request == pull:
+            for pull_number in await self.get_pulls():
+                if (
+                    except_pull_request is not None
+                    and except_pull_request == pull_number
+                ):
                     continue
 
                 await github_events.send_refresh(
                     self.repository.installation.redis,
                     redis_stream,
-                    {
-                        "number": pull,
-                        "base": {
-                            "repo": {
-                                "id": self.repository.id,
-                                "name": self.repository.name,
-                                "owner": {
-                                    "login": self.repository.installation.owner_login,
-                                    "id": self.repository.installation.owner_id,
-                                },
-                                "full_name": f"{self.repository.installation.owner_login}/{self.repository.name}",
-                            }
-                        },
-                    },  # type: ignore
-                    "internal",
+                    repository,
+                    pull_request_number=pull_number,
+                    action="internal",
                 )

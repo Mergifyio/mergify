@@ -30,7 +30,12 @@ class RefreshAction(actions.Action):
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         async with utils.aredis_for_stream() as redis_stream:
-            await github_events.send_refresh(ctxt.redis, redis_stream, ctxt.pull)
+            await github_events.send_refresh(
+                ctxt.redis,
+                redis_stream,
+                ctxt.pull["base"]["repo"],
+                pull_request_number=ctxt.pull["number"],
+            )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
         )

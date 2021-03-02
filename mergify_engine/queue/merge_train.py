@@ -245,8 +245,9 @@ class TrainCar(PseudoTrainCar):
             await github_events.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
-                original_ctxt.pull,
-                "internal",
+                original_ctxt.pull["base"]["repo"],
+                pull_request_number=original_ctxt.pull["number"],
+                action="internal",
             )
 
     async def update_summaries(
@@ -361,8 +362,9 @@ class TrainCar(PseudoTrainCar):
             await github_events.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
-                original_ctxt.pull,
-                "internal",
+                original_ctxt.pull["base"]["repo"],
+                pull_request_number=original_ctxt.pull["number"],
+                action="internal",
             )
 
         if conclusion in [check_api.Conclusion.SUCCESS, check_api.Conclusion.FAILURE]:
@@ -533,7 +535,9 @@ class Train(queue.QueueBase):
         )
 
         # Refresh summary of others
-        await self._refresh_pulls(except_pull_request=ctxt.pull["number"])
+        await self._refresh_pulls(
+            ctxt.pull["base"]["repo"], except_pull_request=ctxt.pull["number"]
+        )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
         ctxt.log.info("removing from train")
@@ -559,7 +563,7 @@ class Train(queue.QueueBase):
 
             await self._save()
             ctxt.log.info("removed from train", position=0)
-            await self._refresh_pulls()
+            await self._refresh_pulls(ctxt.pull["base"]["repo"])
             return
 
         position = await self.get_position(ctxt)
@@ -570,7 +574,7 @@ class Train(queue.QueueBase):
         del self._waiting_pulls[0]
         await self._save()
         ctxt.log.info("removed from train", position=position)
-        await self._refresh_pulls()
+        await self._refresh_pulls(ctxt.pull["base"]["repo"])
 
     async def _populate_cars(self) -> None:
         if self._current_base_sha is None or not self._cars:

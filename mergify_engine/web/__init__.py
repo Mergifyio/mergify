@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import collections
-import typing
-import uuid
 
 import daiquiri
 import fastapi
@@ -77,64 +75,6 @@ async def http_post(*args, **kwargs):
         await client.post(*args, **kwargs)
 
 
-async def _refresh(
-    owner: github_types.GitHubLogin,
-    repo_name: github_types.GitHubRepositoryName,
-    action: github_types.GitHubEventRefreshActionType = "user",
-    ref: typing.Optional[github_types.GitHubRefType] = None,
-    pull_request: typing.Optional[github_types.GitHubPullRequest] = None,
-) -> responses.Response:
-    data = github_types.GitHubEventRefresh(
-        {
-            "action": action,
-            "organization": {
-                "login": owner,
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "Organization",
-                "avatar_url": "",
-            },
-            "installation": {
-                "id": github_types.GitHubInstallationIdType(0),
-                "account": {
-                    "login": owner,
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "Organization",
-                    "avatar_url": "",
-                },
-            },
-            "repository": {
-                "default_branch": github_types.GitHubRefType(""),
-                "id": github_types.GitHubRepositoryIdType(0),
-                "private": False,
-                "archived": False,
-                "url": "",
-                "name": repo_name,
-                "owner": {
-                    "login": owner,
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "Organization",
-                    "avatar_url": "",
-                },
-                "full_name": f"{owner}/{repo_name}",
-            },
-            "sender": {
-                "login": github_types.GitHubLogin("<internal>"),
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "User",
-                "avatar_url": "",
-            },
-            "ref": ref,
-            "pull_request": pull_request,
-        }
-    )
-
-    await github_events.filter_and_dispatch(
-        _AREDIS_CACHE, _AREDIS_STREAM, "refresh", str(uuid.uuid4()), data
-    )
-
-    return responses.Response("Refresh queued", status_code=202)
-
-
 @app.get("/installation")  # noqa: FS003
 async def installation() -> responses.Response:
     return responses.Response(
@@ -150,7 +90,16 @@ async def installation() -> responses.Response:
 async def refresh_repo(
     owner: github_types.GitHubLogin, repo_name: github_types.GitHubRepositoryName
 ) -> responses.Response:
-    return await _refresh(owner, repo_name)
+    async with github.aget_client(owner_name=owner) as client:
+        try:
+            repository = await client.item(f"/repos/{owner}/{repo_name}")
+        except http.HTTPNotFound:
+            return responses.JSONResponse(
+                status_code=404, content="repository not found"
+            )
+
+    await github_events.send_refresh(_AREDIS_CACHE, _AREDIS_STREAM, repository)
+    return responses.Response("Refresh queued", status_code=202)
 
 
 RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "admin", "internal"))
@@ -167,89 +116,22 @@ async def refresh_pull(
     action: github_types.GitHubEventRefreshActionType = "user",
 ) -> responses.Response:
     action = RefreshActionSchema(action)
-    return await _refresh(
-        owner,
-        repo_name,
+    async with github.aget_client(owner_name=owner) as client:
+        try:
+            repository = await client.item(f"/repos/{owner}/{repo_name}")
+        except http.HTTPNotFound:
+            return responses.JSONResponse(
+                status_code=404, content="repository not found"
+            )
+
+    await github_events.send_refresh(
+        _AREDIS_CACHE,
+        _AREDIS_STREAM,
+        repository,
+        pull_request_number=pull_request_number,
         action=action,
-        pull_request=github_types.GitHubPullRequest(
-            {
-                "title": "",
-                "commits": 0,
-                "number": pull_request_number,
-                "id": github_types.GitHubPullRequestId(0),
-                "maintainer_can_modify": False,
-                "base": {
-                    "label": "",
-                    "ref": github_types.GitHubRefType(""),
-                    "sha": github_types.SHAType(""),
-                    "repo": {
-                        "default_branch": github_types.GitHubRefType(""),
-                        "id": github_types.GitHubRepositoryIdType(0),
-                        "owner": {
-                            "id": github_types.GitHubAccountIdType(0),
-                            "login": github_types.GitHubLogin(""),
-                            "type": "User",
-                            "avatar_url": "",
-                        },
-                        "private": False,
-                        "name": github_types.GitHubRepositoryName(""),
-                        "full_name": "",
-                        "archived": False,
-                        "url": "",
-                    },
-                    "user": {
-                        "login": github_types.GitHubLogin(""),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
-                },
-                "head": {
-                    "label": "",
-                    "ref": github_types.GitHubRefType(""),
-                    "sha": github_types.SHAType(""),
-                    "repo": {
-                        "default_branch": github_types.GitHubRefType(""),
-                        "id": github_types.GitHubRepositoryIdType(0),
-                        "owner": {
-                            "id": github_types.GitHubAccountIdType(0),
-                            "login": github_types.GitHubLogin(""),
-                            "type": "User",
-                            "avatar_url": "",
-                        },
-                        "private": False,
-                        "name": github_types.GitHubRepositoryName(""),
-                        "full_name": "",
-                        "archived": False,
-                        "url": "",
-                    },
-                    "user": {
-                        "login": github_types.GitHubLogin(""),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
-                },
-                "state": "open",
-                "user": {
-                    "id": github_types.GitHubAccountIdType(0),
-                    "login": github_types.GitHubLogin(""),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-                "labels": [],
-                "merged": False,
-                "merged_by": None,
-                "merged_at": None,
-                "rebaseable": False,
-                "draft": False,
-                "merge_commit_sha": None,
-                "mergeable_state": "unknown",
-                "changed_files": 1,
-                "html_url": "",
-            }
-        ),
     )
+    return responses.Response("Refresh queued", status_code=202)
 
 
 @app.post(
@@ -261,9 +143,21 @@ async def refresh_branch(
     repo_name: github_types.GitHubRepositoryName,
     branch: str,
 ) -> responses.Response:
-    return await _refresh(
-        owner, repo_name, ref=github_types.GitHubRefType(f"refs/heads/{branch}")
+    async with github.aget_client(owner_name=owner) as client:
+        try:
+            repository = await client.item(f"/repos/{owner}/{repo_name}")
+        except http.HTTPNotFound:
+            return responses.JSONResponse(
+                status_code=404, content="repository not found"
+            )
+
+    await github_events.send_refresh(
+        _AREDIS_CACHE,
+        _AREDIS_STREAM,
+        repository,
+        ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
+    return responses.Response("Refresh queued", status_code=202)
 
 
 @app.put(

@@ -225,7 +225,7 @@ class GitHubEventRefresh(GitHubEvent):
     repository: GitHubRepository
     action: GitHubEventRefreshActionType
     ref: typing.Optional[GitHubRefType]
-    pull_request: typing.Optional[GitHubPullRequest]
+    pull_request_number: typing.Optional[GitHubPullRequestNumber]
 
 
 GitHubEventPullRequestActionType = typing.Literal[
