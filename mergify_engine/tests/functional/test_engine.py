@@ -749,7 +749,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
 
         r = await self.app.get(
-            f"/queues-by-owner-id/{config.TESTING_ORGANIZATION_ID}",
+            f"/queues/{config.TESTING_ORGANIZATION_ID}",
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
