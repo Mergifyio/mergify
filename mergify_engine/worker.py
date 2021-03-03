@@ -716,25 +716,30 @@ class Worker:
     async def _run(self):
         self._stopping.clear()
 
+        LOG.info("redis initialisation")
         self._redis_stream = await utils.create_aredis_for_stream()
         self._redis_cache = await utils.create_aredis_for_cache()
+        LOG.info("redis initialised")
 
         if "stream" in self.enabled_services:
             worker_ids = self.get_worker_ids()
+            LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
                 self._worker_tasks.append(
                     asyncio.create_task(self.stream_worker_task(worker_id))
                 )
-            LOG.info("workers %s started", ", ".join(map(str, worker_ids)))
+            LOG.info("workers started", count=len(worker_ids))
 
         if "stream-monitoring" in self.enabled_services:
+            LOG.info("monitoring starting")
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
+            LOG.info("monitoring started")
 
     async def _shutdown(self):
-        worker_ids = self.get_worker_ids()
-        LOG.info("wait for workers %s to exit", ", ".join(map(str, worker_ids)))
-
-        await self._start_task
+        if not self._start_task.done():
+            LOG.info("waiting for startup to finish")
+            await self._start_task
+            LOG.info("startup finished")
 
         tasks = []
         if "stream" in self.enabled_services:
@@ -742,12 +747,16 @@ class Worker:
         if "stream-monitoring" in self.enabled_services:
             tasks.append(self._stream_monitoring_task)
 
+        LOG.info("workers and monitoring exiting", count=len(tasks))
         done, pending = await asyncio.wait(tasks, timeout=self.shutdown_timeout)
         if pending:
+            LOG.info("workers and monitoring being killed", count=len(pending))
             for task in pending:
                 task.cancel(msg="shutdown")
             await asyncio.wait(pending)
+        LOG.info("workers and monitoring exited", count=len(tasks))
 
+        LOG.info("redis finalizing")
         self._worker_tasks = []
         if self._redis_stream:
             self._redis_stream.connection_pool.max_idle_time = 0
@@ -760,9 +769,10 @@ class Worker:
             self._redis_cache = None
 
         await utils.stop_pending_aredis_tasks()
+        LOG.info("redis finalized")
 
         self._tombstone.set()
-        LOG.debug("exiting")
+        LOG.info("shutdown finished")
 
     def start(self):
         self._start_task = asyncio.create_task(self._run())
