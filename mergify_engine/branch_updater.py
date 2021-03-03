@@ -56,7 +56,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
         ("Operation timed out", BranchUpdateNeedRetry),
         ("No such device or address", BranchUpdateNeedRetry),
         ("Protected branch update failed", BranchUpdateFailure),
-        ("Couldn't find remote ref", BranchUpdateFailure),
+        ("couldn't find remote ref", BranchUpdateFailure),
     ]
 )
 
