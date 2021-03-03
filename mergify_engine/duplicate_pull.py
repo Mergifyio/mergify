@@ -50,6 +50,7 @@ class DuplicateFailed(Exception):
 GIT_MESSAGE_TO_EXCEPTION = {
     "No such device or address": DuplicateNeedRetry,
     "Could not resolve host": DuplicateNeedRetry,
+    "Authentication failed": DuplicateNeedRetry,
     "remote end hung up unexpectedly": DuplicateNeedRetry,
     "Operation timed out": DuplicateNeedRetry,
     "reference already exists": DuplicateAlreadyExists,
