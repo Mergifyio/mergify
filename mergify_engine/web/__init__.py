@@ -225,11 +225,6 @@ async def marketplace_handler(
     "/queues/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-# TODO(cam): remove this route when the front is update + update functional test
-@app.get(
-    "/queues-by-owner-id/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
-)
 async def queues_by_owner_id(owner_id):
     queues = collections.defaultdict(dict)
     async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
