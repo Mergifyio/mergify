@@ -93,6 +93,18 @@ class CopyAction(actions.Action):
                     check_api.Conclusion.SUCCESS,
                     f"Backport to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
                 )
+            except duplicate_pull.DuplicateUnexpectedError as e:
+                ctxt.log.error(
+                    "duplicate failed",
+                    reason=e.reason,
+                    branch=branch_name,
+                    kind=self.KIND,
+                    exc_info=True,
+                )
+                return (
+                    check_api.Conclusion.FAILURE,
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
+                )
 
         if new_pull:
             return (
@@ -101,6 +113,8 @@ class CopyAction(actions.Action):
                 f"has been created for branch `{branch_name}`",
             )
 
+        # TODO(sileht): Should be safe to replace that by a RuntimeError now.
+        # Just wait a couple of weeks (2020-03-03)
         ctxt.log.error(
             "unexpected %s to branch `%s` failure, "
             "duplicate() report pull copy already exists but it doesn't",
