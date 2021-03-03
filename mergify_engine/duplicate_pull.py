@@ -33,6 +33,11 @@ class DuplicateAlreadyExists(Exception):
 
 
 @dataclasses.dataclass
+class DuplicateUnexpectedError(Exception):
+    reason: str
+
+
+@dataclasses.dataclass
 class DuplicateNeedRetry(Exception):
     reason: str
 
@@ -283,14 +288,7 @@ async def duplicate(
                     f"```\n{in_exception.output}\n```\n"
                 )
         else:
-            ctxt.log.error(
-                "duplicate failed: %s",
-                in_exception.output,
-                branch=branch_name,
-                kind=kind,
-                exc_info=True,
-            )
-            return None
+            raise DuplicateUnexpectedError(in_exception.output)
     finally:
         await git.cleanup()
 
@@ -324,7 +322,7 @@ async def duplicate(
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422 and "No commits between" in e.message:
-            return None
+            raise DuplicateNotNeeded(e.message)
         raise
 
     if cherry_pick_fail and label_conflicts is not None:
