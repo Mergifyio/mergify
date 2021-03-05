@@ -12,8 +12,8 @@ extensions = ["sphinx.ext.githubpages", "sphinx.ext.graphviz", "mergify_engine_g
 
 graphviz_dot_args = [
     "-Gdpi=200",
-    "-Gnodesep=0.1",
-    "-Granksep=0.2",
+    "-Gnodesep=0.15",
+    "-Granksep=0.25",
     "-Gfontname=Open Sans",
     "-Efontname=Open Sans",
     "-Nfontname=Open Sans",
@@ -22,6 +22,7 @@ graphviz_dot_args = [
     "-Nfontsize=8pt",
     "-Npenwidth=1.75",
     "-Epenwidth=1.75",
+    "-Gpenwidth=1.75",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

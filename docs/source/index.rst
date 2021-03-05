@@ -40,7 +40,6 @@ Contact `our support <mailto:support@mergify.io>`_ or our `sales team
    conditions
    actions/index
    commands
-   queues
    examples
    badge
    faq
