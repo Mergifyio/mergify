@@ -11,8 +11,8 @@ strict digraph g {
     node [width=0.2, height=0.2, fixedsize=true, label="", shape=circle, fillcolor="#FF0000"]
 
 
-    subgraph master {
-        node [group="master", fillcolor="#C9E7F8"];
+    subgraph main {
+        node [group="main", fillcolor="#C9E7F8"];
         ms;
         m0;
         m1;
@@ -33,7 +33,7 @@ strict digraph g {
 
     subgraph {
         rank=sink;
-        me [label="master", shape=none, fixedsize=false, fillcolor=none, fontcolor=black];
+        me [label="main", shape=none, fixedsize=false, fillcolor=none, fontcolor=black];
     }
 
     subgraph pr {

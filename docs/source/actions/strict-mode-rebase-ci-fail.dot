@@ -20,7 +20,7 @@ strict digraph g {
             style="rounded,filled";
             fillcolor="#28A744";
             fontcolor="white";
-            prm [group="pr", fillcolor="#53A9DB"];
+            prm [group="pr", fillcolor="#53A9DB", label="Merge main\ninto PR\n\n\n\n\n\n", fontcolor=white, fontsize="5pt"];
             pr12 [group="pr", fillcolor="#53A9DB"];
             pr11 -> pr12;
             pr12 -> prm;
@@ -28,8 +28,8 @@ strict digraph g {
     }
 
 
-    subgraph master {
-        node [group="master", fillcolor="#C9E7F8"];
+    subgraph main {
+        node [group="main", fillcolor="#C9E7F8"];
         ms;
         m0;
         m1;
@@ -50,7 +50,7 @@ strict digraph g {
 
     subgraph {
         rank=sink;
-        me [label="master", shape=none, fixedsize=false, fillcolor=none, fontcolor=black];
+        me [label="main", shape=none, fixedsize=false, fillcolor=none, fontcolor=black];
     }
 
     m2:ne -> pr11:w;
