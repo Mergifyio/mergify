@@ -78,9 +78,13 @@ def get_already_merged_summary(ctxt, match):
         )
 
 
-def gen_summary_rules(rules):
+async def gen_summary_rules(
+    ctxt: context.Context,
+    _rules: typing.List[rules.EvaluatedRule],
+    show_actions_rules: bool = False,
+) -> str:
     summary = ""
-    for rule in rules:
+    for rule in _rules:
         if rule.hidden:
             continue
         summary += f"#### Rule: {rule.name}"
@@ -88,14 +92,26 @@ def gen_summary_rules(rules):
         for cond in rule.conditions:
             checked = " " if cond in rule.missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
+
+        if show_actions_rules:
+            for action, action_obj in rule.actions.items():
+                action_rule = await action_obj.get_rule(ctxt)
+                for cond in action_rule.conditions:
+                    checked = " " if cond in action_rule.missing_conditions else "X"
+                    summary += f"\n- [{checked}] `{cond}` ({action} action only, {action_rule.reason})"
+
         summary += "\n\n"
     return summary
 
 
-def gen_summary(ctxt, match):
+async def gen_summary(
+    ctxt: context.Context, match: rules.RulesEvaluator
+) -> typing.Tuple[str, str]:
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
-    summary += gen_summary_rules(match.matching_rules)
+    summary += await gen_summary_rules(
+        ctxt, match.matching_rules, show_actions_rules=True
+    )
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
     if not ctxt.subscription.active:
@@ -114,7 +130,7 @@ def gen_summary(ctxt, match):
             summary += f"<summary>{ignored_rules} not applicable rule</summary>\n\n"
         else:
             summary += f"<summary>{ignored_rules} not applicable rules</summary>\n\n"
-        summary += gen_summary_rules(match.ignored_rules)
+        summary += await gen_summary_rules(ctxt, match.ignored_rules)
         summary += "</details>\n"
 
     completed_rules = len(
@@ -136,9 +152,7 @@ def gen_summary(ctxt, match):
     if completed_rules == 0 and potential_rules == 0:
         summary_title.append("no rules match, no planned actions")
 
-    summary_title = " and ".join(summary_title)
-
-    return summary_title, summary
+    return " and ".join(summary_title), summary
 
 
 def _filterred_sources_for_logging(data, inplace=False):
@@ -163,7 +177,7 @@ def _filterred_sources_for_logging(data, inplace=False):
 
 
 async def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
-    summary_title, summary = gen_summary(ctxt, match)
+    summary_title, summary = await gen_summary(ctxt, match)
 
     summary += doc.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
@@ -330,7 +344,9 @@ async def run_actions(
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
-            if rule.missing_conditions:
+            action_rule = await action_obj.get_rule(ctxt)
+
+            if rule.missing_conditions or action_rule.missing_conditions:
                 method_name = "cancel"
                 expected_conclusions = [
                     check_api.Conclusion.NEUTRAL,

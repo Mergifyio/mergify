@@ -171,6 +171,7 @@ class Installation:
 
 class RepositoryCache(typing.TypedDict, total=False):
     mergify_config: typing.Optional[MergifyConfigFile]
+    branches: typing.Dict[github_types.GitHubRefType, github_types.GitHubBranch]
 
 
 @dataclasses.dataclass
@@ -278,6 +279,21 @@ class Repository(object):
         await self.installation.redis.delete(config_location_cache)
         self._cache["mergify_config"] = None
         return None
+
+    async def get_branch(
+        self,
+        branch_name: github_types.GitHubRefType,
+    ) -> github_types.GitHubBranch:
+        branches = self._cache.setdefault("branches", {})
+        if branch_name not in branches:
+            escaped_branch_name = parse.quote(branch_name, safe="")
+            branches[branch_name] = typing.cast(
+                github_types.GitHubBranch,
+                await self.installation.client.item(
+                    f"{self.base_url}/branches/{escaped_branch_name}"
+                ),
+            )
+        return branches[branch_name]
 
     async def get_pull_request_context(
         self,
@@ -664,7 +680,6 @@ class Context(object):
                 for ctxt, state in (await self.checks).items()
                 if state == "neutral"
             ]
-
         else:
             raise PullRequestAttributeError(name)
 
