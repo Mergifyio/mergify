@@ -114,6 +114,12 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "REDIS_SSL_VERIFY_MODE_CERT_NONE", default=False
         ): CoercedBool,
+        voluptuous.Required(
+            "REDIS_STREAM_WEB_MAX_CONNECTIONS", default=None
+        ): voluptuous.Any(None, voluptuous.Coerce(int)),
+        voluptuous.Required(
+            "REDIS_CACHE_WEB_MAX_CONNECTIONS", default=None
+        ): voluptuous.Any(None, voluptuous.Coerce(int)),
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_PROCESSES", default=1): voluptuous.Coerce(int),
@@ -177,6 +183,8 @@ GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
+REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
+REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:

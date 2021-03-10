@@ -48,12 +48,13 @@ def redis_from_url(url: str, **options: typing.Any) -> aredis.StrictRedis:
 
 
 async def create_aredis_for_cache(
-    max_idle_time: int = 60,
+    max_idle_time: int = 60, max_connections: typing.Optional[int] = None
 ) -> RedisCache:
     client = redis_from_url(
         config.STORAGE_URL,
         decode_responses=True,
         max_idle_time=max_idle_time,
+        max_connections=max_connections,
     )
     await client.client_setname(f"cache:{_PROCESS_IDENTIFIER}")
     return RedisCache(client)
@@ -68,8 +69,12 @@ async def aredis_for_cache() -> typing.AsyncIterator[RedisCache]:
         client.connection_pool.disconnect()
 
 
-async def create_aredis_for_stream(max_idle_time: int = 60) -> RedisStream:
-    r = redis_from_url(config.STREAM_URL, max_idle_time=max_idle_time)
+async def create_aredis_for_stream(
+    max_idle_time: int = 60, max_connections: typing.Optional[int] = None
+) -> RedisStream:
+    r = redis_from_url(
+        config.STREAM_URL, max_idle_time=max_idle_time, max_connections=max_connections
+    )
     await r.client_setname(f"stream:{_PROCESS_IDENTIFIER}")
     return RedisStream(r)
 

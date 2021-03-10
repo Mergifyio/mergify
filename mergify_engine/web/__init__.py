@@ -48,21 +48,23 @@ _AREDIS_CACHE: utils.RedisCache
 
 
 @app.on_event("startup")
-async def startup():
+async def startup() -> None:
     global _AREDIS_STREAM, _AREDIS_CACHE
-    _AREDIS_STREAM = await utils.create_aredis_for_stream()
-    _AREDIS_CACHE = await utils.create_aredis_for_cache()
+    _AREDIS_STREAM = await utils.create_aredis_for_stream(
+        max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
+    )
+    _AREDIS_CACHE = await utils.create_aredis_for_cache(
+        max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
+    )
 
 
 @app.on_event("shutdown")
-async def shutdown():
+async def shutdown() -> None:
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0
     _AREDIS_CACHE.connection_pool.disconnect()
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
-    _AREDIS_CACHE = None
-    _AREDIS_STREAM = None
     await utils.stop_pending_aredis_tasks()
 
 
