@@ -36,6 +36,7 @@ from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.queue import naive
+from mergify_engine.rules import filter
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -128,6 +129,35 @@ class MergeBaseAction(actions.Action):
     @abc.abstractmethod
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
         pass
+
+    @staticmethod
+    async def _get_branch_protection_conditions(
+        ctxt: context.Context,
+    ) -> typing.List[filter.Filter]:
+        branch = await ctxt.repository.get_branch(ctxt.pull["base"]["ref"])
+        if not branch["protection"]["enabled"]:
+            return []
+        return [
+            rules.RuleCondition(f"check-success={check}")
+            for check in branch["protection"]["required_status_checks"]["contexts"]
+        ]
+
+    async def get_rule(
+        self,
+        ctxt: context.Context,
+    ) -> actions.EvaluatedActionRule:
+        missing_conditions = []
+        conditions = await self._get_branch_protection_conditions(ctxt)
+        for condition in conditions:
+            if not await condition(ctxt.pull_request):
+                missing_conditions.append(condition)
+
+        ear = actions.EvaluatedActionRule(
+            "due to branch protection",
+            rules.RuleConditions(conditions),
+            rules.RuleMissingConditions(missing_conditions),
+        )
+        return ear
 
     @abc.abstractmethod
     def get_merge_conditions(

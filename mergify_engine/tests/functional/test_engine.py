@@ -295,11 +295,11 @@ Your branch is up to date with 'origin/{stable_branch}'.
 
 You are currently cherry-picking commit {commit_id[:7]}.
   (fix conflicts and run "git cherry-pick --continue")
-  (use "git cherry-pick --skip" to skip this patch)
   (use "git cherry-pick --abort" to cancel the cherry-pick operation)
 
 Unmerged paths:
   (use "git add <file>..." to mark resolution)
+
 	both added:      conflicts
 
 no changes added to commit (use "git add" and/or "git commit -a")
@@ -1233,7 +1233,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for(
             "check_run",
-            {"check_run": {"conclusion": None, "status": "in_progress"}},
+            {
+                "check_run": {
+                    "conclusion": "success",
+                    "status": "completed",
+                    "name": "Summary",
+                }
+            },
         )
 
         ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
@@ -1242,11 +1248,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: merge (merge)"
         ]
-        assert checks[0]["conclusion"] is None
-        assert "in_progress" == checks[0]["status"]
+        assert checks == []
+        summary = [
+            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
+        ][0]
         assert (
-            "Waiting for the branch protection required status checks to be validated"
-            in checks[0]["output"]["title"]
+            f"""- [X] `base={self.master_branch_name}`
+- [ ] `check-success=continuous-integration/fake-ci` (merge action only, due to branch protection)
+"""
+            in summary["output"]["summary"]
         )
 
         await self.create_status(p)
@@ -1260,6 +1270,113 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         assert 1 == len(pulls)
         assert pulls[0].merged is True
+
+    async def test_merge_branch_protection_strict_ci(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.master_branch_name}"],
+                    "actions": {"merge": {"strict": True}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        # Check policy of that branch is the expected one
+        rule = {
+            "protection": {
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["continuous-integration/fake-ci"],
+                },
+                "required_pull_request_reviews": None,
+                "restrictions": None,
+                "enforce_admins": False,
+            }
+        }
+
+        self.branch_protection_protect(self.master_branch_name, rule)
+
+        p, _ = await self.create_pr()
+
+        p2, _ = await self.create_pr()
+        await self.create_status(p2)
+        p2.merge()
+
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.create_status(p)
+        await self.run_engine()
+
+        await self.wait_for(
+            "check_run",
+            {
+                "check_run": {
+                    "conclusion": None,
+                    "status": "in_progress",
+                    "name": "Rule: merge (merge)",
+                }
+            },
+        )
+
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
+        ]
+        assert checks[0]["conclusion"] is None
+        assert "The pull request will be merged soon" == checks[0]["output"]["title"]
+
+        # Ensure it have been  rebased
+        head_sha = p.head.sha
+        p.update()
+        assert p.head.sha != head_sha
+
+        # After rebase CI fail and PR is removed from queue
+        await self.create_status(p, state="failure")
+        await self.run_engine()
+
+        await self.wait_for(
+            "check_run",
+            {
+                "check_run": {
+                    "conclusion": "success",
+                    "status": "completed",
+                    "name": "Summary",
+                }
+            },
+        )
+        p.update()
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
+        ]
+        assert "cancelled" == checks[0]["conclusion"]
+        assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
+        assert p.merged is False
+
+        # CI is back, check PR is merged
+        await self.create_status(p)
+        await self.run_engine()
+
+        p.update()
+        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
+        ]
+        assert "success" == checks[0]["conclusion"]
+        assert (
+            "The pull request has been merged automatically"
+            == checks[0]["output"]["title"]
+        )
+        assert p.merged is True
 
     async def test_merge_branch_protection_strict(self):
         rules = {

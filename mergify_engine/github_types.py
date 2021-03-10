@@ -85,9 +85,19 @@ class GitHubBranchCommit(typing.TypedDict):
     commit: GitHubBranchCommitCommit
 
 
+class GitHubBranchProtectionRequiredStatusChecks(typing.TypedDict):
+    contexts: typing.List[str]
+
+
+class GitHubBranchProtection(typing.TypedDict):
+    enabled: bool
+    required_status_checks: GitHubBranchProtectionRequiredStatusChecks
+
+
 class GitHubBranch(typing.TypedDict):
     name: GitHubRefType
     commit: GitHubBranchCommit
+    protection: GitHubBranchProtection
 
 
 class GitHubBranchRef(typing.TypedDict):

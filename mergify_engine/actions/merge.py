@@ -22,14 +22,12 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import queue
+from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.queue import naive
 from mergify_engine.rules import types
 
-
-if typing.TYPE_CHECKING:
-    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -109,11 +107,12 @@ class MergeAction(merge_base.MergeBaseAction):
         if ctxt.have_been_synchronized():
             return True
 
-        need_look_at_checks = []
+        need_look_at_checks = await self._get_branch_protection_conditions(ctxt)
         for condition in rule.missing_conditions:
-            if condition.attribute_name.startswith(
-                "check-"
-            ) or condition.attribute_name.startswith("status-"):
+            attribute_name = condition.get_attribute_name()
+            if attribute_name.startswith("check-") or attribute_name.startswith(
+                "status-"
+            ):
                 # TODO(sileht): Just return True here, no need to checks checks anymore,
                 # this method is no more used by teh merge queue
                 need_look_at_checks.append(condition)
@@ -129,7 +128,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 state
                 for name, state in (await ctxt.checks).items()
                 for cond in need_look_at_checks
-                if await cond(utils.FakePR(cond.attribute_name, name))
+                if await cond(utils.FakePR(cond.get_attribute_name(), name))
             ]
             if not states:
                 return False
