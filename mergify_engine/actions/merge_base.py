@@ -169,7 +169,7 @@ class MergeBaseAction(actions.Action):
         summary += await self.get_queue_summary(ctxt, q)
         conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
 
-        if isinstance(q, naive.Queue) is None:
+        if isinstance(q, naive.Queue):
             summary += "\n\nRequired conditions for merge:\n"
         else:
             summary += "\n\nRequired conditions for queue:\n"
