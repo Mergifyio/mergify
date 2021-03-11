@@ -133,6 +133,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "NOSUB_MAX_REPO_SIZE_KB", default=512 * 1000
         ): voluptuous.Coerce(int),
+        voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
+            float
+        ),
         # For test suite only (eg: tox -erecord)
         voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
         voluptuous.Required(
@@ -182,6 +185,7 @@ NOSUB_MAX_REPO_SIZE_KB: int
 GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]
+WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
 REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
