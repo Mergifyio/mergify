@@ -589,7 +589,7 @@ def get_process_index_from_env() -> int:
 @dataclasses.dataclass
 class Worker:
     idle_sleep_time: float = 0.42
-    shutdown_timeout: float = 25
+    shutdown_timeout: float = config.WORKER_SHUTDOWN_TIMEOUT
     worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
