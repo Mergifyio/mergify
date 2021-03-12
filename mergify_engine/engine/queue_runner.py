@@ -162,6 +162,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         unexpected_changes=unexpected_changes,
         mergeable=mergeable,
         status=status,
+        event_types=[se["event_type"] for se in ctxt.sources],
     )
 
     await car.update_summaries(

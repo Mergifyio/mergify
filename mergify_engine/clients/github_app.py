@@ -73,7 +73,7 @@ class JwtHandler:
                     payload, key=config.PRIVATE_KEY, algorithm="RS256"
                 )
                 self.jwt = encrypted.decode("utf-8")
-                LOG.info("New JWT created", expire_at=self.jwt_expiration)
+                LOG.debug("New JWT created", expire_at=self.jwt_expiration)
         return self.jwt
 
 
