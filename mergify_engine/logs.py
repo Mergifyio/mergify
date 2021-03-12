@@ -104,4 +104,6 @@ def setup_logging():
         ]
     )
 
+    logging.captureWarnings(True)
+
     config_log()
