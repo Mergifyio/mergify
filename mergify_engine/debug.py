@@ -310,7 +310,7 @@ async def report(
                 match = await mergify_config[
                     "pull_request_rules"
                 ].get_pull_request_rule(ctxt)
-                summary_title, summary = actions_runner.gen_summary(ctxt, match)
+                summary_title, summary = await actions_runner.gen_summary(ctxt, match)
                 print(f"[Summary]: success | {summary_title}")
                 print("> " + "\n> ".join(summary.strip().split("\n")))
 
