@@ -101,6 +101,61 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls_in_queue = await q.get_pulls()
         assert len(pulls_in_queue) == 0
 
+    async def test_merge_queue_refresh(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        await self.add_label(p1, "queue")
+        await self.add_label(p2, "queue")
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p1.raw_data)
+        q = await merge_train.Train.from_context(ctxt)
+        pulls_in_queue = await q.get_pulls()
+        assert pulls_in_queue == [p1.number, p2.number]
+
+        mq_pr = self.r_o_integration.get_pull(q._cars[1].queue_pull_request_number)
+
+        mq_pr.create_issue_comment("@mergifyio update")
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        mq_pr.update()
+        comments = list(mq_pr.get_issue_comments())
+        assert "Command not allowed on merge queue pull request." == comments[-1].body
+
+        mq_pr.create_issue_comment("@mergifyio refresh")
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        mq_pr.update()
+        comments = list(mq_pr.get_issue_comments())
+        assert (
+            "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
+            == comments[-1].body
+        )
+
     async def test_ongoing_train_basic(self):
         rules = {
             "queue_rules": [

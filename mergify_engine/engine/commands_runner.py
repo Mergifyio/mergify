@@ -158,14 +158,20 @@ async def handle(
     if not rerun and not user:
         raise RuntimeError("user must be set if rerun is false")
 
+    def log(comment_out: str, result: typing.Optional[check_api.Result] = None) -> None:
+        ctxt.log.info(
+            "ran command",
+            user_login=None if user is None else user["login"],
+            rerun=rerun,
+            comment_in=comment,
+            comment_out=comment_out,
+            result=result,
+        )
+
     if "@mergifyio" in comment.lower():  # @mergify have been used instead
         footer = ""
     else:
         footer = "\n\n" + WRONG_ACCOUNT_MESSAGE
-
-    if ctxt.is_merge_queue_pr():
-        post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
-        return
 
     if (
         user
@@ -173,17 +179,26 @@ async def handle(
         and not await ctxt.repository.has_write_permission(user)
     ):
         message = f"@{user['login']} is not allowed to run commands"
+        log(message)
         await post_comment(ctxt, message + footer)
         return
 
     action = load_action(comment)
     if not action:
         message = UNKNOWN_COMMAND_MESSAGE
+        log(message)
         await post_comment(ctxt, message + footer)
+        return
+
+    if action[0] != "refresh" and ctxt.is_merge_queue_pr():
+        log(MERGE_QUEUE_COMMAND_MESSAGE)
+        await post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
         return
 
     result, message = await run_action(ctxt, action, user)
     if result.conclusion is check_api.Conclusion.PENDING and rerun:
+        log("action still pending", result)
         return
 
+    log(message, result)
     await post_comment(ctxt, message + footer)
