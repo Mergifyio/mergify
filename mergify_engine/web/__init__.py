@@ -91,6 +91,7 @@ async def installation() -> responses.Response:
 async def refresh_repo(
     owner: github_types.GitHubLogin, repo_name: github_types.GitHubRepositoryName
 ) -> responses.Response:
+    global _AREDIS_STREAM, _AREDIS_CACHE
     async with github.aget_client(owner_name=owner) as client:
         try:
             repository = await client.item(f"/repos/{owner}/{repo_name}")
@@ -125,6 +126,7 @@ async def refresh_pull(
                 status_code=404, content="repository not found"
             )
 
+    global _AREDIS_STREAM, _AREDIS_CACHE
     await github_events.send_refresh(
         _AREDIS_CACHE,
         _AREDIS_STREAM,
@@ -152,6 +154,7 @@ async def refresh_branch(
                 status_code=404, content="repository not found"
             )
 
+    global _AREDIS_STREAM, _AREDIS_CACHE
     await github_events.send_refresh(
         _AREDIS_CACHE,
         _AREDIS_STREAM,
@@ -171,6 +174,7 @@ async def subscription_cache_update(
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
+    global _AREDIS_CACHE
     await subscription.Subscription.from_dict(
         _AREDIS_CACHE, int(owner_id), sub
     ).save_subscription_to_cache()
@@ -182,6 +186,7 @@ async def subscription_cache_update(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_delete(owner_id):  # pragma: no cover
+    global _AREDIS_CACHE
     await subscription.Subscription.delete(_AREDIS_CACHE, owner_id)
     return responses.Response("Cache cleaned", status_code=200)
 
@@ -202,6 +207,7 @@ async def marketplace_handler(
         gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
 
+    global _AREDIS_CACHE
     await subscription.Subscription.delete(
         _AREDIS_CACHE, data["marketplace_purchase"]["account"]["id"]
     )
@@ -228,6 +234,7 @@ async def marketplace_handler(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def queues_by_owner_id(owner_id):
+    global _AREDIS_CACHE
     queues = collections.defaultdict(dict)
     async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
         _, _, repo_id, branch = queue.split("~")
@@ -256,6 +263,7 @@ async def event_handler(
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
+    global _AREDIS_STREAM, _AREDIS_CACHE
     try:
         await github_events.filter_and_dispatch(
             _AREDIS_CACHE, _AREDIS_STREAM, event_type, event_id, data
