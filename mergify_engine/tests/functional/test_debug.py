@@ -60,7 +60,7 @@ class TestDebugger(base.FunctionalTestBase):
 
         assert (
             s1.strip()
-            == f"""* INSTALLATION ID: 499592
+            == f"""* INSTALLATION ID: 15398551
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
@@ -162,7 +162,7 @@ mergeable_state: clean
 
         assert (
             s3.strip()
-            == """* INSTALLATION ID: 499592
+            == """* INSTALLATION ID: 15398551
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues

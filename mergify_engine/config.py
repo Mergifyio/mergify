@@ -137,7 +137,9 @@ Schema = voluptuous.Schema(
             float
         ),
         # For test suite only (eg: tox -erecord)
-        voluptuous.Required("INSTALLATION_ID", default=499592): voluptuous.Coerce(int),
+        voluptuous.Required("INSTALLATION_ID", default=15398551): voluptuous.Coerce(
+            int
+        ),
         voluptuous.Required(
             "TESTING_ORGANIZATION_ID", default=40527191
         ): voluptuous.Coerce(int),
