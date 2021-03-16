@@ -283,6 +283,9 @@ async def duplicate(
 
         await git("push", "origin", bp_branch)
     except gitter.GitError as in_exception:  # pragma: no cover
+        if in_exception.output == "":
+            raise DuplicateNeedRetry("git process got sigkill")
+
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
                 raise out_exception(
