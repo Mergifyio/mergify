@@ -220,11 +220,6 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
         await git.cleanup()
 
 
-@tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),
-    stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
-)
 async def update_with_api(ctxt: context.Context) -> None:
     try:
         await ctxt.client.put(
@@ -250,17 +245,6 @@ async def update_with_api(ctxt: context.Context) -> None:
             error=e.message,
         )
         raise BranchUpdateFailure(e.message)
-    except (http.RequestError, http.HTTPStatusError) as e:
-        status_code: typing.Optional[int] = None
-        if isinstance(e, http.HTTPStatusError) and http.HTTPStatusError:
-            status_code = e.response.status_code
-
-        ctxt.log.info(
-            "update branch failed",
-            status_code=status_code,
-            error=str(e),
-        )
-        raise BranchUpdateNeedRetry()
 
 
 async def rebase_with_git(
