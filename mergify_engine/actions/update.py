@@ -38,7 +38,9 @@ class UpdateAction(actions.Action):
                 await branch_updater.update_with_api(ctxt)
             except branch_updater.BranchUpdateFailure as e:
                 return check_api.Result(
-                    check_api.Conclusion.FAILURE, "Branch update failed", str(e)
+                    check_api.Conclusion.FAILURE,
+                    e.title,
+                    e.message,
                 )
             else:
                 return check_api.Result(

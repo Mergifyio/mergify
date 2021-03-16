@@ -20,7 +20,6 @@ import uuid
 
 import tenacity
 
-from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
@@ -29,8 +28,13 @@ from mergify_engine.clients import http
 
 
 class BranchUpdateFailure(Exception):
-    def __init__(self, msg=""):
+    def __init__(
+        self,
+        msg="",
+        title="Base branch update has failed",
+    ):
         error_code = "err-code: " + uuid.uuid4().hex[-5:].upper()
+        self.title = title
         self.message = msg + "\n" + error_code
         super(BranchUpdateFailure, self).__init__(self.message)
 
@@ -66,20 +70,19 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
 GIT_MESSAGE_TO_UNSHALLOW = {"shallow update not allowed", "unrelated histories"}
 
 
-def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]:
+async def pre_rebase_check(ctxt: context.Context) -> None:
     # If PR from a public fork but cannot be edited
     if (
         ctxt.pull_from_fork
         and not ctxt.pull["base"]["repo"]["private"]
         and not ctxt.pull["maintainer_can_modify"]
     ):
-        return check_api.Result(
-            check_api.Conclusion.FAILURE,
-            "Pull request can't be updated with latest base branch changes",
+        raise BranchUpdateFailure(
             "Mergify needs the permission to update the base branch of the pull request.\n"
             f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
             "[authorize modification on its base branch]"
             "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
+            title="Pull request can't be updated with latest base branch changes",
         )
     # If PR from a private fork but cannot be edited:
     # NOTE(jd): GitHub removed the ability to configure `maintainer_can_modify` on private
@@ -89,15 +92,18 @@ def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]
         and ctxt.pull["base"]["repo"]["private"]
         and not ctxt.pull["maintainer_can_modify"]
     ):
-        return check_api.Result(
-            check_api.Conclusion.FAILURE,
-            "Pull request can't be updated with latest base branch changes",
+        raise BranchUpdateFailure(
             "Mergify needs the permission to update the base branch of the pull request.\n"
             "GitHub does not allow a GitHub App to modify base branch for a private fork.\n"
             "You cannot `rebase` a pull request from a private fork.",
+            title="Pull request can't be updated with latest base branch changes",
         )
-    else:
-        return None
+    elif await ctxt.github_workflow_changed():
+        raise BranchUpdateFailure(
+            "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.`n"
+            "This pull request must be merged manually.",
+            title="Pull request can't be updated with latest base branch changes",
+        )
 
 
 @tenacity.retry(
@@ -254,6 +260,9 @@ async def update_with_api(ctxt: context.Context) -> None:
 async def rebase_with_git(
     ctxt: context.Context, user: typing.Optional[str] = None
 ) -> None:
+
+    await pre_rebase_check(ctxt)
+
     user_tokens = await ctxt.repository.installation.get_user_tokens()
     if user:
         token = user_tokens.get_token_for(user)
@@ -285,3 +294,14 @@ async def rebase_with_git(
         )
 
     raise BranchUpdateFailure("No oauth valid tokens")
+
+
+async def update(
+    method: typing.Literal["merge", "rebase"],
+    ctxt: context.Context,
+    user: typing.Optional[str] = None,
+) -> None:
+    if method == "merge":
+        await update_with_api(ctxt)
+    else:
+        await rebase_with_git(ctxt, user)
