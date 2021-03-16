@@ -265,6 +265,22 @@ async def queues_by_owner_id(owner_id):
     return responses.JSONResponse(status_code=200, content=queues)
 
 
+@app.get(
+    "/queues_v2/{owner_id}",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
+)
+async def queues(owner_id):
+    global _AREDIS_CACHE
+    queues = collections.defaultdict(dict)
+    async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
+        _, _, repo_id, branch = queue.split("~")
+        queues[repo_id][branch] = [
+            int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+        ]
+
+    return responses.JSONResponse(status_code=200, content=queues)
+
+
 @app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(
     request: requests.Request,

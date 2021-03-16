@@ -279,6 +279,7 @@ class EventReader:
 class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
+    REPO_ID = 258840104
     REPO_NAME = "functional-testing-repo"
     FORK_PERSONAL_TOKEN = config.EXTERNAL_USER_PERSONAL_TOKEN
     SUBSCRIPTION_ACTIVE = False
