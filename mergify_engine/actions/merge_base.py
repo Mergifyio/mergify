@@ -366,13 +366,7 @@ class MergeBaseAction(actions.Action):
         user = self.config["update_bot_account"] or self.config["bot_account"]
 
         try:
-            if method == "merge":
-                await branch_updater.update_with_api(ctxt)
-            else:
-                output = branch_updater.pre_rebase_check(ctxt)
-                if output:
-                    return output
-                await branch_updater.rebase_with_git(ctxt, user)
+            await branch_updater.update(method, ctxt, user)
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
@@ -385,7 +379,7 @@ class MergeBaseAction(actions.Action):
                 await q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
-                    "Base branch update has failed",
+                    e.title,
                     e.message,
                 )
         else:
