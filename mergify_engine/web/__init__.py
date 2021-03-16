@@ -307,7 +307,6 @@ async def event_handler(
                 event_type=event_type,
                 event_id=event_id,
                 sender=data["sender"]["login"],
-                gh_owner=data["marketplace_purchase"]["account"]["login"],
             )
 
     return responses.Response(reason, status_code=status_code)
