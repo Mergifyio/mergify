@@ -46,9 +46,11 @@ class QueueAction(merge_base.MergeBaseAction):
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
             "merge", "squash", None
         ),
-        voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
+        voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
+            "rebase", "merge"
         ),
+        voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
+        voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
             "default", "title+body"
         ),
@@ -111,9 +113,7 @@ class QueueAction(merge_base.MergeBaseAction):
         return await super().run(ctxt, rule)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        self.config["bot_account"] = None
-        self.config["update_bot_account"] = None
-        self.config["strict"] = merge_base.StrictMergeParameter.ordered
+        self.config["bot_account"] = None  # queue only use update_bot_account
 
         for rule in mergify_config["queue_rules"]:
             if rule.name == self.config["name"]:

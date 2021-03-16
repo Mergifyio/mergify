@@ -21,6 +21,7 @@ from urllib import parse
 import daiquiri
 import first
 
+from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
@@ -174,8 +175,6 @@ class TrainCar(PseudoTrainCar):
             return None
 
     async def update_user_pull(self) -> None:
-        # TODO(sileht): Add support for strict method and  update_bot_account
-        # TODO(sileht): rework branch_updater to be able to use it here.
         ctxt = await self.train.repository.get_pull_request_context(
             self.user_pull_request_number
         )
@@ -183,24 +182,12 @@ class TrainCar(PseudoTrainCar):
             # Already done
             return
 
+        method = self.config["strict_method"]
+        user = self.config["update_bot_account"] or self.config["bot_account"]
+
         try:
-            await ctxt.client.put(
-                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
-                api_version="lydian",  # type: ignore[call-arg]
-                json={"expected_head_sha": ctxt.pull["head"]["sha"]},
-            )
-        except http.HTTPClientSideError as exc:
-            if exc.status_code == 422:
-                refreshed_pull = await ctxt.client.item(
-                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
-                )
-                if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
-                    ctxt.log.info(
-                        "branch updated in the meantime",
-                        status_code=exc.status_code,
-                        error=exc.message,
-                    )
-                    return
+            branch_updater.update(method, ctxt, user)
+        except branch_updater.BranchUpdateFailure as exc:
             await self._report_failure(exc, "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
@@ -296,7 +283,9 @@ class TrainCar(PseudoTrainCar):
 
     async def _report_failure(
         self,
-        exception: http.HTTPClientSideError,
+        exception: typing.Union[
+            http.HTTPClientSideError, branch_updater.BranchUpdateFailure
+        ],
         operation: typing.Literal["created", "update"] = "created",
     ) -> None:
         title = "This pull request cannot be embarked for merge"
