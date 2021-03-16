@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import collections
+import dataclasses
 import typing
 import uuid
 
@@ -22,6 +23,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import exceptions
 from mergify_engine import gitter
 from mergify_engine.clients import http
 
@@ -33,8 +35,9 @@ class BranchUpdateFailure(Exception):
         super(BranchUpdateFailure, self).__init__(self.message)
 
 
-class BranchUpdateNeedRetry(Exception):
-    pass
+@dataclasses.dataclass
+class BranchUpdateNeedRetry(exceptions.EngineNeedRetry):
+    message: str
 
 
 class AuthenticationFailure(Exception):
@@ -101,6 +104,7 @@ def pre_rebase_check(ctxt: context.Context) -> typing.Optional[check_api.Result]
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
+    reraise=True,
 )
 async def _do_rebase(ctxt: context.Context, token: str) -> None:
     # NOTE(sileht):
@@ -197,7 +201,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
     except gitter.GitError as in_exception:  # pragma: no cover
         if in_exception.output == "":
             # SIGKILL...
-            raise BranchUpdateNeedRetry()
+            raise BranchUpdateNeedRetry("Git process got killed")
 
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
