@@ -51,17 +51,6 @@ class RebaseAction(actions.Action):
             )
 
         if await ctxt.is_behind:
-            if await ctxt.github_workflow_changed():
-                return check_api.Result(
-                    check_api.Conclusion.ACTION_REQUIRED,
-                    "Pull request must be rebased manually.",
-                    "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.",
-                )
-
-            output = branch_updater.pre_rebase_check(ctxt)
-            if output:
-                return output
-
             repo_info = await ctxt.client.item(ctxt.pull["base"]["repo"]["url"])
 
             if repo_info[
@@ -82,10 +71,12 @@ class RebaseAction(actions.Action):
                     "Branch has been successfully rebased",
                     "",
                 )
-            except (
-                branch_updater.AuthenticationFailure,
-                branch_updater.BranchUpdateFailure,
-            ) as e:
+            except branch_updater.BranchUpdateFailure as e:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE, e.title, e.message
+                )
+
+            except branch_updater.AuthenticationFailure as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
                 )
