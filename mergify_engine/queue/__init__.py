@@ -28,7 +28,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class QueueConfig(typing.TypedDict):
-    strict_method: typing.Literal["merge", "rebase", "squash"]
+    strict_method: typing.Literal["merge", "rebase"]
     priority: int
     effective_priority: int
     bot_account: typing.Optional[str]
