@@ -63,3 +63,15 @@ def test_simulator_without_pull_request() -> None:
                 ]
             },
         }
+
+
+def test_simulator_with_invalid_json() -> None:
+    with testclient.TestClient(web.app) as client:
+        charset = "utf-8"
+        data = "invalid:json".encode(charset)
+        headers = {
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "Content-Type": f"application/json; charset={charset}",
+        }
+        reply = client.post("/simulator/", data=data, headers=headers)
+        assert reply.status_code == 400, reply.content

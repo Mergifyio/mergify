@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import json
 from urllib.parse import urlsplit
 
 import fastapi
@@ -128,7 +128,12 @@ async def simulator(request: requests.Request) -> responses.JSONResponse:
     if token:
         token = token[6:]  # Drop 'token '
 
-    data = SimulatorSchema(await request.json())
+    try:
+        raw_json = await request.json()
+    except json.JSONDecodeError:
+        return responses.JSONResponse(status_code=400, content="invalid json")
+
+    data = SimulatorSchema(raw_json)
 
     if data["pull_request"]:
         title, summary = await _simulator(
