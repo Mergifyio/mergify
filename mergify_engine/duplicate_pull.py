@@ -21,6 +21,7 @@ import tenacity
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import doc
+from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import subscription
@@ -38,7 +39,7 @@ class DuplicateUnexpectedError(Exception):
 
 
 @dataclasses.dataclass
-class DuplicateNeedRetry(Exception):
+class DuplicateNeedRetry(exceptions.EngineNeedRetry):
     reason: str
 
 
@@ -204,6 +205,7 @@ def get_destination_branch_name(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
+    reraise=True,
 )
 async def duplicate(
     ctxt: context.Context,
