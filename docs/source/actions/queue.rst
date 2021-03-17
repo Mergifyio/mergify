@@ -200,7 +200,7 @@ These are the options of the ``queue`` action:
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
-     - This sets the priority of the pull request in the queued. The pull
+     - This sets the priority of the pull request in the queue. The pull
        request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
    * - ``commit_message``
