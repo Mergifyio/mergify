@@ -439,15 +439,12 @@ end
                 )
                 if repo not in opened_pulls_by_repo:
                     try:
-                        async with self._translate_exception_to_retries(
-                            installation.stream_name
-                        ):
-                            opened_pulls_by_repo[repo] = [
-                                p
-                                async for p in installation.client.items(
-                                    f"/repos/{installation.owner_login}/{repo}/pulls"
-                                )
-                            ]
+                        opened_pulls_by_repo[repo] = [
+                            p
+                            async for p in installation.client.items(
+                                f"/repos/{installation.owner_login}/{repo}/pulls"
+                            )
+                        ]
                     except Exception as e:
                         if exceptions.should_be_ignored(e):
                             opened_pulls_by_repo[repo] = []
