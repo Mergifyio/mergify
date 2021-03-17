@@ -14,7 +14,7 @@ RETRY = urllib3.Retry(
     status=5,
     backoff_factor=0.2,
     status_forcelist=list(range(500, 599)) + [429],
-    method_whitelist=[
+    allowed_methods=[
         "HEAD",
         "TRACE",
         "GET",
