@@ -733,9 +733,15 @@ class Context(object):
 
     @property
     async def checks(self):
+        # NOTE(sileht): check-runs are returned in reverse chronogical order,
+        # so if it have ran twices we must keep only the more recent
+        # statuses are good as GitHub already ensure the uniqueness of the name
+
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        checks = {c["name"]: c["conclusion"] for c in await self.pull_check_runs}
+        checks = {
+            c["name"]: c["conclusion"] for c in reversed(await self.pull_check_runs)
+        }
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
