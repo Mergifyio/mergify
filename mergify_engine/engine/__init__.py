@@ -33,7 +33,7 @@ from mergify_engine.engine import queue_runner
 LOG = daiquiri.getLogger(__name__)
 
 mergify_rule_path = pkg_resources.resource_filename(
-    __name__, "../data/default_pull_request_rules.yml"
+    "mergify_engine", "data/default_pull_request_rules.yml"
 )
 
 with open(mergify_rule_path, "r") as f:
