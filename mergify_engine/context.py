@@ -734,8 +734,8 @@ class Context(object):
     @property
     async def checks(self):
         # NOTE(sileht): check-runs are returned in reverse chronogical order,
-        # so if it have ran twices we must keep only the more recent
-        # statuses are good as GitHub already ensure the uniqueness of the name
+        # so if it has ran twice we must keep only the more recent
+        # statuses are good as GitHub already ensures the uniqueness of the name
 
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
