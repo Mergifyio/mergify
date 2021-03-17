@@ -702,7 +702,7 @@ class Worker:
                 LOG.debug("monitoring task killed")
                 return
             except aredis.ConnectionError:
-                LOG.warning("monitoring task lose the redis connection", exc_info=True)
+                LOG.warning("monitoring task lost Redis connection", exc_info=True)
             except Exception:
                 LOG.error("monitoring task failed", exc_info=True)
 
