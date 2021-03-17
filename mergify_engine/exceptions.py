@@ -20,6 +20,10 @@ import aredis
 from mergify_engine.clients import http
 
 
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+
+
 class MergifyNotInstalled(Exception):
     pass
 
@@ -30,9 +34,14 @@ class RateLimited(Exception):
     remaining: int
 
 
-class MergeableStateUnknown(Exception):
-    def __init__(self, ctxt):
-        self.ctxt = ctxt
+@dataclasses.dataclass
+class EngineNeedRetry(Exception):
+    pass
+
+
+@dataclasses.dataclass
+class MergeableStateUnknown(EngineNeedRetry):
+    ctxt: "context.Context"
 
 
 RATE_LIMIT_RETRY_MIN = datetime.timedelta(seconds=3)
@@ -78,7 +87,7 @@ def need_retry(
         # NOTE(sileht): when we are close to reset date, and since utc time between us and
         # github differ a bit, we can have negative delta, so set a minimun for retrying
         return max(exception.countdown, RATE_LIMIT_RETRY_MIN)
-    elif isinstance(exception, MergeableStateUnknown):
+    elif isinstance(exception, EngineNeedRetry):
         return datetime.timedelta(minutes=1)
 
     elif isinstance(exception, (http.RequestError, http.HTTPServerSideError)):

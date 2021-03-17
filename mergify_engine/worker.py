@@ -110,6 +110,7 @@ class T_PayloadEvent(typing.TypedDict):
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
     retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
+    reraise=True,
 )
 async def push(
     redis: utils.RedisStream,

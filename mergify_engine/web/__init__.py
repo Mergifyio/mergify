@@ -17,6 +17,7 @@ import collections
 
 import daiquiri
 import fastapi
+import httpx
 from starlette import requests
 from starlette import responses
 import voluptuous
@@ -42,6 +43,10 @@ app.mount("/simulator", simulator.app)
 app.mount("/validate", config_validator.app)
 app.mount("/badges", badges.app)
 
+# Set the maximum timeout to 5 seconds: GitHub is not going to wait for
+# more than 10 seconds for us to accept an event, so if we're unable to
+# forward an event in 5 seconds, just drop it.
+EVENT_FORWARD_TIMEOUT = 5
 
 _AREDIS_STREAM: utils.RedisStream
 _AREDIS_CACHE: utils.RedisCache
@@ -60,20 +65,15 @@ async def startup() -> None:
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
+    LOG.info("asgi: starting redis shutdown")
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0
     _AREDIS_CACHE.connection_pool.disconnect()
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
+    LOG.info("asgi: waiting redis pending tasks to complete")
     await utils.stop_pending_aredis_tasks()
-
-
-async def http_post(*args, **kwargs):
-    # Set the maximum timeout to 3 seconds: GitHub is not going to wait for
-    # more than 10 seconds for us to accept an event, so if we're unable to
-    # forward an event in 3 seconds, just drop it.
-    async with http.AsyncClient(timeout=5) as client:
-        await client.post(*args, **kwargs)
+    LOG.info("asgi: finished redis shutdown")
 
 
 @app.get("/installation")  # noqa: FS003
@@ -214,17 +214,27 @@ async def marketplace_handler(
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
         raw = await request.body()
-        await http_post(
-            config.WEBHOOK_MARKETPLACE_FORWARD_URL,
-            data=raw.decode(),
-            headers={
-                "X-GitHub-Event": event_type,
-                "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                "User-Agent": request.headers.get("User-Agent"),
-                "Content-Type": request.headers.get("Content-Type"),
-            },
-        )
+        try:
+            async with http.AsyncClient(timeout=EVENT_FORWARD_TIMEOUT) as client:
+                await client.post(
+                    config.WEBHOOK_MARKETPLACE_FORWARD_URL,
+                    content=raw.decode(),
+                    headers={
+                        "X-GitHub-Event": event_type,
+                        "X-GitHub-Delivery": event_id,
+                        "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                        "User-Agent": request.headers.get("User-Agent"),
+                        "Content-Type": request.headers.get("Content-Type"),
+                    },
+                )
+        except httpx.TimeoutException:
+            LOG.warning(
+                "Fail to forward Marketplace event",
+                event_type=event_type,
+                event_id=event_id,
+                sender=data["sender"]["login"],
+                gh_owner=data["marketplace_purchase"]["account"]["login"],
+            )
 
     return responses.Response("Event queued", status_code=202)
 
@@ -297,17 +307,26 @@ async def event_handler(
         and event_type in config.WEBHOOK_FORWARD_EVENT_TYPES
     ):
         raw = await request.body()
-        await http_post(
-            config.WEBHOOK_APP_FORWARD_URL,
-            data=raw.decode(),
-            headers={
-                "X-GitHub-Event": event_type,
-                "X-GitHub-Delivery": event_id,
-                "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
-                "User-Agent": request.headers.get("User-Agent"),
-                "Content-Type": request.headers.get("Content-Type"),
-            },
-        )
+        try:
+            async with http.AsyncClient(timeout=EVENT_FORWARD_TIMEOUT) as client:
+                await client.post(
+                    config.WEBHOOK_APP_FORWARD_URL,
+                    content=raw.decode(),
+                    headers={
+                        "X-GitHub-Event": event_type,
+                        "X-GitHub-Delivery": event_id,
+                        "X-Hub-Signature": request.headers.get("X-Hub-Signature"),
+                        "User-Agent": request.headers.get("User-Agent"),
+                        "Content-Type": request.headers.get("Content-Type"),
+                    },
+                )
+        except httpx.TimeoutException:
+            LOG.warning(
+                "Fail to forward GitHub event",
+                event_type=event_type,
+                event_id=event_id,
+                sender=data["sender"]["login"],
+            )
 
     return responses.Response(reason, status_code=status_code)
 
