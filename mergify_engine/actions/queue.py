@@ -168,6 +168,28 @@ class QueueAction(merge_base.MergeBaseAction):
     async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> bool:
+        # It's closed, it's not going to change
+        if ctxt.pull["state"] == "closed":
+            return True
+
+        if ctxt.have_been_synchronized():
+            return True
+
+        q = await merge_train.Train.from_context(ctxt)
+        car = q.get_car(ctxt)
+        if car and car.state == "updated":
+            # NOTE(sileht): This car have been updated/rebased, so we should not cancel
+            # the merge until we have a check that doesn't pass
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            queue_rule_checks_status = await merge_train.get_queue_rule_checks_status(
+                ctxt, queue_rule_evaluated
+            )
+            if queue_rule_checks_status != check_api.Conclusion.FAILURE:
+                return False
+            pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
+            if pull_rule_checks_status != check_api.Conclusion.FAILURE:
+                return False
+
         return True
 
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
