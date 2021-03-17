@@ -701,6 +701,8 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.debug("monitoring task killed")
                 return
+            except aredis.ConnectionError:
+                LOG.warning("monitoring task lose the redis connection", exc_info=True)
             except Exception:
                 LOG.error("monitoring task failed", exc_info=True)
 
