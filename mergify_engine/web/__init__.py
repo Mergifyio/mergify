@@ -65,12 +65,15 @@ async def startup() -> None:
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
+    LOG.info("asgi: starting redis shutdown")
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0
     _AREDIS_CACHE.connection_pool.disconnect()
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
+    LOG.info("asgi: waiting redis pending tasks to complete")
     await utils.stop_pending_aredis_tasks()
+    LOG.info("asgi: finished redis shutdown")
 
 
 @app.get("/installation")  # noqa: FS003
@@ -258,6 +261,22 @@ async def queues_by_owner_id(owner_id):
             queues[client.auth.owner + "/" + repo["name"]][branch] = [
                 int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
             ]
+
+    return responses.JSONResponse(status_code=200, content=queues)
+
+
+@app.get(
+    "/queues_v2/{owner_id}",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
+)
+async def queues(owner_id):
+    global _AREDIS_CACHE
+    queues = collections.defaultdict(dict)
+    async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
+        _, _, repo_id, branch = queue.split("~")
+        queues[repo_id][branch] = [
+            int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+        ]
 
     return responses.JSONResponse(status_code=200, content=queues)
 
