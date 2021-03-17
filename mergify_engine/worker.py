@@ -318,7 +318,8 @@ class StreamProcessor:
                 installation = context.Installation(
                     owner_id, owner_login, sub, client, self.redis_cache
                 )
-                pulls = await self._extract_pulls_from_stream(installation)
+                async with self._translate_exception_to_retries(stream_name):
+                    pulls = await self._extract_pulls_from_stream(installation)
                 if pulls:
                     client.set_requests_ratio(len(pulls))
                     await self._consume_pulls(installation, pulls)
@@ -327,7 +328,12 @@ class StreamProcessor:
 
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
-            await self.redis_stream.delete(stream_name)
+            try:
+                await self.redis_stream.delete(stream_name)
+            except aredis.exceptions.ConnectionError:
+                LOG.warning(
+                    "fail to drop stream, it will be retried", stream_name=stream_name
+                )
         except StreamRetry as e:
             log_method = (
                 LOG.error
@@ -355,9 +361,15 @@ class StreamProcessor:
             LOG.error("failed to process stream", gh_owner=owner_login, exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
-        await self.redis_stream.eval(
-            self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
-        )
+        try:
+            await self.redis_stream.eval(
+                self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
+            )
+        except aredis.exceptions.ConnectionError:
+            LOG.warning(
+                "fail to cleanup stream, it maybe partially replayed",
+                stream_name=stream_name,
+            )
         LOG.debug("cleanup stream end", stream_name=stream_name)
 
     async def _refresh_merge_trains(self, installation):
@@ -436,8 +448,11 @@ end
                                     f"/repos/{installation.owner_login}/{repo}/pulls"
                                 )
                             ]
-                    except IgnoredException:
-                        opened_pulls_by_repo[repo] = []
+                    except Exception as e:
+                        if exceptions.should_be_ignored(e):
+                            opened_pulls_by_repo[repo] = []
+                        else:
+                            raise
 
                 converted_messages = await self._convert_event_to_messages(
                     installation,
