@@ -81,7 +81,7 @@ def queues():
     args = parser.parse_args()
     asyncio.run(
         api_call(
-            config.BASE_URL + f"/queues/{args.owner_id}",
+            config.BASE_URL + f"/queues_v2/{args.owner_id}",
             method="GET",
         )
     )
