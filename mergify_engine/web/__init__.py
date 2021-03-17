@@ -65,12 +65,15 @@ async def startup() -> None:
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
+    LOG.info("asgi: starting redis shutdown")
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0
     _AREDIS_CACHE.connection_pool.disconnect()
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
+    LOG.info("asgi: waiting redis pending tasks to complete")
     await utils.stop_pending_aredis_tasks()
+    LOG.info("asgi: finished redis shutdown")
 
 
 @app.get("/installation")  # noqa: FS003
