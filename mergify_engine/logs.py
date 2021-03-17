@@ -14,6 +14,7 @@
 
 
 import logging
+import os
 import re
 import sys
 
@@ -24,6 +25,7 @@ from mergify_engine import config
 
 
 LOG = daiquiri.getLogger(__name__)
+
 
 logging.addLevelName(42, "TEST")
 LEVEL_COLORS = daiquiri.formatter.ColorFormatter.LEVEL_COLORS.copy()
@@ -42,6 +44,18 @@ class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[
 CUSTOM_FORMATTER = CustomFormatter(
     fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: \033[1m%(message)s\033[0m%(extras)s%(color_stop)s"
 )
+
+
+class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: ignore [misc]
+    HEROKU_LOG_EXTRAS = {
+        envvar: os.environ[envvar]
+        for envvar in ("HEROKU_RELEASE_VERSION", "HEROKU_SLUG_COMMIT")
+        if envvar in os.environ
+    }
+
+    def add_fields(self, log_record, record, message_dict):
+        super().add_fields(log_record, record, message_dict)
+        log_record.update(self.HEROKU_LOG_EXTRAS)
 
 
 def config_log():
@@ -85,6 +99,7 @@ def setup_logging():
             daiquiri.output.Datadog(
                 level=config.LOG_DATADOG_LEVEL,
                 handler_class=daiquiri.handlers.PlainTextDatagramHandler,
+                formatter=HerokuDatadogFormatter(),
             )
         )
 
