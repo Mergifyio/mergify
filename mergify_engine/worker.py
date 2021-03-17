@@ -657,6 +657,9 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.debug("worker %s killed", worker_id)
                 return
+            except aredis.exceptions.ConnectionError:
+                LOG.warning("worker lost Redis connection", worker_id, exc_info=True)
+                await self._sleep_or_stop()
             except Exception:
                 LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
                 await self._sleep_or_stop()
