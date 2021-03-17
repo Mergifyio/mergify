@@ -159,6 +159,41 @@ class MergeBaseAction(actions.Action):
         )
         return ear
 
+    async def get_pull_rule_checks_status(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Conclusion:
+        need_look_at_checks = await self._get_branch_protection_conditions(ctxt)
+        for condition in rule.missing_conditions:
+            attribute_name = condition.get_attribute_name()
+            if attribute_name.startswith("check-") or attribute_name.startswith(
+                "status-"
+            ):
+                # TODO(sileht): Just return True here, no need to checks checks anymore,
+                # this method is no more used by teh merge queue
+                need_look_at_checks.append(condition)
+            else:
+                # something else does not match anymore
+                return check_api.Conclusion.FAILURE
+
+        if need_look_at_checks:
+            if not await ctxt.checks:
+                return check_api.Conclusion.PENDING
+
+            states = [
+                state
+                for name, state in (await ctxt.checks).items()
+                for cond in need_look_at_checks
+                if await cond(utils.FakePR(cond.get_attribute_name(), name))
+            ]
+            if not states:
+                return check_api.Conclusion.PENDING
+
+            for state in states:
+                if state in ("pending", None):
+                    return check_api.Conclusion.PENDING
+
+        return check_api.Conclusion.FAILURE
+
     @abc.abstractmethod
     def get_merge_conditions(
         self,
