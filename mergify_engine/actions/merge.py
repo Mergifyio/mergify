@@ -20,10 +20,10 @@ import typing
 import daiquiri
 import voluptuous
 
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.queue import naive
 from mergify_engine.rules import types
@@ -107,37 +107,8 @@ class MergeAction(merge_base.MergeBaseAction):
         if ctxt.have_been_synchronized():
             return True
 
-        need_look_at_checks = await self._get_branch_protection_conditions(ctxt)
-        for condition in rule.missing_conditions:
-            attribute_name = condition.get_attribute_name()
-            if attribute_name.startswith("check-") or attribute_name.startswith(
-                "status-"
-            ):
-                # TODO(sileht): Just return True here, no need to checks checks anymore,
-                # this method is no more used by teh merge queue
-                need_look_at_checks.append(condition)
-            else:
-                # something else does not match anymore
-                return True
-
-        if need_look_at_checks:
-            if not await ctxt.checks:
-                return False
-
-            states = [
-                state
-                for name, state in (await ctxt.checks).items()
-                for cond in need_look_at_checks
-                if await cond(utils.FakePR(cond.get_attribute_name(), name))
-            ]
-            if not states:
-                return False
-
-            for state in states:
-                if state in ("pending", None):
-                    return False
-
-        return True
+        pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
+        return pull_rule_checks_status == check_api.Conclusion.FAILURE
 
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
         return await naive.Queue.from_context(ctxt)
