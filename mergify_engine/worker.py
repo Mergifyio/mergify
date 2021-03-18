@@ -325,7 +325,10 @@ class StreamProcessor:
                     await self._consume_pulls(installation, pulls)
 
                 await self._refresh_merge_trains(installation)
-
+        except aredis.exceptions.ConnectionError:
+            LOG.warning(
+                "Stream Processor lost Redis connection", stream_name=stream_name
+            )
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             try:
