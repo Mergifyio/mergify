@@ -20,11 +20,11 @@ from starlette import testclient
 import yaml
 
 from mergify_engine import utils
-from mergify_engine import web
+from mergify_engine.web import root
 
 
 def test_simulator_without_pull_request() -> None:
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         yaml_config = yaml.dump(
             {
                 "pull_request_rules": [
@@ -66,7 +66,7 @@ def test_simulator_without_pull_request() -> None:
 
 
 def test_simulator_with_invalid_json() -> None:
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         charset = "utf-8"
         data = "invalid:json".encode(charset)
         headers = {

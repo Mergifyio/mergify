@@ -21,7 +21,7 @@ import uuid
 from starlette import testclient
 
 from mergify_engine import utils
-from mergify_engine import web
+from mergify_engine.web import root
 
 
 @mock.patch(
@@ -54,7 +54,7 @@ def test_app_event_forward(_, __, httpserver):
         "mergify_engine.config.WEBHOOK_APP_FORWARD_URL",
         httpserver.url_for("/"),
     ):
-        with testclient.TestClient(web.app) as client:
+        with testclient.TestClient(root.app) as client:
             client.post("/event", data=data, headers=headers)
 
     httpserver.check_assertions()
@@ -86,7 +86,7 @@ def test_market_event_forward(_, httpserver):
         "mergify_engine.config.WEBHOOK_MARKETPLACE_FORWARD_URL",
         httpserver.url_for("/"),
     ):
-        with testclient.TestClient(web.app) as client:
+        with testclient.TestClient(root.app) as client:
             client.post("/marketplace", data=data, headers=headers)
 
     httpserver.check_assertions()

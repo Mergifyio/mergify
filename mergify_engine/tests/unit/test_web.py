@@ -21,7 +21,7 @@ from starlette import testclient
 
 from mergify_engine import github_types
 from mergify_engine import utils
-from mergify_engine import web
+from mergify_engine.web import root
 
 
 with open(os.path.join(os.path.dirname(__file__), "events", "push_event.json")) as f:
@@ -64,7 +64,7 @@ with open(
 def test_push_event(
     event: github_types.GitHubEvent, event_type: str, status_code: int, reason: bytes
 ) -> None:
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         charset = "utf-8"
         data = json.dumps(event).encode(charset)
         headers = {

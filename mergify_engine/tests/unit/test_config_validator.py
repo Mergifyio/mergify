@@ -17,11 +17,11 @@
 from starlette import testclient
 import yaml
 
-from mergify_engine import web
+from mergify_engine.web import root
 
 
 def test_config_validator() -> None:
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         data = yaml.dump(
             {
                 "pull_request_rules": [
