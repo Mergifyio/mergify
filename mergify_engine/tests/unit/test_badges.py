@@ -16,11 +16,11 @@
 
 from starlette import testclient
 
-from mergify_engine import web
+from mergify_engine.web import root
 
 
 def test_badge_redirect():
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         reply = client.get(
             "/badges/mergifyio/mergify-engine.png", allow_redirects=False
         )
@@ -30,7 +30,7 @@ def test_badge_redirect():
             "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
         )
 
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         reply = client.get(
             "/badges/mergifyio/mergify-engine.svg", allow_redirects=False
         )
@@ -42,7 +42,7 @@ def test_badge_redirect():
 
 
 def test_badge_endpoint():
-    with testclient.TestClient(web.app) as client:
+    with testclient.TestClient(root.app) as client:
         reply = client.get("/badges/mergifyio/mergify-engine", allow_redirects=False)
         assert reply.headers["Location"] == (
             "https://dashboard.mergify.io/badges/mergifyio/mergify-engine"

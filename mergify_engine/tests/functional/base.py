@@ -42,11 +42,11 @@ from mergify_engine import gitter
 from mergify_engine import subscription
 from mergify_engine import user_tokens
 from mergify_engine import utils
-from mergify_engine import web
 from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
+from mergify_engine.web import root
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -388,8 +388,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.init()
         self.addAsyncCleanup(self.git.cleanup)
 
-        await web.startup()
-        self.app = httpx.AsyncClient(app=web.app, base_url="http://localhost")
+        await root.startup()
+        self.app = httpx.AsyncClient(app=root.app, base_url="http://localhost")
 
         await self.clear_redis_cache()
         self.redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
@@ -579,7 +579,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 pull.edit(state="closed")
 
         await self.app.aclose()
-        await web.shutdown()
+        await root.shutdown()
 
         await self._event_reader.drain()
         await self.clear_redis_stream()
