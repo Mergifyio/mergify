@@ -96,6 +96,7 @@ class EvaluatedRule:
 
 class QueueConfig(typing.TypedDict):
     priority: int
+    speculative_checks: int
 
 
 @dataclasses.dataclass
@@ -339,6 +340,9 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("conditions"): [
                     voluptuous.All(str, voluptuous.Coerce(RuleCondition))
                 ],
+                voluptuous.Required("speculative_checks", default=5): voluptuous.All(
+                    int, voluptuous.Range(min=1, max=20)
+                ),
             },
             voluptuous.Coerce(QueueRule.from_dict),
         )

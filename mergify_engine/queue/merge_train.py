@@ -59,12 +59,12 @@ class TrainCarPullRequestCreationFailure(Exception):
 
 class PseudoTrainCar(typing.Protocol):
     user_pull_request_number: github_types.GitHubPullRequestNumber
-    config: queue.QueueConfig
+    config: queue.PullQueueConfig
 
 
 class WaitingPull(typing.NamedTuple):
     user_pull_request_number: github_types.GitHubPullRequestNumber
-    config: queue.QueueConfig
+    config: queue.PullQueueConfig
 
 
 TrainCarState = typing.Literal[
@@ -121,7 +121,7 @@ class TrainCar(PseudoTrainCar):
     train: "Train" = dataclasses.field(repr=False)
     user_pull_request_number: github_types.GitHubPullRequestNumber
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
-    config: queue.QueueConfig
+    config: queue.PullQueueConfig
     initial_current_base_sha: github_types.SHAType
     current_base_sha: github_types.SHAType
     state: TrainCarState = "pending"
@@ -132,7 +132,7 @@ class TrainCar(PseudoTrainCar):
     class Serialized(typing.TypedDict):
         user_pull_request_number: github_types.GitHubPullRequestNumber
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
-        config: queue.QueueConfig
+        config: queue.PullQueueConfig
         initial_current_base_sha: github_types.SHAType
         current_base_sha: github_types.SHAType
         state: TrainCarState
@@ -588,8 +588,6 @@ You don't need to do anything. Mergify will close this pull request automaticall
 @dataclasses.dataclass
 class Train(queue.QueueBase):
 
-    max_size: int = 5  # Allow to be configured
-
     # Stored in redis
     _cars: typing.List[TrainCar] = dataclasses.field(default_factory=list)
     _waiting_pulls: typing.List[WaitingPull] = dataclasses.field(default_factory=list)
@@ -601,6 +599,12 @@ class Train(queue.QueueBase):
         cars: typing.List[TrainCar.Serialized]
         waiting_pulls: typing.List[WaitingPull]
         current_base_sha: typing.Optional[github_types.SHAType]
+
+    @classmethod
+    async def from_context(cls, ctxt: context.Context) -> "Train":
+        q = await super().from_context(ctxt)
+        await q.load()
+        return q
 
     @staticmethod
     def get_redis_key_for(
@@ -650,7 +654,6 @@ class Train(queue.QueueBase):
             gh_owner=self.repository.installation.owner_login,
             gh_repo=self.repository.name,
             gh_branch=self.ref,
-            max_size=self.max_size,
             train_cars=[c.user_pull_request_number for c in self._cars],
             train_waiting_pulls=[
                 wp.user_pull_request_number for wp in self._waiting_pulls
@@ -713,7 +716,7 @@ class Train(queue.QueueBase):
             await c.delete_pull()
         self._cars = self._cars[:position]
 
-    def _iter_pseudo_cars(self) -> typing.Iterable[PseudoTrainCar]:
+    def _iter_pseudo_cars(self) -> typing.Iterator[PseudoTrainCar]:
         for car in self._cars:
             yield car
         for wp in self._waiting_pulls:
@@ -721,7 +724,9 @@ class Train(queue.QueueBase):
             # the Protocol can't be inherited
             yield typing.cast(PseudoTrainCar, wp)
 
-    async def add_pull(self, ctxt: context.Context, config: queue.QueueConfig) -> None:
+    async def add_pull(
+        self, ctxt: context.Context, config: queue.PullQueueConfig
+    ) -> None:
         # TODO(sileht): handle base branch change
 
         best_position = -1
@@ -800,20 +805,34 @@ class Train(queue.QueueBase):
         await self._refresh_pulls(ctxt.pull["base"]["repo"])
 
     async def _populate_cars(self) -> None:
+        try:
+            head = next(self._iter_pseudo_cars())
+        except StopIteration:
+            return
+
         if self._current_base_sha is None or not self._cars:
             self._current_base_sha = await self.get_head_sha()
 
-        missing_cars = self.max_size - len(self._cars)
+        speculative_checks = head.config["queue_config"]["speculative_checks"]
+        missing_cars = speculative_checks - len(self._cars)
 
         if missing_cars < 0:
             # Too many cars
-            to_delete = self._cars[missing_cars:]
+            keep = True
+            to_keep: typing.List[TrainCar] = []
+            to_delete: typing.List[TrainCar] = self._cars[missing_cars:]
+            for car in self._cars[:speculative_checks]:
+                if car.config["name"] != head.config["name"]:
+                    keep = False
+                if keep:
+                    to_keep.append(car)
+                else:
+                    to_delete.append(car)
             for car in to_delete:
                 await car.delete_pull()
                 self._waiting_pulls.append(
                     WaitingPull(car.user_pull_request_number, car.config)
                 )
-            self._cars = self._cars[: self.max_size]
 
         elif missing_cars > 0 and self._waiting_pulls:
             if self._cars and self._cars[-1].state == "failed":
@@ -823,10 +842,15 @@ class Train(queue.QueueBase):
 
             # Not enough cars
             for _ in range(missing_cars):
-                try:
-                    user_pull_request_number, config = self._waiting_pulls.pop(0)
-                except IndexError:
-                    break
+                if not self._waiting_pulls:
+                    return
+
+                if self._waiting_pulls[0].config["name"] != head.config["name"]:
+                    # The queue change, wait first queue to be empty before processing
+                    # the next queue
+                    return
+
+                user_pull_request_number, config = self._waiting_pulls.pop(0)
 
                 parent_pull_request_numbers = [
                     car.user_pull_request_number for car in self._cars
@@ -892,7 +916,7 @@ class Train(queue.QueueBase):
 
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
-    ) -> queue.QueueConfig:
+    ) -> queue.PullQueueConfig:
         item = first.first(
             self._iter_pseudo_cars(),
             key=lambda c: c.user_pull_request_number == pull_number,

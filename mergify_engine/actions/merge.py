@@ -15,8 +15,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing
-
 import daiquiri
 import voluptuous
 
@@ -68,10 +66,9 @@ class MergeAction(merge_base.MergeBaseAction):
     }
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        pass
-
-    def _compute_priority(self) -> int:
-        return typing.cast(int, self.config["priority"])
+        self.config["queue_config"] = rules.QueueConfig(
+            {"priority": 0, "speculative_checks": 1}
+        )
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:

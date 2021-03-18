@@ -76,6 +76,8 @@ def Priority(v):
 
 
 MAX_PRIORITY: int = 10000
+# NOTE(sileht): We use the max priority as an offset to order queue
+QUEUE_PRIORITY_OFFSET: int = MAX_PRIORITY
 
 
 PrioritySchema = voluptuous.All(
@@ -106,9 +108,6 @@ class MergeBaseAction(actions.Action):
     async def _should_be_queued(
         self, ctxt: context.Context, q: queue.QueueBase
     ) -> bool:
-        pass
-
-    def _compute_priority(self) -> int:
         pass
 
     @abc.abstractmethod
@@ -309,7 +308,7 @@ class MergeBaseAction(actions.Action):
             StrictMergeParameter.ordered,
         ):
             if await self._should_be_queued(ctxt, q):
-                await q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
+                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
             else:
                 await q.remove_pull(ctxt)
                 return check_api.Result(
@@ -382,7 +381,12 @@ class MergeBaseAction(actions.Action):
 
     def _set_effective_priority(self, ctxt):
         if ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
-            self.config["effective_priority"] = self._compute_priority()
+            self.config["effective_priority"] = typing.cast(
+                int,
+                self.config["priority"]
+                + self.config["queue_config"]["priority"] * QUEUE_PRIORITY_OFFSET,
+            )
+
         else:
             self.config["effective_priority"] = PriorityAliases.medium.value
 
@@ -403,7 +407,7 @@ class MergeBaseAction(actions.Action):
                 return output
             else:
                 await q.remove_pull(ctxt)
-                await q.add_pull(ctxt, typing.cast(queue.QueueConfig, self.config))
+                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
                     e.title,

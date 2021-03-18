@@ -14,14 +14,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
 from unittest import mock
 
 import pytest
+import voluptuous
 
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
+from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
 
 
@@ -149,6 +153,10 @@ def get_cars_content(train):
     return cars
 
 
+def get_waiting_content(train):
+    return [wp.user_pull_request_number for wp in train._waiting_pulls]
+
+
 @pytest.fixture
 def repository(redis_cache, fake_client):
     installation = context.Installation(
@@ -165,19 +173,39 @@ def repository(redis_cache, fake_client):
     )
 
 
+QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
+    [
+        {"name": "two", "conditions": [], "speculative_checks": 2},
+        {"name": "five", "conditions": [], "speculative_checks": 5},
+    ]
+)
+
+
+def get_config(
+    queue_name: rules.QueueName, priority: int = 100
+) -> queue.PullQueueConfig:
+    effective_priority = typing.cast(
+        int,
+        priority
+        + QUEUE_RULES[queue_name].config["priority"] * merge_base.QUEUE_PRIORITY_OFFSET,
+    )
+    return queue.PullQueueConfig(
+        name=queue_name,
+        strict_method="merge",
+        priority=priority,
+        effective_priority=effective_priority,
+        bot_account=None,
+        update_bot_account=None,
+        queue_config=QUEUE_RULES[queue_name].config,
+    )
+
+
 @pytest.mark.asyncio
 async def test_train_add_pull(repository, monkepatched_traincar):
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=0,
-        effective_priority=0,
-        bot_account=None,
-        update_bot_account=None,
-    )
+    config = get_config("five")
 
     await t.add_pull(await fake_context(repository, 1), config)
     await t.refresh()
@@ -209,15 +237,7 @@ async def test_train_remove_middle_merged(repository, monkepatched_traincar):
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=0,
-        effective_priority=0,
-        bot_account=None,
-        update_bot_account=None,
-    )
-
+    config = get_config("five")
     await t.add_pull(await fake_context(repository, 1), config)
     await t.add_pull(await fake_context(repository, 2), config)
     await t.add_pull(await fake_context(repository, 3), config)
@@ -236,39 +256,9 @@ async def test_train_remove_middle_not_merged(repository, monkepatched_traincar)
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    await t.add_pull(
-        await fake_context(repository, 1),
-        queue.QueueConfig(
-            name="foo",
-            strict_method="merge",
-            priority=1000,
-            effective_priority=1000,
-            bot_account=None,
-            update_bot_account=None,
-        ),
-    )
-    await t.add_pull(
-        await fake_context(repository, 3),
-        queue.QueueConfig(
-            name="foo",
-            strict_method="merge",
-            priority=100,
-            effective_priority=100,
-            bot_account=None,
-            update_bot_account=None,
-        ),
-    )
-    await t.add_pull(
-        await fake_context(repository, 2),
-        queue.QueueConfig(
-            name="foo",
-            strict_method="merge",
-            priority=1000,
-            effective_priority=1000,
-            bot_account=None,
-            update_bot_account=None,
-        ),
-    )
+    await t.add_pull(await fake_context(repository, 1), get_config("five", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("five", 100))
+    await t.add_pull(await fake_context(repository, 2), get_config("five", 1000))
 
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
@@ -283,14 +273,7 @@ async def test_train_remove_head_not_merged(repository, monkepatched_traincar):
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=10,
-        effective_priority=10,
-        bot_account=None,
-        update_bot_account=None,
-    )
+    config = get_config("five")
 
     await t.add_pull(await fake_context(repository, 1), config)
     await t.add_pull(await fake_context(repository, 2), config)
@@ -308,14 +291,7 @@ async def test_train_remove_head_merged(repository, monkepatched_traincar):
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=10,
-        effective_priority=10,
-        bot_account=None,
-        update_bot_account=None,
-    )
+    config = get_config("five")
 
     await t.add_pull(await fake_context(repository, 1), config)
     await t.add_pull(await fake_context(repository, 2), config)
@@ -335,14 +311,7 @@ async def test_train_add_remove_pull_idempotant(repository, monkepatched_trainca
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=0,
-        effective_priority=0,
-        bot_account=None,
-        update_bot_account=None,
-    )
+    config = get_config("five", priority=0)
 
     await t.add_pull(await fake_context(repository, 1), config)
     await t.add_pull(await fake_context(repository, 2), config)
@@ -350,14 +319,8 @@ async def test_train_add_remove_pull_idempotant(repository, monkepatched_trainca
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    config = queue.QueueConfig(
-        name="foo",
-        strict_method="merge",
-        priority=10,
-        effective_priority=10,
-        bot_account=None,
-        update_bot_account=None,
-    )
+    config = get_config("five", priority=10)
+
     await t.add_pull(await fake_context(repository, 1), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
@@ -377,3 +340,59 @@ async def test_train_add_remove_pull_idempotant(repository, monkepatched_trainca
     t = merge_train.Train(repository, "branch")
     await t.load()
     assert [[1], [1, 3]] == get_cars_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_mutiple_queue(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    config_two = get_config("two", priority=0)
+    config_five = get_config("five", priority=0)
+
+    await t.add_pull(await fake_context(repository, 1), config_two)
+    await t.add_pull(await fake_context(repository, 2), config_two)
+    await t.add_pull(await fake_context(repository, 3), config_five)
+    await t.add_pull(await fake_context(repository, 4), config_five)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3, 4] == get_waiting_content(t)
+
+    # Ensure we don't got over the train_size
+    await t.add_pull(await fake_context(repository, 5), config_two)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [5, 3, 4] == get_waiting_content(t)
+
+    await t.add_pull(await fake_context(repository, 6), config_five)
+    await t.add_pull(await fake_context(repository, 7), config_five)
+    await t.add_pull(await fake_context(repository, 8), config_five)
+    await t.add_pull(await fake_context(repository, 9), config_five)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
+
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
+
+    await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
+    assert [[1], [1, 5]] == get_cars_content(t)
+    assert [3, 4, 6, 7, 8, 9] == get_waiting_content(t)
+
+    await t.remove_pull(await fake_context(repository, 1))
+    await t.remove_pull(await fake_context(repository, 5))
+    await t.refresh()
+    assert [[3], [3, 4], [3, 4, 6], [3, 4, 6, 7], [3, 4, 6, 7, 8]] == get_cars_content(
+        t
+    )
+    assert [9] == get_waiting_content(t)
+
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+    assert [[3], [3, 4], [3, 4, 6], [3, 4, 6, 7], [3, 4, 6, 7, 8]] == get_cars_content(
+        t
+    )
+    assert [9] == get_waiting_content(t)
