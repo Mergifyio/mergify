@@ -77,6 +77,10 @@ TrainCarState = typing.Literal[
 async def get_queue_rule_checks_status(
     ctxt: context.Context, queue_rule: rules.EvaluatedQueueRule
 ) -> check_api.Conclusion:
+    # TODO(sileht): even if branch protection doesn't really work with merge train, we
+    # should take care of branch protection required_status_check, in case of just this is
+    # used.
+
     if not queue_rule.missing_conditions:
         return check_api.Conclusion.SUCCESS
 
