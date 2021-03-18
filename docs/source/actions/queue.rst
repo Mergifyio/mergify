@@ -116,6 +116,7 @@ When multiple queues are defined, they are processed one after the other in the
 order they are defined in the configuration. Queue processing is blocked until
 all preceding queues, or higher priorities queues are empty.
 
+.. _speculative merges:
 
 Speculative Merges
 ------------------
@@ -131,7 +132,8 @@ tested speculatively.
 
 The upside of creating multiple temporary pull requests is that continuous
 integration pipelines can run on all of them in parallel. Currently, Mergify
-embarks up to 5 pull requests into the merge train.
+embarks up to 5 pull requests into the merge train (You can change this value
+with the ``speculative_checks`` settings in ``queue_rules``).
 
 .. graphviz:: queue-strict-train.dot
    :alt: Merge train
@@ -240,6 +242,12 @@ A ``queue_rules`` takes the following parameter:
      - list of ``conditions``
      -
      - The list of ``conditions`` to match to get the queued pull request merged.
+   * - ``speculative_checks``
+     - int
+     - 5
+     - The maximum number of checks to run in parallel in the queue. Must be
+       between 1 and 20.
+       See :ref:`speculative merges`.
 
 
 Example

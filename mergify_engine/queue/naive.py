@@ -52,7 +52,7 @@ class Queue(queue.QueueBase):
 
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
-    ) -> queue.QueueConfig:
+    ) -> queue.PullQueueConfig:
         """Return merge config for a pull request.
 
         Do not use it for logic, just for displaying the queue summary.
@@ -67,7 +67,7 @@ class Queue(queue.QueueBase):
                 "pull request queued without associated configuration",
                 gh_pull=pull_number,
             )
-            return queue.QueueConfig(
+            return queue.PullQueueConfig(
                 {
                     "strict_method": "merge",
                     "priority": 2000,
@@ -75,12 +75,17 @@ class Queue(queue.QueueBase):
                     "bot_account": None,
                     "update_bot_account": None,
                     "name": rules.QueueName(""),
+                    "queue_config": rules.QueueConfig(
+                        {"priority": 1, "speculative_checks": 1}
+                    ),
                 }
             )
-        config: queue.QueueConfig = json.loads(config_str)
+        config: queue.PullQueueConfig = json.loads(config_str)
         return config
 
-    async def add_pull(self, ctxt: context.Context, config: queue.QueueConfig) -> None:
+    async def add_pull(
+        self, ctxt: context.Context, config: queue.PullQueueConfig
+    ) -> None:
         await self._remove_pull_from_other_queues(ctxt)
 
         async with await self.repository.installation.redis.pipeline() as pipeline:

@@ -27,13 +27,14 @@ from mergify_engine import utils
 LOG = daiquiri.getLogger(__name__)
 
 
-class QueueConfig(typing.TypedDict):
+class PullQueueConfig(typing.TypedDict):
     strict_method: typing.Literal["merge", "rebase"]
     priority: int
     effective_priority: int
     bot_account: typing.Optional[str]
     update_bot_account: typing.Optional[str]
     name: rules.QueueName
+    queue_config: rules.QueueConfig
 
 
 QueueT = typing.TypeVar("QueueT", bound="QueueBase")
@@ -55,18 +56,12 @@ class QueueBase(abc.ABC):
 
     @classmethod
     async def from_context(cls: typing.Type[QueueT], ctxt: context.Context) -> QueueT:
-        q = cls(ctxt.repository, ctxt.pull["base"]["ref"])
-        await q.load()
-        return q
-
-    @abc.abstractmethod
-    async def load(self) -> None:
-        pass
+        return cls(ctxt.repository, ctxt.pull["base"]["ref"])
 
     @abc.abstractmethod
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
-    ) -> QueueConfig:
+    ) -> PullQueueConfig:
         """Return merge config for a pull request.
 
         Do not use it for logic, just for displaying the queue summary.
@@ -75,7 +70,7 @@ class QueueBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def add_pull(self, ctxt: context.Context, config: QueueConfig) -> None:
+    async def add_pull(self, ctxt: context.Context, config: PullQueueConfig) -> None:
         pass
 
     @abc.abstractmethod

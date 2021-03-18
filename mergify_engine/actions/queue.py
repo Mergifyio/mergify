@@ -58,9 +58,6 @@ class QueueAction(merge_base.MergeBaseAction):
         # TODO(sileht): Add support for strict method and  update_bot_account
     }
 
-    # NOTE(sileht): We use the max priority as an offset to order queue
-    QUEUE_PRIORITY_OFFSET: int = merge_base.MAX_PRIORITY
-
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
@@ -115,12 +112,12 @@ class QueueAction(merge_base.MergeBaseAction):
         self.config["update_bot_account"] = None
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
 
-        for rule in mergify_config["queue_rules"]:
-            if rule.name == self.config["name"]:
-                self.queue_rule = rule
-                break
-        else:
+        try:
+            self.queue_rule = mergify_config["queue_rules"][self.config["name"]]
+        except KeyError:
             raise voluptuous.error.Invalid(f"{self.config['name']} queue not found")
+
+        self.config["queue_config"] = self.queue_rule.config
 
     async def _get_merge_queue_check(
         self, ctxt: context.Context
@@ -128,13 +125,6 @@ class QueueAction(merge_base.MergeBaseAction):
         return first(
             await ctxt.pull_engine_check_runs,
             key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
-
-    def _compute_priority(self) -> int:
-        return typing.cast(
-            int,
-            self.config["priority"]
-            + self.queue_rule.config["priority"] * self.QUEUE_PRIORITY_OFFSET,
         )
 
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
