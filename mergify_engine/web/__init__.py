@@ -81,7 +81,7 @@ async def shutdown() -> None:
 async def redis_errors(
     request: requests.Request, exc: aredis.exceptions.ConnectionError
 ) -> responses.JSONResponse:
-    LOG.warning("FastAPI lost the redis connection")
+    LOG.warning("FastAPI lost Redis connection", exc_info=exc)
     return responses.JSONResponse(status_code=503)
 
 
