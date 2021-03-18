@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import collections
+import typing
 
 import aredis
 import daiquiri
@@ -34,6 +35,7 @@ from mergify_engine.clients import http
 from mergify_engine.web import auth
 from mergify_engine.web import badges
 from mergify_engine.web import config_validator
+from mergify_engine.web import redis
 from mergify_engine.web import simulator
 
 
@@ -49,32 +51,15 @@ app.mount("/badges", badges.app)
 # forward an event in 5 seconds, just drop it.
 EVENT_FORWARD_TIMEOUT = 5
 
-_AREDIS_STREAM: utils.RedisStream
-_AREDIS_CACHE: utils.RedisCache
-
 
 @app.on_event("startup")
 async def startup() -> None:
-    global _AREDIS_STREAM, _AREDIS_CACHE
-    _AREDIS_STREAM = await utils.create_aredis_for_stream(
-        max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
-    )
-    _AREDIS_CACHE = await utils.create_aredis_for_cache(
-        max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
-    )
+    await redis.startup()
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
-    LOG.info("asgi: starting redis shutdown")
-    global _AREDIS_STREAM, _AREDIS_CACHE
-    _AREDIS_CACHE.connection_pool.max_idle_time = 0
-    _AREDIS_CACHE.connection_pool.disconnect()
-    _AREDIS_STREAM.connection_pool.max_idle_time = 0
-    _AREDIS_STREAM.connection_pool.disconnect()
-    LOG.info("asgi: waiting redis pending tasks to complete")
-    await utils.stop_pending_aredis_tasks()
-    LOG.info("asgi: finished redis shutdown")
+    await redis.shutdown()
 
 
 @app.exception_handler(aredis.exceptions.ConnectionError)
@@ -98,9 +83,15 @@ async def installation() -> responses.Response:
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_repo(
-    owner: github_types.GitHubLogin, repo_name: github_types.GitHubRepositoryName
+    owner: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+    redis_stream: utils.RedisStream = fastapi.Depends(  # noqa: B008
+        redis.get_redis_stream
+    ),
 ) -> responses.Response:
-    global _AREDIS_STREAM, _AREDIS_CACHE
     async with github.aget_client(owner_name=owner) as client:
         try:
             repository = await client.item(f"/repos/{owner}/{repo_name}")
@@ -109,7 +100,7 @@ async def refresh_repo(
                 status_code=404, content="repository not found"
             )
 
-    await github_events.send_refresh(_AREDIS_CACHE, _AREDIS_STREAM, repository)
+    await github_events.send_refresh(redis_cache, redis_stream, repository)
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -125,6 +116,12 @@ async def refresh_pull(
     repo_name: github_types.GitHubRepositoryName,
     pull_request_number: github_types.GitHubPullRequestNumber,
     action: github_types.GitHubEventRefreshActionType = "user",
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+    redis_stream: utils.RedisStream = fastapi.Depends(  # noqa: B008
+        redis.get_redis_stream
+    ),
 ) -> responses.Response:
     action = RefreshActionSchema(action)
     async with github.aget_client(owner_name=owner) as client:
@@ -135,10 +132,9 @@ async def refresh_pull(
                 status_code=404, content="repository not found"
             )
 
-    global _AREDIS_STREAM, _AREDIS_CACHE
     await github_events.send_refresh(
-        _AREDIS_CACHE,
-        _AREDIS_STREAM,
+        redis_cache,
+        redis_stream,
         repository,
         pull_request_number=pull_request_number,
         action=action,
@@ -154,6 +150,12 @@ async def refresh_branch(
     owner: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
     branch: str,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+    redis_stream: utils.RedisStream = fastapi.Depends(  # noqa: B008
+        redis.get_redis_stream
+    ),
 ) -> responses.Response:
     async with github.aget_client(owner_name=owner) as client:
         try:
@@ -163,10 +165,9 @@ async def refresh_branch(
                 status_code=404, content="repository not found"
             )
 
-    global _AREDIS_STREAM, _AREDIS_CACHE
     await github_events.send_refresh(
-        _AREDIS_CACHE,
-        _AREDIS_STREAM,
+        redis_cache,
+        redis_stream,
         repository,
         ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
@@ -178,14 +179,17 @@ async def refresh_branch(
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def subscription_cache_update(
-    owner_id: str, request: requests.Request
-) -> responses.Response:  # pragma: no cover
+    owner_id: github_types.GitHubAccountIdType,
+    request: requests.Request,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
     sub = await request.json()
     if sub is None:
         return responses.Response("Empty content", status_code=400)
-    global _AREDIS_CACHE
     await subscription.Subscription.from_dict(
-        _AREDIS_CACHE, int(owner_id), sub
+        redis_cache, int(owner_id), sub
     ).save_subscription_to_cache()
     return responses.Response("Cache updated", status_code=200)
 
@@ -194,16 +198,23 @@ async def subscription_cache_update(
     "/subscription-cache/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def subscription_cache_delete(owner_id):  # pragma: no cover
-    global _AREDIS_CACHE
-    await subscription.Subscription.delete(_AREDIS_CACHE, owner_id)
+async def subscription_cache_delete(
+    owner_id: github_types.GitHubAccountIdType,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
+    await subscription.Subscription.delete(redis_cache, owner_id)
     return responses.Response("Cache cleaned", status_code=200)
 
 
 @app.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
 async def marketplace_handler(
     request: requests.Request,
-) -> responses.Response:  # pragma: no cover
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
@@ -216,9 +227,8 @@ async def marketplace_handler(
         gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
 
-    global _AREDIS_CACHE
     await subscription.Subscription.delete(
-        _AREDIS_CACHE, data["marketplace_purchase"]["account"]["id"]
+        redis_cache, data["marketplace_purchase"]["account"]["id"]
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
@@ -252,10 +262,16 @@ async def marketplace_handler(
     "/queues/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def queues_by_owner_id(owner_id):
-    global _AREDIS_CACHE
-    queues = collections.defaultdict(dict)
-    async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
+async def queues_by_owner_id(
+    owner_id: github_types.GitHubAccountIdType,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
+    queues: typing.Dict[
+        str, typing.Dict[str, typing.List[int]]
+    ] = collections.defaultdict(dict)
+    async for queue in redis_cache.scan_iter(match=f"merge-queue~{owner_id}~*"):
         _, _, repo_id, branch = queue.split("~")
         async with github.aget_client(owner_id=owner_id) as client:
             try:
@@ -267,8 +283,11 @@ async def queues_by_owner_id(owner_id):
                         "message": f"{client.auth.owner} account with {client.auth.owner_id} ID, rate limited by GitHub"
                     },
                 )
+            if client.auth.owner is None:
+                # No really possible, just to please mypy
+                continue
             queues[client.auth.owner + "/" + repo["name"]][branch] = [
-                int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+                int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
             ]
 
     return responses.JSONResponse(status_code=200, content=queues)
@@ -278,13 +297,19 @@ async def queues_by_owner_id(owner_id):
     "/queues_v2/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def queues(owner_id):
-    global _AREDIS_CACHE
-    queues = collections.defaultdict(dict)
-    async for queue in _AREDIS_CACHE.scan_iter(match=f"merge-queue~{owner_id}~*"):
+async def queues(
+    owner_id: github_types.GitHubAccountIdType,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
+    queues: typing.Dict[
+        str, typing.Dict[str, typing.List[int]]
+    ] = collections.defaultdict(dict)
+    async for queue in redis_cache.scan_iter(match=f"merge-queue~{owner_id}~*"):
         _, _, repo_id, branch = queue.split("~")
         queues[repo_id][branch] = [
-            int(pull) async for pull, _ in _AREDIS_CACHE.zscan_iter(queue)
+            int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
         ]
 
     return responses.JSONResponse(status_code=200, content=queues)
@@ -293,15 +318,20 @@ async def queues(owner_id):
 @app.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(
     request: requests.Request,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+    redis_stream: utils.RedisStream = fastapi.Depends(  # noqa: B008
+        redis.get_redis_stream
+    ),
 ) -> responses.Response:
     event_type = request.headers.get("X-GitHub-Event")
     event_id = request.headers.get("X-GitHub-Delivery")
     data = await request.json()
 
-    global _AREDIS_STREAM, _AREDIS_CACHE
     try:
         await github_events.filter_and_dispatch(
-            _AREDIS_CACHE, _AREDIS_STREAM, event_type, event_id, data
+            redis_cache, redis_stream, event_type, event_id, data
         )
     except github_events.IgnoredEvent as ie:
         status_code = 200
