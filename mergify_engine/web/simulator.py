@@ -27,10 +27,12 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.web import auth
+from mergify_engine.web import redis
 
 
 app = fastapi.FastAPI()
@@ -84,7 +86,7 @@ async def voluptuous_errors(
     return responses.JSONResponse(status_code=400, content=payload)
 
 
-async def _simulator(pull_request_rules, owner, repo, pull_number, token):
+async def _simulator(redis_cache, pull_request_rules, owner, repo, pull_number, token):
     try:
         if token:
             auth = github.GithubTokenAuth(owner, token)
@@ -99,10 +101,8 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
                     message=f"Pull request {owner}/{repo}/pulls/{pull_number} not found"
                 )
 
-            from mergify_engine.web import root  # circular import
-
             sub = await subscription.Subscription.get_subscription(
-                root._AREDIS_CACHE, client.auth.owner_id
+                redis_cache, client.auth.owner_id
             )
 
             installation = context.Installation(
@@ -110,7 +110,7 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
                 owner,
                 sub,
                 client,
-                root._AREDIS_CACHE,
+                redis_cache,
             )
             repository = context.Repository(installation, repo)
             ctxt = await repository.get_pull_request_context(data["number"], data)
@@ -124,7 +124,12 @@ async def _simulator(pull_request_rules, owner, repo, pull_number, token):
 
 
 @app.post("/", dependencies=[fastapi.Depends(auth.signature_or_token)])
-async def simulator(request: requests.Request) -> responses.JSONResponse:
+async def simulator(
+    request: requests.Request,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.JSONResponse:
     token = request.headers.get("Authorization")
     if token:
         token = token[6:]  # Drop 'token '
@@ -138,6 +143,7 @@ async def simulator(request: requests.Request) -> responses.JSONResponse:
 
     if data["pull_request"]:
         title, summary = await _simulator(
+            redis_cache,
             data["mergify.yml"]["pull_request_rules"],
             owner=data["pull_request"][0],
             repo=data["pull_request"][1],
