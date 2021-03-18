@@ -15,6 +15,7 @@
 # under the License.
 import collections
 
+import aredis
 import daiquiri
 import fastapi
 import httpx
@@ -74,6 +75,14 @@ async def shutdown() -> None:
     LOG.info("asgi: waiting redis pending tasks to complete")
     await utils.stop_pending_aredis_tasks()
     LOG.info("asgi: finished redis shutdown")
+
+
+@app.exception_handler(aredis.exceptions.ConnectionError)
+async def redis_errors(
+    request: requests.Request, exc: aredis.exceptions.ConnectionError
+) -> responses.JSONResponse:
+    LOG.warning("FastAPI lost the redis connection")
+    return responses.JSONResponse(status_code=503)
 
 
 @app.get("/installation")  # noqa: FS003
