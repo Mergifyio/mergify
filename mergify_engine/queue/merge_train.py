@@ -209,8 +209,6 @@ class TrainCar(PseudoTrainCar):
             raise TrainCarPullRequestCreationFailure(self) from exc
 
     async def create_pull(self) -> None:
-        # TODO(sileht): reuse branch instead of recreating PRs ?
-
         branch_name = f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.user_pull_request_number}"
 
         try:
@@ -235,8 +233,6 @@ class TrainCar(PseudoTrainCar):
         for pull_number in self.parent_pull_request_numbers + [
             self.user_pull_request_number
         ]:
-            # TODO(sileht): if a merge fail we should update the summary of self.user_pull_request_number with
-            # the failure
             try:
                 await self.train.repository.installation.client.post(
                     f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/merges",
@@ -251,8 +247,6 @@ class TrainCar(PseudoTrainCar):
                 await self._delete_branch()
                 raise TrainCarPullRequestCreationFailure(self) from e
 
-        # TODO(sileht): Maybe we should handle the case the pull request already exists?
-        # Since we plan to reuse pull request soon, we don't care for now
         try:
             title = f"merge-queue: embarking {self._get_embarked_refs()} together"
             body = ""
