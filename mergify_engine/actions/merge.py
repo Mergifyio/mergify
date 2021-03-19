@@ -15,6 +15,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
+import itertools
 import typing
 
 import daiquiri
@@ -22,8 +24,10 @@ import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine.actions import merge_base
 from mergify_engine.queue import naive
 from mergify_engine.rules import types
@@ -114,9 +118,54 @@ class MergeAction(merge_base.MergeBaseAction):
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
         return await naive.Queue.from_context(ctxt)
 
-    def get_merge_conditions(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-    ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
-        return rule.conditions, rule.missing_conditions
+    async def _get_queue_summary(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
+    ) -> str:
+        # TODO(sileht): do same layout as queue
+        summary = ""
+
+        pulls = await q.get_pulls()
+        if pulls:
+            # NOTE(sileht): It would be better to get that from configuration, but we
+            # don't have it here, so just guess it.
+            priorities_configured = False
+
+            summary += "\n\nThe following pull requests are queued:"
+
+            async def _get_config(
+                p: github_types.GitHubPullRequestNumber,
+            ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
+                return p, (await q.get_config(p))["priority"]
+
+            pulls_priorities: typing.Dict[
+                github_types.GitHubPullRequestNumber, int
+            ] = dict(await asyncio.gather(*(_get_config(p) for p in pulls)))
+
+            for priority, grouped_pulls in itertools.groupby(
+                pulls, key=lambda p: pulls_priorities[p]
+            ):
+                if priority != merge_base.PriorityAliases.medium.value:
+                    priorities_configured = True
+
+                try:
+                    fancy_priority = merge_base.PriorityAliases(priority).name
+                except ValueError:
+                    fancy_priority = str(priority)
+
+                formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
+                summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
+
+            if priorities_configured and not ctxt.subscription.has_feature(
+                subscription.Features.PRIORITY_QUEUES
+            ):
+                summary += "\n\n⚠ *Ignoring merge priority*\n"
+                summary += ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                )
+
+        summary += "\n\nRequired conditions for merge:\n"
+        for cond in rule.conditions:
+            checked = " " if cond in rule.missing_conditions else "X"
+            summary += f"\n- [{checked}] `{cond}`"
+
+        return summary

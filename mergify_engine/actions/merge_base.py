@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import abc
-import asyncio
 import enum
 import itertools
 import re
@@ -28,14 +27,12 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import github_types
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
-from mergify_engine.queue import naive
 from mergify_engine.rules import filter
 
 
@@ -106,18 +103,24 @@ class MergeBaseAction(actions.Action):
     only_once = True
 
     @abc.abstractmethod
-    async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_queued(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
         pass
 
     def _compute_priority(self) -> int:
         pass
 
     @abc.abstractmethod
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_merged(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
         pass
 
     @abc.abstractmethod
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_synced(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
         pass
 
     @abc.abstractmethod
@@ -128,6 +131,12 @@ class MergeBaseAction(actions.Action):
 
     @abc.abstractmethod
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
+        pass
+
+    @abc.abstractmethod
+    async def _get_queue_summary(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
+    ) -> str:
         pass
 
     @staticmethod
@@ -194,19 +203,11 @@ class MergeBaseAction(actions.Action):
 
         return check_api.Conclusion.FAILURE
 
-    @abc.abstractmethod
-    def get_merge_conditions(
+    async def get_queue_status(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-    ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
-        pass
-
-    async def get_strict_status(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-        q: queue.QueueT,
+        q: queue.QueueBase,
         is_behind: bool = False,
     ) -> check_api.Result:
 
@@ -231,16 +232,7 @@ class MergeBaseAction(actions.Action):
         else:
             title = "The pull request will be merged soon"
 
-        summary += await self.get_queue_summary(ctxt, q)
-        conditions, missing_conditions = self.get_merge_conditions(ctxt, rule)
-
-        if isinstance(q, naive.Queue):
-            summary += "\n\nRequired conditions for merge:\n"
-        else:
-            summary += "\n\nRequired conditions for queue:\n"
-        for cond in conditions:
-            checked = " " if cond in missing_conditions else "X"
-            summary += f"\n- [{checked}] `{cond}`"
+        summary += await self._get_queue_summary(ctxt, rule, q)
 
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
@@ -332,7 +324,7 @@ class MergeBaseAction(actions.Action):
             elif await self._should_be_synced(ctxt, q):
                 result = await self._sync_with_base_branch(ctxt, rule, q)
             else:
-                result = await self.get_strict_status(
+                result = await self.get_queue_status(
                     ctxt, rule, q, is_behind=await ctxt.is_behind
                 )
         except Exception:
@@ -367,14 +359,14 @@ class MergeBaseAction(actions.Action):
             try:
                 if await self._should_be_merged(ctxt, q):
                     # Just wait for CIs to finish
-                    result = await self.get_strict_status(
+                    result = await self.get_queue_status(
                         ctxt, rule, q, is_behind=await ctxt.is_behind
                     )
                 elif await self._should_be_synced(ctxt, q):
                     # Something got merged in the base branch in the meantime: rebase it again
                     result = await self._sync_with_base_branch(ctxt, rule, q)
                 else:
-                    result = await self.get_strict_status(
+                    result = await self.get_queue_status(
                         ctxt, rule, q, is_behind=await ctxt.is_behind
                     )
             except Exception:
@@ -395,7 +387,7 @@ class MergeBaseAction(actions.Action):
             self.config["effective_priority"] = PriorityAliases.medium.value
 
     async def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> check_api.Result:
         method = self.config["strict_method"]
         user = self.config["update_bot_account"] or self.config["bot_account"]
@@ -418,7 +410,7 @@ class MergeBaseAction(actions.Action):
                     e.message,
                 )
         else:
-            return await self.get_strict_status(ctxt, rule, q, is_behind=False)
+            return await self.get_queue_status(ctxt, rule, q, is_behind=False)
 
     @staticmethod
     async def _get_commit_message(pull_request, mode="default"):
@@ -469,7 +461,7 @@ class MergeBaseAction(actions.Action):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.QueueT,
+        q: queue.QueueBase,
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
@@ -552,7 +544,7 @@ class MergeBaseAction(actions.Action):
         e: http.HTTPClientSideError,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.QueueT,
+        q: queue.QueueBase,
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
@@ -579,7 +571,7 @@ class MergeBaseAction(actions.Action):
             if await self._should_be_synced(ctxt, q):
                 return await self._sync_with_base_branch(ctxt, rule, q)
             else:
-                return await self.get_strict_status(
+                return await self.get_queue_status(
                     ctxt, rule, q, is_behind=await ctxt.is_behind
                 )
 
@@ -734,47 +726,3 @@ This pull request must be merged manually."""
             return None
 
         return check_api.Result(conclusion, title, summary)
-
-    async def get_queue_summary(self, ctxt: context.Context, q: queue.QueueT) -> str:
-        pulls = await q.get_pulls()
-        if not pulls:
-            return ""
-
-        # NOTE(sileht): It would be better to get that from configuration, but we
-        # don't have it here, so just guess it.
-        priorities_configured = False
-
-        summary = "\n\nThe following pull requests are queued:"
-
-        async def _get_config(
-            p: github_types.GitHubPullRequestNumber,
-        ) -> typing.Tuple[github_types.GitHubPullRequestNumber, int]:
-            return p, (await q.get_config(p))["priority"]
-
-        pulls_priorities: typing.Dict[github_types.GitHubPullRequestNumber, int] = dict(
-            await asyncio.gather(*(_get_config(p) for p in pulls))
-        )
-
-        for priority, grouped_pulls in itertools.groupby(
-            pulls, key=lambda p: pulls_priorities[p]
-        ):
-            if priority != PriorityAliases.medium.value:
-                priorities_configured = True
-
-            try:
-                fancy_priority = PriorityAliases(priority).name
-            except ValueError:
-                fancy_priority = str(priority)
-
-            formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))
-            summary += f"\n* {formatted_pulls} (priority: {fancy_priority})"
-
-        if priorities_configured and not ctxt.subscription.has_feature(
-            subscription.Features.PRIORITY_QUEUES
-        ):
-            summary += "\n\n⚠ *Ignoring merge priority*\n"
-            summary += ctxt.subscription.missing_feature_reason(
-                ctxt.pull["base"]["repo"]["owner"]["login"]
-            )
-
-        return summary
