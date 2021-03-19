@@ -19,8 +19,8 @@ import typing
 import tenacity
 
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine import doc
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
@@ -318,7 +318,9 @@ async def duplicate(
                     f"{ctxt.base_url}/pulls",
                     json={
                         "title": f"{ctxt.pull['title']} ({BRANCH_PREFIX_MAP[kind]} #{ctxt.pull['number']})",
-                        "body": body + "\n\n---\n\n" + doc.MERGIFY_PULL_REQUEST_DOC,
+                        "body": body
+                        + "\n\n---\n\n"
+                        + constants.MERGIFY_PULL_REQUEST_DOC,
                         "base": branch_name,
                         "head": bp_branch,
                     },

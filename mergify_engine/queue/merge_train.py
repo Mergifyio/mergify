@@ -30,6 +30,7 @@ from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import utils
+from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
 
 
@@ -155,15 +156,22 @@ class TrainCar(PseudoTrainCar):
             data["state"] = "created"
         return cls(train, **data)
 
-    def _get_embarked_refs(self, include_my_self=True):
-        pull_refs = ", ".join(
-            [
-                f"#{p}"
-                for p in self.parent_pull_request_numbers
-                + ([self.user_pull_request_number] if include_my_self else [])
+    def _get_embarked_refs(
+        self, include_my_self: bool = True, markdown: bool = False
+    ) -> str:
+        if markdown:
+            refs = [
+                f"Branch **{self.train.ref}** ({self.initial_current_base_sha[:7]})"
             ]
-        )
-        return f"{self.train.ref} ({self.initial_current_base_sha[:7]}), {pull_refs}"
+        else:
+            refs = [f"{self.train.ref} ({self.initial_current_base_sha[:7]})"]
+
+        refs += [f"#{p}" for p in self.parent_pull_request_numbers]
+
+        if include_my_self:
+            refs.append(f"#{self.user_pull_request_number}")
+
+        return f"{', '.join(refs[:-1])} and {refs[-1]}"
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
         if self.state == "created" and self.queue_pull_request_number is not None:
@@ -222,7 +230,7 @@ class TrainCar(PseudoTrainCar):
         except http.HTTPClientSideError as exc:
             if exc.status_code == 422 and "Reference already exists" in exc.message:
                 try:
-                    self._delete_branch()
+                    await self._delete_branch()
                 except http.HTTPClientSideError as exc_patch:
                     await self._report_failure(exc_patch)
                     raise TrainCarPullRequestCreationFailure(self) from exc_patch
@@ -249,7 +257,7 @@ class TrainCar(PseudoTrainCar):
 
         try:
             title = f"merge-queue: embarking {self._get_embarked_refs()} together"
-            body = ""
+            body = await self.generate_merge_queue_summary(for_queue_pull_request=True)
             tmp_pull = (
                 await self.train.repository.installation.client.post(
                     f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/pulls",
@@ -273,6 +281,65 @@ class TrainCar(PseudoTrainCar):
         )
 
         await self.update_summaries(check_api.Conclusion.PENDING)
+
+    async def generate_merge_queue_summary(
+        self,
+        queue_rule: typing.Optional[rules.EvaluatedQueueRule] = None,
+        for_queue_pull_request: bool = False,
+    ) -> str:
+        description = (
+            f"{self._get_embarked_refs(markdown=True)} are embarked together for merge."
+        )
+
+        if for_queue_pull_request:
+            description += f"""
+
+This pull request has been created by Mergify to speculatively check the mergeability of #{self.user_pull_request_number}.
+You don't need to do anything. Mergify will close this pull request automatically when it is complete.
+"""
+        if queue_rule is not None:
+            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
+            for cond in queue_rule.conditions:
+                checked = " " if cond in queue_rule.missing_conditions else "X"
+                description += f"\n- [{checked}] `{cond}`"
+
+        table = [
+            "| | Pull request | Queue/Priority | Speculative checks |",
+            "| ---: | :--- | :--- | :--- |",
+        ]
+        for i, pseudo_car in enumerate(self.train._iter_pseudo_cars()):
+            ctxt = await self.train.repository.get_pull_request_context(
+                pseudo_car.user_pull_request_number
+            )
+            try:
+                fancy_priority = merge_base.PriorityAliases(
+                    pseudo_car.config["priority"]
+                ).name
+            except ValueError:
+                fancy_priority = str(pseudo_car.config["priority"])
+
+            speculative_checks = ""
+            if isinstance(pseudo_car, TrainCar):
+                if pseudo_car.state == "updated":
+                    speculative_checks = "in place"
+                elif pseudo_car.state == "created":
+                    speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
+
+            table.append(
+                f"| {i + 1} "
+                f"| {ctxt.pull['title']} #{pseudo_car.user_pull_request_number} "
+                f"| {pseudo_car.config['name']}/{fancy_priority} "
+                f"| {speculative_checks} "
+                "|"
+            )
+
+        description += "\n\n**The following pull requests are queued:**\n" + "\n".join(
+            table
+        )
+        description += "\n\n---\n\n"
+        description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
+        description += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
+        return description.strip()
 
     async def delete_pull(self) -> None:
         if not self.queue_pull_request_number:
@@ -365,7 +432,7 @@ class TrainCar(PseudoTrainCar):
         )
 
         if self.state == "created":
-            summary = f"Embarking {self._get_embarked_refs()} together"
+            summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
             summary += queue_summary
 
             if self.queue_pull_request_number is None:
@@ -376,6 +443,16 @@ class TrainCar(PseudoTrainCar):
             tmp_pull_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
+
+            if queue_rule is not None:
+                body = await self.generate_merge_queue_summary(
+                    queue_rule, for_queue_pull_request=True
+                )
+                await tmp_pull_ctxt.client.patch(
+                    f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
+                    json={"body": body},
+                )
+
             await tmp_pull_ctxt.set_summary_check(
                 check_api.Result(
                     conclusion,

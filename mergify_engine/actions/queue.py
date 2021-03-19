@@ -195,11 +195,11 @@ class QueueAction(merge_base.MergeBaseAction):
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
         return await merge_train.Train.from_context(ctxt)
 
-    def get_merge_conditions(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-    ) -> typing.Tuple["rules.RuleConditions", "rules.RuleMissingConditions"]:
-        # TODO(sileht): A bit wrong, we should use the context of the testing PR instead
-        # of the current one
-        return rule.conditions, rule.missing_conditions
+    async def _get_queue_summary(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
+    ) -> str:
+        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+        return (
+            await car.generate_merge_queue_summary(queue_rule_evaluated) if car else ""
+        )

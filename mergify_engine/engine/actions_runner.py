@@ -19,8 +19,8 @@ from datadog import statsd
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine import doc
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
@@ -115,12 +115,7 @@ async def gen_summary(
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
     if not ctxt.subscription.active:
-        summary += (
-            "<hr />\n"
-            ":sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service "
-            "for free to open source projects.\n\n"
-            ":rocket:&nbsp;&nbsp;You can help us by [becoming a sponsor](/sponsors/Mergifyio)!\n"
-        )
+        summary += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
 
     summary += "<hr />\n"
 
@@ -179,7 +174,7 @@ def _filterred_sources_for_logging(data, inplace=False):
 async def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
     summary_title, summary = await gen_summary(ctxt, match)
 
-    summary += doc.MERGIFY_PULL_REQUEST_DOC
+    summary += constants.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
 
     summary_changed = (

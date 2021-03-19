@@ -249,7 +249,10 @@ The following pull requests are queued:
 * #1 (priority: 4000)
 * #2, #3, #4 (priority: high)
 * #5, #6 (priority: medium)
-* #7, #8, #9 (priority: low)""",
+* #7, #8, #9 (priority: low)
+
+Required conditions for merge:
+""",
         ),
         (
             False,
@@ -262,7 +265,10 @@ The following pull requests are queued:
 * #7, #8, #9 (priority: low)
 
 ⚠ *Ignoring merge priority*
-⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.""",
+⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.
+
+Required conditions for merge:
+""",
         ),
     ),
 )
@@ -294,7 +300,9 @@ async def test_queue_summary_subscription(active, summary, redis_cache):
     )
     with mock.patch.object(merge.naive.Queue, "from_context", return_value=q):
         action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
-        assert summary == await action.get_queue_summary(ctxt, q)
+        assert summary == await action._get_queue_summary(
+            ctxt, mock.Mock(missing_conditions=[], conditions=[]), q
+        )
 
 
 @pytest.mark.parametrize(
