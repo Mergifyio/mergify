@@ -38,8 +38,9 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("method", default="merge"): voluptuous.Any(
             "rebase", "merge", "squash"
         ),
+        # NOTE(sileht): None is supported for legacy reason
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
-            "merge", "squash", None
+            "merge", "squash", "none", None
         ),
         voluptuous.Required("strict", default=False): voluptuous.All(
             voluptuous.Any(

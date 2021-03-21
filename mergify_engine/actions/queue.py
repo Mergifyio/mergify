@@ -44,7 +44,7 @@ class QueueAction(merge_base.MergeBaseAction):
             "rebase", "merge", "squash"
         ),
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
-            "merge", "squash", None
+            "merge", "squash", "none", None
         ),
         voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
             None, types.GitHubLogin
