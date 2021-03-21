@@ -31,7 +31,8 @@ The ``merge`` action merges the pull request into its base branch. The
      - ``merge``
      - If ``method`` is set to ``rebase``, but the pull request cannot be
        rebased, the method defined in ``rebase_fallback`` will be used instead.
-       Possible values are ``merge``, ``squash``, ``null``.
+       Possible values are ``merge``, ``squash``, ``none``. ``none`` will
+       report an error if rebase is not possible.
    * - ``strict``
      - Boolean, ``smart`` or ``smart+fasttrack``
      - ``false``
