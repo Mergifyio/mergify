@@ -30,3 +30,22 @@ The ``assign`` action assigns users to the pull request.
 
 The list of users in ``add_users`` or ``remove_users`` is based on :ref:`data type template`, you can use
 e.g. ``{{author}}`` to assign the pull request to its author.
+
+
+Example
+~~~~~~~
+
+You can assign people for review based on any criteria you like. A classic is
+to use the name of modified files to do it:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: assign PRs with Python files modified to jd
+        conditions:
+          - files~=\.py$
+          - -closed
+        actions:
+          assign:
+            add_users:
+              - jd
