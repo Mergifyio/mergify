@@ -257,12 +257,15 @@ Code-block style
 }
 
 /* Table */
-.table {
-    width: auto;
+tbody {
+    border-left: solid 1px rgb(236, 238, 239);
+    border-right: solid 1px rgb(236, 238, 239);
+    border-bottom: solid 1px rgb(236, 238, 239);
 }
 
-tr.row-odd {
-    background-color: rgb(255, 255, 255);
+/* Not really necessary but helps with alignment the border of tbody */
+thead {
+    border: solid 1px #034870;
 }
 
 div.icon {
