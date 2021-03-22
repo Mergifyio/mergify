@@ -225,7 +225,7 @@ class MergeBaseAction(actions.Action):
                 title = f"The pull request is the {_ord} in the queue to be merged"
 
             if is_behind:
-                summary = "\nThe pull request base branch will be updated before being merged."
+                summary = "The pull request base branch will be updated before being merged.\n\n"
 
         elif self.config["strict"] is not StrictMergeParameter.false and is_behind:
             title = "The pull request will be updated with its base branch soon"

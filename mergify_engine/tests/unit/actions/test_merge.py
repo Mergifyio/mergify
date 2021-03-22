@@ -18,6 +18,7 @@ from unittest import mock
 import pytest
 import voluptuous
 
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -243,45 +244,71 @@ def gen_config(priorities):
     (
         (
             True,
-            """
+            """**Required conditions for merge:**
 
-The following pull requests are queued:
-* #1 (priority: 4000)
-* #2, #3, #4 (priority: high)
-* #5, #6 (priority: medium)
-* #7, #8, #9 (priority: low)
 
-Required conditions for merge:
-""",
+**The following pull requests are queued:**
+| | Pull request | Priority |
+| ---: | :--- | :--- |
+| 1 | foo #1 | 4000 |
+| 2 | foo #2 | high |
+| 3 | foo #3 | high |
+| 4 | foo #4 | high |
+| 5 | foo #5 | medium |
+| 6 | foo #6 | medium |
+| 7 | foo #7 | low |
+| 8 | foo #8 | low |
+| 9 | foo #9 | low |
+
+---
+
+"""
+            + constants.MERGIFY_PULL_REQUEST_DOC,
         ),
         (
             False,
-            """
+            """**Required conditions for merge:**
 
-The following pull requests are queued:
-* #1 (priority: 4000)
-* #2, #3, #4 (priority: high)
-* #5, #6 (priority: medium)
-* #7, #8, #9 (priority: low)
+
+**The following pull requests are queued:**
+| | Pull request | Priority |
+| ---: | :--- | :--- |
+| 1 | foo #1 | 4000 |
+| 2 | foo #2 | high |
+| 3 | foo #3 | high |
+| 4 | foo #4 | high |
+| 5 | foo #5 | medium |
+| 6 | foo #6 | medium |
+| 7 | foo #7 | low |
+| 8 | foo #8 | low |
+| 9 | foo #9 | low |
 
 ⚠ *Ignoring merge priority*
 ⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.
 
-Required conditions for merge:
-""",
+---
+
+"""
+            + constants.MERGIFY_PULL_REQUEST_DOC,
         ),
     ),
 )
 @pytest.mark.asyncio
 async def test_queue_summary_subscription(active, summary, redis_cache):
+    repository = mock.Mock(
+        get_pull_request_context=mock.AsyncMock(
+            return_value=mock.Mock(pull={"title": "foo"})
+        )
+    )
     ctxt = mock.Mock(
+        repository=repository,
         subscription=subscription.Subscription(
             redis_cache,
             123,
             active,
             "We're just testing",
             frozenset({subscription.Features.PRIORITY_QUEUES}),
-        )
+        ),
     )
     ctxt.missing_feature_reason = subscription.Subscription.missing_feature_reason
     ctxt.pull = {
