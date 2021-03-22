@@ -61,7 +61,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     "Operation timed out": DuplicateNeedRetry,
     "reference already exists": DuplicateAlreadyExists,
     "Aborting commit due to empty commit message": DuplicateNotNeeded,
-    "You may want to first integrate the remote changes": DuplicateNeedRetry,
+    "You may want to first integrate the remote changes": DuplicateAlreadyExists,
 }
 
 
