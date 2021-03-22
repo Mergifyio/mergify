@@ -49,26 +49,24 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         second_branch = self.get_full_branch_name("#2-second-pr")
         p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
         p2, _ = await self.create_pr(base_repo="main", branch=second_branch)
-        await self.add_label(p1, "merge")
-        await self.add_label(p2, "close")
+        await self.add_label(p1["number"], "merge")
+        await self.add_label(p2["number"], "close")
 
-        p1.merge()
+        await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        p2.edit(state="close")
+        await self.edit_pull(p2["number"], state="close")
         await self.wait_for("pull_request", {"action": "closed"})
 
         await self.run_engine()
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
         self.assertEqual(2, len(pulls))
 
-        branches = list(self.r_o_admin.get_branches())
+        branches = await self.get_branches()
         self.assertEqual(2, len(branches))
-        self.assertEqual(self.master_branch_name, branches[0].name)
-        self.assertEqual("master", branches[1].name)
+        self.assertEqual(self.master_branch_name, branches[0]["name"])
+        self.assertEqual("master", branches[1]["name"])
 
     async def test_delete_branch_with_dep_no_force(self):
         rules = {
@@ -94,24 +92,22 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             base_repo="main", branch=second_branch, base=first_branch
         )
 
-        p1.merge()
+        await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
-        await self.add_label(p1, "merge")
+        await self.add_label(p1["number"], "merge")
         await self.run_engine()
 
         await self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
         assert 1 == len(pulls)
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=first_branch))
+        pulls = await self.get_pulls(state="all", base=first_branch)
         assert 1 == len(pulls)
 
-        branches = list(self.r_o_admin.get_branches())
+        branches = await self.get_branches()
         assert 4 == len(branches)
         assert {"master", self.master_branch_name, first_branch, second_branch} == {
-            b.name for b in branches
+            b["name"] for b in branches
         }
 
     async def test_delete_branch_with_dep_force(self):
@@ -138,22 +134,24 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             base_repo="main", branch=second_branch, base=first_branch
         )
 
-        p1.merge()
-        await self.wait_for("pull_request", {"action": "closed", "number": p1.number})
-        await self.add_label(p1, "merge")
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed", "number": p2.number})
-        await self.run_engine()
-
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
+        await self.merge_pull(p1["number"])
+        await self.wait_for(
+            "pull_request", {"action": "closed", "number": p1["number"]}
         )
+        await self.add_label(p1["number"], "merge")
+        await self.run_engine()
+        await self.wait_for(
+            "pull_request", {"action": "closed", "number": p2["number"]}
+        )
+        await self.run_engine()
+
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
         assert 1 == len(pulls)
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=first_branch))
+        pulls = await self.get_pulls(state="all", base=first_branch)
         assert 1 == len(pulls)
 
-        branches = list(self.r_o_admin.get_branches())
+        branches = await self.get_branches()
         assert 3 == len(branches)
         assert {"master", self.master_branch_name, second_branch} == {
-            b.name for b in branches
+            b["name"] for b in branches
         }

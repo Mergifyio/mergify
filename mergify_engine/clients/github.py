@@ -91,12 +91,12 @@ class GithubActionAccessTokenAuth(httpx.Auth):
 
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[github_types.GitHubAccountIdType]
-    owner: github_types.GitHubLogin
+    owner: typing.Optional[github_types.GitHubLogin]
 
     def __init__(
         self,
-        owner: github_types.GitHubLogin,
         token: str,
+        owner: typing.Optional[github_types.GitHubLogin] = None,
         owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> None:
         self._token = token
@@ -120,15 +120,15 @@ class GithubTokenAuth(httpx.Auth):
 
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {self._token}"
-        if self.owner_id is None:
+        if self.owner_id is None or self.owner is None:
             with self.response_body_read():
                 user_response = yield self.build_request(
-                    "GET", f"{config.GITHUB_API_URL}/users/{self.owner}"
+                    "GET", f"{config.GITHUB_API_URL}/user"
                 )
                 http.raise_for_status(user_response)
-                self.owner_id = typing.cast(
-                    github_types.GitHubAccount, user_response.json()
-                )["id"]
+                account = typing.cast(github_types.GitHubAccount, user_response.json())
+                self.owner_id = account["id"]
+                self.owner = account["login"]
         yield request
 
     def build_request(self, method, url):
@@ -354,7 +354,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
             if oauth_token:
                 kwargs["auth"] = GithubTokenAuth(
-                    self.auth.owner, oauth_token, self.auth.owner_id
+                    oauth_token, self.auth.owner, self.auth.owner_id
                 )
             return await func(url, headers=headers, **kwargs)
 

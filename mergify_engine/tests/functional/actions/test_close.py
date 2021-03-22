@@ -37,9 +37,10 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        p.update()
-        self.assertEqual("closed", p.state)
-        self.assertEqual("WTF?", list(p.get_issue_comments())[-1].body)
+        p = await self.get_pull(p["number"])
+        self.assertEqual("closed", p["state"])
+        comments = await self.get_issue_comments(p["number"])
+        self.assertEqual("WTF?", comments[-1]["body"])
 
     async def test_close_template(self):
         rules = {
@@ -58,10 +59,10 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        p.update()
-        self.assertEqual("closed", p.state)
-        comments = list(p.get_issue_comments())
-        self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
+        p = await self.get_pull(p["number"])
+        self.assertEqual("closed", p["state"])
+        comments = await self.get_issue_comments(p["number"])
+        self.assertEqual("Thank you mergify-test2", comments[-1]["body"])
 
     async def _test_close_template_error(self, msg):
         rules = {
@@ -80,9 +81,9 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1

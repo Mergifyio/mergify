@@ -40,22 +40,23 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
-        requests = pulls[0].get_review_requests()
-        assert sorted(["mergify-test1"]) == sorted(user.login for user in requests[0])
+        requests = await self.get_review_requests(pulls[0]["number"])
+        assert sorted(["mergify-test1"]) == sorted(
+            user["login"] for user in requests["users"]
+        )
 
     async def test_request_reviews_teams(self):
-        # Add a team to the repo with write permissions  so it can review
-        team = list(self.o_admin.get_teams())[0]
-        team.set_repo_permission(self.r_o_admin, "push")
+        team = (await self.get_teams())[0]
+        await self.add_team_permission(team["slug"], "push")
 
         rules = {
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"request_reviews": {"teams": [team.slug]}},
+                    "actions": {"request_reviews": {"teams": [team["slug"]]}},
                 }
             ]
         }
@@ -65,10 +66,12 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
-        requests = pulls[0].get_review_requests()
-        assert sorted([team.slug]) == sorted(team.slug for team in requests[1])
+        requests = await self.get_review_requests(pulls[0]["number"])
+        assert sorted([team["slug"]]) == sorted(
+            team["slug"] for team in requests["teams"]
+        )
 
     @mock.patch.object(
         request_reviews.RequestReviewsAction, "GITHUB_MAXIMUM_REVIEW_REQUEST", new=1
@@ -96,12 +99,12 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
-        requests = pulls[0].get_review_requests()
-        assert ["mergify-test1"] == [user.login for user in requests[0]]
+        requests = await self.get_review_requests(pulls[0]["number"])
+        assert ["mergify-test1"] == [user["login"] for user in requests["users"]]
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         for check in checks:
@@ -147,17 +150,16 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
-        pulls[0].create_review_request(["mergify-test1"])
-        await self.wait_for("pull_request", {"action": "review_requested"})
+        await self.create_review_request(pulls[0]["number"], ["mergify-test1"])
         await self.run_engine()
-        requests = pulls[0].get_review_requests()
+        requests = await self.get_review_requests(pulls[0]["number"])
         assert sorted(["mergify-test1", "mergify-test3"]) == sorted(
-            user.login for user in requests[0]
+            user["login"] for user in requests["users"]
         )
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         for check in checks:

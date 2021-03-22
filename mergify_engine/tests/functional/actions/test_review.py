@@ -51,12 +51,11 @@ class TestReviewAction(base.FunctionalTestBase):
         await self.wait_for("pull_request_review", {}),
         await self.run_engine()
 
-        p.update()
-        comments = list(p.get_reviews())
-        self.assertEqual(2, len(comments))
-        self.assertEqual("APPROVED", comments[-2].state)
-        self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
-        self.assertEqual("WTF?", comments[-1].body)
+        reviews = await self.get_reviews(p["number"])
+        self.assertEqual(2, len(reviews))
+        self.assertEqual("APPROVED", reviews[-2]["state"])
+        self.assertEqual("CHANGES_REQUESTED", reviews[-1]["state"])
+        self.assertEqual("WTF?", reviews[-1]["body"])
 
     async def test_review_template(self):
         rules = {
@@ -90,12 +89,11 @@ class TestReviewAction(base.FunctionalTestBase):
         await self.wait_for("pull_request_review", {}),
         await self.run_engine()
 
-        p.update()
-        comments = list(p.get_reviews())
-        self.assertEqual(2, len(comments))
-        self.assertEqual("APPROVED", comments[-2].state)
-        self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
-        self.assertEqual(f"WTF {self.u_fork.login}?", comments[-1].body)
+        reviews = await self.get_reviews(p["number"])
+        self.assertEqual(2, len(reviews))
+        self.assertEqual("APPROVED", reviews[-2]["state"])
+        self.assertEqual("CHANGES_REQUESTED", reviews[-1]["state"])
+        self.assertEqual("WTF mergify-test2?", reviews[-1]["body"])
 
     async def _test_review_template_error(self, msg):
         rules = {
@@ -115,7 +113,7 @@ class TestReviewAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert "failure" == checks[0]["conclusion"]
@@ -184,11 +182,10 @@ Unknown pull request attribute: hello
         await self.wait_for("pull_request_review", {}),
         await self.run_engine()
 
-        p.update()
-        comments = list(p.get_reviews())
-        self.assertEqual(2, len(comments))
-        self.assertEqual("APPROVED", comments[-2].state)
-        self.assertEqual("mergify-test3", comments[-2].user.login)
-        self.assertEqual("CHANGES_REQUESTED", comments[-1].state)
-        self.assertEqual("WTF?", comments[-1].body)
-        self.assertEqual("mergify-test3", comments[-1].user.login)
+        reviews = await self.get_reviews(p["number"])
+        self.assertEqual(2, len(reviews))
+        self.assertEqual("APPROVED", reviews[-2]["state"])
+        self.assertEqual("mergify-test3", reviews[-2]["user"]["login"])
+        self.assertEqual("CHANGES_REQUESTED", reviews[-1]["state"])
+        self.assertEqual("WTF?", reviews[-1]["body"])
+        self.assertEqual("mergify-test3", reviews[-1]["user"]["login"])

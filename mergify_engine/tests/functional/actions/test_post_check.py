@@ -49,9 +49,9 @@ class TestPostCheckAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         sorted_checks = sorted(
             await ctxt.pull_engine_check_runs, key=operator.itemgetter("name")
         )
@@ -102,16 +102,16 @@ Rule list:
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         sorted_checks = sorted(
             await ctxt.pull_engine_check_runs, key=operator.itemgetter("name")
         )
         assert len(sorted_checks) == 2
         check = sorted_checks[0]
         assert (
-            f"Pull request #{p.number} does not follow our guideline"
+            f"Pull request #{p['number']} does not follow our guideline"
             == check["output"]["title"]
         )
         assert "failure" == check["conclusion"]
@@ -155,9 +155,9 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         sorted_checks = sorted(
             await ctxt.pull_engine_check_runs, key=operator.itemgetter("name")
         )
