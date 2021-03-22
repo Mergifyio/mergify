@@ -19,7 +19,7 @@ $(function() {
   $(".footer").addClass("col-md-12");
 
   // Tables
-  $("table.docutils").addClass("table table-sm table-bordered table-striped")
+  $("table.docutils").addClass("table table-striped").removeClass("docutils")
     .find("thead")
     .addClass("thead-dark")
 
