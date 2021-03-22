@@ -338,7 +338,6 @@ You don't need to do anything. Mergify will close this pull request automaticall
         )
         description += "\n\n---\n\n"
         description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
-        description += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
         return description.strip()
 
     async def delete_pull(self) -> None:
