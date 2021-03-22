@@ -21,10 +21,10 @@ from mergify_engine.tests.functional import base
 
 class TestDismissReviewsAction(base.FunctionalTestBase):
     async def test_dismiss_reviews(self):
-        return await self._test_dismiss_reviews()
+        await self._test_dismiss_reviews()
 
     async def test_dismiss_reviews_custom_message(self):
-        return await self._test_dismiss_reviews(message="Loser")
+        await self._test_dismiss_reviews(message="Loser")
 
     async def _push_for_synchronize(
         self, branch, filename="unwanted_changes", remote="fork"
@@ -54,22 +54,25 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
         branch = self.get_full_branch_name(f"fork/pr{self.pr_counter}")
-        await self.create_review(p, commits[-1], "APPROVE")
+        await self.create_review(p["number"], "APPROVE")
 
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
         await self._push_for_synchronize(branch)
 
         await self.wait_for("pull_request", {"action": "synchronize"})
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
         ctxt = await context.Context.create(
             self.repository_ctxt,
-            p.raw_data,
+            p,
         )
 
         checks = await ctxt.pull_engine_check_runs
@@ -122,11 +125,14 @@ Unknown pull request attribute: Loser
         await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
         branch = self.get_full_branch_name(f"fork/pr{self.pr_counter}")
-        await self.create_review(p, commits[-1], "APPROVE")
+        await self.create_review(p["number"], "APPROVE")
 
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
         await self._push_for_synchronize(branch)
@@ -137,15 +143,20 @@ Unknown pull request attribute: Loser
 
         self.assertEqual(
             [("DISMISSED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
-        commits = list(p.get_commits())
-        await self.create_review(p, commits[-1], "REQUEST_CHANGES")
+        await self.create_review(p["number"], "REQUEST_CHANGES")
 
         self.assertEqual(
             [("DISMISSED", "mergify-test1"), ("CHANGES_REQUESTED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
         await self._push_for_synchronize(branch, "unwanted_changes2")
@@ -157,7 +168,10 @@ Unknown pull request attribute: Loser
         # There's no way to retrieve the dismiss message :(
         self.assertEqual(
             [("DISMISSED", "mergify-test1"), ("DISMISSED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
         return p
@@ -179,11 +193,14 @@ Unknown pull request attribute: Loser
 
         await self.setup_repo(yaml.dump(rules))
         p, commits = await self.create_pr()
-        await self.create_review(p, commits[-1], "APPROVE")
+        await self.create_review(p["number"], "APPROVE")
 
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )
 
         # Move base branch
@@ -191,12 +208,14 @@ Unknown pull request attribute: Loser
         await self._push_for_synchronize(self.master_branch_name, remote="main")
         await self.run_engine()
 
-        p.create_issue_comment("@mergifyio refresh")
-        await self.wait_for("issue_comment", {"action": "created"})
+        await self.create_comment(p["number"], "@mergifyio refresh")
         await self.run_engine()
 
         # Ensure review have not been dismiss
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
-            [(r.state, r.user.login) for r in p.get_reviews()],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
         )

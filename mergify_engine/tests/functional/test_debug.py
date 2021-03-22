@@ -45,15 +45,15 @@ class TestDebugger(base.FunctionalTestBase):
 
         # NOTE(sileht): Run is a thread to not mess with the main asyncio loop
         with mock.patch("sys.stdout") as stdout:
-            await debug.report(p.html_url)
+            await debug.report(p["html_url"])
             s1 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         with mock.patch("sys.stdout") as stdout:
-            await debug.report(p.base.repo.html_url)
+            await debug.report(p["base"]["repo"]["html_url"])
             s2 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         with mock.patch("sys.stdout") as stdout:
-            await debug.report(p.base.user.html_url)
+            await debug.report(p["base"]["user"]["html_url"])
             s3 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         assert s1.startswith(s2)
@@ -91,7 +91,7 @@ pull_request_rules:
  'assignee': [],
  'author': 'mergify-test2',
  'base': '{self.master_branch_name}',
- 'body': 'Pull request n1 from fork',
+ 'body': 'test_debugger: pull request n1 from fork',
  'changes-requested-reviews-by': [],
  'check-failure': [],
  'check-neutral': [],
@@ -101,18 +101,18 @@ pull_request_rules:
  'conflict': False,
  'dismissed-reviews-by': [],
  'files': ['test1'],
- 'head': '{p.head.ref}',
+ 'head': '{p['head']['ref']}',
  'label': [],
  'locked': False,
  'merged': False,
  'merged-by': '',
  'milestone': '',
- 'number': {p.number},
+ 'number': {p['number']},
  'review-requested': [],
  'status-failure': [],
  'status-neutral': [],
  'status-success': ['Summary'],
- 'title': 'Pull request n1 from fork'}}
+ 'title': 'test_debugger: pull request n1 from fork'}}
 is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:

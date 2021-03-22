@@ -39,7 +39,7 @@ class TestAttributes(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         pr, _ = await self.create_pr()
-        ctxt = await context.Context.create(self.repository_ctxt, pr.raw_data)
+        ctxt = await context.Context.create(self.repository_ctxt, pr)
         assert not await ctxt.pull_request.draft
 
         pr, _ = await self.create_pr(draft=True)
@@ -50,20 +50,19 @@ class TestAttributes(base.FunctionalTestBase):
         ctxt = await context.Context.create(
             self.repository_ctxt,
             {
-                "number": pr.number,
+                "number": pr["number"],
                 "base": {
-                    "user": {"login": pr.base.user.login},
+                    "user": {"login": pr["base"]["user"]["login"]},
                     "repo": {
-                        "name": pr.base.repo.name,
+                        "name": pr["base"]["repo"]["name"],
                     },
                 },
             },
         )
         assert await ctxt.pull_request.draft
 
-        pr.update()
-        comments = list(pr.get_issue_comments())
-        self.assertEqual("draft pr", comments[-1].body)
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("draft pr", comments[-1]["body"])
 
         # Test underscore/dash attributes
         assert await ctxt.pull_request.review_requested == []
@@ -76,7 +75,7 @@ class TestAttributes(base.FunctionalTestBase):
             context.PullRequest.ATTRIBUTES | context.PullRequest.LIST_ATTRIBUTES
         )
         assert await ctxt.pull_request.items() == {
-            "number": pr.number,
+            "number": pr["number"],
             "closed": False,
             "locked": False,
             "assignee": [],
@@ -87,7 +86,7 @@ class TestAttributes(base.FunctionalTestBase):
             "commented-reviews-by": [],
             "milestone": "",
             "label": [],
-            "body": "Pull request n2 from fork",
+            "body": "test_draft: pull request n2 from fork",
             "base": self.master_branch_name,
             "review-requested": [],
             "check-success": ["Summary"],
@@ -100,6 +99,6 @@ class TestAttributes(base.FunctionalTestBase):
             "merged-by": "",
             "check-failure": [],
             "status-failure": [],
-            "title": "Pull request n2 from fork",
+            "title": "test_draft: pull request n2 from fork",
             "conflict": False,
         }

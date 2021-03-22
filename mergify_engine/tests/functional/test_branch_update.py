@@ -15,8 +15,12 @@
 # under the License.
 
 
+import base64
+import typing
+
 import yaml
 
+from mergify_engine import github_types
 from mergify_engine.tests.functional import base
 
 
@@ -34,17 +38,17 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
         p1, _ = await self.create_pr(files={"TESTING2": "foobar"})
         p2, _ = await self.create_pr(files={"TESTING3": "foobar"})
-        p1.merge()
+        await self.merge_pull(p1["number"])
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        await self.create_message(p2, "@mergifyio update")
+        await self.create_comment(p2["number"], "@mergifyio update")
         await self.run_engine()
 
-        oldsha = p2.head.sha
-        p2.update()
-        assert p2.commits == 2
-        assert oldsha != p2.head.sha
+        oldsha = p2["head"]["sha"]
+        p2 = await self.get_pull(p2["number"])
+        assert p2["commits"] == 2
+        assert oldsha != p2["head"]["sha"]
 
     async def test_command_rebase_ok(self):
         rules = {
@@ -59,20 +63,24 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar\n"})
         p1, _ = await self.create_pr(files={"TESTING": "foobar\n\n\np1"})
         p2, _ = await self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
-        p1.merge()
+        await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        await self.create_message(p2, "@mergifyio rebase")
+        await self.create_comment(p2["number"], "@mergifyio rebase")
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        oldsha = p2.head.sha
-        p2.merge()
-        p2.update()
-        assert oldsha != p2.head.sha
-        f = p2.base.repo.get_contents("TESTING")
-        assert f.decoded_content == b"p2\n\nfoobar\n\n\np1"
+        oldsha = p2["head"]["sha"]
+        await self.merge_pull(p2["number"])
+        p2 = await self.get_pull(p2["number"])
+        assert oldsha != p2["head"]["sha"]
+        f = typing.cast(
+            github_types.GitHubContentFile,
+            await self.client_admin.item(f"{self.url_main}/contents/TESTING"),
+        )
+        data = base64.b64decode(bytearray(f["content"], "utf-8"))
+        assert data == b"p2\n\nfoobar\n\n\np1"
 
 
 # FIXME(sileht): This is not yet possible, due to GH restriction ...

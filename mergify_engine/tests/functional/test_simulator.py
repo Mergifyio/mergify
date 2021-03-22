@@ -63,7 +63,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         r = await self.app.post(
             "/simulator/",
-            json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
+            json={"pull_request": p["html_url"], "mergify.yml": mergify_yaml},
             headers={
                 "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
                 "Content-type": "application/json",
@@ -148,7 +148,7 @@ class TestSimulator(base.FunctionalTestBase):
         users:
           - mergify-test1
 """
-        mock_pr_url = f"{p.html_url}424242"
+        mock_pr_url = f"{p['html_url']}424242"
         r = await self.app.post(
             "/simulator/",
             json={"pull_request": mock_pr_url, "mergify.yml": mergify_yaml},
@@ -160,7 +160,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.status_code == 400, r.json()
         assert r.json() == {
             "errors": [
-                f"Pull request {p.base.repo.full_name}/pulls/{p.number}424242 not found"
+                f"Pull request {p['base']['repo']['full_name']}/pulls/{p['number']}424242 not found"
             ]
         }
 
@@ -201,7 +201,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         r = await self.app.post(
             "/simulator/",
-            json={"pull_request": p.html_url, "mergify.yml": mergify_yaml},
+            json={"pull_request": p["html_url"], "mergify.yml": mergify_yaml},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
@@ -215,7 +215,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         r = await self.app.post(
             "/simulator/",
-            json={"pull_request": p.html_url, "mergify.yml": "- no\n* way"},
+            json={"pull_request": p["html_url"], "mergify.yml": "- no\n* way"},
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",

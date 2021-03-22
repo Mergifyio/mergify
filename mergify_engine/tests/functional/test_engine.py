@@ -61,7 +61,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -78,7 +78,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -133,7 +133,7 @@ expected alphabetic or numeric character, but found"""
 
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
@@ -159,12 +159,12 @@ expected alphabetic or numeric character, but found"""
 
         p, _ = await self.create_pr()
 
-        await self.add_label(p, "backport-3.1")
+        await self.add_label(p["number"], "backport-3.1")
         await self.run_engine()
-        await self.remove_label(p, "backport-3.1")
+        await self.remove_label(p["number"], "backport-3.1")
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -199,11 +199,11 @@ expected alphabetic or numeric character, but found"""
 
         p, commits = await self.create_pr(two_commits=True)
 
-        await self.add_label(p, "backport-#3.1")
+        await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -257,11 +257,11 @@ expected alphabetic or numeric character, but found"""
 
         p, commits = await self.create_pr(files={"conflicts": "ohoh"})
 
-        await self.add_label(p, "backport-#3.1")
+        await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         print(await ctxt.pull_check_runs)
         return (
             p,
@@ -290,7 +290,7 @@ expected alphabetic or numeric character, but found"""
 
 Cherry-pick of {commit_id} has failed:
 ```
-On branch mergify/bp/{stable_branch}/pr-{p.number}
+On branch mergify/bp/{stable_branch}/pr-{p['number']}
 Your branch is up to date with 'origin/{stable_branch}'.
 
 You are currently cherry-picking commit {commit_id[:7]}.
@@ -313,20 +313,20 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p, checks = await self._do_backport_conflicts(True)
 
-        pull = list(self.r_o_admin.get_pulls(base=stable_branch))[0]
+        pull = (await self.get_pulls(base=stable_branch))[0]
 
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]
         assert (
             f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
             % (
-                pull.number,
-                pull.title,
-                pull.html_url,
+                pull["number"],
+                pull["title"],
+                pull["html_url"],
             )
             == checks[0]["output"]["summary"]
         )
-        assert [label.name for label in pull.labels] == ["conflicts"]
+        assert [label["name"] for label in pull["labels"]] == ["conflicts"]
 
     async def _do_test_backport(self, method, config=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
@@ -359,26 +359,27 @@ no changes added to commit (use "git add" and/or "git commit -a")
         # see https://github.com/Mergifyio/mergify-engine/issues/849
         await self.create_pr(base=stable_branch)
 
-        await self.add_label(p, "backport-#3.1")
+        await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is True
-        assert "closed" == pulls[0].state
+        assert await self.is_pull_merged(p["number"])
 
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        assert 1 == len(pulls)
+        assert "closed" == pulls[0]["state"]
+
+        pulls = await self.get_pulls(state="all", base=stable_branch)
         assert 2 == len(pulls)
-        assert pulls[0].merged is False
-        assert pulls[1].merged is False
+        assert not await self.is_pull_merged(pulls[0]["number"])
+        assert not await self.is_pull_merged(pulls[1]["number"])
 
         bp_pull = pulls[0]
-        assert bp_pull.title == f"Pull request n1 from fork (bp #{p.number})"
+        assert bp_pull["title"].endswith(
+            f": pull request n1 from fork (bp #{p['number']})"
+        )
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -389,38 +390,38 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert (
             f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
             % (
-                bp_pull.number,
-                bp_pull.title,
-                bp_pull.html_url,
+                bp_pull["number"],
+                bp_pull["title"],
+                bp_pull["html_url"],
             )
             == checks[0]["output"]["summary"]
         )
 
-        assert [f"mergify/bp/{stable_branch}/pr-{p.number}"] == [
-            b.name
-            for b in self.r_o_admin.get_branches()
-            if b.name.startswith("mergify/bp")
+        refs = [
+            ref["ref"]
+            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
         ]
-        return pulls[0]
+        assert [f"refs/heads/mergify/bp/{stable_branch}/pr-{p['number']}"] == refs
+        return await self.get_pull(pulls[0]["number"])
 
     async def test_backport_merge_commit(self):
         p = await self._do_test_backport("merge")
-        assert 2 == p.commits
+        assert 2 == p["commits"]
 
     async def test_backport_merge_commit_regexes(self):
         prefix = self.get_full_branch_name("stable")
         p = await self._do_test_backport(
             "merge", config={"regexes": [f"^{prefix}/.*$"]}
         )
-        assert 2 == p.commits
+        assert 2 == p["commits"]
 
     async def test_backport_squash_and_merge(self):
         p = await self._do_test_backport("squash")
-        assert 1 == p.commits
+        assert 1 == p["commits"]
 
     async def test_backport_rebase_and_merge(self):
         p = await self._do_test_backport("rebase")
-        assert 2 == p.commits
+        assert 2 == p["commits"]
 
     async def test_merge_with_not_merged_attribute(self):
         rules = {
@@ -439,10 +440,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        p.update()
-        self.assertEqual(True, p.merged)
+        assert await self.is_pull_merged(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         for check in await ctxt.pull_check_runs:
             if check["name"] == "Rule: merge on master (merge)":
                 assert (
@@ -472,17 +473,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p1, _ = await self.create_pr(files={"foo": "bar"})
         p2, _ = await self.create_pr(two_commits=True)
-        p1.merge()
+        await self.merge_pull(p1["number"])
 
-        await self.add_label(p2, "squash")
+        await self.add_label(p2["number"], "squash")
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        p2.update()
-        assert 2 == p2.commits
-        assert p2.merged is True
+        assert await self.is_pull_merged(p2["number"])
+
+        p2 = await self.get_pull(p2["number"])
+        assert 2 == p2["commits"]
 
     async def test_merge_strict_squash(self):
         rules = {
@@ -499,18 +501,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p1, _ = await self.create_pr(files={"foo": "bar"})
         p2, _ = await self.create_pr(two_commits=True)
-        p1.merge()
+        await self.merge_pull(p1["number"])
 
-        await self.add_label(p2, "squash")
+        await self.add_label(p2["number"], "squash")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        p2.update()
-        assert 3 == p2.commits
-        assert p2.merged is True
+        p2 = await self.get_pull(p2["number"])
+        assert 3 == p2["commits"]
+        assert p2["merged"] is True
 
     async def test_merge_strict_rebase(self):
         rules = {
@@ -533,36 +535,36 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        p2 = self.r_o_admin.get_pull(p2.number)
-        commits2 = list(p2.get_commits())
+        commits2 = await self.get_commits(p2["number"])
 
         assert 1 == len(commits2)
-        assert commits[0].sha != commits2[0].sha
-        assert commits[0].commit.message == commits2[0].commit.message
+        assert commits[0]["sha"] != commits2[0]["sha"]
+        assert commits[0]["commit"]["message"] == commits2[0]["commit"]["message"]
 
         # Retry to merge pr2
+        p2 = await self.get_pull(p2["number"])
         await self.create_status(p2)
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = self.r_o_admin.get_commits()[0].sha
+        master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 0 == len(pulls)
 
     async def test_merge_strict_rebase_with_user(self):
@@ -592,24 +594,28 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        p2 = self.r_o_admin.get_pull(p2.number)
-        commits2 = list(p2.get_commits())
-        events2 = list(p2.get_issue_events())
+        commits2 = await self.get_commits(p2["number"])
+        events2 = [
+            e
+            async for e in self.client_admin.items(
+                f"{self.url_main}/issues/{p2['number']}/events"
+            )
+        ]
 
         assert 1 == len(commits2)
-        assert commits[0].sha != commits2[0].sha
-        assert commits[0].commit.message == commits2[0].commit.message
-        assert events2[0].actor.login == "mergify-test1"
+        assert commits[0]["sha"] != commits2[0]["sha"]
+        assert commits[0]["commit"]["message"] == commits2[0]["commit"]["message"]
+        assert events2[0]["actor"]["login"] == "mergify-test1"
 
     async def test_merge_strict_rebase_with_invalid_user(self):
         rules = {
@@ -638,17 +644,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
 
         await self.run_engine()
 
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -681,25 +687,25 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        p2 = self.r_o_admin.get_pull(p2.number)
-        commits2 = list(p2.get_commits())
+        p2 = await self.get_pull(p2["number"])
+        commits2 = await self.get_commits(p2["number"])
 
         # Check master have been merged into the PR
         assert (
             f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
-            in commits2[-1].commit.message
+            in commits2[-1]["commit"]["message"]
         )
 
         # Retry to merge pr2
@@ -709,10 +715,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = self.r_o_admin.get_commits()[0].sha
+        master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 0 == len(pulls)
 
     async def test_merge_smart_strict(self):
@@ -736,13 +742,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         p2, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
@@ -759,7 +765,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         assert r.json() == {
             f"mergifyio-testing/{self.REPO_NAME}": {
-                self.master_branch_name: [p2.number]
+                self.master_branch_name: [p2["number"]]
             }
         }
 
@@ -772,32 +778,43 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
         )
 
-        assert r.json() == {f"{self.REPO_ID}": {self.master_branch_name: [p2.number]}}
+        assert r.json() == {
+            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
+        }
 
-        p2 = self.r_o_admin.get_pull(p2.number)
-        commits2 = list(p2.get_commits())
+        p2 = await self.get_pull(p2["number"])
+        commits2 = await self.get_commits(p2["number"])
 
         # Check master have been merged into the PR
         assert (
             f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
-            in commits2[-1].commit.message
+            in commits2[-1]["commit"]["message"]
         )
 
-        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
         for check in await ctxt.pull_check_runs:
             if check["name"] == "Rule: strict merge on master (merge)":
                 assert (
                     "The pull request is the 1st in the queue to be merged"
                     == check["output"]["title"]
                 )
+                print(check["output"]["summary"])
                 assert (
-                    "The following pull requests are queued:\n"
-                    f"* #{p2.number} (priority: medium)\n\n"
-                    "Required conditions for merge:\n\n"
-                    f"- [X] `base={self.master_branch_name}`\n"
-                    "- [ ] `status-success=continuous-integration/fake-ci`\n"
-                    "- [X] `#approved-reviews-by>=1`"
-                ) in check["output"]["summary"]
+                    f"""**Required conditions for merge:**
+
+- [X] `base={self.master_branch_name}`
+- [ ] `status-success=continuous-integration/fake-ci`
+- [X] `#approved-reviews-by>=1`
+
+**The following pull requests are queued:**
+| | Pull request | Priority |
+| ---: | :--- | :--- |
+| 1 | test_merge_smart_strict: pull request n2 from fork #{p2['number']} | medium |
+
+---
+"""
+                    in check["output"]["summary"]
+                )
                 break
         else:
             pytest.fail("Merge check not found")
@@ -808,10 +825,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = self.r_o_admin.get_commits()[0].sha
+        master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 0 == len(pulls)
 
     async def test_merge_failure_smart_strict(self):
@@ -835,10 +852,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, commits = await self.create_pr()
         p3, commits = await self.create_pr()
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = self.r_o_admin.get_commits()[0].sha
+        previous_master_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2, "continuous-integration/fake-ci", "success")
         await self.run_engine()
@@ -848,11 +865,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.create_status(p3, "continuous-integration/fake-ci", "success")
         await self.run_engine()
 
-        p2 = self.r_o_admin.get_pull(p2.number)
-        commits2 = list(p2.get_commits())
+        p2 = await self.get_pull(p2["number"])
+        commits2 = await self.get_commits(p2["number"])
         assert (
             f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
-            == commits2[-1].commit.message
+            == commits2[-1]["commit"]["message"]
         )
 
         await self.create_status(p2, "continuous-integration/fake-ci", "failure")
@@ -867,21 +884,21 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        p3 = self.r_o_admin.get_pull(p3.number)
-        commits3 = list(p3.get_commits())
+        p3 = await self.get_pull(p3["number"])
+        commits3 = await self.get_commits(p3["number"])
         assert (
             f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr3')}"
-            == commits3[-1].commit.message
+            == commits3[-1]["commit"]["message"]
         )
 
         await self.create_status(p3, "continuous-integration/fake-ci", "success")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = self.r_o_admin.get_commits()[0].sha
+        master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
 
     async def test_short_teams(self):
@@ -903,16 +920,16 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = await self.create_pr()
 
-        client = github.aget_client(p.base.user.login)
+        client = github.aget_client(p["base"]["user"]["login"])
         installation = context.Installation(
-            p.base.user.id,
-            p.base.user.login,
+            p["base"]["user"]["id"],
+            p["base"]["user"]["login"],
             self.subscription,
             client,
             await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
-        repository = context.Repository(installation, p.base.repo.name)
-        pull = await context.Context.create(repository, p.raw_data, [])
+        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
             ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
@@ -949,16 +966,16 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p, commits = await self.create_pr()
 
-        client = github.aget_client(p.base.user.login)
+        client = github.aget_client(p["base"]["user"]["login"])
         installation = context.Installation(
-            p.base.user.id,
-            p.base.user.login,
+            p["base"]["user"]["id"],
+            p["base"]["user"]["login"],
             self.subscription,
             client,
             await (utils.create_aredis_for_cache(max_idle_time=0)),
         )
-        repository = context.Repository(installation, p.base.repo.name)
-        pull = await context.Context.create(repository, p.raw_data, [])
+        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
             [
@@ -1008,16 +1025,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is True
+        assert await self.is_pull_merged(p["number"])
 
-        commit = self.r_o_admin.get_commits()[0].commit
+        commit = (await self.get_head_commit())["commit"]
         if commit_msg is None:
             commit_msg = msg
-        assert commit_msg == commit.message
+        assert commit_msg == commit["message"]
 
     async def test_merge_custom_msg(self):
         return await self._test_merge_custom_msg("Commit Message:\n")
@@ -1036,7 +1049,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "Commit Message:\n",
             "merge",
             msg="{{title}}\n\nThanks to {{author}}",
-            commit_msg="Pull request n1 from fork\n\nThanks to mergify-test2",
+            commit_msg="test_merge_custom_msg_template: pull request n1 from fork\n\nThanks to mergify-test2",
         )
 
     async def test_merge_invalid_custom_msg(self):
@@ -1061,13 +1074,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.run_engine()
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is False
+        assert not await self.is_pull_merged(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1081,7 +1090,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "Invalid commit message" == checks[0]["output"]["title"]
 
         # Edit and fixes the typo
-        p.edit(body="It fixes it\n\n## Commit Message\n\nHere it is valid now")
+        await self.edit_pull(
+            p["number"], body="It fixes it\n\n## Commit Message\n\nHere it is valid now"
+        )
         await self.wait_for("pull_request", {"action": "edited"})
 
         await self.run_engine()
@@ -1101,11 +1112,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert "completed" == checks[0]["status"]
         assert checks[0]["conclusion"] == "success"
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged
+
+        assert await self.is_pull_merged(p["number"])
 
     async def test_merge_custom_msg_title_body(self):
         rules = {
@@ -1133,14 +1141,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is True
+        assert await self.is_pull_merged(p["number"])
 
-        commit = self.r_o_admin.get_commits()[0].commit
-        assert f"Pull request n1 from fork (#{p.number})\n\n{msg}" == commit.message
+        commit = (await self.get_head_commit())["commit"]
+        assert (
+            f"test_merge_custom_msg_title_body: pull request n1 from fork (#{p['number']})\n\n{msg}"
+            == commit["message"]
+        )
 
     async def test_merge_and_closes_issues(self):
         rules = {
@@ -1158,26 +1165,27 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.setup_repo(yaml.dump(rules))
 
-        i = self.r_o_admin.create_issue(
+        i = await self.create_issue(
             title="Such a bug", body="I can't explain, but don't work"
         )
-        p, commits = await self.create_pr(message=f"It fixes it\n\nCloses #{i.number}")
+        p, commits = await self.create_pr(
+            message=f"It fixes it\n\nCloses #{i['number']}"
+        )
         await self.create_status(p)
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert p.number == pulls[0].number
-        assert pulls[0].merged is True
-        assert "closed" == pulls[0].state
+        assert await self.is_pull_merged(p["number"])
 
-        issue = self.r_o_admin.get_issue(i.number)
-        assert "closed" == issue.state
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        assert 1 == len(pulls)
+        assert p["number"] == pulls[0]["number"]
+        assert "closed" == pulls[0]["state"]
+
+        issue = await self.client_admin.item(f"{self.url_main}/issues/{i['number']}")
+        assert "closed" == issue["state"]
 
     async def test_rebase(self):
         rules = {
@@ -1198,18 +1206,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         p2, commits = await self.create_pr()
         await self.create_status(p2)
-        await self.create_review(p2, commits[0])
+        await self.create_review(p2["number"])
 
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is True
-        assert "closed" == pulls[0].state
+        assert await self.is_pull_merged(p2["number"])
 
     async def test_merge_branch_protection_ci(self):
         rules = {
@@ -1225,19 +1228,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules))
 
         # Check policy of that branch is the expected one
-        rule = {
-            "protection": {
-                "required_status_checks": {
-                    "strict": False,
-                    "contexts": ["continuous-integration/fake-ci"],
-                },
-                "required_pull_request_reviews": None,
-                "restrictions": None,
-                "enforce_admins": False,
-            }
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
         }
 
-        self.branch_protection_protect(self.master_branch_name, rule)
+        await self.branch_protection_protect(self.master_branch_name, protection)
 
         p, _ = await self.create_pr()
 
@@ -1254,7 +1255,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
         )
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1277,11 +1278,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        pulls = list(
-            self.r_o_admin.get_pulls(state="all", base=self.master_branch_name)
-        )
-        assert 1 == len(pulls)
-        assert pulls[0].merged is True
+        assert await self.is_pull_merged(p["number"])
 
     async def test_merge_branch_protection_strict_ci(self):
         rules = {
@@ -1297,25 +1294,23 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules))
 
         # Check policy of that branch is the expected one
-        rule = {
-            "protection": {
-                "required_status_checks": {
-                    "strict": True,
-                    "contexts": ["continuous-integration/fake-ci"],
-                },
-                "required_pull_request_reviews": None,
-                "restrictions": None,
-                "enforce_admins": False,
-            }
+        protection = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
         }
 
-        self.branch_protection_protect(self.master_branch_name, rule)
+        await self.branch_protection_protect(self.master_branch_name, protection)
 
         p, _ = await self.create_pr()
 
         p2, _ = await self.create_pr()
         await self.create_status(p2)
-        p2.merge()
+        await self.merge_pull(p2["number"])
 
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1333,7 +1328,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
         )
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1343,9 +1338,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert "The pull request will be merged soon" == checks[0]["output"]["title"]
 
         # Ensure it have been  rebased
-        head_sha = p.head.sha
-        p.update()
-        assert p.head.sha != head_sha
+        head_sha = p["head"]["sha"]
+        p = await self.get_pull(p["number"])
+        assert p["head"]["sha"] != head_sha
 
         # After rebase CI fail and PR is removed from queue
         await self.create_status(p, state="failure")
@@ -1361,8 +1356,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 }
             },
         )
-        p.update()
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1370,14 +1365,14 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert "cancelled" == checks[0]["conclusion"]
         assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
-        assert p.merged is False
+        assert p["merged"] is False
 
         # CI is back, check PR is merged
         await self.create_status(p)
         await self.run_engine()
 
-        p.update()
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1388,7 +1383,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "The pull request has been merged automatically"
             == checks[0]["output"]["title"]
         )
-        assert p.merged is True
+        assert p["merged"] is True
 
     async def test_merge_branch_protection_strict(self):
         rules = {
@@ -1407,24 +1402,22 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules))
 
         # Check policy of that branch is the expected one
-        rule = {
-            "protection": {
-                "required_status_checks": {
-                    "strict": True,
-                    "contexts": ["continuous-integration/fake-ci"],
-                },
-                "required_pull_request_reviews": None,
-                "restrictions": None,
-                "enforce_admins": False,
-            }
+        protection = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
         }
 
         p1, _ = await self.create_pr()
         p2, _ = await self.create_pr()
 
-        p1.merge()
+        await self.merge_pull(p1["number"])
 
-        self.branch_protection_protect(self.master_branch_name, rule)
+        await self.branch_protection_protect(self.master_branch_name, protection)
 
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1434,7 +1427,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.run_engine()
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
-        ctxt = await context.Context.create(self.repository_ctxt, p2.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1461,7 +1454,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         await self.run_engine()
 
-        ctxt = await self.repository_ctxt.get_pull_request_context(p.number, p.raw_data)
+        ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check_suite_id = checks[0]["check_suite"]["id"]
@@ -1509,25 +1502,25 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p2, _ = await self.create_pr()
 
         resp = await self.app.post(
-            f"/refresh/{p1.base.repo.full_name}/pull/{p1.number}",
+            f"/refresh/{p1['base']['repo']['full_name']}/pull/{p1['number']}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            f"/refresh/{p2.base.repo.full_name}/pull/{p2.number}",
+            f"/refresh/{p2['base']['repo']['full_name']}/pull/{p2['number']}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            f"/refresh/{p1.base.repo.full_name}/branch/master",
+            f"/refresh/{p1['base']['repo']['full_name']}/branch/master",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            f"/refresh/{p1.base.repo.full_name}",
+            f"/refresh/{p1['base']['repo']['full_name']}",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
@@ -1549,7 +1542,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         ctxt = await context.Context.create(
             self.repository_ctxt,
-            p.raw_data,
+            p,
         )
         await (
             ctxt.set_summary_check(
@@ -1566,9 +1559,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert checks[0]["name"] == "Summary"
         completed_at = checks[0]["completed_at"]
 
-        p.create_issue_comment("@mergifyio refresh")
+        await self.create_comment(p["number"], "@mergifyio refresh")
 
-        await self.wait_for("issue_comment", {"action": "created"})
         await self.run_engine()
 
         del ctxt._cache["pull_check_runs"]
@@ -1577,11 +1569,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert checks[0]["name"] == "Summary"
         assert completed_at != checks[0]["completed_at"]
 
-        p.update()
-        comments = list(p.get_issue_comments())
+        comments = await self.get_issue_comments(p["number"])
         assert (
             "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
-            == comments[-1].body
+            == comments[-1]["body"]
         )
 
     async def test_change_mergify_yml(self):
@@ -1600,7 +1591,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
         p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.run_engine()
-        ctxt = await context.Context.create(self.repository_ctxt, p1.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p1, [])
         checks = await ctxt.pull_check_runs
         assert len(checks) == 1
         assert checks[0]["name"] == "Summary"
@@ -1644,7 +1635,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
         p1, _ = await self.create_pr(files={"TESTING": "p1"})
         p2, _ = await self.create_pr(files={"TESTING": "p2"})
-        p1.merge()
+        await self.merge_pull(p1["number"])
 
         await self.run_engine()
 
@@ -1661,8 +1652,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
     async def test_requested_reviews(self):
-        team = list(self.o_admin.get_teams())[0]
-        team.update_team_repository(self.r_o_admin, "push")
+        team = (await self.get_teams())[0]
+        await self.add_team_permission(team["slug"], "push")
 
         rules = {
             "pull_request_rules": [
@@ -1687,8 +1678,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
-        p1.create_review_request(reviewers=["sileht"])
-        await self.wait_for("pull_request", {"action": "review_requested"})
+        await self.create_review_request(p1["number"], reviewers=["sileht"])
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -1699,7 +1689,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         # await self.run_engine()
         # await self.wait_for("issue_comment", {"action": "created"})
 
-        assert "review-requested user" == list(p1.get_issue_comments())[0].body
+        comments = await self.get_issue_comments(p1["number"])
+        assert "review-requested user" == comments[0]["body"]
 
         # assert "review-requested team" == list(p2.get_issue_comments())[0].body
 
@@ -1711,7 +1702,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.setup_repo(yaml.dump(rules))
         pr, commits = await self.create_pr()
         await self.run_engine()
-        pull = await context.Context.create(self.repository_ctxt, pr.raw_data, [])
+        pull = await context.Context.create(self.repository_ctxt, pr, [])
         check = await check_api.set_check_run(
             pull,
             "Test",
@@ -1733,7 +1724,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
         # Check initial summary is submitted
         p, _ = await self.create_pr()
-        ctxt = await self.repository_ctxt.get_pull_request_context(p.number, p.raw_data)
+        ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert checks[0]["output"]["title"] == "Your rules are under evaluation"
@@ -1761,16 +1752,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
             0
         ] = f"base={self.master_branch_name}"
         p_config, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        p_config.merge()
+        await self.merge_pull(p_config["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {})
 
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
-        p.update()
-        comments = list(p.get_issue_comments())
-        assert "it works" == comments[-1].body
+        comments = await self.get_issue_comments(p["number"])
+        assert "it works" == comments[-1]["body"]
 
     async def test_unconfigured_repo_does_not_post_summary(self):
         await self.setup_repo()
@@ -1779,13 +1769,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         assert await ctxt.pull_engine_check_runs == []
 
     async def test_check_run_api(self):
         await self.setup_repo()
         p, _ = await self.create_pr()
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         await check_api.set_check_run(
             ctxt,
@@ -1835,7 +1825,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert checks[0]["output"]["summary"] == "PENDING"
 
     async def test_get_repository_by_id(self):
-        repo = await self.installation_ctxt.get_repository_by_id(
-            self.r_o_integration.id
-        )
+        repo = await self.installation_ctxt.get_repository_by_id(self.REPO_ID)
+        assert repo.name == self.REPO_NAME
         assert repo.name == self.repository_ctxt.name

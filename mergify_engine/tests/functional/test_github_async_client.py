@@ -39,9 +39,9 @@ class TestGithubClient(base.FunctionalTestBase):
         p2, _ = await self.create_pr()
         await self.create_pr(base=other_branch)
 
-        client = github.aget_client(self.o_integration.login)
+        client = github.aget_client("mergifyio-testing")
 
-        url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
+        url = f"/repos/mergifyio-testing/{self.REPO_NAME}/pulls"
 
         pulls = [p async for p in client.items(url)]
         self.assertEqual(3, len(pulls))
@@ -58,11 +58,11 @@ class TestGithubClient(base.FunctionalTestBase):
         pulls = [p async for p in client.items(url, base="unknown")]
         self.assertEqual(0, len(pulls))
 
-        pull = await client.item(f"{url}/{p1.number}")
-        self.assertEqual(p1.number, pull["number"])
+        pull = await client.item(f"{url}/{p1['number']}")
+        self.assertEqual(p1["number"], pull["number"])
 
-        pull = await client.item(f"{url}/{p2.number}")
-        self.assertEqual(p2.number, pull["number"])
+        pull = await client.item(f"{url}/{p2['number']}")
+        self.assertEqual(p2["number"], pull["number"])
 
         with self.assertRaises(http.HTTPStatusError) as ctxt:
             await client.item(f"{url}/10000000000")
@@ -83,10 +83,6 @@ class TestGithubClient(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
-
-        client = github.aget_client(owner_id=self.o_integration.id)
-
-        url = f"/repos/{self.o_integration.login}/{self.r_o_integration.name}/pulls"
-
-        pulls = [p async for p in client.items(url)]
+        url = f"/repos/mergifyio-testing/{self.REPO_NAME}/pulls"
+        pulls = [p async for p in self.client_integration.items(url)]
         self.assertEqual(1, len(pulls))

@@ -40,10 +40,10 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        p.update()
-        comments = list(p.get_issue_comments())
-        assert comments[-1].body == "WTF?"
-        assert comments[-1].user.login == "mergify-test3"
+        p = await self.get_pull(p["number"])
+        comments = await self.get_issue_comments(p["number"])
+        assert comments[-1]["body"] == "WTF?"
+        assert comments[-1]["user"]["login"] == "mergify-test3"
 
 
 class TestCommentAction(base.FunctionalTestBase):
@@ -63,18 +63,17 @@ class TestCommentAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        p.update()
-        comments = list(p.get_issue_comments())
-        self.assertEqual("WTF?", comments[-1].body)
+        p = await self.get_pull(p["number"])
+        comments = await self.get_issue_comments(p["number"])
+        assert comments[-1]["body"] == "WTF?"
 
         # Add a label to trigger mergify
-        await self.add_label(p, "stable")
+        await self.add_label(p["number"], "stable")
         await self.run_engine()
 
         # Ensure nothing changed
-        new_comments = list(p.get_issue_comments())
-        self.assertEqual(len(comments), len(new_comments))
-        self.assertEqual("WTF?", new_comments[-1].body)
+        new_comments = await self.get_issue_comments(p["number"])
+        assert new_comments[-1]["body"] == "WTF?"
 
         # Add new commit to ensure Summary get copied and comment not reposted
         open(self.git.tmp + "/new_file", "wb").close()
@@ -92,9 +91,9 @@ class TestCommentAction(base.FunctionalTestBase):
         await self.run_engine()
 
         # Ensure nothing changed
-        new_comments = list(p.get_issue_comments())
+        new_comments = await self.get_issue_comments(p["number"])
         self.assertEqual(len(comments), len(new_comments))
-        self.assertEqual("WTF?", new_comments[-1].body)
+        assert new_comments[-1]["body"] == "WTF?"
 
     async def test_comment_template(self):
         rules = {
@@ -112,9 +111,9 @@ class TestCommentAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
 
         await self.run_engine()
-        p.update()
-        comments = list(p.get_issue_comments())
-        self.assertEqual(f"Thank you {self.u_fork.login}", comments[-1].body)
+
+        new_comments = await self.get_issue_comments(p["number"])
+        assert new_comments[-1]["body"] == "Thank you mergify-test2"
 
     async def test_comment_with_none(self):
         rules = {
@@ -132,15 +131,15 @@ class TestCommentAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
 
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert "success" == checks[0]["conclusion"]
 
-        comments = list(p.get_issue_comments())
+        comments = await self.get_issue_comments(p["number"])
         assert len(comments) == 0
 
     async def _test_comment_template_error(self, msg):
@@ -159,9 +158,9 @@ class TestCommentAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
 
         await self.run_engine()
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
@@ -211,12 +210,12 @@ Unknown pull request attribute: hello
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        comments = list(p.get_issue_comments())
+        comments = await self.get_issue_comments(p["number"])
         assert len(comments) == 0
 
-        ctxt = await context.Context.create(self.repository_ctxt, p.raw_data, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
         assert (
             checks[-1]["output"]["title"]

@@ -36,11 +36,11 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted(user.login for user in pulls[0].assignees),
+            sorted(user["login"] for user in pulls[0]["assignees"]),
         )
 
     async def test_assign_with_add_users(self):
@@ -60,11 +60,11 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted(user.login for user in pulls[0].assignees),
+            sorted(user["login"] for user in pulls[0]["assignees"]),
         )
 
     async def test_assign_valid_template(self):
@@ -84,11 +84,11 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted([self.u_fork.login]),
-            sorted(user.login for user in pulls[0].assignees),
+            sorted(["mergify-test2"]),
+            sorted(user["login"] for user in pulls[0]["assignees"]),
         )
 
     async def test_assign_user_already_assigned(self):
@@ -105,14 +105,14 @@ class TestAssignAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
-        await self.add_assignee(p, "mergify-test1")
+        await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted(user.login for user in pulls[0].assignees),
+            sorted(user["login"] for user in pulls[0]["assignees"]),
         )
 
     async def test_remove_assignee(self):
@@ -129,12 +129,12 @@ class TestAssignAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
-        await self.add_assignee(p, "mergify-test1")
+        await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 
-        pulls = list(self.r_o_admin.get_pulls(base=self.master_branch_name))
+        pulls = await self.get_pulls(base=self.master_branch_name)
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             [],
-            pulls[0].assignees,
+            pulls[0]["assignees"],
         )
