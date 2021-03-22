@@ -465,9 +465,11 @@ class MergeBaseAction(actions.Action):
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
-        elif self.config["rebase_fallback"]:
+        elif self.config["rebase_fallback"] in ["merge", "squash"]:
             method = self.config["rebase_fallback"]
         else:
+            if self.config["rebase_fallback"] is None:
+                ctxt.log.info("legacy rebase_fallback=null used")
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
                 "Automatic rebasing is not possible, manual intervention required",
