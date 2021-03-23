@@ -15,6 +15,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import daiquiri
 import voluptuous
 
@@ -70,6 +72,55 @@ class MergeAction(merge_base.MergeBaseAction):
             {"priority": 0, "speculative_checks": 1}
         )
 
+    def _subscription_status(
+        self, ctxt: context.Context
+    ) -> typing.Optional[check_api.Result]:
+
+        if self.config["update_bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Merge with `update_bot_account` set is unavailable",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        elif self.config["merge_bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Merge with `merge_bot_account` set is unavailable",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        elif self.config[
+            "priority"
+        ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
+            subscription.Features.PRIORITY_QUEUES
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Merge with `priority` set is unavailable.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        return None
+
+    async def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        subscription_status = self._subscription_status(ctxt)
+        if subscription_status:
+            return subscription_status
+        return await super().run(ctxt, rule)
+
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return await ctxt.is_behind and await q.is_first_pull(ctxt)
@@ -123,7 +174,6 @@ class MergeAction(merge_base.MergeBaseAction):
 
         pulls = await q.get_pulls()
         if pulls:
-            priorities_configured = False
             table = [
                 "| | Pull request | Priority |",
                 "| ---: | :--- | :--- |",
@@ -139,9 +189,6 @@ class MergeAction(merge_base.MergeBaseAction):
                 except ValueError:
                     fancy_priority = str(config["priority"])
 
-                if config["priority"] != merge_base.PriorityAliases.medium.value:
-                    priorities_configured = True
-
                 table.append(
                     f"| {i + 1} "
                     f"| {q_pull_ctxt.pull['title']} #{pull_number} "
@@ -152,14 +199,6 @@ class MergeAction(merge_base.MergeBaseAction):
             summary += "\n\n**The following pull requests are queued:**\n" + "\n".join(
                 table
             )
-
-            if priorities_configured and not ctxt.subscription.has_feature(
-                subscription.Features.PRIORITY_QUEUES
-            ):
-                summary += "\n\n⚠ *Ignoring merge priority*\n"
-                summary += ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                )
 
         summary += "\n\n---\n\n"
         summary += constants.MERGIFY_PULL_REQUEST_DOC

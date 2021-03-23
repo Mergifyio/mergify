@@ -9,7 +9,6 @@
 queue
 =====
 
-|premium plan tag|
 |beta tag|
 
 The ``queue`` action moves the pull request into one of the merge queue defined
@@ -121,6 +120,8 @@ all preceding queues, or higher priorities queues are empty.
 Speculative Merges
 ------------------
 
+|premium plan tag|
+
 Merging pull requests one by one serially can take a lot of time, depending on
 the continuous integration run time. To merge pull requests faster, Mergify
 queues support `speculative merges`.
@@ -132,8 +133,8 @@ tested speculatively.
 
 The upside of creating multiple temporary pull requests is that continuous
 integration pipelines can run on all of them in parallel. Currently, Mergify
-embarks up to 5 pull requests into the merge train (You can change this value
-with the ``speculative_checks`` settings in ``queue_rules``).
+embarks up from 1 to 20 pull requests into the merge train (You can set the
+value with the ``speculative_checks`` settings in ``queue_rules``).
 
 .. graphviz:: queue-strict-train.dot
    :alt: Merge train
@@ -200,12 +201,18 @@ These are the options of the ``queue`` action:
        If no ``merge_bot_account`` is set, Mergify will merge the pull request
        itself. The user account **must** have already been
        logged in Mergify dashboard once and have **write** or **maintain** permission.
+
+       |premium plan tag|
+
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
      - This sets the priority of the pull request in the queue. The pull
        request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
+
+       |premium plan tag|
+
    * - ``commit_message``
      - string
      - ``default``
@@ -244,10 +251,12 @@ A ``queue_rules`` takes the following parameter:
      - The list of ``conditions`` to match to get the queued pull request merged.
    * - ``speculative_checks``
      - int
-     - 5
+     - 1
      - The maximum number of checks to run in parallel in the queue. Must be
        between 1 and 20.
        See :ref:`speculative merges`.
+
+       |premium plan tag|
 
 
 Example

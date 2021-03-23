@@ -239,62 +239,8 @@ def gen_config(priorities):
     return [{"priority": priority} for priority in priorities]
 
 
-@pytest.mark.parametrize(
-    "active,summary",
-    (
-        (
-            True,
-            """**Required conditions for merge:**
-
-
-**The following pull requests are queued:**
-| | Pull request | Priority |
-| ---: | :--- | :--- |
-| 1 | foo #1 | 4000 |
-| 2 | foo #2 | high |
-| 3 | foo #3 | high |
-| 4 | foo #4 | high |
-| 5 | foo #5 | medium |
-| 6 | foo #6 | medium |
-| 7 | foo #7 | low |
-| 8 | foo #8 | low |
-| 9 | foo #9 | low |
-
----
-
-"""
-            + constants.MERGIFY_PULL_REQUEST_DOC,
-        ),
-        (
-            False,
-            """**Required conditions for merge:**
-
-
-**The following pull requests are queued:**
-| | Pull request | Priority |
-| ---: | :--- | :--- |
-| 1 | foo #1 | 4000 |
-| 2 | foo #2 | high |
-| 3 | foo #3 | high |
-| 4 | foo #4 | high |
-| 5 | foo #5 | medium |
-| 6 | foo #6 | medium |
-| 7 | foo #7 | low |
-| 8 | foo #8 | low |
-| 9 | foo #9 | low |
-
-⚠ *Ignoring merge priority*
-⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) needs to be updated to enable this feature.
-
----
-
-"""
-            + constants.MERGIFY_PULL_REQUEST_DOC,
-        ),
-    ),
-)
 @pytest.mark.asyncio
-async def test_queue_summary_subscription(active, summary, redis_cache):
+async def test_queue_summary(redis_cache):
     repository = mock.Mock(
         get_pull_request_context=mock.AsyncMock(
             return_value=mock.Mock(pull={"title": "foo"})
@@ -305,7 +251,7 @@ async def test_queue_summary_subscription(active, summary, redis_cache):
         subscription=subscription.Subscription(
             redis_cache,
             123,
-            active,
+            True,
             "We're just testing",
             frozenset({subscription.Features.PRIORITY_QUEUES}),
         ),
@@ -327,7 +273,25 @@ async def test_queue_summary_subscription(active, summary, redis_cache):
     )
     with mock.patch.object(merge.naive.Queue, "from_context", return_value=q):
         action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
-        assert summary == await action._get_queue_summary(
+        assert """**Required conditions for merge:**
+
+
+**The following pull requests are queued:**
+| | Pull request | Priority |
+| ---: | :--- | :--- |
+| 1 | foo #1 | 4000 |
+| 2 | foo #2 | high |
+| 3 | foo #3 | high |
+| 4 | foo #4 | high |
+| 5 | foo #5 | medium |
+| 6 | foo #6 | medium |
+| 7 | foo #7 | low |
+| 8 | foo #8 | low |
+| 9 | foo #9 | low |
+
+---
+
+""" + constants.MERGIFY_PULL_REQUEST_DOC == await action._get_queue_summary(
             ctxt, mock.Mock(missing_conditions=[], conditions=[]), q
         )
 

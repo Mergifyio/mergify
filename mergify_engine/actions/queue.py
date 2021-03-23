@@ -58,17 +58,52 @@ class QueueAction(merge_base.MergeBaseAction):
         # TODO(sileht): Add support for strict method and  update_bot_account
     }
 
-    async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Result:
-        if not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
+    def _subscription_status(
+        self, ctxt: context.Context
+    ) -> typing.Optional[check_api.Result]:
+        if self.config["merge_bot_account"] and not ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
-                "Queue action is disabled",
+                "Queue with `merge_bot_account` set is unavailable",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
+
+        elif self.queue_rule.config[
+            "speculative_checks"
+        ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Queue with `speculative_checks` set is unavailable.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        elif self.config[
+            "priority"
+        ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
+            subscription.Features.PRIORITY_QUEUES
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Queue with `priority` set is unavailable.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        return None
+
+    async def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        subscription_status = self._subscription_status(ctxt)
+        if subscription_status:
+            return subscription_status
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
