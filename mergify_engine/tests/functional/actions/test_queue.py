@@ -1220,7 +1220,22 @@ class TestQueueAction(base.FunctionalTestBase):
             [p1["number"], p2["number"]],
         )
 
-        # Check queue API
+        # Check queue API with the older endpoint
+        r = await self.app.get(
+            f"/queues/{config.TESTING_ORGANIZATION_ID}",
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.json() == {
+            f"{self.REPO_ID}": {
+                self.master_branch_name: [p3["number"], p1["number"], p2["number"]]
+            }
+        }
+
+        # Check queue API with the new endpoint
         r = await self.app.get(
             f"/queues_v2/{config.TESTING_ORGANIZATION_ID}",
             headers={
