@@ -21,6 +21,7 @@ from first import first
 import pytest
 import yaml
 
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
@@ -1218,6 +1219,21 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
             [p1["number"], p2["number"]],
         )
+
+        # Check queue API
+        r = await self.app.get(
+            f"/queues_v2/{config.TESTING_ORGANIZATION_ID}",
+            headers={
+                "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.json() == {
+            f"{self.REPO_ID}": {
+                self.master_branch_name: [p3["number"], p1["number"], p2["number"]]
+            }
+        }
 
         # ensure it have been rebased and tmp merge-queue pr of p1 have all commits
         head_sha = p3["head"]["sha"]
