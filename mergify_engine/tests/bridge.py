@@ -67,7 +67,7 @@ async def main():
                     )
                     data = json.dumps(event["payload"])
                     hmac = utils.compute_hmac(data.encode("utf8"))
-                    session.post(
+                    await session.post(
                         args.dest,
                         headers={
                             "X-GitHub-Event": event["type"],
