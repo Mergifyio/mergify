@@ -28,10 +28,12 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
+from mergify_engine import json
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.queue import merge_train
 from mergify_engine.web import auth
 from mergify_engine.web import badges
 from mergify_engine.web import config_validator
@@ -311,6 +313,14 @@ async def queues(
         queues[repo_id][branch] = [
             int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
         ]
+
+    async for queue in redis_cache.scan_iter(match=f"merge-train~{owner_id}~*~*"):
+        train_raw = await redis_cache.get(queue)
+        train = typing.cast(merge_train.Train.Serialized, json.loads(train_raw))
+        _, _, repo_id, branch = queue.split("~")
+        queues[repo_id][branch] = [
+            int(c["user_pull_request_number"]) for c in train["cars"]
+        ] + [int(wp[0]) for wp in train["waiting_pulls"]]
 
     return responses.JSONResponse(status_code=200, content=queues)
 

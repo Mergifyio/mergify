@@ -637,11 +637,11 @@ class Train(queue.QueueBase):
             repository = await installation.get_repository_by_id(repo_id)
             yield cls(repository, ref)
 
-    async def load(self):
+    async def load(self) -> None:
         train_raw = await self.repository.installation.redis.get(self._get_redis_key())
 
         if train_raw:
-            train = self.Serialized(json.loads(train_raw))
+            train = typing.cast(Train.Serialized, json.loads(train_raw))
             self._waiting_pulls = [WaitingPull(*wp) for wp in train["waiting_pulls"]]
             self._current_base_sha = train["current_base_sha"]
             self._cars = [TrainCar.deserialize(self, c) for c in train["cars"]]
