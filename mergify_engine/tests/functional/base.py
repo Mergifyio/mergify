@@ -18,7 +18,6 @@ import copy
 import datetime
 import json
 import os
-import queue
 import re
 import shutil
 import time
@@ -141,7 +140,7 @@ class EventReader:
     def __init__(self, app):
         self._app = app
         self._session = http.AsyncClient()
-        self._handled_events = queue.Queue()
+        self._handled_events = asyncio.Queue()
         self._counter = 0
 
     async def drain(self):
@@ -166,14 +165,14 @@ class EventReader:
         started_at = time.monotonic()
         while time.monotonic() - started_at < timeout:
             try:
-                event = self._handled_events.get(block=False)
+                event = self._handled_events.get_nowait()
                 await self._forward_to_engine_api(event)
-            except queue.Empty:
+            except asyncio.QueueEmpty:
                 for event in await self._get_events():
-                    self._handled_events.put(event)
+                    await self._handled_events.put(event)
                 else:
                     if RECORD:
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                 continue
 
             if event["type"] == event_type and self._match(
@@ -540,7 +539,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # also to avoid the "git clone fork" failure that Github returns when
         # we create repo too quickly
         if RECORD:
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
             await self.client_admin.patch(
                 self.url_main, json={"default_branch": "master"}
