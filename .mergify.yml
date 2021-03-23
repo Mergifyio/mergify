@@ -7,6 +7,7 @@ queue_rules:
       - check-success=py39
       - check-success=docs
       - check-success=docker
+    speculative_checks: 5
 
 pull_request_rules:
   - name: automatic merge

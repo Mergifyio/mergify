@@ -22,11 +22,12 @@ import queue
 import re
 import shutil
 import time
+import typing
 import unittest
 from unittest import mock
+from urllib import parse
 
 import daiquiri
-import github as pygithub
 import httpx
 import pytest
 import vcr
@@ -38,6 +39,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import engine
+from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import subscription
 from mergify_engine import user_tokens
@@ -72,7 +74,7 @@ class GitterRecorder(gitter.Gitter):
             data = f.read().decode("utf8")
             self.records = json.loads(data)
 
-    def save_records(self):
+    def save_records(self) -> None:
         with open(self.cassette_path, "wb") as f:
             data = json.dumps(self.records)
             f.write(data.encode("utf8"))
@@ -291,9 +293,10 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         super(FunctionalTestBase, self).setUp()
-        self.existing_labels = []
-        self.pr_counter = 0
-        self.git_counter = 0
+        self.existing_labels: typing.List[str] = []
+        self.protected_branches: typing.Set[str] = set()
+        self.pr_counter: int = 0
+        self.git_counter: int = 0
         self.cassette_library_dir = os.path.join(
             CASSETTE_LIBRARY_DIR_BASE, self.__class__.__name__, self._testMethodName
         )
@@ -317,9 +320,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 ("Connection", None),
             ],
             before_record_response=self.response_filter,
-            custom_patches=(
-                (pygithub.MainClass, "HTTPSConnection", vcr.stubs.VCRHTTPSConnection),
-            ),
         )
 
         if RECORD:
@@ -421,49 +421,44 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         cassette.__enter__()
         self.addCleanup(cassette.__exit__)
 
-        integration = pygithub.GithubIntegration(
-            config.INTEGRATION_ID, config.PRIVATE_KEY
+        self.client_integration = github.aget_client(
+            config.TESTING_ORGANIZATION, config.TESTING_ORGANIZATION_ID
         )
-        self.installation_token = integration.get_access_token(
-            config.INSTALLATION_ID
-        ).token
-
-        base_url = config.GITHUB_API_URL
-        self.g_integration = pygithub.Github(self.installation_token, base_url=base_url)
-        self.g_admin = pygithub.Github(
-            config.ORG_ADMIN_PERSONAL_TOKEN, base_url=base_url
+        self.client_admin = github.AsyncGithubInstallationClient(
+            auth=github.GithubTokenAuth(token=config.ORG_ADMIN_PERSONAL_TOKEN)
         )
-        self.g_fork = pygithub.Github(self.FORK_PERSONAL_TOKEN, base_url=base_url)
-
-        self.o_admin = self.g_admin.get_organization(config.TESTING_ORGANIZATION)
-        self.o_integration = self.g_integration.get_organization(
-            config.TESTING_ORGANIZATION
+        self.client_fork = github.AsyncGithubInstallationClient(
+            auth=github.GithubTokenAuth(token=self.FORK_PERSONAL_TOKEN)
         )
-        self.u_fork = self.g_fork.get_user()
-        assert self.o_admin.login == "mergifyio-testing"
-        assert self.o_integration.login == "mergifyio-testing"
-        assert self.u_fork.login in ["mergify-test2", "mergify-test3"]
+        self.addAsyncCleanup(self.client_integration.aclose)
+        self.addAsyncCleanup(self.client_admin.aclose)
+        self.addAsyncCleanup(self.client_fork.aclose)
 
-        self.r_o_admin = self.o_admin.get_repo(self.REPO_NAME)
-        self.r_o_integration = self.o_integration.get_repo(self.REPO_NAME)
-        self.r_fork = self.u_fork.get_repo(self.REPO_NAME)
+        await self.client_admin.item("/user")
+        await self.client_fork.item("/user")
+        if RECORD:
+            assert self.client_admin.auth.owner == "mergify-test1"
+            assert self.client_fork.auth.owner == "mergify-test2"
+        else:
+            self.client_admin.auth.owner = "mergify-test1"
+            self.client_fork.auth.owner = "mergify-test2"
 
-        self.url_main = f"{config.GITHUB_URL}/{self.r_o_integration.full_name}"
-        self.url_fork = (
-            f"{config.GITHUB_URL}/{self.u_fork.login}/{self.r_o_integration.name}"
+        self.url_main = f"/repos/mergifyio-testing/{self.REPO_NAME}"
+        self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.REPO_NAME}"
+        self.git_main = f"{config.GITHUB_URL}/mergifyio-testing/{self.REPO_NAME}"
+        self.git_fork = (
+            f"{config.GITHUB_URL}/{self.client_fork.auth.owner}/{self.REPO_NAME}"
         )
 
-        self.cli_integration = github.aget_client(config.TESTING_ORGANIZATION)
-        self.addAsyncCleanup(self.cli_integration.aclose)
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
             config.TESTING_ORGANIZATION,
             self.subscription,
-            self.cli_integration,
+            self.client_integration,
             self.redis_cache,
         )
         self.repository_ctxt = context.Repository(
-            self.installation_ctxt, self.REPO_NAME, self.r_o_integration.id
+            self.installation_ctxt, self.REPO_NAME, self.REPO_ID
         )
 
         real_get_subscription = subscription.Subscription.get_subscription
@@ -522,11 +517,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             side_effect=fake_user_tokens,
         ).start()
 
-        mock.patch(
-            "github.MainClass.Installation.Installation.get_repos",
-            return_value=[self.r_o_integration],
-        ).start()
-
         self._event_reader = EventReader(self.app)
         await self._event_reader.drain()
 
@@ -544,7 +534,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             await redis_stream.flushall()
 
     async def asyncTearDown(self):
-        super(FunctionalTestBase, self).tearDown()
+        await super(FunctionalTestBase, self).asyncTearDown()
 
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
         # also to avoid the "git clone fork" failure that Github returns when
@@ -552,31 +542,26 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if RECORD:
             time.sleep(0.5)
 
-            self.r_o_admin.edit(default_branch="master")
+            await self.client_admin.patch(
+                self.url_main, json={"default_branch": "master"}
+            )
+            for branch in await self.get_branches():
+                if branch["name"].startswith("20") or branch["name"].startswith(
+                    "mergify"
+                ):
+                    if branch["protected"]:
+                        await self.branch_protection_unprotect(branch["name"])
+                    await self.client_admin.delete(
+                        f"{self.url_main}/git/refs/heads/{parse.quote(branch['name'])}"
+                    )
 
-            branches = list(self.r_o_admin.get_git_matching_refs("heads/20"))
-            branches.extend(self.r_o_admin.get_git_matching_refs("heads/mergify"))
-            try:
-                branches.extend(self.r_fork.get_git_matching_refs("heads/20"))
-                branches.extend(self.r_fork.get_git_matching_refs("heads/mergify"))
-            except pygithub.GithubException as e:
-                if e.data["message"] != "Git Repository is empty.":
-                    raise
-            for branch in branches:
-                if "branch_protection" in branch.ref:
-                    try:
-                        self.branch_protection_unprotect(branch.ref)
-                    except pygithub.GithubException as e:
-                        if e.status != 404:
-                            raise
+            for label in await self.get_labels():
+                await self.client_admin.delete(
+                    f"{self.url_main}/labels/{parse.quote(label['name'], safe='')}"
+                )
 
-                branch.delete()
-
-            for label in self.r_o_admin.get_labels():
-                label.delete()
-
-            for pull in self.r_o_admin.get_pulls():
-                pull.edit(state="closed")
+            for pull in await self.get_pulls():
+                await self.edit_pull(pull["number"], state="closed")
 
         await self.app.aclose()
         await root.shutdown()
@@ -625,16 +610,18 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         await self.git.configure()
         await self.git.add_cred(
-            config.ORG_ADMIN_PERSONAL_TOKEN, "", self.r_o_integration.full_name
+            config.ORG_ADMIN_PERSONAL_TOKEN,
+            "",
+            f"mergifyio-testing/{self.REPO_NAME}",
         )
         await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
-            f"{self.u_fork.login}/{self.r_o_integration.name}",
+            f"{self.client_fork.auth.owner}/{self.REPO_NAME}",
         )
         await self.git("config", "user.name", f"{config.CONTEXT}-tester")
-        await self.git("remote", "add", "main", self.url_main)
-        await self.git("remote", "add", "fork", self.url_fork)
+        await self.git("remote", "add", "main", self.git_main)
+        await self.git("remote", "add", "fork", self.git_fork)
 
         if mergify_config:
             with open(self.git.tmp + "/.mergify.yml", "w") as f:
@@ -664,7 +651,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             "push", "--quiet", "fork", self.master_branch_name, *test_branches
         )
 
-        self.r_o_admin.edit(default_branch=self.master_branch_name)
+        await self.client_admin.patch(
+            self.url_main, json={"default_branch": self.master_branch_name}
+        )
 
     @staticmethod
     def response_filter(response):
@@ -730,19 +719,21 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         return response
 
-    def get_full_branch_name(self, name):
+    def get_full_branch_name(self, name: str) -> str:
         return f"{self.BRANCH_PREFIX}/{self._testMethodName}/{name}"
 
     async def create_pr(
         self,
-        base=None,
-        files=None,
-        two_commits=False,
-        base_repo="fork",
-        branch=None,
-        message=None,
-        draft=False,
-    ):
+        base: typing.Optional[str] = None,
+        files: typing.Optional[typing.Dict[str, str]] = None,
+        two_commits: bool = False,
+        base_repo: typing.Literal["main", "fork"] = "fork",
+        branch: typing.Optional[str] = None,
+        message: typing.Optional[str] = None,
+        draft: bool = False,
+    ) -> typing.Tuple[
+        github_types.GitHubPullRequest, typing.List[github_types.GitHubBranchCommit]
+    ]:
         self.pr_counter += 1
 
         if base is None:
@@ -752,7 +743,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             branch = f"{base_repo}/pr{self.pr_counter}"
             branch = self.get_full_branch_name(branch)
 
-        title = f"Pull request n{self.pr_counter} from {base_repo}"
+        title = (
+            f"{self._testMethodName}: pull request n{self.pr_counter} from {base_repo}"
+        )
 
         await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
         if files:
@@ -778,99 +771,278 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git("push", "--quiet", base_repo, branch)
 
         if base_repo == "fork":
-            repo = self.r_fork.parent
-            login = self.r_fork.owner.login
+            client = self.client_fork
+            login = self.client_fork.auth.owner
         else:
-            repo = self.r_o_admin
-            login = self.r_o_admin.owner.login
+            client = self.client_admin
+            login = "mergifyio-testing"
 
-        p = repo.create_pull(
-            base=base,
-            head=f"{login}:{branch}",
-            title=title,
-            body=message or title,
-            draft=draft,
+        resp = await client.post(
+            f"{self.url_main}/pulls",
+            json={
+                "base": base,
+                "head": f"{login}:{branch}",
+                "title": title,
+                "body": message or title,
+                "draft": draft,
+            },
         )
-
         await self.wait_for("pull_request", {"action": "opened"})
 
         # NOTE(sileht): We return the same but owned by the main project
-        p = self.r_o_integration.get_pull(p.number)
-        commits = list(p.get_commits())
-
+        p = typing.cast(github_types.GitHubPullRequest, resp.json())
+        p = await self.get_pull(p["number"])
+        commits = await self.get_commits(p["number"])
         return p, commits
 
     async def create_status(
-        self, pr, context="continuous-integration/fake-ci", state="success"
-    ):
-        # TODO(sileht): monkey patch PR with this
-        self.r_o_admin._requester.requestJsonAndCheck(
-            "POST",
-            pr.base.repo.url + "/statuses/" + pr.head.sha,
-            input={
+        self,
+        pull: github_types.GitHubPullRequest,
+        context: str = "continuous-integration/fake-ci",
+        state: typing.Literal["success", "pending", "failure"] = "success",
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_main}/statuses/{pull['head']['sha']}",
+            json={
                 "state": state,
-                "description": "Your change works",
+                "description": f"The CI is {state}",
                 "context": context,
             },
-            headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
         await self.wait_for("status", {"state": state})
 
-    async def create_review(self, pr, commit, event="APPROVE"):
-        pr_review = self.r_o_admin.get_pull(pr.number)
-        r = pr_review.create_review(commit, "Perfect", event=event)
+    async def create_review(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+        event: typing.Literal[
+            "APPROVE", "REQUEST_CHANGES", "COMMENT", "PENDING"
+        ] = "APPROVE",
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_main}/pulls/{pull_number}/reviews",
+            json={"event": event, "body": f"event: {event}"},
+        )
         await self.wait_for("pull_request_review", {"action": "submitted"})
-        return r
 
-    async def create_message(self, pr, message):
-        pr_review = self.r_o_admin.get_pull(pr.number)
-        comment = pr_review.create_issue_comment(message)
+    async def get_review_requests(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+    ) -> github_types.GitHubRequestedReviewers:
+        return typing.cast(
+            github_types.GitHubRequestedReviewers,
+            await self.client_admin.item(
+                f"{self.url_main}/pulls/{pull_number}/requested_reviewers",
+            ),
+        )
+
+    async def create_review_request(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+        reviewers: typing.List[str],
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_main}/pulls/{pull_number}/requested_reviewers",
+            json={"reviewers": reviewers},
+        )
+        await self.wait_for("pull_request", {"action": "review_requested"})
+
+    async def create_comment(
+        self, pull_number: github_types.GitHubPullRequestNumber, message: str
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_main}/issues/{pull_number}/comments", json={"body": message}
+        )
         await self.wait_for("issue_comment", {"action": "created"})
-        return comment
 
-    async def add_assignee(self, pr, assignee):
-        pr.add_to_assignees(assignee)
+    async def create_issue(self, title: str, body: str) -> github_types.GitHubIssue:
+        resp = await self.client_admin.post(
+            f"{self.url_main}/issues", json={"body": body, "title": title}
+        )
+        # NOTE(sileht):Our GitHubApp doesn't subscribe to issues event
+        # await self.wait_for("issues", {"action": "created"})
+        return typing.cast(github_types.GitHubIssue, resp.json())
+
+    async def add_assignee(
+        self, pull_number: github_types.GitHubPullRequestNumber, assignee: str
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_main}/issues/{pull_number}/assignees",
+            json={"assignees": [assignee]},
+        )
         await self.wait_for("pull_request", {"action": "assigned"})
 
-    async def add_label(self, pr, label):
+    async def add_label(
+        self, pull_number: github_types.GitHubPullRequestNumber, label: str
+    ) -> None:
         if label not in self.existing_labels:
             try:
-                self.r_o_admin.create_label(label, "000000")
-            except pygithub.GithubException as e:
-                if e.status != 422:
+                await self.client_admin.post(
+                    f"{self.url_main}/labels", json={"name": label, "color": "000000"}
+                )
+            except http.HTTPClientSideError as e:
+                if e.status_code != 422:
                     raise
 
             self.existing_labels.append(label)
 
-        pr.add_to_labels(label)
+        await self.client_admin.post(
+            f"{self.url_main}/issues/{pull_number}/labels", json={"labels": [label]}
+        )
         await self.wait_for("pull_request", {"action": "labeled"})
 
-    async def remove_label(self, pr, label):
-        pr.remove_from_labels(label)
+    async def remove_label(
+        self, pull_number: github_types.GitHubPullRequestNumber, label: str
+    ) -> None:
+        await self.client_admin.delete(
+            f"{self.url_main}/issues/{pull_number}/labels/{label}"
+        )
         await self.wait_for("pull_request", {"action": "unlabeled"})
 
-    def branch_protection_unprotect(self, branch):
-        return self.r_o_admin._requester.requestJsonAndCheck(
-            "DELETE",
-            f"{self.r_o_admin.url}/branches/{branch}/protection",
+    async def branch_protection_unprotect(self, branch: str) -> None:
+        await self.client_admin.delete(
+            f"{self.url_main}/branches/{branch}/protection",
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
+        self.protected_branches.remove(branch)
 
-    def branch_protection_protect(self, branch, rule):
-        if (
-            self.r_o_admin.organization
-            and rule["protection"]["required_pull_request_reviews"]
-        ):
-            rule = copy.deepcopy(rule)
-            rule["protection"]["required_pull_request_reviews"][
-                "dismissal_restrictions"
-            ] = {}
+    async def branch_protection_protect(
+        self, branch: str, protection: typing.Dict[str, typing.Any]
+    ) -> None:
+        if protection["required_pull_request_reviews"]:
+            protection = copy.deepcopy(protection)
+            protection["required_pull_request_reviews"]["dismissal_restrictions"] = {}
 
-        # NOTE(sileht): Not yet part of the API
-        # maybe soon https://github.com/PyGithub/PyGithub/pull/527
-        return self.r_o_admin._requester.requestJsonAndCheck(
-            "PUT",
-            f"{self.r_o_admin.url}/branches/{branch}/protection",
-            input=rule["protection"],
+        await self.client_admin.put(
+            f"{self.url_main}/branches/{branch}/protection",
+            json=protection,
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
+        )
+        self.protected_branches.add(branch)
+
+    async def get_branches(self) -> typing.List[github_types.GitHubBranch]:
+        return [c async for c in self.client_admin.items(f"{self.url_main}/branches")]
+
+    async def get_commits(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> typing.List[github_types.GitHubBranchCommit]:
+        return [
+            c
+            async for c in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubBranchCommit, None],
+                self.client_admin.items(f"{self.url_main}/pulls/{pull_number}/commits"),
+            )
+        ]
+
+    async def get_head_commit(self) -> github_types.GitHubBranchCommit:
+        return typing.cast(
+            github_types.GitHubBranch,
+            await self.client_admin.item(
+                f"{self.url_main}/branches/{self.master_branch_name}"
+            ),
+        )["commit"]
+
+    async def get_issue_comments(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> typing.List[github_types.GitHubComment]:
+        return [
+            comment
+            async for comment in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubComment, None],
+                self.client_admin.items(
+                    f"{self.url_main}/issues/{pull_number}/comments"
+                ),
+            )
+        ]
+
+    async def get_reviews(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> typing.List[github_types.GitHubReview]:
+        return [
+            review
+            async for review in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubReview, None],
+                self.client_admin.items(f"{self.url_main}/pulls/{pull_number}/reviews"),
+            )
+        ]
+
+    async def get_pull(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> github_types.GitHubPullRequest:
+        return typing.cast(
+            github_types.GitHubPullRequest,
+            await self.client_admin.item(f"{self.url_main}/pulls/{pull_number}"),
+        )
+
+    async def get_pulls(
+        self, **kwargs: typing.Dict[str, typing.Any]
+    ) -> typing.List[github_types.GitHubPullRequest]:
+        return [
+            i async for i in self.client_admin.items(f"{self.url_main}/pulls", **kwargs)
+        ]
+
+    async def edit_pull(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+        **payload: typing.Dict[str, typing.Any],
+    ) -> github_types.GitHubPullRequest:
+        return typing.cast(
+            github_types.GitHubPullRequest,
+            (
+                await self.client_admin.patch(
+                    f"{self.url_main}/pulls/{pull_number}", json=payload
+                )
+            ).json(),
+        )
+
+    async def is_pull_merged(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+    ) -> bool:
+        try:
+            await self.client_admin.get(f"{self.url_main}/pulls/{pull_number}/merge")
+        except http.HTTPNotFound:
+            return False
+        else:
+            return True
+
+    async def merge_pull(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+    ) -> None:
+        await self.client_admin.put(f"{self.url_main}/pulls/{pull_number}/merge")
+
+    async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
+        return [
+            label
+            async for label in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubLabel, None],
+                self.client_admin.items(f"{self.url_main}/labels"),
+            )
+        ]
+
+    async def find_git_refs(
+        self, url: str, matches: typing.List[str]
+    ) -> typing.AsyncGenerator[github_types.GitHubGitRef, None]:
+        for match in matches:
+            async for matchedBranch in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubGitRef, None],
+                self.client_admin.items(f"{url}/git/matching-refs/heads/{match}"),
+            ):
+                yield matchedBranch
+
+    async def get_teams(self) -> typing.List[github_types.GitHubTeam]:
+        return [
+            t
+            async for t in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubTeam, None],
+                self.client_admin.items("/orgs/mergifyio-testing/teams"),
+            )
+        ]
+
+    async def add_team_permission(
+        self, slug: github_types.GitHubTeamSlug, permission: str
+    ) -> None:
+        await self.client_admin.put(
+            f"/orgs/mergifyio-testing/teams/{slug}/repos/mergifyio-testing/{self.REPO_NAME}",
+            json={"permission": permission},
         )

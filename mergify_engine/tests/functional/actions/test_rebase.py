@@ -35,7 +35,7 @@ class TestRebaseAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p, commits = await self.create_pr()
-        pr_initial_sha = commits[-1].sha
+        pr_initial_sha = commits[-1]["sha"]
 
         await self.git("checkout", self.master_branch_name)
 
@@ -47,9 +47,9 @@ class TestRebaseAction(base.FunctionalTestBase):
         await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
 
         await self.run_engine(1)
-        p.update()
+        p = await self.get_pull(p["number"])
 
-        final_sha = p.head.sha
+        final_sha = p["head"]["sha"]
         return pr_initial_sha, final_sha
 
     async def test_rebase_ok(self):

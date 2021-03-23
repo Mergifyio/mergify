@@ -475,3 +475,15 @@ class GitHubEventTeam(GitHubEvent):
 class GitHubEventTeamAdd(GitHubEvent, total=False):
     # Repository key can be missing on Enterprise installations
     repository: GitHubRepository
+
+
+GitHubGitRefType = typing.NewType("GitHubGitRefType", str)
+
+
+class GitHubGitRef(typing.TypedDict):
+    ref: GitHubRefType
+
+
+class GitHubRequestedReviewers(typing.TypedDict):
+    users: typing.List[GitHubAccount]
+    teams: typing.List[GitHubTeam]

@@ -109,7 +109,7 @@ async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        httpserver.expect_request("/users/owner").respond_with_json(
+        httpserver.expect_request("/user").respond_with_json(
             {
                 "login": "testing",
                 "id": 12345,

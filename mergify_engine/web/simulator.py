@@ -89,7 +89,7 @@ async def voluptuous_errors(
 async def _simulator(redis_cache, pull_request_rules, owner, repo, pull_number, token):
     try:
         if token:
-            auth = github.GithubTokenAuth(owner, token)
+            auth = github.GithubTokenAuth(token)
         else:
             auth = github.get_auth(owner)
 

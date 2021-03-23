@@ -42,15 +42,23 @@ class TestCommandBackport(base.FunctionalTestBase):
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
-        p.merge()
+        await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=stable_branch))
+        pulls = await self.get_pulls(state="all", base=stable_branch)
         assert 1 == len(pulls)
-        pulls = list(self.r_o_admin.get_pulls(state="all", base=feature_branch))
+        pulls = await self.get_pulls(state="all", base=feature_branch)
         assert 1 == len(pulls)
-        assert ["+1"] == [
-            r.content for c in p.get_issue_comments() for r in c.get_reactions()
+        comments = await self.get_issue_comments(p["number"])
+        assert len(comments) == 2
+        reactions = [
+            r
+            async for r in self.client_admin.items(
+                f"{self.url_main}/issues/comments/{comments[0]['id']}/reactions",
+                api_version="squirrel-girl",
+            )
         ]
+        assert len(reactions) == 1
+        assert "+1" == reactions[0]["content"]
