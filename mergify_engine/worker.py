@@ -242,6 +242,9 @@ class StreamProcessor:
         try:
             yield
         except Exception as e:
+            if isinstance(e, aredis.exceptions.ConnectionError):
+                statsd.increment("redis.client.connection.errors")
+
             if isinstance(e, exceptions.MergeableStateUnknown) and attempts_key:
                 attempts = await self.redis_stream.hincrby("attempts", attempts_key)
                 if attempts < MAX_RETRIES:
@@ -326,6 +329,7 @@ class StreamProcessor:
 
                 await self._refresh_merge_trains(installation)
         except aredis.exceptions.ConnectionError:
+            statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "Stream Processor lost Redis connection", stream_name=stream_name
             )
@@ -334,6 +338,7 @@ class StreamProcessor:
             try:
                 await self.redis_stream.delete(stream_name)
             except aredis.exceptions.ConnectionError:
+                statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "fail to drop stream, it will be retried", stream_name=stream_name
                 )
@@ -369,6 +374,7 @@ class StreamProcessor:
                 self.ATOMIC_CLEAN_STREAM_SCRIPT, 1, stream_name.encode(), time.time()
             )
         except aredis.exceptions.ConnectionError:
+            statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "fail to cleanup stream, it maybe partially replayed",
                 stream_name=stream_name,
@@ -673,6 +679,7 @@ class Worker:
                 LOG.debug("worker %s killed", worker_id)
                 return
             except aredis.exceptions.ConnectionError:
+                statsd.increment("redis.client.connection.errors")
                 LOG.warning("worker lost Redis connection", worker_id, exc_info=True)
                 await self._sleep_or_stop()
             except Exception:
@@ -720,6 +727,7 @@ class Worker:
                 LOG.debug("monitoring task killed")
                 return
             except aredis.ConnectionError:
+                statsd.increment("redis.client.connection.errors")
                 LOG.warning("monitoring task lost Redis connection", exc_info=True)
             except Exception:
                 LOG.error("monitoring task failed", exc_info=True)

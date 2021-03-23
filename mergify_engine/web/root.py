@@ -18,6 +18,7 @@ import typing
 
 import aredis
 import daiquiri
+from datadog import statsd
 import fastapi
 import httpx
 from starlette import requests
@@ -68,6 +69,7 @@ async def shutdown() -> None:
 async def redis_errors(
     request: requests.Request, exc: aredis.exceptions.ConnectionError
 ) -> responses.JSONResponse:
+    statsd.increment("redis.client.connection.errors")
     LOG.warning("FastAPI lost Redis connection", exc_info=exc)
     return responses.JSONResponse(status_code=503)
 
