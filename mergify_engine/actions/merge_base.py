@@ -253,28 +253,6 @@ class MergeBaseAction(actions.Action):
             else:
                 ctxt.log.info("legacy bot_account used by free plan")
 
-        if self.config["update_bot_account"] and not ctxt.subscription.has_feature(
-            subscription.Features.MERGE_BOT_ACCOUNT
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Merge with `update_bot_account` set are disabled",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
-            )
-
-        if self.config["merge_bot_account"] and not ctxt.subscription.has_feature(
-            subscription.Features.MERGE_BOT_ACCOUNT
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Merge with `merge_bot_account` set are disabled",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
-            )
-
         if self.config["merge_bot_account"]:
             permission = (
                 await ctxt.client.item(
@@ -380,15 +358,11 @@ class MergeBaseAction(actions.Action):
         return self.cancelled_check_report
 
     def _set_effective_priority(self, ctxt):
-        if ctxt.subscription.has_feature(subscription.Features.PRIORITY_QUEUES):
-            self.config["effective_priority"] = typing.cast(
-                int,
-                self.config["priority"]
-                + self.config["queue_config"]["priority"] * QUEUE_PRIORITY_OFFSET,
-            )
-
-        else:
-            self.config["effective_priority"] = PriorityAliases.medium.value
+        self.config["effective_priority"] = typing.cast(
+            int,
+            self.config["priority"]
+            + self.config["queue_config"]["priority"] * QUEUE_PRIORITY_OFFSET,
+        )
 
     async def _sync_with_base_branch(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase

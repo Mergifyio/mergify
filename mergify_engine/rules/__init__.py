@@ -340,7 +340,7 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("conditions"): [
                     voluptuous.All(str, voluptuous.Coerce(RuleCondition))
                 ],
-                voluptuous.Required("speculative_checks", default=5): voluptuous.All(
+                voluptuous.Required("speculative_checks", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
             },

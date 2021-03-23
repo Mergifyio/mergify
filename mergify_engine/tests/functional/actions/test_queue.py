@@ -96,6 +96,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -188,6 +189,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -294,6 +296,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -347,6 +350,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -493,6 +497,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -607,6 +612,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -715,6 +721,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -806,6 +813,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -974,6 +982,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 }
             ],
             "pull_request_rules": [
@@ -1102,12 +1111,14 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fast-ci",
                     ],
+                    "speculative_checks": 5,
                 },
                 {
                     "name": "default",
                     "conditions": [
                         "status-success=continuous-integration/slow-ci",
                     ],
+                    "speculative_checks": 5,
                 },
             ],
             "pull_request_rules": [
@@ -1262,6 +1273,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "speculative_checks": 5,
                 },
             ],
             "pull_request_rules": [
