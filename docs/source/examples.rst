@@ -168,27 +168,6 @@ the pull requests when the CI passes and when all the files are inside the
             method: merge
 
 
-👩‍🔧 Using Labels to Backport Pull-Requests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Copying pull requests to a maintenance  branch is something common as explained
-in :ref:`backport action`. In order to elect a pull request to be backported,
-it's common to use a label. You could write a rule such as:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: backport patches to stable branch
-        conditions:
-          - base=master
-          - label=backport-to-stable
-        actions:
-          backport:
-            branches:
-              - stable
-
-You could also manually trigger them using the :ref:`backport command` command.
-
 ✂️ Deleting Merged Branch
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
