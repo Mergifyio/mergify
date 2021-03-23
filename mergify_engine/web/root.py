@@ -26,7 +26,6 @@ from starlette import responses
 import voluptuous
 
 from mergify_engine import config
-from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import json
@@ -263,42 +262,11 @@ async def marketplace_handler(
 
 
 @app.get(
-    "/queues/{owner_id}",  # noqa: FS003
+    "/queues_v2/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
-async def queues_by_owner_id(
-    owner_id: github_types.GitHubAccountIdType,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
-    ),
-) -> responses.Response:
-    queues: typing.Dict[
-        str, typing.Dict[str, typing.List[int]]
-    ] = collections.defaultdict(dict)
-    async for queue in redis_cache.scan_iter(match=f"merge-queue~{owner_id}~*"):
-        _, _, repo_id, branch = queue.split("~")
-        async with github.aget_client(owner_id=owner_id) as client:
-            try:
-                repo = await client.item(f"/repositories/{repo_id}")
-            except exceptions.RateLimited:
-                return responses.JSONResponse(
-                    status_code=403,
-                    content={
-                        "message": f"{client.auth.owner} account with {client.auth.owner_id} ID, rate limited by GitHub"
-                    },
-                )
-            if client.auth.owner is None:
-                # No really possible, just to please mypy
-                continue
-            queues[client.auth.owner + "/" + repo["name"]][branch] = [
-                int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
-            ]
-
-    return responses.JSONResponse(status_code=200, content=queues)
-
-
 @app.get(
-    "/queues_v2/{owner_id}",  # noqa: FS003
+    "/queues/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def queues(
