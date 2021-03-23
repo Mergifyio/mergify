@@ -22,8 +22,22 @@ As this process of backporting patches can be tedious, Mergify automates this
 mechanism to save developers' time and ease their duty.
 
 The ``backport`` action copies the pull request into another branch *once the
-pull request has been merged*. The ``backport`` action takes the following
-parameter:
+pull request has been merged*.
+
+Once the backporting pull request is closed or merged, Mergify will
+automatically delete the backport head branch that it created.
+
+You can also trigger backports using the :ref:`backport command` command.
+
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``backport`` action is only
+   available for `Essential and Premium subscribers <https://mergify.io/pricing>`_.
+   |essential plan tag|
+   |premium plan tag|
+
+Configuration
+-------------
 
 .. list-table::
    :header-rows: 1
@@ -54,14 +68,27 @@ parameter:
        ``ignore_conflicts`` is set to ``true``.
 
 
-Once the backporting pull request is closed or merged, Mergify will
-automatically delete the backport head branch that it created.
+Examples
+--------
 
-.. warning::
+👩‍🔧 Using Labels to Backport Pull-Requests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   If the repository is bigger than 512 MB, the ``backport`` action is only
-   available for `Essential and Premium subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
+Copying pull requests to a maintenance branch is a common workflow. In order to
+elect a pull request to be backported, it's possible to use a label. With a
+rule such as the one below, you can trigger a backport as soon as the label is
+added and the pull request merged:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: backport patches to stable branch
+        conditions:
+          - base=master
+          - label=backport-to-stable
+        actions:
+          backport:
+            branches:
+              - stable
 
 .. include:: ../global-substitutions.rst
