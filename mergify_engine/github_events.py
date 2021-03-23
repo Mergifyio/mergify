@@ -179,6 +179,9 @@ async def filter_and_dispatch(
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
 
+        elif "pull_request" not in event["issue"]:
+            ignore_reason = "comment is not on a pull request"
+
         elif event["action"] != "created":
             ignore_reason = f"comment has been {event['action']}"
 
