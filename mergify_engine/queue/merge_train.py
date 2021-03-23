@@ -462,17 +462,20 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
             checks = await tmp_pull_ctxt.pull_check_runs
             statuses = await tmp_pull_ctxt.pull_statuses
+            checked_pull = self.queue_pull_request_number
         elif self.state == "updated":
             checks = await original_ctxt.pull_check_runs
             statuses = await original_ctxt.pull_statuses
+            checked_pull = self.user_pull_request_number
         else:
             checks = []
             statuses = []
+            checked_pull = github_types.GitHubPullRequestNumber(0)
 
         if checks or statuses:
             checks_copy_summary = (
                 "\n\nCheck-runs and statuses of the embarked "
-                f"pull request #{self.queue_pull_request_number}:\n\n<table>"
+                f"pull request #{checked_pull}:\n\n<table>"
             )
             for check in checks:
                 title = ""
@@ -483,8 +486,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
                 checks_copy_summary += (
                     "<tr>"
-                    f'<td><img src="{check_icon_url}" /></td>'
-                    f'<td><img src="{check["app"]["owner"]["avatar_url"]}&s=40" width="24" height="24"/></td>'
+                    f'<td align="center" width="48" height="48"><img src="{check_icon_url}" width="16" height="16" /></td>'
+                    f'<td align="center" width="48" height="48"><img src="{check["app"]["owner"]["avatar_url"]}&s=40" width="16" height="16" /></td>'
                     f'<td><b>{check["app"]["name"]}/{check["name"]}</b> — {title}</td>'
                     f'<td><a href="{check["html_url"]}">details</a></td>'
                     "</tr>"
@@ -495,8 +498,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
                 checks_copy_summary += (
                     "<tr>"
-                    f'<td><img src="{status_icon_url}" /></td>'
-                    f'<td><img src="{status["avatar_url"]}&s=40" width="24" height="24" /></td>'
+                    f'<td align="center" width="48" height="48"><img src="{status_icon_url}" width="16" height="16" /></td>'
+                    f'<td align="center" width="48" height="48"><img src="{status["avatar_url"]}&s=40" width="16" height="16" /></td>'
                     f'<td><b>{status["context"]}</b> — {status["description"]}</td>'
                     f'<td><a href="{status["target_url"]}">details</a></td>'
                     "</tr>"
