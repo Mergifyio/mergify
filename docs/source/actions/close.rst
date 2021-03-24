@@ -9,7 +9,10 @@
 close
 =====
 
-The ``close`` action closes the pull request without merging it.
+The ``close`` action closes the pull request — without merging it.
+
+Options
+-------
 
 .. list-table::
    :header-rows: 1
@@ -23,3 +26,21 @@ The ``close`` action closes the pull request without merging it.
      - :ref:`data type template`
      - ``This pull request has been automatically closed by Mergify.``
      - The message to write as a comment after closing the pull request.
+
+Examples
+--------
+
+❌ Automatically close pull request touching a file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you wanted to automatically close pull request that touches a certain file,
+let's say ``do_not_touch.txt``, you could write a rule such as:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: disallow changing a file
+        conditions:
+          - files=do_not_touch.txt
+        actions:
+          close: {}
