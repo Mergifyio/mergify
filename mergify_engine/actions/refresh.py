@@ -29,7 +29,7 @@ class RefreshAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        async with utils.aredis_for_stream() as redis_stream:
+        with utils.aredis_for_stream() as redis_stream:
             await github_events.send_refresh(
                 ctxt.redis,
                 redis_stream,

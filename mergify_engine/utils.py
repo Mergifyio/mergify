@@ -47,7 +47,7 @@ def redis_from_url(url: str, **options: typing.Any) -> aredis.StrictRedis:
     return aredis.StrictRedis.from_url(final_url, **options)
 
 
-async def create_aredis_for_cache(
+def create_aredis_for_cache(
     max_idle_time: int = 60, max_connections: typing.Optional[int] = None
 ) -> RedisCache:
     client = redis_from_url(
@@ -56,32 +56,31 @@ async def create_aredis_for_cache(
         max_idle_time=max_idle_time,
         max_connections=max_connections,
     )
-    await client.client_setname(f"cache:{_PROCESS_IDENTIFIER}")
     return RedisCache(client)
 
 
-@contextlib.asynccontextmanager
-async def aredis_for_cache() -> typing.AsyncIterator[RedisCache]:
-    client = await create_aredis_for_cache(max_idle_time=0)
+@contextlib.contextmanager
+def aredis_for_cache() -> typing.Iterator[RedisCache]:
+    client = create_aredis_for_cache(max_idle_time=0)
     try:
         yield client
     finally:
         client.connection_pool.disconnect()
 
 
-async def create_aredis_for_stream(
-    max_idle_time: int = 60, max_connections: typing.Optional[int] = None
+def create_aredis_for_stream(
+    max_idle_time: int = 60,
+    max_connections: typing.Optional[int] = None,
 ) -> RedisStream:
     r = redis_from_url(
         config.STREAM_URL, max_idle_time=max_idle_time, max_connections=max_connections
     )
-    await r.client_setname(f"stream:{_PROCESS_IDENTIFIER}")
     return RedisStream(r)
 
 
-@contextlib.asynccontextmanager
-async def aredis_for_stream() -> typing.AsyncIterator[RedisCache]:
-    client = await create_aredis_for_stream(max_idle_time=0)
+@contextlib.contextmanager
+def aredis_for_stream() -> typing.Iterator[RedisCache]:
+    client = create_aredis_for_stream(max_idle_time=0)
     try:
         yield client
     finally:

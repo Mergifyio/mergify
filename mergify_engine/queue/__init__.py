@@ -103,7 +103,7 @@ class QueueBase(abc.ABC):
 
         from mergify_engine import github_events  # circular reference
 
-        async with utils.aredis_for_stream() as redis_stream:
+        with utils.aredis_for_stream() as redis_stream:
             for pull_number in await self.get_pulls():
                 if (
                     except_pull_request is not None

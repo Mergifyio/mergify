@@ -746,8 +746,8 @@ class Worker:
         self._stopping.clear()
 
         LOG.info("redis initialisation")
-        self._redis_stream = await utils.create_aredis_for_stream()
-        self._redis_cache = await utils.create_aredis_for_cache()
+        self._redis_stream = utils.create_aredis_for_stream()
+        self._redis_cache = utils.create_aredis_for_cache()
         LOG.info("redis initialised")
 
         if "stream" in self.enabled_services:
@@ -847,7 +847,7 @@ async def async_status() -> None:
     process_count: int = config.STREAM_PROCESSES
     worker_count: int = worker_per_process * process_count
 
-    redis_stream = await utils.create_aredis_for_stream()
+    redis_stream = utils.create_aredis_for_stream()
     stream_selector = StreamSelector(redis_stream, 0, worker_count)
 
     def sorter(item):
@@ -876,7 +876,7 @@ async def async_reschedule_now() -> int:
     parser.add_argument("org", help="Organization")
     args = parser.parse_args()
 
-    redis = await utils.create_aredis_for_stream()
+    redis = utils.create_aredis_for_stream()
     streams = await redis.zrangebyscore("streams", min=0, max="+inf")
     expected_stream = f"stream~{args.org.lower()}~"
     for stream in streams:
