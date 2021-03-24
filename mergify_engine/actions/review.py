@@ -59,6 +59,13 @@ class ReviewAction(actions.Action):
                 ),
             )
 
+        if ctxt.pull["merged"] and self.config["type"] != "COMMENT":
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "Pull request has been merged, APPROVE and REQUEST_CHANGES are ignored.",
+                "",
+            )
+
         if self.config["message"]:
             try:
                 body = await ctxt.pull_request.render_template(self.config["message"])
