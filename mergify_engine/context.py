@@ -366,7 +366,8 @@ class Repository(object):
     ) -> None:
         pipeline = await redis.pipeline()
         async for key in redis.scan_iter(
-            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
+            f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*",
+            count=10000,
         ):
             await pipeline.delete(key)
         await pipeline.execute()
