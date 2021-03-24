@@ -168,25 +168,6 @@ the pull requests when the CI passes and when all the files are inside the
             method: merge
 
 
-✂️ Deleting Merged Branch
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Some users create pull request from the same repository by using different
-branches — rather than creating a pull request from a fork. That's fine, but it
-tends to leave a lot of useless branch behind when the pull request is merged.
-
-Mergify allows to delete those branches once the pull request has been merged:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: delete head branch after merge
-        conditions:
-          - merged
-        actions:
-          delete_head_branch: {}
-
-
 🏖 Less Strict Rules for Stable Branches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
