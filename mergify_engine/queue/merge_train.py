@@ -628,8 +628,8 @@ class Train(queue.QueueBase):
     async def iter_trains(
         cls, installation: context.Installation
     ) -> typing.AsyncIterator["Train"]:
-        for train_name in await installation.redis.keys(
-            cls.get_redis_key_for(installation.owner_id, "*", "*")
+        async for train_name in installation.redis.scan_iter(
+            cls.get_redis_key_for(installation.owner_id, "*", "*"), count=10000
         ):
             train_name_split = train_name.split("~")
             repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
