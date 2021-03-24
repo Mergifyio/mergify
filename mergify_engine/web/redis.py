@@ -28,10 +28,10 @@ LOG = daiquiri.getLogger(__name__)
 
 async def startup():
     global _AREDIS_STREAM, _AREDIS_CACHE
-    _AREDIS_STREAM = await utils.create_aredis_for_stream(
+    _AREDIS_STREAM = utils.create_aredis_for_stream(
         max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
     )
-    _AREDIS_CACHE = await utils.create_aredis_for_cache(
+    _AREDIS_CACHE = utils.create_aredis_for_cache(
         max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
     )
 

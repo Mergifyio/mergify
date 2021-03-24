@@ -101,7 +101,7 @@ async def report_dashboard_synchro(
 
 async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     stream_name = f"stream~{owner}".encode()
-    r = await utils.create_aredis_for_stream()
+    r = utils.create_aredis_for_stream()
     streams = await r.zrangebyscore("streams", min=0, max="+inf", withscores=True)
 
     for pos, item in enumerate(streams):  # noqa: B007
@@ -155,7 +155,7 @@ async def report_queue(title: str, q: queue.QueueT) -> None:
 async def report(
     url: str,
 ) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
-    redis_cache = await utils.create_aredis_for_cache(max_idle_time=0)
+    redis_cache = utils.create_aredis_for_cache(max_idle_time=0)
 
     path = url.replace("https://github.com/", "")
 

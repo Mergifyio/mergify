@@ -393,7 +393,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             ),
         )
 
-        async with utils.aredis_for_stream() as redis_stream:
+        with utils.aredis_for_stream() as redis_stream:
             await github_events.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
@@ -541,7 +541,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         # NOTE(sileht): refresh it, so the queue action will merge it and delete the
         # tmp_pull_ctxt branch
-        async with utils.aredis_for_stream() as redis_stream:
+        with utils.aredis_for_stream() as redis_stream:
             await github_events.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
