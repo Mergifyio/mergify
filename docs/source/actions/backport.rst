@@ -36,8 +36,8 @@ You can also trigger backports using the :ref:`backport command` command.
    |essential plan tag|
    |premium plan tag|
 
-Configuration
--------------
+Options
+-------
 
 .. list-table::
    :header-rows: 1
