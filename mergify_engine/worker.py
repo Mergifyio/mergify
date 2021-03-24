@@ -632,9 +632,6 @@ class Worker:
     _stopping: asyncio.Event = dataclasses.field(
         init=False, default_factory=asyncio.Event
     )
-    _tombstone: asyncio.Event = dataclasses.field(
-        init=False, default_factory=asyncio.Event
-    )
 
     _worker_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
         init=False, default_factory=list
@@ -742,13 +739,11 @@ class Worker:
             )
         )
 
-    async def _run(self):
+    async def start(self):
         self._stopping.clear()
 
-        LOG.info("redis initialisation")
         self._redis_stream = utils.create_aredis_for_stream()
         self._redis_cache = utils.create_aredis_for_cache()
-        LOG.info("redis initialised")
 
         if "stream" in self.enabled_services:
             worker_ids = self.get_worker_ids()
@@ -765,11 +760,6 @@ class Worker:
             LOG.info("monitoring started")
 
     async def _shutdown(self):
-        if not self._start_task.done():
-            LOG.info("waiting for startup to finish")
-            await self._start_task
-            LOG.info("startup finished")
-
         tasks = []
         if "stream" in self.enabled_services:
             tasks.extend(self._worker_tasks)
@@ -777,7 +767,7 @@ class Worker:
             tasks.append(self._stream_monitoring_task)
 
         LOG.info("workers and monitoring exiting", count=len(tasks))
-        done, pending = await asyncio.wait(tasks, timeout=self.shutdown_timeout)
+        _, pending = await asyncio.wait(tasks, timeout=self.shutdown_timeout)
         if pending:
             LOG.info("workers and monitoring being killed", count=len(pending))
             for task in pending:
@@ -800,19 +790,14 @@ class Worker:
         await utils.stop_pending_aredis_tasks()
         LOG.info("redis finalized")
 
-        self._tombstone.set()
         LOG.info("shutdown finished")
-
-    def start(self):
-        self._start_task = asyncio.create_task(self._run())
 
     def stop(self):
         self._stopping.set()
         self._stop_task = asyncio.create_task(self._shutdown())
 
     async def wait_shutdown_complete(self):
-        await self._tombstone.wait()
-        await asyncio.wait([self._stop_task])
+        await self._stop_task
 
     def stop_with_signal(self, signame):
         if not self._stopping.is_set():
@@ -831,8 +816,8 @@ class Worker:
 
 async def run_forever() -> None:
     worker = Worker()
+    await worker.start()
     worker.setup_signals()
-    worker.start()
     await worker.wait_shutdown_complete()
     LOG.info("Exiting...")
 
