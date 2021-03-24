@@ -16,7 +16,12 @@ request comes from the same repository and not from a fork.
 
 .. note::
 
-   The action will only happen if and when the pull request is closed or merged.
+   The action will only happen if and when the pull request is closed or
+   merged.
+
+
+Options
+-------
 
 .. list-table::
    :header-rows: 1
@@ -32,3 +37,25 @@ request comes from the same repository and not from a fork.
      - If set to ``true``, the branch will be deleted even if another pull
        request depends on the head branch. GitHub will therefore close the
        dependent pull requests.
+
+
+Examples
+--------
+
+✂️ Deleting Merged Branch
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is common to create pull request from the same repository using different
+branches — rather than creating a pull request from a fork. It tends to leave a
+lot of useless branch behind when the pull request is merged.
+
+Mergify allows to delete those branches once the pull request has been merged:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: delete head branch after merge
+        conditions:
+          - merged
+        actions:
+          delete_head_branch: {}
