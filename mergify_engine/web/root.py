@@ -310,7 +310,9 @@ async def queues(
     queues: typing.Dict[
         str, typing.Dict[str, typing.List[int]]
     ] = collections.defaultdict(dict)
-    async for queue in redis_cache.scan_iter(match=f"merge-*~{owner_id}~*"):
+    async for queue in redis_cache.scan_iter(
+        match=f"merge-*~{owner_id}~*", count=10000
+    ):
         queue_type, _, repo_id, branch = queue.split("~")
         if queue_type == "merge-queue":
             queues[repo_id][branch] = [
