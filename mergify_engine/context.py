@@ -365,7 +365,7 @@ class Repository(object):
         cls, redis: utils.RedisCache, user: github_types.GitHubAccount
     ) -> None:
         pipeline = await redis.pipeline()
-        async for key in redis.scan_iter(
+        for key in await redis.keys(
             f"{cls.USERS_PERMISSION_CACHE_KEY_PREFIX}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}{user['id']}{cls.USERS_PERMISSION_CACHE_KEY_DELIMITER}*"
         ):
             await pipeline.delete(key)
