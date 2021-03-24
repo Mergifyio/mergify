@@ -577,7 +577,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         w = worker.Worker(
             idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
         )
-        w.start()
+        await w.start()
 
         started_at = None
         while True:

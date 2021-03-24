@@ -32,7 +32,7 @@ from mergify_engine.clients import http
 
 async def run_worker(test_timeout=10, **kwargs):
     w = worker.Worker(**kwargs)
-    w.start()
+    await w.start()
     started_at = time.monotonic()
     while (
         w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0
