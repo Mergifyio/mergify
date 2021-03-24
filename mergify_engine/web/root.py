@@ -310,19 +310,21 @@ async def queues(
     queues: typing.Dict[
         str, typing.Dict[str, typing.List[int]]
     ] = collections.defaultdict(dict)
-    async for queue in redis_cache.scan_iter(match=f"merge-queue~{owner_id}~*"):
-        _, _, repo_id, branch = queue.split("~")
-        queues[repo_id][branch] = [
-            int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
-        ]
-
-    async for queue in redis_cache.scan_iter(match=f"merge-train~{owner_id}~*~*"):
-        train_raw = await redis_cache.get(queue)
-        train = typing.cast(merge_train.Train.Serialized, json.loads(train_raw))
-        _, _, repo_id, branch = queue.split("~")
-        queues[repo_id][branch] = [
-            int(c["user_pull_request_number"]) for c in train["cars"]
-        ] + [int(wp[0]) for wp in train["waiting_pulls"]]
+    async for queue in redis_cache.scan_iter(
+        match=f"merge-*~{owner_id}~*", count=10000
+    ):
+        queue_type, _, repo_id, branch = queue.split("~")
+        if queue_type == "merge-queue":
+            queues[repo_id][branch] = [
+                int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
+            ]
+        elif queue_type == "merge-train":
+            train_raw = await redis_cache.get(queue)
+            train = typing.cast(merge_train.Train.Serialized, json.loads(train_raw))
+            _, _, repo_id, branch = queue.split("~")
+            queues[repo_id][branch] = [
+                int(c["user_pull_request_number"]) for c in train["cars"]
+            ] + [int(wp[0]) for wp in train["waiting_pulls"]]
 
     return responses.JSONResponse(status_code=200, content=queues)
 
