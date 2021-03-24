@@ -11,6 +11,16 @@ copy
 
 The ``copy`` action creates a copy of the pull request targetting other branches.
 
+.. warning::
+
+   If the repository is bigger than 512 MB, the ``copy`` action is only
+   available for `Essential and Premium  Plan subscribers <https://mergify.io/pricing>`_.
+   |essential plan tag|
+   |premium plan tag|
+
+Options
+-------
+
 .. list-table::
    :header-rows: 1
    :widths: 1 1 1 3
@@ -38,12 +48,27 @@ The ``copy`` action creates a copy of the pull request targetting other branches
      - The label to add to the created pull requested if it has conflicts and
        ``ignore_conflicts`` is set to ``true``.
 
+Examples
+--------
 
-.. warning::
+🔁 Copy a Pull Request to Another Branch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   If the repository is bigger than 512 MB, the ``copy`` action is only
-   available for `Essential and Premium  Plan subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
+The following rule copies a pull request from the ``staging`` branch to the
+``prod`` branch as soon as the CI passes and a label ``ready for prod`` is set
+on the pull request:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: copy pull request when CI passes
+        conditions:
+          - base=staging
+          - check-success=test
+          - label=ready for prod
+        actions:
+          copy:
+            branches:
+              - prod
 
 .. include:: ../global-substitutions.rst

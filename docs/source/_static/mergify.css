@@ -28,7 +28,6 @@ body div.body {
 }
 
 img.img-fluid {
-    margin-top: 1.5em;
     margin-bottom: 1.5em;
 }
 
@@ -314,4 +313,12 @@ a.headerlink {
     vertical-align: middle;
     font-size: 0.6em;
     margin-left: 0.25em;
+}
+
+/* Figure */
+div.figure p.caption {
+    margin-top: -2rem;
+    font-style: italic;
+    font-size: 90%;
+    color: #666;
 }

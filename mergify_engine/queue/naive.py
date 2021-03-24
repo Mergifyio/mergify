@@ -120,8 +120,8 @@ class Queue(queue.QueueBase):
     async def _remove_pull_from_other_queues(self, ctxt: context.Context) -> None:
         # TODO(sileht): Find if there is an event when the base branch change to do this
         # only is this case.
-        for queue_name in await self.repository.installation.redis.keys(
-            self._get_redis_queue_key_for("*")
+        async for queue_name in self.repository.installation.redis.scan_iter(
+            self._get_redis_queue_key_for("*"), count=10000
         ):
             if queue_name != self._redis_queue_key:
                 score = await self.repository.installation.redis.zscore(
