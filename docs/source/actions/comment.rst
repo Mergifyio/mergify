@@ -11,6 +11,9 @@ comment
 
 The ``comment`` action posts a comment to the pull request.
 
+Options
+-------
+
 .. list-table::
    :header-rows: 1
    :widths: 1 1 1 3
