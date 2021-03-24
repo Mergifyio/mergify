@@ -632,10 +632,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             await self.git("add", ".gitkeep")
 
         if files:
-            for name, content in files.items():
-                with open(self.git.tmp + "/" + name, "w") as f:
-                    f.write(content)
-                await self.git("add", name)
+            await self._git_create_files(files)
 
         await self.git("commit", "--no-edit", "-m", "initial commit")
         await self.git("branch", "-M", self.master_branch_name)
@@ -748,16 +745,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
         if files:
-            for name, content in files.items():
-                directory = name.rpartition("/")[0]
-                if directory:
-                    try:
-                        os.makedirs(self.git.tmp + "/" + directory)
-                    except FileExistsError:
-                        pass
-                with open(self.git.tmp + "/" + name, "w") as f:
-                    f.write(content)
-                await self.git("add", name)
+            await self._git_create_files(files)
         else:
             open(self.git.tmp + f"/test{self.pr_counter}", "wb").close()
             await self.git("add", f"test{self.pr_counter}")
@@ -793,6 +781,15 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         p = await self.get_pull(p["number"])
         commits = await self.get_commits(p["number"])
         return p, commits
+
+    async def _git_create_files(self, files: typing.Dict[str, str]) -> None:
+        for name, content in files.items():
+            path = self.git.tmp + "/" + name
+            directory_path = os.path.dirname(path)
+            os.makedirs(directory_path, exist_ok=True)
+            with open(path, "w") as f:
+                f.write(content)
+            await self.git("add", name)
 
     async def create_status(
         self,
