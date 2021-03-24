@@ -11,6 +11,9 @@ assign
 
 The ``assign`` action assigns users to the pull request.
 
+Options
+-------
+
 .. list-table::
    :header-rows: 1
    :widths: 1 1 1 3
@@ -32,8 +35,11 @@ The list of users in ``add_users`` or ``remove_users`` is based on :ref:`data ty
 e.g. ``{{author}}`` to assign the pull request to its author.
 
 
-Example
-~~~~~~~
+Examples
+--------
+
+👉 Flexible Assignment
+~~~~~~~~~~~~~~~~~~~~~~
 
 You can assign people for review based on any criteria you like. A classic is
 to use the name of modified files to do it:
