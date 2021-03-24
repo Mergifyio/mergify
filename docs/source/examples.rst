@@ -296,36 +296,6 @@ request will be added to the merge queue. Within the merge queue, the pull
 requests with the label ``🚑 hotfix`` will be merged first. The pull requests
 from `dependabot` will always be merged last.
 
-🥶 Removing Stale Reviews
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When a pull request is updated, GitHub does not remove the (possibly) outdated
-reviews approvals or changes request. It's a good idea to remove them as soon
-as the pull request gets updated with new commits.
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: remove outdated reviews
-        conditions:
-          - base=master
-        actions:
-          dismiss_reviews: {}
-
-You could also only dismiss the outdated reviews if the author is not a member
-of a particular team. This allows to keep the approval if the author is
-trusted, even if they update their code:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: remove outdated reviews for non trusted authors
-        conditions:
-          - base=master
-          - author!=@myorg/mytrustedteam
-        actions:
-          dismiss_reviews: {}
-
 🙅️ Require All Requested Reviews to Be Approved
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
