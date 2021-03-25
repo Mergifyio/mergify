@@ -9,8 +9,6 @@
 queue
 =====
 
-|beta tag|
-
 The ``queue`` action moves the pull request into one of the merge queue defined
 in :ref:`queue rules`.
 
@@ -21,7 +19,10 @@ merged in their base branch.
 Why Queues?
 -----------
 
-To understand the problem, imagine the following situation:
+The Problem
+~~~~~~~~~~~
+
+To understand the problem queues resolve, imagine the following situation:
 
 - The base branch (e.g., ``main``) has its continuous integration testing
   passing correctly.
@@ -33,11 +34,13 @@ The state of the repository can be represented like this:
 .. graphviz:: strict-mode-master-pr-ci-pass.dot
    :alt: Pull request is open
 
-While the pull request is open, another commit is pushed to ``main`` — let's
-call it `new commit`. That can be a local commit or a merge commit from another
-pull request; who knows. The tests are run against ``main`` by the CI and
-they pass. The state of the repository and its continuous integration system
-can be described like this:
+While the pull request is open, another commit is pushed to ``main` — let's
+call it `new commit`. That new commit can be pushed directely to ``main`` or
+merged from another pull request; it doesn't matter.
+
+The tests are run against the ``main`` branch by the CI and they pass. The
+state of the repository and its continuous integration system can be now
+described like this:
 
 .. graphviz:: strict-mode-new-master-pr-ci-pass.dot
    :alt: Base branch adds a new commit
@@ -59,7 +62,7 @@ the base branch while the pull request was open. That pull request may not have
 the correct code to pass this new test.
 
 Using Queues
-------------
+~~~~~~~~~~~~
 
 Using a merge queue solves that issue by updating any pull request that is not
 up-to-date with its base branch before being merged. That forces the continuous
@@ -75,10 +78,9 @@ removing it from the merge queue altogether.
    :alt: Rebase make CI fails
 
 When multiple pull requests are mergeable, they are scheduled to be merged
-sequentially, and they will be updated on top of each other.
-
-The pull request branch update is only done when the pull request is ready to
-be merged by the engine, e.g., when all the `conditions` are validated.
+sequentially, and are updated on top of each other. The pull request branch
+update is only done when the pull request is ready to be merged by the engine,
+e.g., when all the `conditions` are validated.
 
 That means that when a first pull request has been merged, and the second one
 is outdated like this:
@@ -92,13 +94,13 @@ the base branch before merging:
 .. graphviz:: queue-strict-merge.dot
    :alt: strict merge
 
+That way, there's no way to merge a broken pull request into the base branch.
 
 Configuring the Merge Queues
 ----------------------------
 
 The `merge queues` rely on two configuration items: the ``queues_rules`` and
-the ``queue`` action. This allows writing complex merge queue workflows that
-couldn't be achieved with the ``merge`` action alone.
+the ``queue`` action.
 
 The ``queue`` action places the pull request inside the merge queue: the set of
 conditions described in the ``pull_request_rules`` allows the pull request to
@@ -112,8 +114,16 @@ of conditions defined this time in ``queue_rules`` and wait that they all match
 to merge the pull request.
 
 When multiple queues are defined, they are processed one after the other in the
-order they are defined in the configuration. Queue processing is blocked until
-all preceding queues, or higher priorities queues are empty.
+order they are defined in the ``queue_rules`` list. Queue processing is blocked
+until all preceding queues are empty.
+
+Viewing the Merge Queue
+-----------------------
+
+The merge queue can be visualized from your `dashboard <https://dashboard.mergify.io>`_:
+
+.. figure:: ../_static/merge-queue.png
+   :alt: The merge queue from the dashboard
 
 .. _speculative merges:
 
@@ -129,15 +139,17 @@ queues support `speculative merges`.
 With speculative merges, the first pull requests from the queue are embarked in
 a `merge train` and tested together in parallel so they can be merged faster. A
 merge train consists of two or more pull requests embarked together to be
-tested speculatively.
+tested speculatively. To test them, Mergify creates temporary pull requests
+where multiple queued pull requested are merged together.
 
 The upside of creating multiple temporary pull requests is that continuous
 integration pipelines can run on all of them in parallel. Currently, Mergify
-embarks up from 1 to 20 pull requests into the merge train (You can set the
+embarks up from 1 to 20 pull requests into the merge train (you can set the
 value with the ``speculative_checks`` settings in ``queue_rules``).
 
 .. graphviz:: queue-strict-train.dot
    :alt: Merge train
+   :caption: A merge queue with 5 pull requests and ``speculative_checks`` set to 3
 
 In the above example, three pull requests are tested at the same time by the
 continuous integration system: ``PR #1``, ``PR #1 + PR #2`` and ``PR #1 + PR #2
@@ -254,22 +266,26 @@ A ``queue_rules`` takes the following parameter:
        See :ref:`speculative merges`.
 
 
-Example
--------
+Examples
+--------
 
-A basic usage of the queue is to merge pull requests serially, ensuring they
-all pass the CI. The following example defines a queue named ``default`` which
-allows any pull request to be merged once it entered.
+🐛 Single Queue
+~~~~~~~~~~~~~~~
 
-To enter the queue, the pull requests need to be based on the ``main`` branch,
-have 2 approving reviews and pass the CI.
+A simple usage of the queue is to merge pull requests serially, ensuring they
+all pass the CI one after the other. The following example defines a queue
+named ``default`` which allows any pull request to be merged once it enters it.
+
+To enter the queue, pull requests need to be based on the ``main`` branch, have
+2 approving reviews and pass the CI. Once a pull request is in first position
+in the queue, it will be updated with the latest commit of its base branch.
 
 .. code-block:: yaml
 
     queue_rules:
       - name: default
         conditions:
-
+          - check-success=Travis CI - Pull Request
 
     pull_request_rules:
       - name: merge using the merge queue
@@ -281,8 +297,12 @@ have 2 approving reviews and pass the CI.
           queue:
             name: default
 
+
+🚥 Multiple Queues
+~~~~~~~~~~~~~~~~~~
+
 By using multiple queues, it's possible to put some pull requests in a higher
-priorities queue. As queues are processed one after the other, the following
+priority queue. As queues are processed one after the other, the following
 example allow to add a label ``urgent`` to a pull request so it gets put in the
 higher priority queue.
 
@@ -291,10 +311,11 @@ higher priority queue.
     queue_rules:
       - name: urgent
         conditions:
+          - check-success=Travis CI - Pull Request
 
       - name: default
         conditions:
-
+          - check-success=Travis CI - Pull Request
 
     pull_request_rules:
       - name: move to urgent queue when 2 reviews and label urgent
@@ -316,42 +337,10 @@ higher priority queue.
           queue:
             name: default
 
-It's also possible to move the pull request in the queue as soon as possible,
-by passing the initial CI check. This allows the pull request to be considered
-as a candidate even quicker. Even if the CI is not a condition to enter the
-queue, in the following example, the ``urgent`` queue still ensures the CI
-passes before merging the pull request.
-
-
-.. code-block:: yaml
-
-    queue_rules:
-      - name: urgent
-        conditions:
-          - check-success=Travis CI - Pull Request
-
-      - name: default
-        conditions:
-
-
-    pull_request_rules:
-      - name: move to urgent queue when 2 reviews and label urgent
-        conditions:
-          - base=main
-          - "#approved-reviews-by>=2"
-          - label=urgent
-        actions:
-          queue:
-            name: urgent
-
-      - name: move to default queue when CI passes and 2 reviews
-        conditions:
-          - base=main
-          - "#approved-reviews-by>=2"
-          - check-success=Travis CI - Pull Request
-          - label!=urgent
-        actions:
-          queue:
-            name: default
+With such a configuration, a pull requested with the label ``urgent`` will get
+into the queue as soon as it's approved by 2 developers but before the CI has
+even run on it. It will be in front of the ``default`` queue. Mergify will
+update the pull request with its base branch if necessary, wait for the CI to
+pass and then merge the pull request.
 
 .. include:: ../global-substitutions.rst

@@ -27,6 +27,14 @@ body div.body {
     }
 }
 
+div.graphviz {
+    text-align: center;
+}
+
+div.graphviz > img.graphviz {
+    max-width: 80%;
+}
+
 img.img-fluid {
     margin-bottom: 1.5em;
 }
@@ -322,7 +330,7 @@ a.headerlink {
 
 /* Figure */
 div.figure p.caption {
-    margin-top: -2rem;
+    margin-top: -1rem;
     font-style: italic;
     font-size: 90%;
     color: #666;

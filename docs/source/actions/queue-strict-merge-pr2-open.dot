@@ -14,7 +14,7 @@ strict digraph g {
     m0:e -> m1:w;
     m1:e -> m2:w;
     m2 -> mpr1 [minlen=3];
-    mpr1 [label="Merge PR#1\ninto main\n\n\n\n\n\n", fontcolor=black, fontsize="5pt"];
+    mpr1 [label="Merge PR#1\ninto main\n\n\n\n\n\n", fontcolor=black, fontsize="6pt"];
 
     subgraph {
         rank=min;
