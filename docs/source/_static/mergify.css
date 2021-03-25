@@ -184,6 +184,11 @@ p.admonition-title:after {
     content: "";
 }
 
+div.alert {
+    /* At least needed to keep feature tag inside alerts div */
+    overflow: hidden;
+}
+
 div.alert > p.admonition-title {
     font-weight: bold;
     font-size: 1.4em;
@@ -321,4 +326,17 @@ div.figure p.caption {
     font-style: italic;
     font-size: 90%;
     color: #666;
+}
+
+/* Feature Tag */
+.feature-tag {
+    float: right !important;
+    margin-left: 1em;
+    margin-bottom: 1em;
+    clear: both;
+}
+
+.alert .feature-tag:first-of-type {
+    /* Make sure those go upper in div alert */
+    margin-top: -2.5em;
 }

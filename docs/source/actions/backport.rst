@@ -31,10 +31,10 @@ You can also trigger backports using the :ref:`backport command` command.
 
 .. warning::
 
+   |premium plan tag|
+   |essential plan tag|
    If the repository is bigger than 512 MB, the ``backport`` action is only
    available for `Essential and Premium subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
 
 Options
 -------

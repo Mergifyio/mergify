@@ -29,11 +29,10 @@ Options
    * - ``bot_account``
      - :ref:`data type template`
      -
-     - Mergify can impersonate a GitHub user to comment a pull request.
+     - |premium plan tag|
+       Mergify can impersonate a GitHub user to comment a pull request.
        If no ``bot_account`` is set, Mergify will comment the pull request
        itself.
-
-       |premium plan tag|
 
 Examples
 --------

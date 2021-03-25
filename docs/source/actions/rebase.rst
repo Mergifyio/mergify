@@ -36,9 +36,9 @@ The ``rebase`` action will rebase the pull request against its base branch.
 
 .. warning::
 
+   |premium plan tag|
+   |essential plan tag|
    If the repository is bigger than 512 MB, the ``rebase`` action is only
    available for `Essential and Premium  Plan subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
 
 .. include:: ../global-substitutions.rst

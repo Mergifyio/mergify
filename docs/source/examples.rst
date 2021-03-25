@@ -357,7 +357,7 @@ You can also ask entire teams to review a pull request based on, e.g., labels:
 📜 Enforcing Pull Request Guidelines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   |premium plan tag|
+|premium plan tag|
 
 .. code-block:: yaml
 
