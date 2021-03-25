@@ -262,10 +262,6 @@ async def marketplace_handler(
 
 
 @app.get(
-    "/queues_v2/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
-)
-@app.get(
     "/queues/{owner_id}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
