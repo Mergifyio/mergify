@@ -44,6 +44,16 @@ $(function() {
   // Remove the toctree on the frontpage
   // Hiding it is not enough
   $(".toctree-wrapper").remove();
+
+  // Sphinx adds an empty <p></p> before feature tag substitution on tables: remove it
+  $("div.feature-tag").prev("p").each(
+    function () {
+      var p = $(this);
+      if(p.text() == "") {
+        p.remove();
+      }
+    }
+  );
 });
 
 
