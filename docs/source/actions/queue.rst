@@ -197,21 +197,18 @@ These are the options of the ``queue`` action:
    * - ``merge_bot_account``
      - string
      -
-     - Mergify can impersonate a GitHub user to merge pull request.
+     - |premium plan tag|
+       Mergify can impersonate a GitHub user to merge pull request.
        If no ``merge_bot_account`` is set, Mergify will merge the pull request
        itself. The user account **must** have already been
        logged in Mergify dashboard once and have **write** or **maintain** permission.
 
-       |premium plan tag|
-
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
-     - This sets the priority of the pull request in the queue. The pull
+     - |premium plan tag| This sets the priority of the pull request in the queue. The pull
        request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
-
-       |premium plan tag|
 
    * - ``commit_message``
      - string
@@ -252,11 +249,9 @@ A ``queue_rules`` takes the following parameter:
    * - ``speculative_checks``
      - int
      - 1
-     - The maximum number of checks to run in parallel in the queue. Must be
+     - |premium plan tag| The maximum number of checks to run in parallel in the queue. Must be
        between 1 and 20.
        See :ref:`speculative merges`.
-
-       |premium plan tag|
 
 
 Example

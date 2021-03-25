@@ -72,32 +72,29 @@ The ``merge`` action merges the pull request into its base branch. The
    * - ``merge_bot_account``
      - :ref:`data type template`
      -
-     - Mergify can impersonate a GitHub user to merge pull request.
+     - |premium plan tag|
+       Mergify can impersonate a GitHub user to merge pull request.
        If no ``merge_bot_account`` is set, Mergify will merge the pull request
        itself. The user account **must** have already been
        logged in Mergify dashboard once and have **write** or **maintain** permission.
 
-       |premium plan tag|
-
    * - ``update_bot_account``
      - :ref:`data type template`
      -
-     - For certain actions, such as rebasing branches, Mergify has to
+     - |premium plan tag|
+       For certain actions, such as rebasing branches, Mergify has to
        impersonate a GitHub user. You can specify the account to use with this
        option. If no ``update_bot_account`` is set, Mergify picks randomly one of the
        organization users instead. The user account **must** have already been
        logged in Mergify dashboard once.
 
-       |premium plan tag|
-
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
-     - This sets the priority of the pull request in the queue when ``smart``
+     - |premium plan tag|
+       This sets the priority of the pull request in the queue when ``smart``
        :ref:`strict merge` is enabled. The pull request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
-
-       |premium plan tag|
 
    * - ``commit_message``
      - string

@@ -36,10 +36,10 @@ rebase
 
 .. warning::
 
+   |premium plan tag|
+   |essential plan tag|
    If the repository is bigger than 512 MB, the ``rebase`` action is only
    available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
 
 .. _update command:
 
@@ -75,10 +75,10 @@ Runs the :ref:`backport action` action.
 
 .. warning::
 
+   |premium plan tag|
+   |essential plan tag|
    If the repository is bigger than 512 MB, the ``backport`` action is only
    available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
-   |essential plan tag|
-   |premium plan tag|
 
 refresh
 ========
