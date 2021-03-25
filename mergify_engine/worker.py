@@ -797,6 +797,7 @@ class Worker:
         self._stop_task = asyncio.create_task(self._shutdown())
 
     async def wait_shutdown_complete(self):
+        await self._stopping.wait()
         await self._stop_task
 
     def stop_with_signal(self, signame):
