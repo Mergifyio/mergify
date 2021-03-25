@@ -753,22 +753,8 @@ no changes added to commit (use "git add" and/or "git commit -a")
         await self.wait_for("pull_request", {"action": "synchronize"})
         await self.run_engine()
 
-        # with the older endpoint
         r = await self.app.get(
             f"/queues/{config.TESTING_ORGANIZATION_ID}",
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-
-        assert r.json() == {
-            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
-        }
-
-        # with the new endpoint
-        r = await self.app.get(
-            f"/queues_v2/{config.TESTING_ORGANIZATION_ID}",
             headers={
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
