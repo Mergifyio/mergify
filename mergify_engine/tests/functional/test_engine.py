@@ -763,9 +763,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         )
 
         assert r.json() == {
-            f"mergifyio-testing/{self.REPO_NAME}": {
-                self.master_branch_name: [p2["number"]]
-            }
+            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
         }
 
         # with the new endpoint
