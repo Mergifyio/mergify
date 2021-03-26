@@ -340,6 +340,7 @@ GitHubCheckRunConclusion = typing.Literal[
     "failure",
     "neutral",
     "cancelled",
+    "skipped",
     "timed_out",
     "action_required",
     "stale",
