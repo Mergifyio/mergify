@@ -78,9 +78,9 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
         and not ctxt.pull["maintainer_can_modify"]
     ):
         raise BranchUpdateFailure(
-            "Mergify needs the permission to update the base branch of the pull request.\n"
-            f"{ctxt.pull['base']['repo']['owner']['login']} needs to "
-            "[authorize modification on its base branch]"
+            "Mergify needs the author permission to update the base branch of the pull request.\n"
+            f"{ctxt.pull['head']['repo']['owner']['login']} needs to "
+            "[authorize modification on its head branch]"
             "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
             title="Pull request can't be updated with latest base branch changes",
         )
