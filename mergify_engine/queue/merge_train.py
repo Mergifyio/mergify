@@ -41,6 +41,7 @@ CHECK_ASSERTS = {
     "failure": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
     "error": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
     "cancelled": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
+    "skipped": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/square-grey-16.png",
     "action_required": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
     "timed_out": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/x-red-16.png",
     # yellow dot
@@ -482,7 +483,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 if check["output"]:
                     title = check["output"]["title"]
 
-                check_icon_url = CHECK_ASSERTS[check["conclusion"]]
+                check_icon_url = CHECK_ASSERTS.get(
+                    check["conclusion"], CHECK_ASSERTS["neutral"]
+                )
 
                 checks_copy_summary += (
                     "<tr>"
