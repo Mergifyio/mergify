@@ -34,11 +34,11 @@ The state of the repository can be represented like this:
 .. graphviz:: strict-mode-master-pr-ci-pass.dot
    :alt: Pull request is open
 
-While the pull request is open, another commit is pushed to ``main` — let's
-call it `new commit`. That new commit can be pushed directely to ``main`` or
+While the pull request is open, another commit is pushed to ``main`` — let's
+call it `new commit`. That new commit can be pushed directly to ``main`` or
 merged from another pull request; it doesn't matter.
 
-The tests are run against the ``main`` branch by the CI and they pass. The
+The tests are run against the ``main`` branch by the CI, and they pass. The
 state of the repository and its continuous integration system can be now
 described like this:
 
@@ -56,22 +56,22 @@ If you click that merge button, this is what `might` happen:
 
 As a new merge commit is created to merge the pull request, it is possible that
 the continuous integration testing fails. Indeed, the continuous integration
-did not test the pull request with the `new commit` that has been added to the
-base branch. Some new test might have been introduced by this `new commit` in
-the base branch while the pull request was open. That pull request may not have
-the correct code to pass this new test.
+did not test the pull request with the `new commit` added to the base branch.
+This `new commit` might have introduced some new tests in the base branch while
+the pull request was open. That pull request may not have the correct code to
+pass this new test.
 
 Using Queues
 ~~~~~~~~~~~~
 
 Using a merge queue solves that issue by updating any pull request that is not
 up-to-date with its base branch before being merged. That forces the continuous
-integration system to test again the pull request with the new code from its
-base branch.
+integration system to retest the pull request with the new code from its base
+branch.
 
-In the previous example, if a merge queue was being used, Mergify would have
-merged ``main`` in the base branch automatically. The continuous integration
-system would have run again and marked the pull request as failing the test,
+If a merge queue were being used in the previous example, Mergify would
+automatically merge the ``main`` in the base branch. The continuous integration
+system would have rerun and marked the pull request as failing the test,
 removing it from the merge queue altogether.
 
 .. graphviz:: strict-mode-rebase-ci-fail.dot
