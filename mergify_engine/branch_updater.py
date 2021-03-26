@@ -70,7 +70,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
 GIT_MESSAGE_TO_UNSHALLOW = {"shallow update not allowed", "unrelated histories"}
 
 
-async def pre_rebase_check(ctxt: context.Context) -> None:
+def pre_update_check(ctxt: context.Context) -> None:
     # If PR from a public fork but cannot be edited
     if (
         ctxt.pull_from_fork
@@ -84,10 +84,15 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
             "(https://help.github.com/articles/allowing-changes-to-a-pull-request-branch-created-from-a-fork/).",
             title="Pull request can't be updated with latest base branch changes",
         )
+
+
+async def pre_rebase_check(ctxt: context.Context) -> None:
+    pre_update_check(ctxt)
+
     # If PR from a private fork but cannot be edited:
     # NOTE(jd): GitHub removed the ability to configure `maintainer_can_modify` on private
     # fork we which make rebase impossible
-    elif (
+    if (
         ctxt.pull_from_fork
         and ctxt.pull["base"]["repo"]["private"]
         and not ctxt.pull["maintainer_can_modify"]
@@ -231,6 +236,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
 
 async def update_with_api(ctxt: context.Context) -> None:
+    pre_update_check(ctxt)
     try:
         await ctxt.client.put(
             f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
