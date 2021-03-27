@@ -67,7 +67,7 @@ The ``merge`` action merges the pull request into its base branch. The
        * ``merge`` to merge the base branch into the pull request.
        * ``rebase`` to rebase the pull request against its base branch.
 
-       Note that the ``rebase`` method has some drawbacks, see `<Strict rebase>`_.
+       Note that the ``rebase`` method has some drawbacks, see :ref:`strict rebase`.
 
    * - ``merge_bot_account``
      - :ref:`data type template`
