@@ -261,9 +261,9 @@ in the :ref:`merge action` action. For example:
 Advanced Queueing Option
 ========================
 
-While `strict merge` solves most issues, the `queue action <queue action>`_ and
-:ref:`queue rules` provide a more powerful action to have total control of the
-merge queue.
+While `strict merge` solves most issues, :ref:`queue action <queue action>` and
+:ref:`queue rules <queue rules>` provide a more powerful action to have total
+control of the merge queue.
 
 
 Viewing the Merge Queue
