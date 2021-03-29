@@ -174,8 +174,8 @@ If an embarked pull request doesn't match the ``queue_rules`` anymore, it is
 removed from the merge train. All pull requests embarked after it are
 disembarked and re-embarked.
 
-Configuration
--------------
+Options
+-------
 
 Queue Action
 ~~~~~~~~~~~~
