@@ -321,38 +321,5 @@ Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
 
-👀 Flexible Reviewers Assignment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can assign people for review based on any criteria you like. A classic is
-to use the name of modified files to do it:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: ask jd to review changes on python files
-        conditions:
-          - files~=\.py$
-          - -closed
-        actions:
-          request_reviews:
-            users:
-              - jd
-
-You can also ask entire teams to review a pull request based on, e.g., labels:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: ask the security team to review security labelled PR
-        conditions:
-          - label=security
-        actions:
-          request_reviews:
-            teams:
-              - "@myorg/security-dev"
-              - "@myorg/security-ops"
-
-
 .. include:: examples/bots.rst
 .. include:: global-substitutions.rst
