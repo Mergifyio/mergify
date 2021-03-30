@@ -58,7 +58,7 @@ class AssignAction(actions.Action):
     async def _add_assignees(
         self, ctxt: context.Context, users_to_add: typing.List[str]
     ) -> check_api.Result:
-        assignees = await self._wanted_users(ctxt, users_to_add)
+        assignees = await self.wanted_users(ctxt, users_to_add)
 
         if assignees:
             try:
@@ -87,7 +87,7 @@ class AssignAction(actions.Action):
     async def _remove_assignees(
         self, ctxt: context.Context, users_to_remove: typing.List[str]
     ) -> check_api.Result:
-        assignees = await self._wanted_users(ctxt, users_to_remove)
+        assignees = await self.wanted_users(ctxt, users_to_remove)
 
         if assignees:
             try:
@@ -113,19 +113,3 @@ class AssignAction(actions.Action):
             "Empty users list",
             "No user removed from assignees",
         )
-
-    async def _wanted_users(
-        self, ctxt: context.Context, users: typing.List[str]
-    ) -> typing.List[str]:
-        wanted = set()
-        for user in set(users):
-            try:
-                user = await ctxt.pull_request.render_template(user)
-            except context.RenderTemplateFailure:
-                # NOTE: this should never happen since
-                # the template is validated when parsing the config 🤷
-                continue
-            else:
-                wanted.add(user)
-
-        return list(wanted)

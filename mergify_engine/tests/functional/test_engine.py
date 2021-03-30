@@ -330,6 +330,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "backported",
             "conflicts",
         ]
+        assert pull["assignees"] == []
 
     async def _do_test_backport(self, method, config=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
@@ -421,9 +422,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
     async def test_backport_merge_commit_regexes(self):
         prefix = self.get_full_branch_name("stable")
         p = await self._do_test_backport(
-            "merge", config={"regexes": [f"^{prefix}/.*$"]}
+            "merge",
+            config={"regexes": [f"^{prefix}/.*$"], "assignees": ["mergify-test3"]},
         )
         assert 2 == p["commits"]
+        assert len(p["assignees"]) == 1
+        assert p["assignees"][0]["login"] == "mergify-test3"
 
     async def test_backport_squash_and_merge(self):
         p = await self._do_test_backport("squash")

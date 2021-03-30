@@ -28,6 +28,7 @@ from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import http
+from mergify_engine.rules import types
 
 
 def Regex(value: str) -> typing.Pattern[str]:
@@ -46,6 +47,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("branches", default=[]): [str],
         voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
         voluptuous.Required("ignore_conflicts", default=True): bool,
+        voluptuous.Required("assignees", default=[]): [types.Jinja2],
         voluptuous.Required("labels", default=[]): [str],
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
@@ -75,12 +77,14 @@ class CopyAction(actions.Action):
         # No, then do it
         if not new_pull:
             try:
+                users_to_add = await self.wanted_users(ctxt, self.config["assignees"])
                 new_pull = await duplicate_pull.duplicate(
                     ctxt,
                     branch_name,
                     self.config["labels"],
                     self.config["label_conflicts"],
                     self.config["ignore_conflicts"],
+                    users_to_add,
                     self.KIND,
                 )
             except duplicate_pull.DuplicateAlreadyExists:
