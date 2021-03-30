@@ -15,6 +15,7 @@
 import dataclasses
 import functools
 import typing
+from typing import List
 
 import tenacity
 
@@ -211,6 +212,7 @@ def get_destination_branch_name(
 async def duplicate(
     ctxt: context.Context,
     branch_name: str,
+    labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
     kind: KindT = "backport",
@@ -220,6 +222,7 @@ async def duplicate(
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.context.Context
     :param branch: The branch to copy to.
+    :param labels: The list of labels to add to the created PR.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param kind: is a backport or a copy
@@ -333,10 +336,17 @@ async def duplicate(
             raise DuplicateNotNeeded(e.message)
         raise
 
+    effective_labels = []
+    if labels is not None:
+        effective_labels.extend(labels)
+
     if cherry_pick_fail and label_conflicts is not None:
+        effective_labels.append(label_conflicts)
+
+    if len(effective_labels) > 0:
         await ctxt.client.post(
             f"{ctxt.base_url}/issues/{duplicate_pr['number']}/labels",
-            json={"labels": [label_conflicts]},
+            json={"labels": effective_labels},
         )
 
     return duplicate_pr

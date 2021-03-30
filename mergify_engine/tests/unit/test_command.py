@@ -52,5 +52,6 @@ def test_command_loader():
         "branches": ["branch-3.1", "branch-3.2"],
         "regexes": [],
         "ignore_conflicts": True,
+        "labels": [],
         "label_conflicts": "conflicts",
     }

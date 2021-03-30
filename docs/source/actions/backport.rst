@@ -61,6 +61,10 @@ Options
      - ``true``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
+   * - ``labels``
+     - list of string
+     - ``[]``
+     - The list of labels to add to the created pull requests.
    * - ``label_conflicts``
      - string
      - ``conflicts``
