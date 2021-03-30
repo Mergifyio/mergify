@@ -46,6 +46,7 @@ class CopyAction(actions.Action):
         voluptuous.Required("branches", default=[]): [str],
         voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
         voluptuous.Required("ignore_conflicts", default=True): bool,
+        voluptuous.Required("labels", default=[]): [str],
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
 
@@ -77,6 +78,7 @@ class CopyAction(actions.Action):
                 new_pull = await duplicate_pull.duplicate(
                     ctxt,
                     branch_name,
+                    self.config["labels"],
                     self.config["label_conflicts"],
                     self.config["ignore_conflicts"],
                     self.KIND,

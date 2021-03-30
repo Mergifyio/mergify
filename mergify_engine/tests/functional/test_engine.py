@@ -215,7 +215,7 @@ expected alphabetic or numeric character, but found"""
             == checks[0]["output"]["summary"]
         )
 
-    async def _do_backport_conflicts(self, ignore_conflicts):
+    async def _do_backport_conflicts(self, ignore_conflicts, labels=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -242,6 +242,8 @@ expected alphabetic or numeric character, but found"""
                 },
             ]
         }
+        if labels is not None:
+            rules["pull_request_rules"][1]["actions"]["backport"]["labels"] = labels
 
         await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
@@ -310,7 +312,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
     async def test_backport_ignore_conflicts(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
-        p, checks = await self._do_backport_conflicts(True)
+        p, checks = await self._do_backport_conflicts(True, ["backported"])
 
         pull = (await self.get_pulls(base=stable_branch))[0]
 
@@ -325,7 +327,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
             )
             == checks[0]["output"]["summary"]
         )
-        assert [label["name"] for label in pull["labels"]] == ["conflicts"]
+        assert sorted(label["name"] for label in pull["labels"]) == [
+            "backported",
+            "conflicts",
+        ]
 
     async def _do_test_backport(self, method, config=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
@@ -402,6 +407,13 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert [f"refs/heads/mergify/bp/{stable_branch}/pr-{p['number']}"] == refs
         return await self.get_pull(pulls[0]["number"])
+
+    async def test_backport_with_labels(self):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        p = await self._do_test_backport(
+            "merge", config={"branches": [stable_branch], "labels": ["backported"]}
+        )
+        assert [label["name"] for label in p["labels"]] == ["backported"]
 
     async def test_backport_merge_commit(self):
         p = await self._do_test_backport("merge")
