@@ -31,7 +31,7 @@ def store_action(app, doctree):
                 "and doc:icon set in meta."
             )
 
-        link = os.path.basename(doctree["source"].removesuffix(".rst") + ".html")
+        link = os.path.basename(doctree["source"].removesuffix(".rst"))
         app._MERGIFY_ACTIONS.append((title, summary, link, icon))
 
 
@@ -59,8 +59,21 @@ def order_files(app, env, docnames):
         docnames.append("actions/index")
 
 
+def write_redirect(app, pagename, templatename, context, doctree):
+    url = f"https://docs.mergify.io/{pagename}"
+    os.makedirs(os.path.join(app.outdir, pagename), exist_ok=True)
+    with open(os.path.join(app.outdir, pagename + ".html"), "w") as f:
+        f.write(f"""<head>
+  <meta http-equiv="refresh" content="0; URL={url}">
+  <link rel="canonical" href="{url}">
+</head>
+""")
+
+
 def setup(app):
     app._MERGIFY_ACTIONS = []
     app.connect("source-read", render_action_list)
     app.connect("doctree-read", store_action)
     app.connect("env-before-read-docs", order_files)
+
+    app.connect("html-page-context", write_redirect)
