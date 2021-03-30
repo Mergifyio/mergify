@@ -54,4 +54,5 @@ def test_command_loader():
         "ignore_conflicts": True,
         "labels": [],
         "label_conflicts": "conflicts",
+        "assignees": [],
     }

@@ -70,7 +70,12 @@ Options
      - ``conflicts``
      - The label to add to the created pull request if it has conflicts and
        ``ignore_conflicts`` is set to ``true``.
-
+   * - ``assignees``
+     - list of :ref:`data type template`
+     -
+     - Users to assign the newly created pull request. As the type is
+       :ref:`data type template`, you could use, e.g., ``{{author}}`` to assign
+       the pull request to its original author.
 
 Examples
 --------
@@ -94,5 +99,7 @@ added and the pull request merged:
           backport:
             branches:
               - stable
+            assignees: 
+              - "{{ author }}"
 
 .. include:: ../global-substitutions.rst

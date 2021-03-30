@@ -128,3 +128,20 @@ class Action(abc.ABC):
         return EvaluatedActionRule(
             "", rules.RuleConditions([]), rules.RuleMissingConditions([])
         )
+
+    @staticmethod
+    async def wanted_users(
+        ctxt: context.Context, users: typing.List[str]
+    ) -> typing.List[str]:
+        wanted = set()
+        for user in set(users):
+            try:
+                user = await ctxt.pull_request.render_template(user)
+            except context.RenderTemplateFailure:
+                # NOTE: this should never happen since
+                # the template is validated when parsing the config 🤷
+                continue
+            else:
+                wanted.add(user)
+
+        return list(wanted)

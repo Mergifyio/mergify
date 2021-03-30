@@ -215,6 +215,7 @@ async def duplicate(
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
+    assignees: typing.Optional[List[str]] = None,
     kind: KindT = "backport",
 ) -> typing.Optional[github_types.GitHubPullRequest]:
     """Duplicate a pull request.
@@ -225,6 +226,7 @@ async def duplicate(
     :param labels: The list of labels to add to the created PR.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
+    :param assignees: The list of users to be assigned to the created PR.
     :param kind: is a backport or a copy
     """
     repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
@@ -347,6 +349,14 @@ async def duplicate(
         await ctxt.client.post(
             f"{ctxt.base_url}/issues/{duplicate_pr['number']}/labels",
             json={"labels": effective_labels},
+        )
+
+    if assignees is not None and len(assignees) > 0:
+        # NOTE(sileht): we don't have to deal with invalid assignees as GitHub
+        # just ignore them and always return 201
+        await ctxt.client.post(
+            f"{ctxt.base_url}/issues/{duplicate_pr['number']}/assignees",
+            json={"assignees": assignees},
         )
 
     return duplicate_pr
