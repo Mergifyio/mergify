@@ -37,9 +37,9 @@ def store_action(app, doctree):
 
 def render_action_list(app, docname, source):
     if docname == "actions/index":
-        with open("docs/source/_templates/action-list.j2", "r") as t:
+        with open(os.path.join(app.srcdir, "_templates/action-list.j2"), "r") as t:
             template = jinja2.Template(t.read())
-        with open("docs/source/actions/action-list.html", "w") as l:
+        with open(os.path.join(app.srcdir, "actions/action-list.html"), "w") as l:
             l.write(template.render(actions=sorted(app._MERGIFY_ACTIONS)))
 
 
