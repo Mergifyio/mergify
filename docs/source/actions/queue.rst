@@ -140,7 +140,7 @@ With speculative merges, the first pull requests from the queue are embarked in
 a `merge train` and tested together in parallel so they can be merged faster. A
 merge train consists of two or more pull requests embarked together to be
 tested speculatively. To test them, Mergify creates temporary pull requests
-where multiple queued pull requested are merged together.
+where multiple queued pull requests are merged together.
 
 The upside of creating multiple temporary pull requests is that continuous
 integration pipelines can run on all of them in parallel. Currently, Mergify
@@ -337,7 +337,7 @@ higher priority queue.
           queue:
             name: default
 
-With such a configuration, a pull requested with the label ``urgent`` will get
+With such a configuration, a pull request with the label ``urgent`` will get
 into the queue as soon as it's approved by 2 developers but before the CI has
 even run on it. It will be in front of the ``default`` queue. Mergify will
 update the pull request with its base branch if necessary, wait for the CI to

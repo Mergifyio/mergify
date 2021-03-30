@@ -64,7 +64,7 @@ Options
    * - ``label_conflicts``
      - string
      - ``conflicts``
-     - The label to add to the created pull requested if it has conflicts and
+     - The label to add to the created pull request if it has conflicts and
        ``ignore_conflicts`` is set to ``true``.
 
 
