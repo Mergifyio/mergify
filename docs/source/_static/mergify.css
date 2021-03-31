@@ -64,19 +64,23 @@ nav.navbar {
     padding-bottom: 1.1em;
 }
 
-#exCollapsingNavbar2 {
-    /* So the links are stuck to the logo */
-    padding-left: 2em;
+#top-navbar {
+    font-weight: 200;
+    text-transform: uppercase;
 }
 
 .navbar .navbar-brand img.logo {
     /* needed so the links in the navbar are aligned with top-left logo */
-    margin-top: -8px;
+    margin-top: -10px;
     height: 42px;
 }
 
+.navbar-light .navbar-nav {
+    margin-right: 1.5em;
+}
+
 .navbar-light .navbar-nav .nav-link {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
 }
 
 /* Fix headers for scrolling */
