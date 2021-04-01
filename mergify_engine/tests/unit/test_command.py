@@ -13,10 +13,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from unittest import mock
 
+import pytest
 
+from mergify_engine import config
+from mergify_engine import context
+from mergify_engine import github_types
+from mergify_engine import subscription
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
+from mergify_engine.clients import github
+from mergify_engine.engine.commands_runner import handle
 from mergify_engine.engine.commands_runner import load_action
 
 
@@ -59,7 +67,7 @@ def test_command_loader():
     }
 
 
-def test_command_loader_wuth_defaults():
+def test_command_loader_with_defaults():
     config = {
         "raw": {
             "defaults": {
@@ -84,3 +92,184 @@ def test_command_loader_wuth_defaults():
         "labels": [],
         "label_conflicts": "conflicts",
     }
+
+
+async def _create_context(redis_cache, client):
+    sub = subscription.Subscription(
+        redis_cache,
+        123,
+        True,
+        "",
+        {},
+        frozenset({}),
+    )
+
+    installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
+
+    repository = context.Repository(installation, "demo", 123)
+
+    return await context.Context.create(
+        repository,
+        {
+            "number": 789,
+            "state": "open",
+            "title": "Amazing new feature",
+            "user": {
+                "login": "octocat",
+                "id": 1,
+            },
+            "mergeable_state": "ok",
+            "merged_by": None,
+            "merged": None,
+            "merged_at": None,
+            "base": {
+                "sha": "sha",
+                "ref": "main",
+                "user": {
+                    "login": {
+                        "Mergifyio",
+                    },
+                },
+                "repo": {
+                    "name": "demo",
+                    "private": False,
+                    "owner": {
+                        "login": "Mergifyio",
+                        "id": 123,
+                    },
+                    "permissions": {
+                        "admin": False,
+                        "push": False,
+                        "pull": True,
+                    },
+                },
+            },
+        },
+        [],
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_command_without_rerun_and_without_user(redis_cache):
+
+    client = mock.MagicMock()
+    client.auth.installation.__getitem__.return_value = 123
+
+    ctxt = await _create_context(redis_cache, client)
+
+    with pytest.raises(RuntimeError) as error_msg:
+        await handle(
+            ctxt=ctxt, mergify_config={}, comment="@Mergifyio update", user=None
+        )
+    assert "user must be set if rerun is false" in str(error_msg.value)
+
+
+@pytest.mark.asyncio
+async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch):
+
+    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+
+    ctxt = await _create_context(redis_cache, client)
+
+    http_calls = []
+
+    async def mock_post(*args, **kwargs):
+        http_calls.append((args, kwargs))
+        return
+
+    monkeypatch.setattr(client, "post", mock_post)
+
+    await handle(
+        ctxt=ctxt,
+        mergify_config={},
+        comment="@mergifyio something",
+        user=None,
+        rerun=True,
+    )
+
+    assert (
+        "Sorry but I didn't understand the command." in http_calls[0][1]["json"]["body"]
+    )
+
+
+@pytest.mark.parametrize(
+    "user_id,permission, result",
+    [
+        (
+            666,
+            "nothing",
+            "@wall-e is not allowed to run commands",
+        ),
+        (
+            config.BOT_USER_ID,
+            "nothing",
+            "Sorry but I didn't understand the command",
+        ),
+        (
+            1,
+            "nothing",
+            "Sorry but I didn't understand the command",
+        ),
+        (
+            666,
+            "admin",
+            "Sorry but I didn't understand the command",
+        ),
+        (
+            666,
+            "maintain",
+            "Sorry but I didn't understand the command",
+        ),
+        (
+            666,
+            "write",
+            "Sorry but I didn't understand the command",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_run_command_with_user(
+    user_id, permission, result, redis_cache, monkeypatch
+):
+    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+
+    ctxt = await _create_context(redis_cache, client)
+
+    user = github_types.GitHubAccount(
+        {
+            "id": user_id,
+            "login": "wall-e",
+            "type": "Bot",
+            "avatar_url": "https://avatars.githubusercontent.com/u/583231?v=4",
+        },
+    )
+
+    class MockResponse:
+        @staticmethod
+        def json():
+            return {
+                "permission": permission,
+                "user": {
+                    "login": "wall-e",
+                },
+            }
+
+    async def mock_get(*args, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr(client, "get", mock_get)
+
+    http_calls = []
+
+    async def mock_post(*args, **kwargs):
+        http_calls.append((args, kwargs))
+        return
+
+    monkeypatch.setattr(client, "post", mock_post)
+
+    await handle(
+        ctxt=ctxt, mergify_config={}, comment="@mergifyio something", user=user
+    )
+
+    assert len(http_calls) == 1
+    assert result in http_calls[0][1]["json"]["body"]
