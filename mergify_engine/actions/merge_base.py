@@ -142,7 +142,10 @@ class MergeBaseAction(actions.Action):
     async def _get_branch_protection_conditions(
         ctxt: context.Context,
     ) -> typing.List[filter.Filter]:
-        branch = await ctxt.repository.get_branch(ctxt.pull["base"]["ref"])
+        try:
+            branch = await ctxt.repository.get_branch(ctxt.pull["base"]["ref"])
+        except http.HTTPNotFound:
+            return []
         if not branch["protection"]["enabled"]:
             return []
         return [
