@@ -17,6 +17,7 @@ import datetime
 import itertools
 import pprint
 import typing
+import urllib
 
 from mergify_engine import config
 from mergify_engine import context
@@ -152,27 +153,43 @@ async def report_queue(title: str, q: queue.QueueT) -> None:
         print(f"** {formatted_pulls} (priority: {fancy_priority})")
 
 
-async def report(
+def _url_parser(
     url: str,
-) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
-    redis_cache = utils.create_aredis_for_cache(max_idle_time=0)
+) -> typing.Tuple[github_types.GitHubLogin, typing.Optional[str], typing.Optional[str]]:
 
-    path = url.replace("https://github.com/", "")
+    path = [el for el in urllib.parse.urlparse(url).path.split("/") if el != ""]
 
     pull_number: typing.Optional[str]
     repo: typing.Optional[str]
 
     try:
-        owner, repo, _, pull_number = path.split("/")
+        owner, repo, _, pull_number = path
     except ValueError:
         pull_number = None
         try:
-            owner, repo = path.split("/")
+            owner, repo = path
         except ValueError:
-            owner = path
-            repo = None
+            if len(path) == 1:
+                owner = path[0]
+                repo = None
+            else:
+                raise ValueError
 
     owner = typing.cast(github_types.GitHubLogin, owner)
+
+    return owner, repo, pull_number
+
+
+async def report(
+    url: str,
+) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
+    redis_cache = utils.create_aredis_for_cache(max_idle_time=0)
+
+    try:
+        owner, repo, pull_number = _url_parser(url)
+    except ValueError:
+        print(f"{url} is not valid")
+        return None
 
     try:
         client = github.aget_client(owner)

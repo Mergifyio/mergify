@@ -19,7 +19,7 @@ Dependabot
 ----------
 
 `Dependabot <https://github.com/features/security>`_ is the bot behind GitHub
-automatica security update. It sends automatic updates for your project's
+automatic security update. It sends automatic updates for your project's
 dependencies, making sure they are secure.
 
 You can automate the merge of pull request created by `dependabot` with a rule
