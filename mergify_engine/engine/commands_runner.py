@@ -188,15 +188,16 @@ async def handle(
     else:
         footer = "\n\n" + WRONG_ACCOUNT_MESSAGE
 
-    if (
-        user
-        and user["id"] != config.BOT_USER_ID
-        and not await ctxt.repository.has_write_permission(user)
-    ):
-        message = f"@{user['login']} is not allowed to run commands"
-        log(message)
-        await post_comment(ctxt, message + footer)
-        return
+    if user:
+        if (
+            user["id"] != ctxt.pull["user"]["id"]
+            and user["id"] != config.BOT_USER_ID
+            and not await ctxt.repository.has_write_permission(user)
+        ):
+            message = f"@{user['login']} is not allowed to run commands"
+            log(message)
+            await post_comment(ctxt, message + footer)
+            return
 
     action = load_action(mergify_config, comment)
     if not action:

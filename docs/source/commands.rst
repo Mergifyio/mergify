@@ -16,6 +16,10 @@ The syntax of the comment is::
 
   @Mergifyio <command> [parameters …]
 
+.. note::
+
+  To run commands, a user needs to be the author of the pull request or have write access to the repository.
+
 The list of available commands is listed below, with their parameters:
 
 .. _rebase command:
