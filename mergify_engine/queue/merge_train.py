@@ -54,6 +54,11 @@ CHECK_ASSERTS = {
 
 
 @dataclasses.dataclass
+class TrainCarPullRequestCreationPostponed(Exception):
+    car: "TrainCar"
+
+
+@dataclasses.dataclass
 class TrainCarPullRequestCreationFailure(Exception):
     car: "TrainCar"
 
@@ -252,9 +257,21 @@ class TrainCar(PseudoTrainCar):
                     },
                 )
             except http.HTTPClientSideError as e:
-                await self._report_failure(e)
-                await self._delete_branch()
-                raise TrainCarPullRequestCreationFailure(self) from e
+                if (
+                    e.status_code == 403
+                    and "Resource not accessible by integration" in e.message
+                ):
+                    self.train.log.info(
+                        "fail to create the queue pull request due to GitHub App restriction",
+                        gh_pull=self.user_pull_request_number,
+                        error_message=e.message,
+                    )
+                    await self._delete_branch()
+                    raise TrainCarPullRequestCreationPostponed(self) from e
+                else:
+                    await self._report_failure(e)
+                    await self._delete_branch()
+                    raise TrainCarPullRequestCreationFailure(self) from e
 
         try:
             title = f"merge-queue: embarking {self._get_embarked_refs()} together"
@@ -879,6 +896,15 @@ class Train(queue.QueueBase):
                     else:
                         await car.create_pull()
                         car.state = "created"
+                except TrainCarPullRequestCreationPostponed:
+                    # NOTE(sileht): We can't create the tmp pull request, we will
+                    # retry later. In worse case, that will be retried until the pull
+                    # request become the first one in queue
+                    del self._cars[-1]
+                    self._waiting_pulls.insert(
+                        0, WaitingPull(user_pull_request_number, config)
+                    )
+                    return
                 except TrainCarPullRequestCreationFailure:
                     # NOTE(sileht): We posted failure merge-queue check-run on
                     # car.user_pull_request_number and refreshed it, so it will be removed
