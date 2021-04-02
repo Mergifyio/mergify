@@ -10,8 +10,16 @@
  merge
 =======
 
-The ``merge`` action merges the pull request into its base branch. The
-``merge`` action takes the following parameter:
+The ``merge`` action merges the pull request into its base branch.
+
+Mergify always respects the `branch protection`_ settings. When the conditions
+match and the ``merge`` action runs, Mergify waits for the branch protection to
+be validated before merging the pull request.
+
+.. _`branch protection`: https://docs.github.com/en/github/administering-a-repository/about-protected-branches
+
+Options
+-------
 
 .. list-table::
    :header-rows: 1
@@ -109,13 +117,6 @@ The ``merge`` action merges the pull request into its base branch. The
          itself as the commit message. The pull request number will be added to
          end of the title.
 
-Branch Protection Settings
---------------------------
-
-Note that Mergify will always respect the branch protection settings. When the
-conditions match and the ``merge`` action runs, Mergify waits for the branch
-protection to be validated before merging the pull request.
-
 .. _commit message:
 
 Defining the Commit Message
@@ -167,68 +168,14 @@ Check the :ref:`data type template` for more details on the format.
 Strict Merge
 ------------
 
-The `strict merge` option enables a workflow that prevents merging broken
-pull requests. That situation can arise when outdated pull requests are being
-merged in their base branch.
-
-Understanding the Problem
-=========================
-
-To understand the problem, imagine the following situation:
-
-- The base branch (e.g., ``main``) has its continuous integration testing
-  passing correctly.
-
-- A pull request is created, which also passes the CI.
-
-The state of the repository can be represented like this:
-
-.. graphviz:: strict-mode-master-pr-ci-pass.dot
-   :alt: Pull request is open
-
-While the pull request is open, another commit is pushed to ``main`` — let's
-call it `new commit`. That can be a local commit or a merge commit from another
-pull request; who knows. The tests are run against ``main`` by the CI and
-they pass. The state of the repository and its continuous integration system
-can be described like this:
-
-.. graphviz:: strict-mode-new-master-pr-ci-pass.dot
-   :alt: Base branch adds a new commit
-
-The pull request is still marked as valid by the continuous integration system
-since it did not change. As there is no code conflicts, the pull request is
-considered as `mergeable` by GitHub: the merge button is green.
-
-If you click that merge button, this is what `might` happen:
-
-.. graphviz:: strict-mode-merge-ci-fail.dot
-   :alt: Base branch is broken
-
-As a new merge commit is created to merge the pull request, it is possible that
-the continuous integration testing fails. Indeed, the continuous integration
-did not test the pull request with the `new commit` that has been added to the
-base branch. Some new test might have been introduced by this `new commit` in
-the base branch while the pull request was open. That pull request may not have
-the correct code to pass this new test.
-
-Now you realize that by pressing the merge button, you just broke your
-continuous integration system, and probably your software. Good job! 🤕
-
-
-The Strict Merge Solution
-=========================
+The `strict merge` option enables a simple merge queue that prevents merging
+broken pull requests. That situation can arise when outdated pull requests are
+being merged in their base branch. For an complete explanation of the problem
+see :ref:`this queue action documentation section<merge queue problem>`.
 
 The `strict merge` option solves that issue by updating any pull request that
 is not up-to-date with its base branch before being merged. That forces the
 continuous integration system to test again the pull request with the new code.
-
-In the previous example, if the ``strict`` option was enabled, Mergify would
-have merged ``main`` in the base branch automatically. The continuous
-integration system would have run again and marked the pull request as failing
-the test, removing it from the mergeable candidate.
-
-.. graphviz:: strict-mode-rebase-ci-fail.dot
-   :alt: Rebase make CI fails
 
 When the ``strict`` option is enabled, Mergify takes care of merging the target
 branch in any pull request that is not up-to-date with its target branch. If
@@ -238,6 +185,11 @@ sequentially, and they will be updated on top of each other.
 The pull request branch update is only done when the pull request is ready to
 be merged by the engine, e.g., when all the `conditions` are validated.
 
+.. tip::
+
+   While `strict merge` solves most issues, the :ref:`queue action <queue
+   action>` and its :ref:`queue rules <queue rules>` provide a more powerful
+   solution and offer total control of the merge queue.
 
 Enabling the Strict Option
 ==========================
@@ -256,27 +208,6 @@ in the :ref:`merge action` action. For example:
           merge:
             method: merge
             strict: true
-
-
-Advanced Queueing Option
-========================
-
-While `strict merge` solves most issues, :ref:`queue action <queue action>` and
-:ref:`queue rules <queue rules>` provide a more powerful action to have total
-control of the merge queue.
-
-
-Viewing the Merge Queue
-=======================
-
-When several pull request are ready to be merged and the `strict` option is
-enabled, Mergify needs to merge serially. To do that, it handles a `merge
-queue`. This queue can be seen from your `dashboard
-<https://dashboard.mergify.io>`_:
-
-.. figure:: ../_static/merge-queue.png
-   :alt: The strict merge queue
-
 
 .. _strict rebase:
 

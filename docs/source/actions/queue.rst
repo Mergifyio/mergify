@@ -19,6 +19,8 @@ merged in their base branch.
 Why Queues?
 -----------
 
+.. _merge queue problem:
+
 The Problem
 ~~~~~~~~~~~
 
