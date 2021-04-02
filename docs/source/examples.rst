@@ -8,9 +8,9 @@
 🧪 Example Rules
 =================
 
-Mergify allows you to define a lot of specific rules. There is a large number
-of criterias available to define rules: pull request author, base branch,
-labels, files, etc.
+Mergify allows you to define a lot of specific rules and workflows. There is a
+large number of :ref:`criterias <attributes>` available to define rules: pull
+request author, base branch, labels, files, etc.
 
 In this section, we build a few examples that should help you getting started
 and cover many common use cases.
@@ -38,9 +38,12 @@ it.
           merge:
             method: merge
 
-You can tweak as fine as you want. For example, many users like to use a label
-such as ``work-in-progress`` to indicate that a pull request is not ready to be
-merged — even if's approved:
+Of course, you need to adapt the ``check-success`` condition to reflect which
+CI system you use.
+
+You can tweak this rule as you want. For example, you could use a label such as
+``work-in-progress`` to indicate that a pull request is not ready to be merged
+— even if's approved:
 
 .. code-block:: yaml
 
@@ -69,63 +72,6 @@ certain member. You could therefore write such a rule:
           merge:
             method: merge
 
-If you are already using the GitHub Branch Protection system. You can just
-use:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge when GitHub branch protection passes on master
-        conditions:
-          - base=master
-        actions:
-          merge:
-            method: merge
-
-
-You can also remove the branch limitation so it'd work on any branch:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge when GitHub branch protection passes
-        conditions: []
-        actions:
-          merge:
-            method: merge
-
-
-🌀 Using Regular Expressions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can use regular expressions in the :ref:`configuration file format`, associated with flags to enhance it.
-To match a pull request title which contains the "WIP" statement, ignoring the case, you can write:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge for master when the title contains “WIP” (ignoring case)
-        conditions:
-          - base=master
-          - title~=(?i)wip
-        actions:
-          merge:
-            method: merge
-
-You can also use regular expressions to match filenames. For example, to merge your pull request
-if at least one Python file is modified and if it passes Circle CI’s validation tests:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge for master when CI passes and if at least one Python file is modified
-        conditions:
-          - "check-success=ci/circleci: validate"
-          - files~=\.py$
-        actions:
-          merge:
-            method: merge
-
 
 🗂 Merging based on Modified Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,8 +80,8 @@ You could decide to only merge some pull requests based on the files they
 touch. You can use the ``files`` attribute to access the modified file list and
 ``#files`` to access the number of files.
 
-This tweak is useful when you want Mergify to merge only data files which can be
-validated by the script, linter, etc.
+This tweak is useful when you want Mergify to merge only data files which can
+be validated by a script or a linter.
 
 The below sample merges only if ``data.json`` changed and if the pull request
 passes Circle CI's validation tests:
