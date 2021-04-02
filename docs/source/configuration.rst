@@ -117,8 +117,10 @@ The config above is the same as below:
 Data Types
 ----------
 
-Regular Expression
-~~~~~~~~~~~~~~~~~~
+.. _regular expressions:
+
+Regular Expressions
+~~~~~~~~~~~~~~~~~~~
 
 You can use regular expression with matching :ref:`operators <Operators>` in
 your :ref:`conditions <Conditions>` .
