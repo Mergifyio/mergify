@@ -246,9 +246,9 @@ from `dependabot` will always be merged last.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If all requested reviews have been approved, then the number of
-``review-requested``, ``changes-requested-reviews-by``, and
-``commented-reviews-by`` should all be 0. You also want to make sure there's at
-least one positive review, obviously.
+``review-requested`` should become 0. That's not a sufficient condition to
+merge though, as you also want to make sure there's at least one positive
+review.
 
 .. code-block:: yaml
 
@@ -258,14 +258,12 @@ least one positive review, obviously.
           - "#approved-reviews-by>=1"
           - "#review-requested=0"
           - "#changes-requested-reviews-by=0"
-          - "#commented-reviews-by=0"
         actions:
             merge:
               method: merge
 
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
-
 
 .. include:: examples/bots.rst
 .. include:: global-substitutions.rst
