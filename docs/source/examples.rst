@@ -265,5 +265,39 @@ review.
 Note that if a requested review is dismissed, then it doesn't count as a review
 that would prevent the merge.
 
+☑️ Matching Pull Requests with Task Lists
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`GitHub Markdown <https://guides.github.com/features/mastering-markdown/>`_
+allows users to use task lists in their pull request body. Task lists render
+with clickable checkboxes in comments and you can select or unselect the
+checkboxes to mark them as complete or incomplete. Tasks lists are often used
+in `pull request templates
+<https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository#adding-a-pull-request-template>`_.
+
+.. image:: _static/tasklist.png
+
+You can leverage Mergify conditions to match task lists using the ``body``
+attribute and :ref:`regular expressions <regular expressions>`. If your body
+contains the following Markdown, you can make sure those boxes are checked
+before, e.g., doing a merge.
+
+.. code-block:: markdown
+
+    [ ] Security has been checked
+    [ ] Changes have been documented
+
+.. code-block:: yaml
+
+   pull_request_rules
+     - name: merge when checkboxes are checked
+       conditions:
+         - body~=(?m)^\[X\] Security has been checked
+         - body~=(?m)^\[X\] Changes have been documented
+         - check-success=my favorite ci
+       actions:
+         merge:
+           method: merge
+
 .. include:: examples/bots.rst
 .. include:: global-substitutions.rst
