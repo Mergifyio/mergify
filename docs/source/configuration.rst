@@ -120,17 +120,39 @@ Data Types
 Regular Expression
 ~~~~~~~~~~~~~~~~~~
 
-In :ref:`Conditions` you can use regular expression with matching :ref:`Operators`.
+You can use regular expression with matching :ref:`operators <Operators>` in
+your :ref:`conditions <Conditions>` .
 
-Mergify leverages `Python regular expression <https://docs.python.org/3/library/re.html>`_ to match rules.
-
-See the specific :ref:`Examples` for configuration file examples.
+Mergify leverages `Python regular expressions
+<https://docs.python.org/3/library/re.html>`_ to match rules.
 
 .. tip::
 
   You can use `regex101 <https://regex101.com/>`_, `PyRegex
   <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
   regular expressions.
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: add python label if a Python file is modified
+        conditions:
+          - files~=\.py$
+        actions:
+          label:
+            add:
+              - python
+
+      - name: automatic merge for master when the title does not contain “WIP” (ignoring case)
+        conditions:
+          - base=master
+          - -title~=(?i)wip
+        actions:
+          merge:
+            method: merge
 
 .. _data type template:
 
