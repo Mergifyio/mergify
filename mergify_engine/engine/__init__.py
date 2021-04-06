@@ -25,6 +25,7 @@ from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.engine import commands_runner
 from mergify_engine.engine import queue_runner
@@ -302,7 +303,12 @@ async def create_initial_summary(
                 "summary": "Be patient, the page will be updated soon.",
             },
         }
-        await client.post(
-            f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
-            json=post_parameters,
-        )
+        try:
+            await client.post(
+                f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
+                json=post_parameters,
+            )
+        except http.HTTPClientSideError as e:
+            if e.status_code == 422 and "No commit found for SHA" in e.message:
+                return
+            raise
