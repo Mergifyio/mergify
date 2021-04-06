@@ -304,6 +304,5 @@ async def create_initial_summary(
         }
         await client.post(
             f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
-            api_version="antiope",  # type: ignore[call-arg]
             json=post_parameters,
         )

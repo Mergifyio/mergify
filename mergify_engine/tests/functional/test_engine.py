@@ -97,7 +97,6 @@ expected alphabetic or numeric character, but found"""
             annotation
             async for annotation in ctxt.client.items(
                 f"{ctxt.base_url}/check-runs/{check_id}/annotations",
-                api_version="antiope",
             )
         ]
         assert annotations == [
