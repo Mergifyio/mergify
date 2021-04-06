@@ -56,10 +56,11 @@ def test_command_loader():
         "labels": [],
         "label_conflicts": "conflicts",
         "assignees": [],
+        "title": "{{ title }} (backport #{{ number }})",
     }
 
 
-def test_command_loader_wuth_defaults():
+def test_command_loader_with_defaults():
     config = {
         "raw": {
             "defaults": {
@@ -83,4 +84,5 @@ def test_command_loader_wuth_defaults():
         "ignore_conflicts": False,
         "labels": [],
         "label_conflicts": "conflicts",
+        "title": "{{ title }} (backport #{{ number }})",
     }
