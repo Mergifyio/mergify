@@ -191,16 +191,14 @@ async def _get_commits_to_cherrypick(
 
 
 KindT = typing.Literal["backport", "copy"]
-BACKPORT = "backport"
-COPY = "copy"
-
-BRANCH_PREFIX_MAP = {BACKPORT: "bp", COPY: "copy"}
 
 
 def get_destination_branch_name(
-    pull_number: github_types.GitHubPullRequestNumber, branch_name: str, kind: KindT
+    pull_number: github_types.GitHubPullRequestNumber,
+    branch_name: str,
+    branch_prefix: str,
 ) -> str:
-    return f"mergify/{BRANCH_PREFIX_MAP[kind]}/{branch_name}/pr-{pull_number}"
+    return f"mergify/{branch_prefix}/{branch_name}/pr-{pull_number}"
 
 
 @tenacity.retry(
@@ -211,17 +209,20 @@ def get_destination_branch_name(
 )
 async def duplicate(
     ctxt: context.Context,
+    title: str,
     branch_name: str,
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
     assignees: typing.Optional[List[str]] = None,
     kind: KindT = "backport",
+    branch_prefix: str = "bp",
 ) -> typing.Optional[github_types.GitHubPullRequest]:
     """Duplicate a pull request.
 
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.context.Context
+    :param title: The pull request title.
     :param branch: The branch to copy to.
     :param labels: The list of labels to add to the created PR.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
@@ -230,7 +231,9 @@ async def duplicate(
     :param kind: is a backport or a copy
     """
     repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
-    bp_branch = get_destination_branch_name(ctxt.pull["number"], branch_name, kind)
+    bp_branch = get_destination_branch_name(
+        ctxt.pull["number"], branch_name, branch_prefix
+    )
 
     cherry_pick_fail = False
     body = ""
@@ -323,7 +326,7 @@ async def duplicate(
                 await ctxt.client.post(
                     f"{ctxt.base_url}/pulls",
                     json={
-                        "title": f"{ctxt.pull['title']} ({BRANCH_PREFIX_MAP[kind]} #{ctxt.pull['number']})",
+                        "title": title,
                         "body": body
                         + "\n\n---\n\n"
                         + constants.MERGIFY_PULL_REQUEST_DOC,

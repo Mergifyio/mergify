@@ -57,6 +57,10 @@ Options
      - Users to assign the newly created pull request. As the type is
        :ref:`data type template`, you could use, e.g., ``{{author}}`` to assign
        the pull request to its original author.
+   * - ``title``
+     - :ref:`data type template`
+     - ``{{ title }} (copy #{{ number }})``
+     - The pull request title.
 
 Examples
 --------
