@@ -150,7 +150,7 @@ async def test_merge_commit_message(body, title, message, mode):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
-    repository = context.Repository(installation, "whatever")
+    repository = context.Repository(installation, "whatever", 123)
     ctxt = await context.Context.create(repository=repository, pull=pull)
     ctxt._cache["pull_statuses"] = [
         github_types.GitHubStatus(
@@ -200,7 +200,7 @@ async def test_merge_commit_message_undefined(body):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
-    repository = context.Repository(installation, "whatever")
+    repository = context.Repository(installation, "whatever", 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as x:
         await merge.MergeAction._get_commit_message(pr.pull_request)
@@ -228,7 +228,7 @@ async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, redis_cache)
-    repository = context.Repository(installation, "whatever")
+    repository = context.Repository(installation, "whatever", 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         await merge.MergeAction._get_commit_message(pr.pull_request)

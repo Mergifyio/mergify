@@ -237,7 +237,9 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("xyz")
+        installation,
+        github_types.GitHubRepositoryName("xyz"),
+        github_types.GitHubRepositoryIdType(0),
     )
 
     config_file = await repository.get_mergify_config_file()
@@ -288,7 +290,9 @@ pull_request_rules:
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("xyz")
+        installation,
+        github_types.GitHubRepositoryName("xyz"),
+        github_types.GitHubRepositoryIdType(0),
     )
     config_file = await repository.get_mergify_config_file()
     assert config_file is not None
@@ -330,7 +334,9 @@ pull_request_rules:
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("xyz")
+        installation,
+        github_types.GitHubRepositoryName("xyz"),
+        github_types.GitHubRepositoryIdType(0),
     )
     config_file = await repository.get_mergify_config_file()
     assert config_file is not None
@@ -371,7 +377,9 @@ async def test_get_mergify_config_location_from_cache(
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("bar")
+        installation,
+        github_types.GitHubRepositoryName("bar"),
+        github_types.GitHubRepositoryIdType(0),
     )
 
     await repository.get_mergify_config_file()
@@ -449,7 +457,9 @@ async def test_get_mergify_config_invalid(
             redis_cache,
         )
         repository = context.Repository(
-            installation, github_types.GitHubRepositoryName("xyz")
+            installation,
+            github_types.GitHubRepositoryName("xyz"),
+            github_types.GitHubRepositoryIdType(0),
         )
 
         config_file = await repository.get_mergify_config_file()

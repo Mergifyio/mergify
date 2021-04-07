@@ -82,7 +82,9 @@ async def test_get_commits_to_cherry_pick_rebase(
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("name")
+        installation,
+        github_types.GitHubRepositoryName("name"),
+        github_types.GitHubRepositoryIdType(0),
     )
     ctxt = await context.Context.create(
         repository,
@@ -246,7 +248,9 @@ async def test_get_commits_to_cherry_pick_merge(
         redis_cache,
     )
     repository = context.Repository(
-        installation, github_types.GitHubRepositoryName("name")
+        installation,
+        github_types.GitHubRepositoryName("name"),
+        github_types.GitHubRepositoryIdType(0),
     )
     ctxt = await context.Context.create(
         repository,
