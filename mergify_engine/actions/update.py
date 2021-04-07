@@ -24,11 +24,8 @@ from mergify_engine import rules
 
 class UpdateAction(actions.Action):
     is_command = True
-
     always_run = True
-
     silent_report = True
-
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     @staticmethod

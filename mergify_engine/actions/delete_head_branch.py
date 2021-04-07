@@ -27,9 +27,7 @@ from mergify_engine.clients import http
 
 class DeleteHeadBranchAction(actions.Action):
     only_once = True
-    validator = voluptuous.Any(
-        {voluptuous.Optional("force", default=False): bool}, None
-    )
+    validator = {voluptuous.Required("force", default=False): bool}
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
@@ -40,7 +38,7 @@ class DeleteHeadBranchAction(actions.Action):
             )
 
         if ctxt.pull["state"] == "closed":
-            if self.config is None or not self.config["force"]:
+            if not self.config["force"]:
                 pulls_using_this_branch = [
                     branch
                     async for branch in ctxt.client.items(

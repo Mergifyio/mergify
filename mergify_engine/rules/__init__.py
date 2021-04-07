@@ -309,22 +309,26 @@ def YAML(v: bytes) -> typing.Any:
         raise YAMLInvalid(message="Invalid YAML", error_message=error_message)
 
 
-PullRequestRulesSchema = voluptuous.All(
-    [
-        voluptuous.All(
-            {
-                voluptuous.Required("name"): str,
-                voluptuous.Required("hidden", default=False): bool,
-                voluptuous.Required("conditions"): [
-                    voluptuous.All(str, voluptuous.Coerce(RuleCondition))
-                ],
-                voluptuous.Required("actions"): actions.get_action_schemas(),
-            },
-            voluptuous.Coerce(Rule.from_dict),
-        ),
-    ],
-    voluptuous.Coerce(PullRequestRules),
-)
+def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuous.All:
+    return voluptuous.All(
+        [
+            voluptuous.All(
+                {
+                    voluptuous.Required("name"): str,
+                    voluptuous.Required("hidden", default=False): bool,
+                    voluptuous.Required("conditions"): [
+                        voluptuous.All(str, voluptuous.Coerce(RuleCondition))
+                    ],
+                    voluptuous.Required("actions"): actions.get_action_schemas(
+                        partial_validation
+                    ),
+                },
+                voluptuous.Coerce(Rule.from_dict),
+            ),
+        ],
+        voluptuous.Coerce(PullRequestRules),
+    )
+
 
 QueueRulesSchema = voluptuous.All(
     [
@@ -344,12 +348,18 @@ QueueRulesSchema = voluptuous.All(
     voluptuous.Coerce(QueueRules),
 )
 
-DefaultsSchema = {
-    # FIXME(sileht): actions.get_action_schemas() returns only actions Actions
-    # and not command only, since only refresh is command only and it doesn't
-    # have options it's not a big deal.
-    voluptuous.Required("actions", default={}): actions.get_action_schemas(),
-}
+
+def get_defaults_schema(
+    partial_validation: bool,
+) -> typing.Dict[typing.Any, typing.Any]:
+    return {
+        # FIXME(sileht): actions.get_action_schemas() returns only actions Actions
+        # and not command only, since only refresh is command only and it doesn't
+        # have options it's not a big deal.
+        voluptuous.Required("actions", default={}): actions.get_action_schemas(
+            partial_validation
+        ),
+    }
 
 
 def FullifyPullRequestRules(v):
@@ -365,18 +375,24 @@ def FullifyPullRequestRules(v):
     return v
 
 
-UserConfigurationSchema = voluptuous.Schema(
-    voluptuous.And(
-        {
-            voluptuous.Required(
-                "pull_request_rules", default=[]
-            ): PullRequestRulesSchema,
-            voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
-            voluptuous.Required("defaults", default={}): DefaultsSchema,
-        },
-        voluptuous.Coerce(FullifyPullRequestRules),
-    )
-)
+def UserConfigurationSchema(
+    config: typing.Dict[str, typing.Any], partial_validation: bool = False
+) -> voluptuous.Schema:
+    schema = {
+        voluptuous.Required(
+            "pull_request_rules", default=[]
+        ): get_pull_request_rules_schema(partial_validation),
+        voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
+        voluptuous.Required("defaults", default={}): get_defaults_schema(
+            partial_validation
+        ),
+    }
+
+    if not partial_validation:
+        schema = voluptuous.And(schema, voluptuous.Coerce(FullifyPullRequestRules))
+
+    return voluptuous.Schema(schema)(config)
+
 
 YamlSchema = voluptuous.Schema(voluptuous.Coerce(YAML))
 
@@ -474,14 +490,14 @@ def get_mergify_config(
         config = {}
 
     try:
-        UserConfigurationSchema(config)
+        UserConfigurationSchema(config, partial_validation=True)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
 
     merged_config = merge_config(config)
 
     try:
-        config = UserConfigurationSchema(merged_config)
+        config = UserConfigurationSchema(merged_config, partial_validation=False)
         config["raw"] = merged_config
         return typing.cast(MergifyConfig, config)
     except voluptuous.Invalid as e:

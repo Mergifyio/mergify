@@ -31,7 +31,7 @@ from mergify_engine.rules import get_mergify_config
 
 
 def pull_request_rule_from_list(lst):
-    return voluptuous.Schema(rules.PullRequestRulesSchema)(lst)
+    return voluptuous.Schema(rules.get_pull_request_rules_schema())(lst)
 
 
 def test_valid_condition():
@@ -1222,8 +1222,13 @@ defaults:
   actions:
     post_check:
     rebase:
+    queue:
+      name: default
     comment:
       bot_account: "foobar"
+queue_rules:
+    - name: default
+      conditions: []
 pull_request_rules:
   - name: ahah
     conditions:
@@ -1233,6 +1238,7 @@ pull_request_rules:
       rebase:
         bot_account: "foobar"
       post_check:
+      queue:
             """,
     )
 
@@ -1242,4 +1248,86 @@ pull_request_rules:
         "comment",
         "rebase",
         "post_check",
+        "queue",
     ]
+
+
+def test_action_queue_with_no_default_queue():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      queue:
+        name: missing
+            """,
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert str(e.value.error) == "missing queue not found"
+
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      queue:
+            """,
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert (
+        str(e.value.error)
+        == "required key not provided @ data['pull_request_rules'][0]['actions']['queue']['name']"
+    )
+
+    # TODO(sileht): This is currently required to set a queue name to set other
+    # queue options If one days we have more options like queue name, we may
+    # need to revisit the validators system to make all voluptuous.Required()
+    # keys optional for defaults
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+defaults:
+  actions:
+    queue:
+      merge_bot_account: foobar
+queue_rules:
+  - name: default
+    conditions: []
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      queue:
+        name: default
+            """,
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert (
+        str(e.value.error)
+        == "required key not provided @ data['defaults']['actions']['queue']['name']"
+    )
