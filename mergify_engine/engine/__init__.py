@@ -167,21 +167,6 @@ async def run(
         else:
             ctxt.sources.append(source)
 
-    ctxt.log.debug("engine run pending commands")
-    await commands_runner.run_pending_commands_tasks(ctxt)
-
-    if issue_comment_sources:
-        ctxt.log.debug("engine handle commands")
-        for ic_source in issue_comment_sources:
-            await commands_runner.handle(
-                ctxt,
-                ic_source["data"]["comment"]["body"],
-                ic_source["data"]["comment"]["user"],
-            )
-
-    if not ctxt.sources:
-        return
-
     if ctxt.client.auth.permissions_need_to_be_updated:
         await ctxt.set_summary_check(
             check_api.Result(
@@ -243,6 +228,21 @@ async def run(
                 summary=ctxt.subscription.reason,
             )
         )
+        return
+
+    ctxt.log.debug("engine run pending commands")
+    await commands_runner.run_pending_commands_tasks(ctxt)
+
+    if issue_comment_sources:
+        ctxt.log.debug("engine handle commands")
+        for ic_source in issue_comment_sources:
+            await commands_runner.handle(
+                ctxt,
+                ic_source["data"]["comment"]["body"],
+                ic_source["data"]["comment"]["user"],
+            )
+
+    if not ctxt.sources:
         return
 
     await _ensure_summary_on_head_sha(ctxt)
