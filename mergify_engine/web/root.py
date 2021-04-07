@@ -103,7 +103,7 @@ async def refresh_repo(
                 status_code=404, content="repository not found"
             )
 
-    await github_events.send_refresh(redis_cache, redis_stream, repository)
+    await utils.send_refresh(redis_cache, redis_stream, repository)
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -135,7 +135,7 @@ async def refresh_pull(
                 status_code=404, content="repository not found"
             )
 
-    await github_events.send_refresh(
+    await utils.send_refresh(
         redis_cache,
         redis_stream,
         repository,
@@ -168,7 +168,7 @@ async def refresh_branch(
                 status_code=404, content="repository not found"
             )
 
-    await github_events.send_refresh(
+    await utils.send_refresh(
         redis_cache,
         redis_stream,
         repository,
