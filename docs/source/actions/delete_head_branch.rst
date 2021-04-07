@@ -58,4 +58,4 @@ Mergify allows to delete those branches once the pull request has been merged:
         conditions:
           - merged
         actions:
-          delete_head_branch: {}
+          delete_head_branch:

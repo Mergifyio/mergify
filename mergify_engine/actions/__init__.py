@@ -98,7 +98,13 @@ class Action(abc.ABC):
 
     @classmethod
     def get_schema(cls) -> ActionSchema:
-        return ActionSchema(voluptuous.All(cls.validator, voluptuous.Coerce(cls)))
+        return ActionSchema(
+            voluptuous.All(
+                voluptuous.Coerce(lambda v: {} if v is None else v),
+                cls.validator,
+                voluptuous.Coerce(cls),
+            )
+        )
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:

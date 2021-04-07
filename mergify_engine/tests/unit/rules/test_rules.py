@@ -413,16 +413,6 @@ async def test_get_mergify_config_location_from_cache(
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
-                actions:
-                  comment:
-            """
-        ),
-        (
-            """
-            pull_request_rules:
-              - name: ahah
-                conditions:
                 actions:
                   coment:
                     message: |
@@ -1219,3 +1209,37 @@ def test_merge_config():
     merged_config = rules.merge_config(config)
 
     assert merged_config == config
+
+
+def test_actions_with_options_none():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+defaults:
+  actions:
+    post_check:
+    rebase:
+    comment:
+      bot_account: "foobar"
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      comment:
+      rebase:
+        bot_account: "foobar"
+      post_check:
+            """,
+    )
+
+    config = rules.get_mergify_config(file)
+
+    assert [list(rule.actions.keys()) for rule in config["pull_request_rules"]][0] == [
+        "comment",
+        "rebase",
+        "post_check",
+    ]
