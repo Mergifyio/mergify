@@ -70,7 +70,7 @@ async def test_pull_behind(commits_tree_generator, redis_cache):
     client.item.return_value = item()  # /branch/#foo
 
     installation = context.Installation(123, "user", {}, client, redis_cache)
-    repository = context.Repository(installation, "name")
+    repository = context.Repository(installation, "name", 0)
     ctxt = await context.Context.create(
         repository,
         {

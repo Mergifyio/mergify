@@ -64,12 +64,14 @@ async def test_worker_with_waiting_tasks(
             for data in range(3):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
+                repo_id = installation_id
                 owner_id = installation_id
                 stream_names.append(f"stream~owner-{installation_id}~{owner_id}")
                 await worker.push(
                     redis_stream,
                     owner_id,
                     owner,
+                    repo_id,
                     repo,
                     pull_number,
                     "pull_request",
@@ -94,6 +96,7 @@ async def test_worker_with_waiting_tasks(
     assert (
         mock.call(
             InstallationMatcher(owner="owner-0"),
+            0,
             "repo-0",
             0,
             [
@@ -151,6 +154,7 @@ async def test_worker_expanded_events(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -160,6 +164,7 @@ async def test_worker_expanded_events(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         None,
         "comment",
@@ -181,6 +186,7 @@ async def test_worker_expanded_events(
     assert 3 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         123,
         [
@@ -198,6 +204,7 @@ async def test_worker_expanded_events(
     )
     assert run_engine.mock_calls[1] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         456,
         [
@@ -210,6 +217,7 @@ async def test_worker_expanded_events(
     )
     assert run_engine.mock_calls[2] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         789,
         [
@@ -232,6 +240,7 @@ async def test_worker_with_one_task(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -241,6 +250,7 @@ async def test_worker_with_one_task(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "comment",
@@ -262,6 +272,7 @@ async def test_worker_with_one_task(
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         123,
         [
@@ -300,6 +311,7 @@ async def test_consume_good_stream(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -309,6 +321,7 @@ async def test_consume_good_stream(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "comment",
@@ -326,6 +339,7 @@ async def test_consume_good_stream(
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         123,
         [
@@ -371,6 +385,7 @@ async def test_stream_processor_retrying_pull(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -380,6 +395,7 @@ async def test_stream_processor_retrying_pull(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         42,
         "comment",
@@ -398,6 +414,7 @@ async def test_stream_processor_retrying_pull(
     assert run_engine.mock_calls == [
         mock.call(
             InstallationMatcher(owner="owner"),
+            123,
             "repo",
             123,
             [
@@ -410,6 +427,7 @@ async def test_stream_processor_retrying_pull(
         ),
         mock.call(
             InstallationMatcher(owner="owner"),
+            123,
             "repo",
             42,
             [
@@ -477,6 +495,7 @@ async def test_stream_processor_retrying_stream_recovered(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -486,6 +505,7 @@ async def test_stream_processor_retrying_stream_recovered(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "comment",
@@ -503,6 +523,7 @@ async def test_stream_processor_retrying_stream_recovered(
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         123,
         [
@@ -559,6 +580,7 @@ async def test_stream_processor_retrying_stream_failure(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -568,6 +590,7 @@ async def test_stream_processor_retrying_stream_failure(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "comment",
@@ -585,6 +608,7 @@ async def test_stream_processor_retrying_stream_failure(
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
         InstallationMatcher(owner="owner"),
+        123,
         "repo",
         123,
         [
@@ -642,6 +666,7 @@ async def test_stream_processor_pull_unexpected_error(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -675,6 +700,7 @@ async def test_stream_processor_date_scheduling(
             redis_stream,
             123,
             "owner1",
+            123,
             "repo",
             123,
             "pull_request",
@@ -687,6 +713,7 @@ async def test_stream_processor_date_scheduling(
             redis_stream,
             123,
             "owner2",
+            123,
             "repo",
             321,
             "pull_request",
@@ -703,7 +730,7 @@ async def test_stream_processor_date_scheduling(
 
     received = []
 
-    def fake_engine(installation, repo, pull_number, sources):
+    def fake_engine(installation, repo_id, repo, pull_number, sources):
         received.append(installation.owner_login)
 
     run_engine.side_effect = fake_engine
@@ -751,6 +778,7 @@ async def test_worker_debug_report(_, redis_stream, redis_cache, logger_checker)
                     redis_stream,
                     123,
                     owner,
+                    123,
                     repo,
                     pull_number,
                     "pull_request",
@@ -779,7 +807,7 @@ async def test_stream_processor_retrying_after_read_error(
     installation = context.Installation(123, "owner", {}, None, None)
     with pytest.raises(worker.StreamRetry):
         async with p._translate_exception_to_retries(installation.stream_name):
-            await worker.run_engine(installation, "repo", 1234, [])
+            await worker.run_engine(installation, 123, "repo", 1234, [])
 
 
 @pytest.mark.asyncio
@@ -801,6 +829,7 @@ async def test_stream_processor_ignore_503(
         redis_stream,
         123,
         "owner1",
+        123,
         "repo",
         123,
         "pull_request",
@@ -827,12 +856,14 @@ async def test_worker_with_multiple_workers(
             for data in range(3):
                 owner = f"owner-{installation_id}"
                 repo = f"repo-{installation_id}"
+                repo_id = installation_id
                 owner_id = installation_id
                 stream_names.append(f"stream~owner-{installation_id}~{owner_id}")
                 await worker.push(
                     redis_stream,
                     owner_id,
                     owner,
+                    repo_id,
                     repo,
                     pull_number,
                     "pull_request",
@@ -879,6 +910,7 @@ async def test_worker_reschedule(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",
@@ -925,6 +957,7 @@ async def test_worker_stuck_shutdown(
         redis_stream,
         123,
         "owner",
+        123,
         "repo",
         123,
         "pull_request",

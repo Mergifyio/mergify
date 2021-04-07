@@ -176,7 +176,7 @@ async def test_disabled(redis_cache):
         frozenset({}),
     )
     installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
-    repository = context.Repository(installation, "demo")
+    repository = context.Repository(installation, "demo", 123)
     ctxt = await context.Context.create(
         repository,
         {

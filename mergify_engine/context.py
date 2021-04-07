@@ -101,13 +101,24 @@ class Installation:
 
     def get_repository(
         self,
-        name: github_types.GitHubRepositoryName,
-        _id: typing.Optional[github_types.GitHubRepositoryIdType] = None,
+        repo_name: github_types.GitHubRepositoryName,
+        repo_id: github_types.GitHubRepositoryIdType,
     ) -> "Repository":
-        if name not in self.repositories:
-            repository = Repository(self, name, _id)
-            self.repositories[name] = repository
-        return self.repositories[name]
+        if repo_name not in self.repositories:
+            repository = Repository(self, repo_name, repo_id)
+            self.repositories[repo_name] = repository
+        return self.repositories[repo_name]
+
+    async def get_repository_by_name(
+        self,
+        name: github_types.GitHubRepositoryName,
+    ) -> "Repository":
+        if name in self.repositories:
+            return self.repositories[name]
+        repo_data: github_types.GitHubRepository = await self.client.item(
+            f"/repos/{self.owner_login}/{name}"
+        )
+        return self.get_repository(repo_data["name"], repo_data["id"])
 
     async def get_repository_by_id(
         self, _id: github_types.GitHubRepositoryIdType
@@ -187,7 +198,7 @@ class RepositoryCache(typing.TypedDict, total=False):
 class Repository(object):
     installation: Installation
     name: github_types.GitHubRepositoryName
-    _id: typing.Optional[github_types.GitHubRepositoryIdType] = None
+    id: github_types.GitHubRepositoryIdType
     pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
         dataclasses.field(default_factory=dict)
     )
@@ -199,19 +210,6 @@ class Repository(object):
     def base_url(self) -> str:
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.installation.owner_login}/{self.name}"
-
-    @property
-    def id(self) -> github_types.GitHubRepositoryIdType:
-        # TODO(sileht): Ensure all events push to worker have repo id set, to be able to
-        # remove this
-        if self._id is None:
-            ctxt = first.first(c for _, c in self.pull_contexts.items())
-            if ctxt is None:
-                raise RuntimeError(
-                    "Can't get repo id if Repository.pull_contexts is empty"
-                )
-            self._id = ctxt.pull["base"]["repo"]["id"]
-        return self._id
 
     MERGIFY_CONFIG_FILENAMES = [
         ".mergify.yml",

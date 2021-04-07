@@ -116,6 +116,7 @@ async def push(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
     owner: github_types.GitHubLogin,
+    repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
     repo: github_types.GitHubRepositoryName,
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
@@ -131,6 +132,7 @@ async def push(
             b"event": msgpack.packb(
                 {
                     "owner_id": owner_id,
+                    "repo_id": repo_id,
                     "owner": owner,
                     "repo": repo,
                     "pull_number": pull_number,
@@ -162,6 +164,7 @@ async def push(
 
 async def run_engine(
     installation: context.Installation,
+    repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestNumber,
     sources: typing.List[context.T_PayloadEventSource],
@@ -175,7 +178,10 @@ async def run_engine(
     logger.debug("engine in thread start")
     try:
         try:
-            repository = installation.get_repository(repo_name)
+            if repo_id:
+                repository = installation.get_repository(repo_name, repo_id)
+            else:
+                repository = await installation.get_repository_by_name(repo_name)
             ctxt = await repository.get_pull_request_context(pull_number)
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
@@ -191,7 +197,9 @@ PullsToConsume = typing.NewType(
     "PullsToConsume",
     collections.OrderedDict[
         typing.Tuple[
-            github_types.GitHubRepositoryName, github_types.GitHubPullRequestNumber
+            github_types.GitHubRepositoryName,
+            typing.Optional[github_types.GitHubRepositoryIdType],
+            github_types.GitHubPullRequestNumber,
         ],
         typing.Tuple[
             typing.List[T_MessageID], typing.List[context.T_PayloadEventSource]
@@ -432,39 +440,47 @@ end
         pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
-            repo = github_types.GitHubRepositoryName(data["repo"])
+            repo_name = github_types.GitHubRepositoryName(data["repo"])
+            repo_id: typing.Optional[github_types.GitHubRepositoryIdType] = data.get(
+                "repo_id"
+            )
             source = typing.cast(context.T_PayloadEventSource, data["source"])
             if data["pull_number"] is not None:
-                key = (repo, github_types.GitHubPullRequestNumber(data["pull_number"]))
+                key = (
+                    repo_name,
+                    repo_id,
+                    github_types.GitHubPullRequestNumber(data["pull_number"]),
+                )
                 group = pulls.setdefault(key, ([], []))
                 group[0].append(message_id)
                 group[1].append(source)
             else:
                 logger = daiquiri.getLogger(
                     __name__,
-                    gh_repo=repo,
+                    gh_repo=repo_name,
                     gh_owner=installation.owner_login,
                     source=source,
                 )
-                if repo not in opened_pulls_by_repo:
+                if repo_name not in opened_pulls_by_repo:
                     try:
-                        opened_pulls_by_repo[repo] = [
+                        opened_pulls_by_repo[repo_name] = [
                             p
                             async for p in installation.client.items(
-                                f"/repos/{installation.owner_login}/{repo}/pulls"
+                                f"/repos/{installation.owner_login}/{repo_name}/pulls"
                             )
                         ]
                     except Exception as e:
                         if exceptions.should_be_ignored(e):
-                            opened_pulls_by_repo[repo] = []
+                            opened_pulls_by_repo[repo_name] = []
                         else:
                             raise
 
                 converted_messages = await self._convert_event_to_messages(
                     installation,
-                    repo,
+                    repo_id,
+                    repo_name,
                     source,
-                    opened_pulls_by_repo[repo],
+                    opened_pulls_by_repo[repo_name],
                 )
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
@@ -494,6 +510,7 @@ end
     async def _convert_event_to_messages(
         self,
         installation: context.Installation,
+        repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
@@ -523,6 +540,7 @@ end
                     self.redis_stream,
                     installation.owner_id,
                     installation.owner_login,
+                    repo_id,
                     repo_name,
                     pull_number,
                     source["event_type"],
@@ -539,7 +557,7 @@ end
         LOG.debug(
             "stream contains %d pulls", len(pulls), stream_name=installation.stream_name
         )
-        for (repo, pull_number), (message_ids, sources) in pulls.items():
+        for (repo, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
             statsd.histogram("engine.streams.batch-size", len(sources))
             for source in sources:
@@ -564,7 +582,7 @@ end
                 async with self._translate_exception_to_retries(
                     installation.stream_name, attempts_key
                 ):
-                    await run_engine(installation, repo, pull_number, sources)
+                    await run_engine(installation, repo_id, repo, pull_number, sources)
                 await self.redis_stream.hdel("attempts", attempts_key)
                 await self.redis_stream.execute_command(
                     "XDEL", installation.stream_name, *message_ids

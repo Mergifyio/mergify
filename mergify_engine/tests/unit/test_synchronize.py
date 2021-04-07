@@ -72,7 +72,7 @@ async def test_summary_synchronization_cache(
         client,
         redis_cache,
     )
-    repository = context.Repository(installation, gh_repo["name"])
+    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
     ctxt = await context.Context.create(
         repository,
         {

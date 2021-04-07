@@ -932,7 +932,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             client,
             self.redis_cache,
         )
-        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        repository = context.Repository(
+            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
+        )
         pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
@@ -978,7 +980,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             client,
             self.redis_cache,
         )
-        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        repository = context.Repository(
+            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
+        )
         pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
