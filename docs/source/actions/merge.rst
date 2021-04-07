@@ -218,8 +218,6 @@ Using the ``rebase`` method for the strict merge has many drawbacks:
 
 * It doesn't work for private forked repositories.
 
-* It doesn't work if Mergify is used as a GitHub Action.
-
 * Due to the change of all commits SHA-1 of the pull request, your
   contributor will need to force-push its own branch if they add new
   commits.
