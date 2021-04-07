@@ -101,8 +101,6 @@ class QueueBase(abc.ABC):
         ] = None,
     ) -> None:
 
-        from mergify_engine import github_events  # circular reference
-
         with utils.aredis_for_stream() as redis_stream:
             for pull_number in await self.get_pulls():
                 if (
@@ -110,7 +108,7 @@ class QueueBase(abc.ABC):
                     and except_pull_request == pull_number
                 ):
                     continue
-                await github_events.send_refresh(
+                await utils.send_refresh(
                     self.repository.installation.redis,
                     redis_stream,
                     repository,

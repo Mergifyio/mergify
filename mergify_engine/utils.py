@@ -21,10 +21,12 @@ import os
 import socket
 import ssl
 import typing
+import uuid
 
 import aredis
 
 from mergify_engine import config
+from mergify_engine import github_types
 
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
@@ -181,3 +183,39 @@ def to_ordinal_numeric(number: int) -> str:
 class FakePR:
     def __init__(self, key: str, value: typing.Any):
         setattr(self, key, value)
+
+
+async def send_refresh(
+    redis_cache: RedisCache,
+    redis_stream: RedisStream,
+    repository: github_types.GitHubRepository,
+    pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber] = None,
+    ref: typing.Optional[github_types.GitHubRefType] = None,
+    action: github_types.GitHubEventRefreshActionType = "user",
+) -> None:
+    # Break circular import
+    from mergify_engine import github_events
+
+    data = github_types.GitHubEventRefresh(
+        {
+            "action": action,
+            "ref": ref,
+            "repository": repository,
+            "pull_request_number": pull_request_number,
+            "sender": {
+                "login": github_types.GitHubLogin("<internal>"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+                "avatar_url": "",
+            },
+            "organization": repository["owner"],
+            "installation": {
+                "id": github_types.GitHubInstallationIdType(0),
+                "account": repository["owner"],
+            },
+        }
+    )
+
+    await github_events.filter_and_dispatch(
+        redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
+    )
