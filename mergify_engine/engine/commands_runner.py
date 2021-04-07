@@ -77,7 +77,9 @@ def load_action(
                     action_config = default_action_config
 
         action_config.update(action_class.command_to_config(command_args))
-        action = voluptuous.Schema(action_class.get_schema())(action_config)
+        action = voluptuous.Schema(action_class.get_schema(partial_validation=False))(
+            action_config
+        )
         return action_name, command_args, action
 
     return None

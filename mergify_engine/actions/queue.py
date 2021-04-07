@@ -38,25 +38,31 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class QueueAction(merge_base.MergeBaseAction):
-    validator = {
-        voluptuous.Required("name"): str,
-        voluptuous.Required("method", default="merge"): voluptuous.Any(
-            "rebase", "merge", "squash"
-        ),
-        voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
-            "merge", "squash", "none", None
-        ),
-        voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
-            None, types.GitHubLogin
-        ),
-        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
-        ),
-        voluptuous.Required(
-            "priority", default=merge_base.PriorityAliases.medium.value
-        ): merge_base.PrioritySchema,
-        # TODO(sileht): Add support for strict method and  update_bot_account
-    }
+    @classmethod
+    def get_config_schema(
+        cls,
+        partial_validation: bool,
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required(
+                "name", default="" if partial_validation else voluptuous.UNDEFINED
+            ): str,
+            voluptuous.Required("method", default="merge"): voluptuous.Any(
+                "rebase", "merge", "squash"
+            ),
+            voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
+                "merge", "squash", "none", None
+            ),
+            voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
+                None, types.GitHubLogin
+            ),
+            voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+                "default", "title+body"
+            ),
+            voluptuous.Required(
+                "priority", default=merge_base.PriorityAliases.medium.value
+            ): merge_base.PrioritySchema,
+        }
 
     def _subscription_status(
         self, ctxt: context.Context

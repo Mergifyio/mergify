@@ -42,9 +42,13 @@ def get_classes() -> typing.Dict[str, "Action"]:
     return _ACTIONS_CLASSES
 
 
-def get_action_schemas() -> typing.Dict[str, ActionSchema]:
+def get_action_schemas(
+    partial_validation: bool = False,
+) -> typing.Dict[str, ActionSchema]:
     return {
-        name: obj.get_schema() for name, obj in get_classes().items() if obj.is_action
+        name: obj.get_schema(partial_validation)
+        for name, obj in get_classes().items()
+        if obj.is_action
     }
 
 
@@ -58,7 +62,7 @@ class EvaluatedActionRule(typing.NamedTuple):
     missing_conditions: "rules.RuleMissingConditions"
 
 
-@dataclasses.dataclass  # type: ignore
+@dataclasses.dataclass
 class Action(abc.ABC):
     is_action = True
     is_command = False
@@ -85,11 +89,7 @@ class Action(abc.ABC):
     # not create something that endup with a infinite loop of events
     allow_retrigger_mergify = False
 
-    @property
-    @staticmethod
-    @abc.abstractmethod
-    def validator() -> typing.Dict[typing.Any, typing.Any]:  # pragma: no cover
-        pass
+    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]]
 
     def validate_config(
         self, mergify_config: "rules.MergifyConfig"
@@ -97,14 +97,21 @@ class Action(abc.ABC):
         pass
 
     @classmethod
-    def get_schema(cls) -> ActionSchema:
+    def get_schema(cls, partial_validation: bool = False) -> ActionSchema:
         return ActionSchema(
             voluptuous.All(
                 voluptuous.Coerce(lambda v: {} if v is None else v),
-                cls.validator,
+                cls.get_config_schema(partial_validation),
                 voluptuous.Coerce(cls),
             )
         )
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        # TODO(sileht): move all actions to this signature.
+        return cls.validator
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
