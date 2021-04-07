@@ -449,9 +449,14 @@ def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typin
                 for action_name, action in actions.items():
                     if action_name not in defaults_actions:
                         continue
+                    elif defaults_actions[action_name] is None:
+                        continue
 
-                    merged_action = defaults_actions[action_name] | action
-                    rule["actions"][action_name].update(merged_action)
+                    if action is None:
+                        rule["actions"][action_name] = defaults_actions[action_name]
+                    else:
+                        merged_action = defaults_actions[action_name] | action
+                        rule["actions"][action_name].update(merged_action)
     return config
 
 

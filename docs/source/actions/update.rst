@@ -14,13 +14,10 @@ works by merging the base branch into the head branch of the pull request.
 
 .. image:: ../_static/update-branch.png
 
-This action does not have any configuration option, therefore it takes an empty
-dictionary as configuration (``{}`` in YAML).
-
 .. code-block:: yaml
 
     actions:
-      update: {}
+      update:
 
 
 Examples
@@ -46,7 +43,7 @@ pull requests.
           - -draft # filter-out GH draft PRs
           - label="Ready-to-Go"
         actions:
-          update: {}
+          update:
 
 When a pull request is not in conflict nor draft, and has the label
 ``Ready-to-Go``, it will be automatically updated with its base branch.

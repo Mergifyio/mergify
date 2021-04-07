@@ -61,7 +61,7 @@ as the pull request gets updated with new commits.
         conditions:
           - base=master
         actions:
-          dismiss_reviews: {}
+          dismiss_reviews:
 
 You could also only dismiss the outdated reviews if the author is not a member
 of a particular team. This allows to keep the approval if the author is
@@ -75,4 +75,4 @@ trusted, even if they update their code:
           - base=master
           - author!=@mytrustedteam
         actions:
-          dismiss_reviews: {}
+          dismiss_reviews:

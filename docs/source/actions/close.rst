@@ -43,4 +43,4 @@ let's say ``do_not_touch.txt``, you could write a rule such as:
         conditions:
           - files=do_not_touch.txt
         actions:
-          close: {}
+          close:
