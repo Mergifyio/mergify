@@ -21,13 +21,14 @@ from mergify_engine.engine.commands_runner import load_action
 
 
 def test_command_loader():
-    action = load_action("@mergifyio notexist foobar\n")
+    config = {"raw": {}}
+    action = load_action(config, "@mergifyio notexist foobar\n")
     assert action is None
 
-    action = load_action("@mergifyio comment foobar\n")
+    action = load_action(config, "@mergifyio comment foobar\n")
     assert action is None
 
-    action = load_action("@Mergifyio comment foobar\n")
+    action = load_action(config, "@Mergifyio comment foobar\n")
     assert action is None
 
     for message in [
@@ -38,12 +39,12 @@ def test_command_loader():
         "@mergifyio rebase foobar",
         "@mergifyio rebase foobar\nsecondline\n",
     ]:
-        command, args, action = load_action(message)
+        command, args, action = load_action(config, message)
         assert command == "rebase"
         assert isinstance(action, RebaseAction)
 
     command, args, action = load_action(
-        "@mergifyio backport branch-3.1 branch-3.2\nfoobar\n"
+        config, "@mergifyio backport branch-3.1 branch-3.2\nfoobar\n"
     )
     assert command == "backport"
     assert args == "branch-3.1 branch-3.2"
@@ -55,4 +56,31 @@ def test_command_loader():
         "labels": [],
         "label_conflicts": "conflicts",
         "assignees": [],
+    }
+
+
+def test_command_loader_wuth_defaults():
+    config = {
+        "raw": {
+            "defaults": {
+                "actions": {
+                    "backport": {
+                        "branches": ["branch-3.1", "branch-3.2"],
+                        "ignore_conflicts": False,
+                    }
+                }
+            }
+        }
+    }
+    command, args, action = load_action(config, "@mergifyio backport")
+    assert command == "backport"
+    assert args == ""
+    assert isinstance(action, BackportAction)
+    assert action.config == {
+        "assignees": [],
+        "branches": ["branch-3.1", "branch-3.2"],
+        "regexes": [],
+        "ignore_conflicts": False,
+        "labels": [],
+        "label_conflicts": "conflicts",
     }

@@ -57,6 +57,7 @@ async def post_comment(
 
 
 def load_action(
+    mergify_config: rules.MergifyConfig,
     message: str,
 ) -> typing.Optional[typing.Tuple[str, str, actions.Action]]:
     """Load an action from a message.
@@ -65,18 +66,27 @@ def load_action(
     action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(message)
     if match and match[1] in action_classes:
-        action_class = action_classes[match[1]]
+        action_name = match[1]
+        action_class = action_classes[action_name]
         command_args = match[2].strip()
-        config = action_class.command_to_config(command_args)
-        action = voluptuous.Schema(action_class.get_schema())(config)
-        return match[1], command_args, action
+
+        action_config = {}
+        if defaults := mergify_config["raw"].get("defaults"):
+            if defaults_actions := defaults.get("actions"):
+                if default_action_config := defaults_actions.get(action_name):
+                    action_config = default_action_config
+
+        action_config.update(action_class.command_to_config(command_args))
+        action = voluptuous.Schema(action_class.get_schema())(action_config)
+        return action_name, command_args, action
 
     return None
 
 
 async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
-    action = load_action(event["comment"]["body"])
-    if action:
+    action_classes = actions.get_commands()
+    match = COMMAND_MATCHER.search(event["comment"]["body"])
+    if match and match[1] in action_classes:
         owner = event["repository"]["owner"]["login"]
         repo = event["repository"]["name"]
         async with github.aget_client(owner) as client:
@@ -87,7 +97,9 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
             )  # type: ignore[call-arg]
 
 
-async def run_pending_commands_tasks(ctxt: context.Context) -> None:
+async def run_pending_commands_tasks(
+    ctxt: context.Context, mergify_config: rules.MergifyConfig
+) -> None:
     if ctxt.is_merge_queue_pr():
         # We don't allow any command yet
         return
@@ -108,7 +120,7 @@ async def run_pending_commands_tasks(ctxt: context.Context) -> None:
                 pendings.remove(command)
 
     for pending in pendings:
-        await handle(ctxt, f"@Mergifyio {pending}", None, rerun=True)
+        await handle(ctxt, mergify_config, f"@Mergifyio {pending}", None, rerun=True)
 
 
 async def run_action(
@@ -150,6 +162,7 @@ async def run_action(
 
 async def handle(
     ctxt: context.Context,
+    mergify_config: rules.MergifyConfig,
     comment: str,
     user: typing.Optional[github_types.GitHubAccount],
     rerun: bool = False,
@@ -183,7 +196,7 @@ async def handle(
         await post_comment(ctxt, message + footer)
         return
 
-    action = load_action(comment)
+    action = load_action(mergify_config, comment)
     if not action:
         message = UNKNOWN_COMMAND_MESSAGE
         log(message)

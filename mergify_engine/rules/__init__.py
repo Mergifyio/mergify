@@ -271,11 +271,6 @@ class QueueRules:
             names.add(rule.name)
 
 
-@dataclasses.dataclass
-class Defaults:
-    actions: typing.Dict[str, actions.ActionSchema]
-
-
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
         return f"{self.msg} at {self.path}"
@@ -434,10 +429,15 @@ class InvalidRules(Exception):
         )
 
 
+class Defaults(typing.TypedDict):
+    actions: typing.Dict[str, actions.ActionSchema]
+
+
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
     queue_rules: QueueRules
     defaults: Defaults
+    raw: typing.Dict[str, typing.Any]
 
 
 def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
@@ -476,6 +476,8 @@ def get_mergify_config(
     merged_config = merge_config(config)
 
     try:
-        return typing.cast(MergifyConfig, UserConfigurationSchema(merged_config))
+        config = UserConfigurationSchema(merged_config)
+        config["raw"] = merged_config
+        return typing.cast(MergifyConfig, config)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
