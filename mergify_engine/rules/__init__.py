@@ -273,7 +273,7 @@ class QueueRules:
 
 @dataclasses.dataclass
 class Defaults:
-    actions: typing.Dict[str, actions.Action]
+    actions: typing.Dict[str, actions.ActionSchema]
 
 
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
@@ -351,6 +351,9 @@ QueueRulesSchema = voluptuous.All(
 )
 
 DefaultsSchema = {
+    # FIXME(sileht): actions.get_action_schemas() returns only actions Actions
+    # and not command only, since only refresh is command only and it doesn't
+    # have options it's not a big deal.
     voluptuous.Required("actions", default={}): actions.get_action_schemas(),
 }
 
