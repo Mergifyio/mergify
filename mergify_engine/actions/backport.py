@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
@@ -29,7 +31,7 @@ class BackportAction(copy.CopyAction):
     FAILURE_MESSAGE = "No backport have been created"
 
     @staticmethod
-    def command_to_config(string):
+    def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
         return {"branches": string.split(" ")}
 
     async def run(

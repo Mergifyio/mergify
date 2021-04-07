@@ -29,6 +29,8 @@ from mergify_engine import rules
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES: typing.Optional[typing.Dict[str, "Action"]] = None
 
+ActionSchema = typing.NewType("ActionSchema", voluptuous.All)  # type: ignore
+
 
 def get_classes() -> typing.Dict[str, "Action"]:
     global _ACTIONS_CLASSES
@@ -40,7 +42,7 @@ def get_classes() -> typing.Dict[str, "Action"]:
     return _ACTIONS_CLASSES
 
 
-def get_action_schemas() -> typing.Dict[str, "Action"]:
+def get_action_schemas() -> typing.Dict[str, ActionSchema]:
     return {
         name: obj.get_schema() for name, obj in get_classes().items() if obj.is_action
     }
@@ -95,11 +97,11 @@ class Action(abc.ABC):
         pass
 
     @classmethod
-    def get_schema(cls):
-        return voluptuous.All(cls.validator, voluptuous.Coerce(cls))
+    def get_schema(cls) -> ActionSchema:
+        return ActionSchema(voluptuous.All(cls.validator, voluptuous.Coerce(cls)))
 
     @staticmethod
-    def command_to_config(string):  # pragma: no cover
+    def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
         """Convert string to dict config"""
         return {}
 
