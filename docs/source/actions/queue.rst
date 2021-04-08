@@ -257,7 +257,7 @@ A ``queue_rules`` takes the following parameter:
      -
      - The name of the merge queue.
    * - ``conditions``
-     - list of ``conditions``
+     - list of :ref:`Conditions`
      -
      - The list of ``conditions`` to match to get the queued pull request merged.
    * - ``speculative_checks``
