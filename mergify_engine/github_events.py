@@ -43,9 +43,10 @@ def meter_event(
         event = typing.cast(github_types.GitHubEventPullRequest, event)
         tags.append(f"action:{event['action']}")
         if event["action"] == "closed" and event["pull_request"]["merged"]:
-            if event["pull_request"]["merged_by"] is not None and event["pull_request"][
-                "merged_by"
-            ]["login"] in ["mergify[bot]", "mergify-test[bot]"]:
+            if (
+                event["pull_request"]["merged_by"] is not None
+                and event["pull_request"]["merged_by"]["login"] == config.BOT_USER_LOGIN
+            ):
                 tags.append("by_mergify")
 
     statsd.increment("github.events", tags=tags)

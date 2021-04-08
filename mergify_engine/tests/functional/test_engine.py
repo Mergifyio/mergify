@@ -24,7 +24,6 @@ import yaml
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import engine
 from mergify_engine.clients import github
 from mergify_engine.tests.functional import base
 
@@ -38,13 +37,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
     """
-
-    async def asyncSetUp(self):
-        with open(engine.mergify_rule_path, "r") as f:
-            engine.MERGIFY_RULE = yaml.safe_load(
-                f.read().replace("mergify[bot]", "mergify-test[bot]")
-            )
-        await super(TestEngineV2Scenario, self).asyncSetUp()
 
     async def test_invalid_configuration(self):
         rules = {

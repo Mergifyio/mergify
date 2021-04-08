@@ -31,13 +31,11 @@ import httpx
 import pytest
 import vcr
 import vcr.stubs.urllib3_stubs
-import yaml
 
 from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import engine
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import subscription
@@ -353,11 +351,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 )
 
             mock.patch.object(github, "aget_client", github_aclient).start()
-
-        with open(engine.mergify_rule_path, "r") as f:
-            engine.MERGIFY_RULE = yaml.safe_load(
-                f.read().replace("mergify[bot]", "mergify-test[bot]")
-            )
 
         mock.patch.object(branch_updater.gitter, "Gitter", self.get_gitter).start()
         mock.patch.object(duplicate_pull.gitter, "Gitter", self.get_gitter).start()

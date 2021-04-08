@@ -90,6 +90,7 @@ Schema = voluptuous.Schema(
         GitHubActionRequired("GITHUB_TOKEN"): str,
         # GitHub common
         voluptuous.Required("BOT_USER_ID"): voluptuous.Coerce(int),
+        voluptuous.Required("BOT_USER_LOGIN"): str,
         # GitHub optional
         voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
         voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
@@ -175,6 +176,7 @@ STREAM_PROCESSES: int
 STREAM_WORKERS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
+BOT_USER_LOGIN: str
 STORAGE_URL: str
 STREAM_URL: str
 STREAM_MAX_BATCH: int

@@ -652,10 +652,7 @@ class MergeBaseAction(actions.Action):
         elif ctxt.pull["merged"]:
             if ctxt.pull["merged_by"] is None:
                 mode = "somehow"
-            elif ctxt.pull["merged_by"]["login"] in [
-                "mergify[bot]",
-                "mergify-test[bot]",
-            ]:
+            elif ctxt.pull["merged_by"]["login"] == config.BOT_USER_LOGIN:
                 mode = "automatically"
             else:
                 mode = "manually"
