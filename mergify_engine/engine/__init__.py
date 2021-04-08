@@ -231,13 +231,14 @@ async def run(
         return
 
     ctxt.log.debug("engine run pending commands")
-    await commands_runner.run_pending_commands_tasks(ctxt)
+    await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
 
     if issue_comment_sources:
         ctxt.log.debug("engine handle commands")
         for ic_source in issue_comment_sources:
             await commands_runner.handle(
                 ctxt,
+                mergify_config,
                 ic_source["data"]["comment"]["body"],
                 ic_source["data"]["comment"]["user"],
             )
