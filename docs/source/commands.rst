@@ -66,6 +66,22 @@ Runs the :ref:`backport action` action.
   * - Example
     - ``@Mergifyio backport stable/3.1 stable/4.0``
 
+.. _copy command:
+
+copy
+====
+
+Runs the :ref:`copy action` action.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio copy <branch name> <branch name 2> …``
+  * - Example
+    - ``@Mergifyio copy stable/3.1 stable/4.0``
+
 refresh
 ========
 

@@ -39,6 +39,8 @@ def Regex(value: str) -> typing.Pattern[str]:
 
 
 class CopyAction(actions.Action):
+    is_command = True
+
     KIND = "copy"
     SUCCESS_MESSAGE = "Pull request copies have been created"
     FAILURE_MESSAGE = "No copy have been created"
@@ -51,6 +53,10 @@ class CopyAction(actions.Action):
         voluptuous.Required("labels", default=[]): [str],
         voluptuous.Required("label_conflicts", default="conflicts"): str,
     }
+
+    @staticmethod
+    def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
+        return {"branches": string.split(" ")}
 
     async def _copy(self, ctxt, branch_name):
         """Copy the PR to a branch.
