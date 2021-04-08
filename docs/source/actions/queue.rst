@@ -124,18 +124,18 @@ The merge queue can be visualized from your `dashboard <https://dashboard.mergif
 .. figure:: ../_static/merge-queue.png
    :alt: The merge queue from the dashboard
 
-.. _speculative merges:
+.. _speculative checks:
 
-Speculative Merges
+Speculative Checks
 ------------------
 
 |premium plan tag|
 
 Merging pull requests one by one serially can take a lot of time, depending on
 the continuous integration run time. To merge pull requests faster, Mergify
-queues support `speculative merges`.
+queues support `speculative checks`.
 
-With speculative merges, the first pull requests from the queue are embarked in
+With speculative checks, the first pull requests from the queue are embarked in
 a `merge train` and tested together in parallel so they can be merged faster. A
 merge train consists of two or more pull requests embarked together to be
 tested speculatively. To test them, Mergify creates temporary pull requests
@@ -262,7 +262,7 @@ A ``queue_rules`` takes the following parameter:
      - 1
      - |premium plan tag| The maximum number of checks to run in parallel in the queue. Must be
        between 1 and 20.
-       See :ref:`speculative merges`.
+       See :ref:`speculative checks`.
 
 
 Examples
@@ -341,5 +341,37 @@ into the queue as soon as it's approved by 2 developers but before the CI has
 even run on it. It will be in front of the ``default`` queue. Mergify will
 update the pull request with its base branch if necessary, wait for the CI to
 pass and then merge the pull request.
+
+
+🎲 Speculative Checks
+~~~~~~~~~~~~~~~~~~~~~
+|premium plan tag|
+
+If your continuous integration system takes a long time to validate the
+enqueued pull requests, it might be interesting to enable :ref:`speculative
+checks <speculative checks>`. This will allow Mergify to trigger multiple runs
+of the CI in parallel.
+
+In the following example, by setting the ``speculative_checks`` option to
+``3``, Mergify will create up to new 2 pull requests to check if the first
+three enqueued pull requests are mergeable.
+
+.. code-block:: yaml
+
+    queue_rules:
+      - name: default
+        speculative_checks: 3
+        conditions:
+          - check-success=Travis CI - Pull Request
+
+    pull_request_rules:
+      - name: merge using the merge queue and speculative checks
+        conditions:
+          - base=main
+          - "#approved-reviews-by>=2"
+          - check-success=Travis CI - Pull Request
+        actions:
+          queue:
+            name: default
 
 .. include:: ../global-substitutions.rst
