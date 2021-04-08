@@ -32,6 +32,8 @@ $(function() {
 
   // images
   $(".documentwrapper img").addClass("img-fluid");
+  // do not set img-fluid on image in tables
+  $(".documentwrapper table img").removeClass("img-fluid");
 
   // Fix embedded ToC (example page)
   $("div.topic > ul").addClass("list-group");
