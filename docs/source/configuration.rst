@@ -50,7 +50,7 @@ Each dictionary must have the following keys:
      - The name of the rule. This is not used by the engine directly, but is
        used when reporting information about a rule.
    * - ``conditions``
-     - array of :ref:`Conditions`
+     - list of :ref:`Conditions`
      - A list of :ref:`Conditions` string that must match against the pull
        request for the rule to be applied.
    * - ``actions``
@@ -62,6 +62,15 @@ The rules are evaluated in the order they are defined in ``pull_request_rules``
 and, therefore, the actions are executed in that same order.
 
 See :ref:`Examples` for configuration file examples.
+
+Queue Rules
+~~~~~~~~~~~
+
+- The value type of the ``queue_rules`` is list.
+
+- Each entry in ``queue_rules`` must be a dictionary.
+
+See :ref:`queue rules` for the complete list and description of options.
 
 Defaults
 ~~~~~~~~
@@ -84,7 +93,7 @@ This dictionary must have the following key:
 The ``defaults`` section is used to define default configuration valued for actions run by pull request rules and by :ref:`Commands`.
 If the options are defined in ``pull_request_rules`` they are used, otherwise, the values set in ``defaults`` are used.
 
-See example below:
+For example:
 
 .. code-block:: yaml
 
@@ -101,7 +110,7 @@ See example below:
         comment:
           message: I 💙 Mergify
 
-The config above is the same as below:
+The configuration above is the same as below:
 
 .. code-block:: yaml
 
