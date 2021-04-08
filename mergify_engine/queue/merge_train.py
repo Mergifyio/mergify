@@ -24,7 +24,6 @@ import first
 from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
@@ -412,7 +411,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         )
 
         with utils.aredis_for_stream() as redis_stream:
-            await github_events.send_refresh(
+            await utils.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
                 original_ctxt.pull["base"]["repo"],
@@ -562,7 +561,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         # NOTE(sileht): refresh it, so the queue action will merge it and delete the
         # tmp_pull_ctxt branch
         with utils.aredis_for_stream() as redis_stream:
-            await github_events.send_refresh(
+            await utils.send_refresh(
                 self.train.repository.installation.redis,
                 redis_stream,
                 original_ctxt.pull["base"]["repo"],

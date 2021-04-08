@@ -16,7 +16,6 @@
 
 import dataclasses
 import typing
-import uuid
 
 import daiquiri
 from datadog import statsd
@@ -468,35 +467,3 @@ async def extract_pull_numbers_from_event(
         return pulls
     else:
         return []
-
-
-async def send_refresh(
-    redis_cache: utils.RedisCache,
-    redis_stream: utils.RedisStream,
-    repository: github_types.GitHubRepository,
-    pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber] = None,
-    ref: typing.Optional[github_types.GitHubRefType] = None,
-    action: github_types.GitHubEventRefreshActionType = "user",
-) -> None:
-    data = github_types.GitHubEventRefresh(
-        {
-            "action": action,
-            "ref": ref,
-            "repository": repository,
-            "pull_request_number": pull_request_number,
-            "sender": {
-                "login": github_types.GitHubLogin("<internal>"),
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "User",
-                "avatar_url": "",
-            },
-            "organization": repository["owner"],
-            "installation": {
-                "id": github_types.GitHubInstallationIdType(0),
-                "account": repository["owner"],
-            },
-        }
-    )
-    await filter_and_dispatch(
-        redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
-    )
