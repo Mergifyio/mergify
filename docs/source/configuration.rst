@@ -93,7 +93,7 @@ This dictionary must have the following key:
 The ``defaults`` section is used to define default configuration valued for actions run by pull request rules and by :ref:`Commands`.
 If the options are defined in ``pull_request_rules`` they are used, otherwise, the values set in ``defaults`` are used.
 
-See example below:
+For example:
 
 .. code-block:: yaml
 
@@ -110,7 +110,7 @@ See example below:
         comment:
           message: I 💙 Mergify
 
-The config above is the same as below:
+The configuration above is the same as below:
 
 .. code-block:: yaml
 
