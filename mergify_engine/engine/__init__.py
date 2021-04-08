@@ -47,6 +47,15 @@ MERGIFY_BUILTIN_CONFIG = rules.UserConfigurationSchema(
 )
 
 
+DEFAULT_CONFIG_FILE = context.MergifyConfigFile(
+    decoded_content=b"",
+    type="file",
+    content="<default>",
+    sha=github_types.SHAType("<default>"),
+    path="<default>",
+)
+
+
 async def _check_configuration_changes(
     ctxt: context.Context,
     current_mergify_config_file: typing.Optional[context.MergifyConfigFile],
@@ -181,6 +190,19 @@ async def run(
         )
         return
 
+    if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
+        subscription.Features.PRIVATE_REPOSITORY
+    ):
+        ctxt.log.info("mergify disabled: private repository")
+        await ctxt.set_summary_check(
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Mergify is disabled",
+                summary=ctxt.subscription.reason,
+            )
+        )
+        return
+
     config_file = await ctxt.repository.get_mergify_config_file()
 
     ctxt.log.debug("engine check configuration change")
@@ -190,8 +212,8 @@ async def run(
 
     ctxt.log.debug("engine get configuration")
     if config_file is None:
-        ctxt.log.info("No need to proceed queue (.mergify.yml is missing)")
-        return
+        ctxt.log.info("No config file using defaults")
+        config_file = DEFAULT_CONFIG_FILE
 
     # BRANCH CONFIGURATION CHECKING
     try:
@@ -222,19 +244,6 @@ async def run(
     mergify_config["pull_request_rules"].rules.extend(
         MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
     )
-
-    if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
-        subscription.Features.PRIVATE_REPOSITORY
-    ):
-        ctxt.log.info("mergify disabled: private repository")
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Mergify is disabled",
-                summary=ctxt.subscription.reason,
-            )
-        )
-        return
 
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)

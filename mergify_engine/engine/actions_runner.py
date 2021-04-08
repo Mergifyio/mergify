@@ -13,7 +13,6 @@
 # under the License.
 import base64
 import copy
-import itertools
 import typing
 
 from datadog import statsd
@@ -476,8 +475,8 @@ async def handle(
 
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
 
-    have_user_rules = any(filter(lambda x: not x.hidden, pull_request_rules.rules))
-    if have_user_rules():
+    has_user_rules = any(rule for rule in pull_request_rules.rules if not rule.hidden)
+    if not has_user_rules:
         # NOTE(sileht): Only hidden rules are ran, we don't post a summary in
         # such case, currently only delete_head_branch is used in our rules,
         # sources we don't care about storing the result of this action.

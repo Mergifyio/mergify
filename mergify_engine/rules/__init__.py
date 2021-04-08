@@ -323,7 +323,6 @@ PullRequestRulesSchema = voluptuous.All(
             voluptuous.Coerce(Rule.from_dict),
         ),
     ],
-    voluptuous.Length(min=1),
     voluptuous.Coerce(PullRequestRules),
 )
 
@@ -369,7 +368,9 @@ def FullifyPullRequestRules(v):
 UserConfigurationSchema = voluptuous.Schema(
     voluptuous.And(
         {
-            voluptuous.Required("pull_request_rules"): PullRequestRulesSchema,
+            voluptuous.Required(
+                "pull_request_rules", default=[]
+            ): PullRequestRulesSchema,
             voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
             voluptuous.Required("defaults", default={}): DefaultsSchema,
         },
@@ -467,6 +468,10 @@ def get_mergify_config(
         config = YamlSchema(config_file["decoded_content"])
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
+
+    # Allow an empty file
+    if config is None:
+        config = {}
 
     try:
         UserConfigurationSchema(config)
