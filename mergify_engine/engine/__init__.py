@@ -13,9 +13,6 @@
 import typing
 
 import daiquiri
-import pkg_resources
-import voluptuous
-import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -33,14 +30,21 @@ from mergify_engine.engine import queue_runner
 
 LOG = daiquiri.getLogger(__name__)
 
-mergify_rule_path = pkg_resources.resource_filename(
-    "mergify_engine", "data/default_pull_request_rules.yml"
-)
+MERGIFY_BUILTIN_CONFIG_YAML = f"""
+pull_request_rules:
+  - name: delete backport/copy branch (Mergify rule)
+    hidden: true
+    conditions:
+      - author={config.BOT_USER_LOGIN}
+      - head~=^mergify/(bp|copy)/
+      - closed
+    actions:
+        delete_head_branch:
+"""
 
-with open(mergify_rule_path, "r") as f:
-    DEFAULT_PULL_REQUEST_RULES = voluptuous.Schema(rules.PullRequestRulesSchema)(
-        yaml.safe_load(f.read())["rules"]
-    )
+MERGIFY_BUILTIN_CONFIG = rules.UserConfigurationSchema(
+    rules.YamlSchema(MERGIFY_BUILTIN_CONFIG_YAML)
+)
 
 
 async def _check_configuration_changes(
@@ -215,7 +219,9 @@ async def run(
         return
 
     # Add global and mandatory rules
-    mergify_config["pull_request_rules"].rules.extend(DEFAULT_PULL_REQUEST_RULES.rules)
+    mergify_config["pull_request_rules"].rules.extend(
+        MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
+    )
 
     if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
         subscription.Features.PRIVATE_REPOSITORY

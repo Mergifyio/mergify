@@ -19,6 +19,7 @@ from datadog import statsd
 import yaml
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import exceptions
@@ -66,7 +67,7 @@ def get_already_merged_summary(ctxt, match):
     # NOTE(sileht): While this looks impossible because the pull request haven't been
     # merged by our engine. If this pull request was a slice of another one, Github close
     # it automatically and put as merged_by the merger of the other one.
-    if ctxt.pull["merged_by"]["login"] in ["mergify[bot]", "mergify-test[bot]"]:
+    if ctxt.pull["merged_by"]["login"] == config.BOT_USER_LOGIN:
         return (
             "⚠️ The pull request has been closed by GitHub "
             "because its commits are also part of another pull request\n\n"

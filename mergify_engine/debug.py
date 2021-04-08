@@ -271,7 +271,7 @@ async def report(
                 print(f"configuration is invalid {str(e)}")
             else:
                 mergify_config["pull_request_rules"].rules.extend(
-                    engine.DEFAULT_PULL_REQUEST_RULES.rules
+                    engine.MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
                 )
 
         if pull_number is None:

@@ -18,6 +18,7 @@ import logging
 
 import yaml
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.queue import naive
 from mergify_engine.tests.functional import base
@@ -347,7 +348,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         p = await self.get_pull(p["number"])
         self.assertEqual(True, p["merged"])
-        self.assertEqual("mergify-test[bot]", p["merged_by"]["login"])
+        self.assertEqual(config.BOT_USER_LOGIN, p["merged_by"]["login"])
 
     async def test_merge_with_oauth_token(self):
         rules = {
