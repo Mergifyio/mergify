@@ -21,9 +21,6 @@ Why Queues?
 
 .. _merge queue problem:
 
-The Problem
-~~~~~~~~~~~
-
 To understand the problem queues resolve, imagine the following situation:
 
 - The base branch (e.g., ``main``) has its continuous integration testing
