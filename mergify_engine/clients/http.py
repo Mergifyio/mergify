@@ -14,9 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 import datetime
 import json
+import os
+import sys
 
 import daiquiri
 import httpx
@@ -26,10 +27,17 @@ from werkzeug.http import parse_date
 
 LOG = daiquiri.getLogger(__name__)
 
+DEPLOY_VERSION = os.getenv("HEROKU_RELEASE_VERSION", "dev")
+ENGINE_VERSION = os.getenv("HEROKU_SLUG_COMMIT", "dev")[:7]
+PYTHON_VERSION = (
+    f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+)
+HTTPX_VERSION = httpx.__version__
+
 DEFAULT_CLIENT_OPTIONS = {
     "headers": {
         "Accept": "application/vnd.github.machine-man-preview+json",
-        "User-Agent": "Mergify/Python",
+        "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/${PYTHON_VERSION} httpx/{HTTPX_VERSION}",
     },
     "timeout": httpx.Timeout(5.0, read=10.0),
 }
