@@ -85,6 +85,10 @@ nav.navbar {
 
 /* Fix headers for scrolling */
 
+.section > .section {
+  margin-bottom: 0.75rem;
+}
+
 .section > h1 {
     padding-top: 80px;
     margin-top: -80px;
