@@ -23,7 +23,7 @@ The list of available commands is listed below, with their parameters:
 rebase
 ======
 
-   Runs the :ref:`rebase action` action.
+Runs the :ref:`rebase action` action.
 
 .. list-table::
   :widths: 1 7
@@ -34,19 +34,12 @@ rebase
   * - Example
     - ``@Mergifyio rebase``
 
-.. warning::
-
-   |premium plan tag|
-   |essential plan tag|
-   If the repository is bigger than 512 MB, the ``rebase`` action is only
-   available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
-
 .. _update command:
 
 update
 ======
 
-   Runs the :ref:`update action` action.
+Runs the :ref:`update action` action.
 
 .. list-table::
   :widths: 1 7
@@ -72,13 +65,6 @@ Runs the :ref:`backport action` action.
     - ``@Mergifyio backport <branch name> <branch name 2> …``
   * - Example
     - ``@Mergifyio backport stable/3.1 stable/4.0``
-
-.. warning::
-
-   |premium plan tag|
-   |essential plan tag|
-   If the repository is bigger than 512 MB, the ``backport`` action is only
-   available for `Essential and Premium Plan subscribers <https://mergify.io/pricing>`_.
 
 refresh
 ========

@@ -71,6 +71,11 @@ Each rule is composed of 3 elements:
 A First Rule
 ~~~~~~~~~~~~
 
+.. note::
+
+    Mergify is event-driven: rules are only executed when pull requests are updated
+    or when the bot is manually triggered in a comment with `@Mergifyio refresh` (see :ref:`Commands`).
+
 Let's create a first rule that will merge the pull request as soon as it has
 been approved by one contributor.
 
@@ -101,11 +106,6 @@ Here's the relevant configuration file content:
   ``merge`` action with a ``method`` parameter containing the merge method to
   use.
 
-.. note::
-
-    Mergify is event-driven: rules are only executed when pull requests are updated
-    or when the bot is manually triggered in a comment with `@Mergifyio refresh` (see :ref:`Commands`).
-
 Fore more details about the configuration file format, check
 :ref:`configuration file format`.
 
@@ -121,6 +121,11 @@ your organization. Then, select a repository where you enabled Mergify.
    :alt: Mergify config editor
    :align: center
 
+.. note::
+
+   For security reason, Mergify will never automatically merge a pull request
+   if it changes the Mergify configuration file.
+
 You can edit the default configuration provided as you wish. If your
 repository has existing pull requests, you can test your configuration against
 those by typing a pull request number in the form above.
@@ -134,12 +139,6 @@ Mergify configuration. You can merge them by clicking on the merge button.
    :align: center
 
 
-.. note::
-
-   For security reason, Mergify will never automatically merge a pull request
-   if it changes the Mergify configuration file.
-
-
 Once your configuration is merged, Mergify will apply it to all your pull
 requests.
 
@@ -147,19 +146,19 @@ requests.
 Understanding Mergify Check Report
 ----------------------------------
 
-When a pull request is created in the repository, Mergify posts a status check
-about the state of the pull request according to the defined rules.
-
-.. image:: _static/mergify-checks-status.png
-   :alt: status check
-   :align: center
-
 .. note::
 
    When a pull request changes the configuration of Mergify, the status is
    built with the current configuration (without the pull request change). The
    Mergify configuration is validated and status is posted in the ``Summary``
    check.
+
+When a pull request is created in the repository, Mergify posts a status check
+about the state of the pull request according to the defined rules.
+
+.. image:: _static/mergify-checks-status.png
+   :alt: status check
+   :align: center
 
 When all the criterias of the rules are satisfied, Mergify executes the
 configured actions and e.g. merges the pull request.

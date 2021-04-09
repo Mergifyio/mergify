@@ -21,6 +21,17 @@ A condition is a string that has the following format::
 
   [ "-" ] [ "#" ] <attribute> [ <operator> <value> ]
 
+.. important::
+
+   The ``#`` character is considered as a comment delimiter in YAML. As ``#``
+   is the length operator in Mergify's conditions system, don't forget to use
+   ``"`` around the condition to write valid YAML syntax.
+
+.. note::
+
+  ``operator`` and ``value`` are only optional if the ``attribute`` type is
+  ``Boolean``.
+
 - The optional ``-`` prefix is equivalent to the `not` operator.
 
 - The optional ``#`` prefix indicates to consider the length of the attribute
@@ -47,17 +58,6 @@ For example:
   pull request.
 
 - ``-merged`` matches if the pull requested has not been merged.
-
-.. warning::
-
-   The ``#`` character is considered as a comment delimiter in YAML. As ``#``
-   is the length operator in Mergify's conditions system, don't forget to use
-   ``"`` around the condition to write valid YAML syntax.
-
-.. note::
-
-  ``operator`` and ``value`` are only optional if the ``attribute`` type is
-  ``Boolean``.
 
 .. _attributes:
 
@@ -212,9 +212,10 @@ Operators
        the condition is true if no value matches.
    * - Match
      - ``~=``
-     - This operator checks for regular expression matching. If the target
-       attribute type is a list, each element of the list is matched
-       against the value and the condition is true if any value matches.
+     - This operator checks for :ref:`regular expressions <regular
+       expressions>` matching. If the target attribute type is a list, each
+       element of the list is matched against the value and the condition is
+       true if any value matches.
    * - Greater Than or Equal
      - ``>=`` or ``≥``
      - This operator checks for the value to be greater than or equal to the
@@ -235,11 +236,6 @@ Operators
      - This operator checks for the value to be lesser than the provided value.
        It's usually used to compare against the length of a list using the
        ``#`` prefix.
-
-.. tip::
-
-   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
-   <https://pythex.org/>`_ to test your regular expression.
 
 
 How To Match Lists

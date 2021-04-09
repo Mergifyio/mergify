@@ -9,6 +9,10 @@
 request_reviews
 ===============
 
+.. note::
+
+   GitHub does not allow to request more 15 users or teams for a review.
+
 The ``request_reviews`` action requests reviews from users for the pull
 request.
 
@@ -39,10 +43,6 @@ Options
       ``random_count`` is specified, ``users`` and ``teams`` can be a
       dictionary where the key is the login and the value is the weight to use.
       Weight must be between 1 and 65535 included.
-
-.. note::
-
-   GitHub does not allow to request more 15 users or teams for a review.
 
 Examples
 --------
