@@ -122,6 +122,10 @@ Options
 Defining the Commit Message
 ---------------------------
 
+.. note::
+
+   This feature only works when ``commit_message`` is set to ``default``.
+
 When a pull request is merged using the ``squash`` or ``merge`` method, you can
 override the default commit message. To that end, you need to add a section in
 the pull request body that starts with ``Commit Message``.
@@ -159,14 +163,17 @@ For example:
 
 Check the :ref:`data type template` for more details on the format.
 
-.. note::
-
-   This feature only works when ``commit_message`` is set to ``default``.
 
 .. _strict merge:
 
 Strict Merge
 ------------
+
+.. tip::
+
+   While `strict merge` solves most issues, the :ref:`queue action <queue
+   action>` and its :ref:`queue rules <queue rules>` provide a more powerful
+   solution and offer total control of the merge queue.
 
 The `strict merge` option enables a simple merge queue that prevents merging
 broken pull requests. That situation can arise when outdated pull requests are
@@ -185,11 +192,6 @@ sequentially, and they will be updated on top of each other.
 The pull request branch update is only done when the pull request is ready to
 be merged by the engine, e.g., when all the `conditions` are validated.
 
-.. tip::
-
-   While `strict merge` solves most issues, the :ref:`queue action <queue
-   action>` and its :ref:`queue rules <queue rules>` provide a more powerful
-   solution and offer total control of the merge queue.
 
 Enabling the Strict Option
 ==========================
@@ -241,13 +243,14 @@ Using the ``rebase`` method for the strict merge has many drawbacks:
 Git merge workflow and Mergify equivalent configuration
 -------------------------------------------------------
 
-There is a lot of different ways to merge pull requests. You can replicate many
-``git`` based merge when using Mergify — here's a list of equivalence.
-
 .. note::
 
    `base branch` is usually ``master``, ``main`` or ``dev``,
    `head branch` is the pull request branch.
+
+
+There is a lot of different ways to merge pull requests. You can replicate many
+``git`` based merge when using Mergify — here's a list of equivalence.
 
 
 .. list-table::

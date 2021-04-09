@@ -131,17 +131,18 @@ Data Types
 Regular Expressions
 ~~~~~~~~~~~~~~~~~~~
 
+.. tip::
+
+  You can use `regex101 <https://regex101.com/>`_, `PyRegex
+  <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
+  regular expressions.
+
 You can use regular expression with matching :ref:`operators <Operators>` in
 your :ref:`conditions <Conditions>` .
 
 Mergify leverages `Python regular expressions
 <https://docs.python.org/3/library/re.html>`_ to match rules.
 
-.. tip::
-
-  You can use `regex101 <https://regex101.com/>`_, `PyRegex
-  <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
-  regular expressions.
 
 Examples
 ++++++++
@@ -170,6 +171,12 @@ Examples
 Template
 ~~~~~~~~
 
+.. note::
+
+   You need to replace the ``-`` character by ``_`` from the :ref:`pull request
+   attribute <attributes>` names when using templates. The ``-`` is not a valid
+   character for variable names in Jinja2 template.
+
 The template data type is a regular string that is rendered using the `Jinja2
 template language <https://jinja.palletsprojects.com/templates/>`_.
 
@@ -194,11 +201,6 @@ will render to:
 when used in your configuration file — considering the pull request author
 login is ``jd``.
 
-.. note::
-
-   You need to replace the ``-`` character by ``_`` from the :ref:`pull request
-   attribute <attributes>` names when using templates. The ``-`` is not a valid
-   character for variable names in Jinja2 template.
 
 Validation
 ----------
