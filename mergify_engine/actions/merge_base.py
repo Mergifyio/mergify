@@ -51,6 +51,16 @@ FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository.
 FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
+BOT_ACCOUNT_DEPRECATION_NOTICE = """This pull request has been merged with the
+unsupported configuration option `bot_account`.
+
+This option will be ignored starting May 1st, 2021, and removed
+on June 1st, 2021.
+
+This option can be replaced by `update_bot_account`, `merge_bot_account` or both
+depending on your use-case (https://docs.mergify.io/actions/merge/).
+"""
+
 
 class PriorityAliases(enum.Enum):
     low = 1000
@@ -509,6 +519,15 @@ class MergeBaseAction(actions.Action):
         else:
             await ctxt.update()
             ctxt.log.info("merged")
+            if self.config[
+                "bot_account"
+            ] is not None and not ctxt.subscription.has_feature(
+                subscription.Features.MERGE_BOT_ACCOUNT
+            ):
+                await ctxt.client.post(
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
+                    json={"body": BOT_ACCOUNT_DEPRECATION_NOTICE},
+                )
 
         result = await self.merge_report(ctxt)
         if result:
