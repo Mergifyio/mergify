@@ -309,6 +309,20 @@ For example, to automatically merge a pull request if its author is ``foo`` or
           merge:
             method: merge
 
+Alternatively, if you wish to use a cleaner but less explicit solution, it
+may be prevalent to use regex matching:
+
+.. code-block:: yaml
+
+     pull_request_rules:
+       - name: automatic merging if author is foo / bar
+         conditions:
+           - "author~=^(foo|bar)$"
+          - check-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
 
 About Status Checks
 ~~~~~~~~~~~~~~~~~~~
@@ -348,11 +362,11 @@ In the example above, it would be ``A job to say hello``:
      conditions:
        - check-success=A job to say hello
 
-Validating All Status Check
-+++++++++++++++++++++++++++
+Validating All Status Checks
+++++++++++++++++++++++++++++
 
 A common situation is to require a condition that is true when "every status
-checks (CI) pass" — especially before executing the :ref:`merge action` action.
+check (CI) passes" — especially before executing the :ref:`merge action` action.
 
 **There is no such thing as "every status check" in GitHub.**
 
@@ -372,6 +386,16 @@ something like:
      conditions:
        - check-success=build: Windows
        - check-success=build: Linux
+
+Alternatively, you may use the following:
+
+.. code-block:: yaml
+
+     conditions:
+       - "#check-failure=0"
+       - "#check-neutral=0"
+
+Note the difference between the prior and just one of the following conditions. You must check exhaustively that there are both no pending checks and none failing for this to work.
 
 **Do not** use conditions such as:
 
