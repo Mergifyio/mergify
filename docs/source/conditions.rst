@@ -348,24 +348,25 @@ In the example above, it would be ``A job to say hello``:
      conditions:
        - check-success=A job to say hello
 
-Validating All Status Check
-+++++++++++++++++++++++++++
+Validating All Status Checks
+++++++++++++++++++++++++++++
 
-A common situation is to require a condition that is true when "every status
-checks (CI) pass" — especially before executing the :ref:`merge action` action.
+A common condition is to require that "every status check (CI) passes" —
+especially before executing the :ref:`merge action` action.
 
 **There is no such thing as "every status check" in GitHub.**
 
 Here's why:
 
-1. Each pull request can have its own custom list of status check.
-2. By default, a pull request has zero status check.
+1. Each pull request can have its own custom list of status checks.
+2. On creation, or when a new commit is pushed, a pull request has **no**
+   status check.
 3. A status check might not be reported by a service (CI) (e.g., because it's
-   broken) and therefore be totally absent.
+   broken) and therefore be absent.
 
-Those three facts makes it **mandatory** to write explicitly the checks that
-are expected for your condition to be valid. Therefore you should write
-something like:
+Those three facts make it **mandatory** to write explicitly the checks that are
+expected for your condition to be valid. Therefore you must list explicitely
+every status check that is expected, e.g.:
 
 .. code-block:: yaml
 
@@ -378,7 +379,7 @@ something like:
 - ``#check-failure=0``, because this will be true as soon as the pull request is
   created and before any service report its status (see point 2. above).
 
-- ``check-success~=build`` while expecting this to wait for all status checks
-  that have ``build`` in their name (see point 1. above).
+- ``check-success~=build`` while expecting this to wait for "all" status checks
+  that have ``build`` in their name (see point 1. and 2.above).
 
 Such conditions won't do what you want them to do.
