@@ -102,11 +102,11 @@ async def _simulator(redis_cache, pull_request_rules, owner, repo, pull_number, 
                 )
 
             sub = await subscription.Subscription.get_subscription(
-                redis_cache, client.auth.owner_id
+                redis_cache, data["base"]["user"]["id"]
             )
 
             installation = context.Installation(
-                client.auth.owner_id,
+                data["base"]["user"]["id"],
                 owner,
                 sub,
                 client,

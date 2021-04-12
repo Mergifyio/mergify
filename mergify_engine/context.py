@@ -84,6 +84,12 @@ class Installation:
         )
 
     async def get_user_tokens(self) -> user_tokens.UserTokens:
+        # This can't occurs, but better safe than sorry
+        if not isinstance(self.client.auth, github.GithubAppInstallationAuth):
+            raise RuntimeError(
+                "Installation.get_user_tokens() used with in a non GithubApp context"
+            )
+
         if self._user_tokens is None:
             self._user_tokens = await user_tokens.UserTokens.get(
                 self.redis, self.owner_id
