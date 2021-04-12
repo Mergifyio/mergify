@@ -56,7 +56,10 @@ class CopyAction(actions.Action):
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
-        return {"branches": string.split(" ")}
+        if string:
+            return {"branches": string.split(" ")}
+        else:
+            return {}
 
     async def _copy(self, ctxt, branch_name):
         """Copy the PR to a branch.
@@ -173,6 +176,13 @@ class CopyAction(actions.Action):
                         )
                     )
                 ]
+            )
+
+        if len(branches) == 0:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                self.FAILURE_MESSAGE,
+                "No destination branches found",
             )
 
         results = [await self._copy(ctxt, branch_name) for branch_name in branches]
