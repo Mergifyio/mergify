@@ -178,6 +178,13 @@ class CopyAction(actions.Action):
                 ]
             )
 
+        if len(branches) == 0:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                self.FAILURE_MESSAGE,
+                "No destination branches found",
+            )
+
         results = [await self._copy(ctxt, branch_name) for branch_name in branches]
 
         # Pick the first status as the final_status
