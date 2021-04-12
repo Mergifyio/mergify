@@ -84,6 +84,15 @@ class Installation:
         )
 
     async def get_user_tokens(self) -> user_tokens.UserTokens:
+        # NOTE(sileht): For the simulator all contexts are built with a user
+        # oauth token, even if it have access to the organization. We don't
+        # want to share this. This can't occurs in current code, but this is an
+        # easy and strong seatbelt.
+        if not isinstance(self.client.auth, github.GithubAppInstallationAuth):
+            raise RuntimeError(
+                "Installation.get_user_tokens() used with in a non GithubApp context"
+            )
+
         if self._user_tokens is None:
             self._user_tokens = await user_tokens.UserTokens.get(
                 self.redis, self.owner_id
