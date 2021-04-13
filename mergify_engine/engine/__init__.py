@@ -261,7 +261,8 @@ async def run(
     if not ctxt.sources:
         return
 
-    await _ensure_summary_on_head_sha(ctxt)
+    if mergify_config["pull_request_rules"].has_user_rules():
+        await _ensure_summary_on_head_sha(ctxt)
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
     # to have such things run properly. Like hooks based on events that you could
