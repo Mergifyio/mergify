@@ -42,17 +42,26 @@ class CopyAction(actions.Action):
     is_command = True
 
     KIND = "copy"
+    BRANCH_PREFIX = "copy"
     SUCCESS_MESSAGE = "Pull request copies have been created"
     FAILURE_MESSAGE = "No copy have been created"
 
-    validator = {
-        voluptuous.Required("branches", default=[]): [str],
-        voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
-        voluptuous.Required("ignore_conflicts", default=True): bool,
-        voluptuous.Required("assignees", default=[]): [types.Jinja2],
-        voluptuous.Required("labels", default=[]): [str],
-        voluptuous.Required("label_conflicts", default="conflicts"): str,
-    }
+    @classmethod
+    def get_config_schema(
+        cls,
+        partial_validation: bool = False,
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("branches", default=[]): [str],
+            voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
+            voluptuous.Required("ignore_conflicts", default=True): bool,
+            voluptuous.Required("assignees", default=[]): [types.Jinja2],
+            voluptuous.Required("labels", default=[]): [str],
+            voluptuous.Required("label_conflicts", default="conflicts"): str,
+            voluptuous.Required(
+                "title", default=f"{{{{ title }}}} ({cls.KIND} #{{{{ number }}}})"
+            ): types.Jinja2,
+        }
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
@@ -83,18 +92,29 @@ class CopyAction(actions.Action):
         # NOTE(sileht) does the duplicate have already been done ?
         new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
 
+        try:
+            title = await ctxt.pull_request.render_template(self.config["title"])
+        except context.RenderTemplateFailure as rmf:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Invalid title message",
+                str(rmf),
+            )
+
         # No, then do it
         if not new_pull:
             try:
                 users_to_add = await self.wanted_users(ctxt, self.config["assignees"])
                 new_pull = await duplicate_pull.duplicate(
                     ctxt,
+                    title,
                     branch_name,
                     self.config["labels"],
                     self.config["label_conflicts"],
                     self.config["ignore_conflicts"],
                     users_to_add,
                     self.KIND,
+                    self.BRANCH_PREFIX,
                 )
             except duplicate_pull.DuplicateAlreadyExists:
                 new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
@@ -215,7 +235,7 @@ class CopyAction(actions.Action):
     @classmethod
     async def get_existing_duplicate_pull(cls, ctxt, branch_name):
         bp_branch = duplicate_pull.get_destination_branch_name(
-            ctxt.pull["number"], branch_name, cls.KIND
+            ctxt.pull["number"], branch_name, cls.BRANCH_PREFIX
         )
         pulls = [
             pull

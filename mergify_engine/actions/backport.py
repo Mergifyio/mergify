@@ -27,6 +27,7 @@ class BackportAction(copy.CopyAction):
     is_command = True
 
     KIND = "backport"
+    BRANCH_PREFIX = "bp"
     SUCCESS_MESSAGE = "Backports have been created"
     FAILURE_MESSAGE = "No backport have been created"
 
