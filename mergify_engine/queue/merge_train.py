@@ -821,7 +821,7 @@ class Train(queue.QueueBase):
             return
 
         await self._slice_cars_at(position)
-        del self._waiting_pulls[0]
+        del self._waiting_pulls[position - len(self._cars)]
         await self._save()
         ctxt.log.info("removed from train", position=position)
         await self._refresh_pulls(ctxt.pull["base"]["repo"])

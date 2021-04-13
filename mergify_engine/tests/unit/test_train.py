@@ -175,6 +175,7 @@ def repository(redis_cache, fake_client):
 
 QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
     [
+        {"name": "one", "conditions": [], "speculative_checks": 1},
         {"name": "two", "conditions": [], "speculative_checks": 2},
         {"name": "five", "conditions": [], "speculative_checks": 5},
     ]
@@ -396,3 +397,60 @@ async def test_train_mutiple_queue(repository, monkepatched_traincar):
         t
     )
     assert [9] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_remove_end_wp(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+    await t.remove_pull(await fake_context(repository, 3))
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_remove_first_wp(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+    await t.remove_pull(await fake_context(repository, 2))
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_remove_last_cars(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+    await t.remove_pull(await fake_context(repository, 1))
+    await t.refresh()
+    assert [[2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
