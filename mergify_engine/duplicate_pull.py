@@ -214,6 +214,7 @@ async def duplicate(
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
+    append_original_description: bool = False,
     assignees: typing.Optional[List[str]] = None,
     kind: KindT = "backport",
     branch_prefix: str = "bp",
@@ -227,6 +228,7 @@ async def duplicate(
     :param labels: The list of labels to add to the created PR.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
+    :param append_original_description: Whether to append the original description to the created PR.
     :param assignees: The list of users to be assigned to the created PR.
     :param kind: is a backport or a copy
     """
@@ -318,6 +320,9 @@ async def duplicate(
             "https://help.github.com/articles/"
             "checking-out-pull-requests-locally/"
         )
+
+    if append_original_description and not ctxt.pull["body"] is None:
+        body += f"Original description: {ctxt.pull['body']}"
 
     try:
         duplicate_pr = typing.cast(

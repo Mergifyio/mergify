@@ -443,6 +443,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
             expected_title="foo",
         )
 
+    async def test_backport_with_append_original_description(self):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        p = await self._do_test_backport(
+            "merge",
+            config={
+                "branches": [stable_branch],
+                "append_original_description": True,
+            },
+        )
+        assert "Original description:" in p["body"]
+
     async def test_merge_with_not_merged_attribute(self):
         rules = {
             "pull_request_rules": [

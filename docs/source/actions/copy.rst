@@ -37,6 +37,10 @@ Options
      - list of string
      - ``[]``
      - The list of regexes to find branches the pull request should be copied to.
+   * - ``append_original_description``
+     - Boolean
+     - ``false``
+     - Whether to append the description from the original pull request.
    * - ``ignore_conflicts``
      - Boolean
      - ``true``

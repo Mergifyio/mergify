@@ -81,6 +81,10 @@ Options
      - :ref:`data type template`
      - ``{{ title }} (backport #{{ number }})``
      - The pull request title.
+   * - ``append_original_description``
+     - Boolean
+     - ``false``
+     - Whether to append the description from the original pull request.
 
 
 Examples
