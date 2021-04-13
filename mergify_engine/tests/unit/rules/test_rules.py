@@ -1341,3 +1341,23 @@ pull_request_rules:
         str(e.value.error)
         == "required key not provided @ data['defaults']['actions']['queue']['name']"
     )
+
+
+def test_default_with_no_pull_requests_rules():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+defaults:
+  actions:
+    merge:
+       strict: "smart"
+""",
+    )
+
+    assert rules.get_mergify_config(file)
+    config = rules.get_mergify_config(file)
+
+    assert config["pull_request_rules"].rules == []
