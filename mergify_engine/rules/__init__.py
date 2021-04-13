@@ -241,6 +241,9 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
+    def has_user_rules(self):
+        return any(rule for rule in self.rules if not rule.hidden)
+
     async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
         return await RulesEvaluator.create(
             self.rules, ctxt, EvaluatedRule.from_rule, True
