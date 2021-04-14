@@ -182,7 +182,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         ]
         assert refs == []
 
-        # Ensure no summary have been posted
+        # Ensure summary have been posted
         ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 0
+        assert len(checks) == 1

@@ -106,8 +106,11 @@ async def gen_summary_rules(
 
 
 async def gen_summary(
-    ctxt: context.Context, match: rules.RulesEvaluator
+    ctxt: context.Context,
+    pull_request_rules: rules.PullRequestRules,
+    match: rules.RulesEvaluator,
 ) -> typing.Tuple[str, str]:
+
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
     summary += await gen_summary_rules(
@@ -134,19 +137,22 @@ async def gen_summary(
     )
     potential_rules = len(match.matching_rules) - completed_rules
 
-    summary_title = []
-    if completed_rules == 1:
-        summary_title.append(f"{completed_rules} rule matches")
-    elif completed_rules > 1:
-        summary_title.append(f"{completed_rules} rules match")
+    if pull_request_rules.has_user_rules():
+        summary_title = []
+        if completed_rules == 1:
+            summary_title.append(f"{completed_rules} rule matches")
+        elif completed_rules > 1:
+            summary_title.append(f"{completed_rules} rules match")
 
-    if potential_rules == 1:
-        summary_title.append(f"{potential_rules} potential rule")
-    elif potential_rules > 1:
-        summary_title.append(f"{potential_rules} potential rules")
+        if potential_rules == 1:
+            summary_title.append(f"{potential_rules} potential rule")
+        elif potential_rules > 1:
+            summary_title.append(f"{potential_rules} potential rules")
 
-    if completed_rules == 0 and potential_rules == 0:
-        summary_title.append("no rules match, no planned actions")
+        if completed_rules == 0 and potential_rules == 0:
+            summary_title.append("no rules match, no planned actions")
+    else:
+        summary_title = ["no rules setuped, just listing for commands"]
 
     return " and ".join(summary_title), summary
 
@@ -172,8 +178,15 @@ def _filterred_sources_for_logging(data, inplace=False):
         return data
 
 
-async def post_summary(ctxt, match, summary_check, conclusions, previous_conclusions):
-    summary_title, summary = await gen_summary(ctxt, match)
+async def post_summary(
+    ctxt: context.Context,
+    pull_request_rules: rules.PullRequestRules,
+    match: rules.RulesEvaluator,
+    summary_check: typing.Optional[github_types.GitHubCheckRun],
+    conclusions: typing.Dict[str, check_api.Conclusion],
+    previous_conclusions: typing.Dict[str, check_api.Conclusion],
+) -> None:
+    summary_title, summary = await gen_summary(ctxt, pull_request_rules, match)
 
     summary += constants.MERGIFY_PULL_REQUEST_DOC
     summary += serialize_conclusions(conclusions)
@@ -470,18 +483,14 @@ async def handle(
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
-    if pull_request_rules.has_user_rules():
-        summary_check = checks.get(ctxt.SUMMARY_NAME)
-        previous_conclusions = load_conclusions(ctxt, summary_check)
-    else:
-        previous_conclusions = {}
-
+    summary_check = checks.get(ctxt.SUMMARY_NAME)
+    previous_conclusions = load_conclusions(ctxt, summary_check)
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
-
-    if not pull_request_rules.has_user_rules():
-        # NOTE(sileht): Only hidden rules are ran, we don't post a summary in
-        # such case, currently only delete_head_branch is used in our rules,
-        # sources we don't care about storing the result of this action.
-        return
-
-    await post_summary(ctxt, match, summary_check, conclusions, previous_conclusions)
+    await post_summary(
+        ctxt,
+        pull_request_rules,
+        match,
+        summary_check,
+        conclusions,
+        previous_conclusions,
+    )

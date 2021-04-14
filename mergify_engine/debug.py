@@ -324,10 +324,11 @@ async def report(
 
             if mergify_config is not None:
                 print("* MERGIFY LIVE MATCHES:")
-                match = await mergify_config[
-                    "pull_request_rules"
-                ].get_pull_request_rule(ctxt)
-                summary_title, summary = await actions_runner.gen_summary(ctxt, match)
+                pull_request_rules = mergify_config["pull_request_rules"]
+                match = await pull_request_rules.get_pull_request_rule(ctxt)
+                summary_title, summary = await actions_runner.gen_summary(
+                    ctxt, pull_request_rules, match
+                )
                 print(f"[Summary]: success | {summary_title}")
                 print("> " + "\n> ".join(summary.strip().split("\n")))
 
