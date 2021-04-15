@@ -26,6 +26,7 @@ import yaml
 from mergify_engine import actions
 from mergify_engine import context
 from mergify_engine.rules import filter
+from mergify_engine.rules import live_resolvers
 from mergify_engine.rules import types
 
 
@@ -79,11 +80,15 @@ class EvaluatedRule:
     conditions: RuleConditions
     missing_conditions: RuleMissingConditions
     actions: typing.Dict[str, actions.Action]
-    hidden: bool = False
+    hidden: bool
+    errors: typing.List[str]
 
     @classmethod
     def from_rule(
-        cls, rule: "Rule", missing_conditions: RuleMissingConditions
+        cls,
+        rule: "Rule",
+        missing_conditions: RuleMissingConditions,
+        errors: typing.List[str],
     ) -> "EvaluatedRule":
         return cls(
             rule.name,
@@ -91,6 +96,7 @@ class EvaluatedRule:
             missing_conditions,
             rule.actions,
             rule.hidden,
+            errors or [],
         )
 
 
@@ -105,16 +111,21 @@ class EvaluatedQueueRule:
     conditions: RuleConditions
     missing_conditions: RuleMissingConditions
     config: QueueConfig
+    errors: typing.List[str]
 
     @classmethod
     def from_rule(
-        cls, rule: "QueueRule", missing_conditions: RuleMissingConditions
+        cls,
+        rule: "QueueRule",
+        missing_conditions: RuleMissingConditions,
+        errors: typing.List[str],
     ) -> "EvaluatedQueueRule":
         return cls(
             rule.name,
             rule.conditions,
             missing_conditions,
             rule.config,
+            errors,
         )
 
 
@@ -176,6 +187,11 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         init=False, default_factory=list
     )
 
+    # The rules that can't be computed due to runtime error (eg: team resolution failure)
+    faulty_rules: typing.List[T_EvaluatedRule] = dataclasses.field(
+        init=False, default_factory=list
+    )
+
     # The rules not matching the pull request.
     ignored_rules: typing.List[T_EvaluatedRule] = dataclasses.field(
         init=False, default_factory=list
@@ -187,33 +203,52 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         rules: typing.List[T_Rule],
         ctxt: context.Context,
         rule_to_evaluated_rule_method: typing.Callable[
-            [T_Rule, RuleMissingConditions], T_EvaluatedRule
+            [T_Rule, RuleMissingConditions, typing.List[str]],
+            T_EvaluatedRule,
         ],
         hide_rule: bool,
     ) -> "GenericRulesEvaluator[T_Rule, T_EvaluatedRule]":
         self = cls(rules)
+
         for rule in self.rules:
             ignore_rules = False
+            faulty_rules_errors = []
             next_conditions_to_validate = []
             for condition in rule.conditions:
                 for attrib in self.TEAM_ATTRIBUTES:
-                    condition.value_expanders[attrib] = ctxt.resolve_teams
+                    # mypy thinks can take only Callable and not Coroutine
+                    condition.value_expanders[attrib] = functools.partial(  # type: ignore
+                        live_resolvers.teams, ctxt
+                    )
+                try:
+                    pull_request_match = await condition(ctxt.pull_request)
+                except live_resolvers.LiveResolutionFailure as e:
+                    pull_request_match = False
+                    faulty_rules_errors.append(e.reason)
 
-                if not await condition(ctxt.pull_request):
+                if not pull_request_match:
                     next_conditions_to_validate.append(condition)
                     if condition.attribute_name in self.BASE_ATTRIBUTES:
                         ignore_rules = True
 
-            if ignore_rules and hide_rule:
+            if faulty_rules_errors and hide_rule:
+                self.faulty_rules.append(
+                    rule_to_evaluated_rule_method(
+                        rule,
+                        RuleMissingConditions(next_conditions_to_validate),
+                        faulty_rules_errors,
+                    ),
+                )
+            elif ignore_rules and hide_rule:
                 self.ignored_rules.append(
                     rule_to_evaluated_rule_method(
-                        rule, RuleMissingConditions(next_conditions_to_validate)
+                        rule, RuleMissingConditions(next_conditions_to_validate), []
                     )
                 )
             else:
                 self.matching_rules.append(
                     rule_to_evaluated_rule_method(
-                        rule, RuleMissingConditions(next_conditions_to_validate)
+                        rule, RuleMissingConditions(next_conditions_to_validate), []
                     )
                 )
         return self

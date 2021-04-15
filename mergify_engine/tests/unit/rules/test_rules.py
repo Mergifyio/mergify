@@ -822,7 +822,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["default"]
     assert [r.name for r in match.matching_rules] == ["default"]
     assert [
-        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]), [])
         for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
@@ -836,7 +836,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["hello"]
     assert [r.name for r in match.matching_rules] == ["hello"]
     assert [
-        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]), [])
         for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
@@ -853,7 +853,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["hello", "backport"]
     assert [r.name for r in match.matching_rules] == ["hello", "backport"]
     assert [
-        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]), [])
         for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
@@ -883,7 +883,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["hello", "backport"]
     assert [r.name for r in match.matching_rules] == ["hello", "backport"]
     assert [
-        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]), [])
         for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
@@ -926,7 +926,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["merge"]
     assert [r.name for r in match.matching_rules] == ["merge"]
     assert [
-        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]))
+        rules.EvaluatedRule.from_rule(r, rules.RuleMissingConditions([]), [])
         for r in match.rules
     ] == match.matching_rules
     for rule in match.rules:
