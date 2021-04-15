@@ -176,7 +176,7 @@ async def test_configuration_changed(
             client,
             redis_cache,
         )
-        repository = context.Repository(installation, GH_REPO["name"])
+        repository = context.Repository(installation, GH_REPO["name"], GH_REPO["id"])
         ctxt = await repository.get_pull_request_context(
             github_types.GitHubPullRequestNumber(1)
         )
@@ -268,7 +268,7 @@ async def test_configuration_duplicated(
             client,
             redis_cache,
         )
-        repository = context.Repository(installation, GH_REPO["name"])
+        repository = context.Repository(installation, GH_REPO["name"], GH_REPO["id"])
         ctxt = await repository.get_pull_request_context(
             github_types.GitHubPullRequestNumber(1)
         )
@@ -350,7 +350,7 @@ async def test_configuration_not_changed(
             client,
             redis_cache,
         )
-        repository = context.Repository(installation, GH_REPO["name"])
+        repository = context.Repository(installation, GH_REPO["name"], GH_REPO["id"])
         ctxt = await repository.get_pull_request_context(
             github_types.GitHubPullRequestNumber(1)
         )
@@ -420,7 +420,7 @@ async def test_configuration_initial(
             client,
             redis_cache,
         )
-        repository = context.Repository(installation, GH_REPO["name"])
+        repository = context.Repository(installation, GH_REPO["name"], GH_REPO["id"])
         ctxt = await repository.get_pull_request_context(
             github_types.GitHubPullRequestNumber(1)
         )

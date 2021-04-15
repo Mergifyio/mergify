@@ -470,13 +470,15 @@ async def handle(
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
-    summary_check = checks.get(ctxt.SUMMARY_NAME)
-    previous_conclusions = load_conclusions(ctxt, summary_check)
+    if pull_request_rules.has_user_rules():
+        summary_check = checks.get(ctxt.SUMMARY_NAME)
+        previous_conclusions = load_conclusions(ctxt, summary_check)
+    else:
+        previous_conclusions = {}
 
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
 
-    has_user_rules = any(rule for rule in pull_request_rules.rules if not rule.hidden)
-    if not has_user_rules:
+    if not pull_request_rules.has_user_rules():
         # NOTE(sileht): Only hidden rules are ran, we don't post a summary in
         # such case, currently only delete_head_branch is used in our rules,
         # sources we don't care about storing the result of this action.

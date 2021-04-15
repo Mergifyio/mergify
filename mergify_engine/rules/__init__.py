@@ -241,6 +241,9 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
+    def has_user_rules(self):
+        return any(rule for rule in self.rules if not rule.hidden)
+
     async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
         return await RulesEvaluator.create(
             self.rules, ctxt, EvaluatedRule.from_rule, True
@@ -460,7 +463,7 @@ class MergifyConfig(typing.TypedDict):
 def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
     if defaults := config.get("defaults"):
         if defaults_actions := defaults.get("actions"):
-            for rule in config["pull_request_rules"]:
+            for rule in config.get("pull_request_rules", []):
                 actions = rule["actions"]
 
                 for action_name, action in actions.items():

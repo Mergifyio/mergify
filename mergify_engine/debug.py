@@ -288,8 +288,8 @@ async def report(
                 await report_queue("TRAIN", q)
 
         else:
-            repository = context.Repository(
-                installation, github_types.GitHubRepositoryName(repo)
+            repository = await installation.get_repository_by_name(
+                github_types.GitHubRepositoryName(repo)
             )
             ctxt = await repository.get_pull_request_context(
                 github_types.GitHubPullRequestNumber(int(pull_number))

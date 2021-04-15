@@ -324,7 +324,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert pull["assignees"] == []
 
-    async def _do_test_backport(self, method, config=None):
+    async def _do_test_backport(self, method, config=None, expected_title=None):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -371,9 +371,12 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert not await self.is_pull_merged(pulls[1]["number"])
 
         bp_pull = pulls[0]
-        assert bp_pull["title"].endswith(
-            f": pull request n1 from fork (bp #{p['number']})"
-        )
+        if expected_title is None:
+            assert bp_pull["title"].endswith(
+                f": pull request n1 from fork (backport #{p['number']})"
+            )
+        else:
+            assert bp_pull["title"] == expected_title
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
@@ -428,6 +431,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
     async def test_backport_rebase_and_merge(self):
         p = await self._do_test_backport("rebase")
         assert 2 == p["commits"]
+
+    async def test_backport_with_title(self):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        await self._do_test_backport(
+            "merge",
+            config={
+                "branches": [stable_branch],
+                "title": "foo",
+            },
+            expected_title="foo",
+        )
 
     async def test_merge_with_not_merged_attribute(self):
         rules = {
@@ -918,7 +932,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             client,
             self.redis_cache,
         )
-        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        repository = context.Repository(
+            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
+        )
         pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
@@ -964,7 +980,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             client,
             self.redis_cache,
         )
-        repository = context.Repository(installation, p["base"]["repo"]["name"])
+        repository = context.Repository(
+            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
+        )
         pull = await context.Context.create(repository, p, [])
 
         logins = await pull.resolve_teams(
