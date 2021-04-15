@@ -438,9 +438,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             "merge",
             config={
                 "branches": [stable_branch],
-                "title": "foo",
+                "title": "foo: {{destination_branch}}",
             },
-            expected_title="foo",
+            expected_title=f"foo: {stable_branch}",
         )
 
     async def test_merge_with_not_merged_attribute(self):
