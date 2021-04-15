@@ -398,6 +398,89 @@ class Repository(object):
             "write",
         )
 
+    TEAMS_PERMISSION_CACHE_KEY_PREFIX = "teams_permission"
+    TEAMS_PERMISSION_CACHE_KEY_DELIMITER = "/"
+    TEAMS_PERMISSION_EXPIRATION = 3600  # 1 hour
+
+    @classmethod
+    def _teams_permission_cache_key_for_repo(
+        cls,
+        owner_id: github_types.GitHubAccountIdType,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> str:
+        return (
+            f"{cls.TEAMS_PERMISSION_CACHE_KEY_PREFIX}"
+            f"{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}{owner_id}"
+            f"{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}{repo_id}"
+        )
+
+    @property
+    def _teams_permission_cache_key(self) -> str:
+        return self._teams_permission_cache_key_for_repo(
+            self.installation.owner_id, self.id
+        )
+
+    @classmethod
+    async def clear_team_permission_cache_for_team(
+        cls,
+        redis: utils.RedisCache,
+        owner: github_types.GitHubAccount,
+        team: github_types.GitHubTeamSlug,
+    ) -> None:
+        pipeline = await redis.pipeline()
+        async for key in redis.scan_iter(
+            f"{cls.TEAMS_PERMISSION_CACHE_KEY_PREFIX}{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}{owner['id']}{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}*",
+            count=10000,
+        ):
+            await redis.hdel(key, team)
+        await pipeline.execute()
+
+    @classmethod
+    async def clear_team_permission_cache_for_repo(
+        cls,
+        redis: utils.RedisCache,
+        owner: github_types.GitHubAccount,
+        repo: github_types.GitHubRepository,
+    ) -> None:
+        await redis.delete(
+            cls._teams_permission_cache_key_for_repo(owner["id"], repo["id"])
+        )
+
+    @classmethod
+    async def clear_team_permission_cache_for_org(
+        cls, redis: utils.RedisCache, org: github_types.GitHubAccount
+    ) -> None:
+        pipeline = await redis.pipeline()
+        async for key in redis.scan_iter(
+            f"{cls.TEAMS_PERMISSION_CACHE_KEY_PREFIX}{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}{org['id']}{cls.TEAMS_PERMISSION_CACHE_KEY_DELIMITER}*",
+            count=10000,
+        ):
+            await pipeline.delete(key)
+        await pipeline.execute()
+
+    async def team_has_read_permission(self, team: github_types.GitHubTeamSlug) -> bool:
+        key = self._teams_permission_cache_key
+        read_permission_raw = await self.installation.redis.hget(key, team)
+        if read_permission_raw is None:
+            try:
+                # note(sileht) read permissions are not part of the permissions
+                # list as the api endpoint returns 404 if permission read is missing
+                # so no need to check permission
+                await self.installation.client.item(
+                    f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.name}",
+                )
+                read_permission = True
+            except http.HTTPNotFound:
+                read_permission = False
+            pipe = await self.installation.redis.pipeline()
+            await pipe.hset(key, team, str(int(read_permission)))
+            await pipe.expire(key, self.TEAMS_PERMISSION_EXPIRATION)
+            await pipe.execute()
+        else:
+            read_permission = bool(int(read_permission_raw))
+
+        return read_permission
+
 
 class ContextCache(typing.TypedDict, total=False):
     consolidated_reviews: typing.Tuple[
