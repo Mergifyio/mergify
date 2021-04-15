@@ -93,7 +93,7 @@ Here's the relevant configuration file content:
 
 - The ``name`` of the rule is not used directly by Mergify, but is really
   useful when Mergify will report its status and for debugging rules. We advise
-  setting an explicity name that makes sense to you.
+  setting an explicitly name that makes sense to you.
 
 - The ``conditions`` defines the list of conditions that a pull request must
   match in order for the engine to execute the configured actions. In this
@@ -160,7 +160,7 @@ about the state of the pull request according to the defined rules.
    :alt: status check
    :align: center
 
-When all the criterias of the rules are satisfied, Mergify executes the
+When all the criteria of the rules are satisfied, Mergify executes the
 configured actions and e.g. merges the pull request.
 
 

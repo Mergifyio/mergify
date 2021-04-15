@@ -89,7 +89,7 @@ Runs the :ref:`copy action` action.
 refresh
 ========
 
-Re-evalutes your Mergify rules on this pull request.
+Re-evaluates your Mergify rules on this pull request.
 
 .. list-table::
   :widths: 1 7

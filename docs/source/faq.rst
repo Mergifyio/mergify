@@ -27,7 +27,7 @@ Mergify too. GitHub detects that A's commits are a subset of B's commits and
 therefore decides to automatically marks pull request A as merged.
 
 Be sure that Mergify did nothing on the pull request A if it told you so in the
-`Checks` tab. Dont't be fooled by GitHub UI.
+`Checks` tab. Don't be fooled by GitHub UI.
 
 I see a rebase and force-push done by a member of the repository, but Mergify actually did it.
 ----------------------------------------------------------------------------------------------
