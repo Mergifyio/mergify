@@ -8,7 +8,12 @@ import pkg_resources
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-extensions = ["sphinx.ext.githubpages", "sphinx.ext.graphviz", "mergify_engine_gendoc"]
+extensions = [
+    "sphinxcontrib.spelling",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.graphviz",
+    "mergify_engine_gendoc",
+]
 
 graphviz_dot_args = [
     "-Gdpi=200",
@@ -55,3 +60,7 @@ html_sidebars = {
     ]
 }
 html_add_permalinks = " 🔗"
+
+# Spelling checker configuration
+spelling_warning = True
+spelling_show_whole_line = False
