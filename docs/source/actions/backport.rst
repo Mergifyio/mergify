@@ -83,6 +83,12 @@ Options
      - The pull request title.
 
 
+As the ``title`` is a :ref:`template <data type template>`, you can
+leverage any pull request attributes to use as content, e.g. ``{{author}}``.
+You can also use this additional variable:
+
+    * ``{{ destination_branch }}``: the name of destination branch.
+
 Examples
 --------
 

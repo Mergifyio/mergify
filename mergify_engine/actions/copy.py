@@ -38,6 +38,15 @@ def Regex(value: str) -> typing.Pattern[str]:
         raise voluptuous.Invalid(str(e))
 
 
+def DuplicateJinja2(v):
+    return types.Jinja2(
+        v,
+        {
+            "destination_branch": "whatever",
+        },
+    )
+
+
 class CopyAction(actions.Action):
     is_command = True
 
@@ -60,7 +69,7 @@ class CopyAction(actions.Action):
             voluptuous.Required("label_conflicts", default="conflicts"): str,
             voluptuous.Required(
                 "title", default=f"{{{{ title }}}} ({cls.KIND} #{{{{ number }}}})"
-            ): types.Jinja2,
+            ): DuplicateJinja2,
         }
 
     @staticmethod
@@ -93,7 +102,10 @@ class CopyAction(actions.Action):
         new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
 
         try:
-            title = await ctxt.pull_request.render_template(self.config["title"])
+            title = await ctxt.pull_request.render_template(
+                self.config["title"],
+                extra_variables={"destination_branch": branch_name},
+            )
         except context.RenderTemplateFailure as rmf:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
