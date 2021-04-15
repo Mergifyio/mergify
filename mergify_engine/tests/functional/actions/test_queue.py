@@ -270,7 +270,8 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
         )
 
-        assert tmp_pull["commits"] == 5
+        # May or may not contains the merge commit of the first pr updated
+        assert tmp_pull["commits"] in [5, 6]
         await self.create_status(tmp_pull)
 
         head_sha = p1["head"]["sha"]
@@ -1458,6 +1459,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
+        queue_config = rules.QueueConfig(priority=0, speculative_checks=5)
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
@@ -1465,7 +1467,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=rules.QueueConfig(priority=0, speculative_checks=5),
+            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -1476,7 +1478,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             head_sha,
             head_sha,
         )
-        await car.create_pull()
+        await car.create_pull(
+            rules.QueueRule(name="foo", conditions=[], config=queue_config)
+        )
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -1504,6 +1508,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
+        queue_config = rules.QueueConfig(priority=0, speculative_checks=5)
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
@@ -1511,7 +1516,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=rules.QueueConfig(priority=0, speculative_checks=5),
+            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -1523,7 +1528,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             head_sha,
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
-            await car.create_pull()
+            await car.create_pull(
+                rules.QueueRule(name="foo", conditions=[], config=queue_config)
+            )
             assert exc_info.value.car == car
             assert car.queue_pull_request_number is None
 
