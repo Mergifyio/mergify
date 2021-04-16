@@ -16,7 +16,6 @@
 import base64
 import contextlib
 import dataclasses
-import itertools
 import json
 import logging
 import typing
@@ -754,51 +753,6 @@ class Context(object):
         # or success.
         checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
         return checks
-
-    async def _resolve_login(self, name: str) -> typing.List[github_types.GitHubLogin]:
-        if not name:
-            return []
-        elif not isinstance(name, str):
-            return [github_types.GitHubLogin(name)]
-        elif name[0] != "@":
-            return [github_types.GitHubLogin(name)]
-
-        if "/" in name:
-            organization, _, team_slug = name.partition("/")
-            if not team_slug or "/" in team_slug:
-                # Not a team slug
-                return [github_types.GitHubLogin(name)]
-            organization = github_types.GitHubLogin(organization[1:])
-            if organization != self.pull["base"]["repo"]["owner"]["login"]:
-                # TODO(sileht): We don't have the permissions, maybe we should report this
-                return [github_types.GitHubLogin(name)]
-            team_slug = github_types.GitHubTeamSlug(team_slug)
-        else:
-            team_slug = github_types.GitHubTeamSlug(name[1:])
-
-        try:
-            return await self.repository.installation.get_team_members(team_slug)
-        except http.HTTPClientSideError as e:
-            self.log.warning(
-                "fail to get the organization, team or members",
-                team=name,
-                status_code=e.status_code,
-                detail=e.message,
-            )
-        return [github_types.GitHubLogin(name)]
-
-    async def resolve_teams(self, values):
-        if not values:
-            return []
-        if not isinstance(values, (list, tuple)):
-            values = [values]
-
-        values = list(
-            itertools.chain.from_iterable(
-                [await self._resolve_login(value) for value in values]
-            )
-        )
-        return values
 
     UNUSABLE_STATES = ["unknown", None]
 
