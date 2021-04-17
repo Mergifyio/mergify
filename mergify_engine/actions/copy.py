@@ -48,12 +48,12 @@ def DuplicateJinja2(v):
 
 
 class CopyAction(actions.Action):
-    is_command = True
+    is_command: bool = True
 
-    KIND = "copy"
-    BRANCH_PREFIX = "copy"
-    SUCCESS_MESSAGE = "Pull request copies have been created"
-    FAILURE_MESSAGE = "No copy have been created"
+    KIND: duplicate_pull.KindT = "copy"
+    BRANCH_PREFIX: str = "copy"
+    SUCCESS_MESSAGE: str = "Pull request copies have been created"
+    FAILURE_MESSAGE: str = "No copy have been created"
 
     @classmethod
     def get_config_schema(
@@ -79,7 +79,9 @@ class CopyAction(actions.Action):
         else:
             return {}
 
-    async def _copy(self, ctxt, branch_name):
+    async def _copy(
+        self, ctxt: context.Context, branch_name: github_types.GitHubRefType
+    ) -> typing.Tuple[check_api.Conclusion, str]:
         """Copy the PR to a branch.
 
         Returns a tuple of strings (state, reason).
@@ -107,10 +109,9 @@ class CopyAction(actions.Action):
                 extra_variables={"destination_branch": branch_name},
             )
         except context.RenderTemplateFailure as rmf:
-            return check_api.Result(
+            return (
                 check_api.Conclusion.FAILURE,
-                "Invalid title message",
-                str(rmf),
+                f"Invalid title message: {rmf}",
             )
 
         # No, then do it
@@ -121,12 +122,12 @@ class CopyAction(actions.Action):
                     ctxt,
                     title,
                     branch_name,
-                    self.config["labels"],
-                    self.config["label_conflicts"],
-                    self.config["ignore_conflicts"],
-                    users_to_add,
-                    self.KIND,
-                    self.BRANCH_PREFIX,
+                    labels=self.config["labels"],
+                    label_conflicts=self.config["label_conflicts"],
+                    ignore_conflicts=self.config["ignore_conflicts"],
+                    assignees=users_to_add,
+                    kind=self.KIND,
+                    branch_prefix=self.BRANCH_PREFIX,
                 )
             except duplicate_pull.DuplicateAlreadyExists:
                 new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
@@ -192,7 +193,7 @@ class CopyAction(actions.Action):
                 "GitHub App like Mergify are not allowed to create pull request where `.github/workflows` is changed.",
             )
 
-        branches = self.config["branches"]
+        branches: typing.List[github_types.GitHubRefType] = self.config["branches"]
         if self.config["regexes"]:
             branches.extend(
                 [
@@ -245,19 +246,24 @@ class CopyAction(actions.Action):
         )
 
     @classmethod
-    async def get_existing_duplicate_pull(cls, ctxt, branch_name):
+    async def get_existing_duplicate_pull(
+        cls, ctxt: context.Context, branch_name: github_types.GitHubRefType
+    ) -> typing.Optional[github_types.GitHubPullRequest]:
         bp_branch = duplicate_pull.get_destination_branch_name(
             ctxt.pull["number"], branch_name, cls.BRANCH_PREFIX
         )
         pulls = [
             pull
-            async for pull in ctxt.client.items(
-                f"{ctxt.base_url}/pulls",
-                base=branch_name,
-                sort="created",
-                state="all",
-                head=f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
+            async for pull in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubPullRequest, None],
+                ctxt.client.items(
+                    f"{ctxt.base_url}/pulls",
+                    base=branch_name,
+                    sort="created",
+                    state="all",
+                    head=f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
+                ),
             )
         ]
-        if pulls:
-            return pulls[-1]
+
+        return pulls[-1] if pulls else None

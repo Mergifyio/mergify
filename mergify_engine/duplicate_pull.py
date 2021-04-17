@@ -195,7 +195,7 @@ KindT = typing.Literal["backport", "copy"]
 
 def get_destination_branch_name(
     pull_number: github_types.GitHubPullRequestNumber,
-    branch_name: str,
+    branch_name: github_types.GitHubRefType,
     branch_prefix: str,
 ) -> str:
     return f"mergify/{branch_prefix}/{branch_name}/pr-{pull_number}"
@@ -210,7 +210,8 @@ def get_destination_branch_name(
 async def duplicate(
     ctxt: context.Context,
     title: str,
-    branch_name: str,
+    branch_name: github_types.GitHubRefType,
+    *,
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
