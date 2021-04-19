@@ -116,17 +116,19 @@ class QueueAction(merge_base.MergeBaseAction):
         if car and car.state == "updated":
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
             need_reset = ctxt.have_been_synchronized() or await ctxt.is_behind
             if need_reset:
                 status = check_api.Conclusion.PENDING
                 ctxt.log.info("train will be reset")
                 await q.reset()
             else:
-                queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
                 status = await merge_train.get_queue_rule_checks_status(
                     ctxt, queue_rule_evaluated
                 )
-            await car.update_summaries(status, will_be_reset=need_reset)
+            await car.update_summaries(
+                status, queue_rule_evaluated, will_be_reset=need_reset
+            )
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this

@@ -190,7 +190,7 @@ class TrainCar(PseudoTrainCar):
         else:
             return None
 
-    async def update_user_pull(self) -> None:
+    async def update_user_pull(self, queue_rule: rules.QueueRule) -> None:
         # TODO(sileht): Add support for strict method and  update_bot_account
         # TODO(sileht): rework branch_updater to be able to use it here.
         ctxt = await self.train.repository.get_pull_request_context(
@@ -218,10 +218,16 @@ class TrainCar(PseudoTrainCar):
                         error=exc.message,
                     )
                     return
-            await self._report_failure(exc, "update")
+            await self._report_failure(exc.message, "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
-    async def create_pull(self) -> None:
+        evaluated_queue_rule = await queue_rule.get_pull_request_rule(ctxt)
+        await self.update_summaries(check_api.Conclusion.PENDING, evaluated_queue_rule)
+
+    async def create_pull(
+        self,
+        queue_rule: rules.QueueRule,
+    ) -> None:
         branch_name = f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.user_pull_request_number}"
 
         try:
@@ -237,10 +243,10 @@ class TrainCar(PseudoTrainCar):
                 try:
                     await self._delete_branch()
                 except http.HTTPClientSideError as exc_patch:
-                    await self._report_failure(exc_patch)
+                    await self._report_failure(exc_patch.message)
                     raise TrainCarPullRequestCreationFailure(self) from exc_patch
             else:
-                await self._report_failure(exc)
+                await self._report_failure(exc.message)
                 raise TrainCarPullRequestCreationFailure(self) from exc
 
         for pull_number in self.parent_pull_request_numbers + [
@@ -268,13 +274,15 @@ class TrainCar(PseudoTrainCar):
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationPostponed(self) from e
                 else:
-                    await self._report_failure(e)
+                    await self._report_failure(e.message)
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
         try:
             title = f"merge-queue: embarking {self._get_embarked_refs()} together"
-            body = await self.generate_merge_queue_summary(for_queue_pull_request=True)
+            body = await self.generate_merge_queue_summary(
+                queue_rule, for_queue_pull_request=True
+            )
             tmp_pull = (
                 await self.train.repository.installation.client.post(
                     f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/pulls",
@@ -287,21 +295,22 @@ class TrainCar(PseudoTrainCar):
                 )
             ).json()
         except http.HTTPClientSideError as e:
-            await self._report_failure(e)
+            await self._report_failure(e.message)
             raise TrainCarPullRequestCreationFailure(self) from e
 
         self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
             tmp_pull["number"]
         )
-        await self.train.repository.get_pull_request_context(
-            self.queue_pull_request_number, tmp_pull
-        )
 
-        await self.update_summaries(check_api.Conclusion.PENDING)
+        tmp_ctxt = await self.train.repository.get_pull_request_context(
+            self.queue_pull_request_number
+        )
+        evaluated_queue_rule = await queue_rule.get_pull_request_rule(tmp_ctxt)
+        await self.update_summaries(check_api.Conclusion.PENDING, evaluated_queue_rule)
 
     async def generate_merge_queue_summary(
         self,
-        queue_rule: typing.Optional[rules.EvaluatedQueueRule] = None,
+        queue_rule: typing.Union[rules.EvaluatedQueueRule, rules.QueueRule],
         for_queue_pull_request: bool = False,
     ) -> str:
         description = (
@@ -314,11 +323,15 @@ class TrainCar(PseudoTrainCar):
 This pull request has been created by Mergify to speculatively check the mergeability of #{self.user_pull_request_number}.
 You don't need to do anything. Mergify will close this pull request automatically when it is complete.
 """
-        if queue_rule is not None:
-            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
-            for cond in queue_rule.conditions:
+        description += (
+            f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
+        )
+        for cond in queue_rule.conditions:
+            if isinstance(queue_rule, rules.EvaluatedQueueRule):
                 checked = " " if cond in queue_rule.missing_conditions else "X"
-                description += f"\n- [{checked}] `{cond}`"
+            else:
+                checked = " "
+            description += f"\n- [{checked}] `{cond}`"
 
         table = [
             "| | Pull request | Queue/Priority | Speculative checks |",
@@ -377,7 +390,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
     async def _report_failure(
         self,
-        exception: http.HTTPClientSideError,
+        details: str,
         operation: typing.Literal["created", "update"] = "created",
     ) -> None:
         title = "This pull request cannot be embarked for merge"
@@ -387,7 +400,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         else:
             summary = f"The merge-queue pull request (#{self.queue_pull_request_number}) can't be prepared"
 
-        summary += f"\nDetails: `{exception.message}`"
+        summary += f"\nDetails: `{details}`"
 
         # Update the original Pull Request
         original_ctxt = await self.train.repository.get_pull_request_context(
@@ -398,6 +411,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             conclusion=check_api.Conclusion.ACTION_REQUIRED,
             title=title,
             summary=summary,
+            details=details,
             exc_info=True,
         )
         await check_api.set_check_run(
@@ -422,8 +436,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
     async def update_summaries(
         self,
         conclusion: check_api.Conclusion,
+        evaluated_queue_rule: rules.EvaluatedQueueRule,
         *,
-        queue_rule: typing.Optional[rules.EvaluatedQueueRule] = None,
         will_be_reset: bool = False,
     ) -> None:
         if conclusion == check_api.Conclusion.SUCCESS:
@@ -435,13 +449,10 @@ You don't need to do anything. Mergify will close this pull request automaticall
         else:
             tmp_pull_title = f"The pull request #{self.user_pull_request_number} cannot be merged and has been disembarked"
 
-        if queue_rule:
-            queue_summary = "\n\nRequired conditions for merge:\n"
-            for cond in queue_rule.conditions:
-                checked = " " if cond in queue_rule.missing_conditions else "X"
-                queue_summary += f"\n- [{checked}] `{cond}`"
-        else:
-            queue_summary = ""
+        queue_summary = "\n\nRequired conditions for merge:\n"
+        for cond in evaluated_queue_rule.conditions:
+            checked = " " if cond in evaluated_queue_rule.missing_conditions else "X"
+            queue_summary += f"\n- [{checked}] `{cond}`"
 
         original_ctxt = await self.train.repository.get_pull_request_context(
             self.user_pull_request_number
@@ -460,14 +471,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 self.queue_pull_request_number
             )
 
-            if queue_rule is not None:
-                body = await self.generate_merge_queue_summary(
-                    queue_rule, for_queue_pull_request=True
-                )
-                await tmp_pull_ctxt.client.patch(
-                    f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
-                    json={"body": body},
-                )
+            body = await self.generate_merge_queue_summary(
+                evaluated_queue_rule, for_queue_pull_request=True
+            )
+            await tmp_pull_ctxt.client.patch(
+                f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
+                json={"body": body},
+            )
 
             await tmp_pull_ctxt.set_summary_check(
                 check_api.Result(
@@ -720,13 +730,28 @@ class Train(queue.QueueBase):
         )
 
     async def refresh(self) -> None:
-        await self._populate_cars()
+        config_file = await self.repository.get_mergify_config_file()
+        if config_file is None:
+            self.log.warning(
+                "train can't be refreshed, the mergify configuration is missing",
+            )
+            return
+        try:
+            mergify_config = rules.get_mergify_config(config_file)
+        except rules.InvalidRules as e:  # pragma: no cover
+            self.log.warning(
+                "train can't be refreshed, the mergify configuration is invalid",
+                summary=str(e),
+                annotations=e.get_annotations(e.filename),
+            )
+            return
+
+        await self._populate_cars(mergify_config["queue_rules"])
         await self._save()
         self.log.info("train cars refreshed")
 
     async def reset(self) -> None:
         await self._slice_cars_at(0)
-        await self._populate_cars()
         await self._save()
         self.log.info("train cars reset")
 
@@ -826,7 +851,7 @@ class Train(queue.QueueBase):
         ctxt.log.info("removed from train", position=position)
         await self._refresh_pulls(ctxt.pull["base"]["repo"])
 
-    async def _populate_cars(self) -> None:
+    async def _populate_cars(self, queue_rules: rules.QueueRules) -> None:
         try:
             head = next(self._iter_pseudo_cars())
         except StopIteration:
@@ -888,12 +913,25 @@ class Train(queue.QueueBase):
                 self._cars.append(car)
 
                 try:
+                    try:
+                        queue_rule = queue_rules[car.config["name"]]
+                    except KeyError:
+                        self.log.warning(
+                            "queue_rule not found for this train car",
+                            queue_rules=queue_rules,
+                            queue_name=car.config["name"],
+                        )
+                        car._report_failure(
+                            f"queue named `{car.config['name']}` does not exists anymore"
+                        )
+                        raise TrainCarPullRequestCreationFailure(car)
+
                     if self._should_be_updated(user_pull_request_number):
                         # No need to create a pull request
-                        await car.update_user_pull()
+                        await car.update_user_pull(queue_rule)
                         car.state = "updated"
                     else:
-                        await car.create_pull()
+                        await car.create_pull(queue_rule)
                         car.state = "created"
                 except TrainCarPullRequestCreationPostponed:
                     # NOTE(sileht): We can't create the tmp pull request, we will
