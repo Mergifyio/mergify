@@ -57,6 +57,7 @@ MERGIFYENGINE_OAUTH_CLIENT_SECRET=${respApp.data.client_secret}
 MERGIFYENGINE_WEBHOOK_SECRET=${respApp.data.webhook_secret}
 MERGIFYENGINE_PRIVATE_KEY=${Buffer.from(respApp.data.pem).toString('base64')}
 MERGIFYENGINE_CACHE_TOKEN_SECRET=${getRandomString(42)}
+PYTHONUNBUFFERED=1
 `);
     };
     run();
