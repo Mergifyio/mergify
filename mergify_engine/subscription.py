@@ -13,6 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
+import abc
 import dataclasses
 import enum
 import json
@@ -28,6 +31,9 @@ from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+SubscriptionT = typing.TypeVar("SubscriptionT", bound="SubscriptionBase")
 
 
 @enum.unique
@@ -58,8 +64,8 @@ class SubscriptionDict(typing.TypedDict):
     ]
 
 
-@dataclasses.dataclass
-class Subscription:
+@dataclasses.dataclass  # type: ignore
+class SubscriptionBase(abc.ABC):
     redis: utils.RedisCache
     owner_id: int
     active: bool
@@ -93,12 +99,12 @@ class Subscription:
 
     @classmethod
     def from_dict(
-        cls,
+        cls: typing.Type[SubscriptionT],
         redis: utils.RedisCache,
         owner_id: int,
         sub: SubscriptionDict,
         ttl: int = -2,
-    ) -> "Subscription":
+    ) -> SubscriptionT:
         return cls(
             redis,
             owner_id,
@@ -125,15 +131,10 @@ class Subscription:
         return elapsed_since_stored > self.VALIDITY_SECONDS
 
     @classmethod
-    async def delete(cls, redis: utils.RedisCache, owner_id: int) -> None:
-        await redis.delete(cls._cache_key(owner_id))
-
-    @classmethod
     async def get_subscription(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionT:
         """Get a subscription."""
-
         cached_sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
         if cached_sub is None or await cached_sub._has_expired():
             try:
@@ -146,11 +147,22 @@ class Subscription:
                     # just because the dashboard have connectivity issue.
                     return cached_sub
                 raise
-            await db_sub.save_subscription_to_cache()
+
+            await db_sub._save_subscription_to_cache()
             return db_sub
         return cached_sub
 
-    async def save_subscription_to_cache(self) -> None:
+    @classmethod
+    async def update_subscription(
+        cls, redis: utils.RedisCache, owner_id: int, sub: SubscriptionDict
+    ) -> None:
+        await cls.from_dict(redis, owner_id, sub)._save_subscription_to_cache()
+
+    @classmethod
+    async def delete_subscription(cls, redis: utils.RedisCache, owner_id: int) -> None:
+        await redis.delete(cls._cache_key(owner_id))
+
+    async def _save_subscription_to_cache(self) -> None:
         """Save a subscription to the cache."""
         await self.redis.setex(
             self._cache_key(self.owner_id),
@@ -160,25 +172,16 @@ class Subscription:
         self.ttl = self.RETENTION_SECONDS
 
     @classmethod
+    @abc.abstractmethod
     async def _retrieve_subscription_from_db(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "Subscription":
-        async with http.AsyncClient() as client:
-            try:
-                resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/subscription/{owner_id}",
-                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
-                )
-            except http.HTTPNotFound as e:
-                return cls(redis, owner_id, False, e.message, frozenset())
-            else:
-                sub = resp.json()
-                return cls.from_dict(redis, owner_id, sub)
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionT:
+        pass
 
     @classmethod
     async def _retrieve_subscription_from_cache(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> typing.Optional["Subscription"]:
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> typing.Optional[SubscriptionT]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(owner_id))
             await pipe.ttl(cls._cache_key(owner_id))
@@ -193,3 +196,63 @@ class Subscription:
                 ttl,
             )
         return None
+
+
+@dataclasses.dataclass
+class SubscriptionDashboardGitHubCom(SubscriptionBase):
+    @classmethod
+    async def _retrieve_subscription_from_db(
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionT:
+        async with http.AsyncClient() as client:
+            try:
+
+                resp = await client.get(
+                    f"{config.SUBSCRIPTION_BASE_URL}/engine/subscription/{owner_id}",
+                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+                )
+            except http.HTTPNotFound as e:
+                return cls(redis, owner_id, False, e.message, frozenset())
+            else:
+                sub = resp.json()
+                return cls.from_dict(redis, owner_id, sub)
+
+
+class SubscriptionDashboardOnPremise(SubscriptionBase):
+    @classmethod
+    async def _retrieve_subscription_from_db(
+        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+    ) -> SubscriptionT:
+        async with http.AsyncClient() as client:
+            try:
+                resp = await client.get(
+                    f"{config.SUBSCRIPTION_BASE_URL}/on-premise/subscription",
+                    headers={"Authorization": f"token {config.SUBSCRIPTION_TOKEN}"},
+                )
+            except http.HTTPUnauthorized:
+                LOG.critical(
+                    "The SUBSCRIPTION_TOKEN is invalid, the subscription can't be checked"
+                )
+                raise exceptions.MergifyNotInstalled()
+            except http.HTTPForbidden:
+                LOG.critical(
+                    "The subscription attached SUBSCRIPTION_TOKEN is not valid"
+                )
+                raise exceptions.MergifyNotInstalled()
+            else:
+                sub = resp.json()
+                return cls.from_dict(redis, owner_id, sub)
+
+
+if config.SUBSCRIPTION_TOKEN is not None:
+
+    @dataclasses.dataclass
+    class Subscription(SubscriptionDashboardOnPremise):
+        pass
+
+
+else:
+
+    @dataclasses.dataclass
+    class Subscription(SubscriptionDashboardGitHubCom):  # type: ignore [no-redef]
+        pass

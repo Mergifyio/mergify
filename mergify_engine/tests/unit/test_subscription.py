@@ -1,8 +1,11 @@
 from unittest import mock
 
 import pytest
+from pytest_httpserver import httpserver
 
+from mergify_engine import exceptions
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.clients import http
 
 
@@ -53,7 +56,7 @@ async def test_save_sub(features, redis_cache):
         frozenset(features),
     )
 
-    await sub.save_subscription_to_cache()
+    await sub._save_subscription_to_cache()
     rsub = await subscription.Subscription._retrieve_subscription_from_cache(
         redis_cache, owner_id
     )
@@ -174,3 +177,83 @@ async def test_active_feature(redis_cache):
     assert sub.has_feature(subscription.Features.PRIVATE_REPOSITORY) is True
     assert sub.has_feature(subscription.Features.LARGE_REPOSITORY) is True
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
+
+
+@pytest.mark.asyncio
+async def test_subscription_on_premise_valid(
+    redis_cache: utils.RedisCache,
+    httpserver: httpserver.HTTPServer,
+) -> None:
+
+    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+        {
+            "subscription_active": True,
+            "subscription_reason": "azertyuio",
+            "features": [
+                "private_repository",
+                "large_repository",
+                "priority_queues",
+                "custom_checks",
+                "random_request_reviews",
+                "merge_bot_account",
+                "queue_action",
+            ],
+        }
+    )
+
+    with mock.patch(
+        "mergify_engine.config.SUBSCRIPTION_BASE_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        await subscription.SubscriptionDashboardOnPremise.get_subscription(
+            redis_cache, 1234
+        )
+
+    assert len(httpserver.log) == 1
+    httpserver.check_assertions()
+
+
+@pytest.mark.asyncio
+async def test_subscription_on_premise_wrong_token(
+    redis_cache: utils.RedisCache,
+    httpserver: httpserver.HTTPServer,
+) -> None:
+
+    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+        {"message": "error"}, status=401
+    )
+
+    with mock.patch(
+        "mergify_engine.config.SUBSCRIPTION_BASE_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        with pytest.raises(exceptions.MergifyNotInstalled):
+            await subscription.SubscriptionDashboardOnPremise.get_subscription(
+                redis_cache, 1234
+            )
+
+    assert len(httpserver.log) == 1
+    httpserver.check_assertions()
+
+
+@pytest.mark.asyncio
+async def test_subscription_on_premise_invalid_sub(
+    redis_cache: utils.RedisCache,
+    httpserver: httpserver.HTTPServer,
+) -> None:
+
+    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+        {"message": "error"}, status=403
+    )
+
+    with mock.patch(
+        "mergify_engine.config.SUBSCRIPTION_BASE_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        with pytest.raises(exceptions.MergifyNotInstalled):
+            await subscription.SubscriptionDashboardOnPremise.get_subscription(
+                redis_cache, 1234
+            )
+
+    assert len(httpserver.log) == 1
+    httpserver.check_assertions()
