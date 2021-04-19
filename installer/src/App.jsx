@@ -85,7 +85,11 @@ function Steper(props) {
     <Breadcrumb>
       <Breadcrumb.Item active={step === 1}>1. Create GitHubApp</Breadcrumb.Item>
       <Breadcrumb.Item active={step === 2}>2. Install GitHubApp </Breadcrumb.Item>
-      <Breadcrumb.Item active={step === 3}>3. Configure Heroku</Breadcrumb.Item>
+      <Breadcrumb.Item active={step === 3}>
+        {window.location.hostname.endsWith('herokuapp.com')
+          ? '3. Configure Heroku'
+          : '3. Configure the container environment variables'}
+      </Breadcrumb.Item>
     </Breadcrumb>
   );
 }
@@ -249,7 +253,11 @@ function Step3(props) {
 
   return (
     <>
-      <Title>Configuration of heroku</Title>
+      <Title>
+        {window.location.hostname.endsWith('herokuapp.com')
+          ? 'Configuration of Heroku'
+          : 'Configuration of the container environment variables'}
+      </Title>
       <Modal.Body>
         <Steper step={3} />
         <p>
