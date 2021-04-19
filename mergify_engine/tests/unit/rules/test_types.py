@@ -82,7 +82,7 @@ def test_jinja2_custom_attr():
     ("foobar", "foobaz", "foo-baz", "f123", "123foo"),
 )
 def test_github_login_ok(login):
-    types.GitHubLogin(login)
+    assert voluptuous.Schema(types.GitHubLogin)(login) == login
 
 
 @pytest.mark.parametrize(
@@ -98,27 +98,29 @@ def test_github_login_ok(login):
 )
 def test_github_login_nok(login, error):
     with pytest.raises(voluptuous.Invalid) as x:
-        types.GitHubLogin(login)
+        voluptuous.Schema(types.GitHubLogin)(login)
     assert str(x.value) == error
 
 
 @pytest.mark.parametrize(
-    "login,result",
+    "login,org,slug",
     (
-        ("foobar", "foobar"),
-        ("foobaz", "foobaz"),
-        ("foo-baz", "foo-baz"),
-        ("f123", "f123"),
-        ("foo/bar", "bar"),
-        ("@foo/bar", "bar"),
-        ("@fo-o/bar", "bar"),
-        ("@fo-o/ba-r", "ba-r"),
-        ("@foo/ba-r", "ba-r"),
-        ("under_score", "under_score"),
+        ("foobar", None, "foobar"),
+        ("foobaz", None, "foobaz"),
+        ("foo-baz", None, "foo-baz"),
+        ("f123", None, "f123"),
+        ("foo/bar", "foo", "bar"),
+        ("@foo/bar", "foo", "bar"),
+        ("@fo-o/bar", "fo-o", "bar"),
+        ("@fo-o/ba-r", "fo-o", "ba-r"),
+        ("@foo/ba-r", "foo", "ba-r"),
+        ("under_score", None, "under_score"),
     ),
 )
-def test_github_team_ok(login, result):
-    assert types.GitHubTeam(login) == result
+def test_github_team_ok(login, org, slug):
+    team = voluptuous.Schema(types.GitHubTeam)(login)
+    assert team.team == slug
+    assert team.organization == org
 
 
 @pytest.mark.parametrize(
@@ -128,6 +130,7 @@ def test_github_team_ok(login, result):
         ("/-foobar", "A GitHub organization cannot be an empty string"),
         ("foo/-foobar", "GitHub team contains invalid characters"),
         ("foo/-", "GitHub team contains invalid characters"),
+        ("foo/foo/bar", "GitHub team contains invalid characters"),
         ("foo//-", "GitHub team contains invalid characters"),
         ("/foo//-", "A GitHub organization cannot be an empty string"),
         ("@/foo//-", "A GitHub organization cannot be an empty string"),
@@ -137,5 +140,5 @@ def test_github_team_ok(login, result):
 )
 def test_github_team_nok(login, error):
     with pytest.raises(voluptuous.Invalid) as x:
-        types.GitHubTeam(login)
+        voluptuous.Schema(types.GitHubTeam)(login)
     assert str(x.value) == error
