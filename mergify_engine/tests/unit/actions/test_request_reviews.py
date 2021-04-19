@@ -243,7 +243,7 @@ async def test_team_permissions_missing(redis_cache):
     )
     client = mock.MagicMock()
     client.auth.installation.__getitem__.return_value = 123
-    client.item = mock.AsyncMock(
+    client.get = mock.AsyncMock(
         side_effect=http.HTTPNotFound(
             message="not found", response=mock.ANY, request=mock.ANY
         )
@@ -276,7 +276,7 @@ async def test_team_permissions_ok(redis_cache):
     )
     client = mock.MagicMock()
     client.auth.installation.__getitem__.return_value = 123
-    client.item = mock.AsyncMock(return_value={})
+    client.get = mock.AsyncMock(return_value={})
     ctxt = await prepare_context(client, redis_cache)
     result = await action.run(ctxt, None)
     assert result.summary == ""

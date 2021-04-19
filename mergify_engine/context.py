@@ -466,7 +466,7 @@ class Repository(object):
                 # note(sileht) read permissions are not part of the permissions
                 # list as the api endpoint returns 404 if permission read is missing
                 # so no need to check permission
-                await self.installation.client.item(
+                await self.installation.client.get(
                     f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.name}",
                 )
                 read_permission = True
