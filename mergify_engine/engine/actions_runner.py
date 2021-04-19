@@ -101,6 +101,11 @@ async def gen_summary_rules(
                     checked = " " if cond in action_rule.missing_conditions else "X"
                     summary += f"\n- [{checked}] `{cond}` ({action} action only, {action_rule.reason})"
 
+        if rule.errors:
+            summary += "\n"
+            for error in rule.errors:
+                summary += f"\n⚠️ {error}"
+
         summary += "\n\n"
     return summary
 
@@ -113,6 +118,9 @@ async def gen_summary(
 
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
+    summary += await gen_summary_rules(
+        ctxt, match.faulty_rules, show_actions_rules=True
+    )
     summary += await gen_summary_rules(
         ctxt, match.matching_rules, show_actions_rules=True
     )
@@ -136,9 +144,15 @@ async def gen_summary(
         list(filter(lambda x: not x.missing_conditions, match.matching_rules))
     )
     potential_rules = len(match.matching_rules) - completed_rules
+    faulty_rules = len(match.faulty_rules)
 
     if pull_request_rules.has_user_rules():
         summary_title = []
+        if faulty_rules == 1:
+            summary_title.append(f"{potential_rules} faulty rule")
+        elif faulty_rules > 1:
+            summary_title.append(f"{potential_rules} faulty rules")
+
         if completed_rules == 1:
             summary_title.append(f"{completed_rules} rule matches")
         elif completed_rules > 1:
@@ -149,7 +163,7 @@ async def gen_summary(
         elif potential_rules > 1:
             summary_title.append(f"{potential_rules} potential rules")
 
-        if completed_rules == 0 and potential_rules == 0:
+        if completed_rules == 0 and potential_rules == 0 and faulty_rules == 0:
             summary_title.append("no rules match, no planned actions")
     else:
         summary_title = ["no rules setuped, just listening for commands"]

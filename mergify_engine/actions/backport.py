@@ -19,17 +19,18 @@ import typing
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import duplicate_pull
 from mergify_engine import rules
 from mergify_engine.actions import copy
 
 
 class BackportAction(copy.CopyAction):
-    is_command = True
+    is_command: bool = True
 
-    KIND = "backport"
-    BRANCH_PREFIX = "bp"
-    SUCCESS_MESSAGE = "Backports have been created"
-    FAILURE_MESSAGE = "No backport have been created"
+    KIND: duplicate_pull.KindT = "backport"
+    BRANCH_PREFIX: str = "bp"
+    SUCCESS_MESSAGE: str = "Backports have been created"
+    FAILURE_MESSAGE: str = "No backport have been created"
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:

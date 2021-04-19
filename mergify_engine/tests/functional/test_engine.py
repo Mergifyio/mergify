@@ -25,6 +25,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.clients import github
+from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
 
 
@@ -905,72 +906,52 @@ no changes added to commit (use "git add" and/or "git commit -a")
         pulls = await self.get_pulls(base=self.master_branch_name)
         assert 1 == len(pulls)
 
-    async def test_short_teams(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "Merge on master",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "status-success=continuous-integration/fake-ci",
-                        "approved-reviews-by=@testing",
-                    ],
-                    "actions": {"merge": {"method": "rebase"}},
-                }
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules))
-
-        p, commits = await self.create_pr()
-
-        client = github.aget_client(p["base"]["user"]["login"])
-        installation = context.Installation(
-            p["base"]["user"]["id"],
-            p["base"]["user"]["login"],
-            self.subscription,
-            client,
-            self.redis_cache,
-        )
-        repository = context.Repository(
-            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
-        )
-        pull = await context.Context.create(repository, p, [])
-
-        logins = await pull.resolve_teams(
-            ["user", "@testing", "@unknown/team", "@invalid/team/break-here"]
-        )
-
-        assert sorted(logins) == sorted(
-            [
-                "user",
-                "@unknown/team",
-                "@invalid/team/break-here",
-                "sileht",
-                "jd",
-                "mergify-test1",
-                "mergify-test3",
-            ]
-        )
-
     async def test_teams(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "valid teams",
                     "conditions": [
                         f"base={self.master_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@mergifyio-testing/testing",
                     ],
                     "actions": {"merge": {"method": "rebase"}},
-                }
+                },
+                {
+                    "name": "short teams",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "approved-reviews-by=@testing",
+                    ],
+                    "actions": {"merge": {"method": "rebase"}},
+                },
+                {
+                    "name": "not exists teams",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "approved-reviews-by=@mergifyio-testing/noexists",
+                    ],
+                    "actions": {"merge": {"method": "rebase"}},
+                },
+                {
+                    "name": "invalid organization",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "approved-reviews-by=@another-org/testing",
+                    ],
+                    "actions": {"merge": {"method": "rebase"}},
+                },
             ]
         }
 
         await self.setup_repo(yaml.dump(rules))
 
         p, commits = await self.create_pr()
+        await self.run_engine()
 
         client = github.aget_client(p["base"]["user"]["login"])
         installation = context.Installation(
@@ -983,28 +964,62 @@ no changes added to commit (use "git add" and/or "git commit -a")
         repository = context.Repository(
             installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
         )
-        pull = await context.Context.create(repository, p, [])
+        ctxt = await context.Context.create(repository, p, [])
 
-        logins = await pull.resolve_teams(
+        logins = await live_resolvers.teams(
+            ctxt,
             [
                 "user",
                 "@mergifyio-testing/testing",
-                "@unknown/team",
-                "@invalid/team/break-here",
-            ]
+            ],
         )
 
         assert sorted(logins) == sorted(
             [
                 "user",
-                "@unknown/team",
-                "@invalid/team/break-here",
                 "jd",
                 "sileht",
                 "mergify-test1",
                 "mergify-test3",
             ]
         )
+
+        logins = await live_resolvers.teams(
+            ctxt,
+            [
+                "user",
+                "@testing",
+            ],
+        )
+
+        assert sorted(logins) == sorted(
+            [
+                "user",
+                "jd",
+                "sileht",
+                "mergify-test1",
+                "mergify-test3",
+            ]
+        )
+
+        with self.assertRaises(live_resolvers.LiveResolutionFailure):
+            await live_resolvers.teams(ctxt, ["@unknown/team"])
+
+        with self.assertRaises(live_resolvers.LiveResolutionFailure):
+            await live_resolvers.teams(ctxt, ["@mergifyio-testing/not-exists"])
+
+        with self.assertRaises(live_resolvers.LiveResolutionFailure):
+            await live_resolvers.teams(ctxt, ["@invalid/team/break-here"])
+
+        summary = [
+            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
+        ][0]
+        assert summary["output"]["title"] == "2 faulty rules and 2 potential rules"
+        for message in (
+            "Team `@mergifyio-testing/noexists` does not exist",
+            "Team `@another-org/testing` is not part of the organization `mergifyio-testing`",
+        ):
+            assert message in summary["output"]["summary"]
 
     async def _test_merge_custom_msg(
         self, header, method="squash", msg=None, commit_msg=None

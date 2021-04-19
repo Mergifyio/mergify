@@ -137,7 +137,7 @@ async def run_action(
     report = await method.run(
         ctxt,
         rules.EvaluatedRule(
-            "", rules.RuleConditions([]), rules.RuleMissingConditions([]), {}
+            "", rules.RuleConditions([]), rules.RuleMissingConditions([]), {}, False, []
         ),
     )
 

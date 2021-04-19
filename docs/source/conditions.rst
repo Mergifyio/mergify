@@ -165,7 +165,7 @@ Here's the list of pull request attribute that can be used in conditions:
        permission on the repository.
    * - ``check-success``
      - list of string
-     - The list of status checks that successfuly passed for the pull request.
+     - The list of status checks that successfully passed for the pull request.
        This is the name of a *status check* such as
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About Status Checks`_ for more
@@ -365,7 +365,7 @@ Here's why:
    broken) and therefore be absent.
 
 Those three facts make it **mandatory** to write explicitly the checks that are
-expected for your condition to be valid. Therefore you must list explicitely
+expected for your condition to be valid. Therefore you must list explicitly
 every status check that is expected, e.g.:
 
 .. code-block:: yaml

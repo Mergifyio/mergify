@@ -270,7 +270,7 @@ that would prevent the merge.
 
 `GitHub Markdown <https://guides.github.com/features/mastering-markdown/>`_
 allows users to use task lists in their pull request body. Task lists render
-with clickable checkboxes in comments and you can select or unselect the
+with clickable checkboxes in comments and you can select or deselect the
 checkboxes to mark them as complete or incomplete. Tasks lists are often used
 in `pull request templates
 <https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository#adding-a-pull-request-template>`_.
