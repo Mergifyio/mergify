@@ -75,7 +75,7 @@ class RequestReviewsAction(actions.Action):
 
         choices = {
             **{user.lower(): weight for user, weight in user_weights.items()},
-            **{f"@{team}": weight for team, weight in team_weights.items()},
+            **{f"@{team.team}": weight for team, weight in team_weights.items()},
         }
 
         try:
@@ -105,7 +105,7 @@ class RequestReviewsAction(actions.Action):
                     user_reviews_to_request.add(reviewer)
         else:
             user_reviews_to_request = set(self.config["users"])
-            team_reviews_to_request = set(self.config["teams"])
+            team_reviews_to_request = {t.team for t in self.config["teams"]}
 
         user_reviews_to_request -= existing_reviews
         user_reviews_to_request -= {pr_author}
@@ -144,6 +144,25 @@ class RequestReviewsAction(actions.Action):
                 *[await getattr(ctxt.pull_request, key) for key in reviews_keys]
             )
         )
+
+        if isinstance(self.config["teams"], dict):
+            teams = self.config["teams"].keys()
+        else:
+            teams = self.config["teams"]
+
+        team_errors = set()
+        for team in teams:
+            try:
+                await team.has_read_permission(ctxt)
+            except types.InvalidTeam as e:
+                team_errors.add(e.details)
+
+        if team_errors:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Invalid requested teams",
+                "\n".join(team_errors),
+            )
 
         user_reviews_to_request, team_reviews_to_request = self._get_reviewers(
             ctxt.pull["id"],
