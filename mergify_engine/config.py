@@ -211,8 +211,8 @@ for key, _ in Schema.schema.items():
 
 globals().update(Schema(CONFIG))
 
-if CONFIG["STREAM_URL"] is None:
-    STREAM_URL = CONFIG["STORAGE_URL"]
+if globals()["STREAM_URL"] is None:
+    STREAM_URL = globals()["STORAGE_URL"]
 
 # NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
 # it in base64 format
