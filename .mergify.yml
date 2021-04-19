@@ -116,3 +116,10 @@ pull_request_rules:
       label:
         remove:
           - conflict
+  - name: warn on CI failure for hotfix
+    conditions:
+      - label=hotfix
+      - "#check-failure>0"
+    actions:
+      comment:
+        message: Your hotfix is failing CI @{{author}} 🥺
