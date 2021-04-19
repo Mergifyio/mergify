@@ -20,6 +20,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import subscription
 from mergify_engine.actions import request_reviews
+from mergify_engine.clients import http
 
 
 @pytest.mark.parametrize(
@@ -150,6 +151,54 @@ def test_get_reviewers():
     assert reviewers == ({"jd"}, {"foobar"})
 
 
+async def prepare_context(client, redis_cache, subscribed=True):
+    sub = subscription.Subscription(
+        redis_cache,
+        123,
+        subscribed,
+        "sub or not to sub",
+        frozenset(
+            getattr(subscription.Features, f) for f in subscription.Features.__members__
+        )
+        if subscribed
+        else frozenset(),
+    )
+    installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
+    repository = context.Repository(installation, "demo", 123)
+    return await context.Context.create(
+        repository,
+        {
+            "id": 12345,
+            "number": 123,
+            "state": None,
+            "mergeable_state": "ok",
+            "merged_by": None,
+            "merged": None,
+            "merged_at": None,
+            "user": {"login": "jd"},
+            "requested_reviewers": [{"login": "jd"}, {"login": "sileht"}],
+            "requested_teams": [{"slug": "foobar"}, {"slug": "foobaz"}],
+            "base": {
+                "sha": "sha",
+                "ref": "main",
+                "user": {
+                    "login": {
+                        "Mergifyio",
+                    },
+                },
+                "repo": {
+                    "full_name": "Mergifyio/demo",
+                    "name": "demo",
+                    "private": False,
+                    "owner": {
+                        "login": "Mergifyio",
+                    },
+                },
+            },
+        },
+    )
+
+
 @pytest.mark.asyncio
 async def test_disabled(redis_cache):
     action = request_reviews.RequestReviewsAction.get_schema()(
@@ -167,43 +216,7 @@ async def test_disabled(redis_cache):
     )
     client = mock.MagicMock()
     client.auth.installation.__getitem__.return_value = 123
-    sub = subscription.Subscription(
-        redis_cache,
-        123,
-        False,
-        "No sub",
-        {},
-        frozenset({}),
-    )
-    installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
-    repository = context.Repository(installation, "demo", 123)
-    ctxt = await context.Context.create(
-        repository,
-        {
-            "number": 123,
-            "state": None,
-            "mergeable_state": "ok",
-            "merged_by": None,
-            "merged": None,
-            "merged_at": None,
-            "base": {
-                "sha": "sha",
-                "ref": "main",
-                "user": {
-                    "login": {
-                        "Mergifyio",
-                    },
-                },
-                "repo": {
-                    "name": "demo",
-                    "private": False,
-                    "owner": {
-                        "login": "Mergifyio",
-                    },
-                },
-            },
-        },
-    )
+    ctxt = await prepare_context(client, redis_cache, subscribed=False)
     result = await action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Random request reviews are disabled"
@@ -211,3 +224,61 @@ async def test_disabled(redis_cache):
         "⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) "
         "needs to be updated to enable this feature."
     )
+
+
+@pytest.mark.asyncio
+async def test_team_permissions_missing(redis_cache):
+    action = request_reviews.RequestReviewsAction.get_schema()(
+        {
+            "random_count": 2,
+            "teams": {
+                "foobar": 2,
+                "@other/foobaz": 1,
+            },
+            "users": {
+                "jd": 2,
+                "sileht": 1,
+            },
+        },
+    )
+    client = mock.MagicMock()
+    client.auth.installation.__getitem__.return_value = 123
+    client.item = mock.AsyncMock(
+        side_effect=http.HTTPNotFound(
+            message="not found", response=mock.ANY, request=mock.ANY
+        )
+    )
+    ctxt = await prepare_context(client, redis_cache)
+    result = await action.run(ctxt, None)
+    assert result.conclusion == check_api.Conclusion.FAILURE
+    assert result.title == "Invalid requested teams"
+    for error in (
+        "Team `foobar` does not exist or has not access to this repository",
+        "Team `@other/foobaz` is not part of the organization `Mergifyio`",
+    ):
+        assert error in result.summary
+
+
+@pytest.mark.asyncio
+async def test_team_permissions_ok(redis_cache):
+    action = request_reviews.RequestReviewsAction.get_schema()(
+        {
+            "random_count": 2,
+            "teams": {
+                "foobar": 2,
+                "foobaz": 1,
+            },
+            "users": {
+                "jd": 2,
+                "sileht": 1,
+            },
+        },
+    )
+    client = mock.MagicMock()
+    client.auth.installation.__getitem__.return_value = 123
+    client.item = mock.AsyncMock(return_value={})
+    ctxt = await prepare_context(client, redis_cache)
+    result = await action.run(ctxt, None)
+    assert result.summary == ""
+    assert result.title == "No new reviewers to request"
+    assert result.conclusion == check_api.Conclusion.SUCCESS
