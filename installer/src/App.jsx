@@ -51,6 +51,7 @@ function useAppCreator(code) {
 MERGIFYENGINE_BASE_URL=${window.location.origin}
 MERGIFYENGINE_INTEGRATION_ID=${respApp.data.id}
 MERGIFYENGINE_BOT_USER_ID=${respBot.data.id}
+MERGIFYENGINE_BOT_USER_LOGIN=${respBot.data.login}
 MERGIFYENGINE_OAUTH_CLIENT_ID=${respApp.data.client_id}
 MERGIFYENGINE_OAUTH_CLIENT_SECRET=${respApp.data.client_secret}
 MERGIFYENGINE_WEBHOOK_SECRET=${respApp.data.webhook_secret}
