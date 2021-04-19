@@ -191,7 +191,10 @@ def Jinja2WithNone(
     return Jinja2(value, extra_variables)
 
 
-def _check_GitHubLogin_format(value, _type="login"):
+def _check_GitHubLogin_format(
+    value: typing.Optional[str],
+    _type: typing.Literal["login", "organization"] = "login",
+) -> github_types.GitHubLogin:
     # GitHub says login cannot:
     # - start with an hyphen
     # - ends with an hyphen
@@ -205,41 +208,71 @@ def _check_GitHubLogin_format(value, _type="login"):
         or not value.replace("-", "").isalnum()
     ):
         raise voluptuous.Invalid(f"GitHub {_type} contains invalid characters")
-    return value
+    return github_types.GitHubLogin(value)
 
 
 GitHubLogin = voluptuous.All(str, _check_GitHubLogin_format)
 
 
-def _check_GitHubTeam_format(value):
-    if not value:
-        raise voluptuous.Invalid("A GitHub team cannot be an empty string")
-
-    # Remove leading @ if any:
-    # This format is accepted in conditions so we're happy to accept it here too.
-    if value[0] == "@":
-        value = value[1:]
-
-    org, sep, team = value.partition("/")
-
-    if sep == "" and team == "":
-        # Just a slug
-        team = org
-    else:
-        _check_GitHubLogin_format(org, "organization")
-
-    if not team:
-        raise voluptuous.Invalid("A GitHub team cannot be an empty string")
-
-    if (
-        team[0] == "-"
-        or team[-1] == "-"
-        or not team.isascii()
-        or not team.replace("-", "").replace("_", "").isalnum()
-    ):
-        raise voluptuous.Invalid("GitHub team contains invalid characters")
-
-    return team
+@dataclasses.dataclass
+class InvalidTeam(Exception):
+    details: str
 
 
-GitHubTeam = voluptuous.All(str, _check_GitHubTeam_format)
+@dataclasses.dataclass(unsafe_hash=True)
+class _GitHubTeam:
+    team: github_types.GitHubTeamSlug
+    organization: typing.Optional[github_types.GitHubLogin]
+    raw: str
+
+    @classmethod
+    def from_string(cls, value: str) -> "_GitHubTeam":
+        if not value:
+            raise voluptuous.Invalid("A GitHub team cannot be an empty string")
+
+        # Remove leading @ if any:
+        # This format is accepted in conditions so we're happy to accept it here too.
+        if value[0] == "@":
+            org, sep, team = value[1:].partition("/")
+        else:
+            org, sep, team = value.partition("/")
+
+        if sep == "" and team == "":
+            # Just a slug
+            team = org
+            final_org = None
+        else:
+            final_org = _check_GitHubLogin_format(org, "organization")
+
+        if not team:
+            raise voluptuous.Invalid("A GitHub team cannot be an empty string")
+
+        if (
+            "/" in team
+            or team[0] == "-"
+            or team[-1] == "-"
+            or not team.isascii()
+            or not team.replace("-", "").replace("_", "").isalnum()
+        ):
+            raise voluptuous.Invalid("GitHub team contains invalid characters")
+
+        return cls(github_types.GitHubTeamSlug(team), final_org, value)
+
+    async def has_read_permission(
+        self,
+        ctxt: context.Context,
+    ) -> None:
+        expected_organization = ctxt.pull["base"]["repo"]["owner"]["login"]
+        if self.organization is not None and self.organization != expected_organization:
+            raise InvalidTeam(
+                f"Team `{self.raw}` is not part of the organization `{expected_organization}`"
+            )
+
+        # TODO(sileht): cache me
+        if not await ctxt.repository.team_has_read_permission(self.team):
+            raise InvalidTeam(
+                f"Team `{self.raw}` does not exist or has not access to this repository"
+            )
+
+
+GitHubTeam = voluptuous.All(str, voluptuous.Coerce(_GitHubTeam.from_string))

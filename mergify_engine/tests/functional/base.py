@@ -397,7 +397,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             if self.SUBSCRIPTION_ACTIVE
             else frozenset(),
         )
-        await self.subscription.save_subscription_to_cache()
+        await self.subscription._save_subscription_to_cache()
         self.user_tokens = user_tokens.UserTokens(
             self.redis_cache,
             config.TESTING_ORGANIZATION_ID,

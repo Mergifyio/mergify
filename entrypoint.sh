@@ -5,13 +5,17 @@ get_command() {
     sed -n -e "s/^$1://p" Procfile
 }
 
+MODE=${1:aio}
+
 if [ "$MERGIFYENGINE_INTEGRATION_ID" ]; then
-  case $1 in
+  case ${MODE} in
       web|worker) exec $(get_command $1);;
       aio) exec honcho start;;
+      *) echo "usage: $0 (web|worker|aio)";;
   esac
 elif [ "$MERGIFYENGINE_INSTALLER" ]; then
-  exec gunicorn -k uvicorn.workers.UvicornH11Worker --log-level info installer.asgi
+  exec honcho -f installer/Procfile start
+else
+    echo "MERGIFYENGINE_INTEGRATION_ID or MERGIFYENGINE_INSTALLER must set"
 fi
-echo "usage: $0 (web|worker|aio)"
 exit 1

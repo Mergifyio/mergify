@@ -1,11 +1,11 @@
 import { request } from '@octokit/request';
+import { Formik } from 'formik';
 import PropTypes from 'prop-types';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Button, Form, Modal, Container, Spinner, Alert, Breadcrumb,
 } from 'react-bootstrap';
 import { Helmet } from 'react-helmet';
-import { FormProvider, useForm } from 'react-hook-form';
 import {
   BrowserRouter as Router,
   Switch,
@@ -98,21 +98,16 @@ Steper.propTypes = {
 };
 
 function Step1() {
-  const formMethods = useForm();
-  const { watch, register, handleSubmit } = formMethods;
-
   const manifestInput = useRef();
   const manifestForm = useRef();
-  const login = watch('login');
 
-  const onSubmit = (e) => {
-    if (!login) {
-      e.preventDefault();
+  const onSubmit = (values, { setSubmitting }) => {
+    if (!values.login) {
       return;
     }
     const payload = JSON.stringify({
-      name: `mergify-${login}`,
-      description: `Mergify installation for ${login}`,
+      name: `mergify-${values.login}`,
+      description: `Mergify installation for ${values.login}`,
       url: 'https://mergify.io/',
       hook_attributes: {
         url: `${window.location.origin}/events`,
@@ -148,29 +143,40 @@ function Step1() {
       ],
     });
     manifestInput.current.value = payload;
+    manifestForm.current.action = `https://github.com/organizations/${values.login}/settings/apps/new`;
     manifestForm.current.submit();
+    setSubmitting(false);
   };
 
   return (
     <>
       <Title>Creation of the GitHub App</Title>
-      <FormProvider {...formMethods}>
-        <Form onSubmit={handleSubmit(onSubmit)}>
-          <Modal.Body>
-            <Steper step={1} />
-            <Form.Group controlId="org">
-              <Form.Label>GitHub Organization name:</Form.Label>
-              <Form.Control as="input" ref={register()} name="login" />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <span className="text-muted"><small>You will be redirect to github.com to confirm the creation.</small></span>
-            <Button variant="primary" type="submit">Create</Button>
-          </Modal.Footer>
-        </Form>
-      </FormProvider>
+      <Formik onSubmit={onSubmit} initialValues={{ login: '' }}>
+        {(formik) => (
+          <Form onSubmit={formik.handleSubmit}>
+            <Modal.Body>
+              <Steper step={1} />
+              <Form.Group controlId="org">
+                <Form.Label>GitHub Organization name:</Form.Label>
+                <Form.Control
+                  as="input"
+                  name="login"
+                  disabled={formik.isSubmitting}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  value={formik.values.login}
+                />
+              </Form.Group>
+            </Modal.Body>
+            <Modal.Footer>
+              <span className="text-muted"><small>You will be redirect to github.com to confirm the creation.</small></span>
+              <Button variant="primary" type="submit" disabled={formik.isSubmitting}>Create</Button>
+            </Modal.Footer>
+          </Form>
+        )}
+      </Formik>
 
-      <Form action={`https://github.com/organizations/${login}/settings/apps/new`} method="post" ref={manifestForm}>
+      <Form action="" method="post" ref={manifestForm}>
         <input type="hidden" name="manifest" id="manifest" ref={manifestInput} />
       </Form>
     </>

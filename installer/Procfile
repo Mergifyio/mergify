@@ -1,0 +1,1 @@
+web: gunicorn -k uvicorn.workers.UvicornH11Worker --log-level info installer.asgi
