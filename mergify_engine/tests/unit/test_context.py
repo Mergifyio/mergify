@@ -254,7 +254,7 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
             self.repo = repo
             self.called = 0
 
-        async def item(self, url, *args, **kwargs):
+        async def get(self, url, *args, **kwargs):
             self.called += 1
             if (
                 url
