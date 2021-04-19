@@ -68,6 +68,14 @@ class HTTPClientSideError(httpx.HTTPStatusError):
         return self.response.status_code
 
 
+class HTTPForbidden(HTTPClientSideError):
+    pass
+
+
+class HTTPUnauthorized(HTTPClientSideError):
+    pass
+
+
 class HTTPNotFound(HTTPClientSideError):
     pass
 
@@ -81,6 +89,8 @@ class HTTPServiceUnavailable(HTTPServerSideError):
 
 
 STATUS_CODE_TO_EXC = {
+    401: HTTPUnauthorized,
+    403: HTTPForbidden,
     404: HTTPNotFound,
     429: HTTPTooManyRequests,
     503: HTTPServiceUnavailable,

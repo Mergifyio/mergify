@@ -98,6 +98,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
+        voluptuous.Required("SUBSCRIPTION_TOKEN", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("ACCOUNT_TOKENS", default=""): voluptuous.Coerce(
             AccountTokens
         ),
@@ -182,6 +185,7 @@ STREAM_URL: str
 STREAM_MAX_BATCH: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
+SUBSCRIPTION_TOKEN: str
 OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
 ACTION_ID: int
