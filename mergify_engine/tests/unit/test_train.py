@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import base64
 import typing
 from unittest import mock
 
@@ -29,11 +30,11 @@ from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
 
 
-async def fake_train_car_create_pull(inner_self):
+async def fake_train_car_create_pull(inner_self, queue_rule):
     inner_self.queue_pull_request_number = inner_self.user_pull_request_number + 10
 
 
-async def fake_train_car_update_user_pull(inner_self):
+async def fake_train_car_update_user_pull(inner_self, queue_rule):
     pass
 
 
@@ -58,10 +59,41 @@ def monkepatched_traincar(monkeypatch):
     )
 
 
+MERGIFY_CONFIG = """
+queue_rules:
+  - name: one
+    conditions: []
+    speculative_checks: 1
+  - name: two
+    conditions: []
+    speculative_checks: 2
+  - name: five
+    conditions: []
+    speculative_checks: 5
+"""
+
+QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
+    rules.YamlSchema(MERGIFY_CONFIG)["queue_rules"]
+)
+
+
 @pytest.fixture
 def fake_client():
+    def item_call(url, *args, **kwargs):
+        if url == "/repos/user/name/contents/.mergify.yml":
+            return {
+                "type": "file",
+                "sha": "whatever",
+                "content": base64.b64encode(MERGIFY_CONFIG.encode()).decode(),
+                "path": ".mergify.yml",
+            }
+        elif url == "repos/user/name/branches/branch":
+            return {"commit": {"sha": "sha1"}}
+        else:
+            raise Exception(f"url not mocked: {url}")
+
     client = mock.Mock()
-    client.item = mock.AsyncMock(return_value={"commit": {"sha": "sha1"}})
+    client.item = mock.AsyncMock(side_effect=item_call)
     return client
 
 
@@ -171,15 +203,6 @@ def repository(redis_cache, fake_client):
         github_types.GitHubRepositoryName("name"),
         github_types.GitHubRepositoryIdType(123),
     )
-
-
-QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
-    [
-        {"name": "one", "conditions": [], "speculative_checks": 1},
-        {"name": "two", "conditions": [], "speculative_checks": 2},
-        {"name": "five", "conditions": [], "speculative_checks": 5},
-    ]
-)
 
 
 def get_config(
