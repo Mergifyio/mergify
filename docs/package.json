@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "bootstrap": "4.6.0",
-    "sass": "^1.32.8"
+    "sass": "^1.32.10"
   },
   "scripts": {
     "build-bootstrap": "mkdir -p build/_bootstrap && sass source/scss/main.scss build/_bootstrap/bootstrap.css && cp -f node_modules/bootstrap/dist/js/bootstrap.min.js* build/_bootstrap/"
