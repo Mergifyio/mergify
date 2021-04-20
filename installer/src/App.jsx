@@ -172,7 +172,7 @@ function Step1() {
               </Form.Group>
             </Modal.Body>
             <Modal.Footer>
-              <span className="text-muted"><small>You will be redirect to github.com to confirm the creation.</small></span>
+              <span className="text-muted"><small>You will be redirected to github.com to confirm the creation.</small></span>
               <Button variant="primary" type="submit" disabled={formik.isSubmitting}>Create</Button>
             </Modal.Footer>
           </Form>
@@ -193,7 +193,7 @@ function Step2(props) {
       <Title>Installation of the GitHub App on your organization</Title>
       <Modal.Body>
         <Steper step={2} />
-        <p>The Mergify GitHub App have been created, you must install it to your organization</p>
+        <p>The Mergify GitHub App has been created, you must install it on your organization</p>
       </Modal.Body>
       <Modal.Footer>
         <Button href={appHtmlUrl} target="_blank">Install</Button>
@@ -210,7 +210,7 @@ Step2.propTypes = {
 function Step2Loading() {
   return (
     <>
-      <Title>Configuration of heroku</Title>
+      <Title>Configuration of Heroku</Title>
       <Modal.Body>
         <Steper step={2} />
         <Container className="text-center p-3">
@@ -264,13 +264,13 @@ function Step3(props) {
       <Modal.Body>
         <Steper step={3} />
         <p>
-          The Mergify GitHub App have been created and configured.
-          Now we need to configure the heroku app
+          The Mergify GitHub App has been created and configured.
+          You need to configure the Heroku app.
         </p>
         <p>The following configuration variables must be set:
           <pre className="p-1" style={{ whiteSpace: 'pre-wrap' }}><code>{`${configMessage}`}</code></pre>
         </p>
-        <p className="text-muted">Once set you can click finish.</p>
+        <p className="text-muted">Once these variables are set, click on finish.</p>
       </Modal.Body>
       <Modal.Footer>
         <a className="d-none" download="mergify.env" href={downloadUrl} ref={downloadLink}>Download link</a>
