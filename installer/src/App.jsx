@@ -160,7 +160,7 @@ function Step1() {
             <Modal.Body>
               <Steper step={1} />
               <Form.Group controlId="org">
-                <Form.Label>GitHub Organization name:</Form.Label>
+                <Form.Label>GitHub Organization login:</Form.Label>
                 <Form.Control
                   as="input"
                   name="login"
