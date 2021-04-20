@@ -185,7 +185,7 @@ async def test_subscription_on_premise_valid(
     httpserver: httpserver.HTTPServer,
 ) -> None:
 
-    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+    httpserver.expect_request("/on-premise/subscription/1234").respond_with_json(
         {
             "subscription_active": True,
             "subscription_reason": "azertyuio",
@@ -219,7 +219,7 @@ async def test_subscription_on_premise_wrong_token(
     httpserver: httpserver.HTTPServer,
 ) -> None:
 
-    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+    httpserver.expect_request("/on-premise/subscription/1234").respond_with_json(
         {"message": "error"}, status=401
     )
 
@@ -242,7 +242,7 @@ async def test_subscription_on_premise_invalid_sub(
     httpserver: httpserver.HTTPServer,
 ) -> None:
 
-    httpserver.expect_request("/on-premise/subscription").respond_with_json(
+    httpserver.expect_request("/on-premise/subscription/1234").respond_with_json(
         {"message": "error"}, status=403
     )
 
