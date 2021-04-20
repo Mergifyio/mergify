@@ -239,11 +239,16 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
                 raise exceptions.MergifyNotInstalled()
             except http.HTTPForbidden:
                 LOG.critical(
-                    "The subscription attached SUBSCRIPTION_TOKEN is not valid"
+                    "The subscription attached to SUBSCRIPTION_TOKEN is not valid"
                 )
                 raise exceptions.MergifyNotInstalled()
             else:
                 sub = resp.json()
+                if not sub["subscription_active"]:
+                    LOG.critical(
+                        "The subscription attached to SUBSCRIPTION_TOKEN is not active"
+                    )
+                    raise exceptions.MergifyNotInstalled()
                 return cls.from_dict(redis, owner_id, sub)
 
 
