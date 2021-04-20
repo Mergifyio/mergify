@@ -223,10 +223,13 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
     async def _retrieve_subscription_from_db(
         cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
+
+        print(config.SUBSCRIPTION_BASE_URL)
+        print(f"{config.SUBSCRIPTION_BASE_URL}/on-premise/subscription/{owner_id}")
         async with http.AsyncClient() as client:
             try:
                 resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/on-premise/subscription",
+                    f"{config.SUBSCRIPTION_BASE_URL}/on-premise/subscription/{owner_id}",
                     headers={"Authorization": f"token {config.SUBSCRIPTION_TOKEN}"},
                 )
             except http.HTTPUnauthorized:
