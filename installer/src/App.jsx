@@ -100,7 +100,7 @@ Steper.propTypes = {
   step: PropTypes.number.isRequired,
 };
 
-function Step1() {
+function StepCreateGitHubApp() {
   const manifestInput = useRef();
   const manifestForm = useRef();
 
@@ -186,8 +186,8 @@ function Step1() {
   );
 }
 
-function Step2(props) {
-  const { appHtmlUrl, setInstalled } = props;
+function StepInstall(props) {
+  const { appHtmlUrl } = props;
   return (
     <>
       <Title>Installation of the GitHub App on your organization</Title>
@@ -197,17 +197,15 @@ function Step2(props) {
       </Modal.Body>
       <Modal.Footer>
         <Button href={appHtmlUrl} target="_blank">Install</Button>
-        <Button variant="secondary" onClick={() => setInstalled(true)}>Next</Button>
       </Modal.Footer>
     </>
   );
 }
-Step2.propTypes = {
+StepInstall.propTypes = {
   appHtmlUrl: PropTypes.string.isRequired,
-  setInstalled: PropTypes.func.isRequired,
 };
 
-function Step2Loading() {
+function StepWaitingGitHubAppConfig() {
   return (
     <>
       <Title>Configuration of Heroku</Title>
@@ -224,8 +222,8 @@ function Step2Loading() {
   );
 }
 
-function Step3(props) {
-  const { config } = props;
+function StepDownloadConfig(props) {
+  const { config, setConfigured } = props;
 
   const downloadLink = useRef();
   const downloadBtn = useRef();
@@ -264,24 +262,21 @@ function Step3(props) {
       <Modal.Body>
         <Steper step={3} />
         <p>
-          The Mergify GitHub App has been created and configured.
-          You need to configure the Heroku app.
-        </p>
-        <p>The following configuration variables must be set:
+          The Mergify GitHub App has been created, the engine configuration is:
           <pre className="p-1" style={{ whiteSpace: 'pre-wrap' }}><code>{`${configMessage}`}</code></pre>
         </p>
-        <p className="text-muted">Once these variables are set, click on finish.</p>
       </Modal.Body>
       <Modal.Footer>
         <a className="d-none" download="mergify.env" href={downloadUrl} ref={downloadLink}>Download link</a>
-        <Button onClick={onDownload} ref={downloadBtn} variant="secondary">Backup the configuration</Button>
-        <Button href={`${window.location.origin}/installation`}>Finish</Button>
+        <Button onClick={onDownload} ref={downloadBtn} variant="secondary">Download the configuration</Button>
+        <Button variant="primary" onClick={() => setConfigured(true)}>Next</Button>
       </Modal.Footer>
     </>
   );
 }
-Step3.propTypes = {
+StepDownloadConfig.propTypes = {
   config: PropTypes.string.isRequired,
+  setConfigured: PropTypes.func.isRequired,
 };
 
 function Steps() {
@@ -289,7 +284,7 @@ function Steps() {
   const searchParams = new URLSearchParams(location.search);
   const code = searchParams.get('code') || '';
 
-  const [installed, setInstalled] = useState(false);
+  const [configured, setConfigured] = useState(false);
   const [app, config, error] = useAppCreator(code);
 
   if (error) {
@@ -301,13 +296,13 @@ function Steps() {
   }
 
   if (!code) {
-    return (<Step1 />);
+    return (<StepCreateGitHubApp />);
   } if (!app) {
-    return (<Step2Loading />);
-  } if (!installed) {
-    return (<Step2 appHtmlUrl={app.html_url} setInstalled={setInstalled} />);
+    return (<StepWaitingGitHubAppConfig />);
+  } if (!configured) {
+    return (<StepDownloadConfig config={config} setConfigured={setConfigured} />);
   }
-  return (<Step3 config={config} />);
+  return (<StepInstall appHtmlUrl={app.html_url} />);
 }
 
 // TODO(sileht): Maybe add router for /installation, so if we reach it, that
