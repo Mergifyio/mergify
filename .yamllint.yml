@@ -1,6 +1,7 @@
 extends: default
 ignore: |
   .git
+  installer/node_modules
 rules:
   document-start: disable
   truthy: disable
