@@ -59,6 +59,7 @@ MERGIFYENGINE_PRIVATE_KEY=${Buffer.from(respApp.data.pem).toString('base64')}
 MERGIFYENGINE_CACHE_TOKEN_SECRET=${getRandomString(42)}
 MERGIFYENGINE_SUBSCRIPTION_BASE_URL="https://dashboard.mergify.io"
 PYTHONUNBUFFERED=1
+DD_DOGSTATSD_DISABLE=1
 `,
       });
     };
