@@ -30,6 +30,7 @@ from mergify_engine import context
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -517,6 +518,7 @@ class MergeBaseAction(actions.Action):
             else:
                 return await self._handle_merge_error(e, ctxt, rule, q)
         else:
+            await signals.send(ctxt, "action.merge")
             await ctxt.update()
             ctxt.log.info("merged")
             if self.config[

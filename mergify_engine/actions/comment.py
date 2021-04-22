@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -86,4 +87,5 @@ class CommentAction(actions.Action):
                 "Unable to post comment",
                 f"GitHub error: [{e.status_code}] `{e.message}`",
             )
+        await signals.send(ctxt, "action.comment")
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)

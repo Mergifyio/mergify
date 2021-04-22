@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -196,6 +197,8 @@ class RequestReviewsAction(actions.Action):
                         "Unable to create review request",
                         f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
+                await signals.send(ctxt, "action.request_reviewers")
+
             if already_at_max or will_exceed_max:
                 return check_api.Result(
                     check_api.Conclusion.NEUTRAL,

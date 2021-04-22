@@ -22,6 +22,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.rules import types
 
@@ -73,11 +74,6 @@ class RebaseAction(actions.Action):
 
             try:
                 await branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
-                return check_api.Result(
-                    check_api.Conclusion.SUCCESS,
-                    "Branch has been successfully rebased",
-                    "",
-                )
             except branch_updater.BranchUpdateFailure as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, e.title, e.message
@@ -87,7 +83,12 @@ class RebaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
                 )
-
+            await signals.send(ctxt, "action.rebase")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "Branch has been successfully rebased",
+                "",
+            )
         else:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""

@@ -21,6 +21,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.rules import types
 
@@ -132,5 +133,5 @@ class ReviewAction(actions.Action):
             oauth_token=oauth_token,  # type: ignore
             json=payload,
         )
-
+        await signals.send(ctxt, "action.review")
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")

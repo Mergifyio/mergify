@@ -20,6 +20,7 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 
 
 class UpdateAction(actions.Action):
@@ -40,6 +41,7 @@ class UpdateAction(actions.Action):
                     e.message,
                 )
             else:
+                await signals.send(ctxt, "action.update")
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
                     "Branch has been successfully updated",
