@@ -24,8 +24,7 @@ function getRandomString(size) {
 }
 
 function useAppCreator(code) {
-  const [app, setApp] = useState(null);
-  const [config, setConfig] = useState(null);
+  const [info, setInfo] = useState(null);
   const [error, setError] = useState(null);
   useEffect(() => {
     if (!code) {
@@ -46,8 +45,9 @@ function useAppCreator(code) {
         }
         return;
       }
-      setApp(respApp.data);
-      setConfig(`
+      setInfo({
+        app: respApp.data,
+        config: `
 MERGIFYENGINE_BASE_URL=${window.location.origin}
 MERGIFYENGINE_INTEGRATION_ID=${respApp.data.id}
 MERGIFYENGINE_BOT_USER_ID=${respBot.data.id}
@@ -59,40 +59,22 @@ MERGIFYENGINE_PRIVATE_KEY=${Buffer.from(respApp.data.pem).toString('base64')}
 MERGIFYENGINE_CACHE_TOKEN_SECRET=${getRandomString(42)}
 MERGIFYENGINE_SUBSCRIPTION_BASE_URL="https://dashboard.mergify.io"
 PYTHONUNBUFFERED=1
-`);
+`,
+      });
     };
     run();
-  }, [code, setApp]);
+  }, [code, setInfo]);
 
-  return [app, config, error];
+  return [info, error];
 }
-
-function Title(props) {
-  const { children } = props;
-  return (
-    <Modal.Header style={{ backgroundColor: '#C9E7F8' }}>
-      <img src={LogoMergify} alt="mergify logo" width="140px" className="mr-auto d-inline-block" />
-      <Modal.Title>{children}</Modal.Title>
-    </Modal.Header>
-  );
-}
-Title.propTypes = {
-  children: PropTypes.oneOfType(
-    [PropTypes.string, PropTypes.element],
-  ).isRequired,
-};
 
 function Steper(props) {
   const { step } = props;
   return (
     <Breadcrumb>
-      <Breadcrumb.Item active={step === 1}>1. Create GitHubApp</Breadcrumb.Item>
-      <Breadcrumb.Item active={step === 2}>2. Install GitHubApp </Breadcrumb.Item>
-      <Breadcrumb.Item active={step === 3}>
-        {window.location.hostname.endsWith('herokuapp.com')
-          ? '3. Configure Heroku'
-          : '3. Configure the container environment variables'}
-      </Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 1 ? 'font-weight-bold' : ''}>1. Creation of the GitHub App</Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 2 ? 'font-weight-bold' : ''}>2. Installation of the GitHub App</Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 3 ? 'font-weight-bold' : ''}>3. Installation completed</Breadcrumb.Item>
     </Breadcrumb>
   );
 }
@@ -106,6 +88,7 @@ function StepCreateGitHubApp() {
 
   const onSubmit = (values, { setSubmitting }) => {
     if (!values.login) {
+      setSubmitting(false);
       return;
     }
     const payload = JSON.stringify({
@@ -116,6 +99,8 @@ function StepCreateGitHubApp() {
         url: `${window.location.origin}/events`,
       },
       redirect_url: window.location.origin,
+      setup_url: window.location.origin,
+      // avatar: 'https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/docs/source/_static/logo.png',
       public: false,
       default_permissions: {
         checks: 'write',
@@ -153,14 +138,15 @@ function StepCreateGitHubApp() {
 
   return (
     <>
-      <Title>Creation of the GitHub App</Title>
       <Formik onSubmit={onSubmit} initialValues={{ login: '' }}>
         {(formik) => (
           <Form onSubmit={formik.handleSubmit}>
             <Modal.Body>
               <Steper step={1} />
               <Form.Group controlId="org">
-                <Form.Label>GitHub Organization login:</Form.Label>
+                <Form.Label>
+                  GitHub Organization login where to create and install the GitHub App:
+                </Form.Label>
                 <Form.Control
                   as="input"
                   name="login"
@@ -186,29 +172,21 @@ function StepCreateGitHubApp() {
   );
 }
 
-function StepInstall(props) {
-  const { appHtmlUrl } = props;
+function StepFinished() {
   return (
     <>
-      <Title>Installation of the GitHub App on your organization</Title>
       <Modal.Body>
-        <Steper step={2} />
-        <p>The Mergify GitHub App has been created, you must install it on your organization</p>
+        <Steper step={3} />
+        <Alert variant="success">The Mergify GitHub App has been created and installed successfully.</Alert>
       </Modal.Body>
-      <Modal.Footer>
-        <Button href={appHtmlUrl} target="_blank">Install</Button>
-      </Modal.Footer>
+      <Modal.Footer />
     </>
   );
 }
-StepInstall.propTypes = {
-  appHtmlUrl: PropTypes.string.isRequired,
-};
 
 function StepWaitingGitHubAppConfig() {
   return (
     <>
-      <Title>Configuration of Heroku</Title>
       <Modal.Body>
         <Steper step={2} />
         <Container className="text-center p-3">
@@ -223,15 +201,15 @@ function StepWaitingGitHubAppConfig() {
 }
 
 function StepDownloadConfig(props) {
-  const { config, setConfigured } = props;
+  const { info } = props;
 
   const downloadLink = useRef();
   const downloadBtn = useRef();
   const [downloadUrl, setDownloadUrl] = useState('');
 
   useEffect(() => {
-    if (config) { downloadBtn.current.click(); }
-  }, [config]);
+    if (info.config) { downloadBtn.current.click(); }
+  }, [info]);
 
   useEffect(() => {
     if (downloadUrl) {
@@ -242,50 +220,40 @@ function StepDownloadConfig(props) {
   }, [downloadUrl]);
 
   const onDownload = () => {
-    const blob = new Blob([config]);
+    const blob = new Blob([info.config]);
     setDownloadUrl(URL.createObjectURL(blob));
   };
 
-  let configMessage = config;
-  if (window.location.hostname.endsWith('herokuapp.com')) {
-    const appName = window.location.hostname.slice(0, -14);
-    configMessage = `heroku config:set -a ${appName} ${config.split('\n').join(' ')}`;
-  }
-
   return (
     <>
-      <Title>
-        {window.location.hostname.endsWith('herokuapp.com')
-          ? 'Configuration of Heroku'
-          : 'Configuration of the container environment variables'}
-      </Title>
       <Modal.Body>
-        <Steper step={3} />
+        <Steper step={2} />
         <p>
-          The Mergify GitHub App has been created, the engine configuration is:
-          <pre className="p-1" style={{ whiteSpace: 'pre-wrap' }}><code>{`${configMessage}`}</code></pre>
+          The Mergify GitHub App has been created and the engine configuration has been downloaded.
+          <br />
+          You must now install the GitHub App on your organization
         </p>
       </Modal.Body>
       <Modal.Footer>
+        <Button onClick={onDownload} ref={downloadBtn} variant="secondary" className="mr-auto">Download the configuration</Button>
+        <span className="text-muted"><small>You will be redirected to github.com to confirm the installation.</small></span>
         <a className="d-none" download="mergify.env" href={downloadUrl} ref={downloadLink}>Download link</a>
-        <Button onClick={onDownload} ref={downloadBtn} variant="secondary">Download the configuration</Button>
-        <Button variant="primary" onClick={() => setConfigured(true)}>Next</Button>
+        <Button variant="primary" href={`${info.app.html_url}/installations/new/permissions?target_id=${info.app.owner.id}`}>Install</Button>
       </Modal.Footer>
     </>
   );
 }
 StepDownloadConfig.propTypes = {
-  config: PropTypes.string.isRequired,
-  setConfigured: PropTypes.func.isRequired,
+  info: PropTypes.string.isRequired,
 };
 
 function Steps() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const code = searchParams.get('code') || '';
+  const setupAction = searchParams.get('setup_action') || '';
 
-  const [configured, setConfigured] = useState(false);
-  const [app, config, error] = useAppCreator(code);
+  const [info, error] = useAppCreator(code);
 
   if (error) {
     return (
@@ -295,18 +263,16 @@ function Steps() {
     );
   }
 
-  if (!code) {
+  if (setupAction) {
+    return (<StepFinished />);
+  } if (!code) {
     return (<StepCreateGitHubApp />);
-  } if (!app) {
+  } if (!info) {
     return (<StepWaitingGitHubAppConfig />);
-  } if (!configured) {
-    return (<StepDownloadConfig config={config} setConfigured={setConfigured} />);
   }
-  return (<StepInstall appHtmlUrl={app.html_url} />);
+  return (<StepDownloadConfig info={info} />);
 }
 
-// TODO(sileht): Maybe add router for /installation, so if we reach it, that
-// mean heroku is not yet configured
 function App() {
   return (
     <>
@@ -319,6 +285,10 @@ function App() {
       <Router>
         <Switch>
           <Modal.Dialog size="lg">
+            <Modal.Header style={{ backgroundColor: '#C9E7F8' }}>
+              <img src={LogoMergify} alt="mergify logo" width="140px" className="mr-auto d-inline-block" />
+              <Modal.Title>GitHub App Installer</Modal.Title>
+            </Modal.Header>
             <Steps />
           </Modal.Dialog>
         </Switch>

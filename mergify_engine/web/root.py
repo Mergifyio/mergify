@@ -73,14 +73,6 @@ async def redis_errors(
     return responses.JSONResponse(status_code=503)
 
 
-@app.get("/installation")  # noqa: FS003
-async def installation() -> responses.Response:
-    return responses.Response(
-        "Your mergify installation succeed, the installer have been disabled.",
-        status_code=200,
-    )
-
-
 @app.post(
     "/refresh/{owner}/{repo_name}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
@@ -356,5 +348,12 @@ async def event_handler(
 
 
 @app.get("/")
-async def index():  # pragma: no cover
+async def index(
+    setup_action: typing.Optional[str] = None,
+) -> responses.Response:  # pragma: no cover
+    if setup_action:
+        return responses.Response(
+            "Your Mergify installation succeeded.",
+            status_code=200,
+        )
     return responses.RedirectResponse(url="https://mergify.io/")
