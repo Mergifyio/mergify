@@ -22,6 +22,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.clients import http
 
 
@@ -69,6 +70,7 @@ class DeleteHeadBranchAction(actions.Action):
                         "Unable to delete the head branch",
                         f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
+            await signals.send(ctxt, "action.delete_head_branch")
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 f"Branch `{ctxt.pull['head']['ref']}` has been deleted",

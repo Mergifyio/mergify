@@ -27,6 +27,7 @@ from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -51,6 +52,7 @@ class CopyAction(actions.Action):
     is_command: bool = True
 
     KIND: duplicate_pull.KindT = "copy"
+    HOOK_EVENT_NAME: signals.EventName = "action.copy"
     BRANCH_PREFIX: str = "copy"
     SUCCESS_MESSAGE: str = "Pull request copies have been created"
     FAILURE_MESSAGE: str = "No copy have been created"
@@ -129,6 +131,7 @@ class CopyAction(actions.Action):
                     kind=self.KIND,
                     branch_prefix=self.BRANCH_PREFIX,
                 )
+                await signals.send(ctxt, self.HOOK_EVENT_NAME)
             except duplicate_pull.DuplicateAlreadyExists:
                 new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
             except duplicate_pull.DuplicateFailed as e:

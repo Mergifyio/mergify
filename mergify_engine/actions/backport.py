@@ -21,6 +21,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.actions import copy
 
 
@@ -28,6 +29,7 @@ class BackportAction(copy.CopyAction):
     is_command: bool = True
 
     KIND: duplicate_pull.KindT = "backport"
+    HOOK_EVENT_NAME: signals.EventName = "action.backport"
     BRANCH_PREFIX: str = "bp"
     SUCCESS_MESSAGE: str = "Backports have been created"
     FAILURE_MESSAGE: str = "No backport have been created"

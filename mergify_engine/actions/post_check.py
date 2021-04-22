@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.rules import types
 
@@ -98,6 +99,7 @@ class PostCheckAction(actions.Action):
                 str(rmf),
             )
 
+        await signals.send(ctxt, "action.post_check")
         if rule.missing_conditions:
             return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
         else:

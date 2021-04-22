@@ -23,6 +23,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.clients import http
 
 
@@ -38,6 +39,10 @@ class LabelAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
+        labels_changed = False
+
+        pull_labels = {label["name"] for label in ctxt.pull["labels"]}
+
         if self.config["add"]:
             all_label = [
                 label["name"]
@@ -54,17 +59,22 @@ class LabelAction(actions.Action):
                     except http.HTTPClientSideError:
                         continue
 
-            await ctxt.client.post(
-                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
-                json={"labels": self.config["add"]},
-            )
+            missing_labels = set(self.config["add"]) - pull_labels
+            if missing_labels:
+                await ctxt.client.post(
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
+                    json={"labels": list(missing_labels)},
+                )
+                labels_changed = True
 
         if self.config["remove_all"]:
-            await ctxt.client.delete(
-                f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels"
-            )
+            if ctxt.pull["labels"]:
+                await ctxt.client.delete(
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels"
+                )
+                labels_changed = True
+
         elif self.config["remove"]:
-            pull_labels = [label["name"] for label in ctxt.pull["labels"]]
             for label in self.config["remove"]:
                 if label in pull_labels:
                     label_escaped = parse.quote(label, safe="")
@@ -74,7 +84,14 @@ class LabelAction(actions.Action):
                         )
                     except http.HTTPClientSideError:
                         continue
+                    labels_changed = True
 
-        return check_api.Result(
-            check_api.Conclusion.SUCCESS, "Labels added/removed", ""
-        )
+        if labels_changed:
+            await signals.send(ctxt, "action.label")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Labels added/removed", ""
+            )
+        else:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "No label to add or remove", ""
+            )
