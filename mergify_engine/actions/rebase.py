@@ -64,6 +64,13 @@ class RebaseAction(actions.Action):
                     f"Your repository is above {config.NOSUB_MAX_REPO_SIZE_KB} KB.\n{ctxt.subscription.missing_feature_reason(ctxt.pull['base']['repo']['owner']['login'])}",
                 )
 
+            if self.config[
+                "bot_account"
+            ] is not None and not ctxt.subscription.has_feature(
+                subscription.Features.BOT_ACCOUNT
+            ):
+                ctxt.log.info("rebase bot_account used by free plan")
+
             try:
                 await branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
                 return check_api.Result(
