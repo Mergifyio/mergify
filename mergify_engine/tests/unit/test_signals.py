@@ -125,6 +125,8 @@ async def test_signals(redis_cache):
         },
     )
 
+    assert len(signals.SIGNALS) == 0
+    signals.setup()
     assert len(signals.SIGNALS) == 1
 
     with mock.patch("datadog.statsd.increment") as increment:
