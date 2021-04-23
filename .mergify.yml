@@ -8,7 +8,6 @@ queue_rules:
   - name: default
     conditions:
       - check-success=requirements
-      - check-success=datadog
       - check-success=pep8
       - check-success=py39
       - check-success=docs
@@ -22,7 +21,6 @@ pull_request_rules:
       - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
       - check-success=requirements
-      - check-success=datadog
       - check-success=pep8
       - check-success=py39
       - check-success=docs
@@ -82,7 +80,6 @@ pull_request_rules:
       - -merged
       - -closed
       - check-success=requirements
-      - check-success=datadog
       - check-success=pep8
       - check-success=py39
       - check-success=docs
