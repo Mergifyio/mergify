@@ -5,19 +5,6 @@ on:
       - master
 
 jobs:
-  datadog:
-    timeout-minutes: 5
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.9.0
-      - run: |
-          bash -n datadog/prerun.sh
-          pip install pyyaml
-          python datadog/validate.py
-
   requirements:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
