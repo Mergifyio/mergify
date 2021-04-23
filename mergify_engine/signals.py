@@ -61,12 +61,13 @@ global SIGNALS
 SIGNALS: typing.Dict[str, SignalT] = {}
 
 
-try:
-    import mergify_engine_signals
-except ImportError:
-    LOG.info("No signals found")
-    pass
-else:
+def setup() -> None:
+    try:
+        import mergify_engine_signals
+    except ImportError:
+        LOG.info("No signals found")
+        return
+
     # Only support new native python >= 3.6 namespace packages
     for mod in pkgutil.iter_modules(
         mergify_engine_signals.__path__, mergify_engine_signals.__name__ + "."

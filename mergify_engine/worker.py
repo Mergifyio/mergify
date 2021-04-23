@@ -39,6 +39,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -843,6 +844,7 @@ async def run_forever() -> None:
 
 def main() -> None:
     logs.setup_logging()
+    signals.setup()
     return asyncio.run(run_forever())
 
 
