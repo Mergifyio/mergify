@@ -35,5 +35,7 @@ COPY --from=builder /app /app
 COPY --from=builder /venv /venv
 WORKDIR /app
 ENV VIRTUAL_ENV=/venv
+ENV PYTHONUNBUFFERED=1
+ENV DD_DOGSTATSD_DISABLE=1
 ENV PATH="/venv/bin:${PATH}"
 ENTRYPOINT ["/app/entrypoint.sh"]
