@@ -1,4 +1,5 @@
 aiofiles==0.6.0
+aredis @ git+http://github.com/sileht/aredis.git@da1cf542a340cae343348b5dec0bab8f7b758334
 cachetools==4.2.1
 certifi==2020.12.5
 cffi==1.14.5
@@ -48,5 +49,4 @@ voluptuous==0.12.1
 watchgod==0.7
 websockets==8.1
 Werkzeug==1.0.1
--e git+http://github.com/sileht/aredis.git@prod-mergify#egg=aredis
 -e .
