@@ -121,6 +121,22 @@ Python dependencies.
           merge:
             method: merge
 
+Depfu
+-----
+`Depfu <https://depfu.com/>`_ notifies you automatically about new versions of
+your Ruby, JavaScript, and Elixir project's dependencies.
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge for Depfu pull requests
+        conditions:
+          - author=depfu[bot]
+          - check-success=Travis CI - Pull Request
+        actions:
+          merge:
+            method: merge
+
 ImgBot
 ------
 `ImgBot <https://github.com/marketplace/imgbot>`_ optimizes your images and
