@@ -212,6 +212,7 @@ class SubscriptionDashboardGitHubCom(SubscriptionBase):
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
             except http.HTTPNotFound as e:
+                LOG.info("unknown subscription queried", owner_id=owner_id)
                 return cls(redis, owner_id, False, e.message, frozenset())
             else:
                 sub = resp.json()
