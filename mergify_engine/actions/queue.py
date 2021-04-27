@@ -26,6 +26,7 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import types
 
@@ -64,21 +65,10 @@ class QueueAction(merge_base.MergeBaseAction):
             ): merge_base.PrioritySchema,
         }
 
-    def _subscription_status(
+    async def _subscription_status(
         self, ctxt: context.Context
     ) -> typing.Optional[check_api.Result]:
-        if self.config["merge_bot_account"] and not ctxt.subscription.has_feature(
-            subscription.Features.MERGE_BOT_ACCOUNT
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Queue with `merge_bot_account` set is unavailable",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
-            )
-
-        elif self.queue_rule.config[
+        if self.queue_rule.config[
             "speculative_checks"
         ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
             return check_api.Result(
@@ -102,12 +92,22 @@ class QueueAction(merge_base.MergeBaseAction):
                 ),
             )
 
+        bot_account_result = await action_utils.validate_bot_account(
+            ctxt,
+            self.config["merge_bot_account"],
+            option_name="merge_bot_account",
+            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+            missing_feature_message="Queue with `merge_bot_account` set is unavailable",
+        )
+        if bot_account_result is not None:
+            return bot_account_result
+
         return None
 
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
-        subscription_status = self._subscription_status(ctxt)
+        subscription_status = await self._subscription_status(ctxt)
         if subscription_status:
             return subscription_status
 
