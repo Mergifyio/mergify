@@ -27,6 +27,15 @@ from mergify_engine import subscription
 from mergify_engine.rules import types
 
 
+BOT_ACCOUNT_DEPRECATION_NOTICE = """This pull request has been rebased with the
+configuration option `bot_account` discontinued for Open Source plan.
+
+To continue to use this option, you must change your plan on
+https://dashboard.mergify.io. On June 1st, 2021, if the `bot_account` is still
+set, the action `rebase` will stop working for Open Source plan.
+"""
+
+
 class RebaseAction(actions.Action):
     is_command = True
 
@@ -83,6 +92,17 @@ class RebaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
                 )
+
+            if self.config[
+                "bot_account"
+            ] is not None and not ctxt.subscription.has_feature(
+                subscription.Features.BOT_ACCOUNT
+            ):
+                await ctxt.client.post(
+                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
+                    json={"body": BOT_ACCOUNT_DEPRECATION_NOTICE},
+                )
+
             await signals.send(ctxt, "action.rebase")
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
