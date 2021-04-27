@@ -40,8 +40,10 @@ jobs:
           docker run \
             --env-file fake.env \
             -e MERGIFYENGINE_STORAGE_URL=redis://redis:6363 \
-            --entrypoint /app/.heroku/python/bin/mergify-import-check \
-            test_img
+            --entrypoint /bin/bash \
+            test_img \
+            -c 'cd /app ; for i in .profile.d/*.sh; do source $i; done; mergify-import-check'
+
 
   pep8:
     timeout-minutes: 5
