@@ -21,7 +21,101 @@ from mergify_engine import context
 from mergify_engine.tests.functional import base
 
 
-class TestBackportAction(base.FunctionalTestBase):
+class BackportActionTestBase(base.FunctionalTestBase):
+    async def _do_test_backport(
+        self,
+        method,
+        config=None,
+        expected_title=None,
+        expected_body=None,
+        expected_author=None,
+    ):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge on master",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
+                    "actions": {"merge": {"method": method, "rebase_fallback": None}},
+                },
+                {
+                    "name": "Backport to stable/#3.1",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=backport-#3.1",
+                    ],
+                    "actions": {"backport": config or {"branches": [stable_branch]}},
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+
+        p, commits = await self.create_pr(two_commits=True)
+
+        # Create another PR to be sure we don't mess things up
+        # see https://github.com/Mergifyio/mergify-engine/issues/849
+        await self.create_pr(base=stable_branch)
+
+        await self.add_label(p["number"], "backport-#3.1")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        assert await self.is_pull_merged(p["number"])
+
+        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        assert 1 == len(pulls)
+        assert "closed" == pulls[0]["state"]
+
+        pulls = await self.get_pulls(state="all", base=stable_branch)
+        assert 2 == len(pulls)
+        assert not await self.is_pull_merged(pulls[0]["number"])
+        assert not await self.is_pull_merged(pulls[1]["number"])
+
+        bp_pull = pulls[0]
+        if expected_title is None:
+            assert bp_pull["title"].endswith(
+                f": pull request n1 from fork (backport #{p['number']})"
+            )
+        else:
+            assert bp_pull["title"] == expected_title
+
+        if expected_body is not None:
+            assert bp_pull["body"].startswith(expected_body)
+
+        if expected_author is not None:
+            assert bp_pull["user"]["login"] == expected_author
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
+        ]
+        assert "success" == checks[0]["conclusion"]
+        assert "Backports have been created" == checks[0]["output"]["title"]
+        assert (
+            f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
+            % (
+                bp_pull["number"],
+                bp_pull["title"],
+                bp_pull["html_url"],
+            )
+            == checks[0]["output"]["summary"]
+        )
+
+        refs = [
+            ref["ref"]
+            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+        ]
+        assert [f"refs/heads/mergify/bp/{stable_branch}/pr-{p['number']}"] == refs
+        return await self.get_pull(pulls[0]["number"])
+
+
+class TestBackportAction(BackportActionTestBase):
     async def test_backport_cancelled(self):
         stable_branch = self.get_full_branch_name("stable/3.1")
         rules = {
@@ -216,90 +310,6 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert pull["assignees"] == []
 
-    async def _do_test_backport(
-        self, method, config=None, expected_title=None, expected_body=None
-    ):
-        stable_branch = self.get_full_branch_name("stable/#3.1")
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "Merge on master",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "label=backport-#3.1",
-                    ],
-                    "actions": {"merge": {"method": method, "rebase_fallback": None}},
-                },
-                {
-                    "name": "Backport to stable/#3.1",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "label=backport-#3.1",
-                    ],
-                    "actions": {"backport": config or {"branches": [stable_branch]}},
-                },
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
-
-        p, commits = await self.create_pr(two_commits=True)
-
-        # Create another PR to be sure we don't mess things up
-        # see https://github.com/Mergifyio/mergify-engine/issues/849
-        await self.create_pr(base=stable_branch)
-
-        await self.add_label(p["number"], "backport-#3.1")
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        assert await self.is_pull_merged(p["number"])
-
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
-        assert 1 == len(pulls)
-        assert "closed" == pulls[0]["state"]
-
-        pulls = await self.get_pulls(state="all", base=stable_branch)
-        assert 2 == len(pulls)
-        assert not await self.is_pull_merged(pulls[0]["number"])
-        assert not await self.is_pull_merged(pulls[1]["number"])
-
-        bp_pull = pulls[0]
-        if expected_title is None:
-            assert bp_pull["title"].endswith(
-                f": pull request n1 from fork (backport #{p['number']})"
-            )
-        else:
-            assert bp_pull["title"] == expected_title
-
-        if expected_body is not None:
-            assert bp_pull["body"].startswith(expected_body)
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = [
-            c
-            for c in await ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: Backport to stable/#3.1 (backport)"
-        ]
-        assert "success" == checks[0]["conclusion"]
-        assert "Backports have been created" == checks[0]["output"]["title"]
-        assert (
-            f"* [#%d %s](%s) has been created for branch `{stable_branch}`"
-            % (
-                bp_pull["number"],
-                bp_pull["title"],
-                bp_pull["html_url"],
-            )
-            == checks[0]["output"]["summary"]
-        )
-
-        refs = [
-            ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
-        ]
-        assert [f"refs/heads/mergify/bp/{stable_branch}/pr-{p['number']}"] == refs
-        return await self.get_pull(pulls[0]["number"])
-
     async def test_backport_with_labels(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p = await self._do_test_backport(
@@ -340,4 +350,19 @@ no changes added to commit (use "git add" and/or "git commit -a")
             },
             expected_title=f"foo: {stable_branch}",
             expected_body=f"foo: {stable_branch}",
+        )
+
+
+class TestBackportActionWithSub(BackportActionTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
+    async def test_backport_with_bot_account(self):
+        stable_branch = self.get_full_branch_name("stable/#3.1")
+        await self._do_test_backport(
+            "merge",
+            config={
+                "branches": [stable_branch],
+                "bot_account": "mergify-test3",
+            },
+            expected_author="mergify-test3",
         )

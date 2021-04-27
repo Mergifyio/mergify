@@ -213,6 +213,7 @@ async def duplicate(
     *,
     title_template: str,
     body_template: str,
+    bot_account: typing.Optional[str] = None,
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
@@ -254,15 +255,28 @@ async def duplicate(
             )
         ctxt.log.info("running %s on large repository", kind)
 
+    bot_account_token: typing.Optional[str] = None
+    if bot_account is not None:
+        user_tokens = await ctxt.repository.installation.get_user_tokens()
+        bot_account_token = user_tokens.get_token_for(bot_account)
+        if not bot_account_token:
+            raise DuplicateFailed(
+                f"{kind} fail: user `{bot_account}` is unknown. "
+                f"Please make sure `{bot_account}` has logged in Mergify dashboard."
+            )
+
     # TODO(sileht): This can be done with the Github API only I think:
     # An example:
     # https://github.com/shiqiyang-okta/ghpick/blob/master/ghpick/cherry.py
     git = gitter.Gitter(ctxt.log)
     try:
-        token = ctxt.client.auth.get_access_token()
         await git.init()
         await git.configure()
-        await git.add_cred("x-access-token", token, repo_full_name)
+        if bot_account_token is None:
+            token = ctxt.client.auth.get_access_token()
+            await git.add_cred("x-access-token", token, repo_full_name)
+        else:
+            await git.add_cred(bot_account_token, "", repo_full_name)
         await git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
         await git("fetch", "--quiet", "origin", f"pull/{ctxt.pull['number']}/head")
         await git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
@@ -349,6 +363,7 @@ async def duplicate(
                         "base": branch_name,
                         "head": bp_branch,
                     },
+                    oauth_token=bot_account_token,  # type: ignore
                 )
             ).json(),
         )

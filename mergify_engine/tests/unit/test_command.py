@@ -59,6 +59,7 @@ def test_command_loader():
     assert isinstance(action, BackportAction)
     assert action.config == {
         "branches": ["branch-3.1", "branch-3.2"],
+        "bot_account": None,
         "regexes": [],
         "ignore_conflicts": True,
         "labels": [],
@@ -89,6 +90,7 @@ def test_command_loader_with_defaults():
     assert action.config == {
         "assignees": [],
         "branches": ["branch-3.1", "branch-3.2"],
+        "bot_account": None,
         "regexes": [],
         "ignore_conflicts": False,
         "labels": [],
