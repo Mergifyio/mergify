@@ -28,6 +28,8 @@ from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import signals
+from mergify_engine import subscription
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -73,6 +75,9 @@ class CopyAction(actions.Action):
         partial_validation: bool = False,
     ) -> typing.Dict[typing.Any, typing.Any]:
         return {
+            voluptuous.Required("bot_account", default=None): voluptuous.Any(
+                None, types.Jinja2
+            ),
             voluptuous.Required("branches", default=[]): [str],
             voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
             voluptuous.Required("ignore_conflicts", default=True): bool,
@@ -128,6 +133,7 @@ class CopyAction(actions.Action):
                     branch_name,
                     title_template=self.config["title"],
                     body_template=self.config["body"],
+                    bot_account=self.config["bot_account"],
                     labels=self.config["labels"],
                     label_conflicts=self.config["label_conflicts"],
                     ignore_conflicts=self.config["ignore_conflicts"],
@@ -200,9 +206,18 @@ class CopyAction(actions.Action):
                 "GitHub App like Mergify are not allowed to create pull request where `.github/workflows` is changed.",
             )
 
-        status = await self._verify_template(ctxt)
-        if status is not None:
-            return status
+        template_result = await self._verify_template(ctxt)
+        if template_result is not None:
+            return template_result
+
+        bot_account_result = await action_utils.validate_bot_account(
+            ctxt,
+            self.config["bot_account"],
+            required_feature=subscription.Features.BOT_ACCOUNT,
+            missing_feature_message=f"{self.KIND.capitalize()} with `bot_account` set is unavailable",
+        )
+        if bot_account_result is not None:
+            return bot_account_result
 
         branches: typing.List[github_types.GitHubRefType] = self.config["branches"]
         if self.config["regexes"]:

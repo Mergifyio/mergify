@@ -62,6 +62,13 @@ Options
      - ``true``
      - Whether to create the pull requests even if they are conflicts when
        cherry-picking the commits.
+   * - ``bot_account``
+     - :ref:`data type template`
+     -
+     - |premium plan tag|
+       Mergify can impersonate a GitHub user to backport a pull request.
+       If no ``bot_account`` is set, Mergify backports the pull request
+       itself.
    * - ``labels``
      - list of string
      - ``[]``
