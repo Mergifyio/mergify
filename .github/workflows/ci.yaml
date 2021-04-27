@@ -1,4 +1,6 @@
 name: Continuous Integration
+permissions: read-all
+
 on:
   pull_request:
     branches:
