@@ -267,23 +267,6 @@ class MergeBaseAction(actions.Action):
             else:
                 ctxt.log.info("legacy bot_account used by free plan")
 
-        if self.config["merge_bot_account"]:
-            permission = (
-                await ctxt.client.item(
-                    f"{ctxt.base_url}/collaborators/{self.config['merge_bot_account']}/permission"
-                )
-            )["permission"]
-            if permission not in ("write", "maintain"):
-                return check_api.Result(
-                    check_api.Conclusion.ACTION_REQUIRED,
-                    (
-                        f"`{self.config['merge_bot_account']}` account used as "
-                        "`merge_bot_account` must have `write` or `maintain` permission, "
-                        f"not `{permission}`"
-                    ),
-                    "",
-                )
-
         self._set_effective_priority(ctxt)
 
         ctxt.log.info("process merge", config=self.config)
