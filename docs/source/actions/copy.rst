@@ -61,13 +61,18 @@ Options
      - :ref:`data type template`
      - ``{{ title }} (copy #{{ number }})``
      - The pull request title.
+   * - ``body``
+     - :ref:`data type template`
+     - ``This is an automatic copy of pull request #{{number}} done by [Mergify](https://mergify.io).\n{{cherry_pick_error}}``
+     - The pull request body.
 
 
-As the ``title`` is a :ref:`template <data type template>`, you can
+As the ``title`` and ``body`` are :ref:`templates <data type template>`, you can
 leverage any pull request attributes to use as content, e.g. ``{{author}}``.
 You can also use this additional variable:
 
     * ``{{ destination_branch }}``: the name of destination branch.
+    * ``{{ cherry_pick_error }}``: the cherry pick error message if any (only available in ``body``).
 
 Examples
 --------
