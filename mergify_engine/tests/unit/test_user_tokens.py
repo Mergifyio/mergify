@@ -9,31 +9,32 @@ from mergify_engine.clients import http
 
 @pytest.mark.asyncio
 async def test_init(redis_cache):
-    user_tokens.UserTokens(
-        redis_cache,
-        123,
-        {},
-    )
+    user_tokens.UserTokens(redis_cache, 123, [])
 
 
 @pytest.mark.parametrize(
-    "tokens",
+    "users",
     (
-        {},
-        {"foo": "bar"},
-        {
-            "foo": "bar",
-            "login": "token",
-        },
+        [],
+        [{"login": "foo", "oauth_access_token": "bar", "name": None, "email": None}],
+        [
+            {"login": "foo", "oauth_access_token": "bar", "name": None, "email": None},
+            {
+                "login": "login",
+                "oauth_access_token": "token",
+                "name": None,
+                "email": None,
+            },
+        ],
     ),
 )
 @pytest.mark.asyncio
-async def test_save_ut(tokens, redis_cache):
+async def test_save_ut(users, redis_cache):
     owner_id = 1234
     ut = user_tokens.UserTokens(
         redis_cache,
         owner_id,
-        tokens,
+        users,
     )
 
     await ut.save_to_cache()
@@ -45,7 +46,7 @@ async def test_save_ut(tokens, redis_cache):
 @mock.patch.object(user_tokens.UserTokens, "_retrieve_from_db")
 async def test_user_tokens_db_unavailable(retrieve_from_db_mock, redis_cache):
     owner_id = 1234
-    ut = user_tokens.UserTokens(redis_cache, owner_id, {})
+    ut = user_tokens.UserTokens(redis_cache, owner_id, [])
     retrieve_from_db_mock.return_value = ut
 
     # no cache, no db -> reraise
@@ -98,7 +99,7 @@ async def test_unknown_ut(redis_cache):
 
 @pytest.mark.asyncio
 async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
-    ut = user_tokens.UserTokens(redis_cache, 123, {})
+    ut = user_tokens.UserTokens(redis_cache, 123, [])
 
     assert ut.get_token_for("foo") is None
     assert ut.get_token_for("login") is None
@@ -108,6 +109,6 @@ async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
         config, "ACCOUNT_TOKENS", config.AccountTokens("foo:bar,login:token")
     )
 
-    assert ut.get_token_for("foo") == "bar"
-    assert ut.get_token_for("login") == "token"
+    assert ut.get_token_for("foo")["oauth_access_token"] == "bar"
+    assert ut.get_token_for("login")["oauth_access_token"] == "token"
     assert ut.get_token_for("nop") is None

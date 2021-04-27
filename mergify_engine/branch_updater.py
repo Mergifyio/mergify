@@ -25,6 +25,7 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import gitter
 from mergify_engine.clients import http
+from mergify_engine.user_tokens import UserTokensUser
 
 
 class BranchUpdateFailure(Exception):
@@ -126,7 +127,7 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
     reraise=True,
 )
-async def _do_rebase(ctxt: context.Context, token: str) -> None:
+async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -156,9 +157,12 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        await git.configure()
-        await git.add_cred(token, "", head_repo)
-        await git.add_cred(token, "", base_repo)
+        if ctxt.subscription.active:
+            await git.configure(user["name"] or user["login"], user["email"])
+        else:
+            await git.configure()
+        await git.add_cred(user["oauth_access_token"], "", head_repo)
+        await git.add_cred(user["oauth_access_token"], "", base_repo)
         await git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
         await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
@@ -182,9 +186,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
             await git("repack", "-d")
             try:
                 await git(
-                    "merge-base",
-                    f"upstream/{base_branch}",
-                    f"origin/{head_branch}",
+                    "merge-base", f"upstream/{base_branch}", f"origin/{head_branch}"
                 )
             except gitter.GitError as e:  # pragma: no cover
                 if e.returncode == 1:
@@ -281,33 +283,35 @@ async def update_with_api(ctxt: context.Context) -> None:
 
 
 async def rebase_with_git(
-    ctxt: context.Context, user: typing.Optional[str] = None
+    ctxt: context.Context, bot_account: typing.Optional[str] = None
 ) -> None:
 
     await pre_rebase_check(ctxt)
 
     user_tokens = await ctxt.repository.installation.get_user_tokens()
-    if user:
-        token = user_tokens.get_token_for(user)
-        if token:
-            creds = {user.lower(): token}
+    if bot_account:
+        user = user_tokens.get_token_for(bot_account)
+        if user:
+            users = [user]
         else:
             raise BranchUpdateFailure(
-                f"Unable to rebase: user `{user}` is unknown. "
-                f"Please make sure `{user}` has logged in Mergify dashboard."
+                f"Unable to rebase: user `{bot_account}` is unknown. "
+                f"Please make sure `{bot_account}` has logged in Mergify dashboard."
             )
     else:
-        creds = user_tokens.tokens
+        users = user_tokens.users
 
-    for login, token in creds.items():
+    for user in users:
         try:
-            return await _do_rebase(ctxt, token)
+            await _do_rebase(ctxt, user)
         except AuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
                 e,
-                login=login,
+                login=user["login"],
             )
+        else:
+            return
 
     ctxt.log.warning("unable to update branch: no tokens are valid")
 
