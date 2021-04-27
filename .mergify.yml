@@ -12,6 +12,7 @@ queue_rules:
       - check-success=py39
       - check-success=docs
       - check-success=docker
+      - check-success=heroku
     speculative_checks: 5
 
 pull_request_rules:
@@ -25,6 +26,7 @@ pull_request_rules:
       - check-success=py39
       - check-success=docs
       - check-success=docker
+      - check-success=heroku
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
       - label!=work-in-progress
@@ -84,6 +86,7 @@ pull_request_rules:
       - check-success=py39
       - check-success=docs
       - check-success=docker
+      - check-success=heroku
       - "#approved-reviews-by=0"
       - "#changes-requested-reviews-by=0"
     actions:
