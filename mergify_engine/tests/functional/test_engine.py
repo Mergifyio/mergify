@@ -325,7 +325,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert pull["assignees"] == []
 
-    async def _do_test_backport(self, method, config=None, expected_title=None):
+    async def _do_test_backport(
+        self, method, config=None, expected_title=None, expected_body=None
+    ):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -378,6 +380,9 @@ no changes added to commit (use "git add" and/or "git commit -a")
             )
         else:
             assert bp_pull["title"] == expected_title
+
+        if expected_body is not None:
+            assert bp_pull["body"].startswith(expected_body)
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
@@ -433,15 +438,17 @@ no changes added to commit (use "git add" and/or "git commit -a")
         p = await self._do_test_backport("rebase")
         assert 2 == p["commits"]
 
-    async def test_backport_with_title(self):
+    async def test_backport_with_title_and_body(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         await self._do_test_backport(
             "merge",
             config={
                 "branches": [stable_branch],
                 "title": "foo: {{destination_branch}}",
+                "body": "foo: {{destination_branch}}",
             },
             expected_title=f"foo: {stable_branch}",
+            expected_body=f"foo: {stable_branch}",
         )
 
     async def test_merge_with_not_merged_attribute(self):

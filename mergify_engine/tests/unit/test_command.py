@@ -65,6 +65,7 @@ def test_command_loader():
         "label_conflicts": "conflicts",
         "assignees": [],
         "title": "{{ title }} (backport #{{ number }})",
+        "body": "This is an automatic backport of pull request #{{number}} done by [Mergify](https://mergify.io).\n{{ cherry_pick_error }}",
     }
 
 
@@ -93,6 +94,7 @@ def test_command_loader_with_defaults():
         "labels": [],
         "label_conflicts": "conflicts",
         "title": "{{ title }} (backport #{{ number }})",
+        "body": "This is an automatic backport of pull request #{{number}} done by [Mergify](https://mergify.io).\n{{ cherry_pick_error }}",
     }
 
 

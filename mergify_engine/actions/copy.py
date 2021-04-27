@@ -39,7 +39,17 @@ def Regex(value: str) -> typing.Pattern[str]:
         raise voluptuous.Invalid(str(e))
 
 
-def DuplicateJinja2(v):
+def DuplicateBodyJinja2(v):
+    return types.Jinja2(
+        v,
+        {
+            "destination_branch": "whatever",
+            "cherry_pick_error": "whaever",
+        },
+    )
+
+
+def DuplicateTitleJinja2(v):
     return types.Jinja2(
         v,
         {
@@ -71,7 +81,11 @@ class CopyAction(actions.Action):
             voluptuous.Required("label_conflicts", default="conflicts"): str,
             voluptuous.Required(
                 "title", default=f"{{{{ title }}}} ({cls.KIND} #{{{{ number }}}})"
-            ): DuplicateJinja2,
+            ): DuplicateTitleJinja2,
+            voluptuous.Required(
+                "body",
+                default=f"This is an automatic {cls.KIND} of pull request #{{{{number}}}} done by [Mergify](https://mergify.io).\n{{{{ cherry_pick_error }}}}",
+            ): DuplicateBodyJinja2,
         }
 
     @staticmethod
@@ -105,25 +119,15 @@ class CopyAction(actions.Action):
         # NOTE(sileht) does the duplicate have already been done ?
         new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
 
-        try:
-            title = await ctxt.pull_request.render_template(
-                self.config["title"],
-                extra_variables={"destination_branch": branch_name},
-            )
-        except context.RenderTemplateFailure as rmf:
-            return (
-                check_api.Conclusion.FAILURE,
-                f"Invalid title message: {rmf}",
-            )
-
         # No, then do it
         if not new_pull:
             try:
                 users_to_add = await self.wanted_users(ctxt, self.config["assignees"])
                 new_pull = await duplicate_pull.duplicate(
                     ctxt,
-                    title,
                     branch_name,
+                    title_template=self.config["title"],
+                    body_template=self.config["body"],
                     labels=self.config["labels"],
                     label_conflicts=self.config["label_conflicts"],
                     ignore_conflicts=self.config["ignore_conflicts"],
@@ -195,6 +199,10 @@ class CopyAction(actions.Action):
                 self.FAILURE_MESSAGE,
                 "GitHub App like Mergify are not allowed to create pull request where `.github/workflows` is changed.",
             )
+
+        status = await self._verify_template(ctxt)
+        if status is not None:
+            return status
 
         branches: typing.List[github_types.GitHubRefType] = self.config["branches"]
         if self.config["regexes"]:
@@ -270,3 +278,36 @@ class CopyAction(actions.Action):
         ]
 
         return pulls[-1] if pulls else None
+
+    async def _verify_template(
+        self, ctxt: context.Context
+    ) -> typing.Optional[check_api.Result]:
+        try:
+            await ctxt.pull_request.render_template(
+                self.config["title"],
+                extra_variables={"destination_branch": "whatever"},
+            )
+        except context.RenderTemplateFailure as rmf:
+            # can't occur, template have been checked earlier
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                self.FAILURE_MESSAGE,
+                f"Invalid title message: {rmf}",
+            )
+
+        try:
+            await ctxt.pull_request.render_template(
+                self.config["body"],
+                extra_variables={
+                    "destination_branch": "whatever",
+                    "cherry_pick_error": "whatever",
+                },
+            )
+        except context.RenderTemplateFailure as rmf:
+            # can't occur, template have been checked earlier
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                self.FAILURE_MESSAGE,
+                f"Invalid body message: {rmf}",
+            )
+        return None

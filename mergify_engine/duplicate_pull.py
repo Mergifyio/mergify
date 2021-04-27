@@ -209,9 +209,10 @@ def get_destination_branch_name(
 )
 async def duplicate(
     ctxt: context.Context,
-    title: str,
     branch_name: github_types.GitHubRefType,
     *,
+    title_template: str,
+    body_template: str,
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
@@ -223,21 +224,22 @@ async def duplicate(
 
     :param pull: The pull request.
     :type pull: py:class:mergify_engine.context.Context
-    :param title: The pull request title.
+    :param title_template: The pull request title template.
+    :param body_template: The pull request body template.
     :param branch: The branch to copy to.
     :param labels: The list of labels to add to the created PR.
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param assignees: The list of users to be assigned to the created PR.
     :param kind: is a backport or a copy
+    :param branch_prefix: the prefix of the temporary created branch
     """
     repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
     bp_branch = get_destination_branch_name(
         ctxt.pull["number"], branch_name, branch_prefix
     )
 
-    cherry_pick_fail = False
-    body = ""
+    cherry_pick_error: str = ""
 
     repo_info = await ctxt.client.item(f"/repos/{repo_full_name}")
     if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
@@ -284,10 +286,9 @@ async def duplicate(
             except gitter.GitError as e:  # pragma: no cover
                 ctxt.log.info("fail to cherry-pick %s: %s", commit["sha"], e.output)
                 output = await git("status")
-                body += f"\n\nCherry-pick of {commit['sha']} has failed:\n```\n{output}```\n\n"
+                cherry_pick_error += f"Cherry-pick of {commit['sha']} has failed:\n```\n{output}```\n\n\n"
                 if not ignore_conflicts:
-                    raise DuplicateFailed(body)
-                cherry_pick_fail = True
+                    raise DuplicateFailed(cherry_pick_error)
                 await git("add", "*")
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
@@ -307,18 +308,32 @@ async def duplicate(
     finally:
         await git.cleanup()
 
-    body = (
-        f"This is an automatic {kind} of pull request #{ctxt.pull['number']} done by [Mergify](https://mergify.io)."
-        + body
-    )
-
-    if cherry_pick_fail:
-        body += (
-            "To fixup this pull request, you can check out it locally. "
+    if cherry_pick_error:
+        cherry_pick_error += (
+            "To fix up this pull request, you can check it out locally. "
             "See documentation: "
             "https://help.github.com/articles/"
             "checking-out-pull-requests-locally/"
         )
+
+    try:
+        title = await ctxt.pull_request.render_template(
+            title_template,
+            extra_variables={"destination_branch": branch_name},
+        )
+    except context.RenderTemplateFailure as rmf:
+        raise DuplicateFailed(f"Invalid title message: {rmf}")
+
+    try:
+        body = await ctxt.pull_request.render_template(
+            body_template,
+            extra_variables={
+                "destination_branch": branch_name,
+                "cherry_pick_error": cherry_pick_error,
+            },
+        )
+    except context.RenderTemplateFailure as rmf:
+        raise DuplicateFailed(f"Invalid title message: {rmf}")
 
     try:
         duplicate_pr = typing.cast(
@@ -346,7 +361,7 @@ async def duplicate(
     if labels is not None:
         effective_labels.extend(labels)
 
-    if cherry_pick_fail and label_conflicts is not None:
+    if cherry_pick_error and label_conflicts is not None:
         effective_labels.append(label_conflicts)
 
     if len(effective_labels) > 0:
