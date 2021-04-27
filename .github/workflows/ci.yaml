@@ -20,6 +20,26 @@ jobs:
           tox -e genreqs
           git diff --exit-code
 
+  heroku:
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6363:6379
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          curl -sSL \
+            "https://github.com/buildpacks/pack/releases/download/v0.18.1/pack-v0.18.1-linux.tgz" \
+            | tar -xz pack
+          ./pack build test_img --builder heroku/buildpacks:20 --buildpack heroku/python
+          docker run \
+            --env-file fake.env \
+            -e MERGIFYENGINE_STORAGE_URL=redis://redis:6363 \
+            --entrypoint /app/.heroku/python/bin/mergify-import-check \
+            test_img
 
   pep8:
     timeout-minutes: 5
