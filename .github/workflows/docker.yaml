@@ -1,4 +1,5 @@
 name: Publish Docker image
+permissions: read-all
 on:
   push:
     tags:
