@@ -27,6 +27,7 @@ from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import subscription
 from mergify_engine.clients import http
+from mergify_engine.user_tokens import UserTokensUser
 
 
 @dataclasses.dataclass
@@ -255,11 +256,11 @@ async def duplicate(
             )
         ctxt.log.info("running %s on large repository", kind)
 
-    bot_account_token: typing.Optional[str] = None
+    bot_account_user: typing.Optional[UserTokensUser] = None
     if bot_account is not None:
         user_tokens = await ctxt.repository.installation.get_user_tokens()
-        bot_account_token = user_tokens.get_token_for(bot_account)
-        if not bot_account_token:
+        bot_account_user = user_tokens.get_token_for(bot_account)
+        if not bot_account_user:
             raise DuplicateFailed(
                 f"{kind} fail: user `{bot_account}` is unknown. "
                 f"Please make sure `{bot_account}` has logged in Mergify dashboard."
@@ -271,12 +272,18 @@ async def duplicate(
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        await git.configure()
-        if bot_account_token is None:
+        if bot_account_user is None:
             token = ctxt.client.auth.get_access_token()
+            await git.configure()
             await git.add_cred("x-access-token", token, repo_full_name)
         else:
-            await git.add_cred(bot_account_token, "", repo_full_name)
+            await git.configure(
+                bot_account_user["name"] or bot_account_user["login"],
+                bot_account_user["email"],
+            )
+            await git.add_cred(
+                bot_account_user["oauth_access_token"], "", repo_full_name
+            )
         await git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
         await git("fetch", "--quiet", "origin", f"pull/{ctxt.pull['number']}/head")
         await git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
@@ -363,7 +370,7 @@ async def duplicate(
                         "base": branch_name,
                         "head": bp_branch,
                     },
-                    oauth_token=bot_account_token,  # type: ignore
+                    oauth_token=bot_account_user["oauth_access_token"] if bot_account_user else None,  # type: ignore
                 )
             ).json(),
         )

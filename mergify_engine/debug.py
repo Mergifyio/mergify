@@ -72,17 +72,19 @@ async def report_dashboard_synchro(
 ) -> None:
     print(f"* {title} SUB DETAIL: {sub.reason}")
     print(
-        f"* {title} SUB NUMBER OF TOKENS: {len(uts.tokens)} ({', '.join(uts.tokens)})"
+        f"* {title} SUB NUMBER OF TOKENS: {len(uts.users)} ({', '.join(u['login'] for u in uts.users)})"
     )
-    for login, token in uts.tokens.items():
+    for user in uts.users:
         try:
-            repos = await get_repositories_setuped(token, install_id)
+            repos = await get_repositories_setuped(
+                user["oauth_access_token"], install_id
+            )
         except http.HTTPNotFound:
             print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
             return
         except http.HTTPClientSideError as e:
             print(
-                f"* {title} SUB: token for {login} is invalid "
+                f"* {title} SUB: token for {user['login']} is invalid "
                 f"({e.status_code}: {e.message})"
             )
         else:

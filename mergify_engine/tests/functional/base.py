@@ -401,10 +401,20 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.user_tokens = user_tokens.UserTokens(
             self.redis_cache,
             config.TESTING_ORGANIZATION_ID,
-            {
-                "mergify-test1": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
-                "mergify-test3": config.ORG_USER_PERSONAL_TOKEN,
-            },
+            [
+                {
+                    "login": "mergify-test1",
+                    "oauth_access_token": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
+                    "name": None,
+                    "email": None,
+                },
+                {
+                    "login": "mergify-test3",
+                    "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
+                    "name": None,
+                    "email": None,
+                },
+            ],
         )
         await self.user_tokens.save_to_cache()
 

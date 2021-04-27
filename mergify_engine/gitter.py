@@ -83,9 +83,15 @@ class Gitter(object):
             self.logger.warning("git credential-cache exit fail")
         await asyncio.to_thread(shutil.rmtree, self.tmp)
 
-    async def configure(self) -> None:
-        await self("config", "user.name", f"{config.CONTEXT}-bot")
-        await self("config", "user.email", config.GIT_EMAIL)
+    async def configure(
+        self, name: typing.Optional[str] = None, email: typing.Optional[str] = None
+    ) -> None:
+        if name is None:
+            name = f"{config.CONTEXT}-bot"
+        if email is None:
+            email = config.GIT_EMAIL
+        await self("config", "user.name", name)
+        await self("config", "user.email", email)
         # Use one git cache daemon per Gitter
         await self("config", "credential.useHttpPath", "true")
         await self(
