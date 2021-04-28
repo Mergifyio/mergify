@@ -109,6 +109,9 @@ status_neutral = "status-neutral" + _match_with_operator(text)
 check_success = "check-success" + _match_with_operator(text)
 check_failure = "check-failure" + _match_with_operator(text)
 check_neutral = "check-neutral" + _match_with_operator(text)
+check_skipped = "check-skipped" + _match_with_operator(text)
+check_pending = "check-pending" + _match_with_operator(text)
+check_stale = "check-stale" + _match_with_operator(text)
 
 quantifiable_attributes = (
     head
@@ -133,6 +136,9 @@ quantifiable_attributes = (
     | check_success
     | check_neutral
     | check_failure
+    | check_skipped
+    | check_pending
+    | check_stale
 )
 
 locked = _match_boolean("locked")

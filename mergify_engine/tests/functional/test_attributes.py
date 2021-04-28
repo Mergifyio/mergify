@@ -38,6 +38,17 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.master_branch_name, protection)
+
         pr, _ = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         assert not await ctxt.pull_request.draft
@@ -101,4 +112,7 @@ class TestAttributes(base.FunctionalTestBase):
             "status-failure": [],
             "title": "test_draft: pull request n2 from fork",
             "conflict": False,
+            "check-pending": ["continuous-integration/fake-ci"],
+            "check-stale": [],
+            "check-skipped": [],
         }

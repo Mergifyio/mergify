@@ -184,6 +184,29 @@ Here's the list of pull request attribute that can be used in conditions:
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About Status Checks`_ for more
        details.
+       Checks that report being cancelled, timed out, and action
+       required are also considered as failures.
+   * - ``check-skipped``
+     - list of string
+     - The list of status checks that was skipped for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`. See `About Status Checks`_ for more
+       details.
+   * - ``check-pending``
+     - list of string
+     - The list of status checks that is pending for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`. See `About Status Checks`_ for more
+       details.
+   * - ``check-stale``
+     - list of string
+     - The list of status checks that are stale for the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`. See `About Status Checks`_ for more
+       details.
    * - ``title``
      - string
      - The title of the pull request.
@@ -316,7 +339,8 @@ About Status Checks
 Generic Status Check
 ++++++++++++++++++++
 
-When using the ``check-success``, ``check-neutral`` and ``check-failure``
+When using the ``check-success``, ``check-neutral``, ``check-failure``,
+``check-skipped``, ``check-pending``, and ``check-stale``
 conditions, you need to use the name of your check service. This can be find by
 opening an existing pull request and scrolling down near the ``Merge`` button.
 
