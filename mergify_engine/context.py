@@ -757,13 +757,6 @@ class Context(object):
             return [r["user"]["login"] for r in comments if r["state"] == "COMMENTED"]
 
         # NOTE(jd) The Check API set conclusion to None for pending.
-        # NOTE(sileht): "pending" statuses are not really trackable, we
-        # voluntary drop this event because CIs just sent they status every
-        # minutes until the CI pass (at least Travis and Circle CI does
-        # that). This was causing a big load on Mergify for nothing useful
-        # tracked, and on big projects it can reach the rate limit very
-        # quickly.
-        # NOTE(sileht): Not handled for now: cancelled, timed_out, or action_required
         elif name in ("status-success", "check-success"):
             return [
                 ctxt
@@ -771,16 +764,55 @@ class Context(object):
                 if state == "success"
             ]
         elif name in ("status-failure", "check-failure"):
+            # hopefully "cancelled" is actually a failure state to github.
+            # I think it is, however it could be the same thing as the
+            # "skipped" status.
             return [
                 ctxt
                 for ctxt, state in (await self.checks).items()
-                if state == "failure"
+                if state in ["failure", "action_required", "cancelled", "timed_out"]
             ]
         elif name in ("status-neutral", "check-neutral"):
             return [
                 ctxt
                 for ctxt, state in (await self.checks).items()
                 if state == "neutral"
+            ]
+        elif name == "check-skipped":
+            # hopefully this handles the gray "skipped" state that github actions
+            # workflows can send when a job that depends on a job and the job it
+            # depends on fails, making it get skipped automatically then.
+            return [
+                ctext
+                for ctext, state in (await self.checks).items()
+                if state == "skipped"
+            ]
+        elif name == "check-pending":
+            branch = await self.repository.get_branch(self.pull["base"]["ref"])
+
+            if branch["protection"]["enabled"]:
+                known_contexts = (await self.checks).keys()
+                branch_protection_pending_checks = [
+                    context
+                    for context in branch["protection"]["required_status_checks"][
+                        "contexts"
+                    ]
+                    if context not in known_contexts
+                ]
+            else:
+                branch_protection_pending_checks = []
+
+            return [
+                ctext
+                for ctext, state in (await self.checks).items()
+                if state in [None, "pending"]
+            ] + branch_protection_pending_checks
+
+        elif name == "check-stale":
+            return [
+                ctext
+                for ctext, state in (await self.checks).items()
+                if state == "stale"
             ]
         else:
             raise PullRequestAttributeError(name)
@@ -1119,6 +1151,9 @@ class PullRequest:
         "status-success",
         "status-failure",
         "status-neutral",
+        "check-skipped",
+        "check-pending",
+        "check-stale",
         "files",
     }
 
