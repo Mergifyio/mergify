@@ -20,7 +20,6 @@ import typing
 import daiquiri
 
 from mergify_engine import context
-from mergify_engine import github_types
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -45,15 +44,13 @@ EventName = typing.Literal[
 ]
 
 SignalT = typing.Callable[
-    [github_types.GitHubAccount, EventName], typing.Coroutine[None, None, None]
+    [context.Context, EventName], typing.Coroutine[None, None, None]
 ]
 
 
 class SignalBase(abc.ABC):
     @abc.abstractmethod
-    async def __call__(
-        self, account: github_types.GitHubAccount, event: EventName
-    ) -> None:
+    async def __call__(self, ctxt: context.Context, event: EventName) -> None:
         pass
 
 
@@ -81,6 +78,6 @@ def setup() -> None:
 async def send(ctxt: context.Context, event: EventName) -> None:
     for name, signal in SIGNALS.items():
         try:
-            await signal(ctxt.pull["base"]["user"], event)
+            await signal(ctxt, event)
         except Exception:
             LOG.error("failed to run signal: %s", name, exc_info=True)
