@@ -129,8 +129,6 @@ async def test_signals(redis_cache):
     signals.setup()
     assert len(signals.SIGNALS) == 1
 
-    with mock.patch("datadog.statsd.increment") as increment:
+    with mock.patch("mergify_engine_signals.noop.Signal.__call__") as signal_method:
         await signals.send(ctxt, "action.update")
-        increment.assert_called_once_with(
-            "engine.signals.action.count", tags=["event:update"]
-        )
+        signal_method.assert_called_once_with(ctxt, "action.update")
