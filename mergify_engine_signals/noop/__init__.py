@@ -12,13 +12,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from datadog import statsd
-
 from mergify_engine import context
 from mergify_engine import signals
 
 
 class Signal(signals.SignalBase):
     async def __call__(self, ctxt: context.Context, event: signals.EventName) -> None:
-        if event.startswith("action"):
-            statsd.increment("engine.signals.action.count", tags=[f"event:{event[7:]}"])
+        pass
