@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018—2020 Mergify SAS
+# Copyright © 2018—2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -49,10 +49,39 @@ from mergify_engine.rules import parser
             'status-success="my double quoted ci"',
             {"=": ("status-success", "my double quoted ci")},
         ),
+        (
+            "check-success=my ci has spaces",
+            {"=": ("check-success", "my ci has spaces")},
+        ),
         ("check-success='my quoted ci'", {"=": ("check-success", "my quoted ci")}),
         (
             'check-success="my double quoted ci"',
             {"=": ("check-success", "my double quoted ci")},
+        ),
+        ("check-failure='my quoted ci'", {"=": ("check-failure", "my quoted ci")}),
+        (
+            'check-failure="my double quoted ci"',
+            {"=": ("check-failure", "my double quoted ci")},
+        ),
+        ("check-neutral='my quoted ci'", {"=": ("check-neutral", "my quoted ci")}),
+        (
+            'check-neutral="my double quoted ci"',
+            {"=": ("check-neutral", "my double quoted ci")},
+        ),
+        ("check-skipped='my quoted ci'", {"=": ("check-skipped", "my quoted ci")}),
+        (
+            'check-skipped="my double quoted ci"',
+            {"=": ("check-skipped", "my double quoted ci")},
+        ),
+        ("check-pending='my quoted ci'", {"=": ("check-pending", "my quoted ci")}),
+        (
+            'check-pending="my double quoted ci"',
+            {"=": ("check-pending", "my double quoted ci")},
+        ),
+        ("check-stale='my quoted ci'", {"=": ("check-stale", "my quoted ci")}),
+        (
+            'check-stale="my double quoted ci"',
+            {"=": ("check-stale", "my double quoted ci")},
         ),
     ),
 )
