@@ -211,9 +211,8 @@ class SubscriptionDashboardGitHubCom(SubscriptionBase):
                     f"{config.SUBSCRIPTION_BASE_URL}/engine/subscription/{owner_id}",
                     auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 )
-            except http.HTTPNotFound as e:
-                LOG.info("unknown subscription queried", owner_id=owner_id)
-                return cls(redis, owner_id, False, e.message, frozenset())
+            except http.HTTPNotFound:
+                raise exceptions.MergifyNotInstalled()
             else:
                 sub = resp.json()
                 return cls.from_dict(redis, owner_id, sub)
