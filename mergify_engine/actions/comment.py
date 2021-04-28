@@ -22,6 +22,7 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -43,16 +44,15 @@ class CommentAction(actions.Action):
                 check_api.Conclusion.SUCCESS, "Message is not set", ""
             )
 
-        if self.config["bot_account"] and not ctxt.subscription.has_feature(
-            subscription.Features.BOT_ACCOUNT
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Comments with `bot_account` set are disabled",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
-            )
+        bot_account_result = await action_utils.validate_bot_account(
+            ctxt,
+            self.config["bot_account"],
+            required_feature=subscription.Features.BOT_ACCOUNT,
+            missing_feature_message="Comments with `bot_account` set are disabled",
+            need_write_permission=False,
+        )
+        if bot_account_result is not None:
+            return bot_account_result
 
         try:
             message = await ctxt.pull_request.render_template(self.config["message"])
