@@ -33,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
+          echo '-e .' >> requirements.txt
           curl -sSL \
             "https://github.com/buildpacks/pack/releases/download/v0.18.1/pack-v0.18.1-linux.tgz" \
             | tar -xz pack
