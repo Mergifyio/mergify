@@ -14,12 +14,6 @@ works by merging the base branch into the head branch of the pull request.
 
 .. image:: ../_static/update-branch.png
 
-.. code-block:: yaml
-
-    actions:
-      update:
-
-
 Examples
 --------
 
