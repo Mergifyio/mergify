@@ -67,6 +67,15 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     ]
 )
 
+
+def is_force_push_lease_reject(message: str) -> bool:
+    return (
+        "failed to push some refs" in message
+        and "[rejected]" in message
+        and "(stale info)" in message
+    )
+
+
 GIT_MESSAGE_TO_UNSHALLOW = {"shallow update not allowed", "unrelated histories"}
 
 
@@ -188,7 +197,7 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
 
         try:
             await git("rebase", f"upstream/{base_branch}")
-            await git("push", "--verbose", "origin", head_branch, "-f")
+            await git("push", "--verbose", "origin", head_branch, "--force-with-lease")
         except gitter.GitError as e:  # pragma: no cover
             for message in GIT_MESSAGE_TO_UNSHALLOW:
                 if message in e.output:
@@ -201,7 +210,9 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
                     await git("fetch", "--quiet", "origin", head_branch)
                     await git("fetch", "--quiet", "upstream", base_branch)
                     await git("rebase", f"upstream/{base_branch}")
-                    await git("push", "--verbose", "origin", head_branch, "-f")
+                    await git(
+                        "push", "--verbose", "origin", head_branch, "--force-with-lease"
+                    )
                     break
             else:
                 raise
@@ -213,6 +224,12 @@ async def _do_rebase(ctxt: context.Context, token: str) -> None:
         if in_exception.output == "":
             # SIGKILL...
             raise BranchUpdateNeedRetry("Git process got killed")
+
+        elif is_force_push_lease_reject(in_exception.output):
+            raise BranchUpdateNeedRetry(
+                "Remote branch changed in the meantime: \n"
+                f"```\n{in_exception.output}\n```\n"
+            )
 
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
             if message in in_exception.output:
