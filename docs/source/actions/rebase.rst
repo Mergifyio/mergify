@@ -17,11 +17,6 @@ rebase
    available for `Essential and Premium Plan subscribers
    <https://mergify.io/pricing>`_.
 
-.. warning::
-
-   Be aware that rebasing force-pushes the pull request head branch: any change
-   done to that branch while Mergify is rebasing will be lost.
-
 The ``rebase`` action will rebase the pull request against its base branch. To
 this effect, it clones the branch, run `git rebase` locally and push back the
 result to the GitHub repository.
