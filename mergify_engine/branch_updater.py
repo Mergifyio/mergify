@@ -301,6 +301,9 @@ async def rebase_with_git(
     else:
         users = user_tokens.users
 
+    # Pick author first
+    users = sorted(users, key=lambda x: x["login"] != ctxt.pull["user"]["login"])
+
     for user in users:
         try:
             await _do_rebase(ctxt, user)
