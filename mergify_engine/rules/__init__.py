@@ -149,8 +149,22 @@ class QueueRule:
         return cls(name, conditions, d)
 
     async def get_pull_request_rule(self, ctxt: context.Context) -> EvaluatedQueueRule:
+        branch_protection_conditions = [
+            RuleCondition(f"check-success={check}")
+            for check in await ctxt.repository.get_branch_protection_checks(
+                ctxt.pull["base"]["ref"]
+            )
+        ]
+        queue_rule_with_branch_protection = QueueRule(
+            self.name,
+            RuleConditions(self.conditions + branch_protection_conditions),
+            self.config,
+        )
         queue_rules_evaluator = await QueuesRulesEvaluator.create(
-            [self], ctxt, EvaluatedQueueRule.from_rule, False
+            [queue_rule_with_branch_protection],
+            ctxt,
+            EvaluatedQueueRule.from_rule,
+            False,
         )
         return queue_rules_evaluator.matching_rules[0]
 
