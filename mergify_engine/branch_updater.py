@@ -197,11 +197,8 @@ async def rebase_with_git(
 
     try:
         users = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
-    except user_tokens.UserTokensUserNotFound:
-        raise BranchUpdateFailure(
-            f"Unable to rebase: user `{bot_account}` is unknown. "
-            f"Please make sure `{bot_account}` has logged in Mergify dashboard."
-        )
+    except user_tokens.UserTokensUserNotFound as e:
+        raise BranchUpdateFailure(f"Unable to rebase: {e.reason}")
 
     for user in users:
         try:

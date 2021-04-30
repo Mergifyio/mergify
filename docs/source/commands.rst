@@ -86,6 +86,20 @@ Runs the :ref:`copy action` action.
   * - Example
     - ``@Mergifyio copy stable/3.1 stable/4.0``
 
+squash
+======
+
+Runs the :ref:`squash action` action.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio squash [<commit_message format>]``
+  * - Example
+    - ``@Mergifyio squash first-commit``
+
 refresh
 ========
 

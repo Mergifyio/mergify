@@ -37,3 +37,4 @@ options.
    request_reviews
    review
    update
+   squash

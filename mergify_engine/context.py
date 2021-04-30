@@ -17,6 +17,7 @@ import base64
 import contextlib
 import dataclasses
 import datetime
+import itertools
 import json
 import logging
 import re
@@ -46,6 +47,9 @@ from mergify_engine.clients import http
 
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
+
+MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
+MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
@@ -1323,6 +1327,55 @@ class PullRequest(BasePullRequest):
             raise RenderTemplateFailure(te.message)
         except PullRequestAttributeError as e:
             raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
+
+    async def get_commit_message(
+        self,
+        mode: typing.Literal["default", "title+body"] = "default",
+    ) -> typing.Optional[typing.Tuple[str, str]]:
+        body = typing.cast(str, await self.body)
+
+        if mode == "title+body":
+            # Include PR number to mimic default GitHub format
+            return (
+                f"{(await self.title)} (#{(await self.number)})",
+                body,
+            )
+
+        if not body:
+            return None
+
+        found = False
+        message_lines = []
+
+        for line in body.split("\n"):
+            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
+                found = True
+            elif found and MARKDOWN_TITLE_RE.match(line):
+                break
+            elif found:
+                message_lines.append(line)
+
+        # Remove the first empty lines
+        message_lines = list(
+            itertools.dropwhile(lambda x: not x.strip(), message_lines)
+        )
+
+        if found and message_lines:
+            title = message_lines.pop(0)
+
+            # Remove the empty lines between title and message body
+            message_lines = list(
+                itertools.dropwhile(lambda x: not x.strip(), message_lines)
+            )
+
+            return (
+                await self.render_template(title.strip()),
+                await self.render_template(
+                    "\n".join(line.strip() for line in message_lines)
+                ),
+            )
+
+        return None
 
 
 @dataclasses.dataclass

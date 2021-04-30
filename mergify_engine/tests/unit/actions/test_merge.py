@@ -166,8 +166,7 @@ async def test_merge_commit_message(body, title, message, mode):
         )
     ]
     ctxt._cache["pull_check_runs"] = []
-    pr = ctxt.pull_request
-    assert await merge.MergeAction._get_commit_message(pr, mode=mode) == (
+    assert await ctxt.pull_request.get_commit_message(mode=mode) == (
         title,
         message,
     )
@@ -205,7 +204,7 @@ async def test_merge_commit_message_undefined(body):
     repository = context.Repository(installation, "whatever", 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as x:
-        await merge.MergeAction._get_commit_message(pr.pull_request)
+        await pr.pull_request.get_commit_message()
         assert str(x) == "foobar"
 
 
@@ -233,7 +232,7 @@ async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     repository = context.Repository(installation, "whatever", 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as rmf:
-        await merge.MergeAction._get_commit_message(pr.pull_request)
+        await pr.pull_request.get_commit_message()
         assert str(rmf) == error
 
 
