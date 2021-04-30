@@ -86,6 +86,23 @@ Runs the :ref:`copy action` action.
   * - Example
     - ``@Mergifyio copy stable/3.1 stable/4.0``
 
+squash
+======
+Makes your pull request's n-commits to a single commit.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio squash``
+  * - Example
+    - ``@Mergifyio squash``
+
+.. note::
+
+  Like in the Git rebase-interactive mode, all the n-commits will be meld into the previous commit.
+
 refresh
 ========
 

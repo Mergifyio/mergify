@@ -117,6 +117,40 @@ class GitHubBranchCommit(typing.TypedDict):
     commit: GitHubBranchCommitCommit
 
 
+class GitHubTree(typing.TypedDict):
+    sha: SHAType
+
+
+class GitHubCommitVerification(typing.TypedDict):
+    verified: bool
+    reason: str
+    signature: str
+    payload: str
+
+
+class GitHubCommitAuthor(typing.TypedDict):
+    date: str
+    name: str
+    email: str
+
+
+class GitHubCommitCommitter(typing.TypedDict):
+    date: str
+    name: str
+    email: str
+
+
+class GitHubCommit(typing.TypedDict):
+    sha: str
+    node_id: str
+    author: GitHubCommitAuthor
+    committer: GitHubCommitCommitter
+    message: str
+    tree: GitHubTree
+    parents: typing.List[GitHubBranchCommitParent]
+    verification: GitHubCommitVerification
+
+
 class GitHubBranchProtectionRequiredStatusChecks(typing.TypedDict):
     contexts: typing.List[str]
 
@@ -130,6 +164,19 @@ class GitHubBranch(typing.TypedDict):
     name: GitHubRefType
     commit: GitHubBranchCommit
     protection: GitHubBranchProtection
+
+
+class GitHubObject(typing.TypedDict):
+    type: str
+    sha: SHAType
+    url: str
+
+
+class GitHubRef(typing.TypedDict):
+    ref: str
+    node_id: str
+    url: str
+    object: GitHubObject
 
 
 class GitHubBranchRef(typing.TypedDict):
