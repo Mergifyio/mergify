@@ -166,7 +166,7 @@ async def gen_summary(
         if completed_rules == 0 and potential_rules == 0 and faulty_rules == 0:
             summary_title.append("no rules match, no planned actions")
     else:
-        summary_title = ["no rules setuped, just listening for commands"]
+        summary_title = ["no rules configured, just listening for commands"]
 
     return " and ".join(summary_title), summary
 
