@@ -15,7 +15,6 @@
 # under the License.
 import abc
 import enum
-import itertools
 import re
 import typing
 
@@ -42,8 +41,6 @@ BRANCH_PROTECTION_FAQ_URL = (
     "my-branch-protection-settings"
 )
 
-MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
-MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
 FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository."
 FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
@@ -379,56 +376,6 @@ class MergeBaseAction(actions.Action):
         else:
             return await self.get_queue_status(ctxt, rule, q, is_behind=False)
 
-    @staticmethod
-    async def _get_commit_message(
-        pull_request: context.PullRequest,
-        mode: typing.Literal["default", "title+body"] = "default",
-    ) -> typing.Optional[typing.Tuple[str, str]]:
-        body = typing.cast(str, await pull_request.body)
-
-        if mode == "title+body":
-            # Include PR number to mimic default GitHub format
-            return (
-                f"{(await pull_request.title)} (#{(await pull_request.number)})",
-                body,
-            )
-
-        if not body:
-            return None
-
-        found = False
-        message_lines = []
-
-        for line in body.split("\n"):
-            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
-                found = True
-            elif found and MARKDOWN_TITLE_RE.match(line):
-                break
-            elif found:
-                message_lines.append(line)
-
-        # Remove the first empty lines
-        message_lines = list(
-            itertools.dropwhile(lambda x: not x.strip(), message_lines)
-        )
-
-        if found and message_lines:
-            title = message_lines.pop(0)
-
-            # Remove the empty lines between title and message body
-            message_lines = list(
-                itertools.dropwhile(lambda x: not x.strip(), message_lines)
-            )
-
-            return (
-                await pull_request.render_template(title.strip()),
-                await pull_request.render_template(
-                    "\n".join(line.strip() for line in message_lines)
-                ),
-            )
-
-        return None
-
     async def _merge(
         self,
         ctxt: context.Context,
@@ -451,8 +398,7 @@ class MergeBaseAction(actions.Action):
         data = {}
 
         try:
-            commit_title_and_message = await self._get_commit_message(
-                ctxt.pull_request,
+            commit_title_and_message = await ctxt.pull_request.get_commit_message(
                 self.config["commit_message"],
             )
         except context.RenderTemplateFailure as rmf:
