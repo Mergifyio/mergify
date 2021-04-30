@@ -481,6 +481,18 @@ class Repository(object):
 
         return read_permission
 
+    async def get_branch_protection_checks(
+        self,
+        branch_name: github_types.GitHubRefType,
+    ) -> typing.List[str]:
+        try:
+            branch = await self.get_branch(branch_name)
+        except http.HTTPNotFound:
+            return []
+        if not branch["protection"]["enabled"]:
+            return []
+        return branch["protection"]["required_status_checks"]["contexts"]
+
 
 class ContextCache(typing.TypedDict, total=False):
     consolidated_reviews: typing.Tuple[
