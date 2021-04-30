@@ -34,7 +34,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class UserTokensUserNotFound(Exception):
-    bot_account: str
+    reason: str
 
 
 class UserTokensUser(typing.TypedDict):
@@ -64,7 +64,9 @@ class UserTokens:
             if user:
                 users = [user]
             else:
-                raise UserTokensUserNotFound(bot_account)
+                raise UserTokensUserNotFound(
+                    f"User `{bot_account}` is unknown. Please make sure `{bot_account}` has logged in Mergify dashboard."
+                )
         else:
             users = user_tokens.users
 
