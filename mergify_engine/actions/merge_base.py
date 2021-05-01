@@ -55,7 +55,7 @@ FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 BOT_ACCOUNT_DEPRECATION_NOTICE = """This pull request has been merged with the
 unsupported configuration option `bot_account`.
 
-This option will be ignored starting May 1st, 2021, and removed
+This option is ignored since May 1st, 2021, and will be removed
 on June 1st, 2021.
 
 This option can be replaced by `update_bot_account`, `merge_bot_account` or both
@@ -361,7 +361,11 @@ class MergeBaseAction(actions.Action):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> check_api.Result:
         method = self.config["strict_method"]
-        user = self.config["update_bot_account"] or self.config["bot_account"]
+        user = self.config["update_bot_account"]
+        if user is None and ctxt.subscription.has_feature(
+            subscription.Features.MERGE_BOT_ACCOUNT
+        ):
+            user = self.config["bot_account"]
 
         try:
             await branch_updater.update(method, ctxt, user)

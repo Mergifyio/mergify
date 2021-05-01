@@ -274,105 +274,6 @@ expected alphabetic or numeric character, but found"""
         pulls = await self.get_pulls(base=self.master_branch_name)
         assert 0 == len(pulls)
 
-    async def test_merge_strict_rebase_with_user(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "smart strict merge on master",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "status-success=continuous-integration/fake-ci",
-                        "#approved-reviews-by>=1",
-                    ],
-                    "actions": {
-                        "merge": {
-                            "strict": True,
-                            "strict_method": "rebase",
-                            "bot_account": "mergify-test1",
-                        }
-                    },
-                }
-            ]
-        }
-
-        stable_branch = self.get_full_branch_name("stable/3.1")
-        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
-
-        p, _ = await self.create_pr()
-        p2, commits = await self.create_pr()
-
-        await self.merge_pull(p["number"])
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        await self.create_status(p2)
-        await self.create_review(p2["number"])
-
-        await self.run_engine()
-
-        await self.wait_for("pull_request", {"action": "synchronize"})
-
-        commits2 = await self.get_commits(p2["number"])
-        events2 = [
-            e
-            async for e in self.client_admin.items(
-                f"{self.url_main}/issues/{p2['number']}/events"
-            )
-        ]
-
-        assert 1 == len(commits2)
-        assert commits[0]["sha"] != commits2[0]["sha"]
-        assert commits[0]["commit"]["message"] == commits2[0]["commit"]["message"]
-        assert events2[0]["actor"]["login"] == "mergify-test1"
-
-    async def test_merge_strict_rebase_with_invalid_user(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "smart strict merge on master",
-                    "conditions": [
-                        f"base={self.master_branch_name}",
-                        "status-success=continuous-integration/fake-ci",
-                        "#approved-reviews-by>=1",
-                    ],
-                    "actions": {
-                        "merge": {
-                            "strict": True,
-                            "strict_method": "rebase",
-                            "bot_account": "not-exists",
-                        }
-                    },
-                }
-            ]
-        }
-
-        stable_branch = self.get_full_branch_name("stable/3.1")
-        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
-
-        p, _ = await self.create_pr()
-        p2, commits = await self.create_pr()
-
-        await self.merge_pull(p["number"])
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        await self.create_status(p2)
-        await self.create_review(p2["number"])
-
-        await self.run_engine()
-
-        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
-
-        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
-        checks = [
-            c
-            for c in await ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: smart strict merge on master (merge)"
-        ]
-        assert checks[0]["output"]["title"] == "Base branch update has failed"
-        assert checks[0]["output"]["summary"].startswith(
-            "Unable to rebase: user `not-exists` is unknown. "
-            "Please make sure `not-exists` has logged in Mergify dashboard"
-        )
-
     async def test_merge_strict_default(self):
         rules = {
             "pull_request_rules": [
@@ -1537,3 +1438,106 @@ expected alphabetic or numeric character, but found"""
         repo = await self.installation_ctxt.get_repository_by_id(self.REPO_ID)
         assert repo.name == self.REPO_NAME
         assert repo.name == self.repository_ctxt.name
+
+
+class TestEngineWithSubscription(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
+    async def test_merge_strict_rebase_with_user(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "smart strict merge on master",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "#approved-reviews-by>=1",
+                    ],
+                    "actions": {
+                        "merge": {
+                            "strict": True,
+                            "strict_method": "rebase",
+                            "bot_account": "mergify-test1",
+                        }
+                    },
+                }
+            ]
+        }
+
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
+
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        await self.create_status(p2)
+        await self.create_review(p2["number"])
+
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "synchronize"})
+
+        commits2 = await self.get_commits(p2["number"])
+        events2 = [
+            e
+            async for e in self.client_admin.items(
+                f"{self.url_main}/issues/{p2['number']}/events"
+            )
+        ]
+
+        assert 1 == len(commits2)
+        assert commits[0]["sha"] != commits2[0]["sha"]
+        assert commits[0]["commit"]["message"] == commits2[0]["commit"]["message"]
+        assert events2[0]["actor"]["login"] == "mergify-test1"
+
+    async def test_merge_strict_rebase_with_invalid_user(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "smart strict merge on master",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "#approved-reviews-by>=1",
+                    ],
+                    "actions": {
+                        "merge": {
+                            "strict": True,
+                            "strict_method": "rebase",
+                            "bot_account": "not-exists",
+                        }
+                    },
+                }
+            ]
+        }
+
+        stable_branch = self.get_full_branch_name("stable/3.1")
+        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
+
+        p, _ = await self.create_pr()
+        p2, commits = await self.create_pr()
+
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        await self.create_status(p2)
+        await self.create_review(p2["number"])
+
+        await self.run_engine()
+
+        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: smart strict merge on master (merge)"
+        ]
+        assert checks[0]["output"]["title"] == "Base branch update has failed"
+        assert checks[0]["output"]["summary"].startswith(
+            "Unable to rebase: user `not-exists` is unknown. "
+            "Please make sure `not-exists` has logged in Mergify dashboard"
+        )
