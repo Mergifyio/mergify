@@ -830,7 +830,7 @@ expected alphabetic or numeric character, but found"""
                 {
                     "name": "merge",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"merge": {}},
+                    "actions": {"merge": {}, "comment": {"message": "yo"}},
                 }
             ]
         }
@@ -876,8 +876,12 @@ expected alphabetic or numeric character, but found"""
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
         ][0]
         assert (
-            f"""- [X] `base={self.master_branch_name}`
-- [ ] `check-success=continuous-integration/fake-ci` (merge action only, due to branch protection)
+            f"""#### Rule: merge (merge)
+- [X] `base={self.master_branch_name}`
+- [ ] `check-success=continuous-integration/fake-ci` [🛡 GitHub branch protection]
+
+#### Rule: merge (comment)
+- [X] `base={self.master_branch_name}`
 """
             in summary["output"]["summary"]
         )

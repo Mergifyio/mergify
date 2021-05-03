@@ -70,6 +70,8 @@ class PostCheckAction(actions.Action):
         for cond in rule.conditions:
             checked = " " if cond in rule.missing_conditions else "X"
             check_conditions += f"\n- [{checked}] `{cond}`"
+            if cond.description:
+                check_conditions += f" [{cond.description}]"
 
         extra_variables = {
             "check_rule_name": rule.name,

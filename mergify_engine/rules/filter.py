@@ -90,6 +90,7 @@ GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
 @dataclasses.dataclass(repr=False)
 class Filter:
     tree: TreeT
+    description: typing.Optional[str] = dataclasses.field(default=None)
 
     unary_operators: typing.ClassVar[
         typing.Dict[str, typing.Callable[[typing.Any], bool]]
@@ -137,8 +138,8 @@ class Filter:
         return name
 
     @classmethod
-    def parse(cls, string: str) -> "Filter":
-        return cls(parser.search.parseString(string, parseAll=True)[0])
+    def parse(cls, string: str, description: typing.Optional[str] = None) -> "Filter":
+        return cls(parser.search.parseString(string, parseAll=True)[0], description)
 
     def __str__(self):
         return self._tree_to_str(self.tree)

@@ -33,9 +33,11 @@ from mergify_engine.rules import types
 LOG = daiquiri.getLogger(__name__)
 
 
-def RuleCondition(value: str) -> filter.Filter:
+def RuleCondition(
+    value: str, *, description: typing.Optional[str] = None
+) -> filter.Filter:
     try:
-        return filter.Filter.parse(value)
+        return filter.Filter.parse(value, description)
     except filter.parser.pyparsing.ParseException as e:
         raise voluptuous.Invalid(
             message=f"Invalid condition '{value}'. {str(e)}", error_message=str(e)
@@ -50,6 +52,19 @@ RuleConditions = typing.NewType("RuleConditions", typing.List[filter.Filter])
 RuleMissingConditions = typing.NewType(
     "RuleMissingConditions", typing.List[filter.Filter]
 )
+
+
+async def get_branch_protection_conditions(
+    ctxt: context.Context,
+) -> typing.List[filter.Filter]:
+    return [
+        RuleCondition(
+            f"check-success={check}", description="🛡 GitHub branch protection"
+        )
+        for check in await ctxt.repository.get_branch_protection_checks(
+            ctxt.pull["base"]["ref"]
+        )
+    ]
 
 
 # TODO(sileht): rename me PullRequestRule ?
@@ -149,12 +164,7 @@ class QueueRule:
         return cls(name, conditions, d)
 
     async def get_pull_request_rule(self, ctxt: context.Context) -> EvaluatedQueueRule:
-        branch_protection_conditions = [
-            RuleCondition(f"check-success={check}")
-            for check in await ctxt.repository.get_branch_protection_checks(
-                ctxt.pull["base"]["ref"]
-            )
-        ]
+        branch_protection_conditions = await get_branch_protection_conditions(ctxt)
         queue_rule_with_branch_protection = QueueRule(
             self.name,
             RuleConditions(self.conditions + branch_protection_conditions),
@@ -277,7 +287,9 @@ class PullRequestRules:
     rules: typing.List[Rule]
 
     def __post_init__(self):
-        # Make sure each rule has a unique name
+        # NOTE(sileht): Make sure each rule has a unique name because they are
+        # used to serialize the rule/action result in summary. And the summary
+        # uses as unique key something like: f"{rule.name} ({action.name})"
         sorted_rules = sorted(self.rules, key=operator.attrgetter("name"))
         grouped_rules = itertools.groupby(sorted_rules, operator.attrgetter("name"))
         for _, sub_rules in grouped_rules:
@@ -294,8 +306,52 @@ class PullRequestRules:
         return any(rule for rule in self.rules if not rule.hidden)
 
     async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
+        runtime_rules = []
+        for rule in self.rules:
+            if not rule.actions:
+                runtime_rules.append(rule)
+                continue
+
+            actions_with_branch_protections = {}
+            actions_without_branch_protections = {}
+            for name, action in rule.actions.items():
+                if name in ["queue", "merge"]:
+                    actions_with_branch_protections[name] = action
+                else:
+                    actions_without_branch_protections[name] = action
+
+            if actions_with_branch_protections:
+                branch_protection_conditions = await get_branch_protection_conditions(
+                    ctxt
+                )
+                if branch_protection_conditions:
+                    runtime_rules.append(
+                        Rule(
+                            name=rule.name,
+                            conditions=RuleConditions(
+                                rule.conditions + branch_protection_conditions
+                            ),
+                            actions=actions_with_branch_protections,
+                            hidden=rule.hidden,
+                        )
+                    )
+                else:
+                    actions_without_branch_protections.update(
+                        actions_with_branch_protections
+                    )
+
+            if actions_without_branch_protections:
+                runtime_rules.append(
+                    Rule(
+                        name=rule.name,
+                        conditions=rule.conditions,
+                        actions=actions_without_branch_protections,
+                        hidden=rule.hidden,
+                    )
+                )
+
         return await RulesEvaluator.create(
-            self.rules, ctxt, EvaluatedRule.from_rule, True
+            runtime_rules, ctxt, EvaluatedRule.from_rule, True
         )
 
 
