@@ -212,7 +212,7 @@ async def run(
 
     ctxt.log.debug("engine get configuration")
     if config_file is None:
-        ctxt.log.info("No config file using defaults")
+        ctxt.log.debug("No config file using defaults")
         config_file = DEFAULT_CONFIG_FILE
 
     # BRANCH CONFIGURATION CHECKING
