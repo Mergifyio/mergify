@@ -82,24 +82,19 @@ def get_already_merged_summary(ctxt, match):
 async def gen_summary_rules(
     ctxt: context.Context,
     _rules: typing.List[rules.EvaluatedRule],
-    show_actions_rules: bool = False,
 ) -> str:
     summary = ""
     for rule in _rules:
         if rule.hidden:
             continue
+
         summary += f"#### Rule: {rule.name}"
         summary += f" ({', '.join(rule.actions)})"
         for cond in rule.conditions:
             checked = " " if cond in rule.missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
-
-        if show_actions_rules:
-            for action, action_obj in rule.actions.items():
-                action_rule = await action_obj.get_rule(ctxt)
-                for cond in action_rule.conditions:
-                    checked = " " if cond in action_rule.missing_conditions else "X"
-                    summary += f"\n- [{checked}] `{cond}` ({action} action only, {action_rule.reason})"
+            if cond.description:
+                summary += f" [{cond.description}]"
 
         if rule.errors:
             summary += "\n"
@@ -118,12 +113,8 @@ async def gen_summary(
 
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
-    summary += await gen_summary_rules(
-        ctxt, match.faulty_rules, show_actions_rules=True
-    )
-    summary += await gen_summary_rules(
-        ctxt, match.matching_rules, show_actions_rules=True
-    )
+    summary += await gen_summary_rules(ctxt, match.faulty_rules)
+    summary += await gen_summary_rules(ctxt, match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
     if not ctxt.subscription.active:

@@ -34,7 +34,6 @@ from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
-from mergify_engine.rules import filter
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -149,38 +148,10 @@ class MergeBaseAction(actions.Action):
     ) -> str:
         pass
 
-    @staticmethod
-    async def _get_branch_protection_conditions(
-        ctxt: context.Context,
-    ) -> typing.List[filter.Filter]:
-        return [
-            rules.RuleCondition(f"check-success={check}")
-            for check in await ctxt.repository.get_branch_protection_checks(
-                ctxt.pull["base"]["ref"]
-            )
-        ]
-
-    async def get_rule(
-        self,
-        ctxt: context.Context,
-    ) -> actions.EvaluatedActionRule:
-        missing_conditions = []
-        conditions = await self._get_branch_protection_conditions(ctxt)
-        for condition in conditions:
-            if not await condition(ctxt.pull_request):
-                missing_conditions.append(condition)
-
-        ear = actions.EvaluatedActionRule(
-            "due to branch protection",
-            rules.RuleConditions(conditions),
-            rules.RuleMissingConditions(missing_conditions),
-        )
-        return ear
-
     async def get_pull_rule_checks_status(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Conclusion:
-        need_look_at_checks = await self._get_branch_protection_conditions(ctxt)
+        need_look_at_checks = []
         for condition in rule.missing_conditions:
             attribute_name = condition.get_attribute_name()
             if attribute_name.startswith("check-") or attribute_name.startswith(

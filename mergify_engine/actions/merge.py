@@ -171,6 +171,8 @@ class MergeAction(merge_base.MergeBaseAction):
         for cond in rule.conditions:
             checked = " " if cond in rule.missing_conditions else "X"
             summary += f"\n- [{checked}] `{cond}`"
+            if cond.description:
+                summary += f" [{cond.description}]"
 
         pulls = await q.get_pulls()
         if pulls:

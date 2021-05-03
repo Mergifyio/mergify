@@ -696,7 +696,14 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         }
     ]
 
-    client.item = mock.AsyncMock(return_value={"permission": "write"})
+    async def client_item(url, *args, **kwargs):
+        if url == "/repos/another-jd/name/collaborators/sileht/permission":
+            return {"permission": "write"}
+        elif url == "/repos/another-jd/name/collaborators/jd/permission":
+            return {"permission": "write"}
+        raise RuntimeError(f"not handled url {url}")
+
+    client.item.side_effect = client_item
 
     async def client_items(url, *args, **kwargs):
         if url == "/repos/another-jd/name/pulls/1/reviews":
@@ -1121,6 +1128,40 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert len(match.matching_rules[0].missing_conditions) == 0
+
+    # branch protection
+    async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
+        if url == "/repos/another-jd/name/branches/master":
+            return {
+                "protection": {
+                    "enabled": True,
+                    "required_status_checks": {"contexts": ["awesome-ci"]},
+                },
+            }
+        raise RuntimeError(f"not handled url {url}")
+
+    client.item.side_effect = client_item_with_branch_protection_enabled
+    pull_request_rules = pull_request_rule_from_list(
+        [
+            {
+                "name": "default",
+                "conditions": [],
+                "actions": {"merge": {}, "comment": {"message": "yo"}},
+            }
+        ]
+    )
+    match = await pull_request_rules.get_pull_request_rule(ctxt)
+
+    assert [r.name for r in match.rules] == ["default", "default"]
+    assert list(match.matching_rules[0].actions.keys()) == ["merge"]
+    assert [str(c) for c in match.matching_rules[0].conditions] == [
+        "check-success=awesome-ci"
+    ]
+    assert [str(c) for c in match.matching_rules[0].missing_conditions] == [
+        "check-success=awesome-ci"
+    ]
+    assert list(match.matching_rules[1].actions.keys()) == ["comment"]
+    assert match.matching_rules[1].conditions == []
 
 
 def test_check_runs_custom():

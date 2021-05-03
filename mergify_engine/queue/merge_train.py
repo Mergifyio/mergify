@@ -332,6 +332,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
             else:
                 checked = " "
             description += f"\n- [{checked}] `{cond}`"
+            if cond.description:
+                description += f" [{cond.description}]"
 
         table = [
             "| | Pull request | Queue/Priority | Speculative checks |",
@@ -453,6 +455,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
         for cond in evaluated_queue_rule.conditions:
             checked = " " if cond in evaluated_queue_rule.missing_conditions else "X"
             queue_summary += f"\n- [{checked}] `{cond}`"
+            if cond.description:
+                queue_summary += f" [{cond.description}]"
 
         original_ctxt = await self.train.repository.get_pull_request_context(
             self.user_pull_request_number
