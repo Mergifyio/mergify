@@ -449,20 +449,20 @@ class MergeBaseAction(actions.Action):
         bot_account = self.config["merge_bot_account"]
         if bot_account:
             user_tokens = await ctxt.repository.installation.get_user_tokens()
-            oauth_token = user_tokens.get_token_for(bot_account)
-            if not oauth_token:
+            github_user = user_tokens.get_token_for(bot_account)
+            if not github_user:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
                     f"Unable to rebase: user `{bot_account}` is unknown. ",
                     f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
                 )
         else:
-            oauth_token = None
+            github_user = None
 
         try:
             await ctxt.client.put(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
-                oauth_token=oauth_token,  # type: ignore
+                oauth_token=github_user["oauth_access_token"] if github_user else None,
                 json=data,
             )
         except http.HTTPClientSideError as e:  # pragma: no cover

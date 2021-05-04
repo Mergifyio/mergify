@@ -233,9 +233,9 @@ class Repository(object):
         :return: The filename and its content.
         """
 
-        kwargs = {}
+        params = {}
         if ref:
-            kwargs["ref"] = ref
+            params["ref"] = str(ref)
 
         filenames = self.MERGIFY_CONFIG_FILENAMES.copy()
         if preferred_filename:
@@ -248,7 +248,7 @@ class Repository(object):
                     github_types.GitHubContentFile,
                     await self.installation.client.item(
                         f"{self.base_url}/contents/{filename}",
-                        **kwargs,
+                        params=params,
                     ),
                 )
             except http.HTTPNotFound:

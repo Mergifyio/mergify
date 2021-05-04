@@ -488,3 +488,7 @@ class GitHubGitRef(typing.TypedDict):
 class GitHubRequestedReviewers(typing.TypedDict):
     users: typing.List[GitHubAccount]
     teams: typing.List[GitHubTeam]
+
+
+GitHubApiVersion = typing.Literal["squirrel-girl", "lydian", "groot"]
+GitHubOAuthToken = typing.NewType("GitHubOAuthToken", str)

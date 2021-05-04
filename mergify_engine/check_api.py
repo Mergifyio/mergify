@@ -79,15 +79,15 @@ async def get_checks_for_ref(
     check_name: typing.Optional[str] = None,
 ) -> typing.List[github_types.GitHubCheckRun]:
     if check_name is None:
-        kwargs = {}
+        params = {}
     else:
-        kwargs = {"check_name": check_name}
+        params = {"check_name": check_name}
     checks: typing.List[github_types.GitHubCheckRun] = [
         check
         async for check in ctxt.client.items(
             f"{ctxt.base_url}/commits/{sha}/check-runs",
             list_items="check_runs",
-            **kwargs,
+            params=params,
         )
     ]
     return checks

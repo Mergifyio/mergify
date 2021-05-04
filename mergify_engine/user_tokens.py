@@ -32,7 +32,7 @@ LOG = daiquiri.getLogger(__name__)
 
 class UserTokensUser(typing.TypedDict):
     login: github_types.GitHubLogin
-    oauth_access_token: str
+    oauth_access_token: github_types.GitHubOAuthToken
     name: typing.Optional[str]
     email: typing.Optional[str]
 
@@ -56,7 +56,7 @@ class UserTokens:
         return [
             {
                 "login": github_types.GitHubLogin(login),
-                "oauth_access_token": oauth_access_token,
+                "oauth_access_token": github_types.GitHubOAuthToken(oauth_access_token),
                 "email": None,
                 "name": None,
             }

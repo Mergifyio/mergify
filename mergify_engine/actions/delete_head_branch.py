@@ -43,7 +43,8 @@ class DeleteHeadBranchAction(actions.Action):
                 pulls_using_this_branch = [
                     branch
                     async for branch in ctxt.client.items(
-                        f"{ctxt.base_url}/pulls", base=ctxt.pull["head"]["ref"]
+                        f"{ctxt.base_url}/pulls",
+                        params={"base": ctxt.pull["head"]["ref"]},
                     )
                 ]
                 if pulls_using_this_branch:

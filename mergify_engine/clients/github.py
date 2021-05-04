@@ -16,7 +16,6 @@
 import contextlib
 import dataclasses
 import datetime
-import functools
 import typing
 from urllib import parse
 
@@ -328,6 +327,26 @@ def _check_rate_limit(response: httpx.Response) -> None:
         raise exceptions.RateLimited(delta, remaining)
 
 
+def _inject_options(func: typing.Any) -> typing.Any:
+    async def wrapper(
+        self: "AsyncGithubInstallationClient",
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        headers = kwargs.pop("headers", {})
+        if api_version:
+            headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
+        if oauth_token:
+            kwargs["auth"] = GithubTokenAuth(
+                oauth_token, self.auth.owner, self.auth.owner_id
+            )
+        return await func(url, headers=headers, **kwargs)
+
+    return wrapper
+
+
 class AsyncGithubInstallationClient(http.AsyncClient):
     auth: _T_get_auth
 
@@ -340,35 +359,111 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             **http.DEFAULT_CLIENT_OPTIONS,  # type: ignore
         )
 
-        for method in ("get", "post", "put", "patch", "delete", "head"):
-            setattr(self, method, self._inject_options(getattr(self, method)))
-
     def __repr__(self):
         return f"<AsyncGithubInstallationClient owner='{self.auth.owner}'>"
 
-    def _inject_options(self, func):
-        @functools.wraps(func)
-        async def wrapper(url, api_version=None, oauth_token=None, **kwargs):
-            headers = kwargs.pop("headers", {})
-            if api_version:
-                headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
-            if oauth_token:
-                kwargs["auth"] = GithubTokenAuth(
-                    oauth_token, self.auth.owner, self.auth.owner_id
-                )
-            return await func(url, headers=headers, **kwargs)
+    def _prepare_request_kwargs(
+        self,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        if api_version:
+            kwargs.setdefault("headers", {})[
+                "Accept"
+            ] = f"application/vnd.github.{api_version}-preview+json"
+        if oauth_token:
+            kwargs["auth"] = GithubTokenAuth(
+                oauth_token, self.auth.owner, self.auth.owner_id
+            )
+        return kwargs
 
-        return wrapper
+    async def get(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().get(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
 
-    async def item(self, url, api_version=None, oauth_token=None, **params):
+    async def post(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().post(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
+
+    async def put(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().put(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
+
+    async def patch(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().patch(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
+
+    async def head(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().head(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
+
+    async def delete(  # type: ignore[override]
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        return await super().delete(
+            url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
+        )
+
+    async def item(
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        params: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> typing.Any:
         response = await self.get(
             url, api_version=api_version, oauth_token=oauth_token, params=params
         )
         return response.json()
 
     async def items(
-        self, url, api_version=None, oauth_token=None, list_items=None, **params
-    ):
+        self,
+        url: str,
+        api_version: typing.Optional[github_types.GitHubApiVersion] = None,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+        list_items: typing.Optional[str] = None,
+        params: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> typing.Any:
         while True:
             response = await self.get(
                 url, api_version=api_version, oauth_token=oauth_token, params=params
@@ -376,7 +471,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             last_url = response.links.get("last", {}).get("url")
             if last_url:
                 last_page = int(
-                    parse.parse_qs(parse.urlparse(last_url).query).get("page")[0]
+                    parse.parse_qs(parse.urlparse(last_url).query)["page"][0]
                 )
                 if last_page > 100:
                     raise TooManyPages(last_page, response)

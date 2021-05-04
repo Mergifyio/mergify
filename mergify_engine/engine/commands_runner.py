@@ -96,7 +96,7 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
                 f"/repos/{owner}/{repo}/issues/comments/{event['comment']['id']}/reactions",
                 json={"content": "+1"},
                 api_version="squirrel-girl",
-            )  # type: ignore[call-arg]
+            )
 
 
 async def run_pending_commands_tasks(

@@ -370,7 +370,9 @@ async def duplicate(
                         "base": branch_name,
                         "head": bp_branch,
                     },
-                    oauth_token=bot_account_user["oauth_access_token"] if bot_account_user else None,  # type: ignore
+                    oauth_token=bot_account_user["oauth_access_token"]
+                    if bot_account_user
+                    else None,
                 )
             ).json(),
         )

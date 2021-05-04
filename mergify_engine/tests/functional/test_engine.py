@@ -271,7 +271,7 @@ expected alphabetic or numeric character, but found"""
         master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = await self.get_pulls(base=self.master_branch_name)
+        pulls = await self.get_pulls(params={"base": self.master_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_strict_default(self):
@@ -326,7 +326,7 @@ expected alphabetic or numeric character, but found"""
         master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = await self.get_pulls(base=self.master_branch_name)
+        pulls = await self.get_pulls(params={"base": self.master_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_smart_strict(self):
@@ -420,7 +420,7 @@ expected alphabetic or numeric character, but found"""
         master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = await self.get_pulls(base=self.master_branch_name)
+        pulls = await self.get_pulls(params={"base": self.master_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_failure_smart_strict(self):
@@ -490,7 +490,7 @@ expected alphabetic or numeric character, but found"""
         master_sha = (await self.get_head_commit())["sha"]
         assert previous_master_sha != master_sha
 
-        pulls = await self.get_pulls(base=self.master_branch_name)
+        pulls = await self.get_pulls(params={"base": self.master_branch_name})
         assert 1 == len(pulls)
 
     async def test_teams(self):
@@ -789,7 +789,9 @@ expected alphabetic or numeric character, but found"""
 
         assert await self.is_pull_merged(p["number"])
 
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        pulls = await self.get_pulls(
+            params={"state": "all", "base": self.master_branch_name}
+        )
         assert 1 == len(pulls)
         assert p["number"] == pulls[0]["number"]
         assert "closed" == pulls[0]["state"]
