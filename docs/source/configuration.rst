@@ -132,7 +132,12 @@ Regular Expressions
 
 .. tip::
 
-  You can use `regex101 <https://regex101.com/>`_, `PyRegex
+  You can use `regex101 <https://regex101.com/>`_ or `PyRegex
+  <http://www.pyregex.com>`_ to test your regular expressions.
+
+..
+   # FIXME(sileht): pyregex is currently down, ssl expired
+   You can use `regex101 <https://regex101.com/>`_, `PyRegex
   <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
   regular expressions.
 
