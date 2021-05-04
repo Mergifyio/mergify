@@ -386,9 +386,9 @@ async def test_get_mergify_config_location_from_cache(
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foo/bar/contents/.mergify.yml"),
-            mock.call("/repos/foo/bar/contents/.mergify/config.yml"),
-            mock.call("/repos/foo/bar/contents/.github/mergify.yml"),
+            mock.call("/repos/foo/bar/contents/.mergify.yml", params={}),
+            mock.call("/repos/foo/bar/contents/.mergify/config.yml", params={}),
+            mock.call("/repos/foo/bar/contents/.github/mergify.yml", params={}),
         ]
     )
 
@@ -408,7 +408,7 @@ async def test_get_mergify_config_location_from_cache(
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foo/bar/contents/.github/mergify.yml"),
+            mock.call("/repos/foo/bar/contents/.github/mergify.yml", params={}),
         ]
     )
 

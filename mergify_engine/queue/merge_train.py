@@ -203,7 +203,7 @@ class TrainCar(PseudoTrainCar):
         try:
             await ctxt.client.put(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
-                api_version="lydian",  # type: ignore[call-arg]
+                api_version="lydian",
                 json={"expected_head_sha": ctxt.pull["head"]["sha"]},
             )
         except http.HTTPClientSideError as exc:

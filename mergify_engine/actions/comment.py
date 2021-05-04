@@ -65,20 +65,20 @@ class CommentAction(actions.Action):
 
         if bot_account := self.config["bot_account"]:
             user_tokens = await ctxt.repository.installation.get_user_tokens()
-            oauth_token = user_tokens.get_token_for(bot_account)
-            if not oauth_token:
+            github_user = user_tokens.get_token_for(bot_account)
+            if not github_user:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
                     f"Unable to comment: user `{bot_account}` is unknown. ",
                     f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
                 )
         else:
-            oauth_token = None
+            github_user = None
 
         try:
             await ctxt.client.post(
                 f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
-                oauth_token=oauth_token,  # type: ignore
+                oauth_token=github_user["oauth_access_token"] if github_user else None,
                 json={"body": message},
             )
         except http.HTTPClientSideError as e:  # pragma: no cover

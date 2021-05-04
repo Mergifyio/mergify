@@ -46,16 +46,21 @@ class TestGithubClient(base.FunctionalTestBase):
         pulls = [p async for p in client.items(url)]
         self.assertEqual(3, len(pulls))
 
-        pulls = [p async for p in client.items(url, per_page=1)]
+        pulls = [p async for p in client.items(url, params={"per_page": 1})]
         self.assertEqual(3, len(pulls))
 
-        pulls = [p async for p in client.items(url, per_page=1, page=2)]
+        pulls = [p async for p in client.items(url, params={"per_page": 1, "page": 2})]
         self.assertEqual(2, len(pulls))
 
-        pulls = [p async for p in client.items(url, base=other_branch, state="all")]
+        pulls = [
+            p
+            async for p in client.items(
+                url, params={"base": other_branch, "state": "all"}
+            )
+        ]
         self.assertEqual(1, len(pulls))
 
-        pulls = [p async for p in client.items(url, base="unknown")]
+        pulls = [p async for p in client.items(url, params={"base": "unknown"})]
         self.assertEqual(0, len(pulls))
 
         pull = await client.item(f"{url}/{p1['number']}")

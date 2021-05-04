@@ -284,10 +284,12 @@ class CopyAction(actions.Action):
                 typing.AsyncGenerator[github_types.GitHubPullRequest, None],
                 ctxt.client.items(
                     f"{ctxt.base_url}/pulls",
-                    base=branch_name,
-                    sort="created",
-                    state="all",
-                    head=f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
+                    params={
+                        "base": branch_name,
+                        "sort": "created",
+                        "state": "all",
+                        "head": f"{ctxt.pull['base']['user']['login']}:{bp_branch}",
+                    },
                 ),
             )
         ]

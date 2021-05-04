@@ -122,7 +122,10 @@ async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
         async with github.AsyncGithubInstallationClient(
             github.get_auth(github_types.GitHubLogin("owner"))
         ) as client:
-            ret = await client.get(httpserver.url_for("/"), oauth_token="<user-token>")  # type: ignore[call-arg]
+            ret = await client.get(
+                httpserver.url_for("/"),
+                oauth_token=github_types.GitHubOAuthToken("<user-token>"),
+            )
             assert ret.json()["work"]
 
     assert len(httpserver.log) == 2

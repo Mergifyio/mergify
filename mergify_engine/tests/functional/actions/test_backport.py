@@ -66,11 +66,13 @@ class BackportActionTestBase(base.FunctionalTestBase):
 
         assert await self.is_pull_merged(p["number"])
 
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        pulls = await self.get_pulls(
+            params={"state": "all", "base": self.master_branch_name}
+        )
         assert 1 == len(pulls)
         assert "closed" == pulls[0]["state"]
 
-        pulls = await self.get_pulls(state="all", base=stable_branch)
+        pulls = await self.get_pulls(params={"state": "all", "base": stable_branch})
         assert 2 == len(pulls)
         assert not await self.is_pull_merged(pulls[0]["number"])
         assert not await self.is_pull_merged(pulls[1]["number"])
@@ -291,7 +293,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p, checks = await self._do_backport_conflicts(True, ["backported"])
 
-        pull = (await self.get_pulls(base=stable_branch))[0]
+        pull = (await self.get_pulls(params={"base": stable_branch}))[0]
 
         assert "success" == checks[0]["conclusion"]
         assert "Backports have been created" == checks[0]["output"]["title"]

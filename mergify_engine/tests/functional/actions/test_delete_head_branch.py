@@ -60,7 +60,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        pulls = await self.get_pulls(
+            params={"state": "all", "base": self.master_branch_name}
+        )
         self.assertEqual(2, len(pulls))
 
         branches = await self.get_branches()
@@ -99,9 +101,11 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         await self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        pulls = await self.get_pulls(
+            params={"state": "all", "base": self.master_branch_name}
+        )
         assert 1 == len(pulls)
-        pulls = await self.get_pulls(state="all", base=first_branch)
+        pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
         assert 1 == len(pulls)
 
         branches = await self.get_branches()
@@ -145,9 +149,11 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         )
         await self.run_engine()
 
-        pulls = await self.get_pulls(state="all", base=self.master_branch_name)
+        pulls = await self.get_pulls(
+            params={"state": "all", "base": self.master_branch_name}
+        )
         assert 1 == len(pulls)
-        pulls = await self.get_pulls(state="all", base=first_branch)
+        pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
         assert 1 == len(pulls)
 
         branches = await self.get_branches()

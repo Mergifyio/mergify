@@ -45,9 +45,13 @@ class TestCommandCopy(base.FunctionalTestBase):
         await self.wait_for("issue_comment", {"action": "created"})
         await self.run_engine()
 
-        pulls_stable = await self.get_pulls(state="all", base=stable_branch)
+        pulls_stable = await self.get_pulls(
+            params={"state": "all", "base": stable_branch}
+        )
         assert 1 == len(pulls_stable)
-        pulls_feature = await self.get_pulls(state="all", base=feature_branch)
+        pulls_feature = await self.get_pulls(
+            params={"state": "all", "base": feature_branch}
+        )
         assert 1 == len(pulls_feature)
         comments = await self.get_issue_comments(p["number"])
         assert len(comments) == 2
