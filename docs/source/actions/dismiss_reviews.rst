@@ -59,7 +59,7 @@ as the pull request gets updated with new commits.
     pull_request_rules:
       - name: remove outdated reviews
         conditions:
-          - base=master
+          - base=main
         actions:
           dismiss_reviews:
 
@@ -72,7 +72,7 @@ trusted, even if they update their code:
     pull_request_rules:
       - name: remove outdated reviews for non trusted authors
         conditions:
-          - base=master
+          - base=main
           - author!=@mytrustedteam
         actions:
           dismiss_reviews:
