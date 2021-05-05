@@ -121,6 +121,12 @@ class MergeBaseAction(actions.Action):
         pass
 
     @abc.abstractmethod
+    async def _should_be_merged_during_cancel(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
+        pass
+
+    @abc.abstractmethod
     async def _should_be_merged(
         self, ctxt: context.Context, q: queue.QueueBase
     ) -> bool:
@@ -299,10 +305,12 @@ class MergeBaseAction(actions.Action):
         ):
             try:
                 if await self._should_be_merged(ctxt, q):
-                    # Just wait for CIs to finish
-                    result = await self.get_queue_status(
-                        ctxt, rule, q, is_behind=await ctxt.is_behind
-                    )
+                    if await self._should_be_merged_during_cancel(ctxt, q):
+                        result = await self._merge(ctxt, rule, q)
+                    else:
+                        result = await self.get_queue_status(
+                            ctxt, rule, q, is_behind=await ctxt.is_behind
+                        )
                 elif await self._should_be_synced(ctxt, q):
                     # Something got merged in the base branch in the meantime: rebase it again
                     result = await self._sync_with_base_branch(ctxt, rule, q)
