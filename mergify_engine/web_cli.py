@@ -29,7 +29,7 @@ async def api_call(url, method="post"):
 
     async with http.AsyncClient() as client:
         r = await client.request(
-            method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, data=data
+            method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, content=data
         )
     r.raise_for_status()
     print(r.text)

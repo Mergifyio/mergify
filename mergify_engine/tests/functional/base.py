@@ -146,7 +146,7 @@ class EventReader:
         r = await self._session.request(
             "DELETE",
             self.FORWARDER_ENDPOINT,
-            data=FAKE_DATA,
+            content=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
         r.raise_for_status()
@@ -201,7 +201,7 @@ class EventReader:
             await self._session.request(
                 "GET",
                 f"{self.FORWARDER_ENDPOINT}?counter={self._counter}",
-                data=FAKE_DATA,
+                content=FAKE_DATA,
                 headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
             )
         ).json()
