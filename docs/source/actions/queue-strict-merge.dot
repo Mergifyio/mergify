@@ -9,7 +9,7 @@ strict digraph g {
     node [width=0.2, height=0.2, fixedsize=true, label="", shape=circle, fillcolor="#FF0000"]
 
 
-    node [group="master", fillcolor="#C9E7F8"];
+    node [group="main", fillcolor="#C9E7F8"];
     ms:e -> m0:w [style=dotted, arrowhead=none];
     m0:e -> m1:w;
     m1:e -> m2:w;
