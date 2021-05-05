@@ -194,6 +194,24 @@ class QueueAction(merge_base.MergeBaseAction):
             )
         return False
 
+    async def _should_be_merged_during_cancel(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
+        # NOTE(sileht):
+        # * The pull request have been queued (pull_request_rule has match once)
+        # * we rebased the head pull request
+        # * _should_be_cancel didn't remove the pull from the queue because
+        #   nothing external of queue_rule unmatch
+        # * queue rule conditions all match
+        # * We are good to not wait user CIs list pull_request_rule but only in
+        #   queue_rule
+        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        if car and car.state == "updated":
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            return not queue_rule_evaluated.missing_conditions
+
+        return False
+
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         # NOTE(sileht): done by the train itself
         return False
@@ -211,17 +229,18 @@ class QueueAction(merge_base.MergeBaseAction):
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
         if car and car.state == "updated":
+            # NOTE(sileht) check first if PR should be removed from the queue
+            pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
+            if pull_rule_checks_status == check_api.Conclusion.FAILURE:
+                return True
+
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
             queue_rule_checks_status = await merge_train.get_queue_rule_checks_status(
                 ctxt, queue_rule_evaluated
             )
-            if queue_rule_checks_status != check_api.Conclusion.FAILURE:
-                return False
-            pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
-            if pull_rule_checks_status != check_api.Conclusion.FAILURE:
-                return False
+            return queue_rule_checks_status == check_api.Conclusion.FAILURE
 
         return True
 
