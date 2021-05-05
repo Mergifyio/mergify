@@ -107,6 +107,7 @@ status_success = "status-success" + _match_with_operator(text)
 status_failure = "status-failure" + _match_with_operator(text)
 status_neutral = "status-neutral" + _match_with_operator(text)
 check_success = "check-success" + _match_with_operator(text)
+check_success_or_neutral = "check-success-or-neutral" + _match_with_operator(text)
 check_failure = "check-failure" + _match_with_operator(text)
 check_neutral = "check-neutral" + _match_with_operator(text)
 check_skipped = "check-skipped" + _match_with_operator(text)
@@ -135,6 +136,7 @@ quantifiable_attributes = (
     | status_failure
     | check_success
     | check_neutral
+    | check_success_or_neutral
     | check_failure
     | check_skipped
     | check_pending

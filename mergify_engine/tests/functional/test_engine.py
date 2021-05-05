@@ -843,7 +843,7 @@ expected alphabetic or numeric character, but found"""
         protection = {
             "required_status_checks": {
                 "strict": False,
-                "contexts": ["continuous-integration/fake-ci"],
+                "contexts": ["continuous-integration/fake-ci", "neutral-ci"],
             },
             "required_pull_request_reviews": None,
             "restrictions": None,
@@ -880,7 +880,8 @@ expected alphabetic or numeric character, but found"""
         assert (
             f"""#### Rule: merge (merge)
 - [X] `base={self.master_branch_name}`
-- [ ] `check-success=continuous-integration/fake-ci` [🛡 GitHub branch protection]
+- [ ] `check-success-or-neutral=continuous-integration/fake-ci` [🛡 GitHub branch protection]
+- [ ] `check-success-or-neutral=neutral-ci` [🛡 GitHub branch protection]
 
 #### Rule: merge (comment)
 - [X] `base={self.master_branch_name}`
@@ -889,6 +890,11 @@ expected alphabetic or numeric character, but found"""
         )
 
         await self.create_status(p)
+        await check_api.set_check_run(
+            ctxt,
+            "neutral-ci",
+            check_api.Result(check_api.Conclusion.NEUTRAL, title="bla", summary=""),
+        )
 
         await self.run_engine()
 

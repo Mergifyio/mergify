@@ -99,6 +99,7 @@ pull_request_rules:
  'check-skipped': [],
  'check-stale': [],
  'check-success': ['Summary'],
+ 'check-success-or-neutral': ['Summary'],
  'closed': False,
  'commented-reviews-by': [],
  'conflict': False,

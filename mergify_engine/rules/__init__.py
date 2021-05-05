@@ -59,7 +59,8 @@ async def get_branch_protection_conditions(
 ) -> typing.List[filter.Filter]:
     return [
         RuleCondition(
-            f"check-success={check}", description="🛡 GitHub branch protection"
+            f"check-success-or-neutral={check}",
+            description="🛡 GitHub branch protection",
         )
         for check in await ctxt.repository.get_branch_protection_checks(
             ctxt.pull["base"]["ref"]

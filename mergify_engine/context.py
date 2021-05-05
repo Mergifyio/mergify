@@ -757,6 +757,12 @@ class Context(object):
             return [r["user"]["login"] for r in comments if r["state"] == "COMMENTED"]
 
         # NOTE(jd) The Check API set conclusion to None for pending.
+        elif name == "check-success-or-neutral":
+            return [
+                ctxt
+                for ctxt, state in (await self.checks).items()
+                if state in ("success", "neutral")
+            ]
         elif name in ("status-success", "check-success"):
             return [
                 ctxt
@@ -1147,6 +1153,7 @@ class PullRequest:
         "changes-requested-reviews-by",
         "commented-reviews-by",
         "check-success",
+        "check-success-or-neutral",
         "check-failure",
         "check-neutral",
         "status-success",
