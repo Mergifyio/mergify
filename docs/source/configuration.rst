@@ -16,7 +16,7 @@ Mergify uses the configuration file that is:
 - The file named ``.mergify.yml``, or, as a fallback, ``.mergify/config.yml`` or ``.github/mergify.yml``
   from the root directory.
 
-- In the default repository branch configured on GitHub — usually ``master``.
+- In the default repository branch configured on GitHub — usually ``main``.
 
 Format
 ------
@@ -162,9 +162,9 @@ Examples
             add:
               - python
 
-      - name: automatic merge for master when the title does not contain “WIP” (ignoring case)
+      - name: automatic merge for main when the title does not contain “WIP” (ignoring case)
         conditions:
-          - base=master
+          - base=main
           - -title~=(?i)wip
         actions:
           merge:

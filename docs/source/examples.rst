@@ -29,11 +29,11 @@ it.
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when CI passes and 2 reviews
+      - name: automatic merge for main when CI passes and 2 reviews
         conditions:
           - "#approved-reviews-by>=2"
           - check-success=Travis CI - Pull Request
-          - base=master
+          - base=main
         actions:
           merge:
             method: merge
@@ -48,11 +48,11 @@ You can tweak this rule as you want. For example, you could use a label such as
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when CI passes and 2 reviews and not WIP
+      - name: automatic merge for main when CI passes and 2 reviews and not WIP
         conditions:
           - "#approved-reviews-by>=2"
           - check-success=Travis CI - Pull Request
-          - base=master
+          - base=main
           - label!=work-in-progress
         actions:
           merge:
@@ -64,7 +64,7 @@ certain member. You could therefore write such a rule:
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when CI passes approved by octocat
+      - name: automatic merge for main when CI passes approved by octocat
         conditions:
           - approved-reviews-by=octocat
           - check-success=Travis CI - Pull Request
@@ -118,20 +118,20 @@ the pull requests when the CI passes and when all the files are inside the
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some projects like having easier review requirements for maintenance branches.
-That usually means having e.g. 2 review requested for merging into ``master``,
+That usually means having e.g. 2 review requested for merging into ``main``,
 but only one for a stable branch — since those pull request are essentially
-backport from ``master``.
+backport from ``main``.
 
 To automate the merge in this case, you could write some rules along those:
 
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when reviewed and CI passes
+      - name: automatic merge for main when reviewed and CI passes
         conditions:
           - "check-success=ci/circleci: my_testing_job"
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
         actions:
           merge:
             method: merge
@@ -156,11 +156,11 @@ condition using a `label
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when reviewed and CI passes
+      - name: automatic merge for main when reviewed and CI passes
         conditions:
           - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
           - label=ready-to-merge
         actions:
           merge:
@@ -176,11 +176,11 @@ labelled as ``work-in-progress`` should not be merged:
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge for master when reviewed and CI passes
+      - name: automatic merge for main when reviewed and CI passes
         conditions:
           - check-success=continuous-integration/travis-ci/pr
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
           - label!=work-in-progress
         actions:
           merge:
@@ -208,7 +208,7 @@ configure the priority option of :ref:`merge action`:
         conditions:
           - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
           - label=🚑 hotfix
         actions:
           merge:
@@ -220,17 +220,17 @@ configure the priority option of :ref:`merge action`:
           - author~=^dependabot(|-preview)\[bot\]$
           - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
         actions:
           merge:
             method: merge
             strict: smart
             priority: low
-      - name: automatic merge for master when reviewed and CI passes
+      - name: automatic merge for main when reviewed and CI passes
         conditions:
           - check-success=Travis CI - Pull Request
           - "#approved-reviews-by>=2"
-          - base=master
+          - base=main
         actions:
           merge:
             method: merge

@@ -117,7 +117,7 @@ added and the pull request merged:
     pull_request_rules:
       - name: backport patches to stable branch
         conditions:
-          - base=master
+          - base=main
           - label=backport-to-stable
         actions:
           backport:
