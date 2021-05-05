@@ -18,7 +18,7 @@ queue_rules:
 pull_request_rules:
   - name: automatic merge
     conditions:
-      - base=master
+      - base=main
       - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
       - check-success=requirements
@@ -35,7 +35,7 @@ pull_request_rules:
       queue:
   - name: automatic merge for hotfix
     conditions:
-      - base=master
+      - base=main
       - author=@devs
       - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
