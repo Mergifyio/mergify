@@ -1155,10 +1155,10 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.rules] == ["default", "default"]
     assert list(match.matching_rules[0].actions.keys()) == ["merge"]
     assert [str(c) for c in match.matching_rules[0].conditions] == [
-        "check-success=awesome-ci"
+        "check-success-or-neutral=awesome-ci"
     ]
     assert [str(c) for c in match.matching_rules[0].missing_conditions] == [
-        "check-success=awesome-ci"
+        "check-success-or-neutral=awesome-ci"
     ]
     assert list(match.matching_rules[1].actions.keys()) == ["comment"]
     assert match.matching_rules[1].conditions == []

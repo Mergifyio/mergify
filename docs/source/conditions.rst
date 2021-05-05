@@ -177,6 +177,14 @@ Here's the list of pull request attribute that can be used in conditions:
        `continuous-integration/travis-ci/pr` or of a *check run* such as
        `Travis CI - Pull Request`. See `About Status Checks`_ for more
        details.
+   * - ``check-success-or-neutral``
+     - list of string
+     - The list of status checks that successfully passed or are neutral for
+       the pull request.
+       This is the name of a *status check* such as
+       `continuous-integration/travis-ci/pr` or of a *check run* such as
+       `Travis CI - Pull Request`. See `About Status Checks`_ for more
+       details.
    * - ``check-failure``
      - list of string
      - The list of status checks that failed for the pull request.

@@ -114,5 +114,6 @@ class TestAttributes(base.FunctionalTestBase):
             "conflict": False,
             "check-pending": ["continuous-integration/fake-ci"],
             "check-stale": [],
+            "check-success-or-neutral": ["Summary"],
             "check-skipped": [],
         }
