@@ -21,11 +21,11 @@ For example:
         conditions:
           - "#approved-reviews-by>=2"
           - status-success=Travis CI - Pull Request
-          - base=master
+          - base=main
         actions:
           merge:
             method: merge
 
-That rule automatically merges a pull request targetting the `master` branch once it has 2 approving reviews and the CI passes.
+That rule automatically merges a pull request targeting the `main` branch once it has 2 approving reviews and the CI passes.
 
-You can learn more by browing the `engine documentation <https://docs.mergify.io>`_.
+You can learn more by browsing the `engine documentation <https://docs.mergify.io>`_.
