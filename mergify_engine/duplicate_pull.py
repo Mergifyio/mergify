@@ -378,7 +378,10 @@ async def duplicate(
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422 and "No commits between" in e.message:
-            raise DuplicateNotNeeded(e.message)
+            if cherry_pick_error:
+                raise DuplicateFailed(cherry_pick_error)
+            else:
+                raise DuplicateNotNeeded(e.message)
         raise
 
     effective_labels = []
