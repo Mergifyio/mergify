@@ -148,6 +148,12 @@ class MergeAction(merge_base.MergeBaseAction):
         else:
             raise RuntimeError("Unexpected strict")
 
+    async def _should_be_merged_during_cancel(
+        self, ctxt: context.Context, q: queue.QueueBase
+    ) -> bool:
+        # NOTE(sileht): we prefer wait the engine to be retriggered and rerun run()
+        return False
+
     async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> bool:

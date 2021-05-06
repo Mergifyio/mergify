@@ -1445,6 +1445,170 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, [])
 
+    async def test_more_ci_in_pull_request_rules_succeed(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "status-success=very-long-ci",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.create_status(p1)
+        await self.create_status(p1, context="very-long-ci")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+
+        await self._assert_cars_contents(
+            q,
+            [
+                TrainCarMatcher(
+                    p1["number"],
+                    [],
+                    p["merge_commit_sha"],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        await self.create_status(p1)
+        await self.run_engine()
+
+        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, [])
+
+    async def test_more_ci_in_pull_request_rules_failure(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "status-success=very-long-ci",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.create_status(p1)
+        await self.create_status(p1, context="very-long-ci")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+
+        await self._assert_cars_contents(
+            q,
+            [
+                TrainCarMatcher(
+                    p1["number"],
+                    [],
+                    p["merge_commit_sha"],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        await self.run_engine()
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        await self.remove_label(p1["number"], "queue")
+        await self.run_engine()
+
+        # not merged and unqueued
+        pulls = await self.get_pulls()
+        assert len(pulls) == 1
+
+        await self._assert_cars_contents(q, [])
+
 
 class TestTrainApiCalls(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
