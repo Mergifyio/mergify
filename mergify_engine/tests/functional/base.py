@@ -233,7 +233,7 @@ class EventReader:
                 "X-Hub-Signature": "sha1=whatever",
                 "Content-type": "application/json",
             },
-            data=json.dumps(payload),
+            content=json.dumps(payload),
         )
         return r
 
