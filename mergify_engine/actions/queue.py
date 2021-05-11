@@ -24,6 +24,7 @@ from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
 from mergify_engine.actions import utils as action_utils
@@ -254,4 +255,14 @@ class QueueAction(merge_base.MergeBaseAction):
         queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
         return (
             await car.generate_merge_queue_summary(queue_rule_evaluated) if car else ""
+        )
+
+    async def send_signal(self, ctxt: context.Context) -> None:
+        await signals.send(
+            ctxt,
+            "action.queue",
+            {
+                "speculative_checks": self.config["queue_config"]["speculative_checks"]
+                > 1
+            },
         )

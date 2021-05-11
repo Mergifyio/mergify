@@ -130,5 +130,5 @@ async def test_signals(redis_cache):
     assert len(signals.SIGNALS) == 1
 
     with mock.patch("mergify_engine_signals.noop.Signal.__call__") as signal_method:
-        await signals.send(ctxt, "action.update")
-        signal_method.assert_called_once_with(ctxt, "action.update")
+        await signals.send(ctxt, "action.update", {"attr": "value"})
+        signal_method.assert_called_once_with(ctxt, "action.update", {"attr": "value"})
