@@ -59,7 +59,7 @@ html_sidebars = {
         "relations.html",
     ]
 }
-html_add_permalinks = " 🔗"
+html_permalinks_icon = "🔗"
 
 # Spelling checker configuration
 spelling_warning = True
