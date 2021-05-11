@@ -417,52 +417,46 @@ async def run_actions(
                 )
                 message = "executed"
 
+            conclusions[check_name] = report.conclusion
+
             if (
-                report
-                and report.conclusion is not check_api.Conclusion.PENDING
+                report.conclusion is not check_api.Conclusion.PENDING
                 and method_name == "run"
             ):
                 statsd.increment("engine.actions.count", tags=[f"name:{action}"])
 
-            if report:
-                if need_to_be_run and (
-                    not action_obj.silent_report
-                    or report.conclusion
-                    not in (
-                        check_api.Conclusion.SUCCESS,
-                        check_api.Conclusion.CANCELLED,
-                        check_api.Conclusion.PENDING,
+            if need_to_be_run and (
+                not action_obj.silent_report
+                or report.conclusion
+                not in (
+                    check_api.Conclusion.SUCCESS,
+                    check_api.Conclusion.CANCELLED,
+                    check_api.Conclusion.PENDING,
+                )
+            ):
+                external_id = (
+                    check_api.USER_CREATED_CHECKS
+                    if action_obj.allow_retrigger_mergify
+                    else None
+                )
+                try:
+                    await check_api.set_check_run(
+                        ctxt,
+                        check_name,
+                        report,
+                        external_id=external_id,
                     )
-                ):
-                    external_id = (
-                        check_api.USER_CREATED_CHECKS
-                        if action_obj.allow_retrigger_mergify
-                        else None
-                    )
-                    try:
-                        await check_api.set_check_run(
-                            ctxt,
-                            check_name,
-                            report,
-                            external_id=external_id,
+                except Exception as e:
+                    if exceptions.should_be_ignored(e):
+                        ctxt.log.info(
+                            "Fail to post check `%s`", check_name, exc_info=True
                         )
-                    except Exception as e:
-                        if exceptions.should_be_ignored(e):
-                            ctxt.log.info(
-                                "Fail to post check `%s`", check_name, exc_info=True
-                            )
-                        elif exceptions.need_retry(e):
-                            raise
-                        else:
-                            ctxt.log.error(
-                                "Fail to post check `%s`", check_name, exc_info=True
-                            )
-                conclusions[check_name] = report.conclusion
-            else:
-                # NOTE(sileht): action doesn't have report (eg:
-                # comment/request_reviews/..) So just assume it succeed
-                ctxt.log.error("action must return a conclusion", action=action)
-                conclusions[check_name] = expected_conclusions[0]
+                    elif exceptions.need_retry(e):
+                        raise
+                    else:
+                        ctxt.log.error(
+                            "Fail to post check `%s`", check_name, exc_info=True
+                        )
 
             ctxt.log.info(
                 "action evaluation: `%s` %s: %s/%s -> %s",
