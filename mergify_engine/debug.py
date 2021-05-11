@@ -343,4 +343,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Debugger for mergify")
     parser.add_argument("url", help="Pull request url")
     args = parser.parse_args()
-    asyncio.run(report(args.url))
+    try:
+        asyncio.run(report(args.url))
+    except BrokenPipeError:
+        pass
