@@ -11,7 +11,7 @@ request_reviews
 
 .. note::
 
-   GitHub does not allow to request more 15 users or teams for a review.
+   GitHub does not allow to request more than 15 users or teams for a review.
 
 The ``request_reviews`` action requests reviews from users for the pull
 request.
