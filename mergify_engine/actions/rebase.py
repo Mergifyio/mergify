@@ -40,6 +40,7 @@ class RebaseAction(actions.Action):
     is_command = True
 
     always_run = True
+    always_cancel = True
 
     silent_report = True
 

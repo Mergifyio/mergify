@@ -48,6 +48,7 @@ class PostCheckAction(actions.Action):
     }
 
     always_run = True
+    always_cancel = True
     allow_retrigger_mergify = True
 
     async def _post(

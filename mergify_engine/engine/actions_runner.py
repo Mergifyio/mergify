@@ -378,8 +378,9 @@ async def run_actions(
                 previous_conclusions, check_name, checks
             )
 
-            need_to_be_run = (
-                action_obj.always_run
+            action_exec_needed = (
+                (method_name == "run" and action_obj.always_run)
+                or (method_name == "cancel" and action_obj.always_cancel)
                 or admin_refresh_requested
                 or (
                     user_refresh_requested
@@ -391,7 +392,7 @@ async def run_actions(
             # TODO(sileht): refactor it to store the whole report in the check summary,
             # not just the conclusions
 
-            if not need_to_be_run:
+            if not action_exec_needed:
                 report = check_api.Result(
                     previous_conclusion, "Already in expected state", ""
                 )
@@ -425,7 +426,7 @@ async def run_actions(
                 statsd.increment("engine.actions.count", tags=[f"name:{action}"])
 
             if report:
-                if need_to_be_run and (
+                if action_exec_needed and (
                     not action_obj.silent_report
                     or report.conclusion
                     not in (
@@ -445,6 +446,7 @@ async def run_actions(
                             check_name,
                             report,
                             external_id=external_id,
+                            update_only=(method_name == "cancel"),
                         )
                     except Exception as e:
                         if exceptions.should_be_ignored(e):

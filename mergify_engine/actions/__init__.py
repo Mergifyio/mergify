@@ -68,6 +68,7 @@ class Action(abc.ABC):
     is_command = False
 
     always_run = False
+    always_cancel = False
 
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
     config: typing.Dict[str, typing.Any]

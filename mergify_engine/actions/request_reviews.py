@@ -60,6 +60,7 @@ class RequestReviewsAction(actions.Action):
     silent_report = True
 
     always_run = True
+    always_cancel = True
 
     def _get_random_reviewers(
         self, random_number: int, pr_author: str

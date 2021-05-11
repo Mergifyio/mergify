@@ -124,6 +124,7 @@ async def set_check_run(
     name: str,
     result: Result,
     external_id: typing.Optional[str] = None,
+    update_only: bool = False,
 ) -> github_types.GitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
@@ -165,6 +166,9 @@ async def set_check_run(
         key=lambda c: c["id"],
         reverse=True,
     )
+
+    if checks and update_only:
+        return
 
     # Only keep the newer checks, cancelled others
     for check_to_cancelled in checks[1:]:

@@ -39,6 +39,7 @@ class DismissReviewsAction(actions.Action):
     }
 
     always_run = True
+    always_cancel = True
 
     silent_report = True
 
