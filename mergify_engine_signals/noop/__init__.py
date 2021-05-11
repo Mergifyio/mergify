@@ -12,10 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 from mergify_engine import context
 from mergify_engine import signals
 
 
 class Signal(signals.SignalBase):
-    async def __call__(self, ctxt: context.Context, event: signals.EventName) -> None:
+    async def __call__(
+        self,
+        ctxt: context.Context,
+        event: signals.EventName,
+        metadata: typing.Optional[signals.SignalMetadata],
+    ) -> None:
         pass

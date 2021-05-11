@@ -25,6 +25,7 @@ from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
 from mergify_engine.actions import utils as action_utils
@@ -36,7 +37,6 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class MergeAction(merge_base.MergeBaseAction):
-
     validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
             "rebase", "merge", "squash"
@@ -211,3 +211,15 @@ class MergeAction(merge_base.MergeBaseAction):
         summary += "\n\n---\n\n"
         summary += constants.MERGIFY_PULL_REQUEST_DOC
         return summary
+
+    async def send_signal(self, ctxt: context.Context) -> None:
+        await signals.send(
+            ctxt,
+            "action.merge",
+            {
+                "merge_bot_account": bool(self.config["merge_bot_account"]),
+                "update_bot_account": bool(self.config["update_bot_account"])
+                or bool(self.config["bot_account"]),
+                "strict": self.config["strict"].value,
+            },
+        )
