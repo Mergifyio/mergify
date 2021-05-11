@@ -1,13 +1,10 @@
 $(function() {
-  // WHY?
-  $("body").fadeIn(0)
-
   // The default href for the current navbar on load is # which does not match the first h1 title and breaks scrollspy
-   $("li.toctree-l1.current > a[href='#']").attr("href", $(".section > h1 > a").attr('href'));
+  $("li.toctree-l1.current > a[href='#']").attr("href", $(".section > h1 > a").attr('href'));
 
   $('body').scrollspy({ target: 'div.sphinxsidebar', offset: 48 })
 
-  // Change class from current to active for navball pills
+  // Change class from current to active for navbar pills
   $("div.sphinxsidebar a.reference.current").removeClass("current").addClass("active")
 
   // Grid layout Style
