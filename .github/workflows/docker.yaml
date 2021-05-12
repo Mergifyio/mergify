@@ -24,7 +24,7 @@ jobs:
         run: echo ::set-output name=value::${GITHUB_REF#refs/*/}
 
       - name: Push to DockerHub
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v2.4.0
         with:
           push: true
           tags: |
