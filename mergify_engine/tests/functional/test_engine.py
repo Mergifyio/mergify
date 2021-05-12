@@ -38,98 +38,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
-    async def test_invalid_configuration(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "foobar",
-                    "wrong key": 123,
-                },
-            ],
-        }
-        await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
-
-        await self.run_engine()
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        check = checks[0]
-        assert check["output"]["title"] == "The Mergify configuration is invalid"
-        assert check["output"]["summary"] == (
-            "* extra keys not allowed @ pull_request_rules → item 0 → wrong key\n"
-            "* required key not provided @ pull_request_rules → item 0 → actions\n"
-            "* required key not provided @ pull_request_rules → item 0 → conditions"
-        )
-
-    async def test_invalid_yaml_configuration(self):
-        await self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
-        p, _ = await self.create_pr()
-
-        await self.run_engine()
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        check = checks[0]
-        assert check["output"]["title"] == "The Mergify configuration is invalid"
-        # Use startswith because the message has some weird \x00 char
-        assert check["output"]["summary"].startswith(
-            """Invalid YAML @ line 3, column 2
-```
-while scanning an alias
-  in "<byte string>", line 3, column 1:
-    *
-    ^
-expected alphabetic or numeric character, but found"""
-        )
-        check_id = check["id"]
-        annotations = [
-            annotation
-            async for annotation in ctxt.client.items(
-                f"{ctxt.base_url}/check-runs/{check_id}/annotations",
-            )
-        ]
-        assert annotations == [
-            {
-                "path": ".mergify.yml",
-                "blob_href": mock.ANY,
-                "start_line": 3,
-                "start_column": 2,
-                "end_line": 3,
-                "end_column": 2,
-                "annotation_level": "failure",
-                "title": "Invalid YAML",
-                "message": mock.ANY,
-                "raw_details": None,
-            }
-        ]
-
-    async def test_invalid_new_configuration(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "foobar",
-                    "conditions": ["branch=master"],
-                    "actions": {
-                        "comment": {"message": "hello"},
-                    },
-                },
-            ],
-        }
-        await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr(files={".mergify.yml": "not valid"})
-
-        await self.run_engine()
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        check = checks[0]
-        assert check["output"]["title"] == "The new Mergify configuration is invalid"
-        assert check["output"]["summary"] == "expected a dictionary"
-
     async def test_merge_with_not_merged_attribute(self):
         rules = {
             "pull_request_rules": [
@@ -1196,28 +1104,6 @@ expected alphabetic or numeric character, but found"""
             "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
             == comments[-1]["body"]
         )
-
-    async def test_change_mergify_yml(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "nothing",
-                    "conditions": [f"base!={self.master_branch_name}"],
-                    "actions": {"merge": {}},
-                }
-            ]
-        }
-        await self.setup_repo(yaml.dump(rules))
-        rules["pull_request_rules"].append(
-            {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
-        )
-        p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
-        await self.run_engine()
-        ctxt = await context.Context.create(self.repository_ctxt, p1, [])
-        checks = await ctxt.pull_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
-        assert checks[0]["output"]["title"] == "The new Mergify configuration is valid"
 
     async def test_marketplace_event(self):
         with mock.patch(

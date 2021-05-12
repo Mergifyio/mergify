@@ -113,6 +113,8 @@ async def gen_summary(
 
     summary = ""
     summary += get_already_merged_summary(ctxt, match)
+    if ctxt.configuration_changed:
+        summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)
     summary += await gen_summary_rules(ctxt, match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
@@ -159,7 +161,11 @@ async def gen_summary(
     else:
         summary_title = ["no rules configured, just listening for commands"]
 
-    return " and ".join(summary_title), summary
+    title = " and ".join(summary_title)
+    if ctxt.configuration_changed:
+        title = f"Configuration changed. This pull request must be merged manually — {title}"
+
+    return title, summary
 
 
 def _filterred_sources_for_logging(data, inplace=False):
@@ -360,7 +366,10 @@ async def run_actions(
 
             action_rule = await action_obj.get_rule(ctxt)
 
-            if rule.missing_conditions or action_rule.missing_conditions:
+            if (rule.missing_conditions or action_rule.missing_conditions) or (
+                ctxt.configuration_changed
+                and not action_obj.can_be_used_on_configuration_change
+            ):
                 method_name = "cancel"
                 expected_conclusions = [
                     check_api.Conclusion.NEUTRAL,

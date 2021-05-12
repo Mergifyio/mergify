@@ -25,18 +25,18 @@ from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
 from mergify_engine.clients import github
 from mergify_engine.engine.commands_runner import handle
-from mergify_engine.engine.commands_runner import load_action
+from mergify_engine.engine.commands_runner import load_command
 
 
 def test_command_loader():
     config = {"raw": {}}
-    action = load_action(config, "@mergifyio notexist foobar\n")
+    action = load_command(config, "@mergifyio notexist foobar\n")
     assert action is None
 
-    action = load_action(config, "@mergifyio comment foobar\n")
+    action = load_command(config, "@mergifyio comment foobar\n")
     assert action is None
 
-    action = load_action(config, "@Mergifyio comment foobar\n")
+    action = load_command(config, "@Mergifyio comment foobar\n")
     assert action is None
 
     for message in [
@@ -47,11 +47,11 @@ def test_command_loader():
         "@mergifyio rebase foobar",
         "@mergifyio rebase foobar\nsecondline\n",
     ]:
-        command, args, action = load_action(config, message)
+        command, args, action = load_command(config, message)
         assert command == "rebase"
         assert isinstance(action, RebaseAction)
 
-    command, args, action = load_action(
+    command, args, action = load_command(
         config, "@mergifyio backport branch-3.1 branch-3.2\nfoobar\n"
     )
     assert command == "backport"
@@ -83,11 +83,11 @@ def test_command_loader_with_defaults():
             }
         }
     }
-    command, args, action = load_action(config, "@mergifyio backport")
-    assert command == "backport"
-    assert args == ""
-    assert isinstance(action, BackportAction)
-    assert action.config == {
+    command = load_command(config, "@mergifyio backport")
+    assert command.name == "backport"
+    assert command.args == ""
+    assert isinstance(command.action, BackportAction)
+    assert command.action.config == {
         "assignees": [],
         "branches": ["branch-3.1", "branch-3.2"],
         "bot_account": None,

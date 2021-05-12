@@ -98,22 +98,19 @@ async def _check_configuration_changes(
         rules.get_mergify_config(config_file_to_validate)
     except rules.InvalidRules as e:
         # Not configured, post status check with the error message
-        await ctxt.set_summary_check(
+        await check_api.set_check_run(
+            ctxt,
+            "Configuration changed",
             check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="The new Mergify configuration is invalid",
                 summary=str(e),
                 annotations=e.get_annotations(e.filename),
-            )
+            ),
         )
     else:
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.SUCCESS,
-                title="The new Mergify configuration is valid",
-                summary="This pull request must be merged manually because it modifies Mergify configuration",
-            )
-        )
+        # Nothing to notify here, this is done within the global summary
+        pass
     return True
 
 
@@ -245,10 +242,7 @@ async def run(
 
     config_file = await ctxt.repository.get_mergify_config_file()
 
-    ctxt.log.debug("engine check configuration change")
-    if await _check_configuration_changes(ctxt, config_file):
-        ctxt.log.info("Configuration changed, ignoring")
-        return
+    ctxt.configuration_changed = await _check_configuration_changes(ctxt, config_file)
 
     ctxt.log.debug("engine get configuration")
     if config_file is None:

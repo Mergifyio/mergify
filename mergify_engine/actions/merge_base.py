@@ -112,6 +112,7 @@ def strict_merge_parameter(v):
 
 class MergeBaseAction(actions.Action):
     only_once = True
+    can_be_used_on_configuration_change = False
 
     @abc.abstractmethod
     async def _should_be_queued(

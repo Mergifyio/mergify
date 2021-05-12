@@ -37,6 +37,15 @@ COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|fail
 MERGE_QUEUE_COMMAND_MESSAGE = "Command not allowed on merge queue pull request."
 UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command. Please consult [the commands documentation](https://docs.mergify.io/commands.html) \U0001F4DA."
 WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
+CONFIGURATION_CHANGE_MESSAGE = (
+    "Sorry but this action cannot run when the configuration is updated"
+)
+
+
+class Command(typing.NamedTuple):
+    name: str
+    args: str
+    action: actions.Action
 
 
 async def post_comment(
@@ -56,10 +65,10 @@ async def post_comment(
         )
 
 
-def load_action(
+def load_command(
     mergify_config: rules.MergifyConfig,
     message: str,
-) -> typing.Optional[typing.Tuple[str, str, actions.Action]]:
+) -> typing.Optional[Command]:
     """Load an action from a message.
 
     :return: A tuple with 3 values: the command name, the commands args and the action."""
@@ -80,7 +89,7 @@ def load_action(
         action = voluptuous.Schema(action_class.get_schema(partial_validation=False))(
             action_config
         )
-        return action_name, command_args, action
+        return Command(action_name, command_args, action)
 
     return None
 
@@ -125,26 +134,25 @@ async def run_pending_commands_tasks(
         await handle(ctxt, mergify_config, f"@Mergifyio {pending}", None, rerun=True)
 
 
-async def run_action(
+async def run_command(
     ctxt: context.Context,
-    action: typing.Tuple[str, str, actions.Action],
+    command: Command,
     user: typing.Optional[github_types.GitHubAccount],
 ) -> typing.Tuple[check_api.Result, str]:
-    command, command_args, method = action
 
-    statsd.increment("engine.commands.count", tags=[f"name:{command}"])
+    statsd.increment("engine.commands.count", tags=[f"name:{command.name}"])
 
-    report = await method.run(
+    report = await command.action.run(
         ctxt,
         rules.EvaluatedRule(
             "", rules.RuleConditions([]), rules.RuleMissingConditions([]), {}, False, []
         ),
     )
 
-    if command_args:
-        command_full = f"{command} {command_args}"
+    if command.args:
+        command_full = f"{command.name} {command.args}"
     else:
-        command_full = command
+        command_full = command.name
 
     conclusion = report.conclusion.name.lower()
     summary = "> " + "\n> ".join(report.summary.split("\n")).strip()
@@ -199,19 +207,28 @@ async def handle(
             await post_comment(ctxt, message + footer)
             return
 
-    action = load_action(mergify_config, comment)
-    if not action:
+    command = load_command(mergify_config, comment)
+    if not command:
         message = UNKNOWN_COMMAND_MESSAGE
         log(message)
         await post_comment(ctxt, message + footer)
         return
 
-    if action[0] != "refresh" and ctxt.is_merge_queue_pr():
+    if (
+        ctxt.configuration_changed
+        and not command.action.can_be_used_on_configuration_change
+    ):
+        message = CONFIGURATION_CHANGE_MESSAGE
+        log(message)
+        await post_comment(ctxt, message + footer)
+        return
+
+    if command.name != "refresh" and ctxt.is_merge_queue_pr():
         log(MERGE_QUEUE_COMMAND_MESSAGE)
         await post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
         return
 
-    result, message = await run_action(ctxt, action, user)
+    result, message = await run_command(ctxt, command, user)
     if result.conclusion is check_api.Conclusion.PENDING and rerun:
         log("action still pending", result)
         return

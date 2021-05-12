@@ -512,6 +512,7 @@ class Context(object):
     repository: Repository
     pull: github_types.GitHubPullRequest
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
+    configuration_changed: bool = False
     pull_request: "PullRequest" = dataclasses.field(init=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False)
 
