@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.5
       - run: |
@@ -31,7 +31,7 @@ jobs:
         ports:
           - 6363:6379
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
       - run: |
           echo '-e .' >> requirements.txt
           curl -sSL \
@@ -50,8 +50,8 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.5
       - run: |
@@ -67,8 +67,8 @@ jobs:
         ports:
           - 6363:6379
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.5
       - run: |
@@ -80,8 +80,8 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.5
       - run: |
@@ -92,5 +92,5 @@ jobs:
   docker:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: docker/build-push-action@v2
+      - uses: actions/checkout@v2.3.4
+      - uses: docker/build-push-action@v2.4.0
