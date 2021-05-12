@@ -176,7 +176,10 @@ class TrainCar(PseudoTrainCar):
         if include_my_self:
             refs.append(f"#{self.user_pull_request_number}")
 
-        return f"{', '.join(refs[:-1])} and {refs[-1]}"
+        if len(refs) == 1:
+            return refs[0]
+        else:
+            return f"{', '.join(refs[:-1])} and {refs[-1]}"
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
         if self.state == "created" and self.queue_pull_request_number is not None:
