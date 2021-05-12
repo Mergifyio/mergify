@@ -61,6 +61,7 @@ class GitHubRepository(typing.TypedDict):
     full_name: str
     archived: bool
     url: str
+    html_url: str
     default_branch: GitHubRefType
 
 

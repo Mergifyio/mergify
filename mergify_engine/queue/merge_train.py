@@ -22,6 +22,7 @@ import daiquiri
 import first
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
@@ -225,7 +226,11 @@ class TrainCar(PseudoTrainCar):
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(ctxt)
-        await self.update_summaries(check_api.Conclusion.PENDING, evaluated_queue_rule)
+        await self.update_summaries(
+            check_api.Conclusion.PENDING,
+            check_api.Conclusion.PENDING,
+            evaluated_queue_rule,
+        )
 
     async def create_pull(
         self,
@@ -309,14 +314,25 @@ class TrainCar(PseudoTrainCar):
             self.queue_pull_request_number
         )
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(tmp_ctxt)
-        await self.update_summaries(check_api.Conclusion.PENDING, evaluated_queue_rule)
+        await self.update_summaries(
+            check_api.Conclusion.PENDING,
+            check_api.Conclusion.PENDING,
+            evaluated_queue_rule,
+        )
 
     async def generate_merge_queue_summary(
         self,
         queue_rule: typing.Union[rules.EvaluatedQueueRule, rules.QueueRule],
+        *,
         for_queue_pull_request: bool = False,
+        show_queue: bool = True,
+        headline: typing.Optional[str] = None,
     ) -> str:
-        description = (
+        description = ""
+        if headline:
+            description += f"**{headline}**\n\n"
+
+        description += (
             f"{self._get_embarked_refs(markdown=True)} are embarked together for merge."
         )
 
@@ -326,6 +342,7 @@ class TrainCar(PseudoTrainCar):
 This pull request has been created by Mergify to speculatively check the mergeability of #{self.user_pull_request_number}.
 You don't need to do anything. Mergify will close this pull request automatically when it is complete.
 """
+
         description += (
             f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
         )
@@ -338,39 +355,42 @@ You don't need to do anything. Mergify will close this pull request automaticall
             if cond.description:
                 description += f" [{cond.description}]"
 
-        table = [
-            "| | Pull request | Queue/Priority | Speculative checks |",
-            "| ---: | :--- | :--- | :--- |",
-        ]
-        for i, pseudo_car in enumerate(self.train._iter_pseudo_cars()):
-            ctxt = await self.train.repository.get_pull_request_context(
-                pseudo_car.user_pull_request_number
+        if show_queue:
+            table = [
+                "| | Pull request | Queue/Priority | Speculative checks |",
+                "| ---: | :--- | :--- | :--- |",
+            ]
+            for i, pseudo_car in enumerate(self.train._iter_pseudo_cars()):
+                ctxt = await self.train.repository.get_pull_request_context(
+                    pseudo_car.user_pull_request_number
+                )
+                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pulls/{pseudo_car.user_pull_request_number}"
+                try:
+                    fancy_priority = merge_base.PriorityAliases(
+                        pseudo_car.config["priority"]
+                    ).name
+                except ValueError:
+                    fancy_priority = str(pseudo_car.config["priority"])
+
+                speculative_checks = ""
+                if isinstance(pseudo_car, TrainCar):
+                    if pseudo_car.state == "updated":
+                        speculative_checks = f"[in place]({pull_html_url})"
+                    elif pseudo_car.state == "created":
+                        speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
+
+                table.append(
+                    f"| {i + 1} "
+                    f"| {ctxt.pull['title']} ([#{pseudo_car.user_pull_request_number}]({pull_html_url})) "
+                    f"| {pseudo_car.config['name']}/{fancy_priority} "
+                    f"| {speculative_checks} "
+                    "|"
+                )
+
+            description += (
+                "\n\n**The following pull requests are queued:**\n" + "\n".join(table)
             )
-            try:
-                fancy_priority = merge_base.PriorityAliases(
-                    pseudo_car.config["priority"]
-                ).name
-            except ValueError:
-                fancy_priority = str(pseudo_car.config["priority"])
 
-            speculative_checks = ""
-            if isinstance(pseudo_car, TrainCar):
-                if pseudo_car.state == "updated":
-                    speculative_checks = "in place"
-                elif pseudo_car.state == "created":
-                    speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
-
-            table.append(
-                f"| {i + 1} "
-                f"| {ctxt.pull['title']} #{pseudo_car.user_pull_request_number} "
-                f"| {pseudo_car.config['name']}/{fancy_priority} "
-                f"| {speculative_checks} "
-                "|"
-            )
-
-        description += "\n\n**The following pull requests are queued:**\n" + "\n".join(
-            table
-        )
         description += "\n\n---\n\n"
         description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
         return description.strip()
@@ -441,6 +461,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
     async def update_summaries(
         self,
         conclusion: check_api.Conclusion,
+        checks_conlusion: check_api.Conclusion,
         evaluated_queue_rule: rules.EvaluatedQueueRule,
         *,
         will_be_reset: bool = False,
@@ -478,9 +499,30 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 self.queue_pull_request_number
             )
 
+            headline: typing.Optional[str] = None
+            show_queue = True
+            if conclusion == check_api.Conclusion.SUCCESS:
+                headline = "🎉 This combination of pull requests has been checked successfully 🎉"
+                show_queue = False
+            elif conclusion == check_api.Conclusion.FAILURE:
+                headline = (
+                    "🙁 This combination of pull requests has failed checks. "
+                    f"#{self.user_pull_request_number} will be removed from the queue. 🙁"
+                )
+                show_queue = False
+            elif conclusion == check_api.Conclusion.PENDING:
+                if will_be_reset:
+                    headline = f"✨ Unexpected queue change. The pull request {self.user_pull_request_number} will be re-embarked soon. ✨"
+                elif checks_conlusion == check_api.Conclusion.FAILURE:
+                    headline = "🕵️  This combination of pull requests has failed check. Mergify is waiting for other pull requests ahead in the queue to understand which one is responsible for the failure. 🕵️"
+
             body = await self.generate_merge_queue_summary(
-                evaluated_queue_rule, for_queue_pull_request=True
+                evaluated_queue_rule,
+                for_queue_pull_request=True,
+                headline=headline,
+                show_queue=show_queue,
             )
+
             await tmp_pull_ctxt.client.patch(
                 f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
                 json={"body": body},
@@ -512,6 +554,10 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 f"pull request #{checked_pull}:\n\n<table>"
             )
             for check in checks:
+                # Don't copy Summary/Rule/Queue/... checks
+                if check["app"]["id"] == config.INTEGRATION_ID:
+                    continue
+
                 title = ""
                 if check["output"]:
                     title = check["output"]["title"]

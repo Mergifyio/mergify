@@ -37,6 +37,7 @@ async def test_signals(redis_cache):
         {
             "archived": False,
             "url": "",
+            "html_url": "",
             "default_branch": github_types.GitHubRefType(""),
             "id": github_types.GitHubRepositoryIdType(456),
             "full_name": "user/ref",

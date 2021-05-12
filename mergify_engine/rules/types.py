@@ -115,6 +115,7 @@ _DUMMY_PR = DummyPullRequest(
                     "sha": github_types.SHAType(""),
                     "repo": {
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType(""),
                         "full_name": "",
                         "archived": False,
@@ -141,6 +142,7 @@ _DUMMY_PR = DummyPullRequest(
                     "sha": github_types.SHAType(""),
                     "repo": {
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType(""),
                         "full_name": "",
                         "archived": False,

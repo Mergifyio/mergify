@@ -43,6 +43,7 @@ GH_REPO = github_types.GitHubRepository(
     {
         "archived": False,
         "url": "",
+        "html_url": "",
         "default_branch": github_types.GitHubRefType("main"),
         "id": github_types.GitHubRepositoryIdType(456),
         "full_name": "user/ref",
@@ -91,6 +92,7 @@ GH_PULL = github_types.GitHubPullRequest(
             "repo": {
                 "archived": False,
                 "url": "",
+                "html_url": "",
                 "default_branch": github_types.GitHubRefType(""),
                 "id": github_types.GitHubRepositoryIdType(123),
                 "full_name": "fork/other",

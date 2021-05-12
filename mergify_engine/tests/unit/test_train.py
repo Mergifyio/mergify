@@ -135,6 +135,7 @@ async def fake_context(repository, number, **kwargs):
                     "avatar_url": "",
                 },
                 "url": "https://api.github.com/repos/Mergifyio/mergify-engine",
+                "html_url": "https://github.com/Mergifyio/mergify-engine",
             },
             "user": {
                 "id": 123,
@@ -164,6 +165,7 @@ async def fake_context(repository, number, **kwargs):
                     "avatar_url": "",
                 },
                 "url": "https://api.github.com/repos/Mergifyio/mergify-engine",
+                "html_url": "https://github.com/Mergifyio/mergify-engine",
             },
             "sha": "miaou",
             "user": {
