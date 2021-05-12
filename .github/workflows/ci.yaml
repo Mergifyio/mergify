@@ -93,4 +93,4 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - uses: docker/build-push-action@v2
+      - uses: docker/build-push-action@v2.4.0
