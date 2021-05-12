@@ -87,8 +87,11 @@ def _extract_slim_event(event_type, data):
         }
 
     elif event_type == "pull_request":
-        # For pull_request opened/synchronise/closed
+        # For pull_request opened/synchronize/closed
         slim_data["action"] = data["action"]
+        if slim_data["action"] == "synchronize":
+            slim_data["before"] = data["before"]
+            slim_data["after"] = data["after"]
 
     elif event_type == "issue_comment":
         # For commands runner

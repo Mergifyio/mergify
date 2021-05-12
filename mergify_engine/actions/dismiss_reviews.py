@@ -45,7 +45,7 @@ class DismissReviewsAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if ctxt.have_been_synchronized():
+        if ctxt.has_been_synchronized():
             # FIXME(sileht): Currently sender id is not the bot by the admin
             # user that enroll the repo in Mergify, because branch_updater uses
             # his access_token instead of the Mergify installation token.
