@@ -45,7 +45,7 @@ from mergify_engine.clients import http
 if typing.TYPE_CHECKING:
     from mergify_engine import worker
 
-SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31  # ~ 1 Month
+SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
@@ -970,7 +970,7 @@ class Context(object):
             "ref"
         ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 
-    def have_been_synchronized(self) -> bool:
+    def has_been_synchronized(self) -> bool:
         for source in self.sources:
             if source["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
