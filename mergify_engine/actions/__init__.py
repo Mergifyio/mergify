@@ -67,6 +67,8 @@ class Action(abc.ABC):
     is_action = True
     is_command = False
 
+    can_be_used_on_configuration_change = True
+
     always_run = False
 
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
