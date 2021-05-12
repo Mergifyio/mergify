@@ -128,7 +128,7 @@ class QueueAction(merge_base.MergeBaseAction):
                     ctxt, queue_rule_evaluated
                 )
             await car.update_summaries(
-                status, queue_rule_evaluated, will_be_reset=need_reset
+                status, status, queue_rule_evaluated, will_be_reset=need_reset
             )
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():

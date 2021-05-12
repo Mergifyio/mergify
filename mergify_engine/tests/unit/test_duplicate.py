@@ -125,6 +125,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                     },
                     "archived": False,
                     "url": "",
+                    "html_url": "",
                     "default_branch": github_types.GitHubRefType(""),
                 },
             },
@@ -144,6 +145,7 @@ async def test_get_commits_to_cherry_pick_rebase(
                     "private": False,
                     "archived": False,
                     "url": "",
+                    "html_url": "",
                     "default_branch": github_types.GitHubRefType(""),
                     "id": github_types.GitHubRepositoryIdType(0),
                     "owner": {
@@ -282,6 +284,7 @@ async def test_get_commits_to_cherry_pick_merge(
                         "owner": gh_owner,
                         "archived": False,
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType("ref"),
                     }
                 ),
@@ -300,6 +303,7 @@ async def test_get_commits_to_cherry_pick_merge(
                         "owner": gh_owner,
                         "archived": False,
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType("ref"),
                     }
                 ),

@@ -767,6 +767,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                         "private": False,
                         "archived": False,
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType(""),
                         "owner": {
                             "login": github_types.GitHubLogin("another-jd"),
@@ -794,6 +795,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                         "private": False,
                         "archived": False,
                         "url": "",
+                        "html_url": "",
                         "default_branch": github_types.GitHubRefType(""),
                         "owner": {
                             "login": github_types.GitHubLogin("another-jd"),

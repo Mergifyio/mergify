@@ -111,7 +111,10 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     )
 
     await car.update_summaries(
-        status, evaluated_queue_rule=evaluated_queue_rule, will_be_reset=need_reset
+        status,
+        real_status,
+        evaluated_queue_rule=evaluated_queue_rule,
+        will_be_reset=need_reset,
     )
 
     if need_reset:

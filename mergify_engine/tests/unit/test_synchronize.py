@@ -42,6 +42,7 @@ async def test_summary_synchronization_cache(
         {
             "archived": False,
             "url": "",
+            "html_url": "",
             "default_branch": github_types.GitHubRefType(""),
             "id": github_types.GitHubRepositoryIdType(456),
             "full_name": "user/ref",
@@ -115,6 +116,7 @@ async def test_summary_synchronization_cache(
                 "repo": {
                     "archived": False,
                     "url": "",
+                    "html_url": "",
                     "default_branch": github_types.GitHubRefType(""),
                     "id": github_types.GitHubRepositoryIdType(123),
                     "full_name": "fork/other",
