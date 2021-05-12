@@ -118,7 +118,7 @@ class QueueAction(merge_base.MergeBaseAction):
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
-            need_reset = ctxt.have_been_synchronized() or await ctxt.is_behind
+            need_reset = ctxt.has_been_synchronized() or await ctxt.is_behind
             if need_reset:
                 status = check_api.Conclusion.PENDING
                 ctxt.log.info("train will be reset")
@@ -224,7 +224,7 @@ class QueueAction(merge_base.MergeBaseAction):
         if ctxt.pull["state"] == "closed":
             return True
 
-        if ctxt.have_been_synchronized():
+        if ctxt.has_been_synchronized():
             return True
 
         q = await merge_train.Train.from_context(ctxt)

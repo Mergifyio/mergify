@@ -128,6 +128,38 @@ async def _get_summary_from_sha(ctxt, sha):
         return checks[0]
 
 
+async def _get_summary_from_synchronize_event(ctxt):
+    synchronize_events = {
+        s["data"]["after"]: s["data"]
+        for s in ctxt.sources
+        if s["event_type"] == "pull_request"
+        and s["data"]["action"] == "synchronize"
+        and "after" in s["data"]
+    }
+    if synchronize_events:
+        ctxt.log.warning("get summary from synchronize events")
+
+        # NOTE(sileht): We sometimes got multiple synchronize events in a row, that's not
+        # always the last one that has the Summary, so we also look in older ones if
+        # necessary.
+        after_sha = ctxt.pull["head"]["sha"]
+        while synchronize_events:
+            sync_event = synchronize_events.pop(after_sha, None)
+            if sync_event:
+                previous_summary = await _get_summary_from_sha(
+                    ctxt, sync_event["before"]
+                )
+                if previous_summary and actions_runner.load_conclusions_line(
+                    ctxt, previous_summary
+                ):
+                    return previous_summary
+
+                after_sha = sync_event["before"]
+            else:
+                ctxt.log.warning("summary from synchronize events not found")
+                break
+
+
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     for check in await ctxt.pull_engine_check_runs:
         if check["name"] == ctxt.SUMMARY_NAME and actions_runner.load_conclusions_line(
@@ -145,6 +177,14 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         return
 
     previous_summary = await _get_summary_from_sha(ctxt, sha)
+
+    if previous_summary is None:
+        # NOTE(sileht): If the cached summary sha expires and the next event we got for
+        # a pull request is "synchronize" we will lose the summary. Most of the times
+        # it's not a big deal, but if the pull request is queued for merge, it may
+        # be stuck.
+        previous_summary = await _get_summary_from_synchronize_event(ctxt)
+
     if previous_summary:
         await ctxt.set_summary_check(
             check_api.Result(

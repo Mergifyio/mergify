@@ -32,7 +32,7 @@ async def have_unexpected_changes(
         )
         return True
 
-    if ctxt.have_been_synchronized():
+    if ctxt.has_been_synchronized():
         ctxt.log.info(
             "train car has unexpectedly been synchronized",
         )

@@ -161,7 +161,7 @@ class MergeAction(merge_base.MergeBaseAction):
         if ctxt.pull["state"] == "closed":
             return True
 
-        if ctxt.have_been_synchronized():
+        if ctxt.has_been_synchronized():
             return True
 
         pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
