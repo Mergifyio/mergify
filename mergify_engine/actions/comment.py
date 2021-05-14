@@ -87,5 +87,7 @@ class CommentAction(actions.Action):
                 "Unable to post comment",
                 f"GitHub error: [{e.status_code}] `{e.message}`",
             )
-        await signals.send(ctxt, "action.comment")
+        await signals.send(
+            ctxt, "action.comment", {"bot_account": bool(self.config["bot_account"])}
+        )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)

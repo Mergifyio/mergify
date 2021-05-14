@@ -103,7 +103,9 @@ class RebaseAction(actions.Action):
                     json={"body": BOT_ACCOUNT_DEPRECATION_NOTICE},
                 )
 
-            await signals.send(ctxt, "action.rebase")
+            await signals.send(
+                ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
+            )
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 "Branch has been successfully rebased",
