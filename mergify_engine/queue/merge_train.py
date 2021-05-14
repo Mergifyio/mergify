@@ -364,7 +364,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 ctxt = await self.train.repository.get_pull_request_context(
                     pseudo_car.user_pull_request_number
                 )
-                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pulls/{pseudo_car.user_pull_request_number}"
+                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pull/{pseudo_car.user_pull_request_number}"
                 try:
                     fancy_priority = merge_base.PriorityAliases(
                         pseudo_car.config["priority"]
