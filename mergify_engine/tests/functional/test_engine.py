@@ -1270,16 +1270,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         comments = await self.get_issue_comments(p["number"])
         assert "it works" == comments[-1]["body"]
 
-    async def test_unconfigured_repo_does_not_post_summary(self):
-        await self.setup_repo()
-
-        await self.run_engine()
-        p, _ = await self.create_pr()
-        await self.run_engine()
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        assert await ctxt.pull_engine_check_runs == []
-
     async def test_check_run_api(self):
         await self.setup_repo()
         p, _ = await self.create_pr()

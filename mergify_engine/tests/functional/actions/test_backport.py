@@ -266,8 +266,6 @@ class TestBackportAction(BackportActionTestBase):
         assert "No backport have been created" == checks[0]["output"]["title"]
         assert (
             f"""* Backport to branch `{stable_branch}` failed
-
-
 Cherry-pick of {commit_id} has failed:
 ```
 On branch mergify/bp/{stable_branch}/pr-{p['number']}
@@ -284,6 +282,7 @@ Unmerged paths:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 ```
+
 
 """
             == checks[0]["output"]["summary"]

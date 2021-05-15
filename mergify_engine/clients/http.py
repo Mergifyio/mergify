@@ -36,7 +36,7 @@ HTTPX_VERSION = httpx.__version__
 
 DEFAULT_CLIENT_OPTIONS = {
     "headers": {
-        "Accept": "application/vnd.github.machine-man-preview+json",
+        "Accept": "application/vnd.github.v3+json",
         "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/${PYTHON_VERSION} httpx/{HTTPX_VERSION}",
     },
     "timeout": httpx.Timeout(5.0, read=10.0),
