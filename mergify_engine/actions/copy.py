@@ -141,7 +141,12 @@ class CopyAction(actions.Action):
                     kind=self.KIND,
                     branch_prefix=self.BRANCH_PREFIX,
                 )
-                await signals.send(ctxt, self.HOOK_EVENT_NAME)
+                await signals.send(
+                    ctxt,
+                    self.HOOK_EVENT_NAME,
+                    {"bot_account": bool(self.config["bot_account"])},
+                )
+
             except duplicate_pull.DuplicateAlreadyExists:
                 new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
             except duplicate_pull.DuplicateFailed as e:
