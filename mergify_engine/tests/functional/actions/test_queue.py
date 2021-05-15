@@ -27,6 +27,7 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import utils
 from mergify_engine.queue import merge_train
 from mergify_engine.tests.functional import base
 
@@ -1641,6 +1642,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             config,
             head_sha,
             head_sha,
+            utils.utcnow(),
         )
         await car.create_pull(
             rules.QueueRule(name="foo", conditions=[], config=queue_config)
@@ -1690,6 +1692,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             config,
             head_sha,
             head_sha,
+            utils.utcnow(),
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
             await car.create_pull(

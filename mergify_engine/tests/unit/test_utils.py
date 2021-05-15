@@ -12,6 +12,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
+
 import pytest
 
 from mergify_engine import utils
@@ -97,3 +99,33 @@ def test_to_ordinal_numeric():
 
     assert utils.to_ordinal_numeric(4567) == "4567th"
     assert utils.to_ordinal_numeric(5743) == "5743rd"
+
+
+@pytest.mark.parametrize(
+    "timedelta,expected_string",
+    [
+        (
+            datetime.timedelta(minutes=3),
+            "3 minutes",
+        ),
+        (
+            datetime.timedelta(hours=3),
+            "3 hours and 0 minute",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, seconds=12),
+            "2 days, 3 hours and 0 minute",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, minutes=2),
+            "2 days, 3 hours and 2 minutes",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, minutes=2),
+            "2 days, 3 hours and 2 minutes",
+        ),
+        (datetime.timedelta(seconds=12), "12 seconds"),
+    ],
+)
+def test_pretty_timedelta(timedelta: datetime.timedelta, expected_string: str) -> None:
+    assert utils.pretty_timedelta(timedelta) == expected_string

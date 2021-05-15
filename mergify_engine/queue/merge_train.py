@@ -15,6 +15,7 @@
 # under the License.
 
 import dataclasses
+import datetime
 import typing
 from urllib import parse
 
@@ -66,11 +67,13 @@ class TrainCarPullRequestCreationFailure(Exception):
 class PseudoTrainCar(typing.Protocol):
     user_pull_request_number: github_types.GitHubPullRequestNumber
     config: queue.PullQueueConfig
+    queued_at: datetime.datetime
 
 
 class WaitingPull(typing.NamedTuple):
     user_pull_request_number: github_types.GitHubPullRequestNumber
     config: queue.PullQueueConfig
+    queued_at: datetime.datetime
 
 
 TrainCarState = typing.Literal[
@@ -130,6 +133,7 @@ class TrainCar(PseudoTrainCar):
     config: queue.PullQueueConfig
     initial_current_base_sha: github_types.SHAType
     current_base_sha: github_types.SHAType
+    queued_at: datetime.datetime
     state: TrainCarState = "pending"
     queue_pull_request_number: typing.Optional[
         github_types.GitHubPullRequestNumber
@@ -143,6 +147,7 @@ class TrainCar(PseudoTrainCar):
         current_base_sha: github_types.SHAType
         state: TrainCarState
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
+        queued_at: datetime.datetime
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
@@ -153,6 +158,7 @@ class TrainCar(PseudoTrainCar):
             state=self.state,
             queue_pull_request_number=self.queue_pull_request_number,
             config=self.config,
+            queued_at=self.queued_at,
         )
 
     @classmethod
@@ -160,6 +166,8 @@ class TrainCar(PseudoTrainCar):
         # NOTE(sileht): Backward compat, can be removed soon
         if "state" not in data:
             data["state"] = "created"
+        if "queued_at" not in data:
+            data["queued_at"] = utils.utcnow()
         return cls(train, **data)
 
     def _get_embarked_refs(
@@ -357,8 +365,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if show_queue:
             table = [
-                "| | Pull request | Queue/Priority | Speculative checks |",
-                "| ---: | :--- | :--- | :--- |",
+                "| | Pull request | Queue/Priority | Speculative checks | Queued",
+                "| ---: | :--- | :--- | :--- | :--- |",
             ]
             for i, pseudo_car in enumerate(self.train._iter_pseudo_cars()):
                 ctxt = await self.train.repository.get_pull_request_context(
@@ -379,11 +387,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     elif pseudo_car.state == "created":
                         speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
 
+                elapsed = utils.pretty_timedelta(utils.utcnow() - pseudo_car.queued_at)
                 table.append(
                     f"| {i + 1} "
                     f"| {ctxt.pull['title']} ([#{pseudo_car.user_pull_request_number}]({pull_html_url})) "
                     f"| {pseudo_car.config['name']}/{fancy_priority} "
                     f"| {speculative_checks} "
+                    f"| {elapsed} ago "
                     "|"
                 )
 
@@ -811,7 +821,7 @@ class Train(queue.QueueBase):
     async def _slice_cars_at(self, position: int) -> None:
         for c in reversed(self._cars[position:]):
             self._waiting_pulls.insert(
-                0, WaitingPull(c.user_pull_request_number, c.config)
+                0, WaitingPull(c.user_pull_request_number, c.config, c.queued_at)
             )
             await c.delete_pull()
         self._cars = self._cars[:position]
@@ -853,7 +863,8 @@ class Train(queue.QueueBase):
 
         await self._slice_cars_at(best_position)
         self._waiting_pulls.insert(
-            best_position - len(self._cars), WaitingPull(ctxt.pull["number"], config)
+            best_position - len(self._cars),
+            WaitingPull(ctxt.pull["number"], config, utils.utcnow()),
         )
         await self._save()
         ctxt.log.info(
@@ -931,7 +942,7 @@ class Train(queue.QueueBase):
             for car in to_delete:
                 await car.delete_pull()
                 self._waiting_pulls.append(
-                    WaitingPull(car.user_pull_request_number, car.config)
+                    WaitingPull(car.user_pull_request_number, car.config, car.queued_at)
                 )
 
         elif missing_cars > 0 and self._waiting_pulls:
@@ -950,7 +961,7 @@ class Train(queue.QueueBase):
                     # the next queue
                     return
 
-                user_pull_request_number, config = self._waiting_pulls.pop(0)
+                user_pull_request_number, config, queued_at = self._waiting_pulls.pop(0)
 
                 parent_pull_request_numbers = [
                     car.user_pull_request_number for car in self._cars
@@ -962,6 +973,7 @@ class Train(queue.QueueBase):
                     config,
                     self._current_base_sha,
                     self._current_base_sha,
+                    queued_at,
                 )
                 self._cars.append(car)
 
@@ -992,7 +1004,7 @@ class Train(queue.QueueBase):
                     # request become the first one in queue
                     del self._cars[-1]
                     self._waiting_pulls.insert(
-                        0, WaitingPull(user_pull_request_number, config)
+                        0, WaitingPull(user_pull_request_number, config, queued_at)
                     )
                     return
                 except TrainCarPullRequestCreationFailure:

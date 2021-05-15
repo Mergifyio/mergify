@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
 import enum
 import json
 import typing
@@ -36,6 +37,11 @@ class Encoder(json.JSONEncoder):
                 "class": type(v).__name__,
                 "name": v.name,
             }
+        elif isinstance(v, datetime.datetime):
+            return {
+                "__pytype__": "datetime.datetime",
+                "value": v.isoformat(),
+            }
         else:
             return super().default(v)
 
@@ -47,12 +53,14 @@ class JSONObjectDict(typing.TypedDict, total=False):
     __pytype__: JSONPyType
 
 
-def _decode_enum(v: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
+def _decode(v: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
     if v.get("__pytype__") == "enum":
         cls_name = v["class"]
         enum_cls = _JSON_TYPES[cls_name]
         enum_name = v["name"]
         return enum_cls[enum_name]
+    elif v.get("__pytype__") == "datetime.datetime":
+        return datetime.datetime.fromisoformat(v["value"])
     return v
 
 
@@ -61,4 +69,4 @@ def dumps(v: typing.Any) -> str:
 
 
 def loads(v: typing.Union[str, bytes]) -> typing.Any:
-    return json.loads(v, object_hook=_decode_enum)
+    return json.loads(v, object_hook=_decode)
