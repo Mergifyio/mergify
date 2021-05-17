@@ -669,6 +669,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             "ETag",
             "X-RateLimit-Reset",
             "X-RateLimit-Used",
+            "X-RateLimit-Resource",
             "X-RateLimit-Limit",
             "Via",
             "cookie",
