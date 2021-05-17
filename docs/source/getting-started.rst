@@ -34,8 +34,7 @@ working.
 .. |https://github.com/apps/mergify/installations/new| raw:: html
 
    <a href="https://github.com/apps/mergify/installations/new" target="_blank">https://github.com/apps/mergify/installations/new</a>
-
-Configuration
+WeConfiguration
 -------------
 
 The Configuration File
