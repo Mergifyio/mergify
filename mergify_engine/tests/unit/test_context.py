@@ -370,3 +370,115 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     )
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 7
+
+
+@pytest.mark.asyncio
+async def test_context_depends_on():
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "id": github_types.GitHubRepositoryIdType(456),
+            "full_name": "user/repo",
+            "name": github_types.GitHubRepositoryName("repo"),
+            "private": False,
+            "owner": gh_owner,
+        }
+    )
+
+    pull = github_types.GitHubPullRequest(
+        {
+            "title": "",
+            "id": github_types.GitHubPullRequestId(0),
+            "maintainer_can_modify": False,
+            "rebaseable": False,
+            "draft": False,
+            "merge_commit_sha": None,
+            "labels": [],
+            "number": github_types.GitHubPullRequestNumber(6),
+            "commits": 1,
+            "merged": True,
+            "state": "closed",
+            "changed_files": 1,
+            "html_url": "<html_url>",
+            "base": {
+                "label": "",
+                "sha": github_types.SHAType("sha"),
+                "user": {
+                    "login": github_types.GitHubLogin("user"),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                    "avatar_url": "",
+                },
+                "ref": github_types.GitHubRefType("ref"),
+                "label": "",
+                "repo": gh_repo,
+            },
+            "head": {
+                "label": "",
+                "sha": github_types.SHAType("old-sha-one"),
+                "ref": github_types.GitHubRefType("fork"),
+                "user": {
+                    "login": github_types.GitHubLogin("user"),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                    "avatar_url": "",
+                },
+                "repo": {
+                    "archived": False,
+                    "url": "",
+                    "html_url": "",
+                    "default_branch": github_types.GitHubRefType(""),
+                    "id": github_types.GitHubRepositoryIdType(123),
+                    "full_name": "fork/other",
+                    "name": github_types.GitHubRepositoryName("other"),
+                    "private": False,
+                    "owner": {
+                        "login": github_types.GitHubLogin("user"),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                        "avatar_url": "",
+                    },
+                },
+            },
+            "user": {
+                "login": github_types.GitHubLogin("user"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+                "avatar_url": "",
+            },
+            "merged_by": None,
+            "merged_at": None,
+            "mergeable_state": "clean",
+            "body": """header
+
+Depends-On: #123
+depends-on: https://github.com/foo/bar/pull/999
+depends-on: https://github.com/foo/bar/999
+depends-on: azertyuiopqsdfghjklmwxcvbn
+depends-on: https://somewhereelse.com/foo/bar/999
+Depends-oN: https://github.com/user/repo/pull/456
+Depends-oN: https://github.com/user/repo/pull/789
+ DEPENDS-ON: #42
+Depends-On:  #48
+Depends-On:  #999 with crap
+DePeNdS-oN: https://github.com/user/repo/pull/999 with crap
+
+footer
+""",
+        },
+    )
+
+    ctxt = await context.Context.create(mock.Mock(), pull)
+    assert ctxt.get_depends_on() == {123, 456, 789, 42, 48}

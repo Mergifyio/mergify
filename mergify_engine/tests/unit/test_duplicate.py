@@ -112,6 +112,7 @@ async def test_get_commits_to_cherry_pick_rebase(
             "draft": False,
             "merge_commit_sha": github_types.SHAType(""),
             "title": "",
+            "body": "",
             "commits": 1,
             "rebaseable": False,
             "maintainer_can_modify": False,
@@ -297,6 +298,7 @@ async def test_get_commits_to_cherry_pick_merge(
             "draft": True,
             "merge_commit_sha": None,
             "title": "foobar",
+            "body": "",
             "changed_files": 1,
             "base": {
                 "label": "user:ref",

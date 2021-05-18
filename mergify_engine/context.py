@@ -18,6 +18,7 @@ import contextlib
 import dataclasses
 import json
 import logging
+import re
 import typing
 from urllib import parse
 
@@ -835,8 +836,41 @@ class Context(object):
                 for ctext, state in (await self.checks).items()
                 if state == "stale"
             ]
+        elif name == "depends-on":
+            # TODO(sileht):  This is the list of merged pull requests that are
+            # required by this pull request. An optimisation can be to look at
+            # the merge queues too, to queue this pull request earlier
+            depends_on = []
+            for pull_request_number in self.get_depends_on():
+                try:
+                    ctxt = await self.repository.get_pull_request_context(
+                        pull_request_number
+                    )
+                except http.HTTPNotFound:
+                    continue
+                if ctxt.pull["merged"]:
+                    depends_on.append(f"#{pull_request_number}")
+            return depends_on
         else:
             raise PullRequestAttributeError(name)
+
+    DEPENDS_ON = re.compile(
+        r"^ *Depends-On: +(?:#|"
+        + config.GITHUB_URL
+        + r"/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/)(?P<pull>\d+) *$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+
+    def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
+        return {
+            github_types.GitHubPullRequestNumber(int(pull))
+            for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
+            if (owner == "" and repo == "")
+            or (
+                owner == self.pull["base"]["user"]["login"]
+                and repo == self.pull["base"]["repo"]["name"]
+            )
+        }
 
     async def update_pull_check_runs(self, check):
         self._cache["pull_check_runs"] = [

@@ -899,6 +899,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                     },
                 },
                 "title": "My awesome job",
+                "body": "",
                 "user": {
                     "login": github_types.GitHubLogin("another-jd"),
                     "id": github_types.GitHubAccountIdType(2644),

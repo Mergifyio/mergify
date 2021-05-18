@@ -18,6 +18,8 @@ be validated before merging the pull request.
 
 .. _`branch protection`: https://docs.github.com/en/github/administering-a-repository/about-protected-branches
 
+Mergify also waits for dependent pull requests to get merged first (see :ref:`queue-depends-on`).
+
 Options
 -------
 
@@ -116,6 +118,35 @@ Options
        * ``title+body`` means to use the title and body from the pull request
          itself as the commit message. The pull request number will be added to
          end of the title.
+
+.. _queue-depends-on:
+
+⛓️ Defining Pull Request Dependencies
+-------------------------------------
+
+|premium plan tag|
+|open source plan tag|
+
+You can specify dependencies between pull requests from the same repository.
+Mergify waits for the linked pull requests to be merged before merging any pull
+request with a ``Depends-On:`` header.
+
+To use this feature, adds the ``Depends-On:`` header to the body of your pull
+request:
+
+.. code-block:: md
+
+    New awesome feature 🎉
+
+    To get the full picture, you may need to look at these pull requests:
+
+    Depends-On: #42
+    Depends-On: https://github.com/organization/repository/pull/123
+
+.. warning::
+
+    This feature does not work for cross-repository dependencies.
+
 
 .. _commit message:
 

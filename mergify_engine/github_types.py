@@ -199,6 +199,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
     title: str
+    body: str
     changed_files: int
     commits: int
 

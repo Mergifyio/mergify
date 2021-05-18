@@ -100,6 +100,7 @@ def fake_client():
 async def fake_context(repository, number, **kwargs):
     pull: github_types.GitHubPullRequest = {
         "title": "awesome",
+        "body": "",
         "id": 123,
         "maintainer_can_modify": True,
         "user": {

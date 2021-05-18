@@ -12,3 +12,7 @@
 .. |beta tag| raw:: html
 
    <div class="feature-tag"><span class="badge badge-info">Beta Feature ⚙️</span></div>
+
+.. |open source plan tag| raw:: html
+
+   <div class="feature-tag"><span class="badge badge-primary">Open Source<br /> Feature 💖</span></div>

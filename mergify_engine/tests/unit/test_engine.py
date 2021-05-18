@@ -55,6 +55,7 @@ GH_REPO = github_types.GitHubRepository(
 GH_PULL = github_types.GitHubPullRequest(
     {
         "title": "",
+        "body": "",
         "id": github_types.GitHubPullRequestId(0),
         "maintainer_can_modify": False,
         "rebaseable": False,
