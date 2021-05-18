@@ -47,9 +47,10 @@ class TestReviewAction(base.FunctionalTestBase):
 
         p, _ = await self.create_pr()
         await self.run_engine()
-
         await self.wait_for("pull_request_review", {}),
+
         await self.run_engine()
+        await self.wait_for("pull_request_review", {}),
 
         reviews = await self.get_reviews(p["number"])
         self.assertEqual(2, len(reviews))

@@ -109,7 +109,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
+    repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.has_write_permission(user_1)
     assert client.called == 1
@@ -140,7 +140,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
+    repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.has_write_permission(user_2)
     assert client.called == 1
@@ -312,7 +312,7 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
+    repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.team_has_read_permission(team_slug1)
     assert client.called == 1
@@ -343,7 +343,7 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     installation = context.Installation(
         gh_owner["id"], gh_owner["login"], sub, client, redis_cache
     )
-    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
+    repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 1

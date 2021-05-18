@@ -157,7 +157,11 @@ async def report_queue(title: str, q: queue.QueueT) -> None:
 
 def _url_parser(
     url: str,
-) -> typing.Tuple[github_types.GitHubLogin, typing.Optional[str], typing.Optional[str]]:
+) -> typing.Tuple[
+    github_types.GitHubLogin,
+    typing.Optional[github_types.GitHubRepositoryName],
+    typing.Optional[github_types.GitHubPullRequestNumber],
+]:
 
     path = [el for el in urllib.parse.urlparse(url).path.split("/") if el != ""]
 
@@ -177,9 +181,13 @@ def _url_parser(
             else:
                 raise ValueError
 
-    owner = typing.cast(github_types.GitHubLogin, owner)
-
-    return owner, repo, pull_number
+    return (
+        github_types.GitHubLogin(owner),
+        None if repo is None else github_types.GitHubRepositoryName(repo),
+        None
+        if pull_number is None
+        else github_types.GitHubPullRequestNumber(int(pull_number)),
+    )
 
 
 async def report(
@@ -250,14 +258,11 @@ async def report(
     )
 
     if repo is not None:
-        repo_info: github_types.GitHubRepository = await client.item(
-            f"/repos/{owner}/{repo}"
-        )
-        repository = context.Repository(
-            installation, repo_info["name"], repo_info["id"]
-        )
+        repository = await installation.get_repository_by_name(repo)
 
-        print(f"* REPOSITORY IS {'PRIVATE' if repo_info['private'] else 'PUBLIC'}")
+        print(
+            f"* REPOSITORY IS {'PRIVATE' if repository.repo['private'] else 'PUBLIC'}"
+        )
 
         print("* CONFIGURATION:")
         mergify_config = None

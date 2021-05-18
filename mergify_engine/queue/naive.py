@@ -43,12 +43,12 @@ class Queue(queue.QueueBase):
     def _get_redis_queue_key_for(
         self, ref: typing.Union[github_types.GitHubRefType, typing.Literal["*"]]
     ) -> str:
-        return f"merge-queue~{self.repository.installation.owner_id}~{self.repository.id}~{ref}"
+        return f"merge-queue~{self.repository.installation.owner_id}~{self.repository.repo['id']}~{ref}"
 
     def _config_redis_queue_key(
         self, pull_number: github_types.GitHubPullRequestNumber
     ) -> str:
-        return f"merge-config~{self.repository.installation.owner_id}~{self.repository.id}~{pull_number}"
+        return f"merge-config~{self.repository.installation.owner_id}~{self.repository.repo['id']}~{pull_number}"
 
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber

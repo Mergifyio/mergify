@@ -98,15 +98,27 @@ class Installation:
             )
         return self._user_tokens
 
-    def get_repository(
+    async def get_pull_request_context(
         self,
-        repo_name: github_types.GitHubRepositoryName,
         repo_id: github_types.GitHubRepositoryIdType,
+        pull_number: github_types.GitHubPullRequestNumber,
+    ) -> "Context":
+        for repository in self.repositories.values():
+            if repository.repo["id"] == repo_id:
+                return await repository.get_pull_request_context(pull_number)
+
+        pull = await self.client.item(f"/repositories/{repo_id}/pulls/{pull_number}")
+        repository = self.get_repository_from_github_data(pull["base"]["repo"])
+        return await repository.get_pull_request_context(pull_number, pull)
+
+    def get_repository_from_github_data(
+        self,
+        repo: github_types.GitHubRepository,
     ) -> "Repository":
-        if repo_name not in self.repositories:
-            repository = Repository(self, repo_name, repo_id)
-            self.repositories[repo_name] = repository
-        return self.repositories[repo_name]
+        if repo["name"] not in self.repositories:
+            repository = Repository(self, repo)
+            self.repositories[repo["name"]] = repository
+        return self.repositories[repo["name"]]
 
     async def get_repository_by_name(
         self,
@@ -117,18 +129,18 @@ class Installation:
         repo_data: github_types.GitHubRepository = await self.client.item(
             f"/repos/{self.owner_login}/{name}"
         )
-        return self.get_repository(repo_data["name"], repo_data["id"])
+        return self.get_repository_from_github_data(repo_data)
 
     async def get_repository_by_id(
         self, _id: github_types.GitHubRepositoryIdType
     ) -> "Repository":
         for repository in self.repositories.values():
-            if repository.id == _id:
+            if repository.repo["id"] == _id:
                 return repository
         repo_data: github_types.GitHubRepository = await self.client.item(
             f"/repositories/{_id}"
         )
-        return self.get_repository(repo_data["name"], repo_data["id"])
+        return self.get_repository_from_github_data(repo_data)
 
     TEAM_MEMBERS_CACHE_KEY_PREFIX = "team_members"
     TEAM_MEMBERS_CACHE_KEY_DELIMITER = "/"
@@ -196,8 +208,7 @@ class RepositoryCache(typing.TypedDict, total=False):
 @dataclasses.dataclass
 class Repository(object):
     installation: Installation
-    name: github_types.GitHubRepositoryName
-    id: github_types.GitHubRepositoryIdType
+    repo: github_types.GitHubRepository
     pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
         dataclasses.field(default_factory=dict)
     )
@@ -208,7 +219,7 @@ class Repository(object):
     @property
     def base_url(self) -> str:
         """The URL prefix to make GitHub request."""
-        return f"/repos/{self.installation.owner_login}/{self.name}"
+        return f"/repos/{self.installation.owner_login}/{self.repo['name']}"
 
     MERGIFY_CONFIG_FILENAMES = [
         ".mergify.yml",
@@ -269,7 +280,7 @@ class Repository(object):
             return self._cache["mergify_config"]
 
         config_location_cache = self.get_config_location_cache_key(
-            self.installation.owner_login, self.name
+            self.installation.owner_login, self.repo["name"]
         )
         cached_filename = await self.installation.redis.get(config_location_cache)
         async for config_file in self.iter_mergify_config_files(
@@ -339,7 +350,7 @@ class Repository(object):
     @property
     def _users_permission_cache_key(self) -> str:
         return self._users_permission_cache_key_for_repo(
-            self.installation.owner_id, self.id
+            self.installation.owner_id, self.repo["id"]
         )
 
     @classmethod
@@ -417,7 +428,7 @@ class Repository(object):
     @property
     def _teams_permission_cache_key(self) -> str:
         return self._teams_permission_cache_key_for_repo(
-            self.installation.owner_id, self.id
+            self.installation.owner_id, self.repo["id"]
         )
 
     @classmethod
@@ -467,7 +478,7 @@ class Repository(object):
                 # list as the api endpoint returns 404 if permission read is missing
                 # so no need to check permission
                 await self.installation.client.get(
-                    f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.name}",
+                    f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.repo['name']}",
                 )
                 read_permission = True
             except http.HTTPNotFound:

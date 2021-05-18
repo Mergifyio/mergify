@@ -58,7 +58,7 @@ async def test_signals(redis_cache):
         client,
         redis_cache,
     )
-    repository = context.Repository(installation, gh_repo["name"], gh_repo["id"])
+    repository = context.Repository(installation, gh_repo)
     ctxt = await context.Context.create(
         repository,
         {
