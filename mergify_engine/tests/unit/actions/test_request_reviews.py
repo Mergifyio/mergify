@@ -18,6 +18,7 @@ import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine.actions import request_reviews
 from mergify_engine.clients import http
@@ -163,8 +164,31 @@ async def prepare_context(client, redis_cache, subscribed=True):
         if subscribed
         else frozenset(),
     )
+
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "user/name",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
     installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
-    repository = context.Repository(installation, "demo", 123)
+    repository = context.Repository(installation, gh_repo)
     return await context.Context.create(
         repository,
         {

@@ -456,9 +456,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             client,
             self.redis_cache,
         )
-        repository = context.Repository(
-            installation, p["base"]["repo"]["name"], p["base"]["repo"]["id"]
-        )
+        repository = context.Repository(installation, p["base"]["repo"])
         ctxt = await context.Context.create(repository, p, [])
 
         logins = await live_resolvers.teams(
@@ -1324,8 +1322,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
     async def test_get_repository_by_id(self):
         repo = await self.installation_ctxt.get_repository_by_id(self.REPO_ID)
-        assert repo.name == self.REPO_NAME
-        assert repo.name == self.repository_ctxt.name
+        assert repo.repo["name"] == self.REPO_NAME
+        assert repo.repo["name"] == self.repository_ctxt.repo["name"]
 
 
 class TestEngineWithSubscription(base.FunctionalTestBase):

@@ -459,8 +459,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.client_integration,
             self.redis_cache,
         )
-        self.repository_ctxt = context.Repository(
-            self.installation_ctxt, self.REPO_NAME, self.REPO_ID
+        self.repository_ctxt = await self.installation_ctxt.get_repository_by_id(
+            self.REPO_ID
         )
 
         real_get_subscription = subscription.Subscription.get_subscription

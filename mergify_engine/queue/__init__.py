@@ -50,7 +50,7 @@ class QueueBase(abc.ABC):
         return daiquiri.getLogger(
             __name__,
             gh_owner=self.repository.installation.owner_login,
-            gh_repo=self.repository.name,
+            gh_repo=self.repository.repo["name"],
             gh_branch=self.ref,
         )
 

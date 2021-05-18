@@ -179,8 +179,7 @@ async def run_engine(
     logger.debug("engine in thread start")
     try:
         try:
-            repository = installation.get_repository(repo_name, repo_id)
-            ctxt = await repository.get_pull_request_context(pull_number)
+            ctxt = await installation.get_pull_request_context(repo_id, pull_number)
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
