@@ -835,6 +835,11 @@ class Context(object):
                 for ctext, state in (await self.checks).items()
                 if state == "stale"
             ]
+        elif name == "time":
+            return utils.utcnow().time()
+        elif name == "days":
+            now = utils.utcnow()
+            return [now.strftime("%A"), now.strftime("%a")]
         else:
             raise PullRequestAttributeError(name)
 

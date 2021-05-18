@@ -13,6 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
+
 import pytest
 
 from mergify_engine.rules import filter
@@ -152,6 +154,30 @@ async def test_str() -> None:
     assert "-bar" == str(filter.Filter({"=": ("bar", False)}))
     with pytest.raises(filter.InvalidOperator):
         str(filter.Filter({">=": ("bar", False)}))
+
+
+def time(hour: int, minute: int) -> datetime.time:
+    return datetime.time(hour=hour, minute=minute, tzinfo=datetime.timezone.utc)
+
+
+async def test_time() -> None:
+    assert "foo>=00:00" == str(filter.Filter({">=": ("foo", time(0, 0))}))
+    assert "foo<=23:59" == str(filter.Filter({"<=": ("foo", time(23, 59))}))
+    assert "foo<=03:09" == str(filter.Filter({"<=": ("foo", time(3, 9))}))
+
+    f = filter.Filter({"<=": ("foo", time(5, 8))})
+    assert await f(FakePR({"foo": time(5, 8)}))
+    assert await f(FakePR({"foo": time(2, 1)}))
+    assert await f(FakePR({"foo": time(5, 1)}))
+    assert not await f(FakePR({"foo": time(6, 2)}))
+    assert not await f(FakePR({"foo": time(8, 9)}))
+
+    f = filter.Filter({">=": ("foo", time(5, 8))})
+    assert await f(FakePR({"foo": time(5, 8)}))
+    assert not await f(FakePR({"foo": time(2, 1)}))
+    assert not await f(FakePR({"foo": time(5, 1)}))
+    assert await f(FakePR({"foo": time(6, 2)}))
+    assert await f(FakePR({"foo": time(8, 9)}))
 
 
 async def test_parser() -> None:

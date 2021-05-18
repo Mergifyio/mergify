@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import datetime
 import inspect
 import operator
 import re
@@ -137,6 +138,10 @@ class Filter:
             return name[1:]
         return name
 
+    def get_attribute_value(self):
+        tree = self.tree.get("-", self.tree)
+        return list(tree.values())[0][1]
+
     @classmethod
     def parse(cls, string: str, description: typing.Optional[str] = None) -> "Filter":
         return cls(parser.search.parseString(string, parseAll=True)[0], description)
@@ -155,7 +160,14 @@ class Filter:
                 if self.binary_operators[op][0] != operator.eq:
                     raise InvalidOperator(op)
                 return ("" if nodes[1] else "-") + str(nodes[0])
-            return str(nodes[0]) + op + str(nodes[1])
+            elif isinstance(nodes[1], datetime.time):
+                return (
+                    str(nodes[0])
+                    + op
+                    + nodes[1].replace(tzinfo=None).isoformat(timespec="minutes")
+                )
+            else:
+                return str(nodes[0]) + op + str(nodes[1])
         raise InvalidOperator(op)  # pragma: no cover
 
     def __repr__(self) -> str:  # pragma: no cover

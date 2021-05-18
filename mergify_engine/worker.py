@@ -34,6 +34,7 @@ import tenacity
 
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
@@ -333,6 +334,7 @@ class StreamProcessor:
                     await self._consume_pulls(installation, pulls)
 
                 await self._refresh_merge_trains(installation)
+                await self._send_delayed_refresh(installation)
         except aredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
@@ -385,6 +387,12 @@ class StreamProcessor:
                 stream_name=stream_name,
             )
         LOG.debug("cleanup stream end", stream_name=stream_name)
+
+    async def _send_delayed_refresh(self, installation):
+        async with self._translate_exception_to_retries(
+            installation.stream_name,
+        ):
+            delayed_refresh.send(self.redis_stream, installation)
 
     async def _refresh_merge_trains(self, installation):
         async with self._translate_exception_to_retries(
