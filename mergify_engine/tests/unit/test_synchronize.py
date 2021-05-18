@@ -78,6 +78,7 @@ async def test_summary_synchronization_cache(
         repository,
         {
             "title": "",
+            "body": "",
             "id": github_types.GitHubPullRequestId(0),
             "maintainer_can_modify": False,
             "rebaseable": False,

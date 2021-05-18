@@ -82,6 +82,7 @@ _DUMMY_PR = DummyPullRequest(
         github_types.GitHubPullRequest(
             {
                 "title": "",
+                "body": "",
                 "number": github_types.GitHubPullRequestNumber(0),
                 "html_url": "",
                 "id": github_types.GitHubPullRequestId(0),

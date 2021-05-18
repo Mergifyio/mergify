@@ -117,3 +117,48 @@ class TestAttributes(base.FunctionalTestBase):
             "check-success-or-neutral": ["Summary"],
             "check-skipped": [],
         }
+
+
+class TestAttributesWithSub(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
+    async def test_depends_on(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=automerge",
+                    ],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        pr1, _ = await self.create_pr()
+        pr2, _ = await self.create_pr()
+        await self.merge_pull(pr2["number"])
+
+        body = f"Awesome body\nDepends-On: #{pr1['number']}\ndepends-on: #{pr2['number']}\ndepends-On: #9999999"
+        pr, _ = await self.create_pr(message=body)
+        await self.add_label(pr["number"], "automerge")
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, pr)
+        assert ctxt.get_depends_on() == {pr1["number"], pr2["number"], 9999999}
+        assert await ctxt._get_consolidated_data("depends-on") == [f"#{pr2['number']}"]
+
+        repo_url = ctxt.pull["base"]["repo"]["html_url"]
+        summary = [
+            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
+        ][0]
+        expected = f"""#### Rule: merge (merge)
+- [X] `base={self.master_branch_name}`
+- [X] `label=automerge`
+- [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
+- [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from fork** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]
+- [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from fork** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]
+"""
+        assert expected == summary["output"]["summary"][: len(expected)]

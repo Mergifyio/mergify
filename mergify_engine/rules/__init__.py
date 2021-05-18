@@ -25,6 +25,7 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
 from mergify_engine.rules import types
@@ -66,6 +67,30 @@ async def get_branch_protection_conditions(
             ctxt.pull["base"]["ref"]
         )
     ]
+
+
+async def get_depends_on_conditions(
+    ctxt: context.Context,
+) -> typing.List[filter.Filter]:
+    conds: typing.List[filter.Filter] = []
+    for pull_request_number in ctxt.get_depends_on():
+        try:
+            dep_ctxt = await ctxt.repository.get_pull_request_context(
+                pull_request_number
+            )
+        except http.HTTPNotFound:
+            description = f"⛓️ ⚠️ *pull request not found* (#{pull_request_number})"
+        else:
+            description = f"⛓️ **{dep_ctxt.pull['title']}** ([#{pull_request_number}]({dep_ctxt.pull['html_url']}))"
+        conds.append(
+            # We use filter.Filter instead RuleCondition, to make depends-on
+            # internal an attribute
+            filter.Filter(
+                {"=": ("depends-on", f"#{pull_request_number}")},
+                description=description,
+            )
+        )
+    return conds
 
 
 # TODO(sileht): rename me PullRequestRule ?
@@ -313,40 +338,41 @@ class PullRequestRules:
                 runtime_rules.append(rule)
                 continue
 
-            actions_with_branch_protections = {}
-            actions_without_branch_protections = {}
+            actions_with_special_rules = {}
+            actions_without_special_rules = {}
             for name, action in rule.actions.items():
                 if name in ["queue", "merge"]:
-                    actions_with_branch_protections[name] = action
+                    actions_with_special_rules[name] = action
                 else:
-                    actions_without_branch_protections[name] = action
+                    actions_without_special_rules[name] = action
 
-            if actions_with_branch_protections:
+            if actions_with_special_rules:
                 branch_protection_conditions = await get_branch_protection_conditions(
                     ctxt
                 )
-                if branch_protection_conditions:
+                depends_on_conditions = await get_depends_on_conditions(ctxt)
+                if branch_protection_conditions or depends_on_conditions:
                     runtime_rules.append(
                         Rule(
                             name=rule.name,
                             conditions=RuleConditions(
-                                rule.conditions + branch_protection_conditions
+                                rule.conditions
+                                + branch_protection_conditions
+                                + depends_on_conditions
                             ),
-                            actions=actions_with_branch_protections,
+                            actions=actions_with_special_rules,
                             hidden=rule.hidden,
                         )
                     )
                 else:
-                    actions_without_branch_protections.update(
-                        actions_with_branch_protections
-                    )
+                    actions_without_special_rules.update(actions_with_special_rules)
 
-            if actions_without_branch_protections:
+            if actions_without_special_rules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
                         conditions=rule.conditions,
-                        actions=actions_without_branch_protections,
+                        actions=actions_without_special_rules,
                         hidden=rule.hidden,
                     )
                 )

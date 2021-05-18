@@ -16,6 +16,15 @@ Merge queues prevent merging broken pull requests by serializing their merge.
 Merging broken pull requests can happen when outdated pull requests are being
 merged in their base branch.
 
+Mergify always respects the `branch protection`_ settings. When the conditions
+match and the ``queue`` action runs, Mergify waits for the branch protection to
+be validated before embarking and merging the pull request.
+
+.. _`branch protection`: https://docs.github.com/en/github/administering-a-repository/about-protected-branches
+
+Mergify also waits for dependent pull requests to get merged first (see :ref:`merge-depends-on`).
+
+
 Why Queues?
 -----------
 
@@ -373,5 +382,33 @@ three enqueued pull requests are mergeable.
         actions:
           queue:
             name: default
+
+.. _merge-depends-on:
+
+⛓️ Defining Pull Request Dependencies
+-------------------------------------
+
+|premium plan tag|
+|open source plan tag|
+
+You can specify dependencies between pull requests from the same repository.
+Mergify waits for the linked pull requests to be merged before merging any pull
+request with a ``Depends-On:`` header.
+
+To use this feature, adds the ``Depends-On:`` header to the body of your pull
+request:
+
+.. code-block:: md
+
+    New awesome feature 🎉
+
+    To get the full picture, you may need to look at these pull requests:
+
+    Depends-On: #42
+    Depends-On: https://github.com/organization/repository/pull/123
+
+.. warning::
+
+    This feature does not work for cross-repository dependencies.
 
 .. include:: ../global-substitutions.rst
