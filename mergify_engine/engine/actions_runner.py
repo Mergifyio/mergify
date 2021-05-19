@@ -417,13 +417,14 @@ async def run_actions(
                 message = "ignored, another has already been run"
 
             else:
-                # NOTE(sileht): check state change so we have to run "run" or "cancel"
-                report = await exec_action(
-                    method_name,
-                    rule,
-                    action,
-                    ctxt,
-                )
+                with statsd.timed("engine.actions.runtime", tags=[f"name:{action}"]):
+                    # NOTE(sileht): check state change so we have to run "run" or "cancel"
+                    report = await exec_action(
+                        method_name,
+                        rule,
+                        action,
+                        ctxt,
+                    )
                 message = "executed"
 
             conclusions[check_name] = report.conclusion
