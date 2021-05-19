@@ -40,7 +40,8 @@ class Gitter(object):
 
     async def init(self) -> None:
         self.tmp = await asyncio.to_thread(tempfile.mkdtemp, prefix="mergify-gitter")
-        self.logger.info("working in: %s", self.tmp)
+        version = await self("version")
+        self.logger.info("git directory created", path=self.tmp, version=version)
         await self("init")
 
     async def __call__(self, *args: str, _input: typing.Optional[str] = None) -> str:
