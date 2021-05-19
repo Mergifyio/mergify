@@ -663,11 +663,13 @@ class Context(object):
             for r in await self.reviews
             if (
                 r["user"] is not None
-                # If author has no association, it can't have any write permission
-                and r["author_association"] != "NONE"
                 and (
                     r["user"]["type"] == "Bot"
-                    or await self.repository.has_write_permission(r["user"])
+                    or (
+                        # If author has no association, it can't have any write permission
+                        r["author_association"] != "NONE"
+                        and await self.repository.has_write_permission(r["user"])
+                    )
                 )
             )
         }
