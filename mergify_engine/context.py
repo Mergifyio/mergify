@@ -646,19 +646,6 @@ class Context(object):
             ex=SUMMARY_SHA_EXPIRATION,
         )
 
-    async def _get_valid_user_ids(self) -> typing.Set[github_types.GitHubAccountIdType]:
-        return {
-            r["user"]["id"]
-            for r in await self.reviews
-            if (
-                r["user"] is not None
-                and (
-                    r["user"]["type"] == "Bot"
-                    or await self.repository.has_write_permission(r["user"])
-                )
-            )
-        }
-
     async def consolidated_reviews(
         self,
     ) -> typing.Tuple[
@@ -671,7 +658,20 @@ class Context(object):
         # And only keep the last review for each user.
         comments: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
         approvals: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
-        valid_user_ids = await self._get_valid_user_ids()
+        valid_user_ids = {
+            r["user"]["id"]
+            for r in await self.reviews
+            if (
+                r["user"] is not None
+                # If author has no association, it can't have any write permission
+                and r["author_association"] != "NONE"
+                and (
+                    r["user"]["type"] == "Bot"
+                    or await self.repository.has_write_permission(r["user"])
+                )
+            )
+        }
+
         for review in await self.reviews:
             if not review["user"] or review["user"]["id"] not in valid_user_ids:
                 continue
