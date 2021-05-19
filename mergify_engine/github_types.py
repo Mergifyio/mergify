@@ -289,6 +289,19 @@ GitHubReviewStateType = typing.Literal[
 ]
 
 
+# https://docs.github.com/en/graphql/reference/enums#commentauthorassociation
+GitHubCommentAuthorAssociation = typing.Literal[
+    "COLLABORATOR",
+    "CONTRIBUTOR",
+    "FIRST_TIMER",
+    "FIRST_TIME_CONTRIBUTOR",
+    "MANNEQUIN",
+    "MEMBER",
+    "NONE",
+    "OWNER",
+]
+
+
 class GitHubReview(typing.TypedDict):
     id: GitHubReviewIdType
     user: GitHubAccount
@@ -296,6 +309,7 @@ class GitHubReview(typing.TypedDict):
     pull_request: GitHubPullRequest
     repository: GitHubRepository
     state: GitHubReviewStateType
+    author_association: GitHubCommentAuthorAssociation
 
 
 class GitHubEventPullRequestReview(GitHubEvent):
