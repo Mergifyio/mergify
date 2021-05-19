@@ -117,7 +117,7 @@ async def push(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
     owner: github_types.GitHubLogin,
-    repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
+    repo_id: github_types.GitHubRepositoryIdType,
     repo: github_types.GitHubRepositoryName,
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
@@ -165,7 +165,7 @@ async def push(
 
 async def run_engine(
     installation: context.Installation,
-    repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
+    repo_id: github_types.GitHubRepositoryIdType,
     repo_name: github_types.GitHubRepositoryName,
     pull_number: github_types.GitHubPullRequestNumber,
     sources: typing.List[context.T_PayloadEventSource],
@@ -179,10 +179,7 @@ async def run_engine(
     logger.debug("engine in thread start")
     try:
         try:
-            if repo_id:
-                repository = installation.get_repository(repo_name, repo_id)
-            else:
-                repository = await installation.get_repository_by_name(repo_name)
+            repository = installation.get_repository(repo_name, repo_id)
             ctxt = await repository.get_pull_request_context(pull_number)
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
@@ -199,7 +196,7 @@ PullsToConsume = typing.NewType(
     collections.OrderedDict[
         typing.Tuple[
             github_types.GitHubRepositoryName,
-            typing.Optional[github_types.GitHubRepositoryIdType],
+            github_types.GitHubRepositoryIdType,
             github_types.GitHubPullRequestNumber,
         ],
         typing.Tuple[
@@ -442,9 +439,7 @@ end
         for message_id, message in messages:
             data = msgpack.unpackb(message[b"event"], raw=False)
             repo_name = github_types.GitHubRepositoryName(data["repo"])
-            repo_id: typing.Optional[github_types.GitHubRepositoryIdType] = data.get(
-                "repo_id"
-            )
+            repo_id = github_types.GitHubRepositoryIdType(data["repo_id"])
             source = typing.cast(context.T_PayloadEventSource, data["source"])
             if data["pull_number"] is not None:
                 key = (
@@ -511,7 +506,7 @@ end
     async def _convert_event_to_messages(
         self,
         installation: context.Installation,
-        repo_id: typing.Optional[github_types.GitHubRepositoryIdType],
+        repo_id: github_types.GitHubRepositoryIdType,
         repo_name: github_types.GitHubRepositoryName,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
