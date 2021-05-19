@@ -81,6 +81,7 @@ def config_log():
         if "URL" in name and value is not None:
             value = re.sub(r"://[^@]*@", "://*****@", value)
         LOG.info("* MERGIFYENGINE_%s: %s", name, value)
+    LOG.info("* PATH: %s", os.environ.get("PATH"))
     LOG.info("##########################################################")
 
 
