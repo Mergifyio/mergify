@@ -77,9 +77,6 @@ def is_force_push_lease_reject(message: str) -> bool:
     )
 
 
-GIT_MESSAGE_TO_UNSHALLOW = {"shallow update not allowed", "unrelated histories"}
-
-
 def pre_update_check(ctxt: context.Context) -> None:
     # If PR from a public fork but cannot be edited
     if (
@@ -157,67 +154,34 @@ async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
+        # NOTE(sileht): Bump the repository format. This ensures required
+        # extensions (promisor, partialclonefilter) are present in git cli and
+        # raise an error if not. Avoiding git cli to fallback to full clone
+        # behavior for us.
+        await git("config", "core.repositoryformatversion", "1")
+
         if ctxt.subscription.active:
             await git.configure(user["name"] or user["login"], user["email"])
         else:
             await git.configure()
         await git.add_cred(user["oauth_access_token"], "", head_repo)
         await git.add_cred(user["oauth_access_token"], "", base_repo)
-        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
-        await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
 
-        depth = len(await ctxt.commits) + 1
-        await git("fetch", "--quiet", f"--depth={depth}", "origin", head_branch)
+        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
+        await git("config", "remote.origin.promisor", "true")
+        await git("config", "remote.origin.partialclonefilter", "blob:none")
+
+        await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
+        await git("config", "remote.upstream.promisor", "true")
+        await git("config", "remote.upstream.partialclonefilter", "blob:none")
+
+        await git("fetch", "--quiet", "origin", head_branch)
         await git("checkout", "-q", "-b", head_branch, f"origin/{head_branch}")
 
-        output = await git("log", "--format=%cI")
-        last_commit_date = [d for d in output.split("\n") if d.strip()][-1]
+        await git("fetch", "--quiet", "upstream", base_branch)
 
-        await git(
-            "fetch",
-            "--quiet",
-            "upstream",
-            base_branch,
-            f"--shallow-since='{last_commit_date}'",
-        )
-
-        # Try to find the merge base, but don't fetch more that 1000 commits.
-        for _ in range(20):
-            await git("repack", "-d")
-            try:
-                await git(
-                    "merge-base", f"upstream/{base_branch}", f"origin/{head_branch}"
-                )
-            except gitter.GitError as e:  # pragma: no cover
-                if e.returncode == 1:
-                    # We need more commits
-                    await git("fetch", "-q", "--deepen=50", "upstream", base_branch)
-                    continue
-                raise
-            else:
-                break
-
-        try:
-            await git("rebase", f"upstream/{base_branch}")
-            await git("push", "--verbose", "origin", head_branch, "--force-with-lease")
-        except gitter.GitError as e:  # pragma: no cover
-            for message in GIT_MESSAGE_TO_UNSHALLOW:
-                if message in e.output:
-                    ctxt.log.info("Complete history cloned")
-                    # NOTE(sileht): We currently assume we have only one parent
-                    # commit in common. Since Git is a graph, in some case this
-                    # graph can be more complicated.
-                    # So, retrying with the whole git history for now
-                    await git("fetch", "--unshallow")
-                    await git("fetch", "--quiet", "origin", head_branch)
-                    await git("fetch", "--quiet", "upstream", base_branch)
-                    await git("rebase", f"upstream/{base_branch}")
-                    await git(
-                        "push", "--verbose", "origin", head_branch, "--force-with-lease"
-                    )
-                    break
-            else:
-                raise
+        await git("rebase", f"upstream/{base_branch}")
+        await git("push", "--verbose", "origin", head_branch, "--force-with-lease")
 
         expected_sha = (await git("log", "-1", "--format=%H")).strip()
         # NOTE(sileht): We store this for dismissal action
