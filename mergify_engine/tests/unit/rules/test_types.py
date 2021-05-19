@@ -57,6 +57,14 @@ def test_jinja2_None():
     assert types.Jinja2WithNone(None) is None
 
 
+def test_jinja2_not_str():
+    with pytest.raises(voluptuous.Invalid) as x:
+        types.Jinja2({"title": None})
+    assert str(x.value) == "Template must be a string"
+
+    assert types.Jinja2WithNone(None) is None
+
+
 def test_jinja2_unknown_attr():
     with pytest.raises(voluptuous.Invalid) as x:
         types.Jinja2("{{foo}}")

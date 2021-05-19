@@ -165,11 +165,14 @@ _DUMMY_PR = DummyPullRequest(
 
 
 def Jinja2(
-    value: str, extra_variables: typing.Optional[typing.Dict[str, typing.Any]] = None
+    value: typing.Optional[typing.Any],
+    extra_variables: typing.Optional[typing.Dict[str, typing.Any]] = None,
 ) -> typing.Optional[str]:
     """A Jinja2 type for voluptuous Schemas."""
     if value is None:
         raise voluptuous.Invalid("Template cannot be null")
+    if not isinstance(value, str):
+        raise voluptuous.Invalid("Template must be a string")
     try:
         # TODO: optimize this by returning, storing and using the parsed Jinja2 AST
         _DUMMY_PR.render_template(value, extra_variables)
