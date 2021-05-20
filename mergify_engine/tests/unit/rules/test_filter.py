@@ -154,6 +154,24 @@ async def test_str() -> None:
         str(filter.Filter({">=": ("bar", False)}))
 
 
+async def test_or() -> None:
+    f = filter.Filter({"or": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
+    assert await f(FakePR({"foo": 1, "bar": 1}))
+    assert not await f(FakePR({"bar": 2, "foo": 2}))
+    assert await f(FakePR({"bar": 2, "foo": 1}))
+    assert await f(FakePR({"bar": 1, "foo": 2}))
+
+
+async def test_and() -> None:
+    f = filter.Filter({"and": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
+    assert await f(FakePR({"bar": 1, "foo": 1}))
+    assert not await f(FakePR({"bar": 2, "foo": 2}))
+    assert not await f(FakePR({"bar": 2, "foo": 1}))
+    assert not await f(FakePR({"bar": 1, "foo": 2}))
+    with pytest.raises(filter.ParseError):
+        filter.Filter({"or": {"foo": "whar"}})
+
+
 async def test_parser() -> None:
     for string in ("head=foobar", "-base=master", "#files>3"):
         assert string == str(filter.Filter.parse(string))
