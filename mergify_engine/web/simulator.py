@@ -112,9 +112,7 @@ async def _simulator(redis_cache, pull_request_rules, owner, repo, pull_number, 
                 client,
                 redis_cache,
             )
-            repository = context.Repository(
-                installation, repo, data["base"]["repo"]["id"]
-            )
+            repository = context.Repository(installation, data["base"]["repo"])
             ctxt = await repository.get_pull_request_context(data["number"], data)
             ctxt.sources = [{"event_type": "mergify-simulator", "data": []}]
             match = await pull_request_rules.get_pull_request_rule(ctxt)

@@ -229,6 +229,28 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
     client = mock.Mock()
     client.item.return_value = item()
 
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "user/name",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foobar"),
@@ -236,11 +258,7 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("xyz"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
 
     config_file = await repository.get_mergify_config_file()
     assert config_file is not None
@@ -282,6 +300,28 @@ pull_request_rules:
     client = mock.Mock()
     client.item.return_value = item()
 
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("foobar"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "foobar/xyz",
+            "name": github_types.GitHubRepositoryName("xyz"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
+
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
         github_types.GitHubLogin("foobar"),
@@ -289,11 +329,7 @@ pull_request_rules:
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("xyz"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
     config_file = await repository.get_mergify_config_file()
     assert config_file is not None
 
@@ -333,11 +369,7 @@ pull_request_rules:
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("xyz"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
     config_file = await repository.get_mergify_config_file()
     assert config_file is not None
 
@@ -369,26 +401,43 @@ async def test_get_mergify_config_location_from_cache(
         ),
     ]
 
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("foobar"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "foobar/xyz",
+            "name": github_types.GitHubRepositoryName("xyz"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
     installation = context.Installation(
         github_types.GitHubAccountIdType(0),
-        github_types.GitHubLogin("foo"),
+        github_types.GitHubLogin("foobar"),
         subscription.Subscription(redis_cache, 0, False, "", frozenset()),
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("bar"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
 
     await repository.get_mergify_config_file()
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foo/bar/contents/.mergify.yml", params={}),
-            mock.call("/repos/foo/bar/contents/.mergify/config.yml", params={}),
-            mock.call("/repos/foo/bar/contents/.github/mergify.yml", params={}),
+            mock.call("/repos/foobar/xyz/contents/.mergify.yml", params={}),
+            mock.call("/repos/foobar/xyz/contents/.mergify/config.yml", params={}),
+            mock.call("/repos/foobar/xyz/contents/.github/mergify.yml", params={}),
         ]
     )
 
@@ -408,7 +457,7 @@ async def test_get_mergify_config_location_from_cache(
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foo/bar/contents/.github/mergify.yml", params={}),
+            mock.call("/repos/foobar/xyz/contents/.github/mergify.yml", params={}),
         ]
     )
 
@@ -449,6 +498,28 @@ async def test_get_mergify_config_invalid(
 
         client = mock.Mock()
         client.item.return_value = item()
+
+        gh_owner = github_types.GitHubAccount(
+            {
+                "login": github_types.GitHubLogin("foobar"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+                "avatar_url": "",
+            }
+        )
+        gh_repo = github_types.GitHubRepository(
+            {
+                "full_name": "foobar/xyz",
+                "name": github_types.GitHubRepositoryName("xyz"),
+                "private": False,
+                "id": github_types.GitHubRepositoryIdType(0),
+                "owner": gh_owner,
+                "archived": False,
+                "url": "",
+                "html_url": "",
+                "default_branch": github_types.GitHubRefType("ref"),
+            }
+        )
         installation = context.Installation(
             github_types.GitHubAccountIdType(0),
             github_types.GitHubLogin("foobar"),
@@ -458,8 +529,7 @@ async def test_get_mergify_config_invalid(
         )
         repository = context.Repository(
             installation,
-            github_types.GitHubRepositoryName("xyz"),
-            github_types.GitHubRepositoryIdType(0),
+            gh_repo,
         )
 
         config_file = await repository.get_mergify_config_file()
@@ -726,6 +796,27 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     client.items.side_effect = client_items
 
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("foobar"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "foobar/name",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
     installation = context.Installation(
         github_types.GitHubAccountIdType(2644),
         github_types.GitHubLogin("another-jd"),
@@ -733,11 +824,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("name"),
-        github_types.GitHubRepositoryIdType(123321),
-    )
+    repository = context.Repository(installation, gh_repo)
     ctxt = await context.Context.create(
         repository,
         github_types.GitHubPullRequest(

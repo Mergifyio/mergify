@@ -54,6 +54,29 @@ async def test_get_commits_to_cherry_pick_rebase(
     commits: mock.PropertyMock,
     redis_cache: utils.RedisCache,
 ) -> None:
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "user/name",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
+
     c1 = github_types.GitHubBranchCommit(
         {
             "sha": github_types.SHAType("c1f"),
@@ -81,11 +104,7 @@ async def test_get_commits_to_cherry_pick_rebase(
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("name"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
     ctxt = await context.Context.create(
         repository,
         {
@@ -241,6 +260,19 @@ async def test_get_commits_to_cherry_pick_merge(
             "avatar_url": "",
         }
     )
+    gh_repo = github_types.GitHubRepository(
+        {
+            "full_name": "user/name",
+            "name": github_types.GitHubRepositoryName("name"),
+            "private": False,
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType("ref"),
+        }
+    )
 
     installation = context.Installation(
         github_types.GitHubAccountIdType(123),
@@ -249,11 +281,7 @@ async def test_get_commits_to_cherry_pick_merge(
         client,
         redis_cache,
     )
-    repository = context.Repository(
-        installation,
-        github_types.GitHubRepositoryName("name"),
-        github_types.GitHubRepositoryIdType(0),
-    )
+    repository = context.Repository(installation, gh_repo)
     ctxt = await context.Context.create(
         repository,
         {

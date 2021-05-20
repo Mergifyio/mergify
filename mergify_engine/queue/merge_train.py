@@ -248,7 +248,7 @@ class TrainCar(PseudoTrainCar):
 
         try:
             await self.train.repository.installation.client.post(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/git/refs",
+                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
                 json={
                     "ref": f"refs/heads/{branch_name}",
                     "sha": self.initial_current_base_sha,
@@ -270,7 +270,7 @@ class TrainCar(PseudoTrainCar):
         ]:
             try:
                 await self.train.repository.installation.client.post(
-                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/merges",
+                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
                     json={
                         "base": branch_name,
                         "head": f"refs/pull/{pull_number}/head",
@@ -301,7 +301,7 @@ class TrainCar(PseudoTrainCar):
             )
             tmp_pull = (
                 await self.train.repository.installation.client.post(
-                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/pulls",
+                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
                     json={
                         "title": title,
                         "body": body,
@@ -418,7 +418,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         )
         try:
             await self.train.repository.installation.client.delete(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.name}/git/refs/heads/{escaped_branch_name}"
+                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs/heads/{escaped_branch_name}"
             )
         except http.HTTPNotFound:
             pass
@@ -713,7 +713,7 @@ class Train(queue.QueueBase):
 
     def _get_redis_key(self) -> str:
         return self.get_redis_key_for(
-            self.repository.installation.owner_id, self.repository.id, self.ref
+            self.repository.installation.owner_id, self.repository.repo["id"], self.ref
         )
 
     @classmethod
@@ -747,7 +747,7 @@ class Train(queue.QueueBase):
         return daiquiri.getLogger(
             __name__,
             gh_owner=self.repository.installation.owner_login,
-            gh_repo=self.repository.name,
+            gh_repo=self.repository.repo["name"],
             gh_branch=self.ref,
             train_cars=[c.user_pull_request_number for c in self._cars],
             train_waiting_pulls=[
@@ -1020,7 +1020,7 @@ class Train(queue.QueueBase):
         return typing.cast(
             github_types.GitHubBranch,
             await self.repository.installation.client.item(
-                f"repos/{self.repository.installation.owner_login}/{self.repository.name}/branches/{escaped_branch_name}"
+                f"repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/branches/{escaped_branch_name}"
             ),
         )["commit"]["sha"]
 
