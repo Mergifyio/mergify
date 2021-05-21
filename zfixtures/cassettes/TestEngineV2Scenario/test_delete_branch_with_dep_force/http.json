@@ -299,7 +299,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: DELETE
-    uri: https://test-forwarder.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events/github.com/11221
   response:
     body:
       string: ''
@@ -403,7 +403,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=1
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=1
   response:
     body:
       string: !!binary |
@@ -1615,7 +1615,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=2
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=2
   response:
     body:
       string: !!binary |
@@ -2326,7 +2326,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=3
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=3
   response:
     body:
       string: !!binary |
@@ -2836,7 +2836,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=4
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=4
   response:
     body:
       string: !!binary |
@@ -3042,7 +3042,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=5
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=5
   response:
     body:
       string: !!binary |
@@ -3520,7 +3520,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=6
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=6
   response:
     body:
       string: !!binary |
@@ -4084,7 +4084,7 @@ interactions:
       X-Hub-Signature:
       - <SIGNATURE>
     method: DELETE
-    uri: https://test-forwarder.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events/github.com/11221
   response:
     body:
       string: ''

@@ -143,7 +143,7 @@ Schema = voluptuous.Schema(
         # For test suite only (eg: tox -erecord)
         voluptuous.Required(
             "TESTING_FORWARDER_ENDPOINT",
-            default="https://test-forwarder.mergify.io/events-testing",
+            default="https://test-forwarder.mergify.io/events",
         ): str,
         voluptuous.Required("INSTALLATION_ID", default=15398551): voluptuous.Coerce(
             int
