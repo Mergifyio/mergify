@@ -1336,6 +1336,12 @@ class TestQueueAction(base.FunctionalTestBase):
         p1 = await self.get_pull(p1["number"])
         assert p1["merged"]
 
+    # FIXME(sileht): Provide a tools to generate oauth_token without
+    # the need if the dashboard
+    @pytest.mark.skipif(
+        config.GITHUB_URL != "https://github.com",
+        reason="We use a PAT token instead of an OAUTH_TOKEN",
+    )
     async def test_pull_have_base_branch_merged_commit_with_changed_workflow(self):
         rules = {
             "queue_rules": [
