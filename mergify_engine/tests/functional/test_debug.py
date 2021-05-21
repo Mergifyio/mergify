@@ -18,6 +18,7 @@ from unittest import mock
 
 import yaml
 
+from mergify_engine import config
 from mergify_engine import debug
 from mergify_engine import subscription
 from mergify_engine.tests.functional import base
@@ -60,7 +61,7 @@ class TestDebugger(base.FunctionalTestBase):
 
         assert (
             s1.strip()
-            == f"""* INSTALLATION ID: 15398551
+            == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
@@ -166,7 +167,7 @@ mergeable_state: clean
 
         assert (
             s3.strip()
-            == """* INSTALLATION ID: 15398551
+            == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues

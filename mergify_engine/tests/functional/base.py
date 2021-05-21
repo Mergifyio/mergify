@@ -133,8 +133,6 @@ class GitterRecorder(gitter.Gitter):
 
 
 class EventReader:
-    FORWARDER_ENDPOINT = "https://test-forwarder.mergify.io/events-testing"
-
     def __init__(self, app):
         self._app = app
         self._session = http.AsyncClient()
@@ -145,7 +143,7 @@ class EventReader:
         # NOTE(sileht): Drop any pending events still on the server
         r = await self._session.request(
             "DELETE",
-            self.FORWARDER_ENDPOINT,
+            config.TESTING_FORWARDER_ENDPOINT,
             content=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
@@ -200,7 +198,7 @@ class EventReader:
         return (
             await self._session.request(
                 "GET",
-                f"{self.FORWARDER_ENDPOINT}?counter={self._counter}",
+                f"{config.TESTING_FORWARDER_ENDPOINT}?counter={self._counter}",
                 content=FAKE_DATA,
                 headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
             )
@@ -278,8 +276,8 @@ class EventReader:
 class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
-    REPO_ID = 258840104
-    REPO_NAME = "functional-testing-repo"
+    REPO_ID = config.TESTING_REPOSITORY_ID
+    REPO_NAME = config.TESTING_REPOSITORY_NAME
     FORK_PERSONAL_TOKEN = config.EXTERNAL_USER_PERSONAL_TOKEN
     SUBSCRIPTION_ACTIVE = False
 
@@ -342,7 +340,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     }
                     auth.permissions_need_to_be_updated = False
                     auth.owner_id = config.TESTING_ORGANIZATION_ID
-                    auth.owner = config.TESTING_ORGANIZATION
+                    auth.owner = config.TESTING_ORGANIZATION_NAME
                 return auth
 
             def github_aclient(owner_name=None, owner_id=None, auth=None):
@@ -424,7 +422,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(cassette.__exit__)
 
         self.client_integration = github.aget_client(
-            config.TESTING_ORGANIZATION, config.TESTING_ORGANIZATION_ID
+            config.TESTING_ORGANIZATION_NAME, config.TESTING_ORGANIZATION_ID
         )
         self.client_admin = github.AsyncGithubInstallationClient(
             auth=github.GithubTokenAuth(token=config.ORG_ADMIN_PERSONAL_TOKEN)
@@ -454,7 +452,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
-            config.TESTING_ORGANIZATION,
+            config.TESTING_ORGANIZATION_NAME,
             self.subscription,
             self.client_integration,
             self.redis_cache,
