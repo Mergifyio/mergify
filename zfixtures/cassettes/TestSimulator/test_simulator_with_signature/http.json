@@ -200,7 +200,7 @@ interactions:
       host:
       - test-forwarder.mergify.io
     method: DELETE
-    uri: https://test-forwarder.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events/github.com/11221
   response:
     content: Event queued
     headers:
@@ -291,7 +291,7 @@ interactions:
       host:
       - test-forwarder.mergify.io
     method: GET
-    uri: https://test-forwarder.mergify.io/events-testing?counter=1
+    uri: https://test-forwarder.mergify.io/events/github.com/11221?counter=1
   response:
     content: '[{"id":"be686680-b8b0-11eb-894f-7274b2ba5839","type":"check_suite","payload":{"action":"requested","check_suite":{"id":2779982937,"node_id":"MDEwOkNoZWNrU3VpdGUyNzc5OTgyOTM3","head_branch":"20210519144436/test_simulator_with_signature/master","head_sha":"0c8b3d1d8fae672454fa42f2877394e16806e6ed","status":"queued","conclusion":null,"url":"https://api.github.com/repos/mergifyio-testing/functional-testing-repo/check-suites/2779982937","before":"0000000000000000000000000000000000000000","after":"0c8b3d1d8fae672454fa42f2877394e16806e6ed","pull_requests":[],"app":{"id":11221,"slug":"mergify-test","node_id":"MDM6QXBwMTEyMjE=","owner":{"login":"mergifyio-testing","id":40527191,"node_id":"MDEyOk9yZ2FuaXphdGlvbjQwNTI3MTkx","avatar_url":"https://avatars.githubusercontent.com/u/40527191?v=4","gravatar_id":"","url":"https://api.github.com/users/mergifyio-testing","html_url":"https://github.com/mergifyio-testing","followers_url":"https://api.github.com/users/mergifyio-testing/followers","following_url":"https://api.github.com/users/mergifyio-testing/following{/other_user}","gists_url":"https://api.github.com/users/mergifyio-testing/gists{/gist_id}","starred_url":"https://api.github.com/users/mergifyio-testing/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/mergifyio-testing/subscriptions","organizations_url":"https://api.github.com/users/mergifyio-testing/orgs","repos_url":"https://api.github.com/users/mergifyio-testing/repos","events_url":"https://api.github.com/users/mergifyio-testing/events{/privacy}","received_events_url":"https://api.github.com/users/mergifyio-testing/received_events","type":"Organization","site_admin":false},"name":"Mergify-test","description":"Test
       version of Mergify.","external_url":"https://mergify.io","html_url":"https://github.com/apps/mergify-test","created_at":"2018-04-18T13:55:11Z","updated_at":"2021-03-15T16:12:09Z","permissions":{"checks":"write","contents":"write","emails":"read","issues":"write","members":"read","metadata":"read","pages":"write","pull_requests":"write","statuses":"read"},"events":["check_run","check_suite","issue_comment","pull_request","pull_request_review","pull_request_review_comment","push","status"]},"created_at":"2021-05-19T14:44:41Z","updated_at":"2021-05-19T14:44:41Z","latest_check_runs_count":0,"check_runs_url":"https://api.github.com/repos/mergifyio-testing/functional-testing-repo/check-suites/2779982937/check-runs","head_commit":{"id":"0c8b3d1d8fae672454fa42f2877394e16806e6ed","tree_id":"f6ebf6d452ad65cdc9f37798e2b2e724ff3dbfe4","message":"initial
@@ -607,7 +607,7 @@ interactions:
       host:
       - test-forwarder.mergify.io
     method: DELETE
-    uri: https://test-forwarder.mergify.io/events-testing
+    uri: https://test-forwarder.mergify.io/events/github.com/11221
   response:
     content: Event queued
     headers:

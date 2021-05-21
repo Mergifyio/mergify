@@ -139,11 +139,16 @@ class EventReader:
         self._handled_events = asyncio.Queue()
         self._counter = 0
 
+        hostname = parse.urlparse(config.GITHUB_URL).hostname
+        self._namespace_endpoint = (
+            f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}"
+        )
+
     async def drain(self):
         # NOTE(sileht): Drop any pending events still on the server
         r = await self._session.request(
             "DELETE",
-            config.TESTING_FORWARDER_ENDPOINT,
+            self._namespace_endpoint,
             content=FAKE_DATA,
             headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
         )
@@ -198,7 +203,7 @@ class EventReader:
         return (
             await self._session.request(
                 "GET",
-                f"{config.TESTING_FORWARDER_ENDPOINT}?counter={self._counter}",
+                f"{self._namespace_endpoint}?counter={self._counter}",
                 content=FAKE_DATA,
                 headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
             )
