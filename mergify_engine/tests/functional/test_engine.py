@@ -470,8 +470,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert sorted(logins) == sorted(
             [
                 "user",
-                "jd",
-                "sileht",
                 "mergify-test1",
                 "mergify-test3",
             ]
@@ -488,8 +486,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert sorted(logins) == sorted(
             [
                 "user",
-                "jd",
-                "sileht",
                 "mergify-test1",
                 "mergify-test3",
             ]
@@ -1167,7 +1163,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                     "name": "user",
                     "conditions": [
                         f"base={self.master_branch_name}",
-                        "review-requested=sileht",
+                        "review-requested=mergify-test3",
                     ],
                     "actions": {"comment": {"message": "review-requested user"}},
                 },
@@ -1184,7 +1180,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
-        await self.create_review_request(p1["number"], reviewers=["sileht"])
+        await self.create_review_request(p1["number"], reviewers=["mergify-test3"])
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
