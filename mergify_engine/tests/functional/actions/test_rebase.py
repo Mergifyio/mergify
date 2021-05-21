@@ -57,6 +57,6 @@ class TestRebaseAction(base.FunctionalTestBase):
         self.assertNotEqual(pr_initial_sha, final_sha)
 
     async def test_rebase_fail_heavy_repo(self):
-        with mock.patch("mergify_engine.config.NOSUB_MAX_REPO_SIZE_KB", 1):
+        with mock.patch("mergify_engine.config.NOSUB_MAX_REPO_SIZE_KB", -1):
             pr_initial_sha, final_sha = await self._do_test_rebase()
             self.assertEqual(pr_initial_sha, final_sha)
