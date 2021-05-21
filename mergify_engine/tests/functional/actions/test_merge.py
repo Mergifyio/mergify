@@ -16,6 +16,7 @@
 import datetime
 import logging
 
+import pytest
 import yaml
 
 from mergify_engine import config
@@ -252,6 +253,12 @@ class TestMergeAction(base.FunctionalTestBase):
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p2["number"], p1["number"]]
 
+    # FIXME(sileht): Provide a tools to generate oauth_token without
+    # the need if the dashboard
+    @pytest.mark.skipif(
+        config.GITHUB_URL != "https://github.com",
+        reason="We use a PAT token instead of an OAUTH_TOKEN",
+    )
     async def test_merge_github_workflow(self):
         rules = {
             "pull_request_rules": [

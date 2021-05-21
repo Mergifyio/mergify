@@ -20,6 +20,7 @@ from unittest import mock
 
 import pytest
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import github_types
@@ -33,9 +34,13 @@ async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls
 
     with open(
         os.path.join(os.path.dirname(__file__), "events", filename),
-        "rb",
+        "r",
     ) as f:
-        data = json.load(f)
+        data = json.loads(
+            f.read()
+            .replace("https://github.com", config.GITHUB_URL)
+            .replace("https://api.github.com", config.GITHUB_API_URL)
+        )
 
     installation = context.Installation(123, owner, {}, mock.Mock(), redis_cache)
     pulls = await github_events.extract_pull_numbers_from_event(
