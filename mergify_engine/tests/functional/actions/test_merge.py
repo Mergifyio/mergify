@@ -254,7 +254,7 @@ class TestMergeAction(base.FunctionalTestBase):
         assert pulls_in_queue == [p2["number"], p1["number"]]
 
     # FIXME(sileht): Provide a tools to generate oauth_token without
-    # the need if the dashboard
+    # the need of the dashboard
     @pytest.mark.skipif(
         config.GITHUB_URL != "https://github.com",
         reason="We use a PAT token instead of an OAUTH_TOKEN",
