@@ -141,13 +141,25 @@ Schema = voluptuous.Schema(
             float
         ),
         # For test suite only (eg: tox -erecord)
+        voluptuous.Required(
+            "TESTING_FORWARDER_ENDPOINT",
+            default="https://test-forwarder.mergify.io/events-testing",
+        ): str,
         voluptuous.Required("INSTALLATION_ID", default=15398551): voluptuous.Coerce(
             int
         ),
         voluptuous.Required(
+            "TESTING_REPOSITORY_ID", default=258840104
+        ): voluptuous.Coerce(int),
+        voluptuous.Required(
+            "TESTING_REPOSITORY_NAME", default="functional-testing-repo"
+        ): str,
+        voluptuous.Required(
             "TESTING_ORGANIZATION_ID", default=40527191
         ): voluptuous.Coerce(int),
-        voluptuous.Required("TESTING_ORGANIZATION", default="mergifyio-testing"): str,
+        voluptuous.Required(
+            "TESTING_ORGANIZATION_NAME", default="mergifyio-testing"
+        ): str,
         voluptuous.Required(
             "ORG_ADMIN_PERSONAL_TOKEN",
             default="<ORG_ADMIN_PERSONAL_TOKEN>",
@@ -197,6 +209,11 @@ WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
 REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
+TESTING_ORGANIZATION_ID: int
+TESTING_ORGANIZATION_NAME: str
+TESTING_REPOSITORY_ID: int
+TESTING_REPOSITORY_NAME: str
+TESTING_FORWARDER_ENDPOINT: str
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:
