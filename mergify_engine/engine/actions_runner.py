@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import base64
-import copy
 import typing
 
 from datadog import statsd
@@ -168,27 +167,6 @@ async def gen_summary(
     return title, summary
 
 
-def _filterred_sources_for_logging(data, inplace=False):
-    if not inplace:
-        data = copy.deepcopy(data)
-
-    if isinstance(data, dict):
-        data.pop("node_id", None)
-        data.pop("tree_id", None)
-        data.pop("_links", None)
-        data.pop("external_id", None)
-        for key, value in list(data.items()):
-            if key.endswith("url"):
-                del data[key]
-            else:
-                data[key] = _filterred_sources_for_logging(value, inplace=True)
-        return data
-    elif isinstance(data, list):
-        return [_filterred_sources_for_logging(elem, inplace=True) for elem in data]
-    else:
-        return data
-
-
 async def post_summary(
     ctxt: context.Context,
     pull_request_rules: rules.PullRequestRules,
@@ -220,7 +198,7 @@ async def post_summary(
                 "name": ctxt.SUMMARY_NAME,
                 "summary": summary,
             },
-            sources=_filterred_sources_for_logging(ctxt.sources),
+            sources=ctxt.sources,
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
@@ -238,7 +216,7 @@ async def post_summary(
                 "name": ctxt.SUMMARY_NAME,
                 "summary": summary,
             },
-            sources=_filterred_sources_for_logging(ctxt.sources),
+            sources=ctxt.sources,
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
