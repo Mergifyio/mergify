@@ -43,6 +43,8 @@ class Gitter(object):
         version = await self("version")
         self.logger.info("git directory created", path=self.tmp, version=version)
         await self("init")
+        # Disable gc since this is a thrown-away repository
+        await self("config", "gc.auto", "0")
 
     async def __call__(self, *args: str, _input: typing.Optional[str] = None) -> str:
         if self.tmp is None:
