@@ -13,6 +13,7 @@
 import typing
 
 import daiquiri
+import first
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -115,14 +116,14 @@ async def _check_configuration_changes(
 
 
 async def _get_summary_from_sha(ctxt, sha):
-    checks = await check_api.get_checks_for_ref(
-        ctxt,
-        sha,
-        check_name=ctxt.SUMMARY_NAME,
+    return first.first(
+        await check_api.get_checks_for_ref(
+            ctxt,
+            sha,
+            check_name=ctxt.SUMMARY_NAME,
+        ),
+        key=lambda c: c["app"]["id"] == config.INTEGRATION_ID,
     )
-    checks = [c for c in checks if c["app"]["id"] == config.INTEGRATION_ID]
-    if checks:
-        return checks[0]
 
 
 async def _get_summary_from_synchronize_event(ctxt):
