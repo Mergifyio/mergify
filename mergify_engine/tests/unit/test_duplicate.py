@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
@@ -108,6 +109,11 @@ async def test_get_commits_to_cherry_pick_rebase(
     ctxt = await context.Context.create(
         repository,
         {
+            "locked": False,
+            "assignees": [],
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "milestone": None,
             "labels": [],
             "draft": False,
             "merge_commit_sha": github_types.SHAType(""),
@@ -245,7 +251,7 @@ async def test_get_commits_to_cherry_pick_merge(
         }
     )
 
-    async def fake_commits():
+    async def fake_commits() -> typing.List[github_types.GitHubBranchCommit]:
         return [c1, c2]
 
     commits.return_value = fake_commits()
@@ -286,6 +292,11 @@ async def test_get_commits_to_cherry_pick_merge(
     ctxt = await context.Context.create(
         repository,
         {
+            "locked": False,
+            "assignees": [],
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "milestone": None,
             "number": github_types.GitHubPullRequestNumber(6),
             "commits": 1,
             "merged": True,

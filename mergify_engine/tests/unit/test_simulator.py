@@ -52,7 +52,7 @@ def test_simulator_without_pull_request() -> None:
         assert reply.status_code == 200, reply.content
         assert json.loads(reply.content) == {
             "title": "The configuration is valid",
-            "summary": None,
+            "summary": "",
             "conditions": {
                 "pull_request_rules": [
                     [

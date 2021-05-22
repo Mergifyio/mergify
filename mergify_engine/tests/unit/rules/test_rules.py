@@ -30,8 +30,11 @@ from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import get_mergify_config
 
 
-def pull_request_rule_from_list(lst):
-    return voluptuous.Schema(rules.get_pull_request_rules_schema())(lst)
+def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
+    return typing.cast(
+        rules.PullRequestRules,
+        voluptuous.Schema(rules.get_pull_request_rules_schema())(lst),
+    )
 
 
 def test_valid_condition():
@@ -216,13 +219,15 @@ def test_jinja_with_wrong_syntax():
 )
 @pytest.mark.asyncio
 async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> None:
-    async def item(*args, **kwargs):
+    async def item(
+        *args: typing.Any, **kwargs: typing.Any
+    ) -> github_types.GitHubContentFile:
         return github_types.GitHubContentFile(
             {
                 "content": encodebytes(valid.encode()).decode(),
                 "path": ".mergify.yml",
                 "type": "file",
-                "sha": "azertyu",
+                "sha": github_types.SHAType("azertyu"),
             }
         )
 
@@ -287,13 +292,15 @@ pull_request_rules:
       rebase: {}
 """
 
-    async def item(*args, **kwargs):
+    async def item(
+        *args: typing.Any, **kwargs: typing.Any
+    ) -> github_types.GitHubContentFile:
         return github_types.GitHubContentFile(
             {
                 "content": encodebytes(config.encode()).decode(),
                 "path": ".mergify.yml",
                 "type": "file",
-                "sha": "azertyu",
+                "sha": github_types.SHAType("azertyu"),
             }
         )
 
@@ -486,13 +493,15 @@ async def test_get_mergify_config_invalid(
 ) -> None:
     with pytest.raises(InvalidRules):
 
-        async def item(*args, **kwargs):
+        async def item(
+            *args: typing.Any, **kwargs: typing.Any
+        ) -> github_types.GitHubContentFile:
             return github_types.GitHubContentFile(
                 {
                     "content": encodebytes(invalid.encode()).decode(),
                     "path": ".mergify.yml",
                     "type": "file",
-                    "sha": "azertyu",
+                    "sha": github_types.SHAType("azertyu"),
                 }
             )
 
@@ -829,6 +838,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         repository,
         github_types.GitHubPullRequest(
             {
+                "locked": False,
+                "assignees": [],
+                "requested_reviewers": [],
+                "requested_teams": [],
+                "milestone": None,
                 "id": github_types.GitHubPullRequestId(0),
                 "number": github_types.GitHubPullRequestNumber(1),
                 "commits": 1,

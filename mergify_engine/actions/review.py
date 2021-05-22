@@ -69,20 +69,17 @@ class ReviewAction(actions.Action):
 
         if self.config["message"]:
             try:
-                body = await ctxt.pull_request.render_template(self.config["message"])
+                payload["body"] = await ctxt.pull_request.render_template(
+                    self.config["message"]
+                )
             except context.RenderTemplateFailure as rmf:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, "Invalid review message", str(rmf)
                 )
         elif self.config["type"] != "APPROVE":
-            body = (
-                f"Pull request automatically reviewed by Mergify: {self.config['type']}"
-            )
-        else:
-            body = None
-
-        if body:
-            payload["body"] = body
+            payload[
+                "body"
+            ] = f"Pull request automatically reviewed by Mergify: {self.config['type']}"
 
         # TODO(sileht): We should catch it some how, when we drop pygithub for sure
         reviews = reversed(
@@ -95,7 +92,7 @@ class ReviewAction(actions.Action):
         )
         for review in reviews:
             if (
-                review["body"] == (body or "")
+                review["body"] == payload.get("body", "")
                 and review["state"] == EVENT_STATE_MAP[self.config["type"]]
             ):
                 # Already posted

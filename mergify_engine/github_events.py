@@ -394,7 +394,7 @@ async def filter_and_dispatch(
 
     if ignore_reason is None:
         msg_action = "pushed to worker"
-        slim_event = _extract_slim_event(event_type, event)
+        slim_event = _extract_slim_event(event_type, event)  # type: ignore[no-untyped-call]
 
         await worker.push(
             redis_stream,

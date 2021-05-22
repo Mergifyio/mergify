@@ -115,7 +115,9 @@ async def _check_configuration_changes(
     return True
 
 
-async def _get_summary_from_sha(ctxt, sha):
+async def _get_summary_from_sha(
+    ctxt: context.Context, sha: github_types.SHAType
+) -> typing.Optional[github_types.GitHubCheckRun]:
     return first.first(
         await check_api.get_checks_for_ref(
             ctxt,
@@ -126,12 +128,17 @@ async def _get_summary_from_sha(ctxt, sha):
     )
 
 
-async def _get_summary_from_synchronize_event(ctxt):
+async def _get_summary_from_synchronize_event(
+    ctxt: context.Context,
+) -> typing.Optional[github_types.GitHubCheckRun]:
     synchronize_events = {
-        s["data"]["after"]: s["data"]
+        typing.cast(github_types.GitHubEventPullRequest, s["data"])[
+            "after"
+        ]: typing.cast(github_types.GitHubEventPullRequest, s["data"])
         for s in ctxt.sources
         if s["event_type"] == "pull_request"
-        and s["data"]["action"] == "synchronize"
+        and typing.cast(github_types.GitHubEventPullRequest, s["data"])["action"]
+        == "synchronize"
         and "after" in s["data"]
     }
     if synchronize_events:
@@ -156,6 +163,7 @@ async def _get_summary_from_synchronize_event(ctxt):
             else:
                 ctxt.log.warning("summary from synchronize events not found")
                 break
+    return None
 
 
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:

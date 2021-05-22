@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -22,6 +22,8 @@ import typing
 
 import dotenv
 import voluptuous
+
+from mergify_engine import github_types
 
 
 GITHUB_APP = os.environ.get("MERGIFYENGINE_MODE", "github_app") == "github_app"
@@ -187,6 +189,7 @@ GITHUB_API_URL: str
 WEBHOOK_MARKETPLACE_FORWARD_URL: str
 WEBHOOK_APP_FORWARD_URL: str
 WEBHOOK_FORWARD_EVENT_TYPES: str
+WEBHOOK_SECRET: str
 STREAM_PROCESSES: int
 STREAM_WORKERS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
@@ -209,11 +212,19 @@ WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
 REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
-TESTING_ORGANIZATION_ID: int
-TESTING_ORGANIZATION_NAME: str
-TESTING_REPOSITORY_ID: int
+TESTING_ORGANIZATION_ID: github_types.GitHubAccountIdType
+TESTING_ORGANIZATION_NAME: github_types.GitHubLogin
+TESTING_REPOSITORY_ID: github_types.GitHubRepositoryIdType
 TESTING_REPOSITORY_NAME: str
 TESTING_FORWARDER_ENDPOINT: str
+LOG_LEVEL: int  # This is converted to an int by voluptuous
+LOG_STDOUT: bool
+LOG_STDOUT_LEVEL: int  # This is converted to an int by voluptuous
+LOG_DATADOG: bool
+LOG_DATADOG_LEVEL: int  # This is converted to an int by voluptuous
+ORG_ADMIN_PERSONAL_TOKEN: str
+ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
+ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 if configuration_file:

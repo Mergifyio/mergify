@@ -77,6 +77,11 @@ async def test_summary_synchronization_cache(
     ctxt = await context.Context.create(
         repository,
         {
+            "locked": False,
+            "assignees": [],
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "milestone": None,
             "title": "",
             "body": "",
             "id": github_types.GitHubPullRequestId(0),

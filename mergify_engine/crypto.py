@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives import hashes
 from mergify_engine import config
 
 
-digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+digest = hashes.Hash(hashes.SHA256(), backend=default_backend())  # type: ignore[no-untyped-call]
 digest.update(config.CACHE_TOKEN_SECRET.encode())
 
 SECRET_KEY = digest.finalize()
@@ -48,9 +48,9 @@ def encrypt(value: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv),
-        backend=default_backend(),
+        backend=default_backend(),  # type: ignore[no-untyped-call]
     )
-    encryptor = cipher.encryptor()
+    encryptor = cipher.encryptor()  # type: ignore[no-untyped-call]
     encrypted = encryptor.update(value) + encryptor.finalize()
     encrypted = base64.b64encode(iv + encryptor.tag + encrypted)
     return encrypted  # type: ignore[no-any-return]
@@ -74,9 +74,9 @@ def decrypt(value: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv, tag),
-        backend=default_backend(),
+        backend=default_backend(),  # type: ignore[no-untyped-call]
     )
-    decryptor = cipher.decryptor()
+    decryptor = cipher.decryptor()  # type: ignore[no-untyped-call]
     try:
         return decryptor.update(decrypted) + decryptor.finalize()  # type: ignore[no-any-return]
     except cryptography.exceptions.InvalidTag:

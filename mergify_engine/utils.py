@@ -1,5 +1,5 @@
 #
-# Copyright © 2019–2020 Mergify SAS
+# Copyright © 2019–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -89,7 +89,7 @@ def aredis_for_stream() -> typing.Iterator[RedisCache]:
         client.connection_pool.disconnect()
 
 
-async def stop_pending_aredis_tasks():
+async def stop_pending_aredis_tasks() -> None:
     tasks = [
         task
         for task in asyncio.all_tasks()
@@ -105,7 +105,7 @@ async def stop_pending_aredis_tasks():
         await asyncio.wait(tasks)
 
 
-def utcnow():
+def utcnow() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
@@ -143,7 +143,7 @@ def pretty_timedelta(t: datetime.timedelta) -> str:
     return pretty_join(parts)
 
 
-def unicode_truncate(s, length, encoding="utf-8"):
+def unicode_truncate(s: str, length: int, encoding: str = "utf-8") -> str:
     """Truncate a string to length in bytes.
 
     :param s: The string to truncate.
@@ -151,7 +151,7 @@ def unicode_truncate(s, length, encoding="utf-8"):
     return s.encode(encoding)[:length].decode(encoding, errors="ignore")
 
 
-def compute_hmac(data):
+def compute_hmac(data: bytes) -> str:
     mac = hmac.new(
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
@@ -246,6 +246,8 @@ async def send_refresh(
             "installation": {
                 "id": github_types.GitHubInstallationIdType(0),
                 "account": repository["owner"],
+                "target_type": repository["owner"]["type"],
+                "permissions": {},
             },
         }
     )

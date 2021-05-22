@@ -58,7 +58,7 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
         log_record.update(self.HEROKU_LOG_EXTRAS)
 
 
-def config_log():
+def config_log() -> None:
     LOG.info("##################### CONFIGURATION ######################")
     for key, value in config.CONFIG.items():
         name = str(key)
@@ -85,7 +85,7 @@ def config_log():
     LOG.info("##########################################################")
 
 
-def setup_logging():
+def setup_logging() -> None:
     outputs = []
 
     if config.LOG_STDOUT:

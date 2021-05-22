@@ -172,7 +172,9 @@ class RequestReviewsAction(actions.Action):
         )
 
         if user_reviews_to_request or team_reviews_to_request:
-            requested_reviews_nb = len(await ctxt.pull_request.review_requested)
+            requested_reviews_nb = len(
+                typing.cast(typing.List[str], await ctxt.pull_request.review_requested)
+            )
 
             already_at_max = requested_reviews_nb == self.GITHUB_MAXIMUM_REVIEW_REQUEST
             will_exceed_max = (

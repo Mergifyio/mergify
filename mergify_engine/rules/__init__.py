@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018-2020 Mergify SAS
+# Copyright © 2018-2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -25,6 +25,7 @@ import yaml
 
 from mergify_engine import actions
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
@@ -328,7 +329,7 @@ class PullRequestRules:
     def __iter__(self):
         return iter(self.rules)
 
-    def has_user_rules(self):
+    def has_user_rules(self) -> bool:
         return any(rule for rule in self.rules if not rule.hidden)
 
     async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
@@ -410,7 +411,7 @@ class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
         return f"{self.msg} at {self.path}"
 
-    def get_annotations(self, path):
+    def get_annotations(self, path: str) -> typing.List[github_types.GitHubAnnotation]:
         if self.path:
             error_path = self.path[0]
             return [
@@ -569,7 +570,7 @@ class InvalidRules(Exception):
             return "* " + "\n* ".join(sorted(map(self._format_error, self.errors)))
         return self._format_error(self.errors[0])
 
-    def get_annotations(self, path):
+    def get_annotations(self, path: str) -> typing.List[github_types.GitHubAnnotation]:
         return functools.reduce(
             operator.add,
             (

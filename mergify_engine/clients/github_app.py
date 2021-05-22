@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -16,6 +16,7 @@
 
 import threading
 import time
+import typing
 
 import daiquiri
 import httpx
@@ -23,12 +24,15 @@ import jwt
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
 
-EXPECTED_MINIMAL_PERMISSIONS = {
+EXPECTED_MINIMAL_PERMISSIONS: typing.Dict[
+    github_types.GitHubAccountType, github_types.GitHubInstallationPermissions
+] = {
     "Organization": {
         "checks": "write",
         "contents": "write",
@@ -76,10 +80,12 @@ class JwtHandler:
         return self.jwt
 
 
-get_or_create_jwt = JwtHandler().get_or_create
+get_or_create_jwt = JwtHandler().get_or_create  # type: ignore[no-untyped-call]
 
 
-def permissions_need_to_be_updated(installation):
+def permissions_need_to_be_updated(
+    installation: github_types.GitHubInstallation,
+) -> bool:
     expected_permissions = EXPECTED_MINIMAL_PERMISSIONS[installation["target_type"]]
     for perm_name, perm_level in expected_permissions.items():
         if installation["permissions"].get(perm_name) != perm_level:

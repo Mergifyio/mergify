@@ -75,7 +75,7 @@ class PostCheckAction(actions.Action):
 
         extra_variables = {
             "check_rule_name": rule.name,
-            "check_succeed": check_succeed,
+            "check_succeed": str(check_succeed),
             "check_conditions": check_conditions,
         }
         try:
