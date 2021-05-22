@@ -54,6 +54,11 @@ GH_REPO = github_types.GitHubRepository(
 )
 GH_PULL = github_types.GitHubPullRequest(
     {
+        "locked": False,
+        "assignees": [],
+        "requested_reviewers": [],
+        "requested_teams": [],
+        "milestone": None,
         "title": "",
         "body": "",
         "id": github_types.GitHubPullRequestId(0),

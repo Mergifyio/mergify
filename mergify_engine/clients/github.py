@@ -50,7 +50,7 @@ class CachedToken:
     ] = {}
 
     installation_id: github_types.GitHubInstallationIdType
-    token: github_types.GitHubInstallationAccessToken
+    token: str
     expiration: datetime.datetime
 
     def __post_init__(self):
@@ -62,7 +62,7 @@ class CachedToken:
     ) -> typing.Optional["CachedToken"]:
         return cls.STORAGE.get(installation_id)
 
-    def invalidate(self):
+    def invalidate(self) -> None:
         CachedToken.STORAGE.pop(self.installation_id, None)
 
 
@@ -131,9 +131,12 @@ class GithubTokenAuth(httpx.Auth):
         yield request
 
     def build_request(self, method, url):
-        headers = http.DEFAULT_CLIENT_OPTIONS["headers"].copy()
+        headers = http.DEFAULT_HEADERS.copy()
         headers["Authorization"] = f"token {self._token}"
         return httpx.Request(method, url, headers=headers)
+
+    def get_access_token(self) -> str:
+        return self._token
 
 
 class GithubAppInstallationAuth(httpx.Auth):
@@ -148,9 +151,9 @@ class GithubAppInstallationAuth(httpx.Auth):
         self.owner = owner_name
         self.owner_id = owner_id
 
-        self._cached_token = None
+        self._cached_token: typing.Optional[CachedToken] = None
         self.installation = None
-        self.permissions_need_to_be_updated = None
+        self.permissions_need_to_be_updated = False
 
     @contextlib.contextmanager
     def response_body_read(self):
@@ -218,7 +221,9 @@ class GithubAppInstallationAuth(httpx.Auth):
         request.headers["Authorization"] = f"token {token}"
         yield request
 
-    def build_installation_request(self, url=None, force=False):
+    def build_installation_request(
+        self, url: typing.Optional[str] = None, force: bool = False
+    ) -> httpx.Request:
         if url is None:
             if self.owner_id:
                 url = f"{config.GITHUB_API_URL}/user/{self.owner_id}/installation"
@@ -226,21 +231,26 @@ class GithubAppInstallationAuth(httpx.Auth):
                 url = f"{config.GITHUB_API_URL}/users/{self.owner}/installation"
         return self.build_github_app_request("GET", url, force=force)
 
-    def build_access_token_request(self, force=False):
+    def build_access_token_request(self, force: bool = False) -> httpx.Request:
+        if self.installation is None:
+            raise RuntimeError("No installation")
+
         return self.build_github_app_request(
             "POST",
             f"{config.GITHUB_API_URL}/app/installations/{self.installation['id']}/access_tokens",
             force=force,
         )
 
-    def build_github_app_request(self, method, url, force=False):
-        headers = http.DEFAULT_CLIENT_OPTIONS["headers"].copy()
-        headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"
+    def build_github_app_request(
+        self, method: str, url: str, force: bool = False
+    ) -> httpx.Request:
+        headers = http.DEFAULT_HEADERS.copy()
+        headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"  # type: ignore[no-untyped-call]
         return httpx.Request(method, url, headers=headers)
 
-    def _set_installation(self, installation_response):
-        self.installation: github_types.GitHubInstallation = (
-            installation_response.json()
+    def _set_installation(self, installation_response: httpx.Response) -> None:
+        self.installation = typing.cast(
+            github_types.GitHubInstallation, installation_response.json()
         )
         self.owner_id = self.installation["account"]["id"]
         self.owner = self.installation["account"]["login"]
@@ -249,7 +259,12 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         self._cached_token = CachedToken.get(self.installation["id"])
 
-    def _set_access_token(self, data):
+    def _set_access_token(
+        self, data: github_types.GitHubInstallationAccessToken
+    ) -> str:
+        if self.installation is None:
+            raise RuntimeError("Cannot set access token, no installation")
+
         self._cached_token = CachedToken(
             self.installation["id"],
             data["token"],
@@ -262,7 +277,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         return self._cached_token.token
 
-    def _get_access_token(self):
+    def _get_access_token(self) -> typing.Optional[str]:
         now = datetime.datetime.utcnow()
         if not self._cached_token:
             return None
@@ -278,7 +293,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         else:
             return self._cached_token.token
 
-    def get_access_token(self):
+    def get_access_token(self) -> str:
         """Legacy method for backport/copy actions"""
         token = self._get_access_token()
         if token:
@@ -287,7 +302,9 @@ class GithubAppInstallationAuth(httpx.Auth):
             raise RuntimeError("get_access_token() call on an unused client")
 
 
-_T_get_auth = typing.Union[GithubAppInstallationAuth, GithubActionAccessTokenAuth]
+_T_get_auth = typing.Union[
+    GithubAppInstallationAuth, GithubActionAccessTokenAuth, GithubTokenAuth
+]
 
 
 def get_auth(
@@ -384,7 +401,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().get(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -395,7 +412,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().post(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -406,7 +423,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().put(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -417,7 +434,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().patch(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -428,7 +445,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().head(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -439,7 +456,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         **kwargs: typing.Any,
-    ) -> typing.Any:
+    ) -> httpx.Response:
         return await super().delete(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
@@ -487,10 +504,10 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             else:
                 break
 
-    async def request(self, method, url, *args, **kwargs):
+    async def request(self, method: str, url: str, *args: typing.Any, **kwargs: typing.Any) -> typing.Optional[httpx.Response]:  # type: ignore[override]
         reply = None
         try:
-            with statsd.timed(
+            with statsd.timed(  # type: ignore[no-untyped-call]
                 "http.client.request.time", tags=[f"hostname:{self.base_url.host}"]
             ):
                 reply = await super().request(method, url, *args, **kwargs)
@@ -502,7 +519,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
             if reply is None:
                 status_code = "error"
             else:
-                status_code = reply.status_code
+                status_code = str(reply.status_code)
             statsd.increment(
                 "http.client.requests",
                 tags=[f"hostname:{self.base_url.host}", f"status_code:{status_code}"],

@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
@@ -30,8 +31,8 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
-        def __init__(self, owner, repo):
-            super().__init__(auth=None)
+        def __init__(self, owner: str, repo: str) -> None:
+            super().__init__(auth=None)  # type: ignore[arg-type]
             self.owner = owner
             self.repo = repo
             self.called = 0
@@ -174,8 +175,8 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
-        def __init__(self, owner):
-            super().__init__(auth=None)
+        def __init__(self, owner: str) -> None:
+            super().__init__(auth=None)  # type: ignore[arg-type]
             self.owner = owner
             self.called = 0
 
@@ -250,13 +251,13 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
-        def __init__(self, owner, repo):
-            super().__init__(auth=None)
+        def __init__(self, owner: str, repo: str) -> None:
+            super().__init__(auth=None)  # type: ignore[arg-type]
             self.owner = owner
             self.repo = repo
             self.called = 0
 
-        async def get(self, url, *args, **kwargs):
+        async def get(self, url: str, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:  # type: ignore[override]
             self.called += 1
             if (
                 url
@@ -399,6 +400,11 @@ async def test_context_depends_on():
 
     pull = github_types.GitHubPullRequest(
         {
+            "locked": False,
+            "assignees": [],
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "milestone": None,
             "title": "",
             "id": github_types.GitHubPullRequestId(0),
             "maintainer_can_modify": False,

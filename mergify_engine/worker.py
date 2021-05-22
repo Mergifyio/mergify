@@ -108,9 +108,9 @@ class T_PayloadEvent(typing.TypedDict):
 
 
 @tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),
-    stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
+    wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
+    stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
+    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),  # type: ignore[no-untyped-call]
     reraise=True,
 )
 async def push(
@@ -386,7 +386,7 @@ class StreamProcessor:
             )
         LOG.debug("cleanup stream end", stream_name=stream_name)
 
-    async def _refresh_merge_trains(self, installation):
+    async def _refresh_merge_trains(self, installation: context.Installation) -> None:
         async with self._translate_exception_to_retries(
             installation.stream_name,
         ):
@@ -424,7 +424,7 @@ end
             stream_name=installation.stream_name,
             messages_count=len(messages),
         )
-        statsd.histogram("engine.streams.size", len(messages))
+        statsd.histogram("engine.streams.size", len(messages))  # type: ignore[no-untyped-call]
         statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
 
         # TODO(sileht): Put this cache in Repository context
@@ -554,10 +554,10 @@ end
         )
         for (repo, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
-            statsd.histogram("engine.streams.batch-size", len(sources))
+            statsd.histogram("engine.streams.batch-size", len(sources))  # type: ignore[no-untyped-call]
             for source in sources:
                 if "timestamp" in source:
-                    statsd.histogram(
+                    statsd.histogram(  # type: ignore[no-untyped-call]
                         "engine.streams.events.latency",
                         (
                             datetime.datetime.utcnow()
@@ -674,7 +674,7 @@ class Worker:
                 if stream_name:
                     LOG.debug("worker %s take stream: %s", worker_id, stream_name)
                     try:
-                        with statsd.timed("engine.stream.consume.time"):
+                        with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
                             await stream_processor.consume(stream_name)
                     finally:
                         LOG.debug(
@@ -698,7 +698,7 @@ class Worker:
 
         LOG.debug("worker %s exited", worker_id)
 
-    async def _sleep_or_stop(self, timeout=None):
+    async def _sleep_or_stop(self, timeout: typing.Optional[float] = None) -> None:
         if timeout is None:
             timeout = self.idle_sleep_time
         try:
@@ -723,9 +723,9 @@ class Worker:
                 # based on hash+modulo
                 if len(streams) > self.worker_count:
                     latency = now - streams[self.worker_count][1]
-                    statsd.timing("engine.streams.latency", latency)
+                    statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
                 else:
-                    statsd.timing("engine.streams.latency", 0)
+                    statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
 
                 statsd.gauge("engine.streams.backlog", len(streams))
                 statsd.gauge("engine.workers.count", self.worker_count)
@@ -744,7 +744,7 @@ class Worker:
 
             await self._sleep_or_stop(60)
 
-    def get_worker_ids(self):
+    def get_worker_ids(self) -> typing.List[int]:
         return list(
             range(
                 self.process_index * self.worker_per_process,
@@ -752,7 +752,7 @@ class Worker:
             )
         )
 
-    async def start(self):
+    async def start(self) -> None:
         self._stopping.clear()
 
         self._redis_stream = utils.create_aredis_for_stream()
@@ -772,11 +772,10 @@ class Worker:
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
             LOG.info("monitoring started")
 
-    async def _shutdown(self):
+    async def _shutdown(self) -> None:
         tasks = []
-        if "stream" in self.enabled_services:
-            tasks.extend(self._worker_tasks)
-        if "stream-monitoring" in self.enabled_services:
+        tasks.extend(self._worker_tasks)
+        if self._stream_monitoring_task is not None:
             tasks.append(self._stream_monitoring_task)
 
         LOG.info("workers and monitoring exiting", count=len(tasks))
@@ -805,22 +804,22 @@ class Worker:
 
         LOG.info("shutdown finished")
 
-    def stop(self):
+    def stop(self) -> None:
         self._stopping.set()
         self._stop_task = asyncio.create_task(self._shutdown())
 
-    async def wait_shutdown_complete(self):
+    async def wait_shutdown_complete(self) -> None:
         await self._stopping.wait()
         await self._stop_task
 
-    def stop_with_signal(self, signame):
+    def stop_with_signal(self, signame: str) -> None:
         if not self._stopping.is_set():
             LOG.info("got signal %s: cleanly shutdown workers", signame)
             self.stop()
         else:
             LOG.info("got signal %s: ignoring, shutdown already in process", signame)
 
-    def setup_signals(self):
+    def setup_signals(self) -> None:
         for signame in ("SIGINT", "SIGTERM"):
             self._loop.add_signal_handler(
                 getattr(signal, signame),

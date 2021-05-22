@@ -33,7 +33,7 @@ class GitHubCheckRunOutputParameters(typing.TypedDict, total=False):
     title: str
     summary: str
     text: typing.Optional[str]
-    annotations: typing.Optional[typing.List[str]]
+    annotations: typing.Optional[typing.List[github_types.GitHubAnnotation]]
 
 
 class GitHubCheckRunParameters(typing.TypedDict, total=False):
@@ -70,7 +70,7 @@ class Result:
     conclusion: Conclusion
     title: str
     summary: str
-    annotations: typing.Optional[typing.List[str]] = None
+    annotations: typing.Optional[typing.List[github_types.GitHubAnnotation]] = None
 
 
 async def get_checks_for_ref(
@@ -93,7 +93,13 @@ async def get_checks_for_ref(
     return checks
 
 
-def compare_dict(d1, d2, keys):
+_K = typing.TypeVar("_K")
+_V = typing.TypeVar("_V")
+
+
+def compare_dict(
+    d1: typing.Dict[_K, _V], d2: typing.Dict[_K, _V], keys: typing.Iterable[_K]
+) -> bool:
     for key in keys:
         if d1.get(key) != d2.get(key):
             return False
@@ -105,14 +111,16 @@ def check_need_update(
     expected_check: GitHubCheckRunParameters,
 ) -> bool:
     if compare_dict(
-        expected_check,
-        previous_check,
+        typing.cast(typing.Dict[str, typing.Any], expected_check),
+        typing.cast(typing.Dict[str, typing.Any], previous_check),
         ("head_sha", "status", "conclusion", "details_url"),
     ):
         if previous_check["output"] == expected_check["output"]:
             return False
         elif previous_check["output"] is not None and compare_dict(
-            expected_check["output"], previous_check["output"], ("title", "summary")
+            typing.cast(typing.Dict[str, typing.Any], expected_check["output"]),
+            typing.cast(typing.Dict[str, typing.Any], previous_check["output"]),
+            ("title", "summary"),
         ):
             return False
 
@@ -135,7 +143,9 @@ async def set_check_run(
             "name": name,
             "head_sha": ctxt.pull["head"]["sha"],
             "status": typing.cast(github_types.GitHubCheckRunStatus, status.value),
-            "started_at": utils.utcnow().isoformat(),
+            "started_at": typing.cast(
+                github_types.ISODateTimeType, utils.utcnow().isoformat()
+            ),
             "details_url": f"{ctxt.pull['html_url']}/checks",
             "output": {
                 "title": result.title,
@@ -158,7 +168,9 @@ async def set_check_run(
 
     if status is Status.COMPLETED:
         post_parameters["conclusion"] = result.conclusion.value
-        post_parameters["completed_at"] = utils.utcnow().isoformat()
+        post_parameters["completed_at"] = typing.cast(
+            github_types.ISODateTimeType, utils.utcnow().isoformat()
+        )
 
     checks = sorted(
         (c for c in await ctxt.pull_engine_check_runs if c["name"] == name),

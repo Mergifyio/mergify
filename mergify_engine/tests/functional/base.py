@@ -17,6 +17,7 @@ import asyncio
 import copy
 import datetime
 import json
+import logging
 import os
 import re
 import shutil
@@ -55,16 +56,36 @@ FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
 
+class ForwardedEvent(typing.TypedDict):
+    payload: github_types.GitHubEvent
+    type: github_types.GitHubEventType
+    id: str
+
+
+class RecordException(typing.TypedDict):
+    returncode: int
+    output: str
+
+
+class Record(typing.TypedDict):
+    args: typing.List[typing.Any]
+    kwargs: typing.Dict[typing.Any, typing.Any]
+    exc: RecordException
+    out: str
+
+
 class GitterRecorder(gitter.Gitter):
-    def __init__(self, logger, cassette_library_dir, suffix):
+    def __init__(
+        self, logger: logging.LoggerAdapter, cassette_library_dir: str, suffix: str
+    ) -> None:
         super(GitterRecorder, self).__init__(logger)
         self.cassette_path = os.path.join(cassette_library_dir, f"git-{suffix}.json")
         if RECORD:
-            self.records = []
+            self.records: typing.List[Record] = []
         else:
             self.load_records()
 
-    def load_records(self):
+    def load_records(self) -> None:
         if not os.path.exists(self.cassette_path):
             raise RuntimeError(f"Cassette {self.cassette_path} not found")
         with open(self.cassette_path, "rb") as f:
@@ -133,10 +154,10 @@ class GitterRecorder(gitter.Gitter):
 
 
 class EventReader:
-    def __init__(self, app):
+    def __init__(self, app: httpx.AsyncClient) -> None:
         self._app = app
         self._session = http.AsyncClient()
-        self._handled_events = asyncio.Queue()
+        self._handled_events: asyncio.Queue[ForwardedEvent] = asyncio.Queue()
         self._counter = 0
 
         hostname = parse.urlparse(config.GITHUB_URL).hostname
@@ -144,7 +165,7 @@ class EventReader:
             f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}"
         )
 
-    async def drain(self):
+    async def drain(self) -> None:
         # NOTE(sileht): Drop any pending events still on the server
         r = await self._session.request(
             "DELETE",
@@ -154,7 +175,12 @@ class EventReader:
         )
         r.raise_for_status()
 
-    async def wait_for(self, event_type, expected_payload, timeout=15 if RECORD else 2):
+    async def wait_for(
+        self,
+        event_type: github_types.GitHubEventType,
+        expected_payload: typing.Any,
+        timeout: float = 15 if RECORD else 2,
+    ) -> None:
         LOG.log(
             42,
             "WAITING FOR %s/%s: %s",
@@ -185,31 +211,33 @@ class EventReader:
             f"Never got event `{event_type}` with payload `{expected_payload}` (timeout)"
         )
 
-    @classmethod
-    def _match(cls, data, expected_data):
+    def _match(self, data: github_types.GitHubEvent, expected_data: typing.Any) -> bool:
         if isinstance(expected_data, dict):
             for key, expected in expected_data.items():
                 if key not in data:
                     return False
-                if not cls._match(data[key], expected):
+                if not self._match(data[key], expected):  # type: ignore[misc]
                     return False
             return True
         else:
-            return data == expected_data
+            return bool(data == expected_data)
 
-    async def _get_events(self):
+    async def _get_events(self) -> typing.List[ForwardedEvent]:
         # NOTE(sileht): we use a counter to make each call unique in cassettes
         self._counter += 1
-        return (
-            await self._session.request(
-                "GET",
-                f"{self._namespace_endpoint}?counter={self._counter}",
-                content=FAKE_DATA,
-                headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
-            )
-        ).json()
+        return typing.cast(
+            typing.List[ForwardedEvent],
+            (
+                await self._session.request(
+                    "GET",
+                    f"{self._namespace_endpoint}?counter={self._counter}",
+                    content=FAKE_DATA,
+                    headers={"X-Hub-Signature": "sha1=" + FAKE_HMAC},
+                )
+            ).json(),
+        )
 
-    async def _forward_to_engine_api(self, event):
+    async def _forward_to_engine_api(self, event: typing.Any) -> httpx.Response:
         payload = event["payload"]
         if event["type"] in ["check_run", "check_suite"]:
             extra = (
@@ -228,7 +256,7 @@ class EventReader:
             extra,
             self._remove_useless_links(copy.deepcopy(event)),
         )
-        r = await self._app.post(
+        return await self._app.post(
             "/event",
             headers={
                 "X-GitHub-Event": event["type"],
@@ -238,10 +266,8 @@ class EventReader:
             },
             content=json.dumps(payload),
         )
-        return r
 
-    @classmethod
-    def _remove_useless_links(cls, data):
+    def _remove_useless_links(self, data: typing.Any) -> typing.Any:
         if isinstance(data, dict):
             data.pop("installation", None)
             data.pop("sender", None)
@@ -269,10 +295,10 @@ class EventReader:
                 elif key.endswith("_at"):
                     del data[key]
                 else:
-                    data[key] = cls._remove_useless_links(value)
+                    data[key] = self._remove_useless_links(value)
             return data
         elif isinstance(data, list):
-            return [cls._remove_useless_links(elem) for elem in data]
+            return [self._remove_useless_links(elem) for elem in data]
         else:
             return data
 
@@ -291,7 +317,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
     # SUBSCRIPTION_ACTIVE = True
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         super(FunctionalTestBase, self).setUp()
         self.existing_labels: typing.List[str] = []
         self.protected_branches: typing.Set[str] = set()
@@ -361,7 +387,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
             mock.patch.object(
-                context.Context._ensure_complete.retry, "wait", None
+                context.Context._ensure_complete.retry, "wait", None  # type: ignore[attr-defined]
             ).start()
 
         # Web authentification always pass
@@ -406,13 +432,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             config.TESTING_ORGANIZATION_ID,
             [
                 {
-                    "login": "mergify-test1",
+                    "login": github_types.GitHubLogin("mergify-test1"),
                     "oauth_access_token": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
                     "name": None,
                     "email": None,
                 },
                 {
-                    "login": "mergify-test3",
+                    "login": github_types.GitHubLogin("mergify-test3"),
                     "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
                     "name": None,
                     "email": None,
@@ -445,8 +471,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             assert self.client_admin.auth.owner == "mergify-test1"
             assert self.client_fork.auth.owner == "mergify-test2"
         else:
-            self.client_admin.auth.owner = "mergify-test1"
-            self.client_fork.auth.owner = "mergify-test2"
+            self.client_admin.auth.owner = github_types.GitHubLogin("mergify-test1")
+            self.client_fork.auth.owner = github_types.GitHubLogin("mergify-test2")
 
         self.url_main = f"/repos/mergifyio-testing/{self.REPO_NAME}"
         self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.REPO_NAME}"
@@ -529,12 +555,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.clear_redis_stream()
 
     @staticmethod
-    async def clear_redis_stream():
+    async def clear_redis_stream() -> None:
         with utils.aredis_for_stream() as redis_stream:
             await redis_stream.flushall()
 
     @staticmethod
-    async def clear_redis_cache():
+    async def clear_redis_cache() -> None:
         with utils.aredis_for_cache() as redis_stream:
             await redis_stream.flushall()
 
@@ -575,13 +601,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.clear_redis_stream()
         mock.patch.stopall()
 
-    async def wait_for(self, *args, **kwargs):
+    async def wait_for(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         return await self._event_reader.wait_for(*args, **kwargs)
 
     @staticmethod
-    async def _async_run_workers(timeout):
+    async def _async_run_workers(timeout: float) -> None:
         w = worker.Worker(
-            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services=["stream"]
+            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services={"stream"}
         )
         await w.start()
 
@@ -598,20 +624,28 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         w.stop()
         await w.wait_shutdown_complete()
 
-    async def run_engine(self, timeout=0.42 if RECORD else 0.02):
+    async def run_engine(self, timeout: float = 0.42 if RECORD else 0.02) -> None:
         LOG.log(42, "RUNNING ENGINE")
         await self._async_run_workers(timeout)
 
-    def get_gitter(self, logger):
+    def get_gitter(self, logger: logging.LoggerAdapter) -> GitterRecorder:
         self.git_counter += 1
-        return GitterRecorder(logger, self.cassette_library_dir, self.git_counter)
+        return GitterRecorder(logger, self.cassette_library_dir, str(self.git_counter))
 
-    async def setup_repo(self, mergify_config=None, test_branches=None, files=None):
+    async def setup_repo(
+        self,
+        mergify_config: typing.Optional[str] = None,
+        test_branches: typing.Optional[typing.Iterable[str]] = None,
+        files: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> None:
+
+        if self.git.tmp is None:
+            raise RuntimeError("self.git.init() not called, tmp dir empty")
 
         if test_branches is None:
             test_branches = []
         if files is None:
-            files = []
+            files = {}
 
         await self.git.configure()
         await self.git.add_cred(
@@ -739,6 +773,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     ]:
         self.pr_counter += 1
 
+        if self.git.tmp is None:
+            raise RuntimeError("self.git.init() not called, tmp dir empty")
+
         if base is None:
             base = self.master_branch_name
 
@@ -769,7 +806,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             login = self.client_fork.auth.owner
         else:
             client = self.client_admin
-            login = "mergifyio-testing"
+            login = github_types.GitHubLogin("mergifyio-testing")
 
         resp = await client.post(
             f"{self.url_main}/pulls",
@@ -790,6 +827,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         return p, commits
 
     async def _git_create_files(self, files: typing.Dict[str, str]) -> None:
+        if self.git.tmp is None:
+            raise RuntimeError("self.git.init() not called, tmp dir empty")
+
         for name, content in files.items():
             path = self.git.tmp + "/" + name
             directory_path = os.path.dirname(path)
@@ -977,7 +1017,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
 
     async def get_pulls(
-        self, **kwargs: typing.Dict[str, typing.Any]
+        self,
+        **kwargs: typing.Any,
     ) -> typing.List[github_types.GitHubPullRequest]:
         return [
             i async for i in self.client_admin.items(f"{self.url_main}/pulls", **kwargs)

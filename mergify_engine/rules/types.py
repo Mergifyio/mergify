@@ -57,10 +57,10 @@ class DummyContext(context.Context):
 
 class DummyPullRequest(context.PullRequest):
     # This is only used to check Jinja2 syntax validity and must be sync
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> typing.Any:
         return self.context._get_consolidated_data(name.replace("_", "-"))
 
-    def render_template(self, template, extra_variables=None):
+    def render_template(self, template: str, extra_variables: typing.Optional[typing.Dict[str, str]] = None) -> str:  # type: ignore[override]
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(
             undefined=jinja2.StrictUndefined,
@@ -81,6 +81,11 @@ _DUMMY_PR = DummyPullRequest(
         None,  # type: ignore
         github_types.GitHubPullRequest(
             {
+                "locked": False,
+                "assignees": [],
+                "requested_reviewers": [],
+                "requested_teams": [],
+                "milestone": None,
                 "title": "",
                 "body": "",
                 "number": github_types.GitHubPullRequestNumber(0),

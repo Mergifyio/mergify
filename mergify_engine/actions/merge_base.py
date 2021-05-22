@@ -333,7 +333,7 @@ class MergeBaseAction(actions.Action):
 
         return self.cancelled_check_report
 
-    def _set_effective_priority(self, ctxt):
+    def _set_effective_priority(self, ctxt: context.Context) -> None:
         self.config["effective_priority"] = typing.cast(
             int,
             self.config["priority"]
@@ -371,8 +371,11 @@ class MergeBaseAction(actions.Action):
             return await self.get_queue_status(ctxt, rule, q, is_behind=False)
 
     @staticmethod
-    async def _get_commit_message(pull_request, mode="default"):
-        body = await pull_request.body
+    async def _get_commit_message(
+        pull_request: context.PullRequest,
+        mode: typing.Literal["default", "title+body"] = "default",
+    ) -> typing.Optional[typing.Tuple[str, str]]:
+        body = typing.cast(str, await pull_request.body)
 
         if mode == "title+body":
             # Include PR number to mimic default GitHub format
@@ -382,7 +385,7 @@ class MergeBaseAction(actions.Action):
             )
 
         if not body:
-            return
+            return None
 
         found = False
         message_lines = []
@@ -414,6 +417,8 @@ class MergeBaseAction(actions.Action):
                     "\n".join(line.strip() for line in message_lines)
                 ),
             )
+
+        return None
 
     async def _merge(
         self,

@@ -755,7 +755,7 @@ class Train(queue.QueueBase):
             ],
         )
 
-    async def _save(self):
+    async def _save(self) -> None:
         if self._waiting_pulls or self._cars:
             prepared = self.Serialized(
                 waiting_pulls=self._waiting_pulls,

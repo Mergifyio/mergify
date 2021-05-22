@@ -26,7 +26,7 @@ _AREDIS_CACHE: utils.RedisCache
 LOG = daiquiri.getLogger(__name__)
 
 
-async def startup():
+async def startup() -> None:
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_STREAM = utils.create_aredis_for_stream(
         max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
@@ -36,7 +36,7 @@ async def startup():
     )
 
 
-async def shutdown():
+async def shutdown() -> None:
     LOG.info("asgi: starting redis shutdown")
     global _AREDIS_STREAM, _AREDIS_CACHE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0

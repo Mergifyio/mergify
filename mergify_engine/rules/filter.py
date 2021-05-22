@@ -27,31 +27,31 @@ class InvalidQuery(Exception):
 
 
 class ParseError(InvalidQuery):
-    def __init__(self, tree):
+    def __init__(self, tree: "TreeT") -> None:
         super().__init__(f"Unable to parse tree: {str(tree)}")
         self.tree = tree
 
 
 class UnknownAttribute(InvalidQuery, ValueError):
-    def __init__(self, key):
+    def __init__(self, key: str) -> None:
         super().__init__(f"Unknown attribute: {str(key)}")
         self.key = key
 
 
 class UnknownOperator(InvalidQuery, ValueError):
-    def __init__(self, operator):
+    def __init__(self, operator: str) -> None:
         super().__init__(f"Unknown operator: {str(operator)}")
         self.operator = operator
 
 
 class InvalidOperator(InvalidQuery, TypeError):
-    def __init__(self, operator):
+    def __init__(self, operator: str) -> None:
         super().__init__(f"Invalid operator: {str(operator)}")
         self.operator = operator
 
 
 class InvalidArguments(InvalidQuery, ValueError):
-    def __init__(self, arguments):
+    def __init__(self, arguments: typing.Any) -> None:
         super().__init__(f"Invalid arguments: {str(arguments)}")
         self.arguments = arguments
 
@@ -130,12 +130,12 @@ class Filter:
         # https://github.com/python/mypy/issues/2427
         self._eval = self.build_evaluator(self.tree)  # type: ignore
 
-    def get_attribute_name(self):
+    def get_attribute_name(self) -> str:
         tree = self.tree.get("-", self.tree)
         name = list(tree.values())[0][0]
         if name.startswith(self.LENGTH_OPERATOR):
-            return name[1:]
-        return name
+            return str(name[1:])
+        return str(name)
 
     @classmethod
     def parse(cls, string: str, description: typing.Optional[str] = None) -> "Filter":

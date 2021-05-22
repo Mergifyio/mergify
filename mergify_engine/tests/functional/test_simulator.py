@@ -59,7 +59,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 200, r.json()
         assert r.json()["title"] == "The configuration is valid"
-        assert r.json()["summary"] is None
+        assert r.json()["summary"] == ""
 
         r = await self.app.post(
             "/simulator/",
@@ -197,7 +197,7 @@ class TestSimulator(base.FunctionalTestBase):
         )
         assert r.status_code == 200, r.json()
         assert r.json()["title"] == "The configuration is valid"
-        assert r.json()["summary"] is None
+        assert r.json()["summary"] == ""
 
         r = await self.app.post(
             "/simulator/",

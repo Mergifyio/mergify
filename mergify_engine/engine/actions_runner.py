@@ -32,12 +32,18 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 </details>"""
 
 
-def get_already_merged_summary(ctxt, match):
+def get_already_merged_summary(
+    ctxt: context.Context, match: rules.RulesEvaluator
+) -> str:
     if not (
         ctxt.pull["merged"]
         and any(
             (
-                s["event_type"] == "pull_request" and s["data"]["action"] == "closed"
+                s["event_type"] == "pull_request"
+                and typing.cast(github_types.GitHubEventPullRequest, s["data"])[
+                    "action"
+                ]
+                == "closed"
                 for s in ctxt.sources
             )
         )
@@ -63,19 +69,21 @@ def get_already_merged_summary(ctxt, match):
     if not action_merge_found or action_merge_found_in_active_rule:
         return ""
 
-    # NOTE(sileht): While this looks impossible because the pull request haven't been
-    # merged by our engine. If this pull request was a slice of another one, Github close
-    # it automatically and put as merged_by the merger of the other one.
-    if ctxt.pull["merged_by"]["login"] == config.BOT_USER_LOGIN:
+    # NOTE(sileht): This looks impossible because the pull request hasn't been
+    # merged by our engine. If this pull request was a slice of another one,
+    # GitHub closes it automatically and put as merged_by the merger of the
+    # other one.
+    if ctxt.pull["merged_by"] is None:
+        merged_by = "???"
+    else:
+        merged_by = ctxt.pull["merged_by"]["login"]
+    if merged_by == config.BOT_USER_LOGIN:
         return (
             "⚠️ The pull request has been closed by GitHub "
             "because its commits are also part of another pull request\n\n"
         )
     else:
-        return (
-            "⚠️ The pull request has been merged by "
-            f"@{ctxt.pull['merged_by']['login']}\n\n"
-        )
+        return "⚠️ The pull request has been merged by " f"@{merged_by}\n\n"
 
 
 async def gen_summary_rules(
@@ -282,7 +290,7 @@ def load_conclusions(
     return {}
 
 
-def serialize_conclusions(conclusions):
+def serialize_conclusions(conclusions: typing.Dict[str, check_api.Conclusion]) -> str:
     return (
         "<!-- "
         + base64.b64encode(
@@ -294,7 +302,11 @@ def serialize_conclusions(conclusions):
     )
 
 
-def get_previous_conclusion(previous_conclusions, name, checks):
+def get_previous_conclusion(
+    previous_conclusions: typing.Dict[str, check_api.Conclusion],
+    name: str,
+    checks: typing.Dict[str, github_types.GitHubCheckRun],
+) -> check_api.Conclusion:
     if name in previous_conclusions:
         return previous_conclusions[name]
     # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
@@ -395,7 +407,7 @@ async def run_actions(
                 message = "ignored, another has already been run"
 
             else:
-                with statsd.timed("engine.actions.runtime", tags=[f"name:{action}"]):
+                with statsd.timed("engine.actions.runtime", tags=[f"name:{action}"]):  # type: ignore[no-untyped-call]
                     # NOTE(sileht): check state change so we have to run "run" or "cancel"
                     report = await exec_action(
                         method_name,

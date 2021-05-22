@@ -203,9 +203,9 @@ def get_destination_branch_name(
 
 
 @tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),
-    stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),
+    wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
+    stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
+    retry=tenacity.retry_if_exception_type(DuplicateNeedRetry),  # type: ignore[no-untyped-call]
     reraise=True,
 )
 async def duplicate(

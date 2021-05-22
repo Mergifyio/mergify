@@ -519,6 +519,9 @@ class ContextCache(typing.TypedDict, total=False):
     commits: typing.List[github_types.GitHubBranchCommit]
 
 
+ContextAttributeType = typing.Union[bool, typing.List[str], str, int]
+
+
 @dataclasses.dataclass
 class Context(object):
     repository: Repository
@@ -700,7 +703,7 @@ class Context(object):
         )
         return self._cache["consolidated_reviews"]
 
-    async def _get_consolidated_data(self, name):
+    async def _get_consolidated_data(self, name: str) -> ContextAttributeType:
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
@@ -708,9 +711,9 @@ class Context(object):
             return [label["name"] for label in self.pull["labels"]]
 
         elif name == "review-requested":
-            return [u["login"] for u in self.pull["requested_reviewers"]] + [
-                "@" + t["slug"] for t in self.pull["requested_teams"]
-            ]
+            return [
+                typing.cast(str, u["login"]) for u in self.pull["requested_reviewers"]
+            ] + ["@" + t["slug"] for t in self.pull["requested_teams"]]
 
         elif name == "draft":
             return self.pull["draft"]
@@ -719,7 +722,11 @@ class Context(object):
             return self.pull["user"]["login"]
 
         elif name == "merged-by":
-            return self.pull["merged_by"]["login"] if self.pull["merged_by"] else ""
+            return (
+                self.pull["merged_by"]["login"]
+                if self.pull["merged_by"] is not None
+                else ""
+            )
 
         elif name == "merged":
             return self.pull["merged"]
@@ -728,10 +735,14 @@ class Context(object):
             return self.pull["state"] == "closed"
 
         elif name == "milestone":
-            return self.pull["milestone"]["title"] if self.pull["milestone"] else ""
+            return (
+                self.pull["milestone"]["title"]
+                if self.pull["milestone"] is not None
+                else ""
+            )
 
         elif name == "number":
-            return self.pull["number"]
+            return typing.cast(int, self.pull["number"])
 
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
@@ -872,7 +883,7 @@ class Context(object):
             )
         }
 
-    async def update_pull_check_runs(self, check):
+    async def update_pull_check_runs(self, check: github_types.GitHubCheckRun) -> None:
         self._cache["pull_check_runs"] = [
             c for c in await self.pull_check_runs if c["name"] != check["name"]
         ]
@@ -941,12 +952,12 @@ class Context(object):
     # NOTE(sileht): quickly retry, if we don't get the status on time
     # the exception is recatch in worker.py, so worker will retry it later
     @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=0.2),
-        stop=tenacity.stop_after_attempt(5),
-        retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
+        wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
+        stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
+        retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),  # type: ignore[no-untyped-call]
         reraise=True,
     )
-    async def _ensure_complete(self):
+    async def _ensure_complete(self) -> None:
         if not (
             self._is_data_complete()
             and self._is_background_github_processing_completed()
@@ -960,7 +971,7 @@ class Context(object):
 
         raise exceptions.MergeableStateUnknown(self)
 
-    def _is_data_complete(self):
+    def _is_data_complete(self) -> bool:
         # NOTE(sileht): If pull request come from /pulls listing or check-runs sometimes,
         # they are incomplete, This ensure we have the complete view
         fields_to_control = (
@@ -975,13 +986,13 @@ class Context(object):
                 return False
         return True
 
-    def _is_background_github_processing_completed(self):
+    def _is_background_github_processing_completed(self) -> bool:
         return (
             self.pull["state"] == "closed"
             or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
         )
 
-    async def update(self):
+    async def update(self) -> None:
         # TODO(sileht): Remove me,
         # Don't use it, because consolidated data are not updated after that.
         # Only used by merge action for posting an update report after rebase.
@@ -1213,19 +1224,23 @@ class PullRequest:
         "files",
     }
 
-    async def __getattr__(self, name):
+    async def __getattr__(self, name: str) -> ContextAttributeType:
         return await self.context._get_consolidated_data(name.replace("_", "-"))
 
     def __iter__(self):
         return iter(self.ATTRIBUTES | self.LIST_ATTRIBUTES)
 
-    async def items(self):
+    async def items(self) -> typing.Dict[str, ContextAttributeType]:
         d = {}
         for k in self:
             d[k] = await getattr(self, k)
         return d
 
-    async def render_template(self, template, extra_variables=None):
+    async def render_template(
+        self,
+        template: str,
+        extra_variables: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> str:
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(
             undefined=jinja2.StrictUndefined,
