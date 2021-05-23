@@ -279,7 +279,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
 
                 if not pull_request_match:
                     next_conditions_to_validate.append(condition)
-                    if condition.attribute_name in self.BASE_ATTRIBUTES:
+                    if condition.get_attribute_name() in self.BASE_ATTRIBUTES:
                         ignore_rules = True
 
             if faulty_rules_errors and hide_rule:

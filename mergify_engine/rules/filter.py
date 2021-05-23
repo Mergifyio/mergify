@@ -115,9 +115,6 @@ class Filter:
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
     }
 
-    # The name of the attribute that is going to be evaluated by this filter.
-    attribute_name: str = dataclasses.field(init=False)
-
     value_expanders: typing.Dict[
         str, typing.Callable[[typing.Any], typing.List[typing.Any]]
     ] = dataclasses.field(default_factory=dict)
@@ -181,21 +178,21 @@ class Filter:
         attribute_name: str,
     ) -> typing.List[typing.Any]:
         if attribute_name.startswith(self.LENGTH_OPERATOR):
-            self.attribute_name = attribute_name[1:]
+            attribute_name = attribute_name[1:]
             op = len
         else:
-            self.attribute_name = attribute_name
+            attribute_name = attribute_name
             op = _identity
         try:
-            attr = getattr(obj, self.attribute_name)
+            attr = getattr(obj, attribute_name)
             if inspect.iscoroutine(attr):
                 attr = await attr
         except KeyError:
-            raise UnknownAttribute(self.attribute_name)
+            raise UnknownAttribute(attribute_name)
         try:
             values = op(attr)
         except TypeError:
-            raise InvalidOperator(self.attribute_name)
+            raise InvalidOperator(attribute_name)
 
         return self._to_list(values)
 
