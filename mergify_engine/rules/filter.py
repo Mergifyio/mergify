@@ -60,7 +60,7 @@ def _identity(value):
     return value
 
 
-TreeBinaryLeafT = typing.Tuple[typing.Any, typing.Any]
+TreeBinaryLeafT = typing.Tuple[str, typing.Any]
 
 TreeT = typing.TypedDict(
     "TreeT",
