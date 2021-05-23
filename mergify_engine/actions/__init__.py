@@ -56,12 +56,6 @@ def get_commands() -> typing.Dict[str, "Action"]:
     return {name: obj for name, obj in get_classes().items() if obj.is_command}
 
 
-class EvaluatedActionRule(typing.NamedTuple):
-    reason: str
-    conditions: "rules.RuleConditions"
-    missing_conditions: "rules.RuleMissingConditions"
-
-
 @dataclasses.dataclass
 class Action(abc.ABC):
     is_action = True
@@ -129,14 +123,6 @@ class Action(abc.ABC):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         return self.cancelled_check_report
-
-    async def get_rule(
-        self,
-        ctxt: context.Context,
-    ) -> EvaluatedActionRule:  # pragma: no cover
-        return EvaluatedActionRule(
-            "", rules.RuleConditions([]), rules.RuleMissingConditions([])
-        )
 
     @staticmethod
     async def wanted_users(
