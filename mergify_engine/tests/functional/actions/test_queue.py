@@ -1651,7 +1651,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             utils.utcnow(),
         )
         await car.create_pull(
-            rules.QueueRule(name="foo", conditions=[], config=queue_config)
+            rules.QueueRule(
+                name="foo", conditions=rules.RuleConditions([]), config=queue_config
+            )
         )
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
@@ -1702,7 +1704,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
             await car.create_pull(
-                rules.QueueRule(name="foo", conditions=[], config=queue_config)
+                rules.QueueRule(
+                    name="foo", conditions=rules.RuleConditions([]), config=queue_config
+                )
             )
             assert exc_info.value.car == car
             assert car.queue_pull_request_number is None

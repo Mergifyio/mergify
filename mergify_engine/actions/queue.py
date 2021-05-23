@@ -184,7 +184,7 @@ class QueueAction(merge_base.MergeBaseAction):
 
         if not await ctxt.is_behind:
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
-            if not queue_rule_evaluated.missing_conditions:
+            if queue_rule_evaluated.conditions.match:
                 return True
 
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
@@ -209,7 +209,8 @@ class QueueAction(merge_base.MergeBaseAction):
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
-            return not queue_rule_evaluated.missing_conditions
+            # FIXME(sileht): I don't get why this is typing.Any ...
+            return queue_rule_evaluated.conditions.match  # type: ignore[no-any-return]
 
         return False
 

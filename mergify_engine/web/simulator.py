@@ -167,7 +167,7 @@ async def simulator(
         title, summary = ("The configuration is valid", "")
 
     pull_request_rules_conditions = [
-        [cond.tree for cond in rule.conditions]
+        [cond.partial_filter.tree for cond in rule.conditions]
         for rule in data["mergify.yml"]["pull_request_rules"]
     ]
     return responses.JSONResponse(
