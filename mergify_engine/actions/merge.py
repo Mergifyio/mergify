@@ -173,12 +173,8 @@ class MergeAction(merge_base.MergeBaseAction):
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> str:
-        summary = "**Required conditions for merge:**\n"
-        for cond in rule.conditions:
-            checked = "X" if cond.match else " "
-            summary += f"\n- [{checked}] `{cond}`"
-            if cond.description:
-                summary += f" [{cond.description}]"
+        summary = "**Required conditions for merge:**\n\n"
+        summary += rule.conditions.get_summary()
 
         pulls = await q.get_pulls()
         if pulls:
@@ -204,11 +200,13 @@ class MergeAction(merge_base.MergeBaseAction):
                     "|"
                 )
 
-            summary += "\n\n**The following pull requests are queued:**\n" + "\n".join(
-                table
+            summary += (
+                "\n**The following pull requests are queued:**\n"
+                + "\n".join(table)
+                + "\n"
             )
 
-        summary += "\n\n---\n\n"
+        summary += "\n---\n\n"
         summary += constants.MERGIFY_PULL_REQUEST_DOC
         return summary
 

@@ -351,14 +351,8 @@ This pull request has been created by Mergify to speculatively check the mergeab
 You don't need to do anything. Mergify will close this pull request automatically when it is complete.
 """
 
-        description += (
-            f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
-        )
-        for cond in queue_rule.conditions:
-            checked = "X" if cond.match else " "
-            description += f"\n- [{checked}] `{cond}`"
-            if cond.description:
-                description += f" [{cond.description}]"
+        description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
+        description += queue_rule.conditions.get_summary()
 
         if show_queue:
             table = [
@@ -395,10 +389,12 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 )
 
             description += (
-                "\n\n**The following pull requests are queued:**\n" + "\n".join(table)
+                "\n**The following pull requests are queued:**\n"
+                + "\n".join(table)
+                + "\n"
             )
 
-        description += "\n\n---\n\n"
+        description += "\n---\n\n"
         description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
         return description.strip()
 
@@ -482,12 +478,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
         else:
             tmp_pull_title = f"The pull request #{self.user_pull_request_number} cannot be merged and has been disembarked"
 
-        queue_summary = "\n\nRequired conditions for merge:\n"
-        for cond in evaluated_queue_rule.conditions:
-            checked = "X" if cond.match else " "
-            queue_summary += f"\n- [{checked}] `{cond}`"
-            if cond.description:
-                queue_summary += f" [{cond.description}]"
+        queue_summary = "\n\nRequired conditions for merge:\n\n"
+        queue_summary += evaluated_queue_rule.conditions.get_summary()
 
         original_ctxt = await self.train.repository.get_pull_request_context(
             self.user_pull_request_number
@@ -495,7 +487,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if self.state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
-            summary += queue_summary
+            summary += queue_summary + "\n"
 
             if self.queue_pull_request_number is None:
                 raise RuntimeError(
@@ -612,7 +604,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
-            summary=queue_summary + checks_copy_summary,
+            summary=queue_summary + "\n" + checks_copy_summary,
         )
         original_ctxt.log.info(
             "pull request train car status update",

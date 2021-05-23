@@ -97,19 +97,10 @@ async def gen_summary_rules(
     for rule in _rules:
         if rule.hidden:
             continue
-
         summary += f"#### Rule: {rule.name}"
-        summary += f" ({', '.join(rule.actions)})"
-        # TODO(sileht) browser the tree to display and/or
-        for cond in rule.conditions:
-            checked = "X" if cond.match else " "
-            summary += f"\n- [{checked}] `{cond}`"
-            if cond.description:
-                summary += f" [{cond.description}]"
-            if cond.evaluation_error:
-                summary += f" ⚠️ {cond.evaluation_error}"
-
-        summary += "\n\n"
+        summary += f" ({', '.join(rule.actions)})\n"
+        summary += rule.conditions.get_summary()
+        summary += "\n"
     return summary
 
 
