@@ -354,9 +354,7 @@ async def run_actions(
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
-            action_rule = await action_obj.get_rule(ctxt)
-
-            if (rule.missing_conditions or action_rule.missing_conditions) or (
+            if rule.missing_conditions or (
                 ctxt.configuration_changed
                 and not action_obj.can_be_used_on_configuration_change
             ):
