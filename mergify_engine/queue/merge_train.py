@@ -91,13 +91,14 @@ async def get_queue_rule_checks_status(
     # should take care of branch protection required_status_check, in case of just this is
     # used.
 
-    if not queue_rule.missing_conditions:
+    if queue_rule.conditions.match:
         return check_api.Conclusion.SUCCESS
 
     missing_checks_conditions = [
         condition
-        for condition in queue_rule.missing_conditions
-        if condition.get_attribute_name().partition("-")[0] in ["check", "status"]
+        for condition in queue_rule.conditions
+        if not condition.match
+        and condition.get_attribute_name().partition("-")[0] in ["check", "status"]
     ]
     if not missing_checks_conditions:
         return check_api.Conclusion.PENDING
@@ -106,7 +107,7 @@ async def get_queue_rule_checks_status(
         state
         for name, state in (await ctxt.checks).items()
         for cond in missing_checks_conditions
-        if await cond(utils.FakePR(cond.get_attribute_name(), name))
+        if await cond.copy()(utils.FakePR(cond.get_attribute_name(), name))
     ]
     #  We have missing conditions but no associated states, this means
     #  that some checks are missing, we assume they are pending
@@ -354,10 +355,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n"
         )
         for cond in queue_rule.conditions:
-            if isinstance(queue_rule, rules.EvaluatedQueueRule):
-                checked = " " if cond in queue_rule.missing_conditions else "X"
-            else:
-                checked = " "
+            checked = "X" if cond.match else " "
             description += f"\n- [{checked}] `{cond}`"
             if cond.description:
                 description += f" [{cond.description}]"
@@ -486,7 +484,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         queue_summary = "\n\nRequired conditions for merge:\n"
         for cond in evaluated_queue_rule.conditions:
-            checked = " " if cond in evaluated_queue_rule.missing_conditions else "X"
+            checked = "X" if cond.match else " "
             queue_summary += f"\n- [{checked}] `{cond}`"
             if cond.description:
                 queue_summary += f" [{cond.description}]"

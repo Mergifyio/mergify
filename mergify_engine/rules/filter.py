@@ -103,7 +103,6 @@ MultipleOperatorT = typing.Callable[..., bool]
 @dataclasses.dataclass(repr=False)
 class Filter:
     tree: TreeT
-    description: typing.Optional[str] = dataclasses.field(default=None)
 
     unary_operators: typing.ClassVar[typing.Dict[str, UnaryOperatorT]] = {
         "-": operator.not_
@@ -134,18 +133,11 @@ class Filter:
 
     def __post_init__(self) -> None:
         # https://github.com/python/mypy/issues/2427
-        self._eval = self.build_evaluator(self.tree)  # type: ignore
-
-    def get_attribute_name(self) -> str:
-        tree = self.tree.get("-", self.tree)
-        name = list(tree.values())[0][0]
-        if name.startswith(self.LENGTH_OPERATOR):
-            return str(name[1:])
-        return str(name)
+        self._eval = self.build_evaluator(self.tree)  # type: ignore[assignment]
 
     @classmethod
-    def parse(cls, string: str, description: typing.Optional[str] = None) -> "Filter":
-        return cls(parser.search.parseString(string, parseAll=True)[0], description)
+    def parse(cls, string: str) -> "Filter":
+        return cls(parser.search.parseString(string, parseAll=True)[0])
 
     def __str__(self):
         return self._tree_to_str(self.tree)

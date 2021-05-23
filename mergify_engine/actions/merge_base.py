@@ -162,7 +162,9 @@ class MergeBaseAction(actions.Action):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Conclusion:
         need_look_at_checks = []
-        for condition in rule.missing_conditions:
+        for condition in rule.conditions:
+            if condition.match:
+                continue
             attribute_name = condition.get_attribute_name()
             if attribute_name.startswith("check-") or attribute_name.startswith(
                 "status-"
@@ -182,7 +184,7 @@ class MergeBaseAction(actions.Action):
                 state
                 for name, state in (await ctxt.checks).items()
                 for cond in need_look_at_checks
-                if await cond(utils.FakePR(cond.get_attribute_name(), name))
+                if await cond.copy()(utils.FakePR(cond.get_attribute_name(), name))
             ]
             if not states:
                 return check_api.Conclusion.PENDING

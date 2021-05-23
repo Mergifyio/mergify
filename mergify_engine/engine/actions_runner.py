@@ -55,10 +55,13 @@ def get_already_merged_summary(
 
     for rule in match.matching_rules:
         if "merge" in rule.actions:
+            # FIXME(sileht): We should clone rule.conditions TreeT without -merged and -closed conditions
+            # if everything match we can set action_merge_found_in_active_rule to True
             missing_conditions = [
                 condition
-                for condition in rule.missing_conditions
-                if condition.get_attribute_name() not in ["merged", "closed"]
+                for condition in rule.conditions
+                if not condition.match
+                and condition.get_attribute_name() not in ["merged", "closed"]
             ]
             action_merge_found = True
             if not missing_conditions:
@@ -97,16 +100,14 @@ async def gen_summary_rules(
 
         summary += f"#### Rule: {rule.name}"
         summary += f" ({', '.join(rule.actions)})"
+        # TODO(sileht) browser the tree to display and/or
         for cond in rule.conditions:
-            checked = " " if cond in rule.missing_conditions else "X"
+            checked = "X" if cond.match else " "
             summary += f"\n- [{checked}] `{cond}`"
             if cond.description:
                 summary += f" [{cond.description}]"
-
-        if rule.errors:
-            summary += "\n"
-            for error in rule.errors:
-                summary += f"\n⚠️ {error}"
+            if cond.evaluation_error:
+                summary += f" ⚠️ {cond.evaluation_error}"
 
         summary += "\n\n"
     return summary
@@ -141,7 +142,7 @@ async def gen_summary(
         summary += "</details>\n"
 
     completed_rules = len(
-        list(filter(lambda x: not x.missing_conditions, match.matching_rules))
+        list(filter(lambda rule: rule.conditions.match, match.matching_rules))
     )
     potential_rules = len(match.matching_rules) - completed_rules
     faulty_rules = len(match.faulty_rules)
@@ -343,7 +344,7 @@ async def run_actions(
     # to remove the PR from the queue and then add it back with the new config and not the
     # reverse
     matching_rules = sorted(
-        match.matching_rules, key=lambda rule: len(rule.missing_conditions) == 0
+        match.matching_rules, key=lambda rule: rule.conditions.match
     )
 
     method_name: typing.Literal["run", "cancel"]
@@ -354,7 +355,7 @@ async def run_actions(
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
-            if rule.missing_conditions or (
+            if not rule.conditions.match or (
                 ctxt.configuration_changed
                 and not action_obj.can_be_used_on_configuration_change
             ):

@@ -65,10 +65,10 @@ class PostCheckAction(actions.Action):
                 ),
             )
 
-        check_succeed = not bool(rule.missing_conditions)
+        check_succeed = rule.conditions.match
         check_conditions = ""
         for cond in rule.conditions:
-            checked = " " if cond in rule.missing_conditions else "X"
+            checked = "X" if cond.match else "X"
             check_conditions += f"\n- [{checked}] `{cond}`"
             if cond.description:
                 check_conditions += f" [{cond.description}]"
@@ -102,10 +102,10 @@ class PostCheckAction(actions.Action):
             )
 
         await signals.send(ctxt, "action.post_check")
-        if rule.missing_conditions:
-            return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
-        else:
+        if rule.conditions.match:
             return check_api.Result(check_api.Conclusion.SUCCESS, title, summary)
+        else:
+            return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
 
     run = _post
     cancel = _post

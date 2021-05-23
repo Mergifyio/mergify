@@ -175,7 +175,7 @@ class MergeAction(merge_base.MergeBaseAction):
     ) -> str:
         summary = "**Required conditions for merge:**\n"
         for cond in rule.conditions:
-            checked = " " if cond in rule.missing_conditions else "X"
+            checked = "X" if cond.match else " "
             summary += f"\n- [{checked}] `{cond}`"
             if cond.description:
                 summary += f" [{cond.description}]"
