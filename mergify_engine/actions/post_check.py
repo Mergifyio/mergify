@@ -65,18 +65,10 @@ class PostCheckAction(actions.Action):
                 ),
             )
 
-        check_succeed = rule.conditions.match
-        check_conditions = ""
-        for cond in rule.conditions:
-            checked = "X" if cond.match else "X"
-            check_conditions += f"\n- [{checked}] `{cond}`"
-            if cond.description:
-                check_conditions += f" [{cond.description}]"
-
         extra_variables = {
             "check_rule_name": rule.name,
-            "check_succeed": str(check_succeed),
-            "check_conditions": check_conditions,
+            "check_succeed": str(rule.conditions.match),
+            "check_conditions": rule.conditions.get_summary(),
         }
         try:
             title = await ctxt.pull_request.render_template(
