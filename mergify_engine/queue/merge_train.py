@@ -97,8 +97,7 @@ async def get_queue_rule_checks_status(
     missing_checks_conditions = [
         condition
         for condition in queue_rule.missing_conditions
-        if condition.attribute_name.startswith("check-")
-        or condition.attribute_name.startswith("status-")
+        if condition.get_attribute_name().partition("-")[0] in ["check", "status"]
     ]
     if not missing_checks_conditions:
         return check_api.Conclusion.PENDING
@@ -107,7 +106,7 @@ async def get_queue_rule_checks_status(
         state
         for name, state in (await ctxt.checks).items()
         for cond in missing_checks_conditions
-        if await cond(utils.FakePR(cond.attribute_name, name))
+        if await cond(utils.FakePR(cond.get_attribute_name(), name))
     ]
     #  We have missing conditions but no associated states, this means
     #  that some checks are missing, we assume they are pending
