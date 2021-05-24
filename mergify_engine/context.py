@@ -873,6 +873,9 @@ class Context(object):
     )
 
     def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
+        if self.pull["body"] is None:
+            self.log.error("depends-on computed on empty body", pull=self.pull)
+            return set()
         return {
             github_types.GitHubPullRequestNumber(int(pull))
             for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
