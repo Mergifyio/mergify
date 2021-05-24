@@ -59,6 +59,56 @@ For example:
 
 - ``-merged`` matches if the pull requested has not been merged.
 
+Combining Conditions with Operators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `conditions` do support the ``or`` and ``and`` operators.
+
+For example, you can match if its author is ``foo`` or
+``bar``, you could write:
+
+.. code-block:: yaml
+
+    conditions:
+      - or:
+        - author=foo
+        - author=bar
+
+You can also combine ``or`` and ``and`` like this:
+
+.. code-block:: yaml
+
+    conditions:
+      - or:
+        - and:
+            author=foo
+            label=core
+        - and:
+            author=bar
+            label=backend
+
+
+.. important::
+
+    The number of nested conditions is limited to 3.
+
+    Some attributes can't be used in or/and clauses:
+
+    - ``check-success``
+    - ``check-neutral``
+    - ``check-success-or-neutral``
+    - ``check-failure``
+    - ``check-skipped``
+    - ``check-pending``
+    - ``check-stale``
+    - ``head``
+    - ``base``
+    - ``author``
+    - ``merged_by``
+    - ``merged``
+    - ``closed``
+
+
 .. _attributes:
 
 Attributes
@@ -309,36 +359,6 @@ modified files:
 
 - ``-files~=^src/`` is **true** if none of the files that are modified are in
   the ``src`` directory.
-
-
-Implementing Or Conditions
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The `conditions` do not support the `or` operation. As Mergify evaluates and
-apply every matching rules from your configuration, you can implement multiple
-rules in order to have this.
-
-For example, to automatically merge a pull request if its author is ``foo`` or
-``bar``, you could write:
-
-.. code-block:: yaml
-
-    pull_request_rules:
-      - name: automatic merge if author is foo
-        conditions:
-          - author=foo
-          - check-success=Travis CI - Pull Request
-        actions:
-          merge:
-            method: merge
-
-      - name: automatic merge if author is bar
-        conditions:
-          - author=bar
-          - check-success=Travis CI - Pull Request
-        actions:
-          merge:
-            method: merge
 
 
 About Status Checks

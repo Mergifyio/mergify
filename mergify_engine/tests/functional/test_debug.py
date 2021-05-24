@@ -32,9 +32,18 @@ class TestDebugger(base.FunctionalTestBase):
                     "name": "comment",
                     "conditions": [
                         f"base={self.master_branch_name}",
-                        "label=doubt",
-                        "number>0",
-                        "title~=pull request",
+                        {
+                            "or": [
+                                "label=doubt",
+                                "label=suspect",
+                            ]
+                        },
+                        {
+                            "and": [
+                                "number>0",
+                                "title~=pull request",
+                            ]
+                        },
                     ],
                     "actions": {"comment": {"message": "WTF?"}},
                 }
@@ -88,9 +97,12 @@ pull_request_rules:
       message: WTF?
   conditions:
   - base={self.master_branch_name}
-  - label=doubt
-  - number>0
-  - title~=pull request
+  - or:
+    - label=doubt
+    - label=suspect
+  - and:
+    - number>0
+    - title~=pull request
   name: comment
 
 * QUEUES: 
@@ -132,9 +144,12 @@ mergeable_state: clean
 [Summary]: success | 1 potential rule
 > #### Rule: comment (comment)
 > - [X] `base={self.master_branch_name}`
-> - [ ] `label=doubt`
-> - [X] `number>0`
-> - [X] `title~=pull request`
+> - [ ] any of:
+>   - [ ] `label=doubt`
+>   - [ ] `label=suspect`
+> - [X] all of:
+>   - [X] `number>0`
+>   - [X] `title~=pull request`
 > 
 > <hr />
 > :sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
@@ -168,9 +183,12 @@ mergeable_state: clean
 [Summary]: success | 1 potential rule
 > #### Rule: comment (comment)
 > - [X] `base={self.master_branch_name}`
-> - [ ] `label=doubt`
-> - [X] `number>0`
-> - [X] `title~=pull request`
+> - [ ] any of:
+>   - [ ] `label=doubt`
+>   - [ ] `label=suspect`
+> - [X] all of:
+>   - [X] `number>0`
+>   - [X] `title~=pull request`
 > 
 > <hr />
 > :sparkling_heart:&nbsp;&nbsp;Mergify is proud to provide this service for free to open source projects.
