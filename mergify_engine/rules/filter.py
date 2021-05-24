@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from collections import abc
 import dataclasses
 import inspect
 import operator
@@ -74,6 +75,8 @@ TreeT = typing.TypedDict(
         ">=": TreeBinaryLeafT,
         "!=": TreeBinaryLeafT,
         "~=": TreeBinaryLeafT,
+        "or": typing.Iterable["TreeT"],  # type: ignore[misc]
+        "and": typing.Iterable["TreeT"],  # type: ignore[misc]
     },
     total=False,
 )
@@ -87,25 +90,25 @@ class GetAttrObject(typing.Protocol):
 GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
 
 
+UnaryOperatorT = typing.Callable[[typing.Any], bool]
+BinaryOperatorT = typing.Tuple[
+    typing.Callable[[typing.Any, typing.Any], bool],
+    typing.Callable[[typing.Iterable[object]], bool],
+    typing.Callable[[typing.Any], typing.Any],
+]
+MultipleOperatorT = typing.Callable[..., bool]
+
+
 @dataclasses.dataclass(repr=False)
 class Filter:
     tree: TreeT
     description: typing.Optional[str] = dataclasses.field(default=None)
 
-    unary_operators: typing.ClassVar[
-        typing.Dict[str, typing.Callable[[typing.Any], bool]]
-    ] = {"-": operator.not_}
+    unary_operators: typing.ClassVar[typing.Dict[str, UnaryOperatorT]] = {
+        "-": operator.not_
+    }
 
-    binary_operators: typing.ClassVar[
-        typing.Dict[
-            str,
-            typing.Tuple[
-                typing.Callable[[typing.Any, typing.Any], bool],
-                typing.Callable[[typing.Iterable[object]], bool],
-                typing.Callable[[typing.Any], typing.Any],
-            ],
-        ]
-    ] = {
+    binary_operators: typing.ClassVar[typing.Dict[str, BinaryOperatorT]] = {
         "=": (operator.eq, any, _identity),
         "<": (operator.lt, any, _identity),
         ">": (operator.gt, any, _identity),
@@ -113,6 +116,11 @@ class Filter:
         ">=": (operator.ge, any, _identity),
         "!=": (operator.ne, all, _identity),
         "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
+    }
+
+    multiple_operators: typing.ClassVar[typing.Dict[str, MultipleOperatorT]] = {
+        "or": any,
+        "and": all,
     }
 
     value_expanders: typing.Dict[
@@ -201,51 +209,76 @@ class Filter:
     ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
         if len(tree) != 1:
             raise ParseError(tree)
+
         operator_name, nodes = list(tree.items())[0]
         try:
-            unary_op = self.unary_operators[operator_name]
+            multiple_op = self.multiple_operators[operator_name]
         except KeyError:
             try:
-                binary_op, iterable_op, compile_fn = self.binary_operators[
-                    operator_name
-                ]
+                unary_operator = self.unary_operators[operator_name]
             except KeyError:
-                raise UnknownOperator(operator_name)
+                try:
+                    binary_operator = self.binary_operators[operator_name]
+                except KeyError:
+                    raise UnknownOperator(operator_name)
+                nodes = typing.cast(TreeBinaryLeafT, nodes)
+                return self._handle_binary_op(binary_operator, nodes)
+            nodes = typing.cast(TreeT, nodes)
+            return self._handle_unary_op(unary_operator, nodes)
+        if not isinstance(nodes, abc.Iterable):
+            raise InvalidArguments(nodes)
+        nodes = typing.cast(typing.Iterable[TreeT], nodes)
+        return self._handle_multiple_op(multiple_op, nodes)
 
-            nodes = typing.cast(TreeBinaryLeafT, nodes)
-            if len(nodes) != 2:
-                raise InvalidArguments(nodes)
+    def _handle_binary_op(
+        self,
+        op: BinaryOperatorT,
+        nodes: TreeBinaryLeafT,
+    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+        if len(nodes) != 2:
+            raise InvalidArguments(nodes)
 
-            try:
-                attribute_name, reference_value = (nodes[0], compile_fn(nodes[1]))
-            except Exception as e:
-                raise InvalidArguments(str(e))
+        binary_op, iterable_op, compile_fn = op
+        try:
+            attribute_name, reference_value = (nodes[0], compile_fn(nodes[1]))
+        except Exception as e:
+            raise InvalidArguments(str(e))
 
-            async def _cmp(attribute_values: typing.List[typing.Any]) -> bool:
-                reference_value_expander = self.value_expanders.get(
-                    attribute_name, self._to_list
+        async def _op(obj: GetAttrObjectT) -> bool:
+            attribute_values = await self._get_attribute_values(obj, attribute_name)
+            reference_value_expander = self.value_expanders.get(
+                attribute_name, self._to_list
+            )
+            ref_values_expanded = reference_value_expander(reference_value)
+            if inspect.iscoroutine(ref_values_expanded):
+                ref_values_expanded = await typing.cast(
+                    typing.Awaitable[typing.Any], ref_values_expanded
                 )
-                ref_values_expanded = reference_value_expander(reference_value)
-                if inspect.iscoroutine(ref_values_expanded):
-                    ref_values_expanded = await typing.cast(
-                        typing.Awaitable[typing.Any], ref_values_expanded
-                    )
 
-                return iterable_op(
-                    binary_op(attribute_value, ref_value)
-                    for attribute_value in attribute_values
-                    for ref_value in ref_values_expanded
-                )
+            return iterable_op(
+                binary_op(attribute_value, ref_value)
+                for attribute_value in attribute_values
+                for ref_value in ref_values_expanded
+            )
 
-            async def _op(obj: GetAttrObjectT) -> bool:
-                return await _cmp(await self._get_attribute_values(obj, attribute_name))
+        return _op
 
-            return _op
-
-        nodes = typing.cast(TreeT, nodes)
+    def _handle_unary_op(
+        self, unary_op: UnaryOperatorT, nodes: TreeT
+    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
         element = self.build_evaluator(nodes)
 
         async def _unary_op(values: GetAttrObjectT) -> bool:
             return unary_op(await element(values))
 
         return _unary_op
+
+    def _handle_multiple_op(
+        self, multiple_op: MultipleOperatorT, nodes: typing.Iterable[TreeT]
+    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+        elements = [self.build_evaluator(node) for node in nodes]
+
+        async def _multiple_op(values: GetAttrObjectT) -> bool:
+            return multiple_op([await element(values) for element in elements])
+
+        return _multiple_op
