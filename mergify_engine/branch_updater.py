@@ -53,6 +53,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     [
         ("This repository was archived so it is read-only.", BranchUpdateFailure),
         ("organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
+        ("could not apply", BranchUpdateFailure),
         ("Invalid username or password", AuthenticationFailure),
         ("Repository not found", AuthenticationFailure),
         ("The requested URL returned error: 403", AuthenticationFailure),
