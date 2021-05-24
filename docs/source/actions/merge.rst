@@ -346,7 +346,7 @@ There is a lot of different ways to merge pull requests. You can replicate many
          merge:
            strict: true
            strict_method: rebase
-           method: merge
+           method: merged
 
    * - ::
 
