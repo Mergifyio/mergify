@@ -132,14 +132,14 @@ Regular Expressions
 
 .. tip::
 
-  You can use `regex101 <https://regex101.com/>`_ or `PyRegex
-  <http://www.pyregex.com>`_ to test your regular expressions.
+   You can use `PyRegex <http://www.pyregex.com>`_ or `Pythex
+   <https://pythex.org/>`_ to test your regular expressions.
 
 ..
-   # FIXME(sileht): pyregex is currently down, ssl expired
+   # FIXME(sileht): regex101 is currently down, ssl expired
    You can use `regex101 <https://regex101.com/>`_, `PyRegex
-  <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
-  regular expressions.
+   <http://www.pyregex.com>`_ or `Pythex <https://pythex.org/>`_ to test your
+   regular expressions.
 
 You can use regular expression with matching :ref:`operators <Operators>` in
 your :ref:`conditions <Conditions>` .
