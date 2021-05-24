@@ -1,8 +1,8 @@
 mergify-engine
 ==============
 
-.. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/Mergifyio/mergify.io
-   :target: https://mergify.io
+.. image:: https://img.shields.io/endpoint.svg?url=https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL
+   :target: - [Paypal](https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL)
    :alt: Mergify Status
 
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
@@ -14,7 +14,7 @@ This is how it works:
 
 For example:
 
-.. code-block:: yaml
+.. code-block:: yml
 
     pull_request_rules:
       - name: automatic merge when CI passes and 2 reviews
@@ -29,3 +29,5 @@ For example:
 That rule automatically merges a pull request targeting the `main` branch once it has 2 approving reviews and the CI passes.
 
 You can learn more by browsing the `engine documentation <https://docs.mergify.io>`_.
+
+
