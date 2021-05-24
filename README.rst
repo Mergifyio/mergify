@@ -2,7 +2,8 @@ mergify-engine
 ==============
 
 .. Sponsors :
-   : ` Sponsors:- [Paypal] (https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL)`
+   : ` Sponsors:- [[Paypal] (https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL)`]
+  
    
 
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
