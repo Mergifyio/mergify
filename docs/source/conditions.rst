@@ -310,13 +310,10 @@ modified files:
 - ``-files~=^src/`` is **true** if none of the files that are modified are in
   the ``src`` directory.
 
+Combining Conditions with Operators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Implementing Or Conditions
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The `conditions` do not support the `or` operation. As Mergify evaluates and
-apply every matching rules from your configuration, you can implement multiple
-rules in order to have this.
+The `conditions` do support the `or` and `and` operators.
 
 For example, to automatically merge a pull request if its author is ``foo`` or
 ``bar``, you could write:
@@ -324,22 +321,47 @@ For example, to automatically merge a pull request if its author is ``foo`` or
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge if author is foo
+      - name: automatic merge if author is foo or bar
         conditions:
-          - author=foo
+          - or:
+            - author=foo
+            - author=bar
           - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
 
-      - name: automatic merge if author is bar
+You can also combine `or` and `and` like this:
+
+.. code-block:: yaml
+
+    pull_request_rules:
+      - name: automatic merge if author is foo and label is core, or author is bar and label is backend
         conditions:
-          - author=bar
+          - or:
+            - and:
+                author=foo
+                label=core
+            - and:
+                author=bar
+                label=backend
           - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
 
+
+.. important::
+
+    Some attributes can't be used in a or/and clause:
+
+    - ``check-XXX``
+    - ``head``
+    - ``base``
+    - ``author``
+    - ``merged_by``
+    - ``merged``
+    - ``closed``
 
 About Status Checks
 ~~~~~~~~~~~~~~~~~~~

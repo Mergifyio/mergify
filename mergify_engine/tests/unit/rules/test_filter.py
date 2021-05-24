@@ -137,7 +137,7 @@ async def test_parse_error() -> None:
 
 async def test_unknown_operator() -> None:
     with pytest.raises(filter.UnknownOperator):
-        filter.Filter({"oops": (1, 2)})  # type: ignore[typeddict-item]
+        filter.Filter({"oops": (1, 2)})  # type: ignore[arg-type]
 
 
 async def test_invalid_arguments() -> None:
