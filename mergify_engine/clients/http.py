@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import datetime
 import json
 import os
 import sys
@@ -24,6 +23,8 @@ import daiquiri
 import httpx
 import tenacity
 from werkzeug.http import parse_date
+
+from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -114,7 +115,7 @@ def wait_retry_after_header(retry_state):
     d = parse_date(value)
     if d is None:
         return 0
-    return max(0, (d - datetime.datetime.utcnow()).total_seconds())
+    return max(0, (d - utils.utcnow()).total_seconds())
 
 
 def extract_github_extra(client):
