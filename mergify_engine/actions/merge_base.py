@@ -162,7 +162,7 @@ class MergeBaseAction(actions.Action):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Conclusion:
         need_look_at_checks = []
-        for condition in rule.conditions:
+        for condition in rule.conditions.iter_root_rule_conditions():
             if condition.match:
                 continue
             attribute_name = condition.get_attribute_name()

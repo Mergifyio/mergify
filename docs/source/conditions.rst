@@ -311,12 +311,10 @@ modified files:
   the ``src`` directory.
 
 
-Implementing Or Conditions
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Implementing And/Or Conditions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `conditions` do not support the `or` operation. As Mergify evaluates and
-apply every matching rules from your configuration, you can implement multiple
-rules in order to have this.
+The `conditions` do support the `or` and `and` operation.
 
 For example, to automatically merge a pull request if its author is ``foo`` or
 ``bar``, you could write:
@@ -324,22 +322,26 @@ For example, to automatically merge a pull request if its author is ``foo`` or
 .. code-block:: yaml
 
     pull_request_rules:
-      - name: automatic merge if author is foo
+      - name: automatic merge if author is foo or bar
         conditions:
-          - author=foo
+          - or:
+            - author=foo
+            - author=bar
           - check-success=Travis CI - Pull Request
         actions:
           merge:
             method: merge
 
-      - name: automatic merge if author is bar
-        conditions:
-          - author=bar
-          - check-success=Travis CI - Pull Request
-        actions:
-          merge:
-            method: merge
 
+Some attributes can't be used in a or/and clause:
+
+- ``check-XXX``
+- ``head``
+- ``base``
+- ``author``
+- ``merged_by``
+- ``merged``
+- ``closed``
 
 About Status Checks
 ~~~~~~~~~~~~~~~~~~~

@@ -692,7 +692,7 @@ unacceptable character #x0004: special characters are not allowed
         ),
         (
             {"name": "hello", "conditions": [{"foo": "bar"}], "actions": {}},
-            r"expected str @ data\[0\]\['conditions'\]\[0\]",
+            r"extra keys not allowed @ data\[0\]\['conditions'\]\[0\]\['foo'\]",
         ),
         (
             {"name": "hello", "conditions": [], "actions": {}, "foobar": True},
@@ -1083,19 +1083,31 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert match.matching_rules[0].name == "merge"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "#approved-reviews-by>=2"
 
     assert match.matching_rules[1].name == "fast merge"
     assert not match.matching_rules[1].conditions.match
-    missing_conditions = [c for c in match.matching_rules[1].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[1].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "label=fast-track"
 
     assert match.matching_rules[2].name == "fast merge with alternate ci"
     assert not match.matching_rules[2].conditions.match
-    missing_conditions = [c for c in match.matching_rules[2].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[2].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 2
     assert str(missing_conditions[0]) == "label=fast-track"
     assert (
@@ -1122,7 +1134,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert match.matching_rules[0].name == "default"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "#approved-reviews-by>=2"
 
@@ -1185,7 +1201,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == (
         "-label~=^(status/wip|status/blocked|review/need2)$"
@@ -1201,7 +1221,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert len(missing_conditions) == 0
 
     # Test team expander
@@ -1219,7 +1243,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
 
     # branch protection
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
@@ -1246,16 +1274,20 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert [r.name for r in match.rules] == ["default", "default"]
     assert list(match.matching_rules[0].actions.keys()) == ["merge"]
-    assert len(match.matching_rules[0].conditions) == 1
+    assert len(match.matching_rules[0].conditions.conditions) == 1
     assert not match.matching_rules[0].conditions.match
     assert (
-        str(match.matching_rules[0].conditions[0])
+        str(match.matching_rules[0].conditions.conditions[0])
         == "check-success-or-neutral=awesome-ci"
     )
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c
+        for c in match.matching_rules[0].conditions.traverse_rule_condition()
+        if not c.match
+    ]
     assert str(missing_conditions[0]) == "check-success-or-neutral=awesome-ci"
     assert list(match.matching_rules[1].actions.keys()) == ["comment"]
-    assert len(match.matching_rules[1].conditions) == 0
+    assert len(match.matching_rules[1].conditions.conditions) == 0
 
 
 def test_check_runs_custom():

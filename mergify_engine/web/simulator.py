@@ -166,17 +166,19 @@ async def simulator(
     else:
         title, summary = ("The configuration is valid", "")
 
-    pull_request_rules_conditions = [
-        [cond.partial_filter.tree for cond in rule.conditions]
-        for rule in data["mergify.yml"]["pull_request_rules"]
-    ]
+    # TODO(sileht): the editor need to be revisited, this format
+    # may not be enough with the and/or in conditions
+    # pull_request_rules_conditions = [
+    #    [cond.partial_filter.tree for cond in rule.conditions]
+    #    for rule in data["mergify.yml"]["pull_request_rules"]
+    # ]
     return responses.JSONResponse(
         status_code=200,
         content={
             "title": title,
             "summary": summary,
-            "conditions": {
-                "pull_request_rules": pull_request_rules_conditions,
-            },
+            # "conditions": {
+            #    "pull_request_rules": pull_request_rules_conditions,
+            # },
         },
     )
