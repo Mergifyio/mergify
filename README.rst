@@ -1,11 +1,13 @@
 mergify-engine
-==============
+======================
 
-. Sponsors
+. Sponsors:
+
    - `Paypal <https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL>`_
-   -  Dogecoin Wallet : D7RMk96j7BLzTcy1hVqF5fAtpA4khmsyvA .
   
-   
+   -  Wallet Dogecoin : D7RMk96j7BLzTcy1hVqF5fAtpA4khmsyvA .
+  
+======≈======≈========
 
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
 
@@ -16,7 +18,7 @@ This is how it works:
 
 For example:
 
-.. code-block:: yml
+.. code-block:: yaml
 
     pull_request_rules:
       - name: automatic merge when CI passes and 2 reviews
