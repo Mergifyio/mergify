@@ -2,8 +2,8 @@ mergify-engine
 ==============
 
 .. image:: url=https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL
-   :target: - [Paypal](https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL)
-   :alt: - [Paypal]
+   : Sponsors - [Paypal](https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL)
+   : Sponsors - [Paypal]
 
 This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
 
