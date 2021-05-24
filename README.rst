@@ -2,7 +2,8 @@ mergify-engine
 ==============
 
 . Sponsors
-   - `Paypal <https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL>`_,
+   - `Paypal <https://www.paypal.com/donate?business=RBHMVN4AQGQE2&item_name=Donation&currency_code=BRL>`_
+   -  Dogecoin Wallet : D7RMk96j7BLzTcy1hVqF5fAtpA4khmsyvA .
   
    
 
