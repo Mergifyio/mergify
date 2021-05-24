@@ -122,7 +122,7 @@ class TestSimulator(base.FunctionalTestBase):
         assert r.json() == {
             "errors": [
                 "expected str @ pull_request_rules → item 0 → actions → label → remove → item 0",
-                "expected str @ pull_request_rules → item 0 → conditions → item 0",
+                "extra keys not allowed @ pull_request_rules → item 0 → conditions → item 0 → -conflict",
             ]
         }
 
