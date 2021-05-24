@@ -873,8 +873,7 @@ class Context(object):
     )
 
     def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
-        if self.pull["body"] is None:
-            self.log.error("depends-on computed on empty body", pull=self.pull)
+        if not self.pull["body"]:
             return set()
         return {
             github_types.GitHubPullRequestNumber(int(pull))
