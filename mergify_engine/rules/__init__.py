@@ -402,6 +402,9 @@ class QueueRules:
                 return rule
         raise KeyError(f"{key} not found")
 
+    def __len__(self):
+        return len(self.rules)
+
     def __post_init__(self):
         names = set()
         for i, rule in enumerate(reversed(self.rules)):
