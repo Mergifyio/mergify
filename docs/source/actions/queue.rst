@@ -273,6 +273,11 @@ A ``queue_rules`` takes the following parameter:
        between 1 and 20.
        See :ref:`speculative checks`.
 
+.. important::
+
+   |premium plan tag|
+   Defining multiple queue rules is only available for `Premium subscribers <https://mergify.io/pricing>`_.
+
 
 Examples
 --------
@@ -308,6 +313,7 @@ in the queue, it will be updated with the latest commit of its base branch.
 
 🚥 Multiple Queues
 ~~~~~~~~~~~~~~~~~~
+|premium plan tag|
 
 By using multiple queues, it's possible to put some pull requests in a higher
 priority queue. As queues are processed one after the other, the following

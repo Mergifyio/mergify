@@ -69,7 +69,18 @@ class QueueAction(merge_base.MergeBaseAction):
     async def _subscription_status(
         self, ctxt: context.Context
     ) -> typing.Optional[check_api.Result]:
-        if self.queue_rule.config[
+        if self.queue_count > 1 and not ctxt.subscription.has_feature(
+            subscription.Features.QUEUE_ACTION
+        ):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Queue with more than 1 rule set is unavailable.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
+
+        elif self.queue_rule.config[
             "speculative_checks"
         ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
             return check_api.Result(
@@ -161,6 +172,7 @@ class QueueAction(merge_base.MergeBaseAction):
         except KeyError:
             raise voluptuous.error.Invalid(f"{self.config['name']} queue not found")
 
+        self.queue_count = len(mergify_config["queue_rules"])
         self.config["queue_config"] = self.queue_rule.config
 
     async def _get_merge_queue_check(
