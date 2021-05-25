@@ -32,7 +32,7 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 </details>"""
 
 
-def get_already_merged_summary(
+async def get_already_merged_summary(
     ctxt: context.Context, match: rules.RulesEvaluator
 ) -> str:
     if not (
@@ -50,26 +50,27 @@ def get_already_merged_summary(
     ):
         return ""
 
-    action_merge_found = False
-    action_merge_found_in_active_rule = False
+    action_merge_found_and_ran = False
 
     for rule in match.matching_rules:
         if "merge" in rule.actions:
-            # FIXME(sileht): We should clone rule.conditions TreeT without -merged and -closed conditions
-            # if everything match we can set action_merge_found_in_active_rule to True
-            missing_conditions = [
-                condition
-                for condition in rule.conditions.iter_root_rule_conditions()
-                if not condition.match
-                and condition.get_attribute_name() not in ["merged", "closed"]
-            ]
-            action_merge_found = True
-            if not missing_conditions:
-                action_merge_found_in_active_rule = True
+            # NOTE(sileht): Replace all -merged -closed by closed/merged and
+            # check it the rule still match if not it has been merged manually
+            custom_conditions = rule.conditions.copy()
+            for condition in custom_conditions.walk():
+                attr = condition.get_attribute_name()
+                if attr == "merged":
+                    condition.update("merged")
+                elif attr == "closed":
+                    condition.update("closed")
+
+            await custom_conditions(ctxt.pull_request)
+            if custom_conditions.match:
+                action_merge_found_and_ran = True
 
     # We already have a fully detailled status in the rule associated with the
     # action merge
-    if not action_merge_found or action_merge_found_in_active_rule:
+    if not action_merge_found_and_ran:
         return ""
 
     # NOTE(sileht): This looks impossible because the pull request hasn't been
@@ -111,7 +112,7 @@ async def gen_summary(
 ) -> typing.Tuple[str, str]:
 
     summary = ""
-    summary += get_already_merged_summary(ctxt, match)
+    summary += await get_already_merged_summary(ctxt, match)
     if ctxt.configuration_changed:
         summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)

@@ -118,6 +118,41 @@ class TestAttributes(base.FunctionalTestBase):
             "check-skipped": [],
         }
 
+    async def test_and_or(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": [
+                        {
+                            "or": [
+                                {
+                                    "and": [
+                                        f"base={self.master_branch_name}",
+                                        "closed",
+                                        "label=foo",
+                                    ]
+                                },
+                                "merged",
+                            ]
+                        },
+                    ],
+                    "actions": {"comment": {"message": "and or pr"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        pr, _ = await self.create_pr()
+        await self.add_label(pr["number"], "foo")
+        await self.edit_pull(pr["number"], state="closed")
+
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("and or pr", comments[-1]["body"])
+
 
 class TestAttributesWithSub(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
