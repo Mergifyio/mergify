@@ -75,8 +75,8 @@ TreeT = typing.TypedDict(
         ">=": TreeBinaryLeafT,
         "!=": TreeBinaryLeafT,
         "~=": TreeBinaryLeafT,
-        "or": typing.Iterable["TreeT"],  # type: ignore[misc]
-        "and": typing.Iterable["TreeT"],  # type: ignore[misc]
+        "or": typing.Iterable[typing.Union["TreeT", "CompiledTreeT[GetAttrObject]"]],  # type: ignore[misc]
+        "and": typing.Iterable[typing.Union["TreeT", "CompiledTreeT[GetAttrObject]"]],  # type: ignore[misc]
     },
     total=False,
 )
@@ -89,6 +89,7 @@ class GetAttrObject(typing.Protocol):
 
 GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
 
+CompiledTreeT = typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]
 
 UnaryOperatorT = typing.Callable[[typing.Any], bool]
 BinaryOperatorT = typing.Tuple[
@@ -208,8 +209,11 @@ class Filter:
         return self._to_list(values)
 
     def build_evaluator(
-        self, tree: TreeT
-    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+        self, tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject]]
+    ) -> CompiledTreeT[GetAttrObject]:
+        if callable(tree):
+            return tree
+
         if len(tree) != 1:
             raise ParseError(tree)
 
@@ -237,7 +241,7 @@ class Filter:
         self,
         op: BinaryOperatorT,
         nodes: TreeBinaryLeafT,
-    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+    ) -> CompiledTreeT[GetAttrObject]:
         if len(nodes) != 2:
             raise InvalidArguments(nodes)
 
@@ -268,7 +272,7 @@ class Filter:
 
     def _handle_unary_op(
         self, unary_op: UnaryOperatorT, nodes: TreeT
-    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+    ) -> CompiledTreeT[GetAttrObject]:
         element = self.build_evaluator(nodes)
 
         async def _unary_op(values: GetAttrObjectT) -> bool:
@@ -277,8 +281,10 @@ class Filter:
         return _unary_op
 
     def _handle_multiple_op(
-        self, multiple_op: MultipleOperatorT, nodes: typing.Iterable[TreeT]
-    ) -> typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]:
+        self,
+        multiple_op: MultipleOperatorT,
+        nodes: typing.Iterable[typing.Union[TreeT, CompiledTreeT[GetAttrObject]]],
+    ) -> CompiledTreeT[GetAttrObject]:
         elements = [self.build_evaluator(node) for node in nodes]
 
         async def _multiple_op(values: GetAttrObjectT) -> bool:

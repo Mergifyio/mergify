@@ -172,6 +172,16 @@ async def test_and() -> None:
         filter.Filter({"or": {"foo": "whar"}})
 
 
+async def test_chain() -> None:
+    f1 = {"=": ("bar", 1)}
+    f2 = {"=": ("foo", 1)}
+    f = filter.Filter({"and": (f1, f2)})
+    assert await f(FakePR({"bar": 1, "foo": 1}))
+    assert not await f(FakePR({"bar": 2, "foo": 2}))
+    assert not await f(FakePR({"bar": 2, "foo": 1}))
+    assert not await f(FakePR({"bar": 1, "foo": 2}))
+
+
 async def test_parser_leaf() -> None:
     for string in ("head=foobar", "-base=master", "#files>3"):
         assert string == str(filter.Filter.parse(string))
