@@ -172,6 +172,13 @@ async def test_and() -> None:
         filter.Filter({"or": {"foo": "whar"}})
 
 
-async def test_parser() -> None:
+async def test_parser_leaf() -> None:
     for string in ("head=foobar", "-base=master", "#files>3"):
         assert string == str(filter.Filter.parse(string))
+
+
+async def test_parser_group() -> None:
+    string = str(
+        filter.Filter({"and": ({"=": ("head", "foobar")}, {">": ("#files", 3)})})
+    )
+    assert string == "(head=foobar and #files>3)"
