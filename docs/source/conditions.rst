@@ -101,12 +101,6 @@ You can also combine ``or`` and ``and`` like this:
     - ``check-skipped``
     - ``check-pending``
     - ``check-stale``
-    - ``head``
-    - ``base``
-    - ``author``
-    - ``merged_by``
-    - ``merged``
-    - ``closed``
 
 
 .. _attributes:
