@@ -57,6 +57,9 @@ class RuleCondition:
     evaluation_error: typing.Optional[str] = dataclasses.field(init=False, default=None)
 
     def __post_init__(self, condition: typing.Union[str, FakeTreeT]) -> None:
+        self.update(condition)
+
+    def update(self, condition: typing.Union[str, FakeTreeT]) -> None:
         try:
             if isinstance(condition, str):
                 self.partial_filter = filter.Filter.parse(condition)
@@ -137,12 +140,6 @@ class RuleConditionGroup:
                 if attribute.partition("-")[0] in [
                     "check",  # heuristic in merge/queue
                     "status",  # heuristic in merge/queue
-                    "head",  # heuristic for hiding useless rules
-                    "base",  # heuristic for hiding useless rules
-                    "author",  # heuristic for hiding useless rules
-                    "merged_by",  # heuristic for hiding useless rules
-                    "merged",  # heuristic for detecting if pull request is merged by us
-                    "closed",  # heuristic for detecting if pull request is merged by us
                 ]:
                     raise voluptuous.Invalid(
                         f"{attribute} cannot be used inside and/or"
@@ -407,17 +404,20 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
             # * rules where only BASE_ATTRIBUTES don't match (mainly to hide rule written for other branches) -> ignored_rules
             categorized = False
 
-            # FIXME(sileht): We may need to revisit this boolean
-            if hide_rule:
-                for condition in rule.conditions.iter_root_rule_conditions():
-                    if (
-                        hide_rule
-                        and condition.get_attribute_name() in self.BASE_ATTRIBUTES
-                        and not condition.match
-                    ):
-                        self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
-                        categorized = True
-                        break
+            if hide_rule and not rule.conditions.match:
+                # NOTE(sileht): Replace non-base attribute by true, if it
+                # still matches it's a potential rule otherwise hide it.
+                base_conditions = rule.conditions.copy()
+                for condition in base_conditions.walk():
+                    attr = condition.get_attribute_name()
+                    if attr not in self.BASE_ATTRIBUTES:
+                        condition.update("number>0")
+
+                await base_conditions(ctxt.pull_request)
+
+                if not base_conditions.match:
+                    self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
+                    categorized = True
 
                 if not categorized and rule.conditions.is_faulty():
                     self.faulty_rules.append(typing.cast(T_EvaluatedRule, rule))

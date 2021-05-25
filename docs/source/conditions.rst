@@ -355,13 +355,13 @@ You can also combine `or` and `and` like this:
 
     Some attributes can't be used in a or/and clause:
 
-    - ``check-XXX``
-    - ``head``
-    - ``base``
-    - ``author``
-    - ``merged_by``
-    - ``merged``
-    - ``closed``
+    - ``check-success``
+    - ``check-neutral``
+    - ``check-success-or-neutral``
+    - ``check-failure``
+    - ``check-skipped``
+    - ``check-pending``
+    - ``check-stale``
 
 About Status Checks
 ~~~~~~~~~~~~~~~~~~~
