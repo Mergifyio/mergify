@@ -153,6 +153,9 @@ class Filter:
         # We don't do any kind of validation here since build_evaluator does
         # that.
         op, nodes = list(tree.items())[0]
+
+        if op in self.multiple_operators:
+            return "(" + f" {op} ".join(self._tree_to_str(n) for n in nodes) + ")"
         if op in self.unary_operators:
             return op + self._tree_to_str(nodes)
         if op in self.binary_operators:
