@@ -815,7 +815,7 @@ class Context(object):
                 for ctext, state in (await self.checks).items()
                 if state == "skipped"
             ]
-        elif name == "check-pending":
+        elif name in ("check", "check-pending"):
             branch_protection_contexts = (
                 await self.repository.get_branch_protection_checks(
                     self.pull["base"]["ref"]
@@ -834,7 +834,7 @@ class Context(object):
             return [
                 ctext
                 for ctext, state in (await self.checks).items()
-                if state in [None, "pending"]
+                if name == "check" or state in [None, "pending"]
             ] + branch_protection_pending_checks
 
         elif name == "check-stale":

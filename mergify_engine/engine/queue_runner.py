@@ -18,6 +18,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
 
 
@@ -91,7 +92,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     if need_reset:
         real_status = status = check_api.Conclusion.PENDING
     else:
-        real_status = status = await merge_train.get_queue_rule_checks_status(
+        real_status = status = await merge_base.get_rule_checks_status(
             ctxt, evaluated_queue_rule
         )
         if (

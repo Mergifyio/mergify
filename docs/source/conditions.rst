@@ -92,16 +92,6 @@ You can also combine ``or`` and ``and`` like this:
 
     The number of nested conditions is limited to 3.
 
-    Some attributes can't be used in or/and clauses:
-
-    - ``check-success``
-    - ``check-neutral``
-    - ``check-success-or-neutral``
-    - ``check-failure``
-    - ``check-skipped``
-    - ``check-pending``
-    - ``check-stale``
-
 
 .. _attributes:
 

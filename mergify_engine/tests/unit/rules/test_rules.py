@@ -112,21 +112,6 @@ def test_pull_request_rule(valid):
         ),
         (
             {
-                "name": "nested checks",
-                "conditions": [
-                    {"or": ["label=foo", {"and": ["base:foo", "check-neutral:baz"]}]}
-                ],
-                "actions": {},
-            },
-            # NOTE(sileht): We don't get:
-            #   "check-neutral cannot be used inside and/or",
-            # because voluptuous only return the first error of Any(). This is
-            # not a big deal as we will drop the check-XXX restriction at some
-            # point
-            "expected str @ data[0]['conditions'][0]['or'][1]",
-        ),
-        (
-            {
                 "name": "not enought items or",
                 "conditions": [{"or": ["label=foo"]}],
                 "actions": {},
