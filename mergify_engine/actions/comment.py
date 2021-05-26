@@ -49,7 +49,7 @@ class CommentAction(actions.Action):
             self.config["bot_account"],
             required_feature=subscription.Features.BOT_ACCOUNT,
             missing_feature_message="Comments with `bot_account` set are disabled",
-            need_write_permission=False,
+            required_permissions=[],
         )
         if bot_account_result is not None:
             return bot_account_result
