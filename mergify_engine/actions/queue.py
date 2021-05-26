@@ -138,7 +138,7 @@ class QueueAction(merge_base.MergeBaseAction):
                 ctxt.log.info("train will be reset")
                 await q.reset()
             else:
-                status = await merge_train.get_queue_rule_checks_status(
+                status = await merge_base.get_rule_checks_status(
                     ctxt, queue_rule_evaluated
                 )
             await car.update_summaries(
@@ -246,14 +246,16 @@ class QueueAction(merge_base.MergeBaseAction):
         car = q.get_car(ctxt)
         if car and car.state == "updated":
             # NOTE(sileht) check first if PR should be removed from the queue
-            pull_rule_checks_status = await self.get_pull_rule_checks_status(ctxt, rule)
+            pull_rule_checks_status = await merge_base.get_rule_checks_status(
+                ctxt, rule
+            )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
 
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
-            queue_rule_checks_status = await merge_train.get_queue_rule_checks_status(
+            queue_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt, queue_rule_evaluated
             )
             return queue_rule_checks_status == check_api.Conclusion.FAILURE

@@ -84,47 +84,6 @@ TrainCarState = typing.Literal[
 ]
 
 
-async def get_queue_rule_checks_status(
-    ctxt: context.Context, queue_rule: rules.EvaluatedQueueRule
-) -> check_api.Conclusion:
-    # TODO(sileht): even if branch protection doesn't really work with merge train, we
-    # should take care of branch protection required_status_check, in case of just this is
-    # used.
-
-    if queue_rule.conditions.match:
-        return check_api.Conclusion.SUCCESS
-
-    missing_checks_conditions = [
-        condition
-        for condition in queue_rule.conditions.iter_root_rule_conditions()
-        if not condition.match
-        and condition.get_attribute_name().partition("-")[0] in ["check", "status"]
-    ]
-    if not missing_checks_conditions:
-        return check_api.Conclusion.PENDING
-
-    states_of_missing_checks = [
-        state
-        for name, state in (await ctxt.checks).items()
-        for cond in missing_checks_conditions
-        if await cond.copy()(utils.FakePR(cond.get_attribute_name(), name))
-    ]
-    #  We have missing conditions but no associated states, this means
-    #  that some checks are missing, we assume they are pending
-    if not states_of_missing_checks:
-        return check_api.Conclusion.PENDING
-
-    for state in states_of_missing_checks:
-        # We found a missing condition with the check pending, keep the PR
-        # in queue
-        if state in ("pending", None):
-            return check_api.Conclusion.PENDING
-
-    # We don't have any checks pending, but some conditions still don't match,
-    # so can never ever merge this PR, removing it from the queue
-    return check_api.Conclusion.FAILURE
-
-
 @dataclasses.dataclass
 class TrainCar(PseudoTrainCar):
     train: "Train" = dataclasses.field(repr=False)
