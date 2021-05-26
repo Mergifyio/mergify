@@ -73,6 +73,22 @@ class RuleCondition:
                 error_message=str(e),
             )
 
+    def update_attribute_name(self, new_name: str) -> None:
+        negate = False
+        tree = typing.cast(filter.TreeT, self.partial_filter.tree)
+        if "-" in tree:
+            negate = True
+        tree = tree.get("-", tree)
+        operator = list(tree.keys())[0]
+        name, value = list(tree.values())[0]
+        if name.startswith(filter.Filter.LENGTH_OPERATOR):
+            new_name = f"{filter.Filter.LENGTH_OPERATOR}{new_name}"
+
+        new_tree: FakeTreeT = {operator: (new_name, value)}
+        if negate:
+            new_tree = {"-": new_tree}
+        self.update(new_tree)
+
     def __str__(self) -> str:
         # NOTE(sileht): Move _tree_to_str() here?
         return str(self.partial_filter)
