@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -65,9 +67,9 @@ class PostCheckAction(actions.Action):
                 ),
             )
 
-        extra_variables = {
+        extra_variables: typing.Dict[str, typing.Union[str, bool]] = {
             "check_rule_name": rule.name,
-            "check_succeed": str(rule.conditions.match),
+            "check_succeed": rule.conditions.match,
             "check_conditions": rule.conditions.get_summary(),
         }
         try:

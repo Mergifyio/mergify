@@ -1237,7 +1237,9 @@ class PullRequest:
     async def render_template(
         self,
         template: str,
-        extra_variables: typing.Optional[typing.Dict[str, str]] = None,
+        extra_variables: typing.Optional[
+            typing.Dict[str, typing.Union[str, bool]]
+        ] = None,
     ) -> str:
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(
