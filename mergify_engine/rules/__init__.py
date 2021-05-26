@@ -72,6 +72,22 @@ class RuleCondition:
                 error_message=str(e),
             )
 
+    def update_attribute_name(self, new_name: str) -> None:
+        negate = False
+        tree = typing.cast(filter.TreeT, self.partial_filter.tree)
+        if "-" in tree:
+            negate = True
+        tree = tree.get("-", tree)
+        operator = list(tree.keys())[0]
+        name, value = list(tree.values())[0]
+        if name.startswith(filter.Filter.LENGTH_OPERATOR):
+            new_name = f"{filter.Filter.LENGTH_OPERATOR}{new_name}"
+
+        new_tree: FakeTreeT = {operator: (new_name, value)}
+        if negate:
+            new_tree = {"-": new_tree}
+        self.update(new_tree)
+
     def __str__(self) -> str:
         # NOTE(sileht): Move _tree_to_str() here?
         return str(self.partial_filter)
@@ -111,7 +127,6 @@ class RuleConditionGroup:
             typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
         ]
     ]
-    limit_leaf_types: bool = True
     operator: typing.Literal["and", "or"] = dataclasses.field(init=False)
     conditions: typing.List[
         typing.Union["RuleConditionGroup", RuleCondition]
@@ -130,19 +145,6 @@ class RuleConditionGroup:
             raise RuntimeError("Invalid condition")
 
         self.operator, self.conditions = next(iter(condition.items()))
-        if not self.limit_leaf_types:
-            return
-        for cond in self.conditions:
-            if isinstance(cond, RuleCondition):
-                attribute = cond.get_attribute_name()
-                # TODO(sileht): remove this heuristics to allow this attribute everywhere
-                if attribute.partition("-")[0] in [
-                    "check",  # heuristic in merge/queue
-                    "status",  # heuristic in merge/queue
-                ]:
-                    raise voluptuous.Invalid(
-                        f"{attribute} cannot be used inside and/or"
-                    )
 
     async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
         if self._used:
@@ -152,13 +154,6 @@ class RuleConditionGroup:
             typing.cast(filter.TreeT, {self.operator: self.conditions})
         )(obj)
         return self.match
-
-    def iter_root_rule_conditions(
-        self,
-    ) -> typing.Iterator[RuleCondition]:
-        for condition in self.conditions:
-            if isinstance(condition, RuleCondition):
-                yield condition
 
     def walk(
         self,
@@ -182,7 +177,7 @@ class RuleConditionGroup:
 
     def copy(self) -> "RuleConditionGroup":
         return RuleConditionGroup(
-            {self.operator: [c.copy() for c in self.conditions]}, self.limit_leaf_types
+            {self.operator: [c.copy() for c in self.conditions]},
         )
 
     @staticmethod
@@ -225,7 +220,7 @@ class RuleConditionGroup:
 def RuleConditions(
     conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]]
 ) -> RuleConditionGroup:
-    return RuleConditionGroup({"and": conditions}, limit_leaf_types=False)
+    return RuleConditionGroup({"and": conditions})
 
 
 async def get_branch_protection_conditions(

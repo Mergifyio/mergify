@@ -99,6 +99,64 @@ def strict_merge_parameter(v):
     raise ValueError(f"{v} is an unknown strict merge parameter")
 
 
+async def get_rule_checks_status(
+    ctxt: context.Context,
+    rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
+) -> check_api.Conclusion:
+
+    if rule.conditions.match:
+        return check_api.Conclusion.SUCCESS
+
+    conditions_without_checks = rule.conditions.copy()
+    conditions_with_all_checks = rule.conditions.copy()
+    conditions_with_check_pending = rule.conditions.copy()
+    for (
+        evaluated_condition,
+        condition_without_check,
+        condition_with_all_check,
+        condition_with_check_pending,
+    ) in zip(
+        rule.conditions.walk(),
+        conditions_without_checks.walk(),
+        conditions_with_all_checks.walk(),
+        conditions_with_check_pending.walk(),
+    ):
+        attr = evaluated_condition.get_attribute_name()
+        if attr.startswith("check-") or attr.startswith("status-"):
+            condition_without_check.update("number>0")
+            condition_with_check_pending.update_attribute_name("check-pending")
+            condition_with_all_check.update_attribute_name("check")
+
+    # NOTE(sileht): Something unrelated to checks unmatch ?
+    await conditions_without_checks(ctxt.pull_request)
+    ctxt.log.debug(
+        "does something unrealted to checks don't match? %s",
+        conditions_without_checks.get_summary(),
+    )
+    if not conditions_without_checks.match:
+        return check_api.Conclusion.FAILURE
+
+    # NOTE(sileht): All checks have reported their status ?
+    await conditions_with_all_checks(ctxt.pull_request)
+    ctxt.log.debug(
+        "are checks reported their status? %s",
+        conditions_with_all_checks.get_summary(),
+    )
+    if not conditions_with_all_checks.match:
+        return check_api.Conclusion.PENDING
+
+    # NOTE(sileht): Are remaing unmatch checks pending ?
+    await conditions_with_check_pending(ctxt.pull_request)
+    ctxt.log.debug(
+        "are checks still pending? %s",
+        conditions_with_check_pending.get_summary(),
+    )
+    if conditions_with_check_pending.match:
+        return check_api.Conclusion.PENDING
+    else:
+        return check_api.Conclusion.FAILURE
+
+
 class MergeBaseAction(actions.Action):
     only_once = True
     can_be_used_on_configuration_change = False
@@ -146,43 +204,6 @@ class MergeBaseAction(actions.Action):
     @abc.abstractmethod
     async def send_signal(self, ctxt: context.Context) -> None:
         pass
-
-    async def get_pull_rule_checks_status(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Conclusion:
-        need_look_at_checks = []
-        for condition in rule.conditions.iter_root_rule_conditions():
-            if condition.match:
-                continue
-            attribute_name = condition.get_attribute_name()
-            if attribute_name.startswith("check-") or attribute_name.startswith(
-                "status-"
-            ):
-                # TODO(sileht): Just return True here, no need to checks checks anymore,
-                # this method is no more used by teh merge queue
-                need_look_at_checks.append(condition)
-            else:
-                # something else does not match anymore
-                return check_api.Conclusion.FAILURE
-
-        if need_look_at_checks:
-            if not await ctxt.checks:
-                return check_api.Conclusion.PENDING
-
-            states = [
-                state
-                for name, state in (await ctxt.checks).items()
-                for cond in need_look_at_checks
-                if await cond.copy()(utils.FakePR(cond.get_attribute_name(), name))
-            ]
-            if not states:
-                return check_api.Conclusion.PENDING
-
-            for state in states:
-                if state in ("pending", None):
-                    return check_api.Conclusion.PENDING
-
-        return check_api.Conclusion.FAILURE
 
     async def get_queue_status(
         self,
