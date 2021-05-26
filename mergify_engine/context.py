@@ -680,11 +680,7 @@ class Context(object):
                 r["user"] is not None
                 and (
                     r["user"]["type"] == "Bot"
-                    or (
-                        # If author has no association, it can't have any write permission
-                        r["author_association"] != "NONE"
-                        and await self.repository.has_write_permission(r["user"])
-                    )
+                    or await self.repository.has_write_permission(r["user"])
                 )
             )
         }
