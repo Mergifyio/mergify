@@ -16,6 +16,7 @@
 import pytest
 
 from mergify_engine.rules import filter
+from mergify_engine.rules import parser
 
 
 pytestmark = pytest.mark.asyncio
@@ -27,25 +28,25 @@ class FakePR(dict):  # type: ignore[type-arg]
 
 
 async def test_binary() -> None:
-    f = filter.Filter({"=": ("foo", 1)})
+    f = filter.BinaryFilter({"=": ("foo", 1)})
     assert await f(FakePR({"foo": 1}))
     assert not await f(FakePR({"foo": 2}))
 
 
 async def test_string() -> None:
-    f = filter.Filter({"=": ("foo", "bar")})
+    f = filter.BinaryFilter({"=": ("foo", "bar")})
     assert await f(FakePR({"foo": "bar"}))
     assert not await f(FakePR({"foo": 2}))
 
 
 async def test_not() -> None:
-    f = filter.Filter({"-": {"=": ("foo", 1)}})
+    f = filter.BinaryFilter({"-": {"=": ("foo", 1)}})
     assert not await f(FakePR({"foo": 1}))
     assert await f(FakePR({"foo": 2}))
 
 
 async def test_len() -> None:
-    f = filter.Filter({"=": ("#foo", 3)})
+    f = filter.BinaryFilter({"=": ("#foo", 3)})
     assert await f(FakePR({"foo": "bar"}))
     with pytest.raises(filter.InvalidOperator):
         await f(FakePR({"foo": 2}))
@@ -54,7 +55,7 @@ async def test_len() -> None:
     assert await f(FakePR({"foo": [10, 20, 30]}))
     assert not await f(FakePR({"foo": [10, 20]}))
     assert not await f(FakePR({"foo": [10, 20, 40, 50]}))
-    f = filter.Filter({">": ("#foo", 3)})
+    f = filter.BinaryFilter({">": ("#foo", 3)})
     assert await f(FakePR({"foo": "barz"}))
     with pytest.raises(filter.InvalidOperator):
         await f(FakePR({"foo": 2}))
@@ -66,96 +67,95 @@ async def test_len() -> None:
 
 
 async def test_regexp() -> None:
-    f = filter.Filter({"~=": ("foo", "^f")})
+    f = filter.BinaryFilter({"~=": ("foo", "^f")})
     assert await f(FakePR({"foo": "foobar"}))
     assert await f(FakePR({"foo": "foobaz"}))
     assert not await f(FakePR({"foo": "x"}))
     assert not await f(FakePR({"foo": None}))
 
-    f = filter.Filter({"~=": ("foo", "^$")})
+    f = filter.BinaryFilter({"~=": ("foo", "^$")})
     assert await f(FakePR({"foo": ""}))
     assert not await f(FakePR({"foo": "x"}))
 
 
 async def test_regexp_invalid() -> None:
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({"~=": ("foo", r"([^\s\w])(\s*\1+")})
+        filter.BinaryFilter({"~=": ("foo", r"([^\s\w])(\s*\1+")})
 
 
 async def test_set_value_expanders() -> None:
-    f = filter.Filter(
+    f = filter.BinaryFilter(
         {"=": ("foo", "@bar")},
-        value_expanders={"foo": lambda x: [x.replace("@", "foo")]},
     )
+    f.value_expanders["foo"] = lambda x: [x.replace("@", "foo")]
     assert await f(FakePR({"foo": "foobar"}))
     assert not await f(FakePR({"foo": "x"}))
 
 
 async def test_set_value_expanders_unset_at_init() -> None:
-    f = filter.Filter({"=": ("foo", "@bar")})
+    f = filter.BinaryFilter({"=": ("foo", "@bar")})
     f.value_expanders = {"foo": lambda x: [x.replace("@", "foo")]}
     assert await f(FakePR({"foo": "foobar"}))
     assert not await f(FakePR({"foo": "x"}))
 
 
 async def test_does_not_contain() -> None:
-    f = filter.Filter({"!=": ("foo", 1)})
+    f = filter.BinaryFilter({"!=": ("foo", 1)})
     assert await f(FakePR({"foo": []}))
     assert await f(FakePR({"foo": [2, 3]}))
     assert not await f(FakePR({"foo": (1, 2)}))
 
 
 async def test_set_value_expanders_does_not_contain() -> None:
-    f = filter.Filter(
-        {"!=": ("foo", "@bar")}, value_expanders={"foo": lambda x: ["foobaz", "foobar"]}
-    )
+    f = filter.BinaryFilter({"!=": ("foo", "@bar")})
+    f.value_expanders["foo"] = lambda x: ["foobaz", "foobar"]
     assert not await f(FakePR({"foo": "foobar"}))
     assert not await f(FakePR({"foo": "foobaz"}))
     assert await f(FakePR({"foo": "foobiz"}))
 
 
 async def test_contains() -> None:
-    f = filter.Filter({"=": ("foo", 1)})
+    f = filter.BinaryFilter({"=": ("foo", 1)})
     assert await f(FakePR({"foo": [1, 2]}))
     assert not await f(FakePR({"foo": [2, 3]}))
     assert await f(FakePR({"foo": (1, 2)}))
-    f = filter.Filter({">": ("foo", 2)})
+    f = filter.BinaryFilter({">": ("foo", 2)})
     assert not await f(FakePR({"foo": [1, 2]}))
     assert await f(FakePR({"foo": [2, 3]}))
 
 
 async def test_unknown_attribute() -> None:
-    f = filter.Filter({"=": ("foo", 1)})
+    f = filter.BinaryFilter({"=": ("foo", 1)})
     with pytest.raises(filter.UnknownAttribute):
         await f(FakePR({"bar": 1}))
 
 
 async def test_parse_error() -> None:
     with pytest.raises(filter.ParseError):
-        filter.Filter({})
+        filter.BinaryFilter({})
 
 
 async def test_unknown_operator() -> None:
     with pytest.raises(filter.UnknownOperator):
-        filter.Filter({"oops": (1, 2)})  # type: ignore[arg-type]
+        filter.BinaryFilter({"oops": (1, 2)})  # type: ignore[arg-type]
 
 
 async def test_invalid_arguments() -> None:
     with pytest.raises(filter.InvalidArguments):
-        filter.Filter({"=": (1, 2, 3)})  # type: ignore[typeddict-item]
+        filter.BinaryFilter({"=": (1, 2, 3)})  # type: ignore[typeddict-item]
 
 
 async def test_str() -> None:
-    assert "foo~=^f" == str(filter.Filter({"~=": ("foo", "^f")}))
-    assert "-foo=1" == str(filter.Filter({"-": {"=": ("foo", 1)}}))
-    assert "foo" == str(filter.Filter({"=": ("foo", True)}))
-    assert "-bar" == str(filter.Filter({"=": ("bar", False)}))
+    assert "foo~=^f" == str(filter.BinaryFilter({"~=": ("foo", "^f")}))
+    assert "-foo=1" == str(filter.BinaryFilter({"-": {"=": ("foo", 1)}}))
+    assert "foo" == str(filter.BinaryFilter({"=": ("foo", True)}))
+    assert "-bar" == str(filter.BinaryFilter({"=": ("bar", False)}))
     with pytest.raises(filter.InvalidOperator):
-        str(filter.Filter({">=": ("bar", False)}))
+        str(filter.BinaryFilter({">=": ("bar", False)}))
 
 
 async def test_or() -> None:
-    f = filter.Filter({"or": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
+    f = filter.BinaryFilter({"or": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
     assert await f(FakePR({"foo": 1, "bar": 1}))
     assert not await f(FakePR({"bar": 2, "foo": 2}))
     assert await f(FakePR({"bar": 2, "foo": 1}))
@@ -163,19 +163,19 @@ async def test_or() -> None:
 
 
 async def test_and() -> None:
-    f = filter.Filter({"and": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
+    f = filter.BinaryFilter({"and": ({"=": ("foo", 1)}, {"=": ("bar", 1)})})
     assert await f(FakePR({"bar": 1, "foo": 1}))
     assert not await f(FakePR({"bar": 2, "foo": 2}))
     assert not await f(FakePR({"bar": 2, "foo": 1}))
     assert not await f(FakePR({"bar": 1, "foo": 2}))
     with pytest.raises(filter.ParseError):
-        filter.Filter({"or": {"foo": "whar"}})
+        filter.BinaryFilter({"or": {"foo": "whar"}})
 
 
 async def test_chain() -> None:
     f1 = {"=": ("bar", 1)}
     f2 = {"=": ("foo", 1)}
-    f = filter.Filter({"and": (f1, f2)})
+    f = filter.BinaryFilter({"and": (f1, f2)})
     assert await f(FakePR({"bar": 1, "foo": 1}))
     assert not await f(FakePR({"bar": 2, "foo": 2}))
     assert not await f(FakePR({"bar": 2, "foo": 1}))
@@ -184,11 +184,12 @@ async def test_chain() -> None:
 
 async def test_parser_leaf() -> None:
     for string in ("head=foobar", "-base=master", "#files>3"):
-        assert string == str(filter.Filter.parse(string))
+        tree = parser.search.parseString(string, parseAll=True)[0]
+        assert string == str(filter.BinaryFilter(tree))
 
 
 async def test_parser_group() -> None:
     string = str(
-        filter.Filter({"and": ({"=": ("head", "foobar")}, {">": ("#files", 3)})})
+        filter.BinaryFilter({"and": ({"=": ("head", "foobar")}, {">": ("#files", 3)})})
     )
     assert string == "(head=foobar and #files>3)"
