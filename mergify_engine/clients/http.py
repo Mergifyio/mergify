@@ -37,7 +37,7 @@ PYTHON_VERSION = (
 HTTPX_VERSION = httpx.__version__
 
 DEFAULT_HEADERS = {
-    "Accept": "application/vnd.github.v3+json",
+    "Accept": "application/vnd.github.machine-man-preview+json",
     "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/${PYTHON_VERSION} httpx/{HTTPX_VERSION}",
 }
 

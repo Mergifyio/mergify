@@ -86,6 +86,7 @@ async def get_checks_for_ref(
         check
         async for check in ctxt.client.items(
             f"{ctxt.base_url}/commits/{sha}/check-runs",
+            api_version="antiope",
             list_items="check_runs",
             params=params,
         )
@@ -183,6 +184,7 @@ async def set_check_run(
         if Status(check_to_cancelled["status"]) != Status.COMPLETED:
             await ctxt.client.patch(
                 f"{ctxt.base_url}/check-runs/{check_to_cancelled['id']}",
+                api_version="antiope",
                 json={
                     "conclusion": Conclusion.CANCELLED.value,
                     "status": Status.COMPLETED.value,
@@ -200,6 +202,7 @@ async def set_check_run(
             (
                 await ctxt.client.post(
                     f"{ctxt.base_url}/check-runs",
+                    api_version="antiope",
                     json=post_parameters,
                 )
             ).json(),
@@ -214,6 +217,7 @@ async def set_check_run(
                 (
                     await ctxt.client.patch(
                         f"{ctxt.base_url}/check-runs/{checks[0]['id']}",
+                        api_version="antiope",
                         json=post_parameters,
                     )
                 ).json(),

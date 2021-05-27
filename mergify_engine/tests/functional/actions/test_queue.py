@@ -958,7 +958,8 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # click on refresh btn
         await self.installation_ctxt.client.post(
-            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest"
+            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest",
+            api_version="antiope",
         )
         await self.wait_for("check_suite", {"action": "rerequested"})
         await self.run_engine()

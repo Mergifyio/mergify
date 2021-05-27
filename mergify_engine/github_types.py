@@ -551,7 +551,7 @@ class GitHubRequestedReviewers(typing.TypedDict):
     teams: typing.List[GitHubTeam]
 
 
-GitHubApiVersion = typing.Literal["squirrel-girl", "lydian", "groot"]
+GitHubApiVersion = typing.Literal["squirrel-girl", "lydian", "groot", "antiope"]
 GitHubOAuthToken = typing.NewType("GitHubOAuthToken", str)
 
 
