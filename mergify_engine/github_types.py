@@ -38,7 +38,6 @@ class GitHubAccount(typing.TypedDict):
 
 GitHubInstallationIdType = typing.NewType("GitHubInstallationIdType", int)
 
-
 GitHubInstallationPermissionsK = typing.Literal[
     "checks",
     "contents",
@@ -87,6 +86,14 @@ class GitHubRepository(typing.TypedDict):
     url: str
     html_url: str
     default_branch: GitHubRefType
+
+
+GitHubRepositoryPermission = typing.Literal["write", "maintain", "admin", "none"]
+
+
+class GitHubRepositoryCollaboratorPermission(typing.TypedDict):
+    permission: GitHubRepositoryPermission
+    user: GitHubAccount
 
 
 GitHubTeamSlug = typing.NewType("GitHubTeamSlug", str)
