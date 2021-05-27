@@ -21,6 +21,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
@@ -471,6 +472,7 @@ async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> None:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
+    await delayed_refresh.plan_next_refresh(match, ctxt)
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
