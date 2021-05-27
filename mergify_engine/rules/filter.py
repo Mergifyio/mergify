@@ -20,8 +20,6 @@ import operator
 import re
 import typing
 
-from mergify_engine.rules import parser
-
 
 class InvalidQuery(Exception):
     pass
@@ -88,57 +86,38 @@ class GetAttrObject(typing.Protocol):
 
 
 GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
+FilterResultT = typing.TypeVar("FilterResultT")
+CompiledTreeT = typing.Callable[[GetAttrObjectT], typing.Awaitable[FilterResultT]]
 
-CompiledTreeT = typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]
 
-
-UnaryOperatorT = typing.Callable[[typing.Any], bool]
+UnaryOperatorT = typing.Callable[[typing.Any], FilterResultT]
 BinaryOperatorT = typing.Tuple[
-    typing.Callable[[typing.Any, typing.Any], bool],
-    typing.Callable[[typing.Iterable[object]], bool],
+    typing.Callable[[typing.Any, typing.Any], FilterResultT],
+    typing.Callable[[typing.Iterable[object]], FilterResultT],
     typing.Callable[[typing.Any], typing.Any],
 ]
-MultipleOperatorT = typing.Callable[..., bool]
+MultipleOperatorT = typing.Callable[..., FilterResultT]
 
 
 @dataclasses.dataclass(repr=False)
-class Filter:
-    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject]]
-
-    unary_operators: typing.ClassVar[typing.Dict[str, UnaryOperatorT]] = {
-        "-": operator.not_
-    }
-
-    binary_operators: typing.ClassVar[typing.Dict[str, BinaryOperatorT]] = {
-        "=": (operator.eq, any, _identity),
-        "<": (operator.lt, any, _identity),
-        ">": (operator.gt, any, _identity),
-        "<=": (operator.le, any, _identity),
-        ">=": (operator.ge, any, _identity),
-        "!=": (operator.ne, all, _identity),
-        "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
-    }
-
-    multiple_operators: typing.ClassVar[typing.Dict[str, MultipleOperatorT]] = {
-        "or": any,
-        "and": all,
-    }
+class Filter(typing.Generic[FilterResultT]):
+    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject, FilterResultT]]
+    unary_operators: typing.Dict[str, UnaryOperatorT[FilterResultT]]
+    binary_operators: typing.Dict[str, BinaryOperatorT[FilterResultT]]
+    multiple_operators: typing.Dict[str, MultipleOperatorT[FilterResultT]]
 
     value_expanders: typing.Dict[
         str, typing.Callable[[typing.Any], typing.List[typing.Any]]
-    ] = dataclasses.field(default_factory=dict)
+    ] = dataclasses.field(default_factory=dict, init=False)
 
     _eval: typing.Callable[
-        ["Filter", GetAttrObjectT], typing.Awaitable[bool]
+        ["Filter[FilterResultT]", GetAttrObjectT],
+        typing.Awaitable[FilterResultT],
     ] = dataclasses.field(init=False)
 
     def __post_init__(self) -> None:
         # https://github.com/python/mypy/issues/2427
         self._eval = self.build_evaluator(self.tree)  # type: ignore[assignment]
-
-    @classmethod
-    def parse(cls, string: str) -> "Filter":
-        return cls(parser.search.parseString(string, parseAll=True)[0])
 
     def __str__(self):
         return self._tree_to_str(self.tree)
@@ -163,7 +142,7 @@ class Filter:
     def __repr__(self) -> str:  # pragma: no cover
         return f"{self.__class__.__name__}({str(self)})"
 
-    async def __call__(self, obj: GetAttrObjectT) -> bool:
+    async def __call__(self, obj: GetAttrObjectT) -> FilterResultT:
         return await self._eval(obj)
 
     LENGTH_OPERATOR = "#"
@@ -202,8 +181,9 @@ class Filter:
         return self._to_list(values)
 
     def build_evaluator(
-        self, tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject]]
-    ) -> CompiledTreeT[GetAttrObject]:
+        self,
+        tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject, FilterResultT]],
+    ) -> CompiledTreeT[GetAttrObject, FilterResultT]:
         if callable(tree):
             return tree
 
@@ -231,9 +211,9 @@ class Filter:
 
     def _handle_binary_op(
         self,
-        op: BinaryOperatorT,
+        op: BinaryOperatorT[FilterResultT],
         nodes: TreeBinaryLeafT,
-    ) -> CompiledTreeT[GetAttrObject]:
+    ) -> CompiledTreeT[GetAttrObject, FilterResultT]:
         if len(nodes) != 2:
             raise InvalidArguments(nodes)
 
@@ -243,7 +223,7 @@ class Filter:
         except Exception as e:
             raise InvalidArguments(str(e))
 
-        async def _op(obj: GetAttrObjectT) -> bool:
+        async def _op(obj: GetAttrObjectT) -> FilterResultT:
             attribute_values = await self._get_attribute_values(obj, attribute_name)
             reference_value_expander = self.value_expanders.get(
                 attribute_name, self._to_list
@@ -263,23 +243,47 @@ class Filter:
         return _op
 
     def _handle_unary_op(
-        self, unary_op: UnaryOperatorT, nodes: TreeT
-    ) -> CompiledTreeT[GetAttrObject]:
+        self, unary_op: UnaryOperatorT[FilterResultT], nodes: TreeT
+    ) -> CompiledTreeT[GetAttrObject, FilterResultT]:
         element = self.build_evaluator(nodes)
 
-        async def _unary_op(values: GetAttrObjectT) -> bool:
+        async def _unary_op(values: GetAttrObjectT) -> FilterResultT:
             return unary_op(await element(values))
 
         return _unary_op
 
     def _handle_multiple_op(
         self,
-        multiple_op: MultipleOperatorT,
-        nodes: typing.Iterable[typing.Union[TreeT, CompiledTreeT[GetAttrObject]]],
-    ) -> CompiledTreeT[GetAttrObject]:
+        multiple_op: MultipleOperatorT[FilterResultT],
+        nodes: typing.Iterable[
+            typing.Union[TreeT, CompiledTreeT[GetAttrObject, FilterResultT]]
+        ],
+    ) -> CompiledTreeT[GetAttrObject, FilterResultT]:
         elements = [self.build_evaluator(node) for node in nodes]
 
-        async def _multiple_op(values: GetAttrObjectT) -> bool:
+        async def _multiple_op(values: GetAttrObjectT) -> FilterResultT:
             return multiple_op([await element(values) for element in elements])
 
         return _multiple_op
+
+
+def BinaryFilter(
+    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject, bool]],
+) -> "Filter[bool]":
+    return Filter[bool](
+        tree,
+        {"-": operator.not_},
+        {
+            "=": (operator.eq, any, _identity),
+            "<": (operator.lt, any, _identity),
+            ">": (operator.gt, any, _identity),
+            "<=": (operator.le, any, _identity),
+            ">=": (operator.ge, any, _identity),
+            "!=": (operator.ne, all, _identity),
+            "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
+        },
+        {
+            "or": any,
+            "and": all,
+        },
+    )

@@ -30,6 +30,7 @@ from mergify_engine import github_types
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
+from mergify_engine.rules import parser
 from mergify_engine.rules import types
 
 
@@ -50,7 +51,7 @@ class RuleCondition:
 
     condition: dataclasses.InitVar[typing.Union[str, FakeTreeT]]
     description: typing.Optional[str] = None
-    partial_filter: filter.Filter = dataclasses.field(init=False)
+    partial_filter: filter.Filter[bool] = dataclasses.field(init=False)
     match: bool = dataclasses.field(init=False, default=False)
     _used: bool = dataclasses.field(init=False, default=False)
     evaluation_error: typing.Optional[str] = dataclasses.field(init=False, default=None)
@@ -58,17 +59,18 @@ class RuleCondition:
     def __post_init__(self, condition: typing.Union[str, FakeTreeT]) -> None:
         self.update(condition)
 
-    def update(self, condition: typing.Union[str, FakeTreeT]) -> None:
+    def update(self, condition_raw: typing.Union[str, FakeTreeT]) -> None:
         try:
-            if isinstance(condition, str):
-                self.partial_filter = filter.Filter.parse(condition)
+            if isinstance(condition_raw, str):
+                condition = parser.search.parseString(condition_raw, parseAll=True)[0]
             else:
-                self.partial_filter = filter.Filter(
-                    typing.cast(filter.TreeT, condition)
-                )
-        except (filter.parser.pyparsing.ParseException, filter.InvalidQuery) as e:
+                condition = condition_raw
+            self.partial_filter = filter.BinaryFilter(
+                typing.cast(filter.TreeT, condition)
+            )
+        except (parser.pyparsing.ParseException, filter.InvalidQuery) as e:
             raise voluptuous.Invalid(
-                message=f"Invalid condition '{condition}'. {str(e)}",
+                message=f"Invalid condition '{condition_raw}'. {str(e)}",
                 error_message=str(e),
             )
 
@@ -148,7 +150,7 @@ class RuleConditionGroup:
         if self._used:
             raise RuntimeError("RuleConditionGroup cannot be re-used")
         self._used = True
-        self.match = await filter.Filter(
+        self.match = await filter.BinaryFilter(
             typing.cast(filter.TreeT, {self.operator: self.conditions})
         )(obj)
         return self.match

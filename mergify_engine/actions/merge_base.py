@@ -139,7 +139,7 @@ async def get_rule_checks_status(
     # NOTE(sileht): Have all checks reported their status?
     await conditions_with_all_checks(ctxt.pull_request)
     ctxt.log.debug(
-        "are checks reported their status? %s",
+        "did check report their status? %s",
         conditions_with_all_checks.get_summary(),
     )
     if not conditions_with_all_checks.match:
