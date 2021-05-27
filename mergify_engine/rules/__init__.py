@@ -157,6 +157,29 @@ class RuleConditionGroup:
         )(obj)
         return self.match
 
+    def extract_raw_filter_tree(
+        self,
+        condition: typing.Optional[
+            typing.Union["RuleConditionGroup", RuleCondition]
+        ] = None,
+    ) -> filter.TreeT:
+        if condition is None:
+            condition = self
+
+        if isinstance(condition, RuleCondition):
+            return typing.cast(filter.TreeT, condition.partial_filter.tree)
+        elif isinstance(condition, RuleConditionGroup):
+            return typing.cast(
+                filter.TreeT,
+                {
+                    condition.operator: [
+                        self.extract_raw_filter_tree(c) for c in condition.conditions
+                    ]
+                },
+            )
+        else:
+            raise RuntimeError("unexpected condition instance")
+
     def walk(
         self,
         conditions: typing.Optional[

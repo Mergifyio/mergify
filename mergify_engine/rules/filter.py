@@ -15,10 +15,13 @@
 # under the License.
 from collections import abc
 import dataclasses
+import datetime
 import inspect
 import operator
 import re
 import typing
+
+from mergify_engine import utils
 
 
 class InvalidQuery(Exception):
@@ -136,7 +139,20 @@ class Filter(typing.Generic[FilterResultT]):
                 if self.binary_operators[op][0] != operator.eq:
                     raise InvalidOperator(op)
                 return ("" if nodes[1] else "-") + str(nodes[0])
-            return str(nodes[0]) + op + str(nodes[1])
+            elif isinstance(nodes[1], datetime.datetime):
+                return (
+                    str(nodes[0])
+                    + op
+                    + nodes[1].replace(tzinfo=None).isoformat(timespec="seconds")
+                )
+            elif isinstance(nodes[1], datetime.time):
+                return (
+                    str(nodes[0])
+                    + op
+                    + nodes[1].replace(tzinfo=None).isoformat(timespec="minutes")
+                )
+            else:
+                return str(nodes[0]) + op + str(nodes[1])
         raise InvalidOperator(op)  # pragma: no cover
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -147,11 +163,12 @@ class Filter(typing.Generic[FilterResultT]):
 
     LENGTH_OPERATOR = "#"
 
-    def _to_list(self, item: typing.Any) -> typing.List[typing.Any]:
-        if isinstance(item, list):
-            return item
+    @staticmethod
+    def _to_list(item: typing.Any) -> typing.List[typing.Any]:
+        if isinstance(item, str):
+            return [item]
 
-        if isinstance(item, tuple):
+        if isinstance(item, abc.Iterable):
             return list(item)
 
         return [item]
@@ -285,5 +302,99 @@ def BinaryFilter(
         {
             "or": any,
             "and": all,
+        },
+    )
+
+
+DT_INFINITY = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+
+
+def _same_datetime(dt: datetime.datetime) -> datetime.datetime:
+    return dt
+
+
+def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
+    _dts = list(typing.cast(typing.List[datetime.datetime], Filter._to_list(dts)))
+    if len(_dts) == 0:
+        return DT_INFINITY
+    else:
+        return min(_dts)
+
+
+def _as_datetime(value: typing.Any) -> datetime.datetime:
+    if isinstance(value, datetime.datetime):
+        return value
+    elif isinstance(value, datetime.time):
+        return utils.utcnow().replace(
+            hour=value.hour,
+            minute=value.minute,
+            second=value.second,
+            microsecond=value.microsecond,
+        )
+    else:
+        return DT_INFINITY
+
+
+def _dt_max(value: typing.Any, ref: typing.Any) -> datetime.datetime:
+    return DT_INFINITY
+
+
+def _dt_op(
+    op: typing.Callable[[typing.Any, typing.Any], bool],
+) -> typing.Callable[[typing.Any, typing.Any], datetime.datetime]:
+    def _operator(value: typing.Any, ref: typing.Any) -> datetime.datetime:
+        dt_value = _as_datetime(value)
+        dt_ref = _as_datetime(ref)
+        handle_equality = op in (operator.eq, operator.ne, operator.le, operator.ge)
+        if handle_equality and dt_value == dt_ref:
+            # It will change very soon!
+            try:
+                return dt_ref + datetime.timedelta(minutes=5)
+            except OverflowError:
+                return dt_ref
+        elif dt_value < dt_ref:
+            return dt_ref
+        elif isinstance(ref, datetime.time):
+            # Condition will change, next day at 00:00:00
+            try:
+                dt_ref = dt_ref + datetime.timedelta(days=1)
+            except OverflowError:
+                return DT_INFINITY
+            if op in (operator.eq, operator.ne):
+                return dt_ref
+            else:
+                return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            return DT_INFINITY
+
+    return _operator
+
+
+def NearDatetimeFilter(
+    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject, datetime.datetime]],
+) -> "Filter[datetime.datetime]":
+    """
+    The principe:
+    * the attribute can't be mapped to a datetime -> datetime.datetime.max
+    * the time/datetime attribute can't change in the future -> datetime.datetime.max
+    * the time/datetime attribute can change in the future -> return when
+    * we have a list of time/datetime, we pick the more recent
+    """
+    return Filter[datetime.datetime](
+        tree,
+        {"-": _same_datetime},
+        {
+            "=": (_dt_op(operator.eq), _minimal_datetime, _identity),
+            "<": (_dt_op(operator.lt), _minimal_datetime, _identity),
+            ">": (_dt_op(operator.gt), _minimal_datetime, _identity),
+            "<=": (_dt_op(operator.le), _minimal_datetime, _identity),
+            ">=": (_dt_op(operator.ge), _minimal_datetime, _identity),
+            "!=": (_dt_op(operator.ne), _minimal_datetime, _identity),
+            # NOTE(sileht): This is not allowed in parser, so we are same to ignore datetime here
+            "~=": (_dt_max, _minimal_datetime, re.compile),
+        },
+        {
+            "or": _minimal_datetime,
+            "and": _minimal_datetime,
         },
     )

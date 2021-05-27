@@ -13,6 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
+
 import pyparsing
 import pytest
 
@@ -29,6 +31,10 @@ from mergify_engine.rules import parser
         ("-author~=jd", {"-": {"~=": ("author", "jd")}}),
         ("¬author~=jd", {"-": {"~=": ("author", "jd")}}),
         ("conflict", {"=": ("conflict", True)}),
+        (
+            "time>=10:00",
+            {">=": ("time", datetime.time(10, 0, tzinfo=datetime.timezone.utc))},
+        ),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),

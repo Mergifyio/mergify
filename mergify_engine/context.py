@@ -16,6 +16,7 @@
 import base64
 import contextlib
 import dataclasses
+import datetime
 import json
 import logging
 import re
@@ -519,7 +520,7 @@ class ContextCache(typing.TypedDict, total=False):
     commits: typing.List[github_types.GitHubBranchCommit]
 
 
-ContextAttributeType = typing.Union[bool, typing.List[str], str, int]
+ContextAttributeType = typing.Union[bool, typing.List[str], str, int, datetime.time]
 
 
 @dataclasses.dataclass
@@ -858,6 +859,8 @@ class Context(object):
                 if ctxt.pull["merged"]:
                     depends_on.append(f"#{pull_request_number}")
             return depends_on
+        elif name == "time":
+            return utils.utcnow().timetz()
         else:
             raise PullRequestAttributeError(name)
 

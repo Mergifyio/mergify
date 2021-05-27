@@ -15,10 +15,12 @@
 # under the License.
 import logging
 
+from freezegun import freeze_time
 import pytest
 import yaml
 
 from mergify_engine import context
+from mergify_engine import utils
 from mergify_engine.tests.functional import base
 
 
@@ -26,6 +28,34 @@ LOG = logging.getLogger(__name__)
 
 
 class TestAttributes(base.FunctionalTestBase):
+    async def test_time(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": ["time>=12:00"],
+                    "actions": {"comment": {"message": "it's time"}},
+                }
+            ]
+        }
+        with freeze_time("2021-05-30T10:00:00", tick=True):
+            await self.setup_repo(yaml.dump(rules))
+            pr, _ = await self.create_pr()
+            comments = await self.get_issue_comments(pr["number"])
+            assert len(comments) == 0
+            await self.run_engine()
+            comments = await self.get_issue_comments(pr["number"])
+            assert len(comments) == 0
+
+            assert await self.redis_cache.zcard("delayed-refresh") == 1
+
+        with freeze_time("2021-05-30T14:00:00", tick=True):
+            LOG.log(42, "change date to %s", utils.utcnow())
+            await self.run_engine()
+            await self.wait_for("issue_comment", {"action": "created"})
+            comments = await self.get_issue_comments(pr["number"])
+            self.assertEqual("it's time", comments[-1]["body"])
+
     async def test_draft(self):
         rules = {
             "pull_request_rules": [
