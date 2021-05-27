@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
 import typing
 
 import pyparsing
@@ -30,21 +31,40 @@ text = (
 )
 milestone = pyparsing.CharsNotIn(" ")
 
+_match_time = (
+    pyparsing.Word(pyparsing.nums).addCondition(
+        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 24
+    )
+    + pyparsing.Literal(":")
+    + pyparsing.Word(pyparsing.nums).addCondition(
+        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 60
+    )
+).setParseAction(
+    lambda toks: datetime.time(
+        hour=int(toks[0]), minute=int(toks[2]), tzinfo=datetime.timezone.utc
+    )
+)
+
 regex_operators = pyparsing.Literal("~=")
 
-simple_operators = (
+
+equality_operators = (
     pyparsing.Literal(":").setParseAction(pyparsing.replaceWith("="))
     | pyparsing.Literal("=")
     | pyparsing.Literal("==").setParseAction(pyparsing.replaceWith("="))
     | pyparsing.Literal("!=")
     | pyparsing.Literal("≠").setParseAction(pyparsing.replaceWith("!="))
-    | pyparsing.Literal(">=")
+)
+
+range_operators = (
+    pyparsing.Literal(">=")
     | pyparsing.Literal("≥").setParseAction(pyparsing.replaceWith(">="))
     | pyparsing.Literal("<=")
     | pyparsing.Literal("≤").setParseAction(pyparsing.replaceWith("<="))
     | pyparsing.Literal("<")
     | pyparsing.Literal(">")
 )
+simple_operators = equality_operators | range_operators
 
 
 def _match_boolean(literal: str) -> pyparsing.Token:
@@ -113,6 +133,7 @@ check_neutral = "check-neutral" + _match_with_operator(text)
 check_skipped = "check-skipped" + _match_with_operator(text)
 check_pending = "check-pending" + _match_with_operator(text)
 check_stale = "check-stale" + _match_with_operator(text)
+current_time = "current-time" + range_operators + _match_time
 
 quantifiable_attributes = (
     head
@@ -149,7 +170,7 @@ closed = _match_boolean("closed")
 conflict = _match_boolean("conflict")
 draft = _match_boolean("draft")
 
-non_quantifiable_attributes = locked | closed | conflict | draft | merged
+non_quantifiable_attributes = locked | closed | conflict | draft | merged | current_time
 
 search = (
     pyparsing.Optional(

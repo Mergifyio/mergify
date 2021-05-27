@@ -252,6 +252,15 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``title``
      - string
      - The title of the pull request.
+   * - ``current-time``
+     - string
+     - The current time in format ``HH:MM``.
+
+
+.. important::
+
+   ``current-time`` does not support ``~=``, ``=`` and ``!=`` operators.
+
 
 .. _Operators:
 
