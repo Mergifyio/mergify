@@ -607,7 +607,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     async def _async_run_workers(timeout: float) -> None:
         w = worker.Worker(
-            idle_sleep_time=0.42 if RECORD else 0.01, enabled_services={"stream"}
+            idle_sleep_time=0.42 if RECORD else 0.01,
+            enabled_services={"stream", "delayed-refresh"},
         )
         await w.start()
 

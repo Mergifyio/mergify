@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
 import typing
 
 import pyparsing
@@ -30,21 +31,40 @@ text = (
 )
 milestone = pyparsing.CharsNotIn(" ")
 
+_match_time = (
+    pyparsing.Word(pyparsing.nums).addCondition(
+        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 24
+    )
+    + pyparsing.Literal(":")
+    + pyparsing.Word(pyparsing.nums).addCondition(
+        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 60
+    )
+).setParseAction(
+    lambda toks: datetime.time(
+        hour=int(toks[0]), minute=int(toks[2]), tzinfo=datetime.timezone.utc
+    )
+)
+
 regex_operators = pyparsing.Literal("~=")
 
-simple_operators = (
+
+equality_operators = (
     pyparsing.Literal(":").setParseAction(pyparsing.replaceWith("="))
     | pyparsing.Literal("=")
     | pyparsing.Literal("==").setParseAction(pyparsing.replaceWith("="))
     | pyparsing.Literal("!=")
     | pyparsing.Literal("≠").setParseAction(pyparsing.replaceWith("!="))
-    | pyparsing.Literal(">=")
+)
+
+range_operators = (
+    pyparsing.Literal(">=")
     | pyparsing.Literal("≥").setParseAction(pyparsing.replaceWith(">="))
     | pyparsing.Literal("<=")
     | pyparsing.Literal("≤").setParseAction(pyparsing.replaceWith("<="))
     | pyparsing.Literal("<")
     | pyparsing.Literal(">")
 )
+simple_operators = equality_operators | range_operators
 
 
 def _match_boolean(literal: str) -> pyparsing.Token:
@@ -65,7 +85,12 @@ def _match_with_operator(token: pyparsing.Token) -> pyparsing.Token:
 def _token_to_dict(
     s: str, loc: int, toks: typing.List[pyparsing.Token]
 ) -> typing.Dict[str, typing.Any]:
-    if len(toks) == 5:
+    if len(toks) == 3:
+        # datetime attributes
+        key_op = ""
+        not_ = False
+        key, op, value = toks
+    elif len(toks) == 5:
         # quantifiable_attributes
         not_, key_op, key, op, value = toks
     elif len(toks) == 4:
@@ -113,6 +138,7 @@ check_neutral = "check-neutral" + _match_with_operator(text)
 check_skipped = "check-skipped" + _match_with_operator(text)
 check_pending = "check-pending" + _match_with_operator(text)
 check_stale = "check-stale" + _match_with_operator(text)
+current_time = "current-time" + range_operators + _match_time
 
 quantifiable_attributes = (
     head
@@ -151,17 +177,22 @@ draft = _match_boolean("draft")
 
 non_quantifiable_attributes = locked | closed | conflict | draft | merged
 
+datetime_attributes = current_time
+
 search = (
-    pyparsing.Optional(
-        (
-            pyparsing.Literal("-").setParseAction(pyparsing.replaceWith(True))
-            | pyparsing.Literal("¬").setParseAction(pyparsing.replaceWith(True))
-            | pyparsing.Literal("+").setParseAction(pyparsing.replaceWith(False))
-        ),
-        default=False,
+    (
+        pyparsing.Optional(
+            (
+                pyparsing.Literal("-").setParseAction(pyparsing.replaceWith(True))
+                | pyparsing.Literal("¬").setParseAction(pyparsing.replaceWith(True))
+                | pyparsing.Literal("+").setParseAction(pyparsing.replaceWith(False))
+            ),
+            default=False,
+        )
+        + (
+            (pyparsing.Optional("#", default="") + quantifiable_attributes)
+            | non_quantifiable_attributes
+        )
     )
-    + (
-        (pyparsing.Optional("#", default="") + quantifiable_attributes)
-        | non_quantifiable_attributes
-    )
+    | datetime_attributes
 ).setParseAction(_token_to_dict)

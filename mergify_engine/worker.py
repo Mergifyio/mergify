@@ -34,6 +34,7 @@ import tenacity
 
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_events
@@ -629,8 +630,10 @@ class Worker:
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
     enabled_services: typing.Set[
-        typing.Literal["stream", "stream-monitoring"]
-    ] = dataclasses.field(default_factory=lambda: {"stream", "stream-monitoring"})
+        typing.Literal["stream", "stream-monitoring", "delayed-refresh"]
+    ] = dataclasses.field(
+        default_factory=lambda: {"stream", "stream-monitoring", "delayed-refresh"}
+    )
 
     _redis_stream: typing.Optional[utils.RedisStream] = dataclasses.field(
         init=False, default=None
@@ -747,6 +750,24 @@ class Worker:
 
             await self._sleep_or_stop(60)
 
+    async def delayed_refresh_task(self) -> None:
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
+
+        while not self._stopping.is_set():
+            try:
+                await delayed_refresh.send(self._redis_stream, self._redis_cache)
+            except asyncio.CancelledError:
+                LOG.debug("delayed refresh task killed")
+                return
+            except aredis.ConnectionError:
+                statsd.increment("redis.client.connection.errors")
+                LOG.warning("delayed refresh task lost Redis connection", exc_info=True)
+            except Exception:
+                LOG.error("delayed refresh task failed", exc_info=True)
+
+            await self._sleep_or_stop(60)
+
     def get_worker_ids(self) -> typing.List[int]:
         return list(
             range(
@@ -770,6 +791,13 @@ class Worker:
                 )
             LOG.info("workers started", count=len(worker_ids))
 
+        if "delayed-refresh" in self.enabled_services:
+            LOG.info("delayed refresh starting")
+            self._delayed_refresh_task = asyncio.create_task(
+                self.delayed_refresh_task()
+            )
+            LOG.info("delayed refresh started")
+
         if "stream-monitoring" in self.enabled_services:
             LOG.info("monitoring starting")
             self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
@@ -778,6 +806,8 @@ class Worker:
     async def _shutdown(self) -> None:
         tasks = []
         tasks.extend(self._worker_tasks)
+        if self._delayed_refresh_task is not None:
+            tasks.append(self._delayed_refresh_task)
         if self._stream_monitoring_task is not None:
             tasks.append(self._stream_monitoring_task)
 
