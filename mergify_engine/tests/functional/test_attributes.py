@@ -157,8 +157,8 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         expected = f"""#### Rule: merge (merge)
 - [X] `base={self.master_branch_name}`
 - [X] `label=automerge`
-- [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
 - [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from fork** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]
 - [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from fork** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]
+- [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
 """
         assert expected == summary["output"]["summary"][: len(expected)]

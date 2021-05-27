@@ -985,20 +985,23 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         check_suite = (
             await self.installation_ctxt.client.get(
-                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}",
+                api_version="antiope",
             )
         ).json()
         assert check_suite["status"] == "completed"
 
         # Click on rerequest btn
         await self.installation_ctxt.client.post(
-            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest"
+            f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}/rerequest",
+            api_version="antiope",
         )
         await self.wait_for("check_suite", {"action": "rerequested"})
 
         check_suite = (
             await self.installation_ctxt.client.get(
-                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}",
+                api_version="antiope",
             )
         ).json()
         assert check_suite["status"] == "queued"
@@ -1006,7 +1009,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.run_engine()
         check_suite = (
             await self.installation_ctxt.client.get(
-                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}"
+                f"{self.repository_ctxt.base_url}/check-suites/{check_suite_id}",
+                api_version="antiope",
             )
         ).json()
         assert check_suite["status"] == "completed"

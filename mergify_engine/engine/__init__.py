@@ -365,6 +365,7 @@ async def create_initial_summary(
         try:
             await client.post(
                 f"/repos/{event['pull_request']['base']['user']['login']}/{event['pull_request']['base']['repo']['name']}/check-runs",
+                api_version="antiope",
                 json=post_parameters,
             )
         except http.HTTPClientSideError as e:
