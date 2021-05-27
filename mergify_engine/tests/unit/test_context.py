@@ -18,6 +18,7 @@ from unittest import mock
 
 import pytest
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -467,19 +468,19 @@ async def test_context_depends_on():
             "merged_by": None,
             "merged_at": None,
             "mergeable_state": "clean",
-            "body": """header
+            "body": f"""header
 
 Depends-On: #123
-depends-on: https://github.com/foo/bar/pull/999
-depends-on: https://github.com/foo/bar/999
+depends-on: {config.GITHUB_URL}/foo/bar/pull/999
+depends-on: {config.GITHUB_URL}/foo/bar/999
 depends-on: azertyuiopqsdfghjklmwxcvbn
 depends-on: https://somewhereelse.com/foo/bar/999
-Depends-oN: https://github.com/user/repo/pull/456
-Depends-oN: https://github.com/user/repo/pull/789
+Depends-oN: {config.GITHUB_URL}/user/repo/pull/456
+Depends-oN: {config.GITHUB_URL}/user/repo/pull/789
  DEPENDS-ON: #42
 Depends-On:  #48
 Depends-On:  #999 with crap
-DePeNdS-oN: https://github.com/user/repo/pull/999 with crap
+DePeNdS-oN: {config.GITHUB_URL}/user/repo/pull/999 with crap
 
 footer
 """,
