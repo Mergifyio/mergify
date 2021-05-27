@@ -21,6 +21,19 @@ from mergify_engine import utils
 from mergify_engine.web import root
 
 
+def test_tokens_cache_delete():
+    owner_id = 123
+
+    data = None
+    headers = {
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+    }
+    with testclient.TestClient(root.app) as client:
+        reply = client.delete(f"/tokens-cache/{owner_id}", data=data, headers=headers)
+        assert reply.status_code == 200
+        assert reply.content == b"Cache cleaned"
+
+
 def test_subscription_cache_delete():
     owner_id = 123
 
