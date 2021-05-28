@@ -523,14 +523,12 @@ class MergeBaseAction(actions.Action):
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
-                "Head branch was modified in the meantime",
+                "Head branch was modified in the meantime, retrying",
                 status_code=e.status_code,
                 error_message=e.message,
             )
-            return check_api.Result(
-                check_api.Conclusion.CANCELLED,
-                "Head branch was modified in the meantime",
-                "The head branch was modified, the merge action has been cancelled.",
+            return await self.get_queue_status(
+                ctxt, rule, q, is_behind=await ctxt.is_behind
             )
         elif "Base branch was modified" in e.message:
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
