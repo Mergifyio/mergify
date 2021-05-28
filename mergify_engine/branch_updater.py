@@ -220,6 +220,7 @@ async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
 
 
 async def update_with_api(ctxt: context.Context) -> None:
+    ctxt.log.info("updating base branch with api")
     pre_update_check(ctxt)
     try:
         await ctxt.client.put(
@@ -250,6 +251,7 @@ async def update_with_api(ctxt: context.Context) -> None:
 async def rebase_with_git(
     ctxt: context.Context, bot_account: typing.Optional[str] = None
 ) -> None:
+    ctxt.log.info("updating base branch with git")
 
     await pre_rebase_check(ctxt)
 
