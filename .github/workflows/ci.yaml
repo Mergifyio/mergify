@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+      - git_push_stack/**
 
 jobs:
   requirements:
