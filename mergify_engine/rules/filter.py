@@ -21,6 +21,7 @@ import operator
 import re
 import typing
 
+from mergify_engine import date
 from mergify_engine import utils
 
 
@@ -144,6 +145,8 @@ class Filter(typing.Generic[FilterResultT]):
                     + op
                     + nodes[1].replace(tzinfo=None).isoformat(timespec="seconds")
                 )
+            elif isinstance(nodes[1], date.PartialDatetime):
+                return str(nodes[0]) + op + str(nodes[1].value)
             elif isinstance(nodes[1], datetime.time):
                 return (
                     str(nodes[0])
@@ -320,6 +323,23 @@ def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
 def _as_datetime(value: typing.Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return value
+    elif isinstance(value, date.PartialDatetime):
+        dt = utils.utcnow().replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if isinstance(value, date.DayOfWeek):
+            return dt + datetime.timedelta(days=value.value - dt.isoweekday())
+        elif isinstance(value, date.Day):
+            return dt.replace(day=value.value)
+        elif isinstance(value, date.Month):
+            return dt.replace(month=value.value, day=1)
+        elif isinstance(value, date.Year):
+            return dt.replace(year=value.value, month=1, day=1)
+        else:
+            return DT_MAX
     elif isinstance(value, datetime.time):
         return utils.utcnow().replace(
             hour=value.hour,
@@ -343,29 +363,68 @@ def _dt_op(
     op: typing.Callable[[typing.Any, typing.Any], bool],
 ) -> typing.Callable[[typing.Any, typing.Any], datetime.datetime]:
     def _operator(value: typing.Any, ref: typing.Any) -> datetime.datetime:
-        dt_value = _as_datetime(value)
-        dt_ref = _as_datetime(ref)
-        handle_equality = op in (operator.eq, operator.ne, operator.le, operator.ge)
-        if handle_equality and dt_value == dt_ref:
-            # NOTE(sileht): This is the last minutes this conditions match, so
-            # returns the next tick
-            try:
-                return dt_ref + datetime.timedelta(minutes=1)
-            except OverflowError:
-                return dt_ref
-        elif dt_value < dt_ref:
-            return dt_ref
-        elif isinstance(ref, datetime.time):
-            # Condition will change, next day at 00:00:00
-            try:
-                dt_ref = dt_ref + datetime.timedelta(days=1)
-            except OverflowError:
-                return DT_MAX
-            if op in (operator.eq, operator.ne):
+        try:
+            dt_value = _as_datetime(value)
+            dt_ref = _as_datetime(ref)
+            handle_equality = op in (
+                operator.eq,
+                operator.ne,
+                operator.le,
+                operator.ge,
+            )
+            if handle_equality and dt_value == dt_ref:
+                # NOTE(sileht): The condition will change...
+                if isinstance(ref, date.PartialDatetime):
+                    if isinstance(value, date.DayOfWeek):
+                        # next day
+                        dt_ref = dt_ref + datetime.timedelta(days=1)
+                    elif isinstance(ref, date.Day):
+                        # next day
+                        dt_ref = dt_ref + datetime.timedelta(days=1)
+                    elif isinstance(ref, date.Month):
+                        # first day of next month
+                        dt_ref = dt_ref.replace(day=1)
+                        dt_ref = dt_ref + datetime.timedelta(days=32)
+                        dt_ref = dt_ref.replace(day=1)
+                    elif isinstance(ref, date.Year):
+                        # first day of next year
+                        dt_ref = dt_ref.replace(month=1, day=1)
+                        dt_ref = dt_ref + datetime.timedelta(days=366)
+                        dt_ref = dt_ref.replace(month=1, day=1)
+                    return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+                else:
+                    return dt_ref + datetime.timedelta(minutes=1)
+            elif dt_value < dt_ref:
                 return dt_ref
             else:
-                return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
-        else:
+                if isinstance(ref, datetime.time):
+                    # Condition will change next day at 00:00:00
+                    dt_ref = dt_ref + datetime.timedelta(days=1)
+                elif isinstance(value, date.DayOfWeek):
+                    dt_ref = dt_ref + datetime.timedelta(days=7)
+                elif isinstance(ref, date.Day):
+                    # Condition will change, 1st day of next month at 00:00:00
+                    dt_ref = dt_ref.replace(day=1)
+                    dt_ref = dt_ref + datetime.timedelta(days=32)
+                    if op in (operator.eq, operator.ne):
+                        dt_ref = dt_ref.replace(day=ref.value)
+                    else:
+                        dt_ref = dt_ref.replace(day=1)
+                elif isinstance(ref, date.Month):
+                    # Condition will change, 1st January of next year at 00:00:00
+                    dt_ref = dt_ref.replace(month=1, day=1)
+                    dt_ref = dt_ref + datetime.timedelta(days=366)
+                    if op in (operator.eq, operator.ne):
+                        dt_ref = dt_ref.replace(month=ref.value, day=1)
+                    else:
+                        dt_ref = dt_ref.replace(month=1, day=1)
+                else:
+                    return DT_MAX
+                if op in (operator.eq, operator.ne):
+                    return dt_ref
+                else:
+                    return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+        except OverflowError:
             return DT_MAX
 
     return _operator
