@@ -14,10 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import typing
 
 from freezegun import freeze_time
 import pytest
 
+from mergify_engine import date
 from mergify_engine.rules import filter
 from mergify_engine.rules import parser
 
@@ -213,6 +215,191 @@ async def test_time_binary() -> None:
     assert not await f(FakePR({"foo": time(5, 1)}))
     assert await f(FakePR({"foo": time(6, 2)}))
     assert await f(FakePR({"foo": time(8, 9)}))
+
+
+@pytest.mark.parametrize(
+    "klass",
+    (
+        date.Day,
+        date.Month,
+        date.Year,
+        date.DayOfWeek,
+    ),
+)
+@freeze_time("2012-01-14")
+async def test_partial_datetime_binary(
+    klass: typing.Type[date.PartialDatetime],
+) -> None:
+    assert "foo>=5" == str(filter.BinaryFilter({">=": ("foo", klass(5))}))
+    assert "foo<=23" == str(filter.BinaryFilter({"<=": ("foo", klass(23))}))
+    assert "foo=3" == str(filter.BinaryFilter({"=": ("foo", klass(3))}))
+
+    f = filter.BinaryFilter({"<=": ("foo", klass(5))})
+    assert await f(FakePR({"foo": klass(2)}))
+    assert await f(FakePR({"foo": klass(5)}))
+    assert not await f(FakePR({"foo": klass(30)}))
+
+    f = filter.BinaryFilter({"=": ("foo", klass(5))})
+    assert await f(FakePR({"foo": klass(5)}))
+    assert not await f(FakePR({"foo": klass(30)}))
+
+    f = filter.BinaryFilter({">": ("foo", klass(5))})
+    assert await f(FakePR({"foo": klass(30)}))
+    assert not await f(FakePR({"foo": klass(2)}))
+    assert not await f(FakePR({"foo": klass(5)}))
+
+
+@freeze_time("2012-01-14T12:15:00")
+async def test_day_near_datetime() -> None:
+    nextday = datetime.datetime(2012, 1, 7, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    nextmonth = datetime.datetime(2012, 2, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    nextmonth_at_six = datetime.datetime(
+        2012, 2, 6, 0, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    today = datetime.datetime(2012, 1, 6, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextday
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextday
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+    f = filter.NearDatetimeFilter({"=": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextday
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth_at_six
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+    f = filter.NearDatetimeFilter({"!=": ("foo", date.Day(6))})
+    assert await f(FakePR({"foo": date.Day(6)})) == nextday
+    assert await f(FakePR({"foo": date.Day(7)})) == nextmonth_at_six
+    assert await f(FakePR({"foo": date.Day(1)})) == today
+
+
+@freeze_time("2012-01-14T12:15:00")
+async def test_day_of_the_week_near_datetime() -> None:
+    nextday = datetime.datetime(2012, 1, 15, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    nextweek = datetime.datetime(2012, 1, 21, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    today = datetime.datetime(2012, 1, 14, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextday
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextday
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+    f = filter.NearDatetimeFilter({"=": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextday
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+    f = filter.NearDatetimeFilter({"!=": ("foo", date.DayOfWeek(6))})
+    assert await f(FakePR({"foo": date.DayOfWeek(6)})) == nextday
+    assert await f(FakePR({"foo": date.DayOfWeek(7)})) == nextweek
+    assert await f(FakePR({"foo": date.DayOfWeek(1)})) == today
+
+
+@freeze_time("2012-01-14T12:15:00")
+async def test_month_near_datetime() -> None:
+    nextmonth = datetime.datetime(2012, 7, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    nextyear = datetime.datetime(2013, 1, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    nextyear_at_six = datetime.datetime(
+        2013, 6, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    today = datetime.datetime(2012, 6, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+    f = filter.NearDatetimeFilter({"=": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear_at_six
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+    f = filter.NearDatetimeFilter({"!=": ("foo", date.Month(6))})
+    assert await f(FakePR({"foo": date.Month(6)})) == nextmonth
+    assert await f(FakePR({"foo": date.Month(7)})) == nextyear_at_six
+    assert await f(FakePR({"foo": date.Month(1)})) == today
+
+
+@freeze_time("2012-01-14T12:15:00")
+async def test_year_near_datetime() -> None:
+    nextyear = datetime.datetime(2017, 1, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    today = datetime.datetime(2016, 1, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
+
+    f = filter.NearDatetimeFilter({"<=": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
+
+    f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
+
+    f = filter.NearDatetimeFilter({"=": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
+
+    f = filter.NearDatetimeFilter({"!=": ("foo", date.Year(2016))})
+    assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
+    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_INFINITY
+    assert await f(FakePR({"foo": date.Year(2011)})) == today
 
 
 @freeze_time("2012-01-14T12:15:00")

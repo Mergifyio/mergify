@@ -255,6 +255,18 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``time``
      - string
      - A time in format ``HH:MM``.
+   * - ``day``
+     - integer
+     - The day of the month, from 1 to 31.
+   * - ``month``
+     - integer
+     - The current month, from 1 to 12.
+   * - ``year``
+     - integer
+     - The current month, from 1900 to 9999.
+   * - ``day-of-week``
+     - integer
+     - The day of the week, from 1 (Monday) to 7 (Sunday).
 
 
 .. important::

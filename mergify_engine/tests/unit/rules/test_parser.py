@@ -18,6 +18,7 @@ import datetime
 import pyparsing
 import pytest
 
+from mergify_engine import date
 from mergify_engine.rules import parser
 
 
@@ -35,6 +36,10 @@ from mergify_engine.rules import parser
             "time>=10:00",
             {">=": ("time", datetime.time(10, 0, tzinfo=datetime.timezone.utc))},
         ),
+        ("day=4", {"=": ("day", date.Day(4))}),
+        ("month=5", {"=": ("month", date.Month(5))}),
+        ("year=2000", {"=": ("year", date.Year(2000))}),
+        ("day-of-week=4", {"=": ("day-of-week", date.DayOfWeek(4))}),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
@@ -107,6 +112,12 @@ def test_search(line, result):
         "#foo=bar",
         "number=foo",
         "author=%foobar",
+        "time>=foo",
+        "time>=foo:foo",
+        "day-of-week=100",
+        "month=100",
+        "year=0",
+        "day=100",
     ),
 )
 def test_invalid(line):
