@@ -18,6 +18,7 @@ import datetime
 import pyparsing
 import pytest
 
+from mergify_engine import date
 from mergify_engine.rules import parser
 
 
@@ -40,6 +41,10 @@ from mergify_engine.rules import parser
                 )
             },
         ),
+        ("current-day=4", {"=": ("current-day", date.Day(4))}),
+        ("current-month=5", {"=": ("current-month", date.Month(5))}),
+        ("current-year=2000", {"=": ("current-year", date.Year(2000))}),
+        ("current-day-of-week=4", {"=": ("current-day-of-week", date.DayOfWeek(4))}),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
@@ -112,6 +117,12 @@ def test_search(line, result):
         "#foo=bar",
         "number=foo",
         "author=%foobar",
+        "current-time>=foo",
+        "current-time>=foo:foo",
+        "current-day-of-week=100",
+        "current-month=100",
+        "current-year=0",
+        "current-day=100",
     ),
 )
 def test_invalid(line):

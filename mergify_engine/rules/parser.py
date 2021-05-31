@@ -18,6 +18,8 @@ import typing
 
 import pyparsing
 
+from mergify_engine import date
+
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
@@ -42,6 +44,39 @@ _match_time = (
 ).setParseAction(
     lambda toks: datetime.time(
         hour=int(toks[0]), minute=int(toks[2]), tzinfo=datetime.timezone.utc
+    )
+)
+
+_day = (
+    pyparsing.Word(pyparsing.nums)
+    .setParseAction(lambda tokens: date.Day(int(tokens[0])))
+    .addCondition(
+        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 31,
+        message="day must be between 1 and 31",
+    )
+)
+_month = (
+    pyparsing.Word(pyparsing.nums)
+    .setParseAction(lambda tokens: date.Month(int(tokens[0])))
+    .addCondition(
+        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 12,
+        message="month must be between 1 and 12",
+    )
+)
+_year = (
+    pyparsing.Word(pyparsing.nums)
+    .setParseAction(lambda tokens: date.Year(int(tokens[0])))
+    .addCondition(
+        lambda tokens: tokens[0].value >= 1900 and tokens[0].value <= 9999,
+        message="year must be between 1900 and 9999",
+    )
+)
+_day_of_week = (
+    pyparsing.Word(pyparsing.nums)
+    .setParseAction(lambda tokens: date.DayOfWeek(int(tokens[0])))
+    .addCondition(
+        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 7,
+        message="day-of-week must be between 1 and 7",
     )
 )
 
@@ -134,6 +169,10 @@ check_skipped = "check-skipped" + _match_with_operator(text)
 check_pending = "check-pending" + _match_with_operator(text)
 check_stale = "check-stale" + _match_with_operator(text)
 current_time = "current-time" + range_operators + _match_time
+current_day = "current-day" + _match_with_operator(_day)
+current_month = "current-month" + _match_with_operator(_month)
+current_year = "current-year" + _match_with_operator(_year)
+current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
 
 quantifiable_attributes = (
     head
@@ -170,7 +209,18 @@ closed = _match_boolean("closed")
 conflict = _match_boolean("conflict")
 draft = _match_boolean("draft")
 
-non_quantifiable_attributes = locked | closed | conflict | draft | merged | current_time
+non_quantifiable_attributes = (
+    locked
+    | closed
+    | conflict
+    | draft
+    | merged
+    | current_time
+    | current_day_of_week
+    | current_month
+    | current_year
+    | current_day
+)
 
 search = (
     pyparsing.Optional(
