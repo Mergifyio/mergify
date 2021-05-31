@@ -255,6 +255,19 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``current-time``
      - string
      - The current time in format ``HH:MM``.
+   * - ``current-day``
+     - integer
+     - The current day of the month, from 1 to 31.
+   * - ``current-month``
+     - integer
+     - The current month, from 1 to 12.
+   * - ``current-year``
+     - integer
+     - The current year, from 1900 to 9999.
+   * - ``current-day-of-week``
+     - integer
+     - The current day of the week. From 1 (Monday) to 7
+       (Sunday). Week start on Monday.
 
 
 .. important::

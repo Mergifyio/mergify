@@ -35,6 +35,7 @@ import tenacity
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
+from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import subscription
@@ -520,7 +521,9 @@ class ContextCache(typing.TypedDict, total=False):
     commits: typing.List[github_types.GitHubBranchCommit]
 
 
-ContextAttributeType = typing.Union[bool, typing.List[str], str, int, datetime.time]
+ContextAttributeType = typing.Union[
+    bool, typing.List[str], str, int, datetime.time, date.PartialDatetime
+]
 
 
 @dataclasses.dataclass
@@ -854,6 +857,14 @@ class Context(object):
             return depends_on
         elif name == "current-time":
             return utils.utcnow().timetz()
+        elif name == "current-day":
+            return date.Day(utils.utcnow().day)
+        elif name == "current-month":
+            return date.Month(utils.utcnow().month)
+        elif name == "current-year":
+            return date.Year(utils.utcnow().year)
+        elif name == "current-day-of-week":
+            return date.DayOfWeek(utils.utcnow().isoweekday())
         else:
             raise PullRequestAttributeError(name)
 
