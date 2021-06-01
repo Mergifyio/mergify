@@ -71,13 +71,28 @@ _year = (
         message="year must be between 1900 and 9999",
     )
 )
-_day_of_week = (
+_day_of_week_str = (
     pyparsing.Word(pyparsing.nums)
-    .setParseAction(lambda tokens: date.DayOfWeek(int(tokens[0])))
-    .addCondition(
-        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 7,
-        message="day-of-week must be between 1 and 7",
-    )
+    | pyparsing.CaselessLiteral("monday")
+    | pyparsing.CaselessLiteral("tuesday")
+    | pyparsing.CaselessLiteral("wednesday")
+    | pyparsing.CaselessLiteral("thursday")
+    | pyparsing.CaselessLiteral("friday")
+    | pyparsing.CaselessLiteral("saturday")
+    | pyparsing.CaselessLiteral("sunday")
+    | pyparsing.CaselessLiteral("mon")
+    | pyparsing.CaselessLiteral("tue")
+    | pyparsing.CaselessLiteral("wed")
+    | pyparsing.CaselessLiteral("thu")
+    | pyparsing.CaselessLiteral("fri")
+    | pyparsing.CaselessLiteral("sat")
+    | pyparsing.CaselessLiteral("sun")
+)
+_day_of_week = _day_of_week_str.setParseAction(
+    lambda tokens: date.DayOfWeek.from_string(tokens[0])
+).addCondition(
+    lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 7,
+    message="day-of-week must be between 1 and 7",
 )
 
 regex_operators = pyparsing.Literal("~=")
