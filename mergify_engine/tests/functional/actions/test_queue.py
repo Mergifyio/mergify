@@ -1671,6 +1671,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 3
 
+        tmp_pull = [p for p in pulls if p["number"] == car.queue_pull_request_number][0]
+        assert tmp_pull["draft"]
+
         await car.delete_pull()
 
         # NOTE(sileht): When branch is deleted the associated Pull is deleted in an async
