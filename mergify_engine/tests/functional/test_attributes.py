@@ -92,6 +92,33 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert expected == summary["output"]["summary"][: len(expected)]
 
+    async def test_schedule(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": ["schedule=MON-FRI 12:00-15:00"],
+                    "actions": {"comment": {"message": "it's time"}},
+                }
+            ]
+        }
+        with freeze_time("2021-05-30T10:00:00", tick=True):
+            await self.setup_repo(yaml.dump(rules))
+            pr, _ = await self.create_pr()
+            comments = await self.get_issue_comments(pr["number"])
+            assert len(comments) == 0
+            await self.run_engine()
+            comments = await self.get_issue_comments(pr["number"])
+            assert len(comments) == 0
+
+            assert await self.redis_cache.zcard("delayed-refresh") == 1
+
+        with freeze_time("2021-06-02T14:00:00", tick=True):
+            await self.run_engine()
+            await self.wait_for("issue_comment", {"action": "created"})
+            comments = await self.get_issue_comments(pr["number"])
+            self.assertEqual("it's time", comments[-1]["body"])
+
     async def test_draft(self):
         rules = {
             "pull_request_rules": [

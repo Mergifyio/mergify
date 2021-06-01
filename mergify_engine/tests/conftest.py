@@ -2,6 +2,7 @@ import asyncio
 import logging
 import typing
 
+import freezegun
 import pytest
 from pytest_httpserver import httpserver
 
@@ -9,6 +10,12 @@ from mergify_engine import config
 from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine.clients import github
+
+
+# for jwt generation
+freezegun.configure(  # type:ignore[attr-defined]
+    extend_ignore_list=["mergify_engine.clients.github_app"]
+)
 
 
 @pytest.fixture()
