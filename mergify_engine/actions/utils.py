@@ -20,6 +20,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
+from mergify_engine.clients import http
 
 
 async def validate_bot_account(
@@ -53,12 +54,20 @@ async def validate_bot_account(
 
     if required_permissions:
         # TODO(sileht): Cache this, people only use one bot account!
-        permission = typing.cast(
-            github_types.GitHubRepositoryCollaboratorPermission,
-            await ctxt.client.item(
-                f"{ctxt.base_url}/collaborators/{bot_account}/permission"
-            ),
-        )["permission"]
+        try:
+            permission = typing.cast(
+                github_types.GitHubRepositoryCollaboratorPermission,
+                await ctxt.client.item(
+                    f"{ctxt.base_url}/collaborators/{bot_account}/permission"
+                ),
+            )["permission"]
+        except http.HTTPNotFound:
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                (f"`{bot_account}` account used as `{option_name}` does not exists"),
+                "",
+            )
+
         if permission not in required_permissions:
             quoted_required_permissions = [f"`{p}`" for p in required_permissions]
             if len(quoted_required_permissions) == 1:

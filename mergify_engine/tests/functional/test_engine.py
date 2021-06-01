@@ -1414,7 +1414,9 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+        await self.wait_for(
+            "check_run", {"check_run": {"conclusion": "action_required"}}
+        )
 
         ctxt = await context.Context.create(self.repository_ctxt, p2, [])
         checks = [
@@ -1422,8 +1424,7 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
             for c in await ctxt.pull_engine_check_runs
             if c["name"] == "Rule: smart strict merge on master (merge)"
         ]
-        assert checks[0]["output"]["title"] == "Base branch update has failed"
-        assert checks[0]["output"]["summary"].startswith(
-            "Unable to rebase: user `not-exists` is unknown. "
-            "Please make sure `not-exists` has logged in Mergify dashboard"
+        assert (
+            checks[0]["output"]["title"]
+            == "`not-exists` account used as `update_bot_account` does not exists"
         )

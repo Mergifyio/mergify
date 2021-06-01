@@ -77,6 +77,13 @@ class MergeAction(merge_base.MergeBaseAction):
         self, ctxt: context.Context
     ) -> typing.Optional[check_api.Result]:
 
+        if self.config["bot_account"] is not None:
+            if ctxt.subscription.has_feature(subscription.Features.MERGE_BOT_ACCOUNT):
+                ctxt.log.info("legacy bot_account used by paid plan")
+
+        if self.config["update_bot_account"] is None:
+            self.config["update_bot_account"] = self.config["bot_account"]
+
         if self.config[
             "priority"
         ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
@@ -97,7 +104,6 @@ class MergeAction(merge_base.MergeBaseAction):
             required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
             missing_feature_message="Merge with `update_bot_account` set is unavailable",
         )
-
         if bot_account_result is not None:
             return bot_account_result
 

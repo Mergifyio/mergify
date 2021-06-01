@@ -166,7 +166,6 @@ class QueueAction(merge_base.MergeBaseAction):
         return await super().run(ctxt, rule)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        self.config["bot_account"] = None
         self.config["update_bot_account"] = None
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
 

@@ -30,7 +30,6 @@ from mergify_engine import context
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 
@@ -49,16 +48,6 @@ REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
 FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository."
 FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
-
-BOT_ACCOUNT_DEPRECATION_NOTICE = """This pull request has been merged with the
-unsupported configuration option `bot_account`.
-
-This option is ignored since May 1st, 2021, and will be removed
-on June 1st, 2021.
-
-This option can be replaced by `update_bot_account`, `merge_bot_account` or both
-depending on your use-case (https://docs.mergify.io/actions/merge/).
-"""
 
 
 class PriorityAliases(enum.Enum):
@@ -240,12 +229,6 @@ class MergeBaseAction(actions.Action):
                     "is only available with the Mergify GitHub App",
                 )
 
-        if self.config["bot_account"] is not None:
-            if ctxt.subscription.has_feature(subscription.Features.MERGE_BOT_ACCOUNT):
-                ctxt.log.info("legacy bot_account used by paid plan")
-            else:
-                ctxt.log.info("legacy bot_account used by free plan")
-
         self._set_effective_priority(ctxt)
 
         ctxt.log.info("process merge", config=self.config)
@@ -347,11 +330,6 @@ class MergeBaseAction(actions.Action):
     ) -> check_api.Result:
         method = self.config["strict_method"]
         user = self.config["update_bot_account"]
-        if user is None and ctxt.subscription.has_feature(
-            subscription.Features.MERGE_BOT_ACCOUNT
-        ):
-            user = self.config["bot_account"]
-
         try:
             await branch_updater.update(method, ctxt, user)
         except branch_updater.BranchUpdateFailure as e:
@@ -494,15 +472,6 @@ class MergeBaseAction(actions.Action):
             await self.send_signal(ctxt)
             await ctxt.update()
             ctxt.log.info("merged")
-            if self.config[
-                "bot_account"
-            ] is not None and not ctxt.subscription.has_feature(
-                subscription.Features.MERGE_BOT_ACCOUNT
-            ):
-                await ctxt.client.post(
-                    f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
-                    json={"body": BOT_ACCOUNT_DEPRECATION_NOTICE},
-                )
 
         result = await self.merge_report(ctxt)
         if result:
