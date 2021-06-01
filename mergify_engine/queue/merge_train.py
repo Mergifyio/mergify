@@ -266,6 +266,7 @@ class TrainCar(PseudoTrainCar):
                         "body": body,
                         "base": self.train.ref,
                         "head": branch_name,
+                        "draft": True,
                     },
                 )
             ).json()
