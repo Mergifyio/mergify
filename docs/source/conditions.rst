@@ -265,9 +265,11 @@ Here's the list of pull request attribute that can be used in conditions:
      - integer
      - The current year, from 1900 to 9999.
    * - ``current-day-of-week``
-     - integer
-     - The current day of the week. From 1 (Monday) to 7
-       (Sunday). Week start on Monday.
+     - integer or string
+     - The current day of the week. From 1 (Monday) to 7 (Sunday), or one of
+       ``Mon``, ``Tue``, ``Wed``, ``Thu``, ``Fri``, ``Sat``, ``Sun``
+       ``Monday``, ``Tuesday``, ``Wednesday``, ``Thursday``, ``Friday``,
+       ``Saturday``, ``Sunday``. Weeks start on Monday.
 
 
 .. important::

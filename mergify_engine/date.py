@@ -20,6 +20,9 @@ import dataclasses
 class PartialDatetime:
     value: int
 
+    def __str__(self) -> str:
+        return str(self.value)
+
 
 @dataclasses.dataclass
 class Year(PartialDatetime):
@@ -38,4 +41,28 @@ class Day(PartialDatetime):
 
 @dataclasses.dataclass
 class DayOfWeek(PartialDatetime):
-    pass
+    _SHORT_DAY = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    _LONG_DAY = (
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    )
+
+    @classmethod
+    def from_string(cls, string: str) -> "DayOfWeek":
+        try:
+            return cls(cls._SHORT_DAY.index(string.lower()) + 1)
+        except ValueError:
+            pass
+        try:
+            return cls(cls._LONG_DAY.index(string) + 1)
+        except ValueError:
+            pass
+        return cls(int(string))
+
+    def __str__(self) -> str:
+        return self._SHORT_DAY[self.value - 1].capitalize()

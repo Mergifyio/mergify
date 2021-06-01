@@ -145,8 +145,6 @@ class Filter(typing.Generic[FilterResultT]):
                     + op
                     + nodes[1].replace(tzinfo=None).isoformat(timespec="seconds")
                 )
-            elif isinstance(nodes[1], date.PartialDatetime):
-                return str(nodes[0]) + op + str(nodes[1].value)
             elif isinstance(nodes[1], datetime.time):
                 return (
                     str(nodes[0])
