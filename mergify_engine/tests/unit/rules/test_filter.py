@@ -217,6 +217,30 @@ async def test_time_binary() -> None:
     assert await f(FakePR({"foo": time(8, 9)}))
 
 
+@freeze_time("2012-01-14")
+async def test_dow_str() -> None:
+    assert "foo>=Fri" == str(filter.BinaryFilter({">=": ("foo", date.DayOfWeek(5))}))
+    assert "foo<=Sun" == str(filter.BinaryFilter({"<=": ("foo", date.DayOfWeek(7))}))
+    assert "foo=Wed" == str(filter.BinaryFilter({"=": ("foo", date.DayOfWeek(3))}))
+
+
+@pytest.mark.parametrize(
+    "klass",
+    (
+        date.Day,
+        date.Month,
+        date.Year,
+    ),
+)
+@freeze_time("2012-01-14")
+async def test_partial_datetime_str(
+    klass: typing.Type[date.PartialDatetime],
+) -> None:
+    assert "foo>=5" == str(filter.BinaryFilter({">=": ("foo", klass(5))}))
+    assert "foo<=11" == str(filter.BinaryFilter({"<=": ("foo", klass(11))}))
+    assert "foo=3" == str(filter.BinaryFilter({"=": ("foo", klass(3))}))
+
+
 @pytest.mark.parametrize(
     "klass",
     (
@@ -230,21 +254,18 @@ async def test_time_binary() -> None:
 async def test_partial_datetime_binary(
     klass: typing.Type[date.PartialDatetime],
 ) -> None:
-    assert "foo>=5" == str(filter.BinaryFilter({">=": ("foo", klass(5))}))
-    assert "foo<=23" == str(filter.BinaryFilter({"<=": ("foo", klass(23))}))
-    assert "foo=3" == str(filter.BinaryFilter({"=": ("foo", klass(3))}))
 
     f = filter.BinaryFilter({"<=": ("foo", klass(5))})
     assert await f(FakePR({"foo": klass(2)}))
     assert await f(FakePR({"foo": klass(5)}))
-    assert not await f(FakePR({"foo": klass(30)}))
+    assert not await f(FakePR({"foo": klass(7)}))
 
     f = filter.BinaryFilter({"=": ("foo", klass(5))})
     assert await f(FakePR({"foo": klass(5)}))
-    assert not await f(FakePR({"foo": klass(30)}))
+    assert not await f(FakePR({"foo": klass(7)}))
 
     f = filter.BinaryFilter({">": ("foo", klass(5))})
-    assert await f(FakePR({"foo": klass(30)}))
+    assert await f(FakePR({"foo": klass(7)}))
     assert not await f(FakePR({"foo": klass(2)}))
     assert not await f(FakePR({"foo": klass(5)}))
 
