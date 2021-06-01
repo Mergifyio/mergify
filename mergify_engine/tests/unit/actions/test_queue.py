@@ -87,6 +87,7 @@ async def fake_context(repository, number, **kwargs):
     pull: github_types.GitHubPullRequest = {
         "locked": False,
         "assignees": [],
+        "updated_at": github_types.ISODateTimeType(""),
         "requested_reviewers": [],
         "requested_teams": [],
         "milestone": None,

@@ -328,6 +328,9 @@ def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
 def _as_datetime(value: typing.Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return value
+    elif isinstance(value, datetime.timedelta):
+        dt = utils.utcnow()
+        return dt + value
     elif isinstance(value, date.PartialDatetime):
         dt = utils.utcnow().replace(
             hour=0,

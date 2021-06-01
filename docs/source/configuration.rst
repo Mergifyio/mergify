@@ -169,6 +169,61 @@ Examples
           merge:
             method: merge
 
+.. _iso datetime:
+
+Datetime
+~~~~~~~~
+
+The date and datetime format must follow the ISO 8601 standard. If timezone is missing, it's assumed to be UTC.
+
+.. code-block::
+
+   2021-04-05
+   2012-09-17T22:02:51
+   2008-09-22T14:01:54Z
+   2013-12-05T07:19:04-08:00
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+      - name: end of life version 10.0
+        conditions:
+          - base=stable/10.0
+          - -closed
+          - current-datetime>=2021-04-05
+        actions:
+          close:
+            message: |
+              The pull request base branch is end of life.
+
+.. _time interval:
+
+Time interval
+~~~~~~~~~~~~~
+
+Some conditions take a time interval. The format is "[[-]DD days] [+-][HH:MM]":
+
+* DD, the number of days
+* HH, the number of hours
+* MM, the number of minutes
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+      - name: close stale pull request
+        conditions:
+          - base=main
+          - -closed
+          - updated-at>=14 days
+        actions:
+          close:
+            message: |
+              This pull request looks stale. Feel free to reopen it if you thinkg it's a mistake.
+
 Disabling Rules
 ~~~~~~~~~~~~~~~
 

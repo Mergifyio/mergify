@@ -14,11 +14,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import re
 import typing
 
 import pyparsing
 
 from mergify_engine import date
+from mergify_engine import utils
 
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
@@ -94,6 +96,41 @@ _day_of_week = _day_of_week_str.setParseAction(
     lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 7,
     message="day-of-week must be between 1 and 7",
 )
+
+
+# PostgreSQL's day-time interval format without seconds and microseconds, e.g. "3 days 04:05"
+_interval_re = re.compile(
+    r"^"
+    r"(?:(?P<days>-?\d+) (days? ?))?"
+    r"(?:(?P<sign>[-+])?"
+    r"(?P<hours>\d+):"
+    r"(?P<minutes>\d\d)"
+    r")?$"
+)
+
+
+def _interval_result_to_dt(tokens):
+    m = _interval_re.match(tokens[0])
+    if m is None:
+        raise pyparsing.ParseException("invalid time interval")
+    kw = m.groupdict()
+    days = datetime.timedelta(float(kw.pop("days", 0) or 0))
+    sign = -1 if kw.pop("sign", "+") == "-" else 1
+    kw = {k: float(v) for k, v in kw.items() if v is not None}
+    return utils.utcnow() - (days + sign * datetime.timedelta(**kw))
+
+
+interval = text.copy().setParseAction(_interval_result_to_dt)
+
+
+def _iso_datetime(tokens):
+    try:
+        return date.fromisoformat(tokens[0])
+    except ValueError:
+        raise pyparsing.ParseException("invalid datetime")
+
+
+iso_datetime = text.copy().setParseAction(_iso_datetime)
 
 _day_of_week_range = (
     _day_of_week + pyparsing.Literal("-") + _day_of_week
@@ -229,6 +266,7 @@ current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
 schedule = ("schedule" + equality_operators + _schedule).setParseAction(
     convert_equality_to_at
 )
+updated_at = "updated-at" + range_operators + (interval | iso_datetime)
 
 quantifiable_attributes = (
     head
@@ -274,6 +312,7 @@ datetime_attributes = (
     | current_year
     | current_day
     | schedule
+    | updated_at
 )
 
 search = (

@@ -106,6 +106,7 @@ async def fake_context(repository, number, **kwargs):
         "milestone": None,
         "title": "awesome",
         "body": "",
+        "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
         "id": 123,
         "maintainer_can_modify": True,
         "user": {
