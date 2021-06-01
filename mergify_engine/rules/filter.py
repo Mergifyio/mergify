@@ -80,6 +80,7 @@ TreeT = typing.TypedDict(
         ">=": TreeBinaryLeafT,
         "!=": TreeBinaryLeafT,
         "~=": TreeBinaryLeafT,
+        "@": typing.Union["TreeT", "CompiledTreeT[GetAttrObject]"],  # type: ignore[misc]
         "or": typing.Iterable[typing.Union["TreeT", "CompiledTreeT[GetAttrObject]"]],  # type: ignore[misc]
         "and": typing.Iterable[typing.Union["TreeT", "CompiledTreeT[GetAttrObject]"]],  # type: ignore[misc]
     },
@@ -209,6 +210,12 @@ class Filter(typing.Generic[FilterResultT]):
             raise ParseError(tree)
 
         operator_name, nodes = list(tree.items())[0]
+
+        if operator_name == "@":
+            # NOTE(sileht): the value is already a TreeT, so just evaluate it.
+            # e.g., {"@", ("schedule", {"and": [{"=", ("time", "10:10"), ...}]})}
+            return self.build_evaluator(typing.cast(typing.Tuple[str, TreeT], nodes)[1])
+
         try:
             multiple_op = self.multiple_operators[operator_name]
         except KeyError:

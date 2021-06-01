@@ -51,6 +51,82 @@ from mergify_engine.rules import parser
             {"=": ("current-day-of-week", date.DayOfWeek(3))},
         ),
         ("current-day-of-week=sun", {"=": ("current-day-of-week", date.DayOfWeek(7))}),
+        (
+            "schedule=MON-friday 10:02-22:35",
+            {
+                "@": (
+                    "schedule",
+                    {
+                        "and": (
+                            {
+                                "and": (
+                                    {">=": ("current-day-of-week", date.DayOfWeek(1))},
+                                    {"<=": ("current-day-of-week", date.DayOfWeek(5))},
+                                )
+                            },
+                            {
+                                "and": (
+                                    {
+                                        ">=": (
+                                            "current-time",
+                                            datetime.time(
+                                                10, 2, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                    {
+                                        "<=": (
+                                            "current-time",
+                                            datetime.time(
+                                                22, 35, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
+        (
+            "schedule=MON-friday",
+            {
+                "@": (
+                    "schedule",
+                    {
+                        "and": (
+                            {">=": ("current-day-of-week", date.DayOfWeek(1))},
+                            {"<=": ("current-day-of-week", date.DayOfWeek(5))},
+                        )
+                    },
+                )
+            },
+        ),
+        (
+            "schedule=10:02-22:35",
+            {
+                "@": (
+                    "schedule",
+                    {
+                        "and": (
+                            {
+                                ">=": (
+                                    "current-time",
+                                    datetime.time(10, 2, tzinfo=datetime.timezone.utc),
+                                )
+                            },
+                            {
+                                "<=": (
+                                    "current-time",
+                                    datetime.time(22, 35, tzinfo=datetime.timezone.utc),
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
