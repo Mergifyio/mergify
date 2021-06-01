@@ -95,6 +95,39 @@ _day_of_week = _day_of_week_str.setParseAction(
     message="day-of-week must be between 1 and 7",
 )
 
+_day_of_week_range = (
+    _day_of_week + pyparsing.Literal("-") + _day_of_week
+).setParseAction(
+    lambda toks: {
+        "and": (
+            {">=": ("day-of-week", toks[0])},
+            {"<=": ("day-of-week", toks[2])},
+        )
+    }
+)
+_time_range = (_match_time + pyparsing.Literal("-") + _match_time).setParseAction(
+    lambda toks: {
+        "and": (
+            {">=": ("time", toks[0])},
+            {"<=": ("time", toks[2])},
+        )
+    }
+)
+_calendar = (_day_of_week_range + pyparsing.White(" ") + _time_range).setParseAction(
+    lambda toks: {"and": (toks[0], toks[2])}
+)
+_calendar = _calendar | _time_range | _day_of_week_range
+
+
+def convert_equality_to_at(toks):
+    not_ = toks[1] == "!="
+    toks[1] = "@"
+    if not_:
+        return {"-": toks}
+    else:
+        return toks
+
+
 regex_operators = pyparsing.Literal("~=")
 
 
@@ -188,6 +221,9 @@ day = "day" + _match_with_operator(_day)
 month = "month" + _match_with_operator(_month)
 year = "year" + _match_with_operator(_year)
 day_of_week = "day-of-week" + _match_with_operator(_day_of_week)
+calendar = ("calendar" + equality_operators + _calendar).setParseAction(
+    convert_equality_to_at
+)
 
 quantifiable_attributes = (
     head
@@ -235,6 +271,7 @@ non_quantifiable_attributes = (
     | month
     | year
     | day
+    | calendar
 )
 
 

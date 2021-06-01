@@ -49,15 +49,15 @@ class RuleCondition:
     -merged
     """
 
-    condition: dataclasses.InitVar[typing.Union[str, FakeTreeT]]
+    condition: typing.Union[str, FakeTreeT]
     description: typing.Optional[str] = None
     partial_filter: filter.Filter[bool] = dataclasses.field(init=False)
     match: bool = dataclasses.field(init=False, default=False)
     _used: bool = dataclasses.field(init=False, default=False)
     evaluation_error: typing.Optional[str] = dataclasses.field(init=False, default=None)
 
-    def __post_init__(self, condition: typing.Union[str, FakeTreeT]) -> None:
-        self.update(condition)
+    def __post_init__(self) -> None:
+        self.update(self.condition)
 
     def update(self, condition_raw: typing.Union[str, FakeTreeT]) -> None:
         try:
@@ -91,13 +91,13 @@ class RuleCondition:
         self.update(new_tree)
 
     def __str__(self) -> str:
-        # NOTE(sileht): Move _tree_to_str() here?
-        return str(self.partial_filter)
+        if isinstance(self.condition, str):
+            return self.condition
+        else:
+            return str(self.partial_filter)
 
     def copy(self) -> "RuleCondition":
-        return RuleCondition(
-            typing.cast(FakeTreeT, self.partial_filter.tree), self.description
-        )
+        return RuleCondition(self.condition, self.description)
 
     async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
         if self._used:

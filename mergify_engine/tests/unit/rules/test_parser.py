@@ -43,6 +43,82 @@ from mergify_engine.rules import parser
         ("day-of-week=MON", {"=": ("day-of-week", date.DayOfWeek(1))}),
         ("day-of-week=WednesDay", {"=": ("day-of-week", date.DayOfWeek(3))}),
         ("day-of-week=sun", {"=": ("day-of-week", date.DayOfWeek(7))}),
+        (
+            "calendar=MON-friday 10:02-22:35",
+            {
+                "@": (
+                    "calendar",
+                    {
+                        "and": (
+                            {
+                                "and": (
+                                    {">=": ("day-of-week", date.DayOfWeek(1))},
+                                    {"<=": ("day-of-week", date.DayOfWeek(5))},
+                                )
+                            },
+                            {
+                                "and": (
+                                    {
+                                        ">=": (
+                                            "time",
+                                            datetime.time(
+                                                10, 2, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                    {
+                                        "<=": (
+                                            "time",
+                                            datetime.time(
+                                                22, 35, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
+        (
+            "calendar=MON-friday",
+            {
+                "@": (
+                    "calendar",
+                    {
+                        "and": (
+                            {">=": ("day-of-week", date.DayOfWeek(1))},
+                            {"<=": ("day-of-week", date.DayOfWeek(5))},
+                        )
+                    },
+                )
+            },
+        ),
+        (
+            "calendar=10:02-22:35",
+            {
+                "@": (
+                    "calendar",
+                    {
+                        "and": (
+                            {
+                                ">=": (
+                                    "time",
+                                    datetime.time(10, 2, tzinfo=datetime.timezone.utc),
+                                )
+                            },
+                            {
+                                "<=": (
+                                    "time",
+                                    datetime.time(22, 35, tzinfo=datetime.timezone.utc),
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
