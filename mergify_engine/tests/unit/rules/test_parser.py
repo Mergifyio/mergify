@@ -15,11 +15,15 @@
 # under the License.
 import datetime
 
+from freezegun import freeze_time
 import pyparsing
 import pytest
 
 from mergify_engine import date
 from mergify_engine.rules import parser
+
+
+now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
 
 
 @pytest.mark.parametrize(
@@ -128,6 +132,26 @@ from mergify_engine.rules import parser
             },
         ),
         ("locked", {"=": ("locked", True)}),
+        (
+            f"merged-at<={now.isoformat()}",
+            {"<=": ("merged-at", now)},
+        ),
+        (
+            f"closed-at<={now.isoformat()}",
+            {"<=": ("closed-at", now)},
+        ),
+        (
+            f"merged-at<={now.isoformat()}",
+            {"<=": ("merged-at", now)},
+        ),
+        (
+            f"updated-at<={now.isoformat()}",
+            {"<=": ("updated-at", now)},
+        ),
+        (
+            f"current-datetime<={now.isoformat()}",
+            {"<=": ("current-datetime", now)},
+        ),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
         ("#assignee=3", {"=": ("#assignee", 3)}),
@@ -183,6 +207,7 @@ from mergify_engine.rules import parser
         ),
     ),
 )
+@freeze_time(now)
 def test_search(line, result):
     assert result == tuple(parser.search.parseString(line, parseAll=True))[0]
 
@@ -206,6 +231,10 @@ def test_search(line, result):
         "current-month=100",
         "current-year=0",
         "current-day=100",
+        "current-day>100",
+        "updated-at=7 days 18:00",
+        "updated-at>=100",
+        "current-datetime>=100",
     ),
 )
 def test_invalid(line):

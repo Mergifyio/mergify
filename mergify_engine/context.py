@@ -522,7 +522,13 @@ class ContextCache(typing.TypedDict, total=False):
 
 
 ContextAttributeType = typing.Union[
-    bool, typing.List[str], str, int, datetime.time, date.PartialDatetime
+    bool,
+    typing.List[str],
+    str,
+    int,
+    datetime.time,
+    date.PartialDatetime,
+    datetime.datetime,
 ]
 
 
@@ -855,6 +861,8 @@ class Context(object):
                 if ctxt.pull["merged"]:
                     depends_on.append(f"#{pull_request_number}")
             return depends_on
+        elif name == "current-datetime":
+            return utils.utcnow()
         elif name == "current-time":
             return utils.utcnow().timetz()
         elif name == "current-day":
@@ -865,6 +873,18 @@ class Context(object):
             return date.Year(utils.utcnow().year)
         elif name == "current-day-of-week":
             return date.DayOfWeek(utils.utcnow().isoweekday())
+        elif name == "updated-at":
+            return date.fromisoformat(self.pull["updated_at"])
+        elif name == "created-at":
+            return date.fromisoformat(self.pull["created_at"])
+        elif name == "closed-at":
+            if self.pull["closed_at"] is None:
+                return date.DT_MAX
+            return date.fromisoformat(self.pull["closed_at"])
+        elif name == "merged-at":
+            if self.pull["merged_at"] is None:
+                return date.DT_MAX
+            return date.fromisoformat(self.pull["merged_at"])
         else:
             raise PullRequestAttributeError(name)
 

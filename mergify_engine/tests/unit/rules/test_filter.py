@@ -20,6 +20,7 @@ from freezegun import freeze_time
 import pytest
 
 from mergify_engine import date
+from mergify_engine import utils
 from mergify_engine.rules import filter
 from mergify_engine.rules import parser
 
@@ -163,37 +164,35 @@ def time(hour: int, minute: int) -> datetime.time:
     return datetime.time(hour=hour, minute=minute, tzinfo=datetime.timezone.utc)
 
 
-def dtime(hour: int, minute: int) -> datetime.datetime:
-    return datetime.datetime.utcnow().replace(
-        hour=hour, minute=minute, tzinfo=datetime.timezone.utc
-    )
+def dtime(day: int) -> datetime.datetime:
+    return utils.utcnow().replace(day=day)
 
 
 @freeze_time("2012-01-14")
 async def test_datetime_binary() -> None:
-    assert "foo>=2012-01-14T00:00:00" == str(
-        filter.BinaryFilter({">=": ("foo", dtime(0, 0))})
+    assert "foo>=2012-01-05T00:00:00" == str(
+        filter.BinaryFilter({">=": ("foo", dtime(5))})
     )
-    assert "foo<=2012-01-14T23:59:00" == str(
-        filter.BinaryFilter({"<=": ("foo", dtime(23, 59))})
+    assert "foo<=2012-01-05T23:59:00" == str(
+        filter.BinaryFilter({"<=": ("foo", dtime(5).replace(hour=23, minute=59))})
     )
-    assert "foo<=2012-01-14T03:09:00" == str(
-        filter.BinaryFilter({"<=": ("foo", dtime(3, 9))})
+    assert "foo<=2012-01-05T03:09:00" == str(
+        filter.BinaryFilter({"<=": ("foo", dtime(5).replace(hour=3, minute=9))})
     )
 
-    f = filter.BinaryFilter({"<=": ("foo", dtime(5, 8))})
-    assert await f(FakePR({"foo": dtime(5, 8)}))
-    assert await f(FakePR({"foo": dtime(2, 1)}))
-    assert await f(FakePR({"foo": dtime(5, 1)}))
-    assert not await f(FakePR({"foo": dtime(6, 2)}))
-    assert not await f(FakePR({"foo": dtime(8, 9)}))
+    f = filter.BinaryFilter({"<=": ("foo", utils.utcnow())})
+    assert await f(FakePR({"foo": dtime(14)}))
+    assert await f(FakePR({"foo": dtime(2)}))
+    assert await f(FakePR({"foo": dtime(5)}))
+    assert not await f(FakePR({"foo": dtime(18)}))
+    assert not await f(FakePR({"foo": dtime(23)}))
 
-    f = filter.BinaryFilter({">=": ("foo", dtime(5, 8))})
-    assert await f(FakePR({"foo": dtime(5, 8)}))
-    assert not await f(FakePR({"foo": dtime(2, 1)}))
-    assert not await f(FakePR({"foo": dtime(5, 1)}))
-    assert await f(FakePR({"foo": dtime(6, 2)}))
-    assert await f(FakePR({"foo": dtime(8, 9)}))
+    f = filter.BinaryFilter({">=": ("foo", utils.utcnow())})
+    assert await f(FakePR({"foo": dtime(14)}))
+    assert not await f(FakePR({"foo": dtime(2)}))
+    assert not await f(FakePR({"foo": dtime(5)}))
+    assert await f(FakePR({"foo": dtime(18)}))
+    assert await f(FakePR({"foo": dtime(23)}))
 
 
 @freeze_time("2012-01-14")
@@ -461,15 +460,15 @@ async def test_year_near_datetime() -> None:
         frozen_time.move_to(today.replace(year=2016))
         assert await f(FakePR({"foo": date.Year(2016)})) == in_2017
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
         f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
         frozen_time.move_to(today.replace(year=2016))
-        assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2016)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
@@ -477,15 +476,15 @@ async def test_year_near_datetime() -> None:
         frozen_time.move_to(today.replace(year=2016))
         assert await f(FakePR({"foo": date.Year(2016)})) == in_2017
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
         f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
         frozen_time.move_to(today.replace(year=2016))
-        assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2016)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
@@ -493,7 +492,7 @@ async def test_year_near_datetime() -> None:
         frozen_time.move_to(today.replace(year=2016))
         assert await f(FakePR({"foo": date.Year(2016)})) == in_2017
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
@@ -501,7 +500,7 @@ async def test_year_near_datetime() -> None:
         frozen_time.move_to(today.replace(year=2016))
         assert await f(FakePR({"foo": date.Year(2016)})) == in_2017
         frozen_time.move_to(today.replace(year=2017))
-        assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+        assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
         frozen_time.move_to(today.replace(year=2011))
         assert await f(FakePR({"foo": date.Year(2011)})) == in_2016
 
@@ -592,120 +591,132 @@ async def test_time_near_datetime() -> None:
         assert await f(FakePR({"foo": frozen_time().timetz()})) == nextday
 
 
-@freeze_time("2012-01-14T12:15:00")
+@freeze_time("2012-01-14T05:08:00")
 async def test_datetime_near_datetime() -> None:
-    today = datetime.datetime(2012, 1, 14, 5, 8, 0, 0, tzinfo=datetime.timezone.utc)
-    soon = datetime.datetime(2012, 1, 14, 5, 9, 0, 0, tzinfo=datetime.timezone.utc)
+    # Condition on past date
+    for op in ("<=", ">=", ">", "<", "=", "!="):
+        f = filter.NearDatetimeFilter(
+            typing.cast(filter.TreeT, {op: ("updated-at", dtime(8))})
+        )
+        assert (await f(FakePR({"updated-at": dtime(2)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(10)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(14)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(18)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(8)}))) == date.DT_MAX, str(f)
 
-    f = filter.NearDatetimeFilter({"<=": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == soon
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    # Condition on future date with equality
+    for op in ("<=", ">=", "=", "!="):
+        f = filter.NearDatetimeFilter(
+            typing.cast(filter.TreeT, {op: ("updated-at", dtime(16))})
+        )
+        assert (await f(FakePR({"updated-at": dtime(2)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(10)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(14)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(18)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(16)}))) == dtime(16).replace(
+            minute=9
+        ), str(f)
 
-    f = filter.NearDatetimeFilter({"<": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
-
-    f = filter.NearDatetimeFilter({">=": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == soon
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
-
-    f = filter.NearDatetimeFilter({">": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
-
-    f = filter.NearDatetimeFilter({"=": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == soon
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
-
-    f = filter.NearDatetimeFilter({"!=": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == soon
-    assert await f(FakePR({"foo": dtime(2, 1)})) == today
-    assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    # Condition on future date without equality
+    for op in ("<", ">"):
+        f = filter.NearDatetimeFilter(
+            typing.cast(filter.TreeT, {op: ("updated-at", dtime(16))})
+        )
+        assert (await f(FakePR({"updated-at": dtime(2)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(10)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(14)}))) == dtime(16), str(f)
+        assert (await f(FakePR({"updated-at": dtime(18)}))) == date.DT_MAX, str(f)
+        assert (await f(FakePR({"updated-at": dtime(16)}))) == date.DT_MAX, str(f)
 
 
-@freeze_time("2012-01-14T12:05:00")
 async def test_multiple_near_datetime() -> None:
-    atmidnight = datetime.datetime(
-        2012, 1, 15, 0, 0, 0, 0, tzinfo=datetime.timezone.utc
-    )
-    today = datetime.datetime(2012, 1, 14, 5, 8, 0, 0, tzinfo=datetime.timezone.utc)
-    in_two_hours = datetime.datetime(
-        2012, 1, 14, 7, 5, 0, 0, tzinfo=datetime.timezone.utc
-    )
-    soon = datetime.datetime(2012, 1, 14, 5, 9, 0, 0, tzinfo=datetime.timezone.utc)
+    with freeze_time("2012-01-14T05:08:00", tz_offset=0) as frozen_time:
+        now = frozen_time().replace(tzinfo=datetime.timezone.utc)
+        atmidnight = now.replace(
+            day=now.day + 1,
+            hour=0,
+            second=0,
+            minute=0,
+            microsecond=0,
+        )
+        in_two_hours = now + datetime.timedelta(hours=2)
+        soon = now + datetime.timedelta(minutes=1)
 
-    f = filter.NearDatetimeFilter(
-        {
-            "or": [
-                {"<=": ("foo", in_two_hours.timetz())},
-                {"<=": ("foo", today.timetz())},
-            ]
-        }
-    )
-    assert await f(FakePR({"foo": time(5, 8)})) == soon
-    assert await f(FakePR({"foo": time(2, 1)})) == today
-    assert await f(FakePR({"foo": time(6, 8)})) == in_two_hours
-    assert await f(FakePR({"foo": time(8, 9)})) == atmidnight
-    assert await f(FakePR({"foo": time(18, 9)})) == atmidnight
+        f = filter.NearDatetimeFilter(
+            {
+                "or": [
+                    {"<=": ("foo", in_two_hours.timetz())},
+                    {"<=": ("foo", now.timetz())},
+                ]
+            }
+        )
+        frozen_time.move_to(now)
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == soon
+        frozen_time.move_to(now.replace(hour=2, minute=1))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == now
+        frozen_time.move_to(now.replace(hour=6, minute=8))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == in_two_hours
+        frozen_time.move_to(now.replace(hour=8, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
+        frozen_time.move_to(now.replace(hour=18, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
 
-    f = filter.NearDatetimeFilter(
-        {
-            "and": [
-                {">=": ("foo", in_two_hours.timetz())},
-                {">=": ("foo", today.timetz())},
-            ]
-        }
-    )
-    assert await f(FakePR({"foo": time(5, 8)})) == soon
-    assert await f(FakePR({"foo": time(2, 1)})) == today
-    assert await f(FakePR({"foo": time(6, 8)})) == in_two_hours
-    assert await f(FakePR({"foo": time(8, 9)})) == atmidnight
-    assert await f(FakePR({"foo": time(18, 9)})) == atmidnight
+        f = filter.NearDatetimeFilter(
+            {
+                "and": [
+                    {">=": ("foo", in_two_hours.timetz())},
+                    {">=": ("foo", now.timetz())},
+                ]
+            }
+        )
+        frozen_time.move_to(now)
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == soon
+        frozen_time.move_to(now.replace(hour=2, minute=1))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == now
+        frozen_time.move_to(now.replace(hour=6, minute=8))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == in_two_hours
+        frozen_time.move_to(now.replace(hour=8, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
+        frozen_time.move_to(now.replace(hour=18, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
 
-    f = filter.NearDatetimeFilter(
-        {
-            "or": [
-                {">=": ("foo", in_two_hours.timetz())},
-                {">=": ("foo", today.timetz())},
-            ]
-        }
-    )
-    assert await f(FakePR({"foo": time(5, 8)})) == soon
-    assert await f(FakePR({"foo": time(2, 1)})) == today
-    assert await f(FakePR({"foo": time(6, 8)})) == in_two_hours
-    assert await f(FakePR({"foo": time(8, 9)})) == atmidnight
-    assert await f(FakePR({"foo": time(18, 9)})) == atmidnight
+        f = filter.NearDatetimeFilter(
+            {
+                "or": [
+                    {">=": ("foo", in_two_hours.timetz())},
+                    {">=": ("foo", now.timetz())},
+                ]
+            }
+        )
+        frozen_time.move_to(now)
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == soon
+        frozen_time.move_to(now.replace(hour=2, minute=1))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == now
+        frozen_time.move_to(now.replace(hour=6, minute=8))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == in_two_hours
+        frozen_time.move_to(now.replace(hour=8, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
+        frozen_time.move_to(now.replace(hour=18, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
 
-    f = filter.NearDatetimeFilter(
-        {
-            "and": [
-                {"<=": ("foo", in_two_hours.timetz())},
-                {"<=": ("foo", today.timetz())},
-            ]
-        }
-    )
-    assert await f(FakePR({"foo": time(5, 8)})) == soon
-    assert await f(FakePR({"foo": time(2, 1)})) == today
-    assert await f(FakePR({"foo": time(6, 8)})) == in_two_hours
-    assert await f(FakePR({"foo": time(8, 9)})) == atmidnight
-    assert await f(FakePR({"foo": time(18, 9)})) == atmidnight
+        f = filter.NearDatetimeFilter(
+            {
+                "and": [
+                    {"<=": ("foo", in_two_hours.timetz())},
+                    {"<=": ("foo", now.timetz())},
+                ]
+            }
+        )
+        frozen_time.move_to(now)
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == soon
+        frozen_time.move_to(now.replace(hour=2, minute=1))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == now
+        frozen_time.move_to(now.replace(hour=6, minute=8))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == in_two_hours
+        frozen_time.move_to(now.replace(hour=8, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
+        frozen_time.move_to(now.replace(hour=18, minute=9))
+        assert await f(FakePR({"foo": frozen_time().timetz()})) == atmidnight
 
 
 async def test_or() -> None:

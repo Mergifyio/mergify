@@ -252,6 +252,21 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``title``
      - string
      - The title of the pull request.
+   * - ``created-at``
+     - :ref:`Datetime <iso datetime>`
+     - The time the pull request was created at.
+   * - ``updated-at``
+     - :ref:`Datetime <iso datetime>`
+     - The time the pull request was updated at.
+   * - ``merged-at``
+     - :ref:`Datetime <iso datetime>`
+     - The time the pull request was merged at.
+   * - ``closed-at``
+     - :ref:`Datetime <iso datetime>`
+     - The time the pull request was closed at.
+   * - ``current-datetime``
+     - :ref:`Datetime <iso datetime>`
+     - The current date and time.
    * - ``current-time``
      - string
      - The current time in format ``HH:MM``.
@@ -281,7 +296,9 @@ Here's the list of pull request attribute that can be used in conditions:
    conditions based on time ranges that are too narrow or the condition might
    never be true.
 
-   ``current-time`` does not support ``~=``, ``=`` and ``!=`` operators.
+   ``current-datetime``, ``current-time``, ``created-at``, ``updated-at``,
+   ``closed-at`` and ``merged-at`` do not support ``~=``, ``=`` and ``!=``
+   operators.
    ``schedule`` only supports ``=`` and ``!=``.
 
    The timezone for all time-based conditions is UTC.
