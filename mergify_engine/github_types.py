@@ -244,6 +244,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     requested_reviewers: typing.List[GitHubAccount]
     requested_teams: typing.List[GitHubTeam]
     milestone: typing.Optional[GitHubMilestone]
+    updated_at: ISODateTimeType
 
 
 # https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads

@@ -61,6 +61,7 @@ GH_PULL = github_types.GitHubPullRequest(
         "milestone": None,
         "title": "",
         "body": "",
+        "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
         "id": github_types.GitHubPullRequestId(0),
         "maintainer_can_modify": False,
         "rebaseable": False,

@@ -522,7 +522,13 @@ class ContextCache(typing.TypedDict, total=False):
 
 
 ContextAttributeType = typing.Union[
-    bool, typing.List[str], str, int, datetime.time, date.PartialDatetime
+    bool,
+    typing.List[str],
+    str,
+    int,
+    datetime.time,
+    date.PartialDatetime,
+    datetime.datetime,
 ]
 
 
@@ -872,6 +878,8 @@ class Context(object):
             return date.Year(utils.utcnow().year)
         elif name == "day-of-week":
             return date.DayOfWeek(utils.utcnow().isoweekday())
+        elif name == "updated-at":
+            return date.fromisoformat(self.pull["updated_at"])
         else:
             raise PullRequestAttributeError(name)
 
