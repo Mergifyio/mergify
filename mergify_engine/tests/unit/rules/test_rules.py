@@ -930,6 +930,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "maintainer_can_modify": True,
                 "rebaseable": True,
                 "state": "closed",
+                "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
                 "merged_by": None,
                 "merged_at": None,
                 "merged": False,

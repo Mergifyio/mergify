@@ -93,6 +93,7 @@ _DUMMY_PR = DummyPullRequest(
                 "id": github_types.GitHubPullRequestId(0),
                 "maintainer_can_modify": False,
                 "state": "open",
+                "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
                 "merged": False,
                 "merged_by": None,
                 "merged_at": None,

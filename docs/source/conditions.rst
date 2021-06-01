@@ -252,6 +252,10 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``title``
      - string
      - The title of the pull request.
+   * - ``updated-at``
+     - time interval or ISO8601 datetime
+     - The last time the pull request was updated.
+       (example: 7 days 18:10)
    * - ``current-time``
      - string
      - The current time in format ``HH:MM``.
@@ -277,7 +281,7 @@ Here's the list of pull request attribute that can be used in conditions:
 
 .. important::
 
-   ``current-time`` does not support ``~=``, ``=`` and ``!=`` operators.
+   ``current-time`` and ``updated-at`` do not support ``~=``, ``=`` and ``!=`` operators.
    ``calendar`` only support ``=`` and ``!=``
 
 

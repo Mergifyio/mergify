@@ -407,6 +407,7 @@ async def test_context_depends_on():
             "requested_teams": [],
             "milestone": None,
             "title": "",
+            "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
             "id": github_types.GitHubPullRequestId(0),
             "maintainer_can_modify": False,
             "rebaseable": False,
