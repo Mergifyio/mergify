@@ -14,6 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import datetime
+
+
+DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
 
 
 @dataclasses.dataclass(order=True)
@@ -66,3 +70,13 @@ class DayOfWeek(PartialDatetime):
 
     def __str__(self) -> str:
         return self._SHORT_DAY[self.value - 1].capitalize()
+
+
+def fromisoformat(s: str) -> datetime.datetime:
+    if s[-1] == "Z":
+        s = s[:-1]
+    dt = datetime.datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+    else:
+        return dt.astimezone(datetime.timezone.utc)

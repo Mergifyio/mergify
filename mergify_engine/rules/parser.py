@@ -95,6 +95,16 @@ _day_of_week = _day_of_week_str.setParseAction(
     message="day-of-week must be between 1 and 7",
 )
 
+
+def _iso_datetime(tokens):
+    try:
+        return date.fromisoformat(tokens[0])
+    except ValueError:
+        raise pyparsing.ParseException("invalid datetime")
+
+
+iso_datetime = text.copy().setParseAction(_iso_datetime)
+
 _day_of_week_range = (
     _day_of_week + pyparsing.Literal("-") + _day_of_week
 ).setParseAction(
@@ -173,6 +183,7 @@ def _token_to_dict(
         key_op = ""
         not_ = False
         key, op, value = toks
+
     elif len(toks) == 5:
         # quantifiable_attributes
         not_, key_op, key, op, value = toks
@@ -229,6 +240,11 @@ current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
 schedule = ("schedule" + equality_operators + _schedule).setParseAction(
     convert_equality_to_at
 )
+created_at = "created-at" + range_operators + iso_datetime
+updated_at = "updated-at" + range_operators + iso_datetime
+closed_at = "closed-at" + range_operators + iso_datetime
+merged_at = "merged-at" + range_operators + iso_datetime
+current_datetime = "current-datetime" + range_operators + iso_datetime
 
 quantifiable_attributes = (
     head
@@ -274,10 +290,16 @@ datetime_attributes = (
     | current_year
     | current_day
     | schedule
+    | updated_at
+    | created_at
+    | merged_at
+    | closed_at
+    | current_datetime
 )
 
 search = (
-    (
+    datetime_attributes
+    | (
         pyparsing.Optional(
             (
                 pyparsing.Literal("-").setParseAction(pyparsing.replaceWith(True))
@@ -291,5 +313,4 @@ search = (
             | non_quantifiable_attributes
         )
     )
-    | datetime_attributes
 ).setParseAction(_token_to_dict)

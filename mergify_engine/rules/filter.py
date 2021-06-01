@@ -314,13 +314,10 @@ def BinaryFilter(
     )
 
 
-DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
-
-
 def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
     _dts = list(typing.cast(typing.List[datetime.datetime], Filter._to_list(dts)))
     if len(_dts) == 0:
-        return DT_MAX
+        return date.DT_MAX
     else:
         return min(_dts)
 
@@ -328,6 +325,9 @@ def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
 def _as_datetime(value: typing.Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return value
+    elif isinstance(value, datetime.timedelta):
+        dt = utils.utcnow()
+        return dt + value
     elif isinstance(value, date.PartialDatetime):
         dt = utils.utcnow().replace(
             hour=0,
@@ -344,7 +344,7 @@ def _as_datetime(value: typing.Any) -> datetime.datetime:
         elif isinstance(value, date.Year):
             return dt.replace(year=value.value, month=1, day=1)
         else:
-            return DT_MAX
+            return date.DT_MAX
     elif isinstance(value, datetime.time):
         return utils.utcnow().replace(
             hour=value.hour,
@@ -353,15 +353,21 @@ def _as_datetime(value: typing.Any) -> datetime.datetime:
             microsecond=value.microsecond,
         )
     else:
-        return DT_MAX
+        return date.DT_MAX
 
 
 def _dt_max(value: typing.Any, ref: typing.Any) -> datetime.datetime:
-    return DT_MAX
+    return date.DT_MAX
 
 
 def _dt_identity_max(value: typing.Any) -> datetime.datetime:
-    return DT_MAX
+    return date.DT_MAX
+
+
+def _dt_in_future(value: datetime.datetime) -> datetime.datetime:
+    if value < utils.utcnow():
+        return date.DT_MAX
+    return value
 
 
 def _dt_op(
@@ -396,11 +402,13 @@ def _dt_op(
                         dt_ref = dt_ref.replace(month=1, day=1)
                         dt_ref = dt_ref + datetime.timedelta(days=366)
                         dt_ref = dt_ref.replace(month=1, day=1)
-                    return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+                    return _dt_in_future(
+                        dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+                    )
                 else:
-                    return dt_ref + datetime.timedelta(minutes=1)
+                    return _dt_in_future(dt_ref + datetime.timedelta(minutes=1))
             elif dt_value < dt_ref:
-                return dt_ref
+                return _dt_in_future(dt_ref)
             else:
                 if isinstance(ref, datetime.time):
                     # Condition will change next day at 00:00:00
@@ -424,13 +432,15 @@ def _dt_op(
                     else:
                         dt_ref = dt_ref.replace(month=1, day=1)
                 else:
-                    return DT_MAX
+                    return date.DT_MAX
                 if op in (operator.eq, operator.ne):
-                    return dt_ref
+                    return _dt_in_future(dt_ref)
                 else:
-                    return dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+                    return _dt_in_future(
+                        dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+                    )
         except OverflowError:
-            return DT_MAX
+            return date.DT_MAX
 
     return _operator
 
