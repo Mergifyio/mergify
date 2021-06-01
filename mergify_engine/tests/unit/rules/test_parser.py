@@ -45,6 +45,12 @@ from mergify_engine.rules import parser
         ("current-month=5", {"=": ("current-month", date.Month(5))}),
         ("current-year=2000", {"=": ("current-year", date.Year(2000))}),
         ("current-day-of-week=4", {"=": ("current-day-of-week", date.DayOfWeek(4))}),
+        ("current-day-of-week=MON", {"=": ("current-day-of-week", date.DayOfWeek(1))}),
+        (
+            "current-day-of-week=WednesDay",
+            {"=": ("current-day-of-week", date.DayOfWeek(3))},
+        ),
+        ("current-day-of-week=sun", {"=": ("current-day-of-week", date.DayOfWeek(7))}),
         ("locked", {"=": ("locked", True)}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
