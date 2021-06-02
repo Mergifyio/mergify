@@ -256,6 +256,9 @@ Here's the list of pull request attribute that can be used in conditions:
      - time interval or ISO8601 datetime
      - The last time the pull request was updated.
        (example: 7 days 18:10)
+   * - ``now``
+     - ISO8601 datetime
+     - The current date/time.
    * - ``time``
      - string
      - A time in format ``HH:MM``.
@@ -282,8 +285,10 @@ Here's the list of pull request attribute that can be used in conditions:
 
 .. important::
 
-   ``time`` and ``updated-at`` does not support ``~=``, ``=`` and ``!=`` operators.
+   ``now``, ``time`` and ``updated-at`` does not support ``~=``, ``=`` and ``!=`` operators.
    ``calendar`` only support ``=`` and ``!=``
+
+   Accuracy of all date and time related conditions are around 5 minutes.
 
 
 .. _Operators:

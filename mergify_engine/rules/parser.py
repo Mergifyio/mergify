@@ -262,6 +262,7 @@ calendar = ("calendar" + equality_operators + _calendar).setParseAction(
     convert_equality_to_at
 )
 updated_at = "updated-at" + range_operators + (interval | iso_datetime)
+now = "now" + range_operators + iso_datetime
 
 quantifiable_attributes = (
     head
@@ -311,6 +312,7 @@ non_quantifiable_attributes = (
     | day
     | calendar
     | updated_at
+    | now
 )
 
 
