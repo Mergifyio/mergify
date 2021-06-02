@@ -153,6 +153,10 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                 )
             },
         ),
+        (
+            f"current-datetime<={now.isoformat()}",
+            {"<=": ("current-datetime", now)},
+        ),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
         ("#assignee=3", {"=": ("#assignee", 3)}),
@@ -235,6 +239,7 @@ def test_search(line, result):
         "current-day>100",
         "update-at=7 days 18:00",
         "update-at>=100",
+        "current-datetime>=100",
     ),
 )
 def test_invalid(line):

@@ -267,6 +267,7 @@ schedule = ("schedule" + equality_operators + _schedule).setParseAction(
     convert_equality_to_at
 )
 updated_at = "updated-at" + range_operators + (interval | iso_datetime)
+current_datetime = "current-datetime" + range_operators + iso_datetime
 
 quantifiable_attributes = (
     head
@@ -313,6 +314,7 @@ datetime_attributes = (
     | current_day
     | schedule
     | updated_at
+    | current_datetime
 )
 
 search = (
