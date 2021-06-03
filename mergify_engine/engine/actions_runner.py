@@ -469,9 +469,12 @@ async def run_actions(
 
 
 async def handle(
-    pull_request_rules: rules.PullRequestRules, ctxt: context.Context
+    pull_request_rules: rules.PullRequestRules,
+    condition_sets: rules.ConditionSets,
+    ctxt: context.Context,
 ) -> None:
-    match = await pull_request_rules.get_pull_request_rule(ctxt)
+    sets_match = await condition_sets.get_pull_request_sets(ctxt)
+    match = await pull_request_rules.get_pull_request_rule(ctxt, sets_match)
     await delayed_refresh.plan_next_refresh(match, ctxt)
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 

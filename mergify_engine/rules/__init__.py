@@ -90,6 +90,29 @@ class RuleCondition:
             new_tree = {"-": new_tree}
         self.update(new_tree)
 
+    def resolve_set(self, condition_sets: "EvaluatedConditionSets") -> None:
+        negate = False
+        tree = typing.cast(filter.TreeT, self.partial_filter.tree)
+        if "-" in tree:
+            negate = True
+        tree = tree.get("-", tree)
+        name, value = list(tree.values())[0]
+        if name != "set":
+            return
+
+        condition_set = condition_sets.sets.get(value)
+        if condition_set is None:
+            # Just replace by something always false
+            new_tree = typing.cast(filter.TreeT, {"=": {"number": -42}})
+        else:
+            # TODO(sileht): We may add something to Filter() to not recompute
+            # this part of the tree again and again.
+            new_tree = condition_set.conditions.extract_raw_filter_tree()
+        if negate:
+            self.update({"-": new_tree})
+        else:
+            self.update(typing.cast(FakeTreeT, new_tree))
+
     def __str__(self) -> str:
         if isinstance(self.condition, str):
             return self.condition
@@ -315,7 +338,6 @@ class QueueConfig(typing.TypedDict):
 
 EvaluatedQueueRule = typing.NewType("EvaluatedQueueRule", "QueueRule")
 
-
 QueueName = typing.NewType("QueueName", str)
 
 
@@ -352,8 +374,28 @@ class QueueRule:
         return queue_rules_evaluator.matching_rules[0]
 
 
-T_Rule = typing.TypeVar("T_Rule", Rule, QueueRule)
-T_EvaluatedRule = typing.TypeVar("T_EvaluatedRule", EvaluatedRule, EvaluatedQueueRule)
+EvaluatedConditionSet = typing.NewType("EvaluatedConditionSet", "ConditionSet")
+
+
+@dataclasses.dataclass
+class ConditionSet:
+    conditions: RuleConditionGroup
+
+    async def get_pull_request_rule(
+        self, ctxt: context.Context
+    ) -> EvaluatedConditionSet:
+        evaluator = await ConditionSetEvaluator.create(
+            [self],
+            ctxt,
+            False,
+        )
+        return evaluator.matching_rules[0]
+
+
+T_Rule = typing.TypeVar("T_Rule", Rule, QueueRule, ConditionSet)
+T_EvaluatedRule = typing.TypeVar(
+    "T_EvaluatedRule", EvaluatedRule, EvaluatedQueueRule, EvaluatedConditionSet
+)
 
 
 @dataclasses.dataclass
@@ -450,6 +492,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
 
 RulesEvaluator = GenericRulesEvaluator[Rule, EvaluatedRule]
 QueuesRulesEvaluator = GenericRulesEvaluator[QueueRule, EvaluatedQueueRule]
+ConditionSetEvaluator = GenericRulesEvaluator[ConditionSet, EvaluatedConditionSet]
 
 
 @dataclasses.dataclass
@@ -475,14 +518,20 @@ class PullRequestRules:
     def has_user_rules(self) -> bool:
         return any(rule for rule in self.rules if not rule.hidden)
 
-    async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
+    async def get_pull_request_rule(
+        self, ctxt: context.Context, condition_sets: "EvaluatedConditionSets"
+    ) -> RulesEvaluator:
         runtime_rules = []
         for rule in self.rules:
+            rule_conditions = rule.conditions.copy()
+            for cond in rule_conditions.walk():
+                cond.resolve_set(condition_sets)
+
             if not rule.actions:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
-                        conditions=rule.conditions.copy(),
+                        conditions=rule_conditions,
                         actions=rule.actions,
                         hidden=rule.hidden,
                     )
@@ -507,7 +556,7 @@ class PullRequestRules:
                         Rule(
                             name=rule.name,
                             conditions=RuleConditions(
-                                rule.conditions.copy().conditions
+                                rule_conditions.conditions
                                 + branch_protection_conditions
                                 + depends_on_conditions
                             ),
@@ -522,7 +571,7 @@ class PullRequestRules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
-                        conditions=rule.conditions.copy(),
+                        conditions=rule_conditions,
                         actions=actions_without_special_rules,
                         hidden=rule.hidden,
                     )
@@ -643,6 +692,29 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
     )
 
 
+@dataclasses.dataclass
+class ConditionSets:
+    sets: typing.Dict[str, ConditionSet]
+
+    def __getitem__(self, key: str) -> ConditionSet:
+        return self.sets.__getitem__(key)
+
+    async def get_pull_request_sets(
+        self, ctxt: context.Context
+    ) -> typing.Dict[str, "EvaluatedConditionsSet"]:
+        pass
+
+
+ConditionSetsSchema = voluptuous.All(
+    {
+        str: voluptuous.All(
+            [voluptuous.Coerce(RuleConditionSchema)],
+            voluptuous.Coerce(RuleConditions),
+            voluptuous.Coerce(ConditionSet),
+        )
+    },
+    voluptuous.Coerce(ConditionSets),
+)
 QueueRulesSchema = voluptuous.All(
     [
         voluptuous.All(
@@ -697,6 +769,7 @@ def UserConfigurationSchema(
             "pull_request_rules", default=[]
         ): get_pull_request_rules_schema(partial_validation),
         voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
+        voluptuous.Required("condition_sets", default={}): ConditionSetsSchema,
         voluptuous.Required("defaults", default={}): get_defaults_schema(
             partial_validation
         ),
@@ -766,6 +839,7 @@ class Defaults(typing.TypedDict):
 
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
+    condition_sets: ConditionSets
     queue_rules: QueueRules
     defaults: Defaults
     raw: typing.Dict[str, typing.Any]

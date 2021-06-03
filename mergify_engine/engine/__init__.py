@@ -320,7 +320,9 @@ async def run(
     if ctxt.is_merge_queue_pr():
         await queue_runner.handle(mergify_config["queue_rules"], ctxt)
     else:
-        await actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+        await actions_runner.handle(
+            mergify_config["pull_request_rules"], mergify_config["condition_sets"], ctxt
+        )
 
 
 async def create_initial_summary(
