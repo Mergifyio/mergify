@@ -1,0 +1,48 @@
+name: Upload temporary docs of pull request to GCP
+
+on:
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types:
+      - completed
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    if: >
+      ${{ github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - id: download-artefact
+        uses: actions/github-script@v3.1.0
+        with:
+          result-encoding: string
+          script: |
+            var artifacts = await github.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{github.event.workflow_run.id }},
+            });
+            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name.startsWith("docs-pr-")
+            })[0];
+            var download = await github.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/docs.zip', Buffer.from(download.data));
+            return matchArtifact.name.split("-")[2]
+      - run: unzip docs.zip
+
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_email: ${{ secrets.GCP_DOCS_EMAIL }}
+          service_account_key: ${{ secrets.GCP_DOCS_KEY }}
+          export_default_credentials: true
+      - uses: google-github-actions/upload-cloud-storage@main
+        with:
+          path: docs/build
+          destination: mergify-docs-pr/${{steps.download-artefact.outputs.result}}
