@@ -51,11 +51,103 @@ def test_invalid_condition_re():
     "valid",
     (
         {"name": "hello", "conditions": ["head:master"], "actions": {}},
-        {"name": "hello", "conditions": ["base:foo", "base:baz"], "actions": {}},
+        {"name": "hello", "conditions": ["body:foo", "body:baz"], "actions": {}},
+        {
+            "name": "and",
+            "conditions": [{"and": ["body:foo", "body:baz"]}],
+            "actions": {},
+        },
+        {"name": "or", "conditions": [{"or": ["body:foo", "body:baz"]}], "actions": {}},
+        {
+            "name": "and,or",
+            "conditions": [{"and": ["label=foo", {"or": ["body:foo", "body:baz"]}]}],
+            "actions": {},
+        },
+        {
+            "name": "or,and",
+            "conditions": [{"or": ["label=foo", {"and": ["body:foo", "body:baz"]}]}],
+            "actions": {},
+        },
     ),
 )
 def test_pull_request_rule(valid):
     pull_request_rule_from_list([valid])
+
+
+@pytest.mark.parametrize(
+    "invalid,error",
+    (
+        (
+            {
+                "name": "unknown operator",
+                "conditions": [{"what": ["base:foo", "base:baz"]}],
+                "actions": {},
+            },
+            "extra keys not allowed @ data[0]['conditions'][0]['what']",
+        ),
+        (
+            {
+                "name": "too many nested conditions",
+                "conditions": [
+                    {
+                        "or": [
+                            "label=foo",
+                            {
+                                "and": [
+                                    {
+                                        "or": [
+                                            "base:foo",
+                                            {"and": ["base:baz", "base=main"]},
+                                        ]
+                                    },
+                                    "label=bar",
+                                ]
+                            },
+                        ]
+                    }
+                ],
+                "actions": {},
+            },
+            "Maximun number of nested conditions reached",
+        ),
+        (
+            {
+                "name": "nested checks",
+                "conditions": [
+                    {"or": ["label=foo", {"and": ["base:foo", "check-neutral:baz"]}]}
+                ],
+                "actions": {},
+            },
+            # NOTE(sileht): We don't get:
+            #   "check-neutral cannot be used inside and/or",
+            # because voluptuous only return the first error of Any(). This is
+            # not a big deal as we will drop the check-XXX restriction at some
+            # point
+            "expected str @ data[0]['conditions'][0]['or'][1]",
+        ),
+        (
+            {
+                "name": "not enought items or",
+                "conditions": [{"or": ["label=foo"]}],
+                "actions": {},
+            },
+            "length of value must be at least 2 for dictionary value @ data[0]['conditions'][0]['or']",
+        ),
+        (
+            {
+                "name": "not enought items and",
+                "conditions": [{"and": []}],
+                "actions": {},
+            },
+            "length of value must be at least 2 for dictionary value @ data[0]['conditions'][0]['and']",
+        ),
+    ),
+)
+def test_invalid_pull_request_rule(invalid, error):
+    with pytest.raises(voluptuous.Invalid) as i:
+        pull_request_rule_from_list([invalid])
+
+    assert error in str(i.value)
 
 
 def test_same_names():
@@ -692,7 +784,7 @@ unacceptable character #x0004: special characters are not allowed
         ),
         (
             {"name": "hello", "conditions": [{"foo": "bar"}], "actions": {}},
-            r"expected str @ data\[0\]\['conditions'\]\[0\]",
+            r"extra keys not allowed @ data\[0\]\['conditions'\]\[0\]\['foo'\]",
         ),
         (
             {"name": "hello", "conditions": [], "actions": {}, "foobar": True},
@@ -1048,7 +1140,17 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "name": "fast merge with alternate ci",
                 "conditions": [
                     "base=master",
-                    "label=fast-track",
+                    {
+                        "or": [
+                            {
+                                "and": [
+                                    "label=automerge",
+                                    "label=ready",
+                                ]
+                            },
+                            "label=fast-track",
+                        ]
+                    },
                     "check-success=continuous-integration/fake-ci-bis",
                     "#approved-reviews-by>=1",
                 ],
@@ -1058,6 +1160,12 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "name": "fast merge from a bot",
                 "conditions": [
                     "base=master",
+                    {
+                        "or": [
+                            "label=python-deps",
+                            "label=node-deps",
+                        ]
+                    },
                     "author=mybot",
                     "check-success=continuous-integration/fake-ci",
                 ],
@@ -1083,23 +1191,31 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert match.matching_rules[0].name == "merge"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "#approved-reviews-by>=2"
 
     assert match.matching_rules[1].name == "fast merge"
     assert not match.matching_rules[1].conditions.match
-    missing_conditions = [c for c in match.matching_rules[1].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[1].conditions.walk() if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "label=fast-track"
 
     assert match.matching_rules[2].name == "fast merge with alternate ci"
     assert not match.matching_rules[2].conditions.match
-    missing_conditions = [c for c in match.matching_rules[2].conditions if not c.match]
-    assert len(missing_conditions) == 2
-    assert str(missing_conditions[0]) == "label=fast-track"
+    missing_conditions = [
+        c for c in match.matching_rules[2].conditions.walk() if not c.match
+    ]
+    assert len(missing_conditions) == 4
+    assert str(missing_conditions[0]) == "label=automerge"
+    assert str(missing_conditions[1]) == "label=ready"
+    assert str(missing_conditions[2]) == "label=fast-track"
     assert (
-        str(missing_conditions[1]) == "check-success=continuous-integration/fake-ci-bis"
+        str(missing_conditions[3]) == "check-success=continuous-integration/fake-ci-bis"
     )
 
     # Team conditions with one review missing
@@ -1122,7 +1238,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert match.matching_rules[0].name == "default"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == "#approved-reviews-by>=2"
 
@@ -1185,7 +1303,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert not match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
     assert len(missing_conditions) == 1
     assert str(missing_conditions[0]) == (
         "-label~=^(status/wip|status/blocked|review/need2)$"
@@ -1201,7 +1321,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
     assert len(missing_conditions) == 0
 
     # Test team expander
@@ -1219,7 +1341,9 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert [r.name for r in match.matching_rules] == ["default"]
     assert match.matching_rules[0].name == "default"
     assert match.matching_rules[0].conditions.match
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
 
     # branch protection
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
@@ -1246,16 +1370,18 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert [r.name for r in match.rules] == ["default", "default"]
     assert list(match.matching_rules[0].actions.keys()) == ["merge"]
-    assert len(match.matching_rules[0].conditions) == 1
+    assert len(match.matching_rules[0].conditions.conditions) == 1
     assert not match.matching_rules[0].conditions.match
     assert (
-        str(match.matching_rules[0].conditions[0])
+        str(match.matching_rules[0].conditions.conditions[0])
         == "check-success-or-neutral=awesome-ci"
     )
-    missing_conditions = [c for c in match.matching_rules[0].conditions if not c.match]
+    missing_conditions = [
+        c for c in match.matching_rules[0].conditions.walk() if not c.match
+    ]
     assert str(missing_conditions[0]) == "check-success-or-neutral=awesome-ci"
     assert list(match.matching_rules[1].actions.keys()) == ["comment"]
-    assert len(match.matching_rules[1].conditions) == 0
+    assert len(match.matching_rules[1].conditions.conditions) == 0
 
 
 def test_check_runs_custom():

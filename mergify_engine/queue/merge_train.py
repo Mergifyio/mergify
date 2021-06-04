@@ -96,7 +96,7 @@ async def get_queue_rule_checks_status(
 
     missing_checks_conditions = [
         condition
-        for condition in queue_rule.conditions
+        for condition in queue_rule.conditions.iter_root_rule_conditions()
         if not condition.match
         and condition.get_attribute_name().partition("-")[0] in ["check", "status"]
     ]

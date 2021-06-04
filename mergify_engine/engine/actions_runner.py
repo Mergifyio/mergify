@@ -59,7 +59,7 @@ def get_already_merged_summary(
             # if everything match we can set action_merge_found_in_active_rule to True
             missing_conditions = [
                 condition
-                for condition in rule.conditions
+                for condition in rule.conditions.iter_root_rule_conditions()
                 if not condition.match
                 and condition.get_attribute_name() not in ["merged", "closed"]
             ]

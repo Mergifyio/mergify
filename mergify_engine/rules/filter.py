@@ -91,6 +91,7 @@ GetAttrObjectT = typing.TypeVar("GetAttrObjectT", bound=GetAttrObject)
 
 CompiledTreeT = typing.Callable[[GetAttrObjectT], typing.Awaitable[bool]]
 
+
 UnaryOperatorT = typing.Callable[[typing.Any], bool]
 BinaryOperatorT = typing.Tuple[
     typing.Callable[[typing.Any, typing.Any], bool],
@@ -102,7 +103,7 @@ MultipleOperatorT = typing.Callable[..., bool]
 
 @dataclasses.dataclass(repr=False)
 class Filter:
-    tree: TreeT
+    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject]]
 
     unary_operators: typing.ClassVar[typing.Dict[str, UnaryOperatorT]] = {
         "-": operator.not_
@@ -226,7 +227,6 @@ class Filter:
             return self._handle_unary_op(unary_operator, nodes)
         if not isinstance(nodes, abc.Iterable):
             raise InvalidArguments(nodes)
-        nodes = typing.cast(typing.Iterable[TreeT], nodes)
         return self._handle_multiple_op(multiple_op, nodes)
 
     def _handle_binary_op(
