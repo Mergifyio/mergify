@@ -72,7 +72,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         assert r.json()["title"] == "1 rule matches"
         assert r.json()["summary"].startswith(
-            f"#### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
+            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
         )
 
         mergify_yaml = """pull_request_rules:
@@ -210,7 +210,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         assert r.json()["title"] == "1 rule matches"
         assert r.json()["summary"].startswith(
-            f"#### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
+            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
         )
 
         r = await self.app.post(

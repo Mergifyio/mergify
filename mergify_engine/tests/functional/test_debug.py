@@ -142,7 +142,7 @@ is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:
 [Summary]: success | 1 potential rule
-> #### Rule: comment (comment)
+> ### Rule: comment (comment)
 > - [X] `base={self.master_branch_name}`
 > - [ ] any of:
 >   - [ ] `label=doubt`
@@ -181,7 +181,7 @@ mergeable_state: clean
 > <!-- J1J1bGU6IGNvbW1lbnQgKGNvbW1lbnQpJzogbmV1dHJhbAo= -->
 * MERGIFY LIVE MATCHES:
 [Summary]: success | 1 potential rule
-> #### Rule: comment (comment)
+> ### Rule: comment (comment)
 > - [X] `base={self.master_branch_name}`
 > - [ ] any of:
 >   - [ ] `label=doubt`

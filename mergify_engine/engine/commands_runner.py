@@ -143,7 +143,8 @@ async def run_command(
     statsd.increment("engine.commands.count", tags=[f"name:{command.name}"])
 
     report = await command.action.run(
-        ctxt, rules.EvaluatedRule(rules.Rule("", rules.RuleConditions([]), {}, False))
+        ctxt,
+        rules.EvaluatedRule(rules.Rule("", None, rules.RuleConditions([]), {}, False)),
     )
 
     if command.args:

@@ -48,6 +48,10 @@ Each dictionary must have the following keys:
      - string
      - The name of the rule. This is not used by the engine directly, but is
        used when reporting information about a rule.
+   * - ``disabled``
+     - dictionary with ``reason`` key
+     - This optional key allows to disabled a rule and cancel any ongoing
+       actions. A reason must be set using the ``reason`` key.
    * - ``conditions``
      - list of :ref:`Conditions`
      - A list of :ref:`Conditions` string that must match against the pull
@@ -165,7 +169,30 @@ Examples
           merge:
             method: merge
 
+Disabling Rules
+~~~~~~~~~~~~~~~
+
+You can disable a rule while keeping it in the configuration. This allows
+gracefully handling the cancellation of any ongoing actions (e.g., like stopping
+the merge queue).
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+      - name: automatic merge for main when the title does not contain “WIP” (ignoring case)
+        disabled:
+          reason: code freeze
+        conditions:
+          - base=main
+          - -title~=(?i)wip
+        actions:
+          merge:
+            method: merge
+
 .. _data type template:
+
 
 Template
 ~~~~~~~~

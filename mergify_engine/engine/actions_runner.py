@@ -99,8 +99,11 @@ async def gen_summary_rules(
     for rule in _rules:
         if rule.hidden:
             continue
-        summary += f"#### Rule: {rule.name}"
-        summary += f" ({', '.join(rule.actions)})\n"
+        if rule.disabled is None:
+            summary += f"### Rule: {rule.name} ({', '.join(rule.actions)})\n"
+        else:
+            summary += f"### Rule: ~~{rule.name} ({', '.join(rule.actions)})~~\n"
+            summary += f":no_entry_sign: **Disabled: {rule.disabled['reason']}**\n"
         summary += rule.conditions.get_summary()
         summary += "\n"
     return summary
@@ -348,9 +351,13 @@ async def run_actions(
 
             done_by_another_action = action_obj.only_once and action in actions_ran
 
-            if not rule.conditions.match or (
-                ctxt.configuration_changed
-                and not action_obj.can_be_used_on_configuration_change
+            if (
+                not rule.conditions.match
+                or rule.disabled is not None
+                or (
+                    ctxt.configuration_changed
+                    and not action_obj.can_be_used_on_configuration_change
+                )
             ):
                 method_name = "cancel"
                 expected_conclusions = [
