@@ -142,7 +142,7 @@ async def _get_summary_from_synchronize_event(
         and "after" in s["data"]
     }
     if synchronize_events:
-        ctxt.log.warning("get summary from synchronize events")
+        ctxt.log.info("checking summary from synchronize events")
 
         # NOTE(sileht): We sometimes got multiple synchronize events in a row, that's not
         # always the last one that has the Summary, so we also look in older ones if
@@ -157,32 +157,37 @@ async def _get_summary_from_synchronize_event(
                 if previous_summary and actions_runner.load_conclusions_line(
                     ctxt, previous_summary
                 ):
+                    ctxt.log.info("got summary from synchronize events")
                     return previous_summary
 
                 after_sha = sync_event["before"]
             else:
-                ctxt.log.warning("summary from synchronize events not found")
                 break
     return None
 
 
 async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
-    for check in await ctxt.pull_engine_check_runs:
-        if check["name"] == ctxt.SUMMARY_NAME and actions_runner.load_conclusions_line(
-            ctxt, check
-        ):
-            return
-
-    opened = ctxt.has_been_opened()
-    sha = await ctxt.get_cached_last_summary_head_sha()
-    if sha is None:
-        if not opened:
-            ctxt.log.warning(
-                "the pull request doesn't have the last summary head sha stored in redis"
-            )
+    if ctxt.has_been_opened():
         return
 
-    previous_summary = await _get_summary_from_sha(ctxt, sha)
+    sha = await ctxt.get_cached_last_summary_head_sha()
+    if sha is None:
+        ctxt.log.warning("head sha not stored in redis")
+    elif sha != ctxt.pull["head"]["sha"]:
+        ctxt.log.info(
+            "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
+        )
+    else:
+        ctxt.log.info("head sha didn't changed, no need to copy summary")
+        return
+
+    previous_summary = None
+
+    if sha is not None:
+        ctxt.log.info("checking summary from redis")
+        previous_summary = await _get_summary_from_sha(ctxt, sha)
+        if previous_summary is not None:
+            ctxt.log.info("got summary from redis")
 
     if previous_summary is None:
         # NOTE(sileht): If the cached summary sha expires and the next event we got for
@@ -199,7 +204,7 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
                 summary=previous_summary["output"]["summary"],
             )
         )
-    elif not opened:
+    else:
         ctxt.log.warning("the pull request doesn't have a summary")
 
 
