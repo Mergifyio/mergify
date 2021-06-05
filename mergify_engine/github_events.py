@@ -53,7 +53,13 @@ def meter_event(
 
 
 def _extract_slim_event(event_type, data):
-    slim_data = {"sender": data["sender"]}
+    slim_data = {
+        "sender": {
+            "id": data["sender"]["id"],
+            "login": data["sender"]["login"],
+            "type": data["sender"]["type"],
+        }
+    }
 
     if event_type == "status":
         # To get PR from sha
