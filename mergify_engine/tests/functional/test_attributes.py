@@ -54,6 +54,44 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])
 
+    async def test_disabled(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "disabled": {"reason": "code freeze"},
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "-closed",
+                        "label!=foo",
+                    ],
+                    "actions": {"close": {}},
+                },
+                {
+                    "name": "nothing",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "closed",
+                        "label=foo",
+                    ],
+                    "actions": {},
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        pr, _ = await self.create_pr()
+        ctxt = await context.Context.create(self.repository_ctxt, pr)
+        await self.run_engine()
+        assert (await self.get_pull(pr["number"]))["state"] == "open"
+        summary = [
+            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
+        ][0]
+        expected = (
+            "### Rule: ~~merge (close)~~\n:no_entry_sign: **Disabled: code freeze**\n"
+        )
+        assert expected == summary["output"]["summary"][: len(expected)]
+
     async def test_draft(self):
         rules = {
             "pull_request_rules": [
@@ -217,7 +255,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         summary = [
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
         ][0]
-        expected = f"""#### Rule: merge (merge)
+        expected = f"""### Rule: merge (merge)
 - [X] `base={self.master_branch_name}`
 - [X] `label=automerge`
 - [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from fork** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]

@@ -282,16 +282,22 @@ async def get_depends_on_conditions(
     return conds
 
 
+class DisabledDict(typing.TypedDict):
+    reason: str
+
+
 # TODO(sileht): rename me PullRequestRule ?
 @dataclasses.dataclass
 class Rule:
     name: str
+    disabled: typing.Union[DisabledDict, None]
     conditions: RuleConditionGroup
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
 
     class T_from_dict_required(typing.TypedDict):
         name: str
+        disabled: typing.Union[DisabledDict, None]
         conditions: RuleConditionGroup
         actions: typing.Dict[str, actions.Action]
 
@@ -480,6 +486,7 @@ class PullRequestRules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
+                        disabled=rule.disabled,
                         conditions=rule.conditions.copy(),
                         actions=rule.actions,
                         hidden=rule.hidden,
@@ -504,6 +511,7 @@ class PullRequestRules:
                     runtime_rules.append(
                         Rule(
                             name=rule.name,
+                            disabled=rule.disabled,
                             conditions=RuleConditions(
                                 rule.conditions.copy().conditions
                                 + branch_protection_conditions
@@ -520,6 +528,7 @@ class PullRequestRules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
+                        disabled=rule.disabled,
                         conditions=rule.conditions.copy(),
                         actions=actions_without_special_rules,
                         hidden=rule.hidden,
@@ -625,6 +634,9 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
             voluptuous.All(
                 {
                     voluptuous.Required("name"): str,
+                    voluptuous.Required("disabled", default=None): voluptuous.Any(
+                        None, {voluptuous.Required("reason"): str}
+                    ),
                     voluptuous.Required("hidden", default=False): bool,
                     voluptuous.Required("conditions"): voluptuous.All(
                         [voluptuous.Coerce(RuleConditionSchema)],
