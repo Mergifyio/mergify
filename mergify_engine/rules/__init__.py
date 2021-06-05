@@ -710,11 +710,18 @@ class InvalidRules(Exception):
             msg += f"\n```\n{error.error_message}\n```"
         return msg
 
+    @classmethod
+    def _walk_error(cls, root_error):
+        if isinstance(root_error, voluptuous.MultipleInvalid):
+            for error1 in root_error.errors:
+                for error2 in cls._walk_error(error1):
+                    yield error2
+        else:
+            yield root_error
+
     @property
     def errors(self):
-        if isinstance(self.error, voluptuous.MultipleInvalid):
-            return self.error.errors
-        return [self.error]
+        return list(self._walk_error(self.error))
 
     def __str__(self):
         if len(self.errors) >= 2:
