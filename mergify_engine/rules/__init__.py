@@ -286,12 +286,14 @@ async def get_depends_on_conditions(
 @dataclasses.dataclass
 class Rule:
     name: str
+    enabled: bool
     conditions: RuleConditionGroup
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
 
     class T_from_dict_required(typing.TypedDict):
         name: str
+        enabled: bool
         conditions: RuleConditionGroup
         actions: typing.Dict[str, actions.Action]
 
@@ -480,6 +482,7 @@ class PullRequestRules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
+                        enabled=rule.enabled,
                         conditions=rule.conditions.copy(),
                         actions=rule.actions,
                         hidden=rule.hidden,
@@ -504,6 +507,7 @@ class PullRequestRules:
                     runtime_rules.append(
                         Rule(
                             name=rule.name,
+                            enabled=rule.enabled,
                             conditions=RuleConditions(
                                 rule.conditions.copy().conditions
                                 + branch_protection_conditions
@@ -520,6 +524,7 @@ class PullRequestRules:
                 runtime_rules.append(
                     Rule(
                         name=rule.name,
+                        enabled=rule.enabled,
                         conditions=rule.conditions.copy(),
                         actions=actions_without_special_rules,
                         hidden=rule.hidden,
@@ -625,6 +630,7 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
             voluptuous.All(
                 {
                     voluptuous.Required("name"): str,
+                    voluptuous.Required("enabled", default=True): bool,
                     voluptuous.Required("hidden", default=False): bool,
                     voluptuous.Required("conditions"): voluptuous.All(
                         [voluptuous.Coerce(RuleConditionSchema)],

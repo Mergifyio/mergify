@@ -343,6 +343,9 @@ async def run_actions(
     method_name: typing.Literal["run", "cancel"]
 
     for rule in matching_rules:
+        if not rule.enabled:
+            continue
+
         for action, action_obj in rule.actions.items():
             check_name = f"Rule: {rule.name} ({action})"
 
