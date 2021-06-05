@@ -1622,3 +1622,35 @@ defaults:
     config = rules.get_mergify_config(file)
 
     assert config["pull_request_rules"].rules == []
+
+
+def test_multiple_cascaded_errors():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+pull_request_rules:
+  - name: automatic merge for Dependabot pull requests
+    conditions:
+    - author=dependabot[bot]
+      - status-success=Travis CI - Pull Request
+    actions:
+    merge:
+        method: merge
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert (
+        str(e.value)
+        == """* Invalid condition 'author=dependabot[bot] - status-success=Travis CI - Pull Request'. Expected end of text, found '-'  (at char 23), (line:1, col:24) @ pull_request_rules → item 0 → conditions → item 0
+```
+Expected end of text, found '-'  (at char 23), (line:1, col:24)
+```
+* expected a dictionary for dictionary value @ pull_request_rules → item 0 → actions
+* extra keys not allowed @ pull_request_rules → item 0 → merge"""
+    )
