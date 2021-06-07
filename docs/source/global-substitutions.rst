@@ -16,3 +16,7 @@
 .. |open source plan tag| raw:: html
 
    <div class="feature-tag"><span class="badge badge-primary">Open Source<br /> Feature 💖</span></div>
+
+.. |deprecated tag| raw:: html
+
+   <div class="feature-tag"><span class="badge badge-danger">Deprecated 😵</span></div>
