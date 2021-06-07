@@ -1,11 +1,11 @@
-name: upload-docs
+name: Upload docs to GitHub pages
 on:
   push:
     branches:
       - main
 
 jobs:
-  docs:
+  docs-upload-to-gh-pages:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️

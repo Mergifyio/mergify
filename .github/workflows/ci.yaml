@@ -77,27 +77,6 @@ jobs:
           pip install tox
           tox -e py39
 
-  docs:
-    timeout-minutes: 5
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-python@v2.2.2
-        with:
-          python-version: 3.9.5
-      - run: |
-          sudo apt-get install graphviz
-          pip install tox
-          tox -e docs
-      # NOTE(sileht): workflow run on/pull_request doesn't have access to
-      # secrets
-      # So, we upload it as artefact, then another workflow docs-pr.yaml will
-      # upload it on gcp.
-      - uses: actions/upload-artifact@v2
-        with:
-          name: docs-pr-${{ github.event.pull_request.number }}
-          path: docs/build
-
   docker:
     runs-on: ubuntu-20.04
     steps:
