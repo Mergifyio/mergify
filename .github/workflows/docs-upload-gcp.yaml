@@ -13,7 +13,7 @@ jobs:
       ${{ github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - run: apt update -y && apt install -y unzip python
+      - run: sudo apt update -y && apt install -y unzip python
       - run: mkdir docs
       - id: download-artifact
         uses: actions/github-script@v4.0.2
