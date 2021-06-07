@@ -14,7 +14,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' }}
     steps:
       - id: download-artefact
-        uses: actions/github-script@v3.1.0
+        uses: actions/github-script@v4.0.2
         with:
           result-encoding: string
           script: |
