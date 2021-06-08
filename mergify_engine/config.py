@@ -69,6 +69,9 @@ def AccountTokens(v: str) -> typing.Dict[str, str]:
 Schema = voluptuous.Schema(
     {
         # Logging
+        voluptuous.Required(
+            "LOG_DEBUG_LOGGER_NAMES", default=""
+        ): CommaSeparatedStringList,
         voluptuous.Required("LOG_LEVEL", default="INFO"): CoercedLoggingLevel,
         voluptuous.Required("LOG_RATELIMIT", default=False): CoercedBool,
         voluptuous.Required("LOG_STDOUT", default=True): CoercedBool,
@@ -222,6 +225,7 @@ LOG_STDOUT: bool
 LOG_STDOUT_LEVEL: int  # This is converted to an int by voluptuous
 LOG_DATADOG: bool
 LOG_DATADOG_LEVEL: int  # This is converted to an int by voluptuous
+LOG_DEBUG_LOGGER_NAMES: typing.List[str]
 ORG_ADMIN_PERSONAL_TOKEN: str
 ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
