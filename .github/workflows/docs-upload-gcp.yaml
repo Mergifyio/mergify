@@ -1,20 +1,22 @@
-name: Upload temporary docs of pull request to GCP
+name: Upload temporary docs to GCP
 
 on:
   workflow_run:
-    workflows: ["Continuous Integration"]
+    workflows: ["Documentation"]
     types:
       - completed
 
 jobs:
-  upload:
+  docs-upload-to-gcp:
     runs-on: ubuntu-latest
     if: >
       ${{ github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - id: download-artefact
-        uses: actions/github-script@v3.1.0
+      - run: sudo apt update -y && sudo apt install -y unzip python
+      - run: mkdir docs
+      - id: download-artifact
+        uses: actions/github-script@v4.0.2
         with:
           result-encoding: string
           script: |
@@ -35,7 +37,7 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('${{github.workspace}}/docs.zip', Buffer.from(download.data));
             return matchArtifact.name.split("-")[2]
-      - run: unzip docs.zip
+      - run: unzip docs.zip -d docs
 
       - uses: google-github-actions/setup-gcloud@master
         with:
@@ -44,5 +46,18 @@ jobs:
           export_default_credentials: true
       - uses: google-github-actions/upload-cloud-storage@main
         with:
-          path: docs/build
-          destination: mergify-docs-pr/${{steps.download-artefact.outputs.result}}
+          path: docs
+          destination: mergify-docs-preview/${{steps.download-artifact.outputs.result}}
+      - uses: actions/github-script@v3.1.0
+        with:
+          script: |
+            var pr = "${{ steps.download-artifact.outputs.result }}";
+            var resp = await github.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: "${{ github.event.workflow_run.head_sha }}",
+              context: "Documentation Preview",
+              state: "success",
+              target_url: `https://docs-preview.mergify.io/${pr}/docs`,
+            });
+            console.log(resp)

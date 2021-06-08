@@ -46,7 +46,8 @@ Options
    * - ``strict``
      - Boolean, ``smart`` or ``smart+fasttrack``
      - ``false``
-     - Determines whether to use :ref:`strict merge`:
+     - |deprecated tag|
+       Determines whether to use :ref:`strict merge`:
 
        * ``true`` enables :ref:`strict merge`. The pull request will be merged
          only once up-to-date with its base branch. When multiple pull requests
@@ -71,7 +72,8 @@ Options
    * - ``strict_method``
      - string
      - ``merge``
-     - Method to use to update the pull request with its base branch
+     - |deprecated tag|
+       Method to use to update the pull request with its base branch
        when :ref:`strict merge` is enabled. Possible values:
 
        * ``merge`` to merge the base branch into the pull request.
@@ -102,6 +104,7 @@ Options
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
      - |premium plan tag|
+       |deprecated tag|
        This sets the priority of the pull request in the queue when ``smart``
        :ref:`strict merge` is enabled. The pull request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
@@ -200,11 +203,13 @@ Check the :ref:`data type template` for more details on the format.
 Strict Merge
 ------------
 
-.. tip::
+|deprecated tag|
 
-   While `strict merge` solves most issues, the :ref:`queue action <queue
-   action>` and its :ref:`queue rules <queue rules>` provide a more powerful
-   solution and offer total control of the merge queue.
+.. warning::
+
+   `strict merge` has been deprecated. The :ref:`queue action <queue action>`
+   and its :ref:`queue rules <queue rules>` provide a more powerful solution
+   and offer total control of the merge queue.
 
 The `strict merge` option enables a simple merge queue that prevents merging
 broken pull requests. That situation can arise when outdated pull requests are

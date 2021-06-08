@@ -182,14 +182,25 @@ class TestQueueAction(base.FunctionalTestBase):
         p1 = await self.get_pull(p1["number"])
         assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
 
-        check = first(
-            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
-            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
-        )
-        assert (
-            check["output"]["title"]
-            == "The pull request is the 1st in the queue to be merged"
-        )
+        async def assert_queued():
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+
+        await assert_queued()
+
+        await self.create_comment(p1["number"], "@mergifyio refresh")
+        await self.run_engine()
+        await assert_queued()
+
+        await self.create_status(p1, state="pending")
+        await self.run_engine()
+        await assert_queued()
 
         await self.create_status(p1)
         await self.run_engine()

@@ -1,0 +1,34 @@
+name: Documentation
+permissions: read-all
+
+on:
+  pull_request:
+    branches:
+      - main
+      - git_push_stack/**
+
+jobs:
+  docs:
+    timeout-minutes: 5
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-python@v2.2.2
+        with:
+          python-version: 3.9
+      - run: |
+          sudo apt-get install graphviz
+          pip install tox
+          tox -e docs
+      # NOTE(sileht): workflow run on/pull_request doesn't have access to
+      # secrets
+      # So, we upload it as artifact, then another workflow
+      # docs-upload-gcp.yaml will upload it on gcp.
+      - uses: actions/upload-artifact@v2
+        with:
+          name: docs-pr-${{ github.event.pull_request.number }}
+          path: docs/build
+
+      # yamllint disable-line rule:line-length
+      - run: echo "::set-output name=docs::https://docs-preview.mergify.io/${{ github.event.pull_request.number }}/docs"
+        shell: bash
