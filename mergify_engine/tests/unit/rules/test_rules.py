@@ -857,6 +857,8 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             return {"permission": "write"}
         elif url == "/repos/another-jd/name/collaborators/jd/permission":
             return {"permission": "write"}
+        elif url == "/repos/another-jd/name/branches/master":
+            return {"protection": {"enabled": False}}
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item
@@ -1342,6 +1344,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item_with_branch_protection_enabled
+    del ctxt.repository._cache["branches"]
     pull_request_rules = pull_request_rule_from_list(
         [
             {

@@ -815,28 +815,14 @@ class Context(object):
                 for ctext, state in (await self.checks).items()
                 if state == "skipped"
             ]
-        elif name in ("check", "check-pending"):
-            branch_protection_contexts = (
-                await self.repository.get_branch_protection_checks(
-                    self.pull["base"]["ref"]
-                )
-            )
-            if branch_protection_contexts:
-                known_contexts = list((await self.checks).keys())
-                branch_protection_pending_checks = [
-                    context
-                    for context in branch_protection_contexts
-                    if context not in known_contexts
-                ]
-            else:
-                branch_protection_pending_checks = []
-
+        elif name == "check":
+            return [ctext for ctext, state in (await self.checks).items()]
+        elif name == "check-pending":
             return [
                 ctext
                 for ctext, state in (await self.checks).items()
-                if name == "check" or state in [None, "pending"]
-            ] + branch_protection_pending_checks
-
+                if state in [None, "pending"]
+            ]
         elif name == "check-stale":
             return [
                 ctext
@@ -935,11 +921,19 @@ class Context(object):
         # so if it has ran twice we must keep only the more recent
         # statuses are good as GitHub already ensures the uniqueness of the name
 
+        # First put all branch protections checks as pending and then override with
+        # the real status
+        checks = {
+            context: "pending"
+            for context in await self.repository.get_branch_protection_checks(
+                self.pull["base"]["ref"]
+            )
+        }
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
-        checks = {
-            c["name"]: c["conclusion"] for c in reversed(await self.pull_check_runs)
-        }
+        checks.update(
+            {c["name"]: c["conclusion"] for c in reversed(await self.pull_check_runs)}
+        )
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
