@@ -129,7 +129,7 @@ async def get_rule_checks_status(
 
     # NOTE(sileht): Something unrelated to checks unmatch?
     await conditions_without_checks(ctxt.pull_request)
-    ctxt.log.debug(
+    ctxt.log.info(
         "something unrelated to checks doesn't match? %s",
         conditions_without_checks.get_summary(),
     )
@@ -138,7 +138,7 @@ async def get_rule_checks_status(
 
     # NOTE(sileht): Have all checks reported their status?
     await conditions_with_all_checks(ctxt.pull_request)
-    ctxt.log.debug(
+    ctxt.log.info(
         "did check report their status? %s",
         conditions_with_all_checks.get_summary(),
     )
@@ -147,7 +147,7 @@ async def get_rule_checks_status(
 
     # NOTE(sileht): Are remaining unmatch checks pending?
     await conditions_with_check_pending(ctxt.pull_request)
-    ctxt.log.debug(
+    ctxt.log.info(
         "did checks report pending? %s",
         conditions_with_check_pending.get_summary(),
     )
