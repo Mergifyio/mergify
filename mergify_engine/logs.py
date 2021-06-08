@@ -131,6 +131,7 @@ def setup_logging() -> None:
             ("asyncio", "WARN"),
             ("uvicorn.access", "WARN"),
         ]
+        + [(name, "DEBUG") for name in config.LOG_DEBUG_LOGGER_NAMES]
     )
 
     config_log()
