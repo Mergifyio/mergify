@@ -109,22 +109,24 @@ async def get_rule_checks_status(
 
     conditions_without_checks = rule.conditions.copy()
     conditions_with_all_checks = rule.conditions.copy()
-    conditions_with_check_pending = rule.conditions.copy()
+    conditions_with_check_not_failing = rule.conditions.copy()
     for (
         evaluated_condition,
         condition_without_check,
         condition_with_all_check,
-        condition_with_check_pending,
+        condition_with_check_not_failing,
     ) in zip(
         rule.conditions.walk(),
         conditions_without_checks.walk(),
         conditions_with_all_checks.walk(),
-        conditions_with_check_pending.walk(),
+        conditions_with_check_not_failing.walk(),
     ):
         attr = evaluated_condition.get_attribute_name()
         if attr.startswith("check-") or attr.startswith("status-"):
             condition_without_check.update("number>0")
-            condition_with_check_pending.update_attribute_name("check-pending")
+            condition_with_check_not_failing.update_attribute_name(
+                "check-success-or-neutral-or-pending"
+            )
             condition_with_all_check.update_attribute_name("check")
 
     # NOTE(sileht): Something unrelated to checks unmatch?
@@ -145,13 +147,13 @@ async def get_rule_checks_status(
     if not conditions_with_all_checks.match:
         return check_api.Conclusion.PENDING
 
-    # NOTE(sileht): Are remaining unmatch checks pending?
-    await conditions_with_check_pending(ctxt.pull_request)
+    # NOTE(sileht): Are remaining unmatch checks success or pending?
+    await conditions_with_check_not_failing(ctxt.pull_request)
     ctxt.log.info(
-        "did checks report pending? %s",
-        conditions_with_check_pending.get_summary(),
+        "did checks report success-or-neutral-or-pending? %s",
+        conditions_with_check_not_failing.get_summary(),
     )
-    if conditions_with_check_pending.match:
+    if conditions_with_check_not_failing.match:
         return check_api.Conclusion.PENDING
     else:
         return check_api.Conclusion.FAILURE

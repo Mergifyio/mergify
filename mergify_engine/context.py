@@ -778,6 +778,13 @@ class Context(object):
             comments, _ = await self.consolidated_reviews()
             return [r["user"]["login"] for r in comments if r["state"] == "COMMENTED"]
 
+        elif name == "check-success-or-neutral-or-pending":
+            return [
+                ctxt
+                for ctxt, state in (await self.checks).items()
+                if state in ("success", "neutral", "pending", None)
+            ]
+
         # NOTE(jd) The Check API set conclusion to None for pending.
         elif name == "check-success-or-neutral":
             return [
