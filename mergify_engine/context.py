@@ -43,9 +43,6 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
-if typing.TYPE_CHECKING:
-    from mergify_engine import worker
-
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 
 
@@ -76,12 +73,6 @@ class Installation:
         dataclasses.field(default_factory=dict)
     )
     _user_tokens: typing.Optional[user_tokens.UserTokens] = None
-
-    @property
-    def stream_name(self) -> "worker.StreamNameType":
-        return typing.cast(
-            "worker.StreamNameType", f"stream~{self.owner_login}~{self.owner_id}"
-        )
 
     async def get_user_tokens(self) -> user_tokens.UserTokens:
         # NOTE(sileht): For the simulator all contexts are built with a user

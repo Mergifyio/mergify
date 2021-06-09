@@ -470,6 +470,7 @@ async def extract_pull_numbers_from_event(
             branch = ref[11:]  # refs/heads/
             return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "push":
+        # NOTE(sileht): we refresh all opened PR on push events to handle conflict conditions
         data = typing.cast(github_types.GitHubEventPush, data)
         branch = data["ref"][11:]  # refs/heads/
         return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]

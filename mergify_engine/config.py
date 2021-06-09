@@ -136,6 +136,9 @@ Schema = voluptuous.Schema(
             int
         ),
         voluptuous.Required("STREAM_MAX_BATCH", default=100): voluptuous.Coerce(int),
+        voluptuous.Required("STREAM_IDLE_MAX_BATCH", default=20): voluptuous.Coerce(
+            int
+        ),
         GitHubAppRequired("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
@@ -201,6 +204,7 @@ BOT_USER_LOGIN: str
 STORAGE_URL: str
 STREAM_URL: str
 STREAM_MAX_BATCH: int
+STREAM_IDLE_MAX_BATCH: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
 SUBSCRIPTION_TOKEN: str
