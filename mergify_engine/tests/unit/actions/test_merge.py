@@ -152,6 +152,7 @@ async def test_merge_commit_message(body, title, message, mode):
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, "whatever", 123)
+    repository._cache["branches"] = {"master": {"protection": {"enabled": False}}}
     ctxt = await context.Context.create(repository=repository, pull=pull)
     ctxt._cache["pull_statuses"] = [
         github_types.GitHubStatus(

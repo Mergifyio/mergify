@@ -52,12 +52,12 @@ jobs:
         with:
           script: |
             var pr = "${{ steps.download-artifact.outputs.result }}";
-            var resp = await github.checks.create({
+            var resp = await github.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              head_sha: "${{ github.event.workflow_run.head_sha }}",
-              name: "Documentation Preview",
-              status: "completed",
-              conclusion: "success",
-              details_url: `https://docs-preview.mergify.io/${pr}/docs`,
+              sha: "${{ github.event.workflow_run.head_sha }}",
+              context: "Documentation Preview",
+              state: "success",
+              target_url: `https://docs-preview.mergify.io/${pr}/docs`,
             });
+            console.log(resp)

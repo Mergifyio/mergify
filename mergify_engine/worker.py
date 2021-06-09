@@ -661,6 +661,8 @@ class Worker:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
+        log_context_token = logs.WORKER_ID.set(worker_id)
+
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis_stream, self._redis_cache)
@@ -697,6 +699,7 @@ class Worker:
                 await self._sleep_or_stop()
 
         LOG.debug("worker %s exited", worker_id)
+        logs.WORKER_ID.reset(log_context_token)
 
     async def _sleep_or_stop(self, timeout: typing.Optional[float] = None) -> None:
         if timeout is None:

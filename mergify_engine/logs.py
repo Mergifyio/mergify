@@ -13,6 +13,7 @@
 # under the License.
 
 
+import contextvars
 import logging
 import os
 import re
@@ -32,6 +33,9 @@ LEVEL_COLORS = daiquiri.formatter.ColorFormatter.LEVEL_COLORS.copy()
 LEVEL_COLORS[42] = "\033[01;35m"
 
 
+WORKER_ID: contextvars.ContextVar[int] = contextvars.ContextVar("worker_id")
+
+
 class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[misc]
     LEVEL_COLORS = LEVEL_COLORS
 
@@ -39,6 +43,12 @@ class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[
         if hasattr(record, "_daiquiri_extra_keys"):
             record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)
         return super().format(record)
+
+    def add_extras(self, record):
+        super().add_extras(record)
+        worker_id = WORKER_ID.get(None)
+        if worker_id is not None:
+            record.extras += " " + self.extras_template.format("worker_id", worker_id)
 
 
 CUSTOM_FORMATTER = CustomFormatter(
@@ -56,6 +66,9 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
     def add_fields(self, log_record, record, message_dict):
         super().add_fields(log_record, record, message_dict)
         log_record.update(self.HEROKU_LOG_EXTRAS)
+        worker_id = WORKER_ID.get(None)
+        if worker_id is not None:
+            log_record.update({"worker_id": worker_id})
 
 
 def config_log() -> None:
