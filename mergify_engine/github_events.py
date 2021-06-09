@@ -123,7 +123,7 @@ def _log_on_exception(exc: Exception, msg: str) -> None:
     log(msg, exc_info=exc)
 
 
-async def filter_and_dispatch(
+async def _filter_and_dispatch(
     redis_cache: utils.RedisCache,
     redis_stream: utils.RedisStream,
     event_type: github_types.GitHubEventType,
@@ -427,6 +427,19 @@ async def filter_and_dispatch(
 
     if ignore_reason:
         raise IgnoredEvent(event_type, event_id, ignore_reason)
+
+
+async def filter_and_dispatch(
+    redis_cache: utils.RedisCache,
+    redis_stream: utils.RedisStream,
+    event_type: github_types.GitHubEventType,
+    event_id: str,
+    event: github_types.GitHubEvent,
+) -> None:
+    with statsd.timed("engine.stream.receive.time"):  # type: ignore[no-untyped-call]
+        await _filter_and_dispatch(
+            redis_cache, redis_stream, event_type, event_id, event
+        )
 
 
 SHA_EXPIRATION = 60
