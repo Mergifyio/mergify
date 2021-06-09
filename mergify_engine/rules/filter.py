@@ -110,14 +110,10 @@ class Filter(typing.Generic[FilterResultT]):
         str, typing.Callable[[typing.Any], typing.List[typing.Any]]
     ] = dataclasses.field(default_factory=dict, init=False)
 
-    _eval: typing.Callable[
-        ["Filter[FilterResultT]", GetAttrObjectT],
-        typing.Awaitable[FilterResultT],
-    ] = dataclasses.field(init=False)
+    _eval: CompiledTreeT[GetAttrObject, FilterResultT] = dataclasses.field(init=False)
 
     def __post_init__(self) -> None:
-        # https://github.com/python/mypy/issues/2427
-        self._eval = self.build_evaluator(self.tree)  # type: ignore[assignment]
+        self._eval = self.build_evaluator(self.tree)
 
     def __str__(self):
         return self._tree_to_str(self.tree)
