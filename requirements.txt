@@ -1,9 +1,11 @@
 aiofiles==0.7.0
+anyio==3.1.0
+asgiref==3.3.4
 cachetools==4.2.2
 certifi==2021.5.30
 cffi==1.14.5
 chardet==4.0.0
-click==7.1.2
+click==8.0.1
 cryptography==3.4.7
 daiquiri==3.0.0
 datadog==0.41.0
@@ -16,8 +18,8 @@ h2==3.2.0
 hiredis==2.0.0
 honcho==1.0.1
 hpack==3.0.0
-httpcore==0.13.3
-httptools==0.1.2
+httpcore==0.13.4
+httptools==0.2.0
 httpx==0.18.1
 hyperframe==5.2.0
 idna==2.10
@@ -42,9 +44,9 @@ starlette==0.14.2
 tenacity==7.0.0
 typing-extensions==3.10.0.0
 urllib3==1.26.5
-uvicorn==0.13.4
+uvicorn==0.14.0
 uvloop==0.15.2
 voluptuous==0.12.1
 watchgod==0.7
-websockets==8.1
+websockets==9.1
 Werkzeug==2.0.1
