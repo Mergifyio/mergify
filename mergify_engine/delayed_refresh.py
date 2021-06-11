@@ -30,6 +30,7 @@ from mergify_engine.rules import filter
 LOG = daiquiri.getLogger(__name__)
 
 DELAYED_REFRESH_KEY = "delayed-refresh"
+DELAYED_REFRESH_MIN_MINUTES = 10
 
 
 async def plan_next_refresh(match: rules.RulesEvaluator, ctxt: context.Context) -> None:
@@ -44,11 +45,18 @@ async def plan_next_refresh(match: rules.RulesEvaluator, ctxt: context.Context) 
 
     if best_bet is None or best_bet >= filter.DT_MAX:
         await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)
-    else:
-        await ctxt.redis.zadd(
-            DELAYED_REFRESH_KEY,
-            **{zset_subkey: best_bet.timestamp()},
-        )
+        return
+
+    in_ten_minutes = utils.utcnow() + datetime.timedelta(
+        minutes=DELAYED_REFRESH_MIN_MINUTES
+    )
+    if best_bet < in_ten_minutes:
+        best_bet = in_ten_minutes
+
+    await ctxt.redis.zadd(
+        DELAYED_REFRESH_KEY,
+        **{zset_subkey: best_bet.timestamp()},
+    )
 
 
 async def send(
