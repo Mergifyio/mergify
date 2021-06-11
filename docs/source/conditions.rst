@@ -293,6 +293,8 @@ Here's the list of pull request attribute that can be used in conditions:
 
    Accuracy of all date and time related conditions are around 5 minutes.
 
+   The timezone for all time-based conditions is UTC.
+
 
 .. _Operators:
 
