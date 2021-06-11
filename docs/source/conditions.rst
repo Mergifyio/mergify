@@ -284,6 +284,7 @@ Here's the list of pull request attribute that can be used in conditions:
    ``current-time`` does not support ``~=``, ``=`` and ``!=`` operators.
    ``schedule`` only supports ``=`` and ``!=``.
 
+   The timezone for all time-based conditions is UTC.
 
 .. _Operators:
 
