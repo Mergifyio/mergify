@@ -934,7 +934,7 @@ class Train(queue.QueueBase):
                             queue_rules=queue_rules,
                             queue_name=car.config["name"],
                         )
-                        car._report_failure(
+                        await car._report_failure(
                             f"queue named `{car.config['name']}` does not exists anymore"
                         )
                         raise TrainCarPullRequestCreationFailure(car)
