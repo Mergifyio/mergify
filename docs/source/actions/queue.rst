@@ -340,6 +340,7 @@ higher priority queue.
         actions:
           queue:
             name: urgent
+            priority: high
 
       - name: merge using the merge queue
         conditions:
@@ -350,6 +351,7 @@ higher priority queue.
         actions:
           queue:
             name: default
+            priority: low
 
 With such a configuration, a pull request with the label ``urgent`` will get
 into the queue as soon as it's approved by 2 developers but before the CI has
