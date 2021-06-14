@@ -592,9 +592,11 @@ def YAML(v: bytes) -> typing.Any:
         return yaml.safe_load(v)
     except yaml.MarkedYAMLError as e:
         error_message = str(e)
-        path = [
-            types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)
-        ]
+        path = []
+        if e.problem_mark is not None:
+            path.append(
+                types.LineColumnPath(e.problem_mark.line + 1, e.problem_mark.column + 1)
+            )
         raise YAMLInvalid(
             message="Invalid YAML", error_message=error_message, path=path
         )
