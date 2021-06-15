@@ -103,10 +103,10 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
-        evaluated_queue_rule=evaluated_queue_rule,
+        evaluated_queue_rule=evaluated_queue_rule.conditions.get_summary(),
         unexpected_changes=unexpected_changes,
         reseted=need_reset,
-        status=status,
+        temporary_status=status,
         real_status=real_status,
         event_types=[se["event_type"] for se in ctxt.sources],
     )
