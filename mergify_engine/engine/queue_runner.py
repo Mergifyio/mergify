@@ -59,18 +59,24 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     # FIXME: Maybe create a command to force the retesting to put back the PR in the queue?
 
     if ctxt.pull["state"] == "closed":
-        ctxt.log.info("train car temporary pull request has been closed")
+        ctxt.log.info(
+            "train car temporary pull request has been closed", sources=ctxt.sources
+        )
         return
 
     train = await merge_train.Train.from_context(ctxt)
 
     car = train.get_car_by_tmp_pull(ctxt)
     if not car:
-        ctxt.log.warning("train car not found for an opened merge queue pull request")
+        ctxt.log.warning(
+            "train car not found for an opened merge queue pull request",
+            sources=ctxt.sources,
+        )
         return
 
     ctxt.log.info(
         "handling train car temporary pull request event",
+        sources=ctxt.sources,
         gh_pull_queued=car.user_pull_request_number,
     )
 
