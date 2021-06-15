@@ -120,6 +120,8 @@ async def test_get_commits_to_cherry_pick_rebase(
             "title": "",
             "body": "",
             "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "closed_at": None,
             "commits": 1,
             "rebaseable": False,
             "maintainer_can_modify": False,
@@ -312,6 +314,8 @@ async def test_get_commits_to_cherry_pick_merge(
             "title": "foobar",
             "body": "",
             "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "closed_at": None,
             "changed_files": 1,
             "base": {
                 "label": "user:ref",

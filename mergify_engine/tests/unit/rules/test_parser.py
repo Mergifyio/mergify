@@ -133,6 +133,18 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
         ),
         ("locked", {"=": ("locked", True)}),
         (
+            "closed-at>=18:02",
+            {">=": ("closed-at", now + datetime.timedelta(hours=18, minutes=2))},
+        ),
+        (
+            "merged-at>=18:02",
+            {">=": ("merged-at", now + datetime.timedelta(hours=18, minutes=2))},
+        ),
+        (
+            "created-at>=18:02",
+            {">=": ("created-at", now + datetime.timedelta(hours=18, minutes=2))},
+        ),
+        (
             "updated-at>=18:02",
             {">=": ("updated-at", now - datetime.timedelta(hours=18, minutes=2))},
         ),

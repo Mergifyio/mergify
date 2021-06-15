@@ -394,32 +394,32 @@ async def test_year_near_datetime() -> None:
 
     f = filter.NearDatetimeFilter({"<=": ("foo", date.Year(2016))})
     assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
     f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
-    assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2016)})) == date.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
     f = filter.NearDatetimeFilter({"<=": ("foo", date.Year(2016))})
     assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
     f = filter.NearDatetimeFilter({"<": ("foo", date.Year(2016))})
-    assert await f(FakePR({"foo": date.Year(2016)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2016)})) == date.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
     f = filter.NearDatetimeFilter({"=": ("foo", date.Year(2016))})
     assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
     f = filter.NearDatetimeFilter({"!=": ("foo", date.Year(2016))})
     assert await f(FakePR({"foo": date.Year(2016)})) == nextyear
-    assert await f(FakePR({"foo": date.Year(2017)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": date.Year(2017)})) == date.DT_MAX
     assert await f(FakePR({"foo": date.Year(2011)})) == today
 
 
@@ -484,43 +484,43 @@ async def test_datetime_near_datetime() -> None:
     assert await f(FakePR({"foo": dtime(5, 8)})) == soon
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
     f = filter.NearDatetimeFilter({"<": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(5, 8)})) == date.DT_MAX
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
     f = filter.NearDatetimeFilter({">=": ("foo", today)})
     assert await f(FakePR({"foo": dtime(5, 8)})) == soon
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
     f = filter.NearDatetimeFilter({">": ("foo", today)})
-    assert await f(FakePR({"foo": dtime(5, 8)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(5, 8)})) == date.DT_MAX
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
     f = filter.NearDatetimeFilter({"=": ("foo", today)})
     assert await f(FakePR({"foo": dtime(5, 8)})) == soon
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
     f = filter.NearDatetimeFilter({"!=": ("foo", today)})
     assert await f(FakePR({"foo": dtime(5, 8)})) == soon
     assert await f(FakePR({"foo": dtime(2, 1)})) == today
     assert await f(FakePR({"foo": dtime(5, 1)})) == today
-    assert await f(FakePR({"foo": dtime(6, 2)})) == filter.DT_MAX
-    assert await f(FakePR({"foo": dtime(8, 9)})) == filter.DT_MAX
+    assert await f(FakePR({"foo": dtime(6, 2)})) == date.DT_MAX
+    assert await f(FakePR({"foo": dtime(8, 9)})) == date.DT_MAX
 
 
 @freeze_time("2012-01-14T12:05:00")

@@ -88,6 +88,8 @@ async def fake_context(repository, number, **kwargs):
         "locked": False,
         "assignees": [],
         "updated_at": github_types.ISODateTimeType(""),
+        "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+        "closed_at": None,
         "requested_reviewers": [],
         "requested_teams": [],
         "milestone": None,

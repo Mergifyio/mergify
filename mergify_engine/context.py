@@ -875,6 +875,16 @@ class Context(object):
             return date.DayOfWeek(utils.utcnow().isoweekday())
         elif name == "updated-at":
             return date.fromisoformat(self.pull["updated_at"])
+        elif name == "created-at":
+            return date.fromisoformat(self.pull["created_at"])
+        elif name == "closed-at":
+            if self.pull["closed_at"] is None:
+                return date.DT_MAX
+            return date.fromisoformat(self.pull["closed_at"])
+        elif name == "merged-at":
+            if self.pull["merged_at"] is None:
+                return date.DT_MAX
+            return date.fromisoformat(self.pull["merged_at"])
         else:
             raise PullRequestAttributeError(name)
 

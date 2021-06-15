@@ -256,6 +256,15 @@ Here's the list of pull request attribute that can be used in conditions:
      - :ref:`time interval` or :ref:`Datetime <iso datetime>`
      - The last time the pull request was updated.
        (example: 7 days 18:10)
+   * - ``created-at``
+     - :ref:`time interval` or :ref:`Datetime <iso datetime>`
+     - The time the pull request was created.
+   * - ``merged-at``
+     - :ref:`time interval` or :ref:`Datetime <iso datetime>`
+     - The last time the pull request was merged.
+   * - ``closed-at``
+     - :ref:`time interval` or :ref:`Datetime <iso datetime>`
+     - The last time the pull request was closed.
    * - ``current-datetime``
      - :ref:`Datetime <iso datetime>`
      - The current date/time.

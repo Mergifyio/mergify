@@ -17,6 +17,9 @@ import dataclasses
 import datetime
 
 
+DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+
+
 @dataclasses.dataclass(order=True)
 class PartialDatetime:
     value: int

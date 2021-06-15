@@ -266,7 +266,10 @@ current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
 schedule = ("schedule" + equality_operators + _schedule).setParseAction(
     convert_equality_to_at
 )
+created_at = "created-at" + range_operators + (interval | iso_datetime)
 updated_at = "updated-at" + range_operators + (interval | iso_datetime)
+closed_at = "closed-at" + range_operators + (interval | iso_datetime)
+merged_at = "merged-at" + range_operators + (interval | iso_datetime)
 current_datetime = "current-datetime" + range_operators + iso_datetime
 
 quantifiable_attributes = (
@@ -314,11 +317,15 @@ datetime_attributes = (
     | current_day
     | schedule
     | updated_at
+    | created_at
+    | merged_at
+    | closed_at
     | current_datetime
 )
 
 search = (
-    (
+    datetime_attributes
+    | (
         pyparsing.Optional(
             (
                 pyparsing.Literal("-").setParseAction(pyparsing.replaceWith(True))
@@ -332,5 +339,4 @@ search = (
             | non_quantifiable_attributes
         )
     )
-    | datetime_attributes
 ).setParseAction(_token_to_dict)

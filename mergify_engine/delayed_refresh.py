@@ -20,6 +20,7 @@ import typing
 import daiquiri
 
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
@@ -42,7 +43,7 @@ async def plan_next_refresh(match: rules.RulesEvaluator, ctxt: context.Context) 
 
     zset_subkey = f"{ctxt.repository.installation.owner_id}~{ctxt.repository.installation.owner_login}~{ctxt.repository.repo['id']}~{ctxt.repository.repo['name']}~{ctxt.pull['number']}"
 
-    if best_bet is None or best_bet >= filter.DT_MAX:
+    if best_bet is None or best_bet >= date.DT_MAX:
         await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)
     else:
         await ctxt.redis.zadd(
