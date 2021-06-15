@@ -172,14 +172,14 @@ async def gen_summary(
     return title, summary
 
 
-async def post_summary(
+async def get_summary_check_result(
     ctxt: context.Context,
     pull_request_rules: rules.PullRequestRules,
     match: rules.RulesEvaluator,
     summary_check: typing.Optional[github_types.GitHubCheckRun],
     conclusions: typing.Dict[str, check_api.Conclusion],
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
-) -> None:
+) -> typing.Optional[check_api.Result]:
     summary_title, summary = await gen_summary(ctxt, pull_request_rules, match)
 
     summary += constants.MERGIFY_PULL_REQUEST_DOC
@@ -208,10 +208,8 @@ async def post_summary(
             previous_conclusions=previous_conclusions,
         )
 
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
-            )
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS, title=summary_title, summary=summary
         )
     else:
         ctxt.log.info(
@@ -225,6 +223,10 @@ async def post_summary(
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
+        # NOTE(sileht): Here we run the engine, but nothing change so we didn't
+        # update GitHub. In pratice, only the started_at and the ended_at is
+        # not up2date, we don't really care, as no action has ran
+        return None
 
 
 async def exec_action(
@@ -477,7 +479,7 @@ async def run_actions(
 
 async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
-) -> None:
+) -> typing.Optional[check_api.Result]:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     await delayed_refresh.plan_next_refresh(match, ctxt)
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
@@ -485,7 +487,7 @@ async def handle(
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
-    await post_summary(
+    return await get_summary_check_result(
         ctxt,
         pull_request_rules,
         match,
