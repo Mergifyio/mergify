@@ -413,6 +413,7 @@ async def filter_and_dispatch(
             slim_event,
         )
     else:
+        slim_event = None
         msg_action = f"ignored: {ignore_reason}"
 
     LOG.info(
@@ -423,6 +424,7 @@ async def filter_and_dispatch(
         sender=event["sender"]["login"],
         gh_owner=owner_login,
         gh_repo=repo_name,
+        event=slim_event,
     )
 
     if ignore_reason:
