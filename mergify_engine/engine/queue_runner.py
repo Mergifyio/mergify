@@ -58,8 +58,6 @@ async def have_unexpected_changes(
 async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     # FIXME: Maybe create a command to force the retesting to put back the PR in the queue?
 
-    ctxt.log.info("handling train car temporary pull request event")
-
     if ctxt.pull["state"] == "closed":
         ctxt.log.info("train car temporary pull request has been closed")
         return
@@ -71,11 +69,17 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         ctxt.log.warning("train car not found for an opened merge queue pull request")
         return
 
+    ctxt.log.info(
+        "handling train car temporary pull request event",
+        gh_pull_queued=car.user_pull_request_number,
+    )
+
     try:
         queue_rule = queue_rules[car.config["name"]]
     except KeyError:
         ctxt.log.warning(
             "queue_rule not found for this train car",
+            gh_pull_queued=car.user_pull_request_number,
             queue_rules=queue_rules,
             queue_name=car.config["name"],
         )
@@ -103,6 +107,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
+        gh_pull_queued=car.user_pull_request_number,
         evaluated_queue_rule=evaluated_queue_rule.conditions.get_summary(),
         unexpected_changes=unexpected_changes,
         reseted=need_reset,
@@ -119,7 +124,9 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     )
 
     if need_reset:
-        ctxt.log.info("train will be reset")
+        ctxt.log.info(
+            "train will be reset", gh_pull_queued=car.user_pull_request_number
+        )
         await train.reset()
 
     if unexpected_changes:
