@@ -217,7 +217,7 @@ class T_PayloadEventIssueCommentSource(typing.TypedDict):
 async def run(
     ctxt: context.Context,
     sources: typing.List[context.T_PayloadEventSource],
-) -> None:
+) -> typing.Optional[check_api.Result]:
     LOG.debug("engine get context")
     ctxt.log.debug("engine start processing context")
 
@@ -232,27 +232,21 @@ async def run(
             ctxt.sources.append(source)
 
     if ctxt.client.auth.permissions_need_to_be_updated:
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Required GitHub permissions are missing.",
-                summary="You can accept them at https://dashboard.mergify.io/",
-            )
+        return check_api.Result(
+            check_api.Conclusion.FAILURE,
+            title="Required GitHub permissions are missing.",
+            summary="You can accept them at https://dashboard.mergify.io/",
         )
-        return
 
     if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
         subscription.Features.PRIVATE_REPOSITORY
     ):
         ctxt.log.info("mergify disabled: private repository")
-        await ctxt.set_summary_check(
-            check_api.Result(
-                check_api.Conclusion.FAILURE,
-                title="Mergify is disabled",
-                summary=ctxt.subscription.reason,
-            )
+        return check_api.Result(
+            check_api.Conclusion.FAILURE,
+            title="Mergify is disabled",
+            summary=ctxt.subscription.reason,
         )
-        return
 
     config_file = await ctxt.repository.get_mergify_config_file()
 
@@ -277,16 +271,13 @@ async def run(
             if s["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
                 if event["action"] in ("opened", "synchronize"):
-                    await ctxt.set_summary_check(
-                        check_api.Result(
-                            check_api.Conclusion.FAILURE,
-                            title="The Mergify configuration is invalid",
-                            summary=str(e),
-                            annotations=e.get_annotations(e.filename),
-                        )
+                    return check_api.Result(
+                        check_api.Conclusion.FAILURE,
+                        title="The Mergify configuration is invalid",
+                        summary=str(e),
+                        annotations=e.get_annotations(e.filename),
                     )
-                    break
-        return
+        return None
 
     # Add global and mandatory rules
     mergify_config["pull_request_rules"].rules.extend(
@@ -307,7 +298,7 @@ async def run(
             )
 
     if not ctxt.sources:
-        return
+        return None
 
     await _ensure_summary_on_head_sha(ctxt)
 
@@ -323,9 +314,9 @@ async def run(
 
     ctxt.log.debug("engine handle actions")
     if ctxt.is_merge_queue_pr():
-        await queue_runner.handle(mergify_config["queue_rules"], ctxt)
+        return await queue_runner.handle(mergify_config["queue_rules"], ctxt)
     else:
-        await actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
+        return await actions_runner.handle(mergify_config["pull_request_rules"], ctxt)
 
 
 async def create_initial_summary(

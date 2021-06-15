@@ -179,6 +179,7 @@ async def run_engine(
     )
     logger.debug("engine in thread start")
     try:
+        started_at = utils.utcnow()
         try:
             ctxt = await installation.get_pull_request_context(repo_id, pull_number)
         except http.HTTPNotFound:
@@ -186,7 +187,11 @@ async def run_engine(
             logger.debug("pull request doesn't exists, skipping it")
             return None
 
-        await engine.run(ctxt, sources)
+        result = await engine.run(ctxt, sources)
+        if result is not None:
+            result.started_at = started_at
+            result.ended_at = utils.utcnow()
+            await ctxt.set_summary_check(result)
     finally:
         logger.debug("engine in thread end")
 
