@@ -48,11 +48,10 @@ def CoercedLoggingLevel(value: str) -> int:
 
 
 def CommaSeparatedStringList(value: str) -> typing.List[str]:
-    return value.split(",")
-
-
-def CommaSeparatedIntList(value: str) -> typing.List[int]:
-    return [int(s) for s in value.split(",")]
+    if value:
+        return value.split(",")
+    else:
+        return []
 
 
 def AccountTokens(v: str) -> typing.Dict[str, str]:
