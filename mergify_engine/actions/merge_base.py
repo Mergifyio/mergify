@@ -254,7 +254,7 @@ class MergeBaseAction(actions.Action):
 
         self._set_effective_priority(ctxt)
 
-        ctxt.log.info("process merge", config=self.config)
+        ctxt.log.info("merge/queue action with config", config=self.config)
 
         q = await self._get_queue(ctxt)
 
