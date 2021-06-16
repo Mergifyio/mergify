@@ -233,6 +233,28 @@ def repository(redis_cache, fake_client):
             ["title=awesome", "check-neutral:failure", "check-success:success"],
             check_api.Conclusion.FAILURE,
         ),
+        (
+            [
+                {
+                    "or": [
+                        {"and": ["title=awesome", "check-success:pending"]},
+                        {"and": ["title!=awesome", "check-success:pending"]},
+                    ]
+                }
+            ],
+            check_api.Conclusion.PENDING,
+        ),
+        (
+            [
+                {
+                    "or": [
+                        {"and": ["title!=awesome", "check-success:pending"]},
+                        {"and": ["title=foobar", "check-success:pending"]},
+                    ]
+                }
+            ],
+            check_api.Conclusion.FAILURE,
+        ),
     ),
 )
 @pytest.mark.asyncio
