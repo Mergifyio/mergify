@@ -862,17 +862,17 @@ class Context(object):
                     depends_on.append(f"#{pull_request_number}")
             return depends_on
         elif name == "current-datetime":
-            return utils.utcnow()
+            return date.utcnow()
         elif name == "current-time":
-            return utils.utcnow().timetz()
+            return date.utcnow().timetz()
         elif name == "current-day":
-            return date.Day(utils.utcnow().day)
+            return date.Day(date.utcnow().day)
         elif name == "current-month":
-            return date.Month(utils.utcnow().month)
+            return date.Month(date.utcnow().month)
         elif name == "current-year":
-            return date.Year(utils.utcnow().year)
+            return date.Year(date.utcnow().year)
         elif name == "current-day-of-week":
-            return date.DayOfWeek(utils.utcnow().isoweekday())
+            return date.DayOfWeek(date.utcnow().isoweekday())
         elif name == "updated-at":
             return date.fromisoformat(self.pull["updated_at"])
         elif name == "created-at":

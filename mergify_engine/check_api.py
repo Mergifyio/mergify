@@ -16,6 +16,7 @@ import dataclasses
 import enum
 import typing
 
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import utils
 
@@ -145,7 +146,7 @@ async def set_check_run(
             "head_sha": ctxt.pull["head"]["sha"],
             "status": typing.cast(github_types.GitHubCheckRunStatus, status.value),
             "started_at": typing.cast(
-                github_types.ISODateTimeType, utils.utcnow().isoformat()
+                github_types.ISODateTimeType, date.utcnow().isoformat()
             ),
             "details_url": f"{ctxt.pull['html_url']}/checks",
             "output": {
@@ -170,7 +171,7 @@ async def set_check_run(
     if status is Status.COMPLETED:
         post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = typing.cast(
-            github_types.ISODateTimeType, utils.utcnow().isoformat()
+            github_types.ISODateTimeType, date.utcnow().isoformat()
         )
 
     checks = sorted(

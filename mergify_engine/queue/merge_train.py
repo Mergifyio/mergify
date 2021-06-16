@@ -26,6 +26,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
@@ -126,7 +127,7 @@ class TrainCar(PseudoTrainCar):
         if "state" not in data:
             data["state"] = "created"
         if "queued_at" not in data:
-            data["queued_at"] = utils.utcnow()
+            data["queued_at"] = date.utcnow()
         return cls(train, **data)
 
     def _get_embarked_refs(
@@ -338,7 +339,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     elif pseudo_car.state == "created":
                         speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
 
-                elapsed = utils.pretty_timedelta(utils.utcnow() - pseudo_car.queued_at)
+                elapsed = date.pretty_timedelta(date.utcnow() - pseudo_car.queued_at)
                 table.append(
                     f"| {i + 1} "
                     f"| {ctxt.pull['title']} ([#{pseudo_car.user_pull_request_number}]({pull_html_url})) "
@@ -813,7 +814,7 @@ class Train(queue.QueueBase):
         await self._slice_cars_at(best_position)
         self._waiting_pulls.insert(
             best_position - len(self._cars),
-            WaitingPull(ctxt.pull["number"], config, utils.utcnow()),
+            WaitingPull(ctxt.pull["number"], config, date.utcnow()),
         )
         await self._save()
         ctxt.log.info(

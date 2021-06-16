@@ -20,7 +20,6 @@ import typing
 import pyparsing
 
 from mergify_engine import date
-from mergify_engine import utils
 
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
@@ -117,7 +116,7 @@ def _interval_result_to_dt(tokens):
     days = datetime.timedelta(float(kw.pop("days", 0) or 0))
     sign = -1 if kw.pop("sign", "+") == "-" else 1
     kw = {k: float(v) for k, v in kw.items() if v is not None}
-    return utils.utcnow() - (days + sign * datetime.timedelta(**kw))
+    return date.utcnow() - (days + sign * datetime.timedelta(**kw))
 
 
 interval = text.copy().setParseAction(_interval_result_to_dt)

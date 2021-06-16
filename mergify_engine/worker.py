@@ -34,6 +34,7 @@ import tenacity
 
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import delayed_refresh
 from mergify_engine import engine
 from mergify_engine import exceptions
@@ -125,7 +126,7 @@ async def push(
     data: github_types.GitHubEvent,
 ) -> typing.Tuple[T_MessageID, T_MessagePayload]:
     stream_name = f"stream~{owner}~{owner_id}"
-    scheduled_at = utils.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
+    scheduled_at = date.utcnow() + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
     score = scheduled_at.timestamp()
     transaction = await redis.pipeline()
     # NOTE(sileht): Add this event to the pull request stream
@@ -282,7 +283,7 @@ class StreamProcessor:
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
-                retry_at = utils.utcnow() + e.countdown
+                retry_at = date.utcnow() + e.countdown
                 score = retry_at.timestamp()
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
@@ -300,7 +301,7 @@ class StreamProcessor:
 
             attempts = await self.redis_stream.hincrby("attempts", stream_name)
             retry_in = 3 ** min(attempts, 3) * backoff
-            retry_at = utils.utcnow() + retry_in
+            retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
             await self.redis_stream.zaddoption("streams", "XX", **{stream_name: score})
             raise StreamRetry(stream_name, attempts, retry_at)
@@ -913,7 +914,7 @@ async def async_reschedule_now() -> int:
     expected_stream = f"stream~{args.org.lower()}~"
     for stream in streams:
         if stream.decode().lower().startswith(expected_stream):
-            scheduled_at = utils.utcnow()
+            scheduled_at = date.utcnow()
             score = scheduled_at.timestamp()
             transaction = await redis.pipeline()
             await transaction.hdel("attempts", stream)

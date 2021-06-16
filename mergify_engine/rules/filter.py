@@ -22,7 +22,6 @@ import re
 import typing
 
 from mergify_engine import date
-from mergify_engine import utils
 
 
 _T = typing.TypeVar("_T")
@@ -326,10 +325,10 @@ def _as_datetime(value: typing.Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return value
     elif isinstance(value, datetime.timedelta):
-        dt = utils.utcnow()
+        dt = date.utcnow()
         return dt + value
     elif isinstance(value, date.PartialDatetime):
-        dt = utils.utcnow().replace(
+        dt = date.utcnow().replace(
             hour=0,
             minute=0,
             second=0,
@@ -346,7 +345,7 @@ def _as_datetime(value: typing.Any) -> datetime.datetime:
         else:
             return date.DT_MAX
     elif isinstance(value, datetime.time):
-        return utils.utcnow().replace(
+        return date.utcnow().replace(
             hour=value.hour,
             minute=value.minute,
             second=value.second,
