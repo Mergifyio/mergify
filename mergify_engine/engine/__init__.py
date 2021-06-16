@@ -18,6 +18,7 @@ import first
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
@@ -351,7 +352,7 @@ async def create_initial_summary(
             "name": context.Context.SUMMARY_NAME,
             "head_sha": event["pull_request"]["head"]["sha"],
             "status": check_api.Status.IN_PROGRESS.value,
-            "started_at": utils.utcnow().isoformat(),
+            "started_at": date.utcnow().isoformat(),
             "details_url": f"{event['pull_request']['html_url']}/checks",
             "output": {
                 "title": "Your rules are under evaluation",

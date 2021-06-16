@@ -20,7 +20,6 @@ from freezegun import freeze_time
 import pytest
 
 from mergify_engine import date
-from mergify_engine import utils
 from mergify_engine.rules import filter
 from mergify_engine.rules import parser
 
@@ -165,7 +164,7 @@ def time(hour: int, minute: int) -> datetime.time:
 
 
 def dtime(day: int) -> datetime.datetime:
-    return utils.utcnow().replace(day=day)
+    return date.utcnow().replace(day=day)
 
 
 @freeze_time("2012-01-14")
@@ -180,14 +179,14 @@ async def test_datetime_binary() -> None:
         filter.BinaryFilter({"<=": ("foo", dtime(5).replace(hour=3, minute=9))})
     )
 
-    f = filter.BinaryFilter({"<=": ("foo", utils.utcnow())})
+    f = filter.BinaryFilter({"<=": ("foo", date.utcnow())})
     assert await f(FakePR({"foo": dtime(14)}))
     assert await f(FakePR({"foo": dtime(2)}))
     assert await f(FakePR({"foo": dtime(5)}))
     assert not await f(FakePR({"foo": dtime(18)}))
     assert not await f(FakePR({"foo": dtime(23)}))
 
-    f = filter.BinaryFilter({">=": ("foo", utils.utcnow())})
+    f = filter.BinaryFilter({">=": ("foo", date.utcnow())})
     assert await f(FakePR({"foo": dtime(14)}))
     assert not await f(FakePR({"foo": dtime(2)}))
     assert not await f(FakePR({"foo": dtime(5)}))

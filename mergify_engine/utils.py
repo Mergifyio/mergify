@@ -14,7 +14,6 @@
 # under the License.
 import asyncio
 import contextlib
-import datetime
 import hashlib
 import hmac
 import os
@@ -103,44 +102,6 @@ async def stop_pending_aredis_tasks() -> None:
         for task in tasks:
             task.cancel()
         await asyncio.wait(tasks)
-
-
-def utcnow() -> datetime.datetime:
-    return datetime.datetime.now(tz=datetime.timezone.utc)
-
-
-def number_with_unit(n: int, unit: str) -> str:
-    if n >= -1 and n <= 1:
-        return f"{n} {unit}"
-    return f"{n} {unit}s"
-
-
-def pretty_join(strings: typing.List[str]) -> str:
-    if len(strings) == 0:
-        return ""
-    elif len(strings) == 1:
-        return strings[0]
-    else:
-        return f"{', '.join(strings[:-1])} and {strings[-1]}"
-
-
-def pretty_timedelta(t: datetime.timedelta) -> str:
-    seconds = int(t.total_seconds())
-    days, seconds = divmod(seconds, 86400)
-    hours, seconds = divmod(seconds, 3600)
-    minutes, seconds = divmod(seconds, 60)
-    parts = []
-    if days > 0:
-        parts.append(number_with_unit(days, "day"))
-    if days > 0 or hours > 0:
-        parts.append(number_with_unit(hours, "hour"))
-    if days > 0 or hours > 0 or minutes > 0:
-        parts.append(number_with_unit(minutes, "minute"))
-
-    if days == 0 and hours == 0 and minutes == 0:
-        parts.append(number_with_unit(seconds, "second"))
-
-    return pretty_join(parts)
 
 
 def unicode_truncate(s: str, length: int, encoding: str = "utf-8") -> str:
