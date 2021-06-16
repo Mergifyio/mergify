@@ -13,6 +13,7 @@
 # under the License.
 
 import dataclasses
+import datetime
 import enum
 import typing
 
@@ -71,6 +72,8 @@ class Result:
     title: str
     summary: str
     annotations: typing.Optional[typing.List[github_types.GitHubAnnotation]] = None
+    started_at: typing.Optional[datetime.datetime] = None
+    ended_at: typing.Optional[datetime.datetime] = None
 
 
 async def get_checks_for_ref(
@@ -139,14 +142,14 @@ async def set_check_run(
     else:
         status = Status.COMPLETED
 
+    started_at = (result.started_at or utils.utcnow()).isoformat()
+
     post_parameters = GitHubCheckRunParameters(
         {
             "name": name,
             "head_sha": ctxt.pull["head"]["sha"],
             "status": typing.cast(github_types.GitHubCheckRunStatus, status.value),
-            "started_at": typing.cast(
-                github_types.ISODateTimeType, utils.utcnow().isoformat()
-            ),
+            "started_at": typing.cast(github_types.ISODateTimeType, started_at),
             "details_url": f"{ctxt.pull['html_url']}/checks",
             "output": {
                 "title": result.title,
@@ -168,9 +171,10 @@ async def set_check_run(
         post_parameters["external_id"] = external_id
 
     if status is Status.COMPLETED:
+        ended_at = (result.ended_at or utils.utcnow()).isoformat()
         post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = typing.cast(
-            github_types.ISODateTimeType, utils.utcnow().isoformat()
+            github_types.ISODateTimeType, ended_at
         )
 
     checks = sorted(
