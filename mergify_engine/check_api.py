@@ -17,6 +17,7 @@ import datetime
 import enum
 import typing
 
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import utils
 
@@ -142,7 +143,7 @@ async def set_check_run(
     else:
         status = Status.COMPLETED
 
-    started_at = (result.started_at or utils.utcnow()).isoformat()
+    started_at = (result.started_at or date.utcnow()).isoformat()
 
     post_parameters = GitHubCheckRunParameters(
         {
@@ -171,7 +172,7 @@ async def set_check_run(
         post_parameters["external_id"] = external_id
 
     if status is Status.COMPLETED:
-        ended_at = (result.ended_at or utils.utcnow()).isoformat()
+        ended_at = (result.ended_at or date.utcnow()).isoformat()
         post_parameters["conclusion"] = result.conclusion.value
         post_parameters["completed_at"] = typing.cast(
             github_types.ISODateTimeType, ended_at

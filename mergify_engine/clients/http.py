@@ -24,7 +24,7 @@ import httpx
 import tenacity
 from werkzeug.http import parse_date
 
-from mergify_engine import utils
+from mergify_engine import date
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -115,7 +115,7 @@ def wait_retry_after_header(retry_state):
     d = parse_date(value)
     if d is None:
         return 0
-    return max(0, (d - utils.utcnow()).total_seconds())
+    return max(0, (d - date.utcnow()).total_seconds())
 
 
 def extract_github_extra(client):

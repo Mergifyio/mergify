@@ -59,3 +59,33 @@ from mergify_engine import date
 )
 def test_fromisoformat(value: str, expected: datetime.datetime) -> None:
     assert date.fromisoformat(value) == expected
+
+
+@pytest.mark.parametrize(
+    "timedelta,expected_string",
+    [
+        (
+            datetime.timedelta(minutes=3),
+            "3 minutes",
+        ),
+        (
+            datetime.timedelta(hours=3),
+            "3 hours and 0 minute",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, seconds=12),
+            "2 days, 3 hours and 0 minute",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, minutes=2),
+            "2 days, 3 hours and 2 minutes",
+        ),
+        (
+            datetime.timedelta(days=2, hours=3, minutes=2),
+            "2 days, 3 hours and 2 minutes",
+        ),
+        (datetime.timedelta(seconds=12), "12 seconds"),
+    ],
+)
+def test_pretty_timedelta(timedelta: datetime.timedelta, expected_string: str) -> None:
+    assert date.pretty_timedelta(timedelta) == expected_string
