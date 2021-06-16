@@ -22,7 +22,6 @@ import pytest
 import yaml
 
 from mergify_engine import config
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
@@ -809,10 +808,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Ensure p2 status is updated with the failure
         p2 = await self.get_pull(p2["number"])
         ctxt_p2 = context.Context(self.repository_ctxt, p2)
-        check = first(
-            await ctxt_p2.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
+        check = await ctxt_p2.get_queue_summary_check()
         assert (
             check["output"]["title"] == "This pull request cannot be embarked for merge"
         )
@@ -961,10 +957,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # refresh to add it back in queue
         ctxt = await self.repository_ctxt.get_pull_request_context(p2["number"], p2)
-        check = first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
+        check = await ctxt.get_queue_summary_check()
         check_suite_id = check["check_suite"]["id"]
 
         # click on refresh btn
@@ -1728,10 +1721,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         p3 = await self.get_pull(p3["number"])
         ctxt_p3 = context.Context(self.repository_ctxt, p3)
-        check = first(
-            await ctxt_p3.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
+        check = await ctxt_p3.get_queue_summary_check()
         assert (
             check["output"]["title"] == "This pull request cannot be embarked for merge"
         )

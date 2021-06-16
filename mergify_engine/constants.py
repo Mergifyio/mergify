@@ -15,7 +15,12 @@
 # under the License.
 
 MERGE_QUEUE_BRANCH_PREFIX = "mergify/merge-queue"
-MERGE_QUEUE_SUMMARY_NAME = "Queue: Embarked in merge train"
+MERGE_QUEUE_SUMMARY_NAME_SUCCESS = "Queue: Embarked in merge train"
+MERGE_QUEUE_SUMMARY_NAME_FAILURE = "Queue: Disembarked from merge train"
+MERGE_QUEUE_SUMMARY_NAMES = [
+    MERGE_QUEUE_SUMMARY_NAME_SUCCESS,
+    MERGE_QUEUE_SUMMARY_NAME_FAILURE,
+]
 
 MERGIFY_OPENSOURCE_SPONSOR_DOC = (
     "<hr />\n"

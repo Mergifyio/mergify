@@ -402,9 +402,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
             details=details,
             exc_info=True,
         )
-        await check_api.set_check_run(
-            original_ctxt,
-            constants.MERGE_QUEUE_SUMMARY_NAME,
+        await original_ctxt.set_queue_summary_check(
+            constants.MERGE_QUEUE_SUMMARY_NAME_FAILURE,
             check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
                 title=title,
@@ -553,13 +552,17 @@ You don't need to do anything. Mergify will close this pull request automaticall
         if will_be_reset:
             # TODO(sileht): display train cars ?
             original_pull_title = "The pull request is going to be re-embarked soon"
+            queue_summary_name = constants.MERGE_QUEUE_SUMMARY_NAME_SUCCESS
         else:
             if conclusion == check_api.Conclusion.SUCCESS:
                 original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
+                queue_summary_name = constants.MERGE_QUEUE_SUMMARY_NAME_SUCCESS
             elif conclusion == check_api.Conclusion.PENDING:
                 original_pull_title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
+                queue_summary_name = constants.MERGE_QUEUE_SUMMARY_NAME_SUCCESS
             else:
                 original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
+                queue_summary_name = constants.MERGE_QUEUE_SUMMARY_NAME_FAILURE
 
         report = check_api.Result(
             conclusion,
@@ -571,11 +574,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             conclusion=conclusion.value,
             report=report,
         )
-        await check_api.set_check_run(
-            original_ctxt,
-            constants.MERGE_QUEUE_SUMMARY_NAME,
-            report,
-        )
+        await original_ctxt.set_queue_summary_check(queue_summary_name, report)
 
         if self.state != "created":
             return
@@ -617,9 +616,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         if previous_car_ctxt is None:
             return False
 
-        previous_car_check = await previous_car_ctxt.get_engine_check_run(
-            constants.MERGE_QUEUE_SUMMARY_NAME
-        )
+        previous_car_check = await previous_car_ctxt.get_queue_summary_check()
         if previous_car_check is None:
             return False
 

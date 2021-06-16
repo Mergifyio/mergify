@@ -16,13 +16,11 @@
 import typing
 
 import daiquiri
-from first import first
 import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import subscription
@@ -148,14 +146,13 @@ class QueueAction(merge_base.MergeBaseAction):
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
             # check and the method _should_be_queue will become true again :)
-            check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
+            check = await ctxt.get_queue_summary_check()
             if check and check_api.Conclusion(check["conclusion"]) not in [
                 check_api.Conclusion.SUCCESS,
                 check_api.Conclusion.PENDING,
             ]:
-                await check_api.set_check_run(
-                    ctxt,
-                    constants.MERGE_QUEUE_SUMMARY_NAME,
+                await ctxt.set_queue_summary_check(
+                    constants.MERGE_QUEUE_SUMMARY_NAME_SUCCESS,
                     check_api.Result(
                         check_api.Conclusion.PENDING,
                         "The pull request has been refreshed and is going to be re-embarked soon",
@@ -177,16 +174,8 @@ class QueueAction(merge_base.MergeBaseAction):
         self.queue_count = len(mergify_config["queue_rules"])
         self.config["queue_config"] = self.queue_rule.config
 
-    async def _get_merge_queue_check(
-        self, ctxt: context.Context
-    ) -> typing.Optional[github_types.GitHubCheckRun]:
-        return first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
-        )
-
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
-        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
+        check = await ctxt.get_queue_summary_check()
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
             check_api.Conclusion.PENDING,
@@ -201,7 +190,7 @@ class QueueAction(merge_base.MergeBaseAction):
             if queue_rule_evaluated.conditions.match:
                 return True
 
-        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
+        check = await ctxt.get_queue_summary_check()
         if check:
             return (
                 check_api.Conclusion(check["conclusion"])

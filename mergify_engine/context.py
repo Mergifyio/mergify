@@ -888,9 +888,11 @@ class Context(object):
             )
         }
 
-    async def update_pull_check_runs(self, check: github_types.GitHubCheckRun) -> None:
+    async def update_pull_check_runs(
+        self, check: github_types.GitHubCheckRun, names: typing.List[str]
+    ) -> None:
         self._cache["pull_check_runs"] = [
-            c for c in await self.pull_check_runs if c["name"] != check["name"]
+            c for c in await self.pull_check_runs if c["name"] not in names
         ]
         self._cache["pull_check_runs"].append(check)
 
@@ -916,6 +918,24 @@ class Context(object):
     ) -> typing.Optional[github_types.GitHubCheckRun]:
         return first.first(
             await self.pull_engine_check_runs, key=lambda c: c["name"] == name
+        )
+
+    async def get_queue_summary_check(
+        self,
+    ) -> typing.Optional[github_types.GitHubCheckRun]:
+        return first.first(
+            await self.pull_engine_check_runs,
+            key=lambda c: c["name"] in constants.MERGE_QUEUE_SUMMARY_NAMES,
+        )
+
+    async def set_queue_summary_check(
+        self, name: str, result: check_api.Result
+    ) -> github_types.GitHubCheckRun:
+        return await check_api.set_check_run(
+            self,
+            name,
+            result,
+            possible_old_names=constants.MERGE_QUEUE_SUMMARY_NAMES,
         )
 
     @property

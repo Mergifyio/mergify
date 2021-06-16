@@ -117,7 +117,7 @@ def check_need_update(
     if compare_dict(
         typing.cast(typing.Dict[str, typing.Any], expected_check),
         typing.cast(typing.Dict[str, typing.Any], previous_check),
-        ("head_sha", "status", "conclusion", "details_url"),
+        ("name", "head_sha", "status", "conclusion", "details_url"),
     ):
         if previous_check["output"] == expected_check["output"]:
             return False
@@ -136,11 +136,15 @@ async def set_check_run(
     name: str,
     result: Result,
     external_id: typing.Optional[str] = None,
+    possible_old_names: typing.Optional[typing.List[str]] = None,
 ) -> github_types.GitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
     else:
         status = Status.COMPLETED
+
+    if possible_old_names is None:
+        possible_old_names = [name]
 
     started_at = (result.started_at or utils.utcnow()).isoformat()
 
@@ -178,18 +182,33 @@ async def set_check_run(
         )
 
     checks = sorted(
-        (c for c in await ctxt.pull_engine_check_runs if c["name"] == name),
+        (
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] in possible_old_names
+        ),
         key=lambda c: c["id"],
         reverse=True,
     )
+    if name.startswith("Queue:"):
+        ctxt.log.log(
+            42,
+            "Find checks",
+            possible_old_names=possible_old_names,
+            checks=[f"{c['id']}/{c['name']}" for c in checks],
+        )
 
-    # Only keep the newer checks, cancelled others
+    # Only keep the newer checks, cancelled others and override their name so GitHub will hide them
     for check_to_cancelled in checks[1:]:
-        if Status(check_to_cancelled["status"]) != Status.COMPLETED:
+        if (
+            Status(check_to_cancelled["status"]) != Status.COMPLETED
+            or check_to_cancelled["name"] != name
+        ):
             await ctxt.client.patch(
                 f"{ctxt.base_url}/check-runs/{check_to_cancelled['id']}",
                 api_version="antiope",
                 json={
+                    "name": name,
                     "conclusion": Conclusion.CANCELLED.value,
                     "status": Status.COMPLETED.value,
                 },
@@ -229,5 +248,5 @@ async def set_check_run(
         else:
             new_check = checks[0]
 
-    await ctxt.update_pull_check_runs(new_check)
+    await ctxt.update_pull_check_runs(new_check, possible_old_names)
     return new_check
