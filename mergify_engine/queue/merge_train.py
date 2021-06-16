@@ -838,7 +838,8 @@ class Train(queue.QueueBase):
         ):
             # Head of the train was merged and the base_sha haven't changed, we can keep
             # other running cars
-            await self._cars[0].delete_pull()
+            deleted_car = self._cars[0]
+            await deleted_car.delete_pull()
             self._cars = self._cars[1:]
 
             if ctxt.pull["merge_commit_sha"] is None:
@@ -850,7 +851,11 @@ class Train(queue.QueueBase):
                 car.current_base_sha = self._current_base_sha
 
             await self._save()
-            ctxt.log.info("removed from train", position=0)
+            ctxt.log.info(
+                "removed from train",
+                position=0,
+                gh_pull_speculative_check=deleted_car.queue_pull_request_number,
+            )
             await self._refresh_pulls(ctxt.pull["base"]["repo"])
             return
 
@@ -858,10 +863,19 @@ class Train(queue.QueueBase):
         if position is None:
             return
 
+        if position < len(self._cars):
+            queue_pull_request_number = self._cars[position].queue_pull_request_number
+        else:
+            queue_pull_request_number = None
+
         await self._slice_cars_at(position)
         del self._waiting_pulls[position - len(self._cars)]
         await self._save()
-        ctxt.log.info("removed from train", position=position)
+        ctxt.log.info(
+            "removed from train",
+            position=position,
+            gh_pull_speculative_check=queue_pull_request_number,
+        )
         await self._refresh_pulls(ctxt.pull["base"]["repo"])
 
     async def _populate_cars(self, queue_rules: rules.QueueRules) -> None:
