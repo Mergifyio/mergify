@@ -168,12 +168,14 @@ Examples
           merge:
             method: merge
 
-.. _iso datetime:
+.. _iso timestamp:
 
-Datetime
-~~~~~~~~
+Timestamp
+~~~~~~~~~
 
-The date and datetime format must follow the ISO 8601 standard. If timezone is missing, it's assumed to be UTC.
+The timestamp format must follow the `ISO 8601 standard
+<https://en.wikipedia.org/wiki/ISO_8601>`_. If the timezone is missing, the
+timestamp is assumed to be in UTC.
 
 .. code-block::
 
@@ -196,6 +198,37 @@ Examples
           close:
             message: |
               The pull request base branch has reached end-of-life.
+
+
+.. _relative timestamp:
+
+Relative Timestamp
+~~~~~~~~~~~~~~~~~~
+
+Timestamps can be expressed relative to the current date and time.
+The format is ``[DD days] [HH:MM] ago``:
+
+* DD, the number of days
+* HH, the number of hours
+* MM, the number of minutes
+
+If the current date is 18th June 2020, ``updated-at>=14 days ago`` will be translated ``updated-at>=2020-06-04T00:00:00``.
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+      - name: close stale pull request
+        conditions:
+          - base=main
+          - -closed
+          - updated-at<14 days ago
+        actions:
+          close:
+            message: |
+              This pull request looks stale. Feel free to reopen it if you think it's a mistake.
+
 
 Disabling Rules
 ~~~~~~~~~~~~~~~

@@ -628,6 +628,81 @@ async def test_datetime_near_datetime() -> None:
         assert (await f(FakePR({"updated-at": dtime(16)}))) == date.DT_MAX, str(f)
 
 
+def rdtime(day: int) -> date.RelativeDatetime:
+    return date.RelativeDatetime(dtime(day))
+
+
+@freeze_time("2012-01-14T05:08:00")
+async def test_relative_datetime() -> None:
+    tree = parser.search.parseString("updated-at<2 days ago", parseAll=True)[0]
+    f = filter.BinaryFilter(tree)
+    assert await f(FakePR({"updated-at-relative": rdtime(2)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(10)})), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(12)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(14)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(16)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(18)}))), tree
+    fd = filter.NearDatetimeFilter(tree)
+    assert (await fd(FakePR({"updated-at-relative": rdtime(2)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(10)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(12)}))) == dtime(14), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(13)}))) == dtime(15), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == dtime(16), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == dtime(20), tree
+
+    tree = parser.search.parseString("updated-at<=2 days ago", parseAll=True)[0]
+    f = filter.BinaryFilter(tree)
+    assert await f(FakePR({"updated-at-relative": rdtime(2)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(10)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(12)})), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(14)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(16)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(18)}))), tree
+    fd = filter.NearDatetimeFilter(tree)
+    assert (await fd(FakePR({"updated-at-relative": rdtime(2)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(10)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(12)}))) == dtime(
+        14
+    ) + datetime.timedelta(minutes=1), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(13)}))) == dtime(15), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == dtime(16), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == dtime(20), tree
+
+    tree = parser.search.parseString("updated-at>2 days ago", parseAll=True)[0]
+    f = filter.BinaryFilter(tree)
+    assert not (await f(FakePR({"updated-at-relative": rdtime(2)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(10)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(12)}))), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(14)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(16)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(18)})), tree
+    fd = filter.NearDatetimeFilter(tree)
+    assert (await fd(FakePR({"updated-at-relative": rdtime(2)}))) == dtime(24), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(10)}))) == dtime(16), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(12)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(13)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == date.DT_MAX, tree
+
+    tree = parser.search.parseString("updated-at>=2 days ago", parseAll=True)[0]
+    f = filter.BinaryFilter(tree)
+    assert not (await f(FakePR({"updated-at-relative": rdtime(2)}))), tree
+    assert not (await f(FakePR({"updated-at-relative": rdtime(10)}))), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(12)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(14)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(16)})), tree
+    assert await f(FakePR({"updated-at-relative": rdtime(18)})), tree
+    fd = filter.NearDatetimeFilter(tree)
+    assert (await fd(FakePR({"updated-at-relative": rdtime(2)}))) == dtime(24), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(10)}))) == dtime(16), tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(12)}))) == dtime(
+        14
+    ) + datetime.timedelta(minutes=1), (tree, rdtime(12))
+    assert (await fd(FakePR({"updated-at-relative": rdtime(13)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == date.DT_MAX, tree
+    assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == date.DT_MAX, tree
+
+
 async def test_multiple_near_datetime() -> None:
     with freeze_time("2012-01-14T05:08:00", tz_offset=0) as frozen_time:
         now = frozen_time().replace(tzinfo=datetime.timezone.utc)

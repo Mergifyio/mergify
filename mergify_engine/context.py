@@ -529,6 +529,7 @@ ContextAttributeType = typing.Union[
     datetime.time,
     date.PartialDatetime,
     datetime.datetime,
+    date.RelativeDatetime,
 ]
 
 
@@ -873,6 +874,20 @@ class Context(object):
             return date.Year(date.utcnow().year)
         elif name == "current-day-of-week":
             return date.DayOfWeek(date.utcnow().isoweekday())
+
+        elif name == "updated-at-relative":
+            return date.RelativeDatetime(date.fromisoformat(self.pull["updated_at"]))
+        elif name == "created-at-relative":
+            return date.RelativeDatetime(date.fromisoformat(self.pull["created_at"]))
+        elif name == "closed-at-relative":
+            if self.pull["closed_at"] is None:
+                return date.RelativeDatetime(datetime.datetime.max)
+            return date.RelativeDatetime(date.fromisoformat(self.pull["closed_at"]))
+        elif name == "merged-at-relative":
+            if self.pull["merged_at"] is None:
+                return date.RelativeDatetime(datetime.datetime.max)
+            return date.RelativeDatetime(date.fromisoformat(self.pull["merged_at"]))
+
         elif name == "updated-at":
             return date.fromisoformat(self.pull["updated_at"])
         elif name == "created-at":

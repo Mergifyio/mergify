@@ -149,6 +149,70 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             {"<=": ("updated-at", now)},
         ),
         (
+            "closed-at>=18:02 ago",
+            {
+                ">=": (
+                    "closed-at-relative",
+                    date.RelativeDatetime(
+                        now - datetime.timedelta(hours=18, minutes=2)
+                    ),
+                )
+            },
+        ),
+        (
+            "merged-at>18:02 ago",
+            {
+                ">": (
+                    "merged-at-relative",
+                    date.RelativeDatetime(
+                        now - datetime.timedelta(hours=18, minutes=2)
+                    ),
+                )
+            },
+        ),
+        (
+            "created-at<18:02 ago",
+            {
+                "<": (
+                    "created-at-relative",
+                    date.RelativeDatetime(
+                        now - datetime.timedelta(hours=18, minutes=2)
+                    ),
+                ),
+            },
+        ),
+        (
+            "updated-at>=18:02 ago",
+            {
+                ">=": (
+                    "updated-at-relative",
+                    date.RelativeDatetime(
+                        now - datetime.timedelta(hours=18, minutes=2)
+                    ),
+                )
+            },
+        ),
+        (
+            "updated-at<=7 days ago",
+            {
+                "<=": (
+                    "updated-at-relative",
+                    date.RelativeDatetime(now - datetime.timedelta(days=7)),
+                )
+            },
+        ),
+        (
+            "updated-at>7 days 18:02 ago",
+            {
+                ">": (
+                    "updated-at-relative",
+                    date.RelativeDatetime(
+                        now - datetime.timedelta(days=7, hours=18, minutes=2),
+                    ),
+                )
+            },
+        ),
+        (
             f"current-datetime<={now.isoformat()}",
             {"<=": ("current-datetime", now)},
         ),

@@ -324,6 +324,8 @@ def _minimal_datetime(dts: typing.Iterable[object]) -> datetime.datetime:
 def _as_datetime(value: typing.Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return value
+    elif isinstance(value, date.RelativeDatetime):
+        return value.value
     elif isinstance(value, datetime.timedelta):
         dt = date.utcnow()
         return dt + value
@@ -404,10 +406,18 @@ def _dt_op(
                     return _dt_in_future(
                         dt_ref.replace(hour=0, minute=0, second=0, microsecond=0)
                     )
+                elif isinstance(ref, date.RelativeDatetime):
+                    return date.utcnow() + datetime.timedelta(minutes=1)
                 else:
                     return _dt_in_future(dt_ref + datetime.timedelta(minutes=1))
             elif dt_value < dt_ref:
-                return _dt_in_future(dt_ref)
+                if isinstance(ref, date.RelativeDatetime):
+                    if op in (operator.ge, operator.gt):
+                        return _dt_in_future(date.utcnow() + (dt_ref - dt_value))
+                    else:
+                        return date.DT_MAX
+                else:
+                    return _dt_in_future(dt_ref)
             else:
                 if isinstance(ref, datetime.time):
                     # Condition will change next day at 00:00:00
@@ -430,6 +440,11 @@ def _dt_op(
                         dt_ref = dt_ref.replace(month=ref.value, day=1)
                     else:
                         dt_ref = dt_ref.replace(month=1, day=1)
+                elif isinstance(ref, date.RelativeDatetime):
+                    if op in (operator.le, operator.lt):
+                        return _dt_in_future(date.utcnow() + (dt_value - dt_ref))
+                    else:
+                        return date.DT_MAX
                 else:
                     return date.DT_MAX
                 if op in (operator.eq, operator.ne):

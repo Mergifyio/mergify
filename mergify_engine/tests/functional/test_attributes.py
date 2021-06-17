@@ -119,6 +119,43 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])
 
+    async def test_updated_relative_not_match(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": ["created-at<7 days ago"],
+                    "actions": {"comment": {"message": "it's time"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr()
+        comments = await self.get_issue_comments(pr["number"])
+        assert len(comments) == 0
+        await self.run_engine()
+        comments = await self.get_issue_comments(pr["number"])
+        assert len(comments) == 0
+
+        assert await self.redis_cache.zcard("delayed-refresh") == 1
+
+    async def test_updated_relative_match(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": ["created-at>=7 days ago"],
+                    "actions": {"comment": {"message": "it's time"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("it's time", comments[-1]["body"])
+
     async def test_draft(self):
         rules = {
             "pull_request_rules": [
