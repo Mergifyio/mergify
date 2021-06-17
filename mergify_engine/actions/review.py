@@ -23,6 +23,7 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
+from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
@@ -125,10 +126,23 @@ class ReviewAction(actions.Action):
         else:
             github_user = None
 
-        await ctxt.client.post(
-            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews",
-            oauth_token=github_user["oauth_access_token"] if github_user else None,
-            json=payload,
-        )
+        try:
+            await ctxt.client.post(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews",
+                oauth_token=github_user["oauth_access_token"] if github_user else None,
+                json=payload,
+            )
+        except http.HTTPClientSideError as e:
+            if e.status_code == 422 and "errors" in e.response.json():
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Review failed",
+                    "GitHub returned an unexpected error:\n\n * "
+                    + "\n * ".join(
+                        map(lambda s: f"`{s}`", e.response.json()["errors"])
+                    ),
+                )
+            raise
+
         await signals.send(ctxt, "action.review")
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
