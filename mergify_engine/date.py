@@ -21,12 +21,22 @@ import typing
 DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
 
 
+def utcnow() -> datetime.datetime:
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
 @dataclasses.dataclass(order=True)
 class PartialDatetime:
     value: int
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+@dataclasses.dataclass(order=True)
+class RelativeDatetime:
+    # NOTE(sileht): Like a datetime, but we known it has been computed from `utcnow() + timedelta()`
+    value: datetime.datetime
 
 
 @dataclasses.dataclass
@@ -81,10 +91,6 @@ def fromisoformat(s: str) -> datetime.datetime:
         return dt.replace(tzinfo=datetime.timezone.utc)
     else:
         return dt.astimezone(datetime.timezone.utc)
-
-
-def utcnow() -> datetime.datetime:
-    return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
 def _pretty_join(strings: typing.List[str]) -> str:

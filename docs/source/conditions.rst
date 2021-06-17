@@ -254,19 +254,19 @@ Here's the list of pull request attribute that can be used in conditions:
      - string
      - The title of the pull request.
    * - ``created-at``
-     - :ref:`Datetime <iso datetime>`
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was created at.
    * - ``updated-at``
-     - :ref:`Datetime <iso datetime>`
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was updated at.
    * - ``merged-at``
-     - :ref:`Datetime <iso datetime>`
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was merged at.
    * - ``closed-at``
-     - :ref:`Datetime <iso datetime>`
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was closed at.
    * - ``current-datetime``
-     - :ref:`Datetime <iso datetime>`
+     - :ref:`Timestamp <iso timestamp>`
      - The current date and time.
    * - ``current-time``
      - string

@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import re
 import typing
 
 import pyparsing
@@ -95,12 +96,35 @@ _day_of_week = _day_of_week_str.setParseAction(
     message="day-of-week must be between 1 and 7",
 )
 
+# PostgreSQL's day-time interval format without seconds and microseconds, e.g. "3 days 04:05"
+_TIMEDELTA_TO_NOW_RE = re.compile(
+    r"^"
+    r"(?:(?P<days>\d+) (days? ?))?"
+    r"(?:"
+    r"(?P<hours>\d+):"
+    r"(?P<minutes>\d\d)"
+    r")? ago$"
+)
+
+
+def _parse_timedelta_to_now(tokens):
+    m = _TIMEDELTA_TO_NOW_RE.match(tokens[0])
+    if m is None:
+        raise pyparsing.ParseException("invalid relative timestamp")
+    kw = m.groupdict()
+    days = datetime.timedelta(float(kw.pop("days", 0) or 0))
+    kw = {k: float(v) for k, v in kw.items() if v is not None}
+    return date.RelativeDatetime(date.utcnow() - (days + datetime.timedelta(**kw)))
+
+
+timedelta_to_now = text.copy().setParseAction(_parse_timedelta_to_now)
+
 
 def _iso_datetime(tokens):
     try:
         return date.fromisoformat(tokens[0])
     except ValueError:
-        raise pyparsing.ParseException("invalid datetime")
+        raise pyparsing.ParseException("invalid timestamp")
 
 
 iso_datetime = text.copy().setParseAction(_iso_datetime)
@@ -183,6 +207,12 @@ def _token_to_dict(
         key_op = ""
         not_ = False
         key, op, value = toks
+        # NOTE(sileht): We can't just use a timedelta or a datetime at this
+        # point otherwise we will not be able compute the next time the
+        # condition will change, so we use the -relative attribute and
+        # date.RelativeDatetime
+        if isinstance(value, date.RelativeDatetime):
+            key += "-relative"
 
     elif len(toks) == 5:
         # quantifiable_attributes
@@ -240,10 +270,10 @@ current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
 schedule = ("schedule" + equality_operators + _schedule).setParseAction(
     convert_equality_to_at
 )
-created_at = "created-at" + range_operators + iso_datetime
-updated_at = "updated-at" + range_operators + iso_datetime
-closed_at = "closed-at" + range_operators + iso_datetime
-merged_at = "merged-at" + range_operators + iso_datetime
+created_at = "created-at" + range_operators + (iso_datetime | timedelta_to_now)
+updated_at = "updated-at" + range_operators + (iso_datetime | timedelta_to_now)
+closed_at = "closed-at" + range_operators + (iso_datetime | timedelta_to_now)
+merged_at = "merged-at" + range_operators + (iso_datetime | timedelta_to_now)
 current_datetime = "current-datetime" + range_operators + iso_datetime
 
 quantifiable_attributes = (
