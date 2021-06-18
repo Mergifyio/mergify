@@ -18,13 +18,6 @@ the development branch are ported back to the stable branch(es). The stable
 branch can then be used to release a new minor version of the software, fixing
 some of its bugs.
 
-.. important::
-
-   |premium plan tag|
-   |essential plan tag|
-   If the repository is bigger than 512 MB, the ``backport`` action is only
-   available for `Essential and Premium subscribers <https://mergify.io/pricing>`_.
-
 As this process of backporting patches can be tedious, Mergify automates this
 mechanism to save developers' time and ease their duty.
 
@@ -36,6 +29,12 @@ automatically delete the backport head branch that it created.
 
 You can also trigger backports using the :ref:`backport command` command.
 
+.. warning::
+
+   |premium plan tag|
+   |essential plan tag|
+   If the repository is bigger than 512 MB, the ``backport`` action is only
+   available for `Essential and Premium subscribers <https://mergify.io/pricing>`_.
 
 Options
 -------

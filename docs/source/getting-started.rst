@@ -71,11 +71,6 @@ Each rule is composed of 3 elements:
 A First Rule
 ~~~~~~~~~~~~
 
-.. note::
-
-    Mergify is event-driven: rules are only executed when pull requests are updated
-    or when the bot is manually triggered in a comment with `@Mergifyio refresh` (see :ref:`Commands`).
-
 Let's create a first rule that will merge the pull request as soon as it has
 been approved by one contributor.
 
@@ -109,6 +104,13 @@ Here's the relevant configuration file content:
 Fore more details about the configuration file format, check
 :ref:`configuration file format`.
 
+.. note::
+
+   Mergify is event-driven: rules are only executed when pull requests are
+   updated or when the bot is manually triggered in a comment with `@Mergifyio
+   refresh` (see :ref:`Commands`).
+
+
 Creating the Configuration File
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -121,14 +123,15 @@ your organization. Then, select a repository where you enabled Mergify.
    :alt: Mergify config editor
    :align: center
 
+You can edit the default configuration provided as you wish. If your
+repository has existing pull requests, you can test your configuration against
+those by typing a pull request number in the form above.
+
 .. note::
 
    For security reason, Mergify will never automatically merge a pull request
    if it changes the Mergify configuration file.
 
-You can edit the default configuration provided as you wish. If your
-repository has existing pull requests, you can test your configuration against
-those by typing a pull request number in the form above.
 
 When done, click on the ``Create a pull request with this configuration``
 button. A new pull request will be created on your repository with the new
@@ -146,13 +149,6 @@ requests.
 Understanding Mergify Check Report
 ----------------------------------
 
-.. note::
-
-   When a pull request changes the configuration of Mergify, the status is
-   built with the current configuration (without the pull request change). The
-   Mergify configuration is validated and status is posted in the ``Summary``
-   check.
-
 When a pull request is created in the repository, Mergify posts a status check
 about the state of the pull request according to the defined rules.
 
@@ -163,6 +159,12 @@ about the state of the pull request according to the defined rules.
 When all the criteria of the rules are satisfied, Mergify executes the
 configured actions and e.g. merges the pull request.
 
+.. note::
+
+   When a pull request changes the configuration of Mergify, the status is
+   built with the current configuration (without the pull request change). The
+   Mergify configuration is validated and status is posted in the ``Summary``
+   check.
 
 Controlling Mergify with Commands
 ---------------------------------

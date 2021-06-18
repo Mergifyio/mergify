@@ -204,13 +204,25 @@ p.admonition-title:after {
 div.alert {
     /* At least needed to keep feature tag inside alerts div */
     overflow: hidden;
-    float: right;
-    max-width: 33%;
     clear: both;
     margin-left: 1em;
     margin-bottom: 1em;
+    width: 90%;
+    border: none;
+    border-left: 4px solid;
+    border-radius: 3px;
+    background-color: #F5F7F9;
 }
 
+div.alert-warning {
+    color: #e0a800;
+    border-color: #e0a800;
+}
+
+div.alert-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
 
 div.alert > p.admonition-title {
     font-weight: bold;
@@ -231,7 +243,7 @@ p.admonition-title > div.icon {
 div.alert-warning > p.admonition-title > div.icon:after {
     font-family: "Font Awesome 5 Free";
     font-weight: 900;
-    content: "\f06a";
+    content: "\f071";
 }
 
 div.alert-info> p.admonition-title > div.icon:after {
@@ -245,6 +257,13 @@ div.alert-primary > p.admonition-title > div.icon:after {
     font-weight: 900;
     content: "\f05a";
 }
+
+div.alert-danger > p.admonition-title > div.icon:after {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: "\f256";
+}
+
 
 /* Breadcrumb styles */
 

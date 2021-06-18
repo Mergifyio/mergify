@@ -279,15 +279,13 @@ Using the ``rebase`` method for the strict merge has many drawbacks:
 Git merge workflow and Mergify equivalent configuration
 -------------------------------------------------------
 
+There is a lot of different ways to merge pull requests. You can replicate many
+``git`` based merge when using Mergify — here's a list of equivalence.
+
 .. note::
 
    `base branch` is usually ``master``, ``main`` or ``dev``,
    `head branch` is the pull request branch.
-
-
-There is a lot of different ways to merge pull requests. You can replicate many
-``git`` based merge when using Mergify — here's a list of equivalence.
-
 
 .. list-table::
    :header-rows: 1

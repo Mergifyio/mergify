@@ -21,16 +21,6 @@ A condition is a string that has the following format::
 
   [ "-" ] [ "#" ] <attribute> [ <operator> <value> ]
 
-.. important::
-
-   The ``#`` character is considered as a comment delimiter in YAML. As ``#``
-   is the length operator in Mergify's conditions system, don't forget to use
-   ``"`` around the condition to write valid YAML syntax.
-
-.. note::
-
-  ``operator`` and ``value`` are only optional if the ``attribute`` type is
-  ``Boolean``.
 
 - The optional ``-`` prefix is equivalent to the `not` operator.
 
@@ -58,6 +48,17 @@ For example:
   pull request.
 
 - ``-merged`` matches if the pull requested has not been merged.
+
+.. important::
+
+   The ``#`` character is considered as a comment delimiter in YAML. As ``#``
+   is the length operator in Mergify's conditions system, don't forget to use
+   ``"`` around the condition to write valid YAML syntax.
+
+.. note::
+
+  ``operator`` and ``value`` are only optional if the ``attribute`` type is
+  ``Boolean``.
 
 Combining Conditions with Operators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,9 +89,9 @@ You can also combine ``or`` and ``and`` like this:
             label=backend
 
 
-.. important::
+.. note::
 
-    The number of nested conditions is limited to 3.
+    The depth on combined conditions is limited to 3.
 
 
 .. _attributes:
@@ -290,16 +291,19 @@ Here's the list of pull request attribute that can be used in conditions:
      - A schedule, e.g., ``Mon-Fri``, ``12:00-18:00`` or ``Mon-Fri 12:00-18:00``
 
 
-.. important::
+.. warning::
 
    Time-based conditions have a 5 minutes precision at best. Do not write
    conditions based on time ranges that are too narrow or the condition might
    never be true.
 
+.. note::
+
    ``current-datetime``, ``current-time``, ``created-at``, ``updated-at``,
-   ``closed-at`` and ``merged-at`` do not support ``~=``, ``=`` and ``!=``
-   operators.
-   ``schedule`` only supports ``=`` and ``!=``.
+   ``closed-at`` and ``merged-at`` do not support the ``~=``, ``=`` and ``!=``
+   operators. ``schedule`` only supports the ``=`` and ``!=`` operators.
+
+.. note::
 
    The timezone for all time-based conditions is UTC.
 
