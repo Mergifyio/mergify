@@ -27,7 +27,7 @@ $(function() {
     .filter(".note").removeClass("note").addClass("alert-primary").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
     .filter(".warning").removeClass("warning").addClass("alert-warning").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
     .filter(".tip").removeClass("tip").addClass("alert-info").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
-    .filter(".important").removeClass("important").addClass("alert-primary").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
+    .filter(".important").removeClass("important").addClass("alert-danger").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
 
   // images
   $(".documentwrapper img").addClass("img-fluid");

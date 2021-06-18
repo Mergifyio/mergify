@@ -273,7 +273,7 @@ A ``queue_rules`` takes the following parameter:
        between 1 and 20.
        See :ref:`speculative checks`.
 
-.. important::
+.. note::
 
    |premium plan tag|
    Defining multiple queue rules is only available for `Premium subscribers <https://mergify.io/pricing>`_.
