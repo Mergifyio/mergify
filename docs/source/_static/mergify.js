@@ -3,7 +3,16 @@ $(function() {
   $("li.toctree-l1.current > a[href='#']").attr("href", $(".section > h1 > a").attr('href'));
   $("li.toctree-l1.current > a[href='#']").attr("href", $("section > h1 > a").attr('href'));
 
-  $('body').scrollspy({ target: 'div.sphinxsidebar', offset: 48 })
+  // This is a bit tricky: scrollspy wants precisely a list where all anchors
+  // are starting with "#" so we need to select precisely in the navbar where
+  // this is. This depends on which type of page we are in: a top level page,
+  // or a page that is split in sub-pages.
+  // If it's a subsection/subpage, then there's no scroll to do, so disable it.
+  var selector = 'div.sphinxsidebar > ul.current > li.current > ul.current > li.current';
+
+  if ($(selector).length == 0) {
+    $('body').scrollspy({ target: 'div.sphinxsidebar > ul.current > li.current', offset: 10 });
+  }
 
   // Change class from current to active for navbar pills
   $("div.sphinxsidebar a.reference.current").removeClass("current").addClass("active")
@@ -19,7 +28,7 @@ $(function() {
   // Tables
   $("table.docutils").addClass("table table-striped").removeClass("docutils")
     .find("thead")
-    .addClass("thead-dark")
+    .addClass("table-dark")
 
   // Admonition
   $(".admonition").addClass("alert").removeClass("admonition")
@@ -57,16 +66,3 @@ $(function() {
   );
 });
 
-
-// Scroll to the anchor
-// why is this needed? lol chrome? :(
-$(document).ready(function () {
-  var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-  if (window.location.hash && isChrome) {
-    setTimeout(function () {
-      var hash = window.location.hash;
-      window.location.hash = "";
-      window.location.hash = hash;
-    }, 300);
-  }
-});
