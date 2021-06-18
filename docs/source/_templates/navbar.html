@@ -1,12 +1,12 @@
-<nav class="navbar navbar-expand-md sticky-top navbar-light bg-white flex-wrap">
+<nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
   <a class="navbar-brand" href="{{ pathto(master_doc) }}">
     <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="{{ project }}"/>
   </a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#top-navbar">
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
     <span class="navbar-toggler-icon"></span>
   </button>
-  <div class="navbar-collapse collapse" id="top-navbar">
-    <ul class="navbar-nav justify-content-end ml-auto">
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
       <li class="nav-item">
         <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
       </li>
@@ -26,12 +26,15 @@
         <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
       </li>
     </ul>
-    <div class="dropdown-divider d-block d-sm-none mb-4"></div>
-    <form class="form-inline justify-content-end" action="{{ pathto('search') }}" method="get">
-      <input type="text" name="q" class="form-control mr-sm-2"/>
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-      <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+    <form class="row row-cols-lg-auto" action="{{ pathto('search') }}" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
     </form>
   </div>
 </nav>
