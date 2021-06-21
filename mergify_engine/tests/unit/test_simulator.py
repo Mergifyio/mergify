@@ -53,15 +53,6 @@ def test_simulator_without_pull_request() -> None:
         assert json.loads(reply.content) == {
             "title": "The configuration is valid",
             "summary": "",
-            "conditions": {
-                "pull_request_rules": [
-                    [
-                        {"=": ["base", "master"]},
-                        {">": ["#files", 100]},
-                        {"-": {"<=": ["#files", 100]}},
-                    ]
-                ]
-            },
         }
 
 
