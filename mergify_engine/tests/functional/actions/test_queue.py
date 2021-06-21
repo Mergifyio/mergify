@@ -210,6 +210,124 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, [])
 
+    async def test_queue_with_labels(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                        "label=foobar",
+                    ],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        tmp_pull = await self.get_pull(pulls[0]["number"])
+        assert tmp_pull["number"] not in [p1["number"], p2["number"]]
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+
+        await self._assert_cars_contents(
+            q,
+            [
+                TrainCarMatcher(
+                    p1["number"],
+                    [],
+                    p["merge_commit_sha"],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+                TrainCarMatcher(
+                    p2["number"],
+                    [p1["number"]],
+                    p["merge_commit_sha"],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull["number"],
+                ),
+            ],
+        )
+
+        assert tmp_pull["commits"] == 4
+        await self.create_status(tmp_pull)
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        async def assert_queued(pull):
+            check = first(
+                await context.Context(
+                    self.repository_ctxt, pull
+                ).pull_engine_check_runs,
+                key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+            )
+            assert check["conclusion"] is None
+
+        await assert_queued(p1)
+        await assert_queued(p2)
+
+        await self.create_status(p1, state="pending")
+        await self.create_status(p2, state="pending")
+        await self.run_engine()
+        await assert_queued(p1)
+        await assert_queued(p2)
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        await self.create_status(p1)
+        await self.create_status(p2)
+        await self.run_engine()
+        await assert_queued(p1)
+        await assert_queued(p2)
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        await self.add_label(p1["number"], "foobar")
+        # FIXME(sileht): Should be done on p2 when we fix the evaluation of
+        # labels/times/...
+        await self.add_label(tmp_pull["number"], "foobar")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, [])
+
     async def test_queue_with_ci_in_pull_request_rules(self):
         rules = {
             "queue_rules": [

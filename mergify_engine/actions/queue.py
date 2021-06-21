@@ -139,7 +139,9 @@ class QueueAction(merge_base.MergeBaseAction):
                 await q.reset()
             else:
                 status = await merge_base.get_rule_checks_status(
-                    ctxt, queue_rule_evaluated
+                    ctxt,
+                    queue_rule_evaluated,
+                    unmatched_conditions_return_failure=False,
                 )
             await car.update_summaries(
                 status, status, queue_rule_evaluated, will_be_reset=need_reset
@@ -256,7 +258,9 @@ class QueueAction(merge_base.MergeBaseAction):
             # the merge until we have a check that doesn't pass
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt, queue_rule_evaluated
+                ctxt,
+                queue_rule_evaluated,
+                unmatched_conditions_return_failure=False,
             )
             return queue_rule_checks_status == check_api.Conclusion.FAILURE
 
