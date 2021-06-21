@@ -102,6 +102,8 @@ def strict_merge_parameter(v):
 async def get_rule_checks_status(
     ctxt: context.Context,
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
+    *,
+    unmatched_conditions_return_failure: bool = True,
 ) -> check_api.Conclusion:
 
     if rule.conditions.match:
@@ -136,7 +138,10 @@ async def get_rule_checks_status(
         conditions_without_checks.get_summary(),
     )
     if not conditions_without_checks.match:
-        return check_api.Conclusion.FAILURE
+        if unmatched_conditions_return_failure:
+            return check_api.Conclusion.FAILURE
+        else:
+            return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Have all checks reported their status?
     await conditions_with_all_checks(ctxt.pull_request)
