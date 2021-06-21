@@ -101,6 +101,7 @@ def strict_merge_parameter(v):
 
 async def get_rule_checks_status(
     ctxt: context.Context,
+    pull: context.BasePullRequest,
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
     *,
     unmatched_conditions_return_failure: bool = True,
@@ -132,7 +133,7 @@ async def get_rule_checks_status(
             condition_with_all_check.update_attribute_name("check")
 
     # NOTE(sileht): Something unrelated to checks unmatch?
-    await conditions_without_checks(ctxt.pull_request)
+    await conditions_without_checks(pull)
     ctxt.log.debug(
         "something unrelated to checks doesn't match? %s",
         conditions_without_checks.get_summary(),
@@ -144,7 +145,7 @@ async def get_rule_checks_status(
             return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Have all checks reported their status?
-    await conditions_with_all_checks(ctxt.pull_request)
+    await conditions_with_all_checks(pull)
     ctxt.log.debug(
         "did check report their status? %s",
         conditions_with_all_checks.get_summary(),
@@ -153,7 +154,7 @@ async def get_rule_checks_status(
         return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Are remaining unmatch checks success or pending?
-    await conditions_with_check_not_failing(ctxt.pull_request)
+    await conditions_with_check_not_failing(pull)
     ctxt.log.debug(
         "did checks report success-or-neutral-or-pending? %s",
         conditions_with_check_not_failing.get_summary(),

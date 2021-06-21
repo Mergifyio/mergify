@@ -276,4 +276,6 @@ async def test_get_rule_checks_status(
     )
     match = await rules.get_pull_request_rule(ctxt)
     evaluated_rule = match.matching_rules[0]
-    assert (await merge_base.get_rule_checks_status(ctxt, evaluated_rule)) == conclusion
+    assert (
+        await merge_base.get_rule_checks_status(ctxt, ctxt.pull_request, evaluated_rule)
+    ) == conclusion

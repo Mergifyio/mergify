@@ -1088,6 +1088,12 @@ class Context(object):
                     return True
         return False
 
+    def has_been_only_refreshed(self) -> bool:
+        for source in self.sources:
+            if source["event_type"] != "refresh":
+                return False
+        return True
+
     def has_been_opened(self) -> bool:
         for source in self.sources:
             if source["event_type"] == "pull_request":
@@ -1227,8 +1233,12 @@ class RenderTemplateFailure(Exception):
         return self.message
 
 
+class BasePullRequest:
+    pass
+
+
 @dataclasses.dataclass
-class PullRequest:
+class PullRequest(BasePullRequest):
     """A high level pull request object.
 
     This object is used for templates and rule evaluations.
@@ -1316,3 +1326,25 @@ class PullRequest:
             raise RenderTemplateFailure(te.message)
         except PullRequestAttributeError as e:
             raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
+
+
+@dataclasses.dataclass
+class QueuePullRequest(BasePullRequest):
+    """Same as PullRequest but for temporary pull request used by merge train.
+
+    This object is used for templates and rule evaluations.
+    """
+
+    context: Context
+    queue_context: Context
+
+    async def __getattr__(self, name: str) -> ContextAttributeType:
+        fancy_name = name.replace("_", "-")
+        if (
+            fancy_name == "check"
+            or fancy_name.startswith("check-")
+            or fancy_name.startswith("status-")
+        ):
+            return await self.queue_context._get_consolidated_data(fancy_name)
+        else:
+            return await self.context._get_consolidated_data(fancy_name)

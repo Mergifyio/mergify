@@ -26,6 +26,7 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import subscription
+from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.queue import merge_train
@@ -131,7 +132,9 @@ class QueueAction(merge_base.MergeBaseAction):
         if car and car.state == "updated":
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+                ctxt, ctxt.pull_request
+            )
             need_reset = ctxt.has_been_synchronized() or await ctxt.is_behind
             if need_reset:
                 status = check_api.Conclusion.PENDING
@@ -140,16 +143,31 @@ class QueueAction(merge_base.MergeBaseAction):
             else:
                 status = await merge_base.get_rule_checks_status(
                     ctxt,
+                    ctxt.pull_request,
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
                 )
             await car.update_summaries(
                 status, status, queue_rule_evaluated, will_be_reset=need_reset
             )
+        elif car and car.state == "created":
+            if not ctxt.has_been_only_refreshed():
+                # NOTE(sileht): It's not only refreshed, so we need to
+                # update the associated transient pull request.
+                # This is mandatory to filter out refresh to avoid loop
+                # of refreshes between this PR and the transient one.
+                with utils.aredis_for_stream() as redis_stream:
+                    await utils.send_refresh(
+                        ctxt.repository.installation.redis,
+                        redis_stream,
+                        ctxt.pull["base"]["repo"],
+                        pull_request_number=car.queue_pull_request_number,
+                        action="internal",
+                    )
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
-            # check and the method _should_be_queue will become true again :)
+            # check and the method _should_be_queued will become true again :)
             check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
             if check and check_api.Conclusion(check["conclusion"]) not in [
                 check_api.Conclusion.SUCCESS,
@@ -166,6 +184,28 @@ class QueueAction(merge_base.MergeBaseAction):
                 )
 
         return await super().run(ctxt, rule)
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        if not ctxt.has_been_only_refreshed():
+            # NOTE(sileht): It's not only refreshed, so we need to
+            # update the associated transient pull request.
+            # This is mandatory to filter out refresh to avoid loop
+            # of refreshes between this PR and the transient one.
+            q = await merge_train.Train.from_context(ctxt)
+            car = q.get_car(ctxt)
+            if car and car.state == "created":
+                with utils.aredis_for_stream() as redis_stream:
+                    await utils.send_refresh(
+                        ctxt.repository.installation.redis,
+                        redis_stream,
+                        ctxt.pull["base"]["repo"],
+                        pull_request_number=car.queue_pull_request_number,
+                        action="internal",
+                    )
+
+        return await super().cancel(ctxt, rule)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["update_bot_account"] = None
@@ -199,7 +239,9 @@ class QueueAction(merge_base.MergeBaseAction):
             return False
 
         if not await ctxt.is_behind:
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+                ctxt, ctxt.pull_request
+            )
             if queue_rule_evaluated.conditions.match:
                 return True
 
@@ -224,7 +266,9 @@ class QueueAction(merge_base.MergeBaseAction):
         #   queue_rule
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.state == "updated":
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+                ctxt, ctxt.pull_request
+            )
             # FIXME(sileht): I don't get why this is typing.Any ...
             return queue_rule_evaluated.conditions.match  # type: ignore[no-any-return]
 
@@ -249,16 +293,19 @@ class QueueAction(merge_base.MergeBaseAction):
         if car and car.state == "updated":
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt, rule
+                ctxt, ctxt.pull_request, rule
             )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
 
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+                ctxt, ctxt.pull_request
+            )
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt,
+                ctxt.pull_request,
                 queue_rule_evaluated,
                 unmatched_conditions_return_failure=False,
             )
@@ -273,10 +320,14 @@ class QueueAction(merge_base.MergeBaseAction):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> str:
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
-        queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(ctxt)
-        return (
-            await car.generate_merge_queue_summary(queue_rule_evaluated) if car else ""
+        if car is None:
+            return ""
+
+        evaluated_pull = await car.get_pull_request_to_evaluate()
+        queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+            ctxt, evaluated_pull
         )
+        return await car.generate_merge_queue_summary(queue_rule_evaluated)
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(
