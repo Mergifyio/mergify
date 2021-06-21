@@ -339,7 +339,11 @@ class QueueRule:
         conditions = d.pop("conditions")
         return cls(name, conditions, d)
 
-    async def get_pull_request_rule(self, ctxt: context.Context) -> EvaluatedQueueRule:
+    async def get_pull_request_rule(
+        self,
+        ctxt: context.Context,
+        pull: context.BasePullRequest,
+    ) -> EvaluatedQueueRule:
         branch_protection_conditions = await get_branch_protection_conditions(ctxt)
         queue_rule_with_branch_protection = QueueRule(
             self.name,
@@ -351,6 +355,7 @@ class QueueRule:
         queue_rules_evaluator = await QueuesRulesEvaluator.create(
             [queue_rule_with_branch_protection],
             ctxt,
+            pull,
             False,
         )
         return queue_rules_evaluator.matching_rules[0]
@@ -404,6 +409,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         cls,
         rules: typing.List[T_Rule],
         ctxt: context.Context,
+        pull: context.BasePullRequest,
         hide_rule: bool,
     ) -> "GenericRulesEvaluator[T_Rule, T_EvaluatedRule]":
         self = cls(rules)
@@ -417,7 +423,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                         live_resolvers.teams, ctxt
                     )
 
-            await rule.conditions(ctxt.pull_request)
+            await rule.conditions(pull)
 
             # NOTE(sileht):
             # In the summary, we display rules in four groups:
@@ -436,7 +442,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                     if attr not in self.BASE_ATTRIBUTES:
                         condition.update("number>0")
 
-                await base_conditions(ctxt.pull_request)
+                await base_conditions(pull)
 
                 if not base_conditions.match:
                     self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
@@ -535,7 +541,7 @@ class PullRequestRules:
                     )
                 )
 
-        return await RulesEvaluator.create(runtime_rules, ctxt, True)
+        return await RulesEvaluator.create(runtime_rules, ctxt, ctxt.pull_request, True)
 
 
 @dataclasses.dataclass

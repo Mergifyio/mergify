@@ -318,9 +318,7 @@ class TestQueueAction(base.FunctionalTestBase):
         assert len(pulls) == 3
 
         await self.add_label(p1["number"], "foobar")
-        # FIXME(sileht): Should be done on p2 when we fix the evaluation of
-        # labels/times/...
-        await self.add_label(tmp_pull["number"], "foobar")
+        await self.add_label(p2["number"], "foobar")
         await self.run_engine()
 
         pulls = await self.get_pulls()

@@ -173,7 +173,9 @@ class MergeAction(merge_base.MergeBaseAction):
         if ctxt.has_been_synchronized():
             return True
 
-        pull_rule_checks_status = await merge_base.get_rule_checks_status(ctxt, rule)
+        pull_rule_checks_status = await merge_base.get_rule_checks_status(
+            ctxt, ctxt.pull_request, rule
+        )
         return pull_rule_checks_status == check_api.Conclusion.FAILURE
 
     async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:

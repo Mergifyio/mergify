@@ -150,6 +150,20 @@ class TrainCar(PseudoTrainCar):
         else:
             return f"{', '.join(refs[:-1])} and {refs[-1]}"
 
+    async def get_pull_request_to_evaluate(self) -> context.BasePullRequest:
+        ctxt = await self.train.repository.get_pull_request_context(
+            self.user_pull_request_number
+        )
+        if self.state == "created" and self.queue_pull_request_number is not None:
+            tmp_ctxt = await self.train.repository.get_pull_request_context(
+                self.queue_pull_request_number
+            )
+            return context.QueuePullRequest(ctxt, tmp_ctxt)
+        elif self.state == "updated" or self.state == "failed":
+            return ctxt.pull_request
+        else:
+            raise RuntimeError("Invalid self state")
+
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
         if self.state == "created" and self.queue_pull_request_number is not None:
             return await self.train.repository.get_pull_request_context(
@@ -193,7 +207,9 @@ class TrainCar(PseudoTrainCar):
             await self._report_failure(exc.message, "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
-        evaluated_queue_rule = await queue_rule.get_pull_request_rule(ctxt)
+        evaluated_queue_rule = await queue_rule.get_pull_request_rule(
+            ctxt, ctxt.pull_request
+        )
         await self.update_summaries(
             check_api.Conclusion.PENDING,
             check_api.Conclusion.PENDING,
@@ -279,10 +295,15 @@ class TrainCar(PseudoTrainCar):
             tmp_pull["number"]
         )
 
+        ctxt = await self.train.repository.get_pull_request_context(
+            self.user_pull_request_number
+        )
         tmp_ctxt = await self.train.repository.get_pull_request_context(
             self.queue_pull_request_number
         )
-        evaluated_queue_rule = await queue_rule.get_pull_request_rule(tmp_ctxt)
+        evaluated_queue_rule = await queue_rule.get_pull_request_rule(
+            ctxt, context.QueuePullRequest(ctxt, tmp_ctxt)
+        )
         await self.update_summaries(
             check_api.Conclusion.PENDING,
             check_api.Conclusion.PENDING,
