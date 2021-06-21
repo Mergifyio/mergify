@@ -326,12 +326,12 @@ blockquote {
     margin-bottom: 2em;
 }
 
-.use-cases > .card a {
+.use-cases .card a {
     color: black;
     text-decoration: none;
 }
 
-.use-cases > .card:hover  {
+.use-cases .card:hover  {
     box-shadow: 0 0 0 1px rgba(50,50,93,.05), 0 7px 14px 0 rgba(50,50,93,.1), 0 3px 6px 0 rgba(0,0,0,.07);
 }
 
