@@ -265,7 +265,7 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``closed-at``
      - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was closed at.
-   * - ``current-datetime``
+   * - ``current-timestamp``
      - :ref:`Timestamp <iso timestamp>`
      - The current date and time.
    * - ``current-time``
