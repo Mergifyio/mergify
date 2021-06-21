@@ -20,8 +20,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            console.log(github.event.workflow_run.id);
-            console.log(github.event.workflow_run.html_url);
+            console.log(github.event);
             var artifacts = await github.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
