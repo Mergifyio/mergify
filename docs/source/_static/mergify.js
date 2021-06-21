@@ -32,11 +32,11 @@ $(function() {
 
   // Admonition
   $(".admonition").addClass("alert").removeClass("admonition")
-    .filter(".hint").removeClass("hint").addClass("alert-info").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
-    .filter(".note").removeClass("note").addClass("alert-primary").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
-    .filter(".warning").removeClass("warning").addClass("alert-warning").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
-    .filter(".tip").removeClass("tip").addClass("alert-info").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
-    .filter(".important").removeClass("important").addClass("alert-danger").children('p.admonition-title').prepend('<div class="icon"></div>').end().end()
+    .filter(".hint").removeClass("hint").addClass("alert-info").children('p.admonition-title').prepend('ℹ️ ').end().end()
+    .filter(".note").removeClass("note").addClass("alert-primary").children('p.admonition-title').prepend('📝 ').end().end()
+    .filter(".warning").removeClass("warning").addClass("alert-warning").children('p.admonition-title').prepend('⚠️ ').end().end()
+    .filter(".tip").removeClass("tip").addClass("alert-info").children('p.admonition-title').prepend('👍 ').end().end()
+    .filter(".important").removeClass("important").addClass("alert-danger").children('p.admonition-title').prepend('🛑 ').end().end()
 
   // images
   $(".documentwrapper img").addClass("img-fluid");
@@ -47,9 +47,6 @@ $(function() {
   $("div.topic > ul").addClass("list-group");
   $("div.topic > ul > li").addClass("list-group-item").addClass("flex-fill").addClass("list-group-item-action");
   $("div.topic").removeClass("topic");
-
-  // Replace permalink unicode emoji by Font Awesome
-  $("a.headerlink").html(" <i class=\"fas fa-link\"></i>");
 
   // Remove the toctree on the frontpage
   // Hiding it is not enough
@@ -64,5 +61,11 @@ $(function() {
       }
     }
   );
+
+  // Twemoji
+  twemoji.parse(document, {
+    folder: 'svg',
+    ext: '.svg'
+  });
 });
 
