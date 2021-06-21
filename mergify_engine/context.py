@@ -862,7 +862,7 @@ class Context(object):
                 if ctxt.pull["merged"]:
                     depends_on.append(f"#{pull_request_number}")
             return depends_on
-        elif name == "current-datetime":
+        elif name == "current-timestamp":
             return date.utcnow()
         elif name == "current-time":
             return date.utcnow().timetz()

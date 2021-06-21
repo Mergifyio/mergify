@@ -274,7 +274,7 @@ created_at = "created-at" + range_operators + (iso_datetime | timedelta_to_now)
 updated_at = "updated-at" + range_operators + (iso_datetime | timedelta_to_now)
 closed_at = "closed-at" + range_operators + (iso_datetime | timedelta_to_now)
 merged_at = "merged-at" + range_operators + (iso_datetime | timedelta_to_now)
-current_datetime = "current-datetime" + range_operators + iso_datetime
+current_timestamp = "current-timestamp" + range_operators + iso_datetime
 
 quantifiable_attributes = (
     head
@@ -324,7 +324,7 @@ datetime_attributes = (
     | created_at
     | merged_at
     | closed_at
-    | current_datetime
+    | current_timestamp
 )
 
 search = (
