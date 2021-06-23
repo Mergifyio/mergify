@@ -44,7 +44,7 @@ class TestSimulator(base.FunctionalTestBase):
     conditions:
       - base={self.master_branch_name}
       - or:
-        - schedule=MON-FRI 10:00-20:00
+        - schedule=MON-SUN 00:00-23:59
         - label=foobar
     actions:
       assign:
@@ -75,7 +75,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         assert r.json()["title"] == "1 rule matches"
         assert r.json()["summary"].startswith(
-            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n- [X] any of:\n  - [X] `schedule=MON-FRI 10:00-20:00`\n  - [ ] `label=foobar`\n\n<hr />"
+            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n- [X] any of:\n  - [X] `schedule=MON-SUN 00:00-23:59`\n  - [ ] `label=foobar`\n\n<hr />"
         ), r.json()["summary"]
 
         mergify_yaml = """pull_request_rules:
