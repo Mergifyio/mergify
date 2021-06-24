@@ -143,7 +143,7 @@ async def _get_summary_from_synchronize_event(
         and "after" in s["data"]
     }
     if synchronize_events:
-        ctxt.log.info("checking summary from synchronize events")
+        ctxt.log.debug("checking summary from synchronize events")
 
         # NOTE(sileht): We sometimes got multiple synchronize events in a row, that's not
         # always the last one that has the Summary, so we also look in older ones if
@@ -158,7 +158,7 @@ async def _get_summary_from_synchronize_event(
                 if previous_summary and actions_runner.load_conclusions_line(
                     ctxt, previous_summary
                 ):
-                    ctxt.log.info("got summary from synchronize events")
+                    ctxt.log.debug("got summary from synchronize events")
                     return previous_summary
 
                 after_sha = sync_event["before"]
@@ -175,20 +175,20 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
     if sha is None:
         ctxt.log.warning("head sha not stored in redis")
     elif sha != ctxt.pull["head"]["sha"]:
-        ctxt.log.info(
+        ctxt.log.debug(
             "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
         )
     else:
-        ctxt.log.info("head sha didn't changed, no need to copy summary")
+        ctxt.log.debug("head sha didn't changed, no need to copy summary")
         return
 
     previous_summary = None
 
     if sha is not None:
-        ctxt.log.info("checking summary from redis")
+        ctxt.log.debug("checking summary from redis")
         previous_summary = await _get_summary_from_sha(ctxt, sha)
         if previous_summary is not None:
-            ctxt.log.info("got summary from redis")
+            ctxt.log.debug("got summary from redis")
 
     if previous_summary is None:
         # NOTE(sileht): If the cached summary sha expires and the next event we got for
