@@ -76,7 +76,7 @@ def refresher():
 
 def queues():
     parser = argparse.ArgumentParser(description="Show queue of mergify_engine")
-    parser.add_argument("owner_id")
+    parser.add_argument("owner_id", type=int)
 
     args = parser.parse_args()
     asyncio.run(
