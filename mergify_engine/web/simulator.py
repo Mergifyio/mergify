@@ -57,13 +57,27 @@ def PullRequestUrl(v):
     return owner, repo, pull_number
 
 
+def SimulatorMergifyConfig(v: bytes) -> rules.MergifyConfig:
+    try:
+        return rules.get_mergify_config(
+            context.MergifyConfigFile(
+                {
+                    "type": "file",
+                    "content": "whatever",
+                    "sha": github_types.SHAType("whatever"),
+                    "path": ".mergify.yml",
+                    "decoded_content": v,
+                }
+            )
+        )
+    except rules.InvalidRules as e:
+        raise e.error
+
+
 SimulatorSchema = voluptuous.Schema(
     {
         voluptuous.Required("pull_request"): voluptuous.Any(None, PullRequestUrl()),
-        voluptuous.Required("mergify.yml"): voluptuous.And(
-            voluptuous.Coerce(rules.YAML),
-            rules.UserConfigurationSchema,
-        ),
+        voluptuous.Required("mergify.yml"): voluptuous.Coerce(SimulatorMergifyConfig),
     }
 )
 
