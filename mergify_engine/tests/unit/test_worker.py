@@ -806,7 +806,9 @@ async def test_stream_processor_retrying_after_read_error(
 
     installation = context.Installation(123, "owner", {}, None, None)
     with pytest.raises(worker.StreamRetry):
-        async with p._translate_exception_to_retries(installation.stream_name):
+        async with p._translate_exception_to_retries(
+            worker.StreamNameType("stream~owner~123")
+        ):
             await worker.run_engine(installation, 123, "repo", 1234, [])
 
 
