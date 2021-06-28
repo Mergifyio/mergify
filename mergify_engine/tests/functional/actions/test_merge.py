@@ -58,6 +58,8 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.add_label(p_need_rebase["number"], "ready")
         await self.add_label(p_ready["number"], "ready")
         await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
         return p_need_rebase, p_ready
 
     async def test_merge_smart_ordered(self):
