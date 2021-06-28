@@ -334,12 +334,14 @@ class StreamProcessor:
                     owner_id, owner_login, sub, client, self.redis_cache
                 )
                 async with self._translate_exception_to_retries(stream_name):
-                    pulls = await self._extract_pulls_from_stream(installation)
+                    pulls = await self._extract_pulls_from_stream(
+                        stream_name, installation
+                    )
                 if pulls:
                     client.set_requests_ratio(len(pulls))
-                    await self._consume_pulls(installation, pulls)
+                    await self._consume_pulls(stream_name, installation, pulls)
 
-                await self._refresh_merge_trains(installation)
+                await self._refresh_merge_trains(stream_name, installation)
         except aredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
@@ -393,9 +395,11 @@ class StreamProcessor:
             )
         LOG.debug("cleanup stream end", stream_name=stream_name)
 
-    async def _refresh_merge_trains(self, installation: context.Installation) -> None:
+    async def _refresh_merge_trains(
+        self, stream_name: StreamNameType, installation: context.Installation
+    ) -> None:
         async with self._translate_exception_to_retries(
-            installation.stream_name,
+            stream_name,
         ):
             async for train in merge_train.Train.iter_trains(installation):
                 await train.load()
@@ -419,16 +423,14 @@ end
 """
 
     async def _extract_pulls_from_stream(
-        self, installation: context.Installation
+        self, stream_name: StreamNameType, installation: context.Installation
     ) -> PullsToConsume:
         messages: typing.List[
             typing.Tuple[T_MessageID, T_MessagePayload]
-        ] = await self.redis_stream.xrange(
-            installation.stream_name, count=config.STREAM_MAX_BATCH
-        )
+        ] = await self.redis_stream.xrange(stream_name, count=config.STREAM_MAX_BATCH)
         LOG.debug(
             "read stream",
-            stream_name=installation.stream_name,
+            stream_name=stream_name,
             messages_count=len(messages),
         )
         statsd.histogram("engine.streams.size", len(messages))  # type: ignore[no-untyped-call]
@@ -487,9 +489,7 @@ end
 
                 logger.debug("event unpacked into %s messages", len(converted_messages))
                 messages.extend(converted_messages)
-                deleted = await self.redis_stream.xdel(
-                    installation.stream_name, message_id
-                )
+                deleted = await self.redis_stream.xdel(stream_name, message_id)
                 if deleted != 1:
                     # FIXME(sileht): During shutdown, heroku may have already started
                     # another worker that have already take the lead of this stream_name
@@ -497,7 +497,7 @@ end
                     # be a big deal as the engine will not been ran by the worker that's
                     # shutdowning.
                     contents = await self.redis_stream.xrange(
-                        installation.stream_name, start=message_id, end=message_id
+                        stream_name, start=message_id, end=message_id
                     )
                     if contents:
                         logger.error(
@@ -553,12 +553,11 @@ end
 
     async def _consume_pulls(
         self,
+        stream_name: StreamNameType,
         installation: context.Installation,
         pulls: PullsToConsume,
     ) -> None:
-        LOG.debug(
-            "stream contains %d pulls", len(pulls), stream_name=installation.stream_name
-        )
+        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (repo, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
             statsd.histogram("engine.streams.batch-size", len(sources))  # type: ignore[no-untyped-call]
@@ -582,21 +581,21 @@ end
             attempts_key = f"pull~{installation.owner_login}~{repo}~{pull_number}"
             try:
                 async with self._translate_exception_to_retries(
-                    installation.stream_name, attempts_key
+                    stream_name, attempts_key
                 ):
                     await run_engine(installation, repo_id, repo, pull_number, sources)
                 await self.redis_stream.hdel("attempts", attempts_key)
                 await self.redis_stream.execute_command(
-                    "XDEL", installation.stream_name, *message_ids
+                    "XDEL", stream_name, *message_ids
                 )
             except IgnoredException:
                 await self.redis_stream.execute_command(
-                    "XDEL", installation.stream_name, *message_ids
+                    "XDEL", stream_name, *message_ids
                 )
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
                 await self.redis_stream.execute_command(
-                    "XDEL", installation.stream_name, *message_ids
+                    "XDEL", stream_name, *message_ids
                 )
                 logger.error(
                     "failed to process pull request, abandoning",
