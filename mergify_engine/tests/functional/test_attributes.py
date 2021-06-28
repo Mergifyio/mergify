@@ -124,7 +124,7 @@ class TestAttributes(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "no-draft",
-                    "conditions": ["created-at<7 days ago"],
+                    "conditions": ["created-at<9999 days ago"],
                     "actions": {"comment": {"message": "it's time"}},
                 }
             ]
@@ -144,7 +144,7 @@ class TestAttributes(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "no-draft",
-                    "conditions": ["created-at>=7 days ago"],
+                    "conditions": ["created-at>=9999 days ago"],
                     "actions": {"comment": {"message": "it's time"}},
                 }
             ]
