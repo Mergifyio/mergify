@@ -33,15 +33,27 @@ LOG = daiquiri.getLogger(__name__)
 DELAYED_REFRESH_KEY = "delayed-refresh"
 
 
-async def plan_next_refresh(match: rules.RulesEvaluator, ctxt: context.Context) -> None:
+async def plan_next_refresh(
+    ctxt: context.Context,
+    _rules: typing.Union[
+        typing.List[rules.EvaluatedRule], typing.List[rules.EvaluatedQueueRule]
+    ],
+    pull_request: context.BasePullRequest,
+) -> None:
+    zset_subkey = f"{ctxt.repository.installation.owner_id}~{ctxt.repository.installation.owner_login}~{ctxt.repository.repo['id']}~{ctxt.repository.repo['name']}~{ctxt.pull['number']}"
     best_bet: typing.Optional[datetime.datetime] = None
-    for rule in match.matching_rules:
+
+    score = await ctxt.redis.zscore(DELAYED_REFRESH_KEY, zset_subkey)
+    if score is not None:
+        best_bet = date.fromtimestamp(float(score))
+        if best_bet < date.utcnow():
+            best_bet = None
+
+    for rule in _rules:
         f = filter.NearDatetimeFilter(rule.conditions.extract_raw_filter_tree())
-        bet = await f(ctxt.pull_request)
+        bet = await f(pull_request)
         if best_bet is None or best_bet > bet:
             best_bet = bet
-
-    zset_subkey = f"{ctxt.repository.installation.owner_id}~{ctxt.repository.installation.owner_login}~{ctxt.repository.repo['id']}~{ctxt.repository.repo['name']}~{ctxt.pull['number']}"
 
     if best_bet is None or best_bet >= date.DT_MAX:
         await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)

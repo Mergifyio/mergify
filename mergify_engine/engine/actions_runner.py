@@ -481,7 +481,9 @@ async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> typing.Optional[check_api.Result]:
     match = await pull_request_rules.get_pull_request_rule(ctxt)
-    await delayed_refresh.plan_next_refresh(match, ctxt)
+    await delayed_refresh.plan_next_refresh(
+        ctxt, match.matching_rules, ctxt.pull_request
+    )
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
