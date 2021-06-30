@@ -66,7 +66,7 @@ def should_be_ignored(exception: Exception) -> bool:
                 return True
 
         # NOTE(sileht): a repository return 404 for /pulls..., so can't do much
-        if exception.status_code == 404 and str(exception.request.url).endswith(
+        if exception.status_code == 404 and exception.request.url.path.endswith(
             "/pulls"
         ):
             return True
