@@ -16,6 +16,7 @@ from first import first
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.actions import merge_base
@@ -93,6 +94,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     pull_request = await car.get_pull_request_to_evaluate()
     evaluated_queue_rule = await queue_rule.get_pull_request_rule(ctxt, pull_request)
+    await delayed_refresh.plan_next_refresh(ctxt, [evaluated_queue_rule], pull_request)
 
     unexpected_changes = await have_unexpected_changes(ctxt, car)
     if unexpected_changes:
