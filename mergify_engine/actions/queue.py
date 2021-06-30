@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
@@ -135,6 +136,10 @@ class QueueAction(merge_base.MergeBaseAction):
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt, ctxt.pull_request
             )
+            await delayed_refresh.plan_next_refresh(
+                ctxt, [queue_rule_evaluated], ctxt.pull_request
+            )
+
             need_reset = ctxt.has_been_synchronized() or await ctxt.is_behind
             if need_reset:
                 status = check_api.Conclusion.PENDING
@@ -291,6 +296,13 @@ class QueueAction(merge_base.MergeBaseAction):
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
         if car and car.state == "updated":
+            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+                ctxt, ctxt.pull_request
+            )
+            await delayed_refresh.plan_next_refresh(
+                ctxt, [queue_rule_evaluated], ctxt.pull_request
+            )
+
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt, ctxt.pull_request, rule
@@ -300,9 +312,6 @@ class QueueAction(merge_base.MergeBaseAction):
 
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
-            )
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt,
                 ctxt.pull_request,
