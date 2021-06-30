@@ -84,6 +84,7 @@ class DayOfWeek(PartialDatetime):
 
 
 def fromisoformat(s: str) -> datetime.datetime:
+    """always returns an aware datetime object with UTC timezone"""
     if s[-1] == "Z":
         s = s[:-1]
     dt = datetime.datetime.fromisoformat(s)
@@ -91,6 +92,11 @@ def fromisoformat(s: str) -> datetime.datetime:
         return dt.replace(tzinfo=datetime.timezone.utc)
     else:
         return dt.astimezone(datetime.timezone.utc)
+
+
+def fromtimestamp(timestamp: float) -> datetime.datetime:
+    """always returns an aware datetime object with UTC timezone"""
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
 
 
 def _pretty_join(strings: typing.List[str]) -> str:
