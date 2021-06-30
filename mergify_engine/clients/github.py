@@ -481,9 +481,21 @@ class AsyncGithubInstallationClient(http.AsyncClient):
         list_items: typing.Optional[str] = None,
         params: typing.Optional[typing.Dict[str, str]] = None,
     ) -> typing.Any:
+
+        # NOTE(sileht): can't be on the same line...
+        # https://github.com/python/mypy/issues/10743
+        final_params: typing.Optional[typing.Dict[str, str]]
+        final_params = {"per_page": "100"}
+
+        if params is not None:
+            final_params.update(params)
+
         while True:
             response = await self.get(
-                url, api_version=api_version, oauth_token=oauth_token, params=params
+                url,
+                api_version=api_version,
+                oauth_token=oauth_token,
+                params=final_params,
             )
             last_url = response.links.get("last", {}).get("url")
             if last_url:
@@ -500,7 +512,7 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 yield item
             if "next" in response.links:
                 url = response.links["next"]["url"]
-                params = None
+                final_params = None
             else:
                 break
 
