@@ -222,6 +222,10 @@ async def run(
     LOG.debug("engine get context")
     ctxt.log.debug("engine start processing context")
 
+    # NOTE(sileht): Reset sources as a pull request may be evaluated multiple
+    # times during worker batch.
+    ctxt.sources = []
+
     issue_comment_sources: typing.List[T_PayloadEventIssueCommentSource] = []
 
     for source in sources:
