@@ -5,6 +5,16 @@ defaults:
       method: rebase
 
 queue_rules:
+  - name: hotfix
+    conditions:
+      - check-success=requirements
+      - check-success=pep8
+      - check-success=py39
+      - check-success=docs
+      - check-success=docker
+      - check-success=heroku
+    speculative_checks: 5
+
   - name: default
     conditions:
       - check-success=requirements
@@ -13,10 +23,18 @@ queue_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
-      - or:
-          - schedule=Mon-Fri 08:00-17:00
-          - label=hotfix
     speculative_checks: 5
+
+  - name: lowprio
+    conditions:
+      - check-success=requirements
+      - check-success=pep8
+      - check-success=py39
+      - check-success=docs
+      - check-success=docker
+      - check-success=heroku
+      - schedule=Mon-Fri 08:00-17:00
+    speculative_checks: 3
 
 pull_request_rules:
   - name: automatic merge
@@ -36,6 +54,7 @@ pull_request_rules:
       - label!=manual merge
     actions:
       queue:
+
   - name: automatic merge for hotfix
     conditions:
       - base=main
@@ -49,17 +68,20 @@ pull_request_rules:
       - label!=manual merge
     actions:
       queue:
-        priority: high
+        name: hotfix
+
   - name: automatic merge from dependabot
     conditions:
       - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
+      - check-success=requirements
       - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
     actions:
       queue:
-        priority: low
+        name: lowprio
+
   - name: dismiss reviews except for core devs
     conditions:
       - author!=@devs
