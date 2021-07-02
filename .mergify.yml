@@ -23,6 +23,7 @@ queue_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
+      - schedule=Mon-Fri 08:00-17:00
     speculative_checks: 5
 
   - name: lowprio
