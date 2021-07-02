@@ -23,8 +23,8 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import gitter
+from mergify_engine import user_tokens
 from mergify_engine.clients import http
-from mergify_engine.user_tokens import UserTokensUser
 
 
 class BranchUpdateFailure(Exception):
@@ -91,7 +91,7 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),  # type: ignore[no-untyped-call]
     reraise=True,
 )
-async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
+async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -217,21 +217,13 @@ async def rebase_with_git(
 
     await pre_rebase_check(ctxt)
 
-    user_tokens = await ctxt.repository.installation.get_user_tokens()
-    if bot_account:
-        user = user_tokens.get_token_for(bot_account)
-        if user:
-            users = [user]
-        else:
-            raise BranchUpdateFailure(
-                f"Unable to rebase: user `{bot_account}` is unknown. "
-                f"Please make sure `{bot_account}` has logged in Mergify dashboard."
-            )
-    else:
-        users = user_tokens.users
-
-    # Pick author first
-    users = sorted(users, key=lambda x: x["login"] != ctxt.pull["user"]["login"])
+    try:
+        users = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
+    except user_tokens.UserTokensUserNotFound:
+        raise BranchUpdateFailure(
+            f"Unable to rebase: user `{bot_account}` is unknown. "
+            f"Please make sure `{bot_account}` has logged in Mergify dashboard."
+        )
 
     for user in users:
         try:

@@ -27,7 +27,14 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+
 LOG = daiquiri.getLogger(__name__)
+
+
+class UserTokensUserNotFound(Exception):
+    bot_account: str
 
 
 class UserTokensUser(typing.TypedDict):
@@ -46,6 +53,24 @@ class UserTokens:
 
     RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
     VALIDITY_SECONDS = 3600
+
+    @staticmethod
+    async def select_users_for(
+        ctxt: "context.Context", bot_account: typing.Optional[str] = None
+    ) -> typing.List[UserTokensUser]:
+        user_tokens = await ctxt.repository.installation.get_user_tokens()
+        if bot_account:
+            user = user_tokens.get_token_for(bot_account)
+            if user:
+                users = [user]
+            else:
+                raise UserTokensUserNotFound(bot_account)
+        else:
+            users = user_tokens.users
+
+        # Pick author first
+        users = sorted(users, key=lambda x: x["login"] != ctxt.pull["user"]["login"])
+        return users
 
     @staticmethod
     def _cache_key(owner_id: int) -> str:
