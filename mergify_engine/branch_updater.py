@@ -139,6 +139,9 @@ async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
     # $ git rebase upstream/master
     # $ git push origin sileht/testpr:sileht/testpr
 
+    if ctxt.pull["head"]["repo"] is None:
+        raise BranchUpdateFailure("The head repository does not exists anymore")
+
     head_repo = (
         ctxt.pull["head"]["repo"]["owner"]["login"]
         + "/"

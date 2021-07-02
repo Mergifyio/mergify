@@ -1154,6 +1154,9 @@ class Context(object):
 
     @property
     def pull_from_fork(self) -> bool:
+        if self.pull["head"]["repo"] is None:
+            # Deleted fork repository
+            return False
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
     async def github_workflow_changed(self) -> bool:
