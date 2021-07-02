@@ -56,14 +56,8 @@ class DuplicateFailed(Exception):
 
 
 GIT_MESSAGE_TO_EXCEPTION = {
-    "No such device or address": DuplicateNeedRetry,
-    "Could not resolve host": DuplicateNeedRetry,
-    "couldn't find remote ref": DuplicateFailed,
-    "Authentication failed": DuplicateNeedRetry,
-    "remote end hung up unexpectedly": DuplicateNeedRetry,
-    "Operation timed out": DuplicateNeedRetry,
-    "reference already exists": DuplicateAlreadyExists,
     "Aborting commit due to empty commit message": DuplicateNotNeeded,
+    "reference already exists": DuplicateAlreadyExists,
     "You may want to first integrate the remote changes": DuplicateAlreadyExists,
 }
 
@@ -323,18 +317,29 @@ async def duplicate(
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
         await git("push", "origin", bp_branch)
-    except gitter.GitError as in_exception:  # pragma: no cover
-        if in_exception.output == "":
-            raise DuplicateNeedRetry("git process got sigkill")
-
+    except gitter.GitAuthenticationFailure:
+        raise
+    except gitter.GitErrorRetriable as e:
+        raise DuplicateNeedRetry(
+            f"Git reported the following error:\n```\n{e.output}\n```\n"
+        )
+    except gitter.GitFatalError as e:
+        raise DuplicateUnexpectedError(
+            f"Git reported the following error:\n```\n{e.output}\n```\n"
+        )
+    except gitter.GitError as e:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
-            if message in in_exception.output:
+            if message in output:
                 raise out_exception(
-                    "Git reported the following error:\n"
-                    f"```\n{in_exception.output}\n```\n"
+                    f"Git reported the following error:\n```\n{e.output}\n```\n"
                 )
-        else:
-            raise DuplicateUnexpectedError(in_exception.output)
+        ctxt.log.error(
+            "duplicate pull failed",
+            output=e.output,
+            returncode=e.returncode,
+            exc_info=True,
+        )
+        raise DuplicateUnexpectedError(e.output)
     finally:
         await git.cleanup()
 
