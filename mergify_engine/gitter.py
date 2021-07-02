@@ -14,6 +14,7 @@
 # under the License.
 
 import asyncio
+import collections
 import dataclasses
 import logging
 import shutil
@@ -28,6 +29,44 @@ from mergify_engine import config
 class GitError(Exception):
     returncode: int
     output: str
+
+
+class GitFatalError(GitError):
+    pass
+
+
+class GitErrorRetriable(GitError):
+    pass
+
+
+class GitAuthenticationFailure(GitError):
+    pass
+
+
+class GitReferenceAlreadyExists(GitError):
+    pass
+
+
+GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
+    [
+        ("Authentication failed", GitAuthenticationFailure),
+        ("This repository was archived so it is read-only.", GitFatalError),
+        ("organization has enabled or enforced SAML SSO.", GitFatalError),
+        ("could not apply", GitFatalError),
+        ("Invalid username or password", GitAuthenticationFailure),
+        ("Repository not found", GitAuthenticationFailure),
+        ("The requested URL returned error: 403", GitAuthenticationFailure),
+        ("Patch failed at", GitFatalError),
+        ("remote contains work that you do", GitErrorRetriable),
+        ("remote end hung up unexpectedly", GitErrorRetriable),
+        ("cannot lock ref 'refs/heads/", GitErrorRetriable),
+        ("Could not resolve host", GitErrorRetriable),
+        ("Operation timed out", GitErrorRetriable),
+        ("No such device or address", GitErrorRetriable),
+        ("Protected branch update failed", GitFatalError),
+        ("couldn't find remote ref", GitFatalError),
+    ]
+)
 
 
 @dataclasses.dataclass
@@ -67,11 +106,36 @@ class Gitter(object):
             )
             output = stdout.decode("utf-8")
             if p.returncode:
+                if output == "":
+                    # SIGKILL...
+                    raise GitErrorRetriable(p.returncode, "Git process got killed")
+                elif self._is_force_push_lease_reject(output):
+                    raise GitErrorRetriable(
+                        p.returncode,
+                        "Remote branch changed in the meantime: \n"
+                        f"```\n{output}\n```\n",
+                    )
+
+                for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
+                    if message in output:
+                        raise out_exception(
+                            p.returncode,
+                            output,
+                        )
+
                 raise GitError(p.returncode, output)
             else:
                 return output
         finally:
             self.logger.debug("finish: %s", " ".join(args))
+
+    @staticmethod
+    def _is_force_push_lease_reject(message: str) -> bool:
+        return (
+            "failed to push some refs" in message
+            and "[rejected]" in message
+            and "(stale info)" in message
+        )
 
     async def cleanup(self) -> None:
         if self.tmp is None:

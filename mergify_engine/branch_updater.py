@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import collections
 import dataclasses
 import typing
 import uuid
@@ -43,39 +42,6 @@ class BranchUpdateFailure(Exception):
 @dataclasses.dataclass
 class BranchUpdateNeedRetry(exceptions.EngineNeedRetry):
     message: str
-
-
-class AuthenticationFailure(Exception):
-    pass
-
-
-GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
-    [
-        ("This repository was archived so it is read-only.", BranchUpdateFailure),
-        ("organization has enabled or enforced SAML SSO.", BranchUpdateFailure),
-        ("could not apply", BranchUpdateFailure),
-        ("Invalid username or password", AuthenticationFailure),
-        ("Repository not found", AuthenticationFailure),
-        ("The requested URL returned error: 403", AuthenticationFailure),
-        ("Patch failed at", BranchUpdateFailure),
-        ("remote contains work that you do", BranchUpdateNeedRetry),
-        ("remote end hung up unexpectedly", BranchUpdateNeedRetry),
-        ("cannot lock ref 'refs/heads/", BranchUpdateNeedRetry),
-        ("Could not resolve host", BranchUpdateNeedRetry),
-        ("Operation timed out", BranchUpdateNeedRetry),
-        ("No such device or address", BranchUpdateNeedRetry),
-        ("Protected branch update failed", BranchUpdateFailure),
-        ("couldn't find remote ref", BranchUpdateFailure),
-    ]
-)
-
-
-def is_force_push_lease_reject(message: str) -> bool:
-    return (
-        "failed to push some refs" in message
-        and "[rejected]" in message
-        and "(stale info)" in message
-    )
 
 
 def pre_update_check(ctxt: context.Context) -> None:
@@ -190,31 +156,24 @@ async def _do_rebase(ctxt: context.Context, user: UserTokensUser) -> None:
         expected_sha = (await git("log", "-1", "--format=%H")).strip()
         # NOTE(sileht): We store this for dismissal action
         await ctxt.redis.setex(f"branch-update-{expected_sha}", 60 * 60, expected_sha)
-    except gitter.GitError as in_exception:  # pragma: no cover
-        if in_exception.output == "":
-            # SIGKILL...
-            raise BranchUpdateNeedRetry("Git process got killed")
-
-        elif is_force_push_lease_reject(in_exception.output):
-            raise BranchUpdateNeedRetry(
-                "Remote branch changed in the meantime: \n"
-                f"```\n{in_exception.output}\n```\n"
-            )
-
-        for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
-            if message in in_exception.output:
-                raise out_exception(
-                    "Git reported the following error:\n"
-                    f"```\n{in_exception.output}\n```\n"
-                )
-        else:
-            ctxt.log.error(
-                "update branch failed: %s",
-                in_exception.output,
-                exc_info=True,
-            )
-            raise BranchUpdateFailure()
-
+    except gitter.GitAuthenticationFailure:
+        raise
+    except gitter.GitErrorRetriable as e:
+        raise BranchUpdateNeedRetry(
+            f"Git reported the following error:\n```\n{e.output}\n```\n"
+        )
+    except gitter.GitFatalError as e:
+        raise BranchUpdateFailure(
+            f"Git reported the following error:\n```\n{e.output}\n```\n"
+        )
+    except gitter.GitError as e:
+        ctxt.log.error(
+            "update branch failed",
+            output=e.output,
+            returncode=e.returncode,
+            exc_info=True,
+        )
+        raise BranchUpdateFailure()
     except Exception:  # pragma: no cover
         ctxt.log.error("update branch failed", exc_info=True)
         raise BranchUpdateFailure()
@@ -277,7 +236,7 @@ async def rebase_with_git(
     for user in users:
         try:
             await _do_rebase(ctxt, user)
-        except AuthenticationFailure as e:  # pragma: no cover
+        except gitter.GitAuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
                 e,

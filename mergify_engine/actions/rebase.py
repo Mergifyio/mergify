@@ -83,11 +83,6 @@ class RebaseAction(actions.Action):
                     check_api.Conclusion.FAILURE, e.title, e.message
                 )
 
-            except branch_updater.AuthenticationFailure as e:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE, "Branch rebase failed", str(e)
-                )
-
             await signals.send(
                 ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
             )
