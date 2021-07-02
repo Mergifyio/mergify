@@ -38,7 +38,7 @@ from mergify_engine import constants
 from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import subscription
+from mergify_engine import subscription as subscription_mod
 from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -67,14 +67,16 @@ class PullRequestAttributeError(AttributeError):
 class Installation:
     owner_id: github_types.GitHubAccountIdType
     owner_login: github_types.GitHubLogin
-    subscription: subscription.Subscription
-    client: github.AsyncGithubInstallationClient
-    redis: utils.RedisCache
+    subscription: subscription_mod.Subscription = dataclasses.field(repr=False)
+    client: github.AsyncGithubInstallationClient = dataclasses.field(repr=False)
+    redis: utils.RedisCache = dataclasses.field(repr=False)
 
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
-        dataclasses.field(default_factory=dict)
+        dataclasses.field(default_factory=dict, repr=False)
     )
-    _user_tokens: typing.Optional[user_tokens.UserTokens] = None
+    _user_tokens: typing.Optional[user_tokens.UserTokens] = dataclasses.field(
+        default=None, repr=False
+    )
 
     async def get_user_tokens(self) -> user_tokens.UserTokens:
         # NOTE(sileht): For the simulator all contexts are built with a user
@@ -204,11 +206,11 @@ class Repository(object):
     installation: Installation
     repo: github_types.GitHubRepository
     pull_contexts: "typing.Dict[github_types.GitHubPullRequestNumber, Context]" = (
-        dataclasses.field(default_factory=dict)
+        dataclasses.field(default_factory=dict, repr=False)
     )
 
     # FIXME(sileht): https://github.com/python/mypy/issues/5723
-    _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache)  # type: ignore
+    _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache, repr=False)  # type: ignore
 
     @property
     def base_url(self) -> str:
@@ -530,8 +532,8 @@ class Context(object):
     pull: github_types.GitHubPullRequest
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     configuration_changed: bool = False
-    pull_request: "PullRequest" = dataclasses.field(init=False)
-    log: logging.LoggerAdapter = dataclasses.field(init=False)
+    pull_request: "PullRequest" = dataclasses.field(init=False, repr=False)
+    log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
 
     # FIXME(sileht): https://github.com/python/mypy/issues/5723
     _cache: ContextCache = dataclasses.field(default_factory=ContextCache)  # type: ignore
@@ -544,7 +546,7 @@ class Context(object):
         return self.repository.installation.redis
 
     @property
-    def subscription(self) -> subscription.Subscription:
+    def subscription(self) -> subscription_mod.Subscription:
         # TODO(sileht): remove me when context split if done
         return self.repository.installation.subscription
 
