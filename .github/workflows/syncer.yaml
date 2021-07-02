@@ -1,0 +1,22 @@
+name: Trigger production pipeline workflow
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-syncer-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v4.0.2
+        with:
+          result-encoding: string
+          github-token: ${{ secrets.DEPLOY_BOT_PAT_TOKEN_FOR_SYNCER }}
+          script: |
+            var resp = await octokit.rest.actions.createWorkflowDispatch({
+              owner: context.owner,
+              repo: "mergify-engine-prod",
+              workflow_id: ".github/workflows/syncer.yml",
+              ref: "main",
+            });
+            console.log(resp)
