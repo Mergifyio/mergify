@@ -10,10 +10,9 @@ jobs:
     steps:
       - uses: actions/github-script@v4.0.2
         with:
-          result-encoding: string
           github-token: ${{ secrets.DEPLOY_BOT_PAT_TOKEN_FOR_SYNCER }}
           script: |
-            var resp = await octokit.rest.actions.createWorkflowDispatch({
+            var resp = await github.actions.createWorkflowDispatch({
               owner: context.owner,
               repo: "mergify-engine-prod",
               workflow_id: ".github/workflows/syncer.yml",
