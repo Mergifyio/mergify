@@ -179,10 +179,10 @@ async def _get_commits_to_cherrypick(
         ctxt.log.debug("Pull request merged with merge commit")
         return await _get_commits_without_base_branch_merge(ctxt)
 
-    else:  # pragma: no cover
-        # NOTE(sileht): What is that?
-        ctxt.log.error("unhandled commit structure")
-        return []
+    elif len(merge_commit["parents"]) >= 3:
+        raise DuplicateFailed("merge commit with more than 2 parents are unsupported")
+    else:
+        raise RuntimeError("merge commit with no parents")
 
 
 KindT = typing.Literal["backport", "copy"]
