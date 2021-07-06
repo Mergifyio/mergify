@@ -168,6 +168,28 @@ Examples
           merge:
             method: merge
 
+.. _time format:
+
+Time
+~~~~
+
+This format represents the time of the day in the 24-hours format.
+It can be used with any of the greater and lesser operators (``>=``, ``>``,
+``<=``, ``<``).
+
+Examples
+++++++++
+
+.. code-block:: yaml
+
+      - name: comment after 18:00
+        conditions:
+          - current-time>=18:00
+        actions:
+          close:
+            message: It's too late for this!
+
+
 .. _iso timestamp:
 
 Timestamp
