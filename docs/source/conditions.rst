@@ -269,7 +269,7 @@ Here's the list of pull request attribute that can be used in conditions:
      - :ref:`Timestamp <iso timestamp>`
      - The current date and time.
    * - ``current-time``
-     - string
+     - :ref:`Time <time format>`
      - The current time in format ``HH:MM``.
    * - ``current-day``
      - integer
