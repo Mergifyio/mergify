@@ -1153,6 +1153,8 @@ class Context(object):
 
     @property
     def closed(self) -> bool:
+        # NOTE(sileht): GitHub automerge doesn't always close pull requests
+        # when it merges them.
         return self.pull["state"] == "closed" or self.pull["merged"]
 
     @property
