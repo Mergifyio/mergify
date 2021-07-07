@@ -242,7 +242,6 @@ class TestBackportAction(BackportActionTestBase):
         await self.wait_for("pull_request", {"action": "closed"})
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        print(await ctxt.pull_check_runs)
         return (
             p,
             [
