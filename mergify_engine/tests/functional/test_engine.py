@@ -298,7 +298,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                     "The pull request is the 1st in the queue to be merged"
                     == check["output"]["title"]
                 )
-                print(check["output"]["summary"])
                 assert (
                     f"""**Required conditions for merge:**
 
