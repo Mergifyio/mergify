@@ -19,7 +19,6 @@ import uuid
 
 import tenacity
 
-from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import gitter
@@ -108,42 +107,21 @@ async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) ->
     if ctxt.pull["head"]["repo"] is None:
         raise BranchUpdateFailure("The head repository does not exists anymore")
 
-    head_repo = (
-        ctxt.pull["head"]["repo"]["owner"]["login"]
-        + "/"
-        + ctxt.pull["head"]["repo"]["name"]
-    )
-    base_repo = (
-        ctxt.pull["base"]["repo"]["owner"]["login"]
-        + "/"
-        + ctxt.pull["base"]["repo"]["name"]
-    )
-
     head_branch = ctxt.pull["head"]["ref"]
     base_branch = ctxt.pull["base"]["ref"]
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        # NOTE(sileht): Bump the repository format. This ensures required
-        # extensions (promisor, partialclonefilter) are present in git cli and
-        # raise an error if not. Avoiding git cli to fallback to full clone
-        # behavior for us.
-        await git("config", "core.repositoryformatversion", "1")
-
         if ctxt.subscription.active:
             await git.configure(user["name"] or user["login"], user["email"])
         else:
             await git.configure()
-        await git.add_cred(user["oauth_access_token"], "", head_repo)
-        await git.add_cred(user["oauth_access_token"], "", base_repo)
-
-        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{head_repo}")
-        await git("config", "remote.origin.promisor", "true")
-        await git("config", "remote.origin.partialclonefilter", "blob:none")
-
-        await git("remote", "add", "upstream", f"{config.GITHUB_URL}/{base_repo}")
-        await git("config", "remote.upstream.promisor", "true")
-        await git("config", "remote.upstream.partialclonefilter", "blob:none")
+        await git.setup_remote(
+            "origin", ctxt.pull["head"]["repo"], user["oauth_access_token"], ""
+        )
+        await git.setup_remote(
+            "upstream", ctxt.pull["base"]["repo"], user["oauth_access_token"], ""
+        )
 
         await git("fetch", "--quiet", "origin", head_branch)
         await git("checkout", "-q", "-b", head_branch, f"origin/{head_branch}")

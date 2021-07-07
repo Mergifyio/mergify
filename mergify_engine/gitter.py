@@ -23,6 +23,7 @@ import typing
 import urllib.parse
 
 from mergify_engine import config
+from mergify_engine import github_types
 
 
 @dataclasses.dataclass
@@ -81,7 +82,12 @@ class Gitter(object):
         self.tmp = await asyncio.to_thread(tempfile.mkdtemp, prefix="mergify-gitter")
         version = await self("version")
         self.logger.info("git directory created", path=self.tmp, version=version)
-        await self("init")
+        await self("init", "--initial-branch=tmp-mergify-trunk")
+        # NOTE(sileht): Bump the repository format. This ensures required
+        # extensions (promisor, partialclonefilter) are present in git cli and
+        # raise an error if not. Avoiding git cli to fallback to full clone
+        # behavior for us.
+        await self("config", "core.repositoryformatversion", "1")
         # Disable gc since this is a thrown-away repository
         await self("config", "gc.auto", "0")
 
@@ -173,3 +179,17 @@ class Gitter(object):
         parsed[2] = path
         url = urllib.parse.urlunparse(parsed)
         await self("credential", "approve", _input=f"url={url}\n\n")
+
+    async def setup_remote(
+        self,
+        name: str,
+        repository: github_types.GitHubRepository,
+        username: str,
+        password: str,
+    ) -> None:
+        await self.add_cred(username, password, repository["full_name"])
+        await self(
+            "remote", "add", name, f"{config.GITHUB_URL}/{repository['full_name']}"
+        )
+        await self("config", f"remote.{name}.promisor", "true")
+        await self("config", f"remote.{name}.partialclonefilter", "blob:none")
