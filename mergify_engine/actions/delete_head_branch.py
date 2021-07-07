@@ -38,7 +38,7 @@ class DeleteHeadBranchAction(actions.Action):
                 check_api.Conclusion.SUCCESS, "Pull request come from fork", ""
             )
 
-        if ctxt.pull["state"] == "closed":
+        if ctxt.closed:
             if not self.config["force"]:
                 pulls_using_this_branch = [
                     branch

@@ -308,7 +308,7 @@ class MergeBaseAction(actions.Action):
         output = await self.merge_report(ctxt)
         if output:
             await q.remove_pull(ctxt)
-            if ctxt.pull["state"] == "closed":
+            if ctxt.closed:
                 return output
             else:
                 return self.cancelled_check_report
@@ -649,7 +649,7 @@ class MergeBaseAction(actions.Action):
             conclusion = check_api.Conclusion.SUCCESS
             title = f"The pull request has been merged {mode}"
             summary = f"The pull request has been merged {mode} at *{ctxt.pull['merge_commit_sha']}*"
-        elif ctxt.pull["state"] == "closed":
+        elif ctxt.closed:
             conclusion = check_api.Conclusion.CANCELLED
             title = "The pull request has been closed manually"
             summary = ""

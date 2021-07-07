@@ -167,7 +167,7 @@ class MergeAction(merge_base.MergeBaseAction):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> bool:
         # It's closed, it's not going to change
-        if ctxt.pull["state"] == "closed":
+        if ctxt.closed:
             return True
 
         if ctxt.has_been_synchronized():

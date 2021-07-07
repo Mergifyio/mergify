@@ -35,7 +35,7 @@ class CloseAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if ctxt.pull["state"] == "closed":
+        if ctxt.closed:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Pull request is already closed", ""
             )
