@@ -59,7 +59,7 @@ async def have_unexpected_changes(
 async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     # FIXME: Maybe create a command to force the retesting to put back the PR in the queue?
 
-    if ctxt.pull["state"] == "closed":
+    if ctxt.closed:
         ctxt.log.info(
             "train car temporary pull request has been closed", sources=ctxt.sources
         )

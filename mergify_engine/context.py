@@ -732,7 +732,7 @@ class Context(object):
             return self.pull["merged"]
 
         elif name == "closed":
-            return self.pull["state"] == "closed"
+            return self.closed
 
         elif name == "milestone":
             return (
@@ -1028,10 +1028,7 @@ class Context(object):
         return True
 
     def _is_background_github_processing_completed(self) -> bool:
-        return (
-            self.pull["state"] == "closed"
-            or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
-        )
+        return self.closed or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
 
     async def update(self) -> None:
         # TODO(sileht): Remove me,
@@ -1153,6 +1150,10 @@ class Context(object):
         ]
         self._cache["files"] = files
         return files
+
+    @property
+    def closed(self) -> bool:
+        return self.pull["state"] == "closed" or self.pull["merged"]
 
     @property
     def pull_from_fork(self) -> bool:
