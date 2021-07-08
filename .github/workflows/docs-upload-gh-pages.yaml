@@ -20,6 +20,7 @@ jobs:
       - name: Setup Node 🔧
         uses: actions/setup-node@v2.2.0
         with:
+          cache: yarn
           node-version: 8.17.0
 
       - name: Build 🔧

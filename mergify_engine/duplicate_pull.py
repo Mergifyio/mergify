@@ -266,27 +266,21 @@ async def duplicate(
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        # NOTE(sileht): Bump the repository format. This ensures required
-        # extensions (promisor, partialclonefilter) are present in git cli and
-        # raise an error if not. Avoiding git cli to fallback to full clone
-        # behavior for us.
-        await git("config", "core.repositoryformatversion", "1")
 
         if bot_account_user is None:
             token = ctxt.client.auth.get_access_token()
             await git.configure()
-            await git.add_cred("x-access-token", token, repo_full_name)
+            username = "x-access-token"
+            password = token
         else:
             await git.configure(
                 bot_account_user["name"] or bot_account_user["login"],
                 bot_account_user["email"],
             )
-            await git.add_cred(
-                bot_account_user["oauth_access_token"], "", repo_full_name
-            )
-        await git("remote", "add", "origin", f"{config.GITHUB_URL}/{repo_full_name}")
-        await git("config", "remote.origin.promisor", "true")
-        await git("config", "remote.origin.partialclonefilter", "blob:none")
+            username = bot_account_user["oauth_access_token"]
+            password = ""  # nosec
+
+        await git.setup_remote("origin", ctxt.pull["base"]["repo"], username, password)
 
         await git("fetch", "--quiet", "origin", f"pull/{ctxt.pull['number']}/head")
         await git("fetch", "--quiet", "origin", ctxt.pull["base"]["ref"])
