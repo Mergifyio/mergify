@@ -19,6 +19,7 @@ jobs:
 
       - name: Setup Node 🔧
         uses: actions/setup-node@v2.2.0
+        cache: yarn
         with:
           node-version: 8.17.0
 
