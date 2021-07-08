@@ -341,8 +341,8 @@ async def duplicate(
         cherry_pick_error += (
             "To fix up this pull request, you can check it out locally. "
             "See documentation: "
-            "https://help.github.com/articles/"
-            "checking-out-pull-requests-locally/"
+            "https://docs.github.com/en/github/"
+            "collaborating-with-pull-requests/reviewing-changes-in-pull-requests/checking-out-pull-requests-locally"
         )
 
     try:
