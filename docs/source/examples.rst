@@ -151,7 +151,7 @@ To automate the merge in this case, you could write some rules along those:
 Some developers are not comfortable with fully automatic merge — they like
 having a final word before merging the code. In that case, you can add a
 condition using a `label
-<https://help.github.com/articles/labeling-issues-and-pull-requests/>`_:
+<https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels>`_:
 
 .. code-block:: yaml
 
@@ -198,7 +198,7 @@ passing.
 When ``smart`` :ref:`strict merge` is enabled and many pull requests are
 waiting to be merged, some of them might be more urgent. In that case, you
 could add a condition using a `label
-<https://help.github.com/articles/labeling-issues-and-pull-requests/>`_ and
+<https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels>`_ and
 configure the priority option of :ref:`merge action`:
 
 .. code-block:: yaml

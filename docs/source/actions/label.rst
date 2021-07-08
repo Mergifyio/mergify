@@ -10,7 +10,7 @@ label
 =====
 
 The ``label`` action can add or remove `labels
-<https://help.github.com/articles/about-labels/>`_ from a pull request.
+<https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels>`_ from a pull request.
 
 Options
 -------
