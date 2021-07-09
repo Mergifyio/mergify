@@ -22,6 +22,7 @@ import typing
 import daiquiri
 import httpx
 import tenacity
+import tenacity.wait
 from werkzeug.http import parse_date
 
 from mergify_engine import date
@@ -101,21 +102,25 @@ STATUS_CODE_TO_EXC = {
 }
 
 
-def wait_retry_after_header(retry_state):
-    exc = retry_state.outcome.exception()
-    if exc is None or not getattr(exc, "response", None):
-        return 0
+class wait_retry_after_header(tenacity.wait.wait_base):
+    def __call__(self, retry_state: tenacity.RetryCallState) -> float:
+        if retry_state.outcome is None:
+            return 0
 
-    value = exc.response.headers.get("retry-after")
-    if value is None:
-        return 0
-    elif value.isdigit():
-        return int(value)
+        exc = retry_state.outcome.exception()
+        if exc is None or not isinstance(exc, HTTPStatusError):
+            return 0
 
-    d = parse_date(value)
-    if d is None:
-        return 0
-    return max(0, (d - date.utcnow()).total_seconds())
+        value = exc.response.headers.get("retry-after")
+        if value is None:
+            return 0
+        elif value.isdigit():
+            return int(value)
+
+        d = parse_date(value)
+        if d is None:
+            return 0
+        return max(0, (d - date.utcnow()).total_seconds())
 
 
 def extract_github_extra(client):
@@ -169,13 +174,13 @@ def after_log(retry_state):
 
 connectivity_issue_retry = tenacity.retry(
     reraise=True,
-    retry=tenacity.retry_if_exception_type(  # type: ignore[no-untyped-call]
+    retry=tenacity.retry_if_exception_type(
         (RequestError, HTTPServerSideError, HTTPTooManyRequests)
     ),
-    wait=tenacity.wait_combine(  # type: ignore[no-untyped-call]
-        wait_retry_after_header, tenacity.wait_exponential(multiplier=0.2)  # type: ignore[no-untyped-call]
+    wait=tenacity.wait_combine(
+        wait_retry_after_header(), tenacity.wait_exponential(multiplier=0.2)
     ),
-    stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
+    stop=tenacity.stop_after_attempt(5),
     before=before_log,
     after=after_log,
 )

@@ -85,9 +85,9 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
 
 
 @tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
-    stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
-    retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),  # type: ignore[no-untyped-call]
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
     reraise=True,
 )
 async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) -> None:

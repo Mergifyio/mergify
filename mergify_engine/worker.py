@@ -110,9 +110,9 @@ class T_PayloadEvent(typing.TypedDict):
 
 
 @tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
-    stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
-    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),  # type: ignore[no-untyped-call]
+    wait=tenacity.wait_exponential(multiplier=0.2),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
     reraise=True,
 )
 async def push(
