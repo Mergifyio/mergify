@@ -997,9 +997,9 @@ class Context(object):
     # NOTE(sileht): quickly retry, if we don't get the status on time
     # the exception is recatch in worker.py, so worker will retry it later
     @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=0.2),  # type: ignore[no-untyped-call]
-        stop=tenacity.stop_after_attempt(5),  # type: ignore[no-untyped-call]
-        retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),  # type: ignore[no-untyped-call]
+        wait=tenacity.wait_exponential(multiplier=0.2),
+        stop=tenacity.stop_after_attempt(5),
+        retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
         reraise=True,
     )
     async def _ensure_complete(self) -> None:
