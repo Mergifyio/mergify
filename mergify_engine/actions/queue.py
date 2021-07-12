@@ -42,6 +42,14 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class QueueAction(merge_base.MergeBaseAction):
+    UNQUEUE_DOCUMENTATION = f"""
+You can take a look at `{constants.MERGE_QUEUE_SUMMARY_NAME}` check runs for more details.
+
+In case of a failure due to a flaky test, you should first retrigger the CI.
+Then, re-embark the pull request into the merge queue by posting the comment
+`@mergifyio refresh` on the pull request.
+"""
+
     @classmethod
     def get_config_schema(
         cls,

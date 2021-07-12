@@ -37,6 +37,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class MergeAction(merge_base.MergeBaseAction):
+
     validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
             "rebase", "merge", "squash"
