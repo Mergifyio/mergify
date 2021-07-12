@@ -56,6 +56,7 @@ class DuplicateFailed(Exception):
 
 
 GIT_MESSAGE_TO_EXCEPTION = {
+    "Updates were rejected because the tip of your current branch is behind": DuplicateNeedRetry,
     "Aborting commit due to empty commit message": DuplicateNotNeeded,
     "reference already exists": DuplicateAlreadyExists,
     "You may want to first integrate the remote changes": DuplicateAlreadyExists,
