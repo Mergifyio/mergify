@@ -65,27 +65,26 @@ def test_fromisoformat(value: str, expected: datetime.datetime) -> None:
     "dt,expected_string",
     [
         (
-            datetime.timedelta(minutes=3),
-            "3 minutes",
+            datetime.datetime(2021, 6, 1, tzinfo=datetime.timezone.utc),
+            "2021-06-01 00:00 UTC",
         ),
         (
-            datetime.timedelta(hours=3),
-            "3 hours and 0 minute",
+            datetime.datetime(2021, 12, 31, 23, 1, 1, tzinfo=datetime.timezone.utc),
+            "2021-12-31 23:01 UTC",
         ),
         (
-            datetime.timedelta(days=2, hours=3, seconds=12),
-            "2 days, 3 hours and 0 minute",
+            datetime.datetime(
+                2021, 12, 31, 23, 1, 0, 999, tzinfo=datetime.timezone.utc
+            ),
+            "2021-12-31 23:01 UTC",
         ),
         (
-            datetime.timedelta(days=2, hours=3, minutes=2),
-            "2 days, 3 hours and 2 minutes",
+            datetime.datetime(
+                2021, 12, 31, 23, 0, 0, 999, tzinfo=datetime.timezone.utc
+            ),
+            "2021-12-31 23:00 UTC",
         ),
-        (
-            datetime.timedelta(days=2, hours=3, minutes=2),
-            "2 days, 3 hours and 2 minutes",
-        ),
-        (datetime.timedelta(seconds=12), "12 seconds"),
     ],
 )
-def test_pretty_elapsed_since(dt: datetime.timedelta, expected_string: str) -> None:
-    assert date.pretty_elapsed_since(date.utcnow() - dt) == expected_string
+def test_pretty_datetime(dt: datetime.datetime, expected_string: str) -> None:
+    assert date.pretty_datetime(dt) == expected_string

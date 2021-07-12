@@ -551,12 +551,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # NOTE(sileht): We mock this method because when we replay test, the
         # timing maybe not the same as when we record it, making the formatted
         # elapsed time different in the merge queue summary.
-        def fake_pretty_elapsed_since(dt: datetime.datetime) -> str:
-            return "<fake_pretty_elapsed_since()>"
+        def fake_pretty_datetime(dt: datetime.datetime) -> str:
+            return "<fake_pretty_datetime()>"
 
         mock.patch(
-            "mergify_engine.date.pretty_elapsed_since",
-            side_effect=fake_pretty_elapsed_since,
+            "mergify_engine.date.pretty_datetime",
+            side_effect=fake_pretty_datetime,
         ).start()
 
         self._event_reader = EventReader(self.app)
