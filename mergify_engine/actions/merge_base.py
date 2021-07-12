@@ -165,6 +165,7 @@ async def get_rule_checks_status(
 class MergeBaseAction(actions.Action):
     only_once = True
     can_be_used_on_configuration_change = False
+    UNQUEUE_DOCUMENTATION = ""
 
     @abc.abstractmethod
     async def _should_be_queued(
@@ -277,7 +278,8 @@ class MergeBaseAction(actions.Action):
                 return check_api.Result(
                     check_api.Conclusion.CANCELLED,
                     "The pull request has been removed from the queue",
-                    "The queue conditions cannot be satisfied due to failing checks.",
+                    "The queue conditions cannot be satisfied due to failing checks. "
+                    f"{self.UNQUEUE_DOCUMENTATION}",
                 )
 
         try:
