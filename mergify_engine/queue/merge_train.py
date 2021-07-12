@@ -360,13 +360,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     elif pseudo_car.state == "created":
                         speculative_checks = f"#{pseudo_car.queue_pull_request_number}"
 
-                elapsed = date.pretty_elapsed_since(pseudo_car.queued_at)
+                queued_at = date.pretty_datetime(pseudo_car.queued_at)
                 table.append(
                     f"| {i + 1} "
                     f"| {ctxt.pull['title']} ([#{pseudo_car.user_pull_request_number}]({pull_html_url})) "
                     f"| {pseudo_car.config['name']}/{fancy_priority} "
                     f"| {speculative_checks} "
-                    f"| {elapsed} ago "
+                    f"| {queued_at}"
                     "|"
                 )
 
