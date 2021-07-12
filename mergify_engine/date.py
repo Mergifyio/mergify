@@ -114,8 +114,8 @@ def _number_with_unit(n: int, unit: str) -> str:
     return f"{n} {unit}s"
 
 
-def pretty_timedelta(t: datetime.timedelta) -> str:
-    seconds = int(t.total_seconds())
+def pretty_elapsed_since(dt: datetime.datetime) -> str:
+    seconds = int((utcnow() - dt).total_seconds())
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)

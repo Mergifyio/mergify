@@ -62,7 +62,7 @@ def test_fromisoformat(value: str, expected: datetime.datetime) -> None:
 
 
 @pytest.mark.parametrize(
-    "timedelta,expected_string",
+    "dt,expected_string",
     [
         (
             datetime.timedelta(minutes=3),
@@ -87,5 +87,5 @@ def test_fromisoformat(value: str, expected: datetime.datetime) -> None:
         (datetime.timedelta(seconds=12), "12 seconds"),
     ],
 )
-def test_pretty_timedelta(timedelta: datetime.timedelta, expected_string: str) -> None:
-    assert date.pretty_timedelta(timedelta) == expected_string
+def test_pretty_elapsed_since(dt: datetime.timedelta, expected_string: str) -> None:
+    assert date.pretty_elapsed_since(date.utcnow() - dt) == expected_string
