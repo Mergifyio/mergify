@@ -55,10 +55,16 @@ class DuplicateFailed(Exception):
     reason: str
 
 
+@dataclasses.dataclass
+class DuplicateWithMergeFailure(Exception):
+    reason: str
+
+
 GIT_MESSAGE_TO_EXCEPTION = {
     "Aborting commit due to empty commit message": DuplicateNotNeeded,
     "reference already exists": DuplicateAlreadyExists,
     "You may want to first integrate the remote changes": DuplicateAlreadyExists,
+    "is a merge but no -m option was given": DuplicateWithMergeFailure,
 }
 
 
