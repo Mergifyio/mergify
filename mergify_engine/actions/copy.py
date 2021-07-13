@@ -149,6 +149,12 @@ class CopyAction(actions.Action):
 
             except duplicate_pull.DuplicateAlreadyExists:
                 new_pull = await self.get_existing_duplicate_pull(ctxt, branch_name)
+            except duplicate_pull.DuplicateWithMergeFailure:
+                return (
+                    check_api.Conclusion.FAILURE,
+                    f"Backport to branch `{branch_name}` failed\nPull request with merge commit are not supported",
+                )
+
             except duplicate_pull.DuplicateFailed as e:
                 return (
                     check_api.Conclusion.FAILURE,

@@ -22,6 +22,7 @@ from datadog import statsd
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import exceptions
@@ -152,6 +153,14 @@ async def filter_and_dispatch(
                 await engine.create_initial_summary(redis_cache, event)
             except Exception as e:
                 _log_on_exception(e, "fail to create initial summary")
+        elif (
+            event["action"] == "edited"
+            and event["sender"]["id"] == config.BOT_USER_ID
+            and event["pull_request"]["head"]["ref"].startswith(
+                constants.MERGE_QUEUE_BRANCH_PREFIX
+            )
+        ):
+            ignore_reason = "mergify merge-queue description update"
 
     elif event_type == "refresh":
         event = typing.cast(github_types.GitHubEventRefresh, event)
