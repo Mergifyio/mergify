@@ -311,8 +311,16 @@ async def duplicate(
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
         await git("push", "origin", bp_branch)
-    except gitter.GitAuthenticationFailure:
-        raise
+    except gitter.GitAuthenticationFailure as e:
+        if bot_account_user is None:
+            # Need to get a new token
+            raise DuplicateNeedRetry(
+                f"Git reported the following error:\n```\n{e.output}\n```\n"
+            )
+        else:
+            raise DuplicateUnexpectedError(
+                f"Git reported the following error:\n```\n{e.output}\n```\n"
+            )
     except gitter.GitErrorRetriable as e:
         raise DuplicateNeedRetry(
             f"Git reported the following error:\n```\n{e.output}\n```\n"
