@@ -289,7 +289,9 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
         )
 
-        assert tmp_pull["commits"] == 4
+        # Depending on the timing this can have 4 or 5 commits, because
+        # the merge commit due to the update of the first PR may appear or not
+        assert tmp_pull["commits"] >= 4
         await self.create_status(tmp_pull)
         await self.run_engine()
 
