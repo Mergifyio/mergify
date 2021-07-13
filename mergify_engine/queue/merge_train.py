@@ -504,10 +504,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 show_queue=show_queue,
             )
 
-            await tmp_pull_ctxt.client.patch(
-                f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
-                json={"body": body},
-            )
+            if tmp_pull_ctxt.pull["body"] != body:
+                await tmp_pull_ctxt.client.patch(
+                    f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
+                    json={"body": body},
+                )
 
             await tmp_pull_ctxt.set_summary_check(
                 check_api.Result(
