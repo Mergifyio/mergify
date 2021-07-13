@@ -63,6 +63,7 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
         ("cannot lock ref 'refs/heads/", GitErrorRetriable),
         ("Could not resolve host", GitErrorRetriable),
         ("Operation timed out", GitErrorRetriable),
+        ("Connection timed out", GitErrorRetriable),
         ("No such device or address", GitErrorRetriable),
         ("Protected branch update failed", GitFatalError),
         ("couldn't find remote ref", GitFatalError),
