@@ -15,7 +15,6 @@
 # under the License.
 import dataclasses
 import datetime
-import typing
 
 
 DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
@@ -99,35 +98,5 @@ def fromtimestamp(timestamp: float) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
 
 
-def _pretty_join(strings: typing.List[str]) -> str:
-    if len(strings) == 0:
-        return ""
-    elif len(strings) == 1:
-        return strings[0]
-    else:
-        return f"{', '.join(strings[:-1])} and {strings[-1]}"
-
-
-def _number_with_unit(n: int, unit: str) -> str:
-    if n >= -1 and n <= 1:
-        return f"{n} {unit}"
-    return f"{n} {unit}s"
-
-
-def pretty_elapsed_since(dt: datetime.datetime) -> str:
-    seconds = int((utcnow() - dt).total_seconds())
-    days, seconds = divmod(seconds, 86400)
-    hours, seconds = divmod(seconds, 3600)
-    minutes, seconds = divmod(seconds, 60)
-    parts = []
-    if days > 0:
-        parts.append(_number_with_unit(days, "day"))
-    if days > 0 or hours > 0:
-        parts.append(_number_with_unit(hours, "hour"))
-    if days > 0 or hours > 0 or minutes > 0:
-        parts.append(_number_with_unit(minutes, "minute"))
-
-    if days == 0 and hours == 0 and minutes == 0:
-        parts.append(_number_with_unit(seconds, "second"))
-
-    return _pretty_join(parts)
+def pretty_datetime(dt: datetime.datetime) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M %Z")

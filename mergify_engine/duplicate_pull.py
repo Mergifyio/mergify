@@ -55,10 +55,17 @@ class DuplicateFailed(Exception):
     reason: str
 
 
+@dataclasses.dataclass
+class DuplicateWithMergeFailure(Exception):
+    reason: str
+
+
 GIT_MESSAGE_TO_EXCEPTION = {
+    "Updates were rejected because the tip of your current branch is behind": DuplicateNeedRetry,
     "Aborting commit due to empty commit message": DuplicateNotNeeded,
     "reference already exists": DuplicateAlreadyExists,
     "You may want to first integrate the remote changes": DuplicateAlreadyExists,
+    "is a merge but no -m option was given": DuplicateWithMergeFailure,
 }
 
 
@@ -311,8 +318,16 @@ async def duplicate(
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
         await git("push", "origin", bp_branch)
-    except gitter.GitAuthenticationFailure:
-        raise
+    except gitter.GitAuthenticationFailure as e:
+        if bot_account_user is None:
+            # Need to get a new token
+            raise DuplicateNeedRetry(
+                f"Git reported the following error:\n```\n{e.output}\n```\n"
+            )
+        else:
+            raise DuplicateUnexpectedError(
+                f"Git reported the following error:\n```\n{e.output}\n```\n"
+            )
     except gitter.GitErrorRetriable as e:
         raise DuplicateNeedRetry(
             f"Git reported the following error:\n```\n{e.output}\n```\n"
@@ -323,7 +338,7 @@ async def duplicate(
         )
     except gitter.GitError as e:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
-            if message in output:
+            if message in e.output:
                 raise out_exception(
                     f"Git reported the following error:\n```\n{e.output}\n```\n"
                 )
