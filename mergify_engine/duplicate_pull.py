@@ -338,7 +338,7 @@ async def duplicate(
         )
     except gitter.GitError as e:  # pragma: no cover
         for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
-            if message in output:
+            if message in e.output:
                 raise out_exception(
                     f"Git reported the following error:\n```\n{e.output}\n```\n"
                 )
