@@ -43,6 +43,11 @@ class BranchUpdateNeedRetry(exceptions.EngineNeedRetry):
     message: str
 
 
+GIT_MESSAGE_TO_EXCEPTION = {
+    "error: could not apply ": BranchUpdateFailure,
+}
+
+
 def pre_update_check(ctxt: context.Context) -> None:
     # If PR from a public fork but cannot be edited
     if (
@@ -145,6 +150,12 @@ async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) ->
             f"Git reported the following error:\n```\n{e.output}\n```\n"
         )
     except gitter.GitError as e:
+        for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
+            if message in e.output:
+                raise out_exception(
+                    f"Git reported the following error:\n```\n{e.output}\n```\n"
+                )
+
         ctxt.log.error(
             "update branch failed",
             output=e.output,
