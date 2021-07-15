@@ -40,7 +40,6 @@
 
 import argparse
 import asyncio
-import collections
 import contextlib
 import dataclasses
 import datetime
@@ -231,21 +230,6 @@ async def run_engine(
             await ctxt.set_summary_check(result)
     finally:
         logger.debug("engine in thread end")
-
-
-PullsToConsume = typing.NewType(
-    "PullsToConsume",
-    collections.OrderedDict[
-        typing.Tuple[
-            github_types.GitHubRepositoryName,
-            github_types.GitHubRepositoryIdType,
-            github_types.GitHubPullRequestNumber,
-        ],
-        typing.Tuple[
-            typing.List[T_MessageID], typing.List[context.T_PayloadEventSource]
-        ],
-    ],
-)
 
 
 @dataclasses.dataclass
@@ -489,6 +473,12 @@ class StreamProcessor:
                 min=0,
                 max="+inf",
             )
+            LOG.debug(
+                "org bucket contains %d pulls",
+                len(bucket_sources_keys),
+                gh_owner=installation.owner_login,
+            )
+
             for bucket_sources_key in bucket_sources_keys:
                 (
                     repo_id,
@@ -503,9 +493,9 @@ class StreamProcessor:
 
             logger = daiquiri.getLogger(
                 __name__,
+                gh_owner=installation.owner_login,
                 gh_repo=repo_name,
                 gh_pull=pull_number,
-                gh_owner=installation.owner_login,
             )
 
             messages = await self.redis_stream.xrange(bucket_sources_key)
@@ -567,7 +557,6 @@ class StreamProcessor:
                         (typing.cast(T_MessageID, message_id),),
                     )
             else:
-                # TODO(sileht): refactor PullsToConsume when we drop the legacy stream
                 sources = [
                     typing.cast(
                         context.T_PayloadEventSource,
@@ -584,10 +573,16 @@ class StreamProcessor:
                     sources=sources,
                     message_ids=message_ids,
                 )
-                pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
-                pulls[(repo_name, repo_id, pull_number)] = (message_ids, sources)
                 try:
-                    await self._consume_pulls(bucket_key, installation, pulls)
+                    await self._consume_pull(
+                        bucket_key,
+                        installation,
+                        repo_id,
+                        repo_name,
+                        pull_number,
+                        message_ids,
+                        sources,
+                    )
                 except OrgBucketRetry:
                     raise
                 except OrgBucketUnused:
@@ -638,100 +633,97 @@ class StreamProcessor:
             )
         return len(pull_numbers)
 
-    async def _consume_pulls(
+    async def _consume_pull(
         self,
         org_bucket_name: OrgBucketNameType,
         installation: context.Installation,
-        pulls: PullsToConsume,
+        repo_id: github_types.GitHubRepositoryIdType,
+        repo_name: github_types.GitHubRepositoryName,
+        pull_number: github_types.GitHubPullRequestNumber,
+        message_ids: typing.List[T_MessageID],
+        sources: typing.List[context.T_PayloadEventSource],
     ) -> None:
-        LOG.debug(
-            "org bucket contains %d pulls", len(pulls), org_bucket_name=org_bucket_name
+        for source in sources:
+            if "timestamp" in source:
+                if source["event_type"] == "push":
+                    metric = "engine.buckets.push-events.latency"
+                else:
+                    metric = "engine.buckets.events.latency"
+
+                statsd.histogram(  # type: ignore[no-untyped-call]
+                    metric,
+                    (
+                        date.utcnow() - date.fromisoformat(source["timestamp"])
+                    ).total_seconds(),
+                )
+
+        logger = daiquiri.getLogger(
+            __name__,
+            gh_repo=repo_name,
+            gh_owner=installation.owner_login,
+            gh_pull=pull_number,
         )
-        for (repo_name, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
-            for source in sources:
-                if "timestamp" in source:
-                    if source["event_type"] == "push":
-                        metric = "engine.buckets.push-events.latency"
-                    else:
-                        metric = "engine.buckets.events.latency"
-
-                    statsd.histogram(  # type: ignore[no-untyped-call]
-                        metric,
-                        (
-                            date.utcnow() - date.fromisoformat(source["timestamp"])
-                        ).total_seconds(),
-                    )
-
-            logger = daiquiri.getLogger(
-                __name__,
-                gh_repo=repo_name,
-                gh_owner=installation.owner_login,
-                gh_pull=pull_number,
+        attempts_key = f"pull~{installation.owner_login}~{repo_name}~{pull_number}"
+        try:
+            async with self._translate_exception_to_retries(
+                org_bucket_name,
+                attempts_key,
+            ):
+                await run_engine(installation, repo_id, repo_name, pull_number, sources)
+            await self.redis_stream.hdel("attempts", attempts_key)
+            await worker_lua.remove_pull(
+                self.redis_stream,
+                installation.owner_id,
+                installation.owner_login,
+                repo_id,
+                repo_name,
+                pull_number,
+                tuple(message_ids),
             )
-
-            attempts_key = f"pull~{installation.owner_login}~{repo_name}~{pull_number}"
-            try:
-                async with self._translate_exception_to_retries(
-                    org_bucket_name,
-                    attempts_key,
-                ):
-                    await run_engine(
-                        installation, repo_id, repo_name, pull_number, sources
-                    )
-                await self.redis_stream.hdel("attempts", attempts_key)
-                await worker_lua.remove_pull(
-                    self.redis_stream,
-                    installation.owner_id,
-                    installation.owner_login,
-                    repo_id,
-                    repo_name,
-                    pull_number,
-                    tuple(message_ids),
-                )
-            except IgnoredException:
-                await worker_lua.remove_pull(
-                    self.redis_stream,
-                    installation.owner_id,
-                    installation.owner_login,
-                    repo_id,
-                    repo_name,
-                    pull_number,
-                    tuple(message_ids),
-                )
-                logger.debug("failed to process pull request, ignoring", exc_info=True)
-            except MaxPullRetry as e:
-                await worker_lua.remove_pull(
-                    self.redis_stream,
-                    installation.owner_id,
-                    installation.owner_login,
-                    repo_id,
-                    repo_name,
-                    pull_number,
-                    tuple(message_ids),
-                )
-                logger.error(
-                    "failed to process pull request, abandoning",
-                    attempts=e.attempts,
-                    exc_info=True,
-                )
-            except PullRetry as e:
-                logger.info(
-                    "failed to process pull request, retrying",
-                    attempts=e.attempts,
-                    exc_info=True,
-                )
-                raise
-            except OrgBucketRetry:
-                raise
-            except OrgBucketUnused:
-                raise
-            except vcr_errors_CannotOverwriteExistingCassetteException:
-                raise
-            except Exception:
-                # Ignore it, it will retried later
-                logger.error("failed to process pull request", exc_info=True)
-                raise UnexpectedPullRetry()
+        except IgnoredException:
+            await worker_lua.remove_pull(
+                self.redis_stream,
+                installation.owner_id,
+                installation.owner_login,
+                repo_id,
+                repo_name,
+                pull_number,
+                tuple(message_ids),
+            )
+            logger.debug("failed to process pull request, ignoring", exc_info=True)
+        except MaxPullRetry as e:
+            await worker_lua.remove_pull(
+                self.redis_stream,
+                installation.owner_id,
+                installation.owner_login,
+                repo_id,
+                repo_name,
+                pull_number,
+                tuple(message_ids),
+            )
+            logger.error(
+                "failed to process pull request, abandoning",
+                attempts=e.attempts,
+                exc_info=True,
+            )
+        except PullRetry as e:
+            logger.info(
+                "failed to process pull request, retrying",
+                attempts=e.attempts,
+                exc_info=True,
+            )
+            raise
+        except OrgBucketRetry:
+            raise
+        except OrgBucketUnused:
+            raise
+        except vcr_errors_CannotOverwriteExistingCassetteException:
+            raise
+        except Exception:
+            # Ignore it, it will retried later
+            logger.error("failed to process pull request", exc_info=True)
+            raise UnexpectedPullRetry()
 
 
 def get_process_index_from_env() -> int:
