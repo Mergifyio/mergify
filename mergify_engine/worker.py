@@ -1169,12 +1169,13 @@ async def async_status() -> None:
 
     for worker_id, streams_by_worker in itertools.groupby(streams, key=sorter):
         for stream, score in streams_by_worker:
-            owner = stream.split(b"~")[1]
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
             if stream.startswith(LEGACY_STREAM_PREFIX.encode()):
+                owner = stream.split(b"~")[1]
                 count = await redis_stream.xlen(stream)
                 items = f"{count} events"
             else:
+                owner = stream.split(b"~")[2]
                 event_streams = await redis_stream.zrange(stream, 0, -1)
                 count = sum([await redis_stream.xlen(es) for es in event_streams])
                 items = f"{len(event_streams)} pull requests, {count} events"
