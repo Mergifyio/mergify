@@ -134,7 +134,6 @@ Schema = voluptuous.Schema(
         voluptuous.Required("STREAM_WORKERS_PER_PROCESS", default=7): voluptuous.Coerce(
             int
         ),
-        voluptuous.Required("STREAM_MAX_BATCH", default=100): voluptuous.Coerce(int),
         voluptuous.Required(
             "BUCKET_PROCESSING_MAX_PULLS", default=20
         ): voluptuous.Coerce(int),
@@ -205,7 +204,6 @@ BOT_USER_ID: int
 BOT_USER_LOGIN: str
 STORAGE_URL: str
 STREAM_URL: str
-STREAM_MAX_BATCH: int
 BUCKET_PROCESSING_MAX_PULLS: int
 BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
