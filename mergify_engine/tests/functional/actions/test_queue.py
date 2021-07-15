@@ -216,6 +216,41 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, [])
 
+    async def test_queue_already_ready(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": ["label=queue"],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+
+        await self.add_label(p["number"], "queue")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(q, [])
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
     async def test_queue_with_labels(self):
         rules = {
             "queue_rules": [

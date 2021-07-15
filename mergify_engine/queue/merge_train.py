@@ -183,7 +183,15 @@ class TrainCar(PseudoTrainCar):
             self.user_pull_request_number
         )
         if not await ctxt.is_behind:
-            # Already done
+            # Already done, just refresh it to merge it
+            with utils.aredis_for_stream() as redis_stream:
+                await utils.send_refresh(
+                    self.train.repository.installation.redis,
+                    redis_stream,
+                    ctxt.pull["base"]["repo"],
+                    pull_request_number=ctxt.pull["number"],
+                    action="internal",
+                )
             return
 
         try:
