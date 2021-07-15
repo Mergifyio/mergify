@@ -96,7 +96,6 @@ LOG = daiquiri.getLogger(__name__)
 MAX_RETRIES: int = 3
 WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
-LEGACY_STREAM_PREFIX: str = "stream~"
 
 StreamNameType = typing.NewType("StreamNameType", str)
 
@@ -350,16 +349,10 @@ class StreamProcessor:
         self, stream_name: StreamNameType
     ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
         stream_splitted = stream_name.split("~")[1:]
-        if stream_name.startswith(LEGACY_STREAM_PREFIX):
-            return (
-                github_types.GitHubAccountIdType(int(stream_splitted[1])),
-                github_types.GitHubLogin(stream_splitted[0]),
-            )
-        else:
-            return (
-                github_types.GitHubAccountIdType(int(stream_splitted[0])),
-                github_types.GitHubLogin(stream_splitted[1]),
-            )
+        return (
+            github_types.GitHubAccountIdType(int(stream_splitted[0])),
+            github_types.GitHubLogin(stream_splitted[1]),
+        )
 
     async def consume(self, stream_name: StreamNameType) -> None:
         owner_id, owner_login = self._extract_owner(stream_name)
@@ -375,18 +368,8 @@ class StreamProcessor:
                     owner_id, owner_login, sub, client, self.redis_cache
                 )
 
-                if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    async with self._translate_exception_to_retries(stream_name):
-                        pulls = await self._extract_pulls_from_stream(
-                            stream_name, installation
-                        )
-                        if pulls:
-                            client.set_requests_ratio(len(pulls))
-                            await self._consume_pulls(stream_name, installation, pulls)
-
-                else:
-                    async with self._translate_exception_to_retries(stream_name):
-                        await self._consume_buckets(stream_name, installation)
+                async with self._translate_exception_to_retries(stream_name):
+                    await self._consume_buckets(stream_name, installation)
 
                 await self._refresh_merge_trains(stream_name, installation)
         except aredis.exceptions.ConnectionError:
@@ -397,12 +380,7 @@ class StreamProcessor:
         except StreamUnused:
             LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
             try:
-                if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    await self.redis_stream.delete(stream_name)
-                else:
-                    await worker_lua.drop_bucket(
-                        self.redis_stream, owner_id, owner_login
-                    )
+                await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
             except aredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
@@ -425,46 +403,27 @@ class StreamProcessor:
         except vcr_errors_CannotOverwriteExistingCassetteException:
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
-            if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                messages = await self.redis_stream.xrange(
-                    stream_name, count=config.STREAM_MAX_BATCH
-                )
-                for message_id, message in messages:
-                    LOG.info(msgpack.unpackb(message[b"event"], raw=False))
-                    await self.redis_stream.execute_command(
-                        "XDEL", stream_name, message_id
-                    )
-            else:
-                buckets = await self.redis_stream.zrangebyscore(
-                    stream_name, min=0, max="+inf", start=0, num=1
-                )
-                for bucket in buckets:
-                    messages = await self.redis_stream.xrange(bucket)
-                    for _, message in messages:
-                        LOG.info(msgpack.unpackb(message[b"source"], raw=False))
-                    await self.redis_stream.delete(bucket)
-                    await self.redis_stream.zrem(stream_name, bucket)
+            buckets = await self.redis_stream.zrangebyscore(
+                stream_name, min=0, max="+inf", start=0, num=1
+            )
+            for bucket in buckets:
+                messages = await self.redis_stream.xrange(bucket)
+                for _, message in messages:
+                    LOG.info(msgpack.unpackb(message[b"source"], raw=False))
+                await self.redis_stream.delete(bucket)
+                await self.redis_stream.zrem(stream_name, bucket)
         except Exception:
             # Ignore it, it will retried later
             LOG.error("failed to process stream", gh_owner=owner_login, exc_info=True)
 
         LOG.debug("cleanup stream start", stream_name=stream_name)
         try:
-            if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                await self.redis_stream.eval(
-                    self.LEGACY_ATOMIC_CLEAN_STREAM_SCRIPT,
-                    1,
-                    stream_name.encode(),
-                    date.utcnow().timestamp(),
-                )
-            else:
-                await worker_lua.clean_stream(
-                    self.redis_stream,
-                    owner_id,
-                    owner_login,
-                    date.utcnow(),
-                )
-
+            await worker_lua.clean_stream(
+                self.redis_stream,
+                owner_id,
+                owner_login,
+                date.utcnow(),
+            )
         except aredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
@@ -482,23 +441,6 @@ class StreamProcessor:
             async for train in merge_train.Train.iter_trains(installation):
                 await train.load()
                 await train.refresh()
-
-    # NOTE(sileht): If the stream still have messages, we update the score to reschedule the
-    # pull later
-    LEGACY_ATOMIC_CLEAN_STREAM_SCRIPT = """
-local stream_name = KEYS[1]
-local score = ARGV[1]
-
-redis.call("HDEL", "attempts", stream_name)
-
-local len = tonumber(redis.call("XLEN", stream_name))
-if len == 0 then
-    redis.call("ZREM", "streams", stream_name)
-    redis.call("DEL", stream_name)
-else
-    redis.call("ZADD", "streams", score, stream_name)
-end
-"""
 
     @staticmethod
     def _extract_infos_from_bucket_sources_key(
@@ -644,91 +586,6 @@ end
                 except (PullRetry, UnexpectedPullRetry):
                     need_retries_later.add((repo_id, repo_name, pull_number))
 
-    async def _extract_pulls_from_stream(
-        self, stream_name: StreamNameType, installation: context.Installation
-    ) -> PullsToConsume:
-        messages: typing.List[
-            typing.Tuple[T_MessageID, T_MessagePayload]
-        ] = await self.redis_stream.xrange(stream_name, count=config.STREAM_MAX_BATCH)
-        LOG.debug(
-            "read stream",
-            stream_name=stream_name,
-            messages_count=len(messages),
-        )
-        statsd.histogram("engine.streams.size", len(messages))  # type: ignore[no-untyped-call]
-        statsd.gauge("engine.streams.max_size", config.STREAM_MAX_BATCH)
-
-        # TODO(sileht): Put this cache in Repository context
-        opened_pulls_by_repo: typing.Dict[
-            github_types.GitHubRepositoryName,
-            typing.List[github_types.GitHubPullRequest],
-        ] = {}
-
-        # Groups stream by pull request
-        pulls: PullsToConsume = PullsToConsume(collections.OrderedDict())
-        for message_id, message in messages:
-            data = msgpack.unpackb(message[b"event"], raw=False)
-            repo_name = github_types.GitHubRepositoryName(data["repo"])
-            repo_id = github_types.GitHubRepositoryIdType(data["repo_id"])
-            source = typing.cast(context.T_PayloadEventSource, data["source"])
-            if data["pull_number"] is not None:
-                key = (
-                    repo_name,
-                    repo_id,
-                    github_types.GitHubPullRequestNumber(data["pull_number"]),
-                )
-                group = pulls.setdefault(key, ([], []))
-                group[0].append(message_id)
-                group[1].append(source)
-            else:
-                logger = daiquiri.getLogger(
-                    __name__,
-                    gh_repo=repo_name,
-                    gh_owner=installation.owner_login,
-                    source=source,
-                )
-                if repo_name not in opened_pulls_by_repo:
-                    try:
-                        opened_pulls_by_repo[repo_name] = [
-                            p
-                            async for p in installation.client.items(
-                                f"/repos/{installation.owner_login}/{repo_name}/pulls",
-                            )
-                        ]
-                    except Exception as e:
-                        if exceptions.should_be_ignored(e):
-                            opened_pulls_by_repo[repo_name] = []
-                        else:
-                            raise
-
-                converted_messages = await self._convert_event_to_messages(
-                    installation,
-                    repo_id,
-                    repo_name,
-                    source,
-                    opened_pulls_by_repo[repo_name],
-                )
-                logger.debug("event unpacked into %d messages", converted_messages)
-                deleted = await self.redis_stream.xdel(stream_name, message_id)
-                if deleted != 1:
-                    # FIXME(sileht): During shutdown, heroku may have already started
-                    # another worker that have already take the lead of this stream_name
-                    # This can create duplicate events in the streams but that should not
-                    # be a big deal as the engine will not been ran by the worker that's
-                    # shutdowning.
-                    contents = await self.redis_stream.xrange(
-                        stream_name, start=message_id, end=message_id
-                    )
-                    if contents:
-                        logger.error(
-                            "message `%s` have not been deleted has expected, "
-                            "(result: %s), content of current message id: %s",
-                            message_id,
-                            deleted,
-                            contents,
-                        )
-        return pulls
-
     async def _convert_event_to_messages(
         self,
         installation: context.Installation,
@@ -806,51 +663,36 @@ end
                         installation, repo_id, repo_name, pull_number, sources
                     )
                 await self.redis_stream.hdel("attempts", attempts_key)
-                if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    await self.redis_stream.execute_command(
-                        "XDEL", stream_name, *message_ids
-                    )
-                else:
-                    await worker_lua.remove_pull(
-                        self.redis_stream,
-                        installation.owner_id,
-                        installation.owner_login,
-                        repo_id,
-                        repo_name,
-                        pull_number,
-                        tuple(message_ids),
-                    )
+                await worker_lua.remove_pull(
+                    self.redis_stream,
+                    installation.owner_id,
+                    installation.owner_login,
+                    repo_id,
+                    repo_name,
+                    pull_number,
+                    tuple(message_ids),
+                )
             except IgnoredException:
-                if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    await self.redis_stream.execute_command(
-                        "XDEL", stream_name, *message_ids
-                    )
-                else:
-                    await worker_lua.remove_pull(
-                        self.redis_stream,
-                        installation.owner_id,
-                        installation.owner_login,
-                        repo_id,
-                        repo_name,
-                        pull_number,
-                        tuple(message_ids),
-                    )
+                await worker_lua.remove_pull(
+                    self.redis_stream,
+                    installation.owner_id,
+                    installation.owner_login,
+                    repo_id,
+                    repo_name,
+                    pull_number,
+                    tuple(message_ids),
+                )
                 logger.debug("failed to process pull request, ignoring", exc_info=True)
             except MaxPullRetry as e:
-                if stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    await self.redis_stream.execute_command(
-                        "XDEL", stream_name, *message_ids
-                    )
-                else:
-                    await worker_lua.remove_pull(
-                        self.redis_stream,
-                        installation.owner_id,
-                        installation.owner_login,
-                        repo_id,
-                        repo_name,
-                        pull_number,
-                        tuple(message_ids),
-                    )
+                await worker_lua.remove_pull(
+                    self.redis_stream,
+                    installation.owner_id,
+                    installation.owner_login,
+                    repo_id,
+                    repo_name,
+                    pull_number,
+                    tuple(message_ids),
+                )
                 logger.error(
                     "failed to process pull request, abandoning",
                     attempts=e.attempts,
@@ -862,8 +704,7 @@ end
                     attempts=e.attempts,
                     exc_info=True,
                 )
-                if not stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    raise
+                raise
             except StreamRetry:
                 raise
             except StreamUnused:
@@ -873,8 +714,7 @@ end
             except Exception:
                 # Ignore it, it will retried later
                 logger.error("failed to process pull request", exc_info=True)
-                if not stream_name.startswith(LEGACY_STREAM_PREFIX):
-                    raise UnexpectedPullRetry()
+                raise UnexpectedPullRetry()
 
 
 def get_process_index_from_env() -> int:
@@ -1010,8 +850,6 @@ class Worker:
                 bucket_backlog = 0
                 bucket_backlog_high = 0
                 for org_bucket, _ in streams:
-                    if org_bucket.decode().startswith(LEGACY_STREAM_PREFIX):
-                        continue
                     bucket_contents = await self._redis_stream.zrangebyscore(
                         org_bucket, min=0, max="+inf", withscores=True
                     )
@@ -1179,15 +1017,10 @@ async def async_status() -> None:
     for worker_id, streams_by_worker in itertools.groupby(streams, key=sorter):
         for stream, score in streams_by_worker:
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
-            if stream.startswith(LEGACY_STREAM_PREFIX.encode()):
-                owner = stream.split(b"~")[1]
-                count = await redis_stream.xlen(stream)
-                items = f"{count} events"
-            else:
-                owner = stream.split(b"~")[2]
-                event_streams = await redis_stream.zrange(stream, 0, -1)
-                count = sum([await redis_stream.xlen(es) for es in event_streams])
-                items = f"{len(event_streams)} pull requests, {count} events"
+            owner = stream.split(b"~")[2]
+            event_streams = await redis_stream.zrange(stream, 0, -1)
+            count = sum([await redis_stream.xlen(es) for es in event_streams])
+            items = f"{len(event_streams)} pull requests, {count} events"
             print(f"{{{worker_id:02}}} [{date}] {owner.decode()}: {items}")
 
 
