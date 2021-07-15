@@ -205,7 +205,7 @@ end
 )
 
 
-async def clean_stream(
+async def clean_org_bucket(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
     owner_login: github_types.GitHubLogin,
