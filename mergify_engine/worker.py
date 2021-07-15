@@ -133,6 +133,13 @@ T_MessagePayload = typing.NewType("T_MessagePayload", typing.Dict[bytes, bytes])
 T_MessageID = typing.NewType("T_MessageID", str)
 
 
+def get_low_priority_minimal_score() -> float:
+    # NOTE(sileht): score is scheduled_at timestamp for high
+    # prio and scheduled_at timestamp * 10 for low prio, pick *
+    # 2 to split the bucket
+    return date.utcnow().timestamp() * 2
+
+
 def compute_priority_score(
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
@@ -470,21 +477,19 @@ class StreamProcessor:
 
         pulls_processed = 0
         started_at = time.monotonic()
-        while (time.monotonic() - started_at) < config.BUCKET_PROCESSING_MAX_SECONDS:
-            pulls_processed += 1
-
+        while True:
             bucket_sources_keys = await self.redis_stream.zrangebyscore(
                 bucket_key,
                 min=0,
                 max="+inf",
+                withscores=True,
             )
             LOG.debug(
                 "org bucket contains %d pulls",
                 len(bucket_sources_keys),
                 gh_owner=installation.owner_login,
             )
-
-            for bucket_sources_key in bucket_sources_keys:
+            for bucket_sources_key, _bucket_score in bucket_sources_keys:
                 (
                     repo_id,
                     repo_name,
@@ -495,6 +500,14 @@ class StreamProcessor:
                 break
             else:
                 break
+
+            if (time.monotonic() - started_at) >= config.BUCKET_PROCESSING_MAX_SECONDS:
+                low_prio_threshold = get_low_priority_minimal_score()
+                prio = "high" if _bucket_score < low_prio_threshold else "low"
+                statsd.increment("engine.buckets.preempted", tags=[f"priority:{prio}"])
+                break
+
+            pulls_processed += 1
 
             logger = daiquiri.getLogger(
                 __name__,
@@ -872,10 +885,7 @@ class Worker:
                         org_bucket, min=0, max="+inf", withscores=True
                     )
                     bucket_backlog += len(bucket_contents)
-                    # NOTE(sileht): score is scheduled_at timestamp for high
-                    # prio and scheduled_at timestamp * 10 for low prio, pick *
-                    # 2 to split the bucket
-                    low_prio_threshold = date.utcnow().timestamp() * 2
+                    low_prio_threshold = get_low_priority_minimal_score()
                     for _, score in bucket_contents:
                         if score < low_prio_threshold:
                             bucket_backlog_high += 1
