@@ -41,7 +41,6 @@ pull_request_rules:
   - name: automatic merge
     conditions:
       - base=main
-      - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
       - check-success=requirements
       - check-success=pep8
@@ -60,7 +59,6 @@ pull_request_rules:
     conditions:
       - base=main
       - author=@devs
-      - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
       - body~=(?m)^Fixes MERGIFY-ENGINE-
       - label=hotfix
@@ -73,7 +71,6 @@ pull_request_rules:
 
   - name: automatic merge from dependabot
     conditions:
-      - check-success=GitGuardian Security Checks
       - check-success=Semantic Pull Request
       - check-success=requirements
       - author=dependabot[bot]
