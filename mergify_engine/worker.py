@@ -499,7 +499,7 @@ class StreamProcessor:
             )
 
             messages = await self.redis_stream.xrange(bucket_sources_key)
-            statsd.histogram("engine.buckets.read_size", len(messages))  # type: ignore[no-untyped-call]
+            statsd.histogram("engine.buckets.events.read_size", len(messages))  # type: ignore[no-untyped-call]
             logger.debug("read org bucket", sources=len(messages))
             if not messages:
                 # Should not occur but better be safe than sorry
@@ -591,6 +591,8 @@ class StreamProcessor:
                     raise
                 except (PullRetry, UnexpectedPullRetry):
                     need_retries_later.add((repo_id, repo_name, pull_number))
+
+        statsd.histogram("engine.buckets.read_size", pulls_processed)  # type: ignore[no-untyped-call]
 
     async def _convert_event_to_messages(
         self,
