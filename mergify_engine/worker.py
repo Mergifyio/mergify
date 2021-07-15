@@ -470,9 +470,7 @@ class StreamProcessor:
 
         pulls_processed = 0
         started_at = time.monotonic()
-        while pulls_processed <= config.BUCKET_PROCESSING_MAX_PULLS or (
-            time.monotonic() - started_at < config.BUCKET_PROCESSING_MAX_SECONDS
-        ):
+        while (time.monotonic() - started_at) < config.BUCKET_PROCESSING_MAX_SECONDS:
             pulls_processed += 1
 
             bucket_sources_keys = await self.redis_stream.zrangebyscore(
