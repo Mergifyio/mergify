@@ -1008,12 +1008,21 @@ class Worker:
                 # TODO(sileht): maybe we can do something with the bucket scores to
                 # build a latency metric
                 bucket_backlog = 0
-                for stream, _ in streams:
-                    if stream.decode().startswith(LEGACY_STREAM_PREFIX):
+                bucket_backlog_high = 0
+                for org_bucket, _ in streams:
+                    if org_bucket.decode().startswith(LEGACY_STREAM_PREFIX):
                         continue
-                    count = await self._redis_stream.zcard(stream)
-                    bucket_backlog += count
+                    bucket_contents = await self._redis_stream.zrangebyscore(
+                        org_bucket, min=0, max="+inf", withscores=True
+                    )
+                    bucket_backlog += len(bucket_contents)
+                    low_prio_threshold = date.utcnow().timestamp() * 2
+                    for _, score in bucket_contents:
+                        if score < low_prio_threshold:
+                            bucket_backlog_high += 1
+
                 statsd.gauge("engine.buckets.backlog", bucket_backlog)
+                statsd.gauge("engine.buckets.backlog-high-prio", bucket_backlog_high)
 
             except asyncio.CancelledError:
                 LOG.debug("monitoring task killed")
