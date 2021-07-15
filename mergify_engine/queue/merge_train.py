@@ -405,6 +405,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
             )
         except http.HTTPNotFound:
             pass
+        except http.HTTPClientSideError as exc:
+            if exc.status_code == 422 and "Reference does not exist" in exc.message:
+                pass
+            else:
+                raise
 
     async def _report_failure(
         self,
