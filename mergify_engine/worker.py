@@ -779,13 +779,13 @@ end
         LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
         for (repo_name, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
-            statsd.histogram("engine.streams.batch-size", len(sources))  # type: ignore[no-untyped-call]
+            statsd.histogram("engine.buckets.batch-size", len(sources))  # type: ignore[no-untyped-call]
             for source in sources:
                 if "timestamp" in source:
                     if source["event_type"] == "push":
-                        metric = "engine.streams.push-events.latency"
+                        metric = "engine.buckets.push-events.latency"
                     else:
-                        metric = "engine.streams.events.latency"
+                        metric = "engine.buckets.events.latency"
 
                     statsd.histogram(  # type: ignore[no-untyped-call]
                         metric,
