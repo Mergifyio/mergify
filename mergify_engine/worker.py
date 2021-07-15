@@ -223,11 +223,18 @@ async def run_engine(
             logger.debug("pull request doesn't exists, skipping it")
             return None
 
-        result = await engine.run(ctxt, sources)
-        if result is not None:
-            result.started_at = started_at
-            result.ended_at = date.utcnow()
-            await ctxt.set_summary_check(result)
+        # NOTE(sileht): Reset sources as a pull request may be evaluated multiple
+        # times during worker batch.
+        ctxt.sources = []
+        try:
+            result = await engine.run(ctxt, sources)
+            if result is not None:
+                result.started_at = started_at
+                result.ended_at = date.utcnow()
+                await ctxt.set_summary_check(result)
+        finally:
+            ctxt.sources = []
+
     finally:
         logger.debug("engine in thread end")
 
