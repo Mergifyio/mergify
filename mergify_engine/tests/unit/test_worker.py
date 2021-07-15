@@ -616,7 +616,7 @@ async def test_stream_processor_retrying_stream_recovered(
 
     assert 1 == len(logger.info.mock_calls)
     assert 0 == len(logger.error.mock_calls)
-    assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
+    assert logger.info.mock_calls[0].args == ("failed to process org bucket, retrying",)
 
 
 @pytest.mark.asyncio
@@ -702,9 +702,9 @@ async def test_stream_processor_retrying_stream_failure(
     # Still there
     assert 3 == len(logger.info.mock_calls)
     assert 0 == len(logger.error.mock_calls)
-    assert logger.info.mock_calls[0].args == ("failed to process stream, retrying",)
-    assert logger.info.mock_calls[1].args == ("failed to process stream, retrying",)
-    assert logger.info.mock_calls[2].args == ("failed to process stream, retrying",)
+    assert logger.info.mock_calls[0].args == ("failed to process org bucket, retrying",)
+    assert logger.info.mock_calls[1].args == ("failed to process org bucket, retrying",)
+    assert logger.info.mock_calls[2].args == ("failed to process org bucket, retrying",)
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
     assert 1 == await redis_stream.zcard("bucket~123~owner")
@@ -787,7 +787,7 @@ async def test_stream_processor_date_scheduling(
     assert 2 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    s = worker.StreamSelector(redis_stream, 0, 1)
+    s = worker.OrgBucketSelector(redis_stream, 0, 1)
     p = worker.StreamProcessor(redis_stream, redis_cache)
 
     received = []
@@ -798,7 +798,7 @@ async def test_stream_processor_date_scheduling(
     run_engine.side_effect = fake_engine
 
     with freeze_time("2020-01-14"):
-        stream_name = await s.next_stream()
+        stream_name = await s.next_org_bucket()
         assert stream_name is not None
         await p.consume(stream_name)
 
@@ -808,7 +808,7 @@ async def test_stream_processor_date_scheduling(
     assert received == [wanted_owner_id]
 
     with freeze_time("2030-01-14"):
-        stream_name = await s.next_stream()
+        stream_name = await s.next_org_bucket()
         assert stream_name is None
 
     assert 1 == (await redis_stream.zcard("streams"))
@@ -818,7 +818,7 @@ async def test_stream_processor_date_scheduling(
 
     # We are in 2041, we have something todo :)
     with freeze_time("2041-01-14"):
-        stream_name = await s.next_stream()
+        stream_name = await s.next_org_bucket()
         assert stream_name is not None
         await p.consume(stream_name)
 
@@ -867,9 +867,9 @@ async def test_stream_processor_retrying_after_read_error(
     p = worker.StreamProcessor(redis_stream, redis_cache)
 
     installation = context.Installation(123, "owner", {}, None, None)
-    with pytest.raises(worker.StreamRetry):
+    with pytest.raises(worker.OrgBucketRetry):
         async with p._translate_exception_to_retries(
-            worker.StreamNameType("stream~owner~123")
+            worker.OrgBucketNameType("stream~owner~123")
         ):
             await worker.run_engine(installation, 123, "repo", 1234, [])
 
