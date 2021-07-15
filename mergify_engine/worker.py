@@ -487,8 +487,7 @@ class StreamProcessor:
                     continue
                 break
             else:
-                statsd.histogram("engine.buckets.read_size", pulls_processed)  # type: ignore[no-untyped-call]
-                return
+                break
 
             logger = daiquiri.getLogger(
                 __name__,
@@ -511,8 +510,7 @@ class StreamProcessor:
                     pull_number,
                     (),
                 )
-                statsd.histogram("engine.buckets.read_size", pulls_processed)  # type: ignore[no-untyped-call]
-                return
+                break
 
             if bucket_sources_key.endswith(b"~0"):
                 logger.debug(
