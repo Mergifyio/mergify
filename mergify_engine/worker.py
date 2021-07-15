@@ -639,8 +639,13 @@ class StreamProcessor:
             statsd.histogram("engine.streams.batch-size", len(sources))  # type: ignore[no-untyped-call]
             for source in sources:
                 if "timestamp" in source:
+                    if source["event_type"] == "push":
+                        metric = "engine.streams.push-events.latency"
+                    else:
+                        metric = "engine.streams.events.latency"
+
                     statsd.histogram(  # type: ignore[no-untyped-call]
-                        "engine.streams.events.latency",
+                        metric,
                         (
                             date.utcnow() - date.fromisoformat(source["timestamp"])
                         ).total_seconds(),
