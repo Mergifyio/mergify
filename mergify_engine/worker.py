@@ -1016,7 +1016,7 @@ class Worker:
                         org_bucket, min=0, max="+inf", withscores=True
                     )
                     bucket_backlog += len(bucket_contents)
-                    low_prio_threshold = date.utcnow().timestamp() * 10
+                    low_prio_threshold = date.utcnow().timestamp() * 2
                     for _, score in bucket_contents:
                         if score < low_prio_threshold:
                             bucket_backlog_high += 1
