@@ -509,6 +509,7 @@ class StreamProcessor:
             )
 
             messages = await self.redis_stream.xrange(bucket_sources_key)
+            statsd.histogram("engine.buckets.read_size", len(messages))  # type: ignore[no-untyped-call]
             logger.debug("read org bucket", sources=len(messages))
             if not messages:
                 # Should not occur but better be safe than sorry
@@ -648,7 +649,6 @@ class StreamProcessor:
         )
         for (repo_name, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
-            statsd.histogram("engine.buckets.batch-size", len(sources))  # type: ignore[no-untyped-call]
             for source in sources:
                 if "timestamp" in source:
                     if source["event_type"] == "push":
