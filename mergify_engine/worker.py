@@ -859,6 +859,9 @@ class Worker:
                         org_bucket, min=0, max="+inf", withscores=True
                     )
                     bucket_backlog += len(bucket_contents)
+                    # NOTE(sileht): score is scheduled_at timestamp for high
+                    # prio and scheduled_at timestamp * 10 for low prio, pick *
+                    # 2 to split the bucket
                     low_prio_threshold = date.utcnow().timestamp() * 2
                     for _, score in bucket_contents:
                         if score < low_prio_threshold:
