@@ -97,7 +97,7 @@ MAX_RETRIES: int = 3
 WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
-StreamNameType = typing.NewType("StreamNameType", str)
+OrgBucketNameType = typing.NewType("OrgBucketNameType", str)
 
 
 class IgnoredException(Exception):
@@ -114,14 +114,14 @@ class MaxPullRetry(PullRetry):
 
 
 @dataclasses.dataclass
-class StreamRetry(Exception):
-    stream_name: StreamNameType
+class OrgBucketRetry(Exception):
+    org_bucket_name: OrgBucketNameType
     attempts: int
     retry_at: datetime.datetime
 
 
-class StreamUnused(Exception):
-    stream_name: StreamNameType
+class OrgBucketUnused(Exception):
+    org_bucket_name: OrgBucketNameType
 
 
 @dataclasses.dataclass
@@ -249,29 +249,29 @@ PullsToConsume = typing.NewType(
 
 
 @dataclasses.dataclass
-class StreamSelector:
+class OrgBucketSelector:
     redis_stream: utils.RedisStream
     worker_id: int
     worker_count: int
 
-    def get_worker_id_for(self, stream: bytes) -> int:
-        return int(hashlib.md5(stream).hexdigest(), 16) % self.worker_count  # nosec
+    def get_worker_id_for(self, org_bucket: bytes) -> int:
+        return int(hashlib.md5(org_bucket).hexdigest(), 16) % self.worker_count  # nosec
 
-    def _is_stream_for_me(self, stream: bytes) -> bool:
-        return self.get_worker_id_for(stream) == self.worker_id
+    def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
+        return self.get_worker_id_for(org_bucket) == self.worker_id
 
-    async def next_stream(self) -> typing.Optional[StreamNameType]:
+    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
         now = time.time()
-        for stream in await self.redis_stream.zrangebyscore(
+        for org_bucket in await self.redis_stream.zrangebyscore(
             "streams",
             min=0,
             max=now,
         ):
-            if self._is_stream_for_me(stream):
+            if self._is_org_bucket_for_me(org_bucket):
                 statsd.increment(
                     "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
                 )
-                return StreamNameType(stream.decode())
+                return OrgBucketNameType(org_bucket.decode())
 
         return None
 
@@ -283,7 +283,9 @@ class StreamProcessor:
 
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
-        self, stream_name: StreamNameType, attempts_key: typing.Optional[str] = None
+        self,
+        org_bucket_name: OrgBucketNameType,
+        attempts_key: typing.Optional[str] = None,
     ) -> typing.AsyncIterator[None]:
         try:
             yield
@@ -302,8 +304,8 @@ class StreamProcessor:
             if isinstance(e, exceptions.MergifyNotInstalled):
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", stream_name)
-                raise StreamUnused(stream_name)
+                await self.redis_stream.hdel("attempts", org_bucket_name)
+                raise OrgBucketUnused(org_bucket_name)
 
             if isinstance(e, github.TooManyPages):
                 # TODO(sileht): Ideally this should be catcher earlier to post an
@@ -312,13 +314,13 @@ class StreamProcessor:
                 # meantimes...
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", stream_name)
+                await self.redis_stream.hdel("attempts", org_bucket_name)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", stream_name)
+                await self.redis_stream.hdel("attempts", org_bucket_name)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
@@ -326,11 +328,11 @@ class StreamProcessor:
                 score = retry_at.timestamp()
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", stream_name)
+                await self.redis_stream.hdel("attempts", org_bucket_name)
                 await self.redis_stream.zaddoption(
-                    "streams", "XX", **{stream_name: score}
+                    "streams", "XX", **{org_bucket_name: score}
                 )
-                raise StreamRetry(stream_name, 0, retry_at)
+                raise OrgBucketRetry(org_bucket_name, 0, retry_at)
 
             backoff = exceptions.need_retry(e)
             if backoff is None:
@@ -338,28 +340,30 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis_stream.hincrby("attempts", stream_name)
+            attempts = await self.redis_stream.hincrby("attempts", org_bucket_name)
             retry_in = 3 ** min(attempts, 3) * backoff
             retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
-            await self.redis_stream.zaddoption("streams", "XX", **{stream_name: score})
-            raise StreamRetry(stream_name, attempts, retry_at)
+            await self.redis_stream.zaddoption(
+                "streams", "XX", **{org_bucket_name: score}
+            )
+            raise OrgBucketRetry(org_bucket_name, attempts, retry_at)
 
     def _extract_owner(
-        self, stream_name: StreamNameType
+        self, org_bucket_name: OrgBucketNameType
     ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
-        stream_splitted = stream_name.split("~")[1:]
+        org_bucket_splitted = org_bucket_name.split("~")[1:]
         return (
-            github_types.GitHubAccountIdType(int(stream_splitted[0])),
-            github_types.GitHubLogin(stream_splitted[1]),
+            github_types.GitHubAccountIdType(int(org_bucket_splitted[0])),
+            github_types.GitHubLogin(org_bucket_splitted[1]),
         )
 
-    async def consume(self, stream_name: StreamNameType) -> None:
-        owner_id, owner_login = self._extract_owner(stream_name)
-        LOG.debug("consoming stream", gh_owner=owner_login)
+    async def consume(self, org_bucket_name: OrgBucketNameType) -> None:
+        owner_id, owner_login = self._extract_owner(org_bucket_name)
+        LOG.debug("consoming org bucket", gh_owner=owner_login)
 
         try:
-            async with self._translate_exception_to_retries(stream_name):
+            async with self._translate_exception_to_retries(org_bucket_name):
                 sub = await subscription.Subscription.get_subscription(
                     self.redis_cache, owner_id
                 )
@@ -368,32 +372,36 @@ class StreamProcessor:
                     owner_id, owner_login, sub, client, self.redis_cache
                 )
 
-                async with self._translate_exception_to_retries(stream_name):
-                    await self._consume_buckets(stream_name, installation)
+                async with self._translate_exception_to_retries(org_bucket_name):
+                    await self._consume_buckets(org_bucket_name, installation)
 
-                await self._refresh_merge_trains(stream_name, installation)
+                await self._refresh_merge_trains(org_bucket_name, installation)
         except aredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
-                "Stream Processor lost Redis connection", stream_name=stream_name
+                "Stream Processor lost Redis connection",
+                org_bucket_name=org_bucket_name,
             )
-        except StreamUnused:
-            LOG.info("unused stream, dropping it", gh_owner=owner_login, exc_info=True)
+        except OrgBucketUnused:
+            LOG.info(
+                "unused org bucket, dropping it", gh_owner=owner_login, exc_info=True
+            )
             try:
                 await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
             except aredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
-                    "fail to drop stream, it will be retried", stream_name=stream_name
+                    "fail to drop org bucket, it will be retried",
+                    org_bucket_name=org_bucket_name,
                 )
-        except StreamRetry as e:
+        except OrgBucketRetry as e:
             log_method = (
                 LOG.error
                 if e.attempts >= STREAM_ATTEMPTS_LOGGING_THRESHOLD
                 else LOG.info
             )
             log_method(
-                "failed to process stream, retrying",
+                "failed to process org bucket, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
                 gh_owner=owner_login,
@@ -404,21 +412,23 @@ class StreamProcessor:
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
             buckets = await self.redis_stream.zrangebyscore(
-                stream_name, min=0, max="+inf", start=0, num=1
+                org_bucket_name, min=0, max="+inf", start=0, num=1
             )
             for bucket in buckets:
                 messages = await self.redis_stream.xrange(bucket)
                 for _, message in messages:
                     LOG.info(msgpack.unpackb(message[b"source"], raw=False))
                 await self.redis_stream.delete(bucket)
-                await self.redis_stream.zrem(stream_name, bucket)
+                await self.redis_stream.zrem(org_bucket_name, bucket)
         except Exception:
             # Ignore it, it will retried later
-            LOG.error("failed to process stream", gh_owner=owner_login, exc_info=True)
+            LOG.error(
+                "failed to process org bucket", gh_owner=owner_login, exc_info=True
+            )
 
-        LOG.debug("cleanup stream start", stream_name=stream_name)
+        LOG.debug("cleanup org bucket start", org_bucket_name=org_bucket_name)
         try:
-            await worker_lua.clean_stream(
+            await worker_lua.clean_org_bucket(
                 self.redis_stream,
                 owner_id,
                 owner_login,
@@ -427,16 +437,16 @@ class StreamProcessor:
         except aredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
-                "fail to cleanup stream, it maybe partially replayed",
-                stream_name=stream_name,
+                "fail to cleanup org bucket, it maybe partially replayed",
+                org_bucket_name=org_bucket_name,
             )
-        LOG.debug("cleanup stream end", stream_name=stream_name)
+        LOG.debug("cleanup org bucket end", org_bucket_name=org_bucket_name)
 
     async def _refresh_merge_trains(
-        self, stream_name: StreamNameType, installation: context.Installation
+        self, org_bucket_name: OrgBucketNameType, installation: context.Installation
     ) -> None:
         async with self._translate_exception_to_retries(
-            stream_name,
+            org_bucket_name,
         ):
             async for train in merge_train.Train.iter_trains(installation):
                 await train.load()
@@ -458,7 +468,7 @@ class StreamProcessor:
         )
 
     async def _consume_buckets(
-        self, bucket_key: StreamNameType, installation: context.Installation
+        self, bucket_key: OrgBucketNameType, installation: context.Installation
     ) -> None:
         opened_pulls_by_repo: typing.Dict[
             github_types.GitHubRepositoryName,
@@ -499,7 +509,7 @@ class StreamProcessor:
             )
 
             messages = await self.redis_stream.xrange(bucket_sources_key)
-            logger.debug("read stream", sources=len(messages))
+            logger.debug("read org bucket", sources=len(messages))
             if not messages:
                 # Should not occur but better be safe than sorry
                 await worker_lua.remove_pull(
@@ -577,9 +587,9 @@ class StreamProcessor:
                 pulls[(repo_name, repo_id, pull_number)] = (message_ids, sources)
                 try:
                     await self._consume_pulls(bucket_key, installation, pulls)
-                except StreamRetry:
+                except OrgBucketRetry:
                     raise
-                except StreamUnused:
+                except OrgBucketUnused:
                     raise
                 except vcr_errors_CannotOverwriteExistingCassetteException:
                     raise
@@ -629,11 +639,13 @@ class StreamProcessor:
 
     async def _consume_pulls(
         self,
-        stream_name: StreamNameType,
+        org_bucket_name: OrgBucketNameType,
         installation: context.Installation,
         pulls: PullsToConsume,
     ) -> None:
-        LOG.debug("stream contains %d pulls", len(pulls), stream_name=stream_name)
+        LOG.debug(
+            "org bucket contains %d pulls", len(pulls), org_bucket_name=org_bucket_name
+        )
         for (repo_name, repo_id, pull_number), (message_ids, sources) in pulls.items():
 
             statsd.histogram("engine.buckets.batch-size", len(sources))  # type: ignore[no-untyped-call]
@@ -661,7 +673,7 @@ class StreamProcessor:
             attempts_key = f"pull~{installation.owner_login}~{repo_name}~{pull_number}"
             try:
                 async with self._translate_exception_to_retries(
-                    stream_name,
+                    org_bucket_name,
                     attempts_key,
                 ):
                     await run_engine(
@@ -710,9 +722,9 @@ class StreamProcessor:
                     exc_info=True,
                 )
                 raise
-            except StreamRetry:
+            except OrgBucketRetry:
                 raise
-            except StreamUnused:
+            except OrgBucketUnused:
                 raise
             except vcr_errors_CannotOverwriteExistingCassetteException:
                 raise
@@ -777,23 +789,25 @@ class Worker:
         # NOTE(sileht): This task must never fail, we don't want to write code to
         # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis_stream, self._redis_cache)
-        stream_selector = StreamSelector(
+        org_bucket_selector = OrgBucketSelector(
             self._redis_stream, worker_id, self.worker_count
         )
 
         while not self._stopping.is_set():
             try:
-                stream_name = await stream_selector.next_stream()
-                if stream_name:
-                    LOG.debug("worker %s take stream: %s", worker_id, stream_name)
+                org_bucket_name = await org_bucket_selector.next_org_bucket()
+                if org_bucket_name:
+                    LOG.debug(
+                        "worker %s take org bucket: %s", worker_id, org_bucket_name
+                    )
                     try:
                         with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
-                            await stream_processor.consume(stream_name)
+                            await stream_processor.consume(org_bucket_name)
                     finally:
                         LOG.debug(
-                            "worker %s release stream: %s",
+                            "worker %s release org bucket: %s",
                             worker_id,
-                            stream_name,
+                            org_bucket_name,
                         )
                 else:
                     LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
@@ -829,7 +843,7 @@ class Worker:
                 # TODO(sileht): maybe also graph streams that are before `now`
                 # to see the diff between the backlog and the upcoming work to do
                 now = time.time()
-                streams = await self._redis_stream.zrangebyscore(
+                org_buckets = await self._redis_stream.zrangebyscore(
                     "streams",
                     min=0,
                     max=now,
@@ -837,13 +851,13 @@ class Worker:
                 )
                 # NOTE(sileht): The latency may not be exact with the next StreamSelector
                 # based on hash+modulo
-                if len(streams) > self.worker_count:
-                    latency = now - streams[self.worker_count][1]
+                if len(org_buckets) > self.worker_count:
+                    latency = now - org_buckets[self.worker_count][1]
                     statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
                 else:
                     statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
 
-                statsd.gauge("engine.streams.backlog", len(streams))
+                statsd.gauge("engine.streams.backlog", len(org_buckets))
                 statsd.gauge("engine.workers.count", self.worker_count)
                 statsd.gauge("engine.processes.count", self.process_count)
                 statsd.gauge(
@@ -854,7 +868,7 @@ class Worker:
                 # build a latency metric
                 bucket_backlog = 0
                 bucket_backlog_high = 0
-                for org_bucket, _ in streams:
+                for org_bucket, _ in org_buckets:
                     bucket_contents = await self._redis_stream.zrangebyscore(
                         org_bucket, min=0, max="+inf", withscores=True
                     )
@@ -1008,24 +1022,24 @@ async def async_status() -> None:
     worker_count: int = worker_per_process * process_count
 
     redis_stream = utils.create_aredis_for_stream()
-    stream_selector = StreamSelector(redis_stream, 0, worker_count)
+    org_bucket_selector = OrgBucketSelector(redis_stream, 0, worker_count)
 
     def sorter(item):
-        stream, score = item
-        return stream_selector.get_worker_id_for(stream)
+        org_bucket, score = item
+        return org_bucket_selector.get_worker_id_for(org_bucket)
 
-    streams = sorted(
+    org_buckets = sorted(
         await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
         key=sorter,
     )
 
-    for worker_id, streams_by_worker in itertools.groupby(streams, key=sorter):
-        for stream, score in streams_by_worker:
+    for worker_id, org_buckets_by_worker in itertools.groupby(org_buckets, key=sorter):
+        for org_bucket, score in org_buckets_by_worker:
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
-            owner = stream.split(b"~")[2]
-            event_streams = await redis_stream.zrange(stream, 0, -1)
-            count = sum([await redis_stream.xlen(es) for es in event_streams])
-            items = f"{len(event_streams)} pull requests, {count} events"
+            owner = org_bucket.split(b"~")[2]
+            event_org_buckets = await redis_stream.zrange(org_bucket, 0, -1)
+            count = sum([await redis_stream.xlen(es) for es in event_org_buckets])
+            items = f"{len(event_org_buckets)} pull requests, {count} events"
             print(f"{{{worker_id:02}}} [{date}] {owner.decode()}: {items}")
 
 
@@ -1039,16 +1053,16 @@ async def async_reschedule_now() -> int:
     args = parser.parse_args()
 
     redis = utils.create_aredis_for_stream()
-    streams = await redis.zrangebyscore("streams", min=0, max="+inf")
+    org_buckets = await redis.zrangebyscore("streams", min=0, max="+inf")
     expected_org = f"~{args.org.lower()}"
-    for stream in streams:
-        if stream.decode().lower().endswith(expected_org):
+    for org_bucket in org_buckets:
+        if org_bucket.decode().lower().endswith(expected_org):
             scheduled_at = date.utcnow()
             score = scheduled_at.timestamp()
             transaction = await redis.pipeline()
-            await transaction.hdel("attempts", stream)
+            await transaction.hdel("attempts", org_bucket)
             # TODO(sileht): Should we update bucket scores too ?
-            await transaction.zadd("streams", **{stream.decode(): score})
+            await transaction.zadd("streams", **{org_bucket.decode(): score})
             # NOTE(sileht): Do we need to cleanup the per PR attempt?
             # await transaction.hdel("attempts", attempts_key)
             await transaction.execute()
