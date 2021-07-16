@@ -280,14 +280,29 @@ async def marketplace_handler(
 
 @app.get(
     "/queues/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.signature_or_token)],
 )
 async def queues(
+    request: requests.Request,
     owner_id: github_types.GitHubAccountIdType,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
     ),
 ) -> responses.Response:
+    auth: typing.Optional[github.GithubTokenAuth]
+    token = request.headers.get("Authorization")
+    if token:
+        token = token[6:]  # Drop 'token '
+        # Check this token as access to this organization
+        auth = github.GithubTokenAuth(token)
+        async with github.aget_client(auth=auth) as client:
+            try:
+                await client.item(f"/user/{owner_id}")
+            except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
+                raise fastapi.HTTPException(status_code=403)
+    else:
+        auth = None
+
     queues: typing.Dict[
         str, typing.Dict[str, typing.List[int]]
     ] = collections.defaultdict(dict)
@@ -295,6 +310,14 @@ async def queues(
         match=f"merge-*~{owner_id}~*", count=10000
     ):
         queue_type, _, repo_id, branch = queue.split("~")
+        if auth is not None:
+            # Check this token as access to this repository
+            async with github.aget_client(auth=auth) as client:
+                try:
+                    await client.item(f"/repositories/{repo_id}")
+                except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
+                    continue
+
         if queue_type == "merge-queue":
             queues[repo_id][branch] = [
                 int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
