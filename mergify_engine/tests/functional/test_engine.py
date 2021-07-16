@@ -270,10 +270,24 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
         await self.run_engine()
 
+        # Queue with signature
         r = await self.app.get(
             f"/queues/{config.TESTING_ORGANIZATION_ID}",
             headers={
                 "X-Hub-Signature": "sha1=whatever",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.json() == {
+            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
+        }
+
+        # Queue with token
+        r = await self.app.get(
+            f"/queues/{config.TESTING_ORGANIZATION_ID}",
+            headers={
+                "Authorization": f"token {config.ORG_ADMIN_PERSONAL_TOKEN}",
                 "Content-type": "application/json",
             },
         )
