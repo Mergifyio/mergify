@@ -878,20 +878,27 @@ class Worker:
 
                 # TODO(sileht): maybe we can do something with the bucket scores to
                 # build a latency metric
-                bucket_backlog = 0
+                bucket_backlog_low = 0
                 bucket_backlog_high = 0
                 for org_bucket, _ in org_buckets:
                     bucket_contents = await self._redis_stream.zrangebyscore(
                         org_bucket, min=0, max="+inf", withscores=True
                     )
-                    bucket_backlog += len(bucket_contents)
                     low_prio_threshold = get_low_priority_minimal_score()
                     for _, score in bucket_contents:
                         if score < low_prio_threshold:
                             bucket_backlog_high += 1
+                        else:
+                            bucket_backlog_low += 1
 
-                statsd.gauge("engine.buckets.backlog", bucket_backlog)
-                statsd.gauge("engine.buckets.backlog-high-prio", bucket_backlog_high)
+                statsd.gauge(
+                    "engine.buckets.backlog",
+                    bucket_backlog_high,
+                    tags=["priority:high"],
+                )
+                statsd.gauge(
+                    "engine.buckets.backlog", bucket_backlog_low, tags=["priority:low"]
+                )
 
             except asyncio.CancelledError:
                 LOG.debug("monitoring task killed")
