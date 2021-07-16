@@ -123,11 +123,6 @@ class TrainCar(PseudoTrainCar):
 
     @classmethod
     def deserialize(cls, train: "Train", data: "TrainCar.Serialized") -> "TrainCar":
-        # NOTE(sileht): Backward compat, can be removed soon
-        if "state" not in data:
-            data["state"] = "created"
-        if "queued_at" not in data:
-            data["queued_at"] = date.utcnow()
         return cls(train, **data)
 
     def _get_embarked_refs(
