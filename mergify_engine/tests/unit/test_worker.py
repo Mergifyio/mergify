@@ -24,9 +24,11 @@ import httpx
 import pytest
 
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import logs
 from mergify_engine import worker
+from mergify_engine import worker_lua
 from mergify_engine.clients import http
 
 
@@ -826,6 +828,49 @@ async def test_stream_processor_date_scheduling(
     assert 0 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
     assert received == [wanted_owner_id, unwanted_owner_id]
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+async def test_worker_drop_bucket(_, redis_stream, redis_cache, logger_checker):
+    buckets = set()
+    bucket_sources = set()
+    _id = 123
+    for pull_number in range(2):
+        for data in range(3):
+            owner = f"owner-{_id}"
+            repo = f"repo-{_id}"
+            repo_id = _id
+            owner_id = _id
+            buckets.add(f"bucket~{owner_id}~{owner}")
+            bucket_sources.add(f"bucket-sources~{repo_id}~{repo}~{pull_number}")
+            await worker.push(
+                redis_stream,
+                owner_id,
+                owner,
+                repo_id,
+                repo,
+                pull_number,
+                "pull_request",
+                {"payload": data},
+            )
+
+    assert 1 == len(await redis_stream.keys("bucket~*"))
+    assert 2 == len(await redis_stream.keys("bucket-sources~*"))
+
+    for bucket in buckets:
+        assert 2 == await redis_stream.zcard(bucket)
+    for bucket_source in bucket_sources:
+        assert 3 == await redis_stream.xlen(bucket_source)
+
+    await worker_lua.drop_bucket(redis_stream, 123, "owner-123")
+    assert 0 == len(await redis_stream.keys("bucket~*"))
+    assert 0 == len(await redis_stream.keys("bucket-sources~*"))
+
+    await worker_lua.clean_org_bucket(redis_stream, 123, "owner-123", date.utcnow())
+
+    assert 0 == (await redis_stream.zcard("streams"))
+    assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
 @pytest.mark.asyncio

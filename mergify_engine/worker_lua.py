@@ -171,7 +171,8 @@ async def remove_pull(
 
 # TODO(sileht): limited to 7999 keys, should be OK for now, if we have an issue
 # just paginate the ZRANGE
-DROP_BUCKET_SCRIPT = """
+DROP_BUCKET_SCRIPT = register_script(
+    """
 local bucket_key = KEYS[1]
 local members = redis.call("ZRANGE", bucket_key, 0, -1)
 redis.call("DEL", unpack(members))
@@ -179,6 +180,7 @@ redis.call("DEL", bucket_key)
 -- No need to clean "streams" key, CLEAN_STREAM_SCRIPT is always
 -- called at the end and it will do it
 """
+)
 
 
 async def drop_bucket(
@@ -186,7 +188,7 @@ async def drop_bucket(
     owner_id: github_types.GitHubAccountIdType,
     owner_login: github_types.GitHubLogin,
 ) -> None:
-    await run_script(redis, REMOVE_PR_SCRIPT, (f"bucket~{owner_id}~{owner_login}",))
+    await run_script(redis, DROP_BUCKET_SCRIPT, (f"bucket~{owner_id}~{owner_login}",))
 
 
 # NOTE(sileht): If the stream/buckets still have events, we update the score to
