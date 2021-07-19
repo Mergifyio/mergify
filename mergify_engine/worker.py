@@ -339,7 +339,7 @@ class StreamProcessor:
                 raise
 
             attempts = await self.redis_stream.hincrby("attempts", org_bucket_name)
-            retry_in = 3 ** min(attempts, 3) * backoff
+            retry_in = 2 ** min(attempts, 3) * backoff
             retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
             await self.redis_stream.zaddoption(
