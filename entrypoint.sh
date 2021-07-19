@@ -5,7 +5,7 @@ get_command() {
     sed -n -e "s/^$1://p" Procfile
 }
 
-MODE=${1:aio}
+MODE=${1:-aio}
 
 if [ "$MERGIFYENGINE_INTEGRATION_ID" ]; then
   case ${MODE} in
