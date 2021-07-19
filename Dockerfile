@@ -16,8 +16,7 @@ RUN python3 -m pip install wheel
 
 # Just to be able cache a layer with all deps
 ADD requirements.txt /
-RUN sed -e '/^-e ./d' /requirements.txt > /constraints.txt
-RUN python3 -m pip install --no-cache-dir -r /constraints.txt
+RUN python3 -m pip install --no-cache-dir -r /requirements.txt
 
 # Real install that can't be cached
 ADD . /app
@@ -26,7 +25,7 @@ RUN yarn
 RUN yarn build
 RUN rm -rf node_modules
 WORKDIR /app
-RUN python3 -m pip install --no-cache-dir -r ./requirements.txt
+RUN python3 -m pip install --no-cache-dir -c ./requirements.txt -e .
 
 ### RUNNER ###
 FROM base-image as runner
