@@ -42,6 +42,22 @@ def test_valid_condition():
     assert str(c) == "head~=bar"
 
 
+def fake_expander(v: str) -> typing.List[str]:
+    return ["foo", "bar"]
+
+
+@pytest.mark.asyncio
+async def test_expanders():
+    rc = rules.RuleCondition("author=@team")
+    rc.partial_filter.value_expanders["author"] = fake_expander
+    await rc(mock.Mock(author="foo"))
+    assert rc.match
+
+    copy_rc = rc.copy()
+    await copy_rc(mock.Mock(author="foo"))
+    assert copy_rc.match
+
+
 def test_invalid_condition_re():
     with pytest.raises(voluptuous.Invalid):
         rules.RuleCondition("head~=(bar")
