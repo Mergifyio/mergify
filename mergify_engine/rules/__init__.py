@@ -95,7 +95,9 @@ class RuleCondition:
             return str(self.partial_filter)
 
     def copy(self) -> "RuleCondition":
-        return RuleCondition(self.condition, self.description)
+        rc = RuleCondition(self.condition, self.description)
+        rc.partial_filter.value_expanders = self.partial_filter.value_expanders
+        return rc
 
     async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
         if self._used:
