@@ -564,6 +564,9 @@ class Context(object):
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
 
+    def clear_cache(self) -> None:
+        self._cache = ContextCache({})
+
     @classmethod
     async def create(
         cls,
