@@ -12,11 +12,16 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-python@v2.2.2
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.6
-      - run: |
+
+      - name: Build 🔧 & Test 🔍
+        run: |
           pip install tox
           tox -e requirements
           tox -e missing-imports
@@ -32,8 +37,11 @@ jobs:
         ports:
           - 6363:6379
     steps:
-      - uses: actions/checkout@v2.3.4
-      - run: |
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Build 🔧 & Run 🏃
+        run: |
           echo '-e .' >> requirements.txt
           curl -sSL \
             "https://github.com/buildpacks/pack/releases/download/v0.18.1/pack-v0.18.1-linux.tgz" \
@@ -51,11 +59,16 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-python@v2.2.2
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.6
-      - run: |
+
+      - name: Build 🔧 & Test 🔍
+        run: |
           pip install tox
           tox -e pep8
 
@@ -68,11 +81,16 @@ jobs:
         ports:
           - 6363:6379
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-python@v2.2.2
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9.6
-      - run: |
+
+      - name: Build 🔧 & Test 🔍
+        run: |
           sudo apt install -y redis-server
           pip install tox
           tox -e py39
@@ -80,5 +98,8 @@ jobs:
   docker:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: docker/build-push-action@v2.6.1
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Build 🔧
+        uses: docker/build-push-action@v2.6.1
