@@ -829,7 +829,7 @@ class Worker:
                 return
             except aredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
-                LOG.warning("worker lost Redis connection", worker_id, exc_info=True)
+                LOG.warning("worker %s lost Redis connection", worker_id, exc_info=True)
                 await self._sleep_or_stop()
             except Exception:
                 LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
