@@ -12,19 +12,31 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-python@v2.2.2
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9
-      - run: |
+
+      - name: Setup Node 🔧
+        uses: actions/setup-node@v2.2.0
+        with:
+          node-version: 16
+
+      - name: Build 🔧
+        run: |
           sudo apt-get install graphviz
           pip install tox
           tox -e docs
+
       # NOTE(sileht): workflow run on/pull_request doesn't have access to
       # secrets
       # So, we upload it as artifact, then another workflow
       # docs-upload-gcp.yaml will upload it on gcp.
-      - uses: actions/upload-artifact@v2
+      - name: Upload ☁️
+        uses: actions/upload-artifact@v2
         with:
           name: docs-pr-${{ github.event.pull_request.number }}
           path: docs/build
