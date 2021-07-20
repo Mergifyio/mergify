@@ -233,6 +233,10 @@ async def run_engine(
         # NOTE(sileht): Reset sources as a pull request may be evaluated multiple
         # times during worker batch.
         ctxt.sources = []
+        # NOTE(sileht): A pull request may be reevaluated during one call of
+        # consume_buckets(), so we need to clear the cache to ensure we get the
+        # last snapshot of the pull request
+        ctxt.clear_cache()
         try:
             result = await engine.run(ctxt, sources)
             if result is not None:
