@@ -92,7 +92,6 @@ class TrainCar(PseudoTrainCar):
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     config: queue.PullQueueConfig
     initial_current_base_sha: github_types.SHAType
-    current_base_sha: github_types.SHAType
     queued_at: datetime.datetime
     state: TrainCarState = "pending"
     queue_pull_request_number: typing.Optional[
@@ -104,7 +103,6 @@ class TrainCar(PseudoTrainCar):
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
         config: queue.PullQueueConfig
         initial_current_base_sha: github_types.SHAType
-        current_base_sha: github_types.SHAType
         state: TrainCarState
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
         queued_at: datetime.datetime
@@ -114,7 +112,6 @@ class TrainCar(PseudoTrainCar):
             user_pull_request_number=self.user_pull_request_number,
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
-            current_base_sha=self.current_base_sha,
             state=self.state,
             queue_pull_request_number=self.queue_pull_request_number,
             config=self.config,
@@ -914,9 +911,6 @@ class Train(queue.QueueBase):
 
             self._current_base_sha = ctxt.pull["merge_commit_sha"]
 
-            for car in self._cars:
-                car.current_base_sha = self._current_base_sha
-
             await self._save()
             ctxt.log.info(
                 "removed from train",
@@ -1005,7 +999,6 @@ class Train(queue.QueueBase):
                     user_pull_request_number,
                     parent_pull_request_numbers,
                     config,
-                    self._current_base_sha,
                     self._current_base_sha,
                     queued_at,
                 )
