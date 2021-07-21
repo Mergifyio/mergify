@@ -157,7 +157,7 @@ def convert_equality_to_at(toks):
     not_ = toks[1] == "!="
     toks[1] = "@"
     if not_:
-        return {"-": toks}
+        return True, *toks
     else:
         return toks
 
@@ -202,6 +202,9 @@ def _match_with_operator(token: pyparsing.Token) -> pyparsing.Token:
 def _token_to_dict(
     s: str, loc: int, toks: typing.List[pyparsing.Token]
 ) -> typing.Dict[str, typing.Any]:
+    if len(toks) == 1:
+        toks = toks[0]
+
     if len(toks) == 3:
         # datetime attributes
         key_op = ""
@@ -222,7 +225,7 @@ def _token_to_dict(
         key_op = ""
         not_, key, op, value = toks
     else:
-        raise RuntimeError("unexpected search parser format")
+        raise RuntimeError(f"unexpected search parser format: {len(toks)} ({toks})")
 
     if key_op == "#":
         value = int(value)

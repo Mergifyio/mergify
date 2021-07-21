@@ -29,6 +29,56 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
 @pytest.mark.parametrize(
     "line, result",
     (
+        (
+            "schedule!=Mon-Fri 12:00-23:59",
+            {
+                "-": {
+                    "@": (
+                        "schedule",
+                        {
+                            "and": (
+                                {
+                                    "and": (
+                                        {
+                                            ">=": (
+                                                "current-day-of-week",
+                                                date.DayOfWeek(1),
+                                            )
+                                        },
+                                        {
+                                            "<=": (
+                                                "current-day-of-week",
+                                                date.DayOfWeek(5),
+                                            )
+                                        },
+                                    )
+                                },
+                                {
+                                    "and": (
+                                        {
+                                            ">=": (
+                                                "current-time",
+                                                datetime.time(
+                                                    12, 0, tzinfo=datetime.timezone.utc
+                                                ),
+                                            )
+                                        },
+                                        {
+                                            "<=": (
+                                                "current-time",
+                                                datetime.time(
+                                                    23, 59, tzinfo=datetime.timezone.utc
+                                                ),
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    )
+                }
+            },
+        ),
         ("base:master", {"=": ("base", "master")}),
         ("base!=master", {"!=": ("base", "master")}),
         ("base~=^stable/", {"~=": ("base", "^stable/")}),
