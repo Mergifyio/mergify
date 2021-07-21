@@ -224,27 +224,24 @@ async def run_engine(
     try:
         started_at = date.utcnow()
         try:
-            ctxt = await installation.get_pull_request_context(repo_id, pull_number)
+            ctxt = await installation.get_pull_request_context(
+                repo_id,
+                pull_number,
+                # NOTE(sileht): A pull request may be reevaluated during one call of
+                # consume_buckets(), so we need to clear the sources/_cache/pull/... to
+                # ensure we get the last snapshot of the pull request
+                force_new=True,
+            )
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
             return None
 
-        # NOTE(sileht): Reset sources as a pull request may be evaluated multiple
-        # times during worker batch.
-        ctxt.sources = []
-        # NOTE(sileht): A pull request may be reevaluated during one call of
-        # consume_buckets(), so we need to clear the cache to ensure we get the
-        # last snapshot of the pull request
-        ctxt.clear_cache()
-        try:
-            result = await engine.run(ctxt, sources)
-            if result is not None:
-                result.started_at = started_at
-                result.ended_at = date.utcnow()
-                await ctxt.set_summary_check(result)
-        finally:
-            ctxt.sources = []
+        result = await engine.run(ctxt, sources)
+        if result is not None:
+            result.started_at = started_at
+            result.ended_at = date.utcnow()
+            await ctxt.set_summary_check(result)
 
     finally:
         logger.debug("engine in thread end")

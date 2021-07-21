@@ -102,14 +102,19 @@ class Installation:
         self,
         repo_id: github_types.GitHubRepositoryIdType,
         pull_number: github_types.GitHubPullRequestNumber,
+        force_new: bool = False,
     ) -> "Context":
         for repository in self.repositories.values():
             if repository.repo["id"] == repo_id:
-                return await repository.get_pull_request_context(pull_number)
+                return await repository.get_pull_request_context(
+                    pull_number, force_new=force_new
+                )
 
         pull = await self.client.item(f"/repositories/{repo_id}/pulls/{pull_number}")
         repository = self.get_repository_from_github_data(pull["base"]["repo"])
-        return await repository.get_pull_request_context(pull_number, pull)
+        return await repository.get_pull_request_context(
+            pull_number, pull, force_new=force_new
+        )
 
     def get_repository_from_github_data(
         self,
@@ -316,8 +321,9 @@ class Repository(object):
         self,
         pull_number: github_types.GitHubPullRequestNumber,
         pull: typing.Optional[github_types.GitHubPullRequest] = None,
+        force_new: bool = False,
     ) -> "Context":
-        if pull_number not in self.pull_contexts:
+        if force_new or pull_number not in self.pull_contexts:
             if pull is None:
                 pull = await self.installation.client.item(
                     f"{self.base_url}/pulls/{pull_number}"
@@ -563,9 +569,6 @@ class Context(object):
     def base_url(self) -> str:
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
-
-    def clear_cache(self) -> None:
-        self._cache = ContextCache({})
 
     @classmethod
     async def create(
