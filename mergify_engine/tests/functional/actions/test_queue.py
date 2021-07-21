@@ -55,7 +55,6 @@ class TrainCarMatcher(typing.NamedTuple):
     user_pull_request_number: github_types.GitHubPullRequestNumber
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     initial_current_base_sha: github_types.SHAType
-    current_base_sha: github_types.SHAType
     state: merge_train.TrainCarState
     queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
 
@@ -70,7 +69,6 @@ class TestQueueAction(base.FunctionalTestBase):
             car.parent_pull_request_numbers == expected_car.parent_pull_request_numbers
         )
         assert car.initial_current_base_sha == expected_car.initial_current_base_sha
-        assert car.current_base_sha == expected_car.current_base_sha
         assert car.state == expected_car.state
         assert car.queue_pull_request_number == expected_car.queue_pull_request_number
 
@@ -78,6 +76,7 @@ class TestQueueAction(base.FunctionalTestBase):
     async def _assert_cars_contents(
         cls,
         q: merge_train.Train,
+        expected_base_sha: github_types.SHAType,
         expected_cars: typing.List[TrainCarMatcher],
         expected_waiting_pulls: typing.Optional[
             typing.List[github_types.GitHubPullRequestNumber]
@@ -87,6 +86,8 @@ class TestQueueAction(base.FunctionalTestBase):
             expected_waiting_pulls = []
 
         await q.load()
+        assert q._current_base_sha == expected_base_sha
+
         pulls_in_queue = await q.get_pulls()
         assert (
             pulls_in_queue
@@ -155,14 +156,13 @@ class TestQueueAction(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p)
         q = await merge_train.Train.from_context(ctxt)
-
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -170,7 +170,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_pull["number"],
@@ -214,7 +213,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_already_ready(self):
         rules = {
@@ -246,7 +245,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p)
         q = await merge_train.Train.from_context(ctxt)
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
         pulls = await self.get_pulls()
         assert len(pulls) == 0
@@ -304,11 +303,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -316,7 +315,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_pull["number"],
@@ -371,7 +369,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_with_ci_in_pull_request_rules(self):
         rules = {
@@ -428,11 +426,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -440,7 +438,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_pull["number"],
@@ -483,7 +480,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_merge_queue_refresh(self):
         rules = {
@@ -593,11 +590,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -605,7 +602,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
@@ -632,12 +628,12 @@ class TestQueueAction(base.FunctionalTestBase):
         # we create the tmp pull request
         await self._assert_cars_contents(
             q,
+            p1["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
                     p["merge_commit_sha"],
-                    p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
                 ),
@@ -664,13 +660,13 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p1["merge_commit_sha"],
             [
                 # Ensure p2 car is still the same
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
                     p["merge_commit_sha"],
-                    p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
                 ),
@@ -678,7 +674,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p3["number"],
                     [p2["number"]],
-                    p1["merge_commit_sha"],
                     p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p3["number"],
@@ -735,11 +730,11 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -747,7 +742,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
@@ -764,11 +758,11 @@ class TestQueueAction(base.FunctionalTestBase):
         # Nothing change
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -776,7 +770,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
@@ -795,11 +788,12 @@ class TestQueueAction(base.FunctionalTestBase):
 
         pulls = await self.get_pulls()
         assert len(pulls) == 0
-        await self._assert_cars_contents(q, [])
         p1 = await self.get_pull(p1["number"])
         assert p1["merged"]
         p2 = await self.get_pull(p2["number"])
         assert p2["merged"]
+
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_ci_failure(self):
         rules = {
@@ -849,11 +843,11 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -861,7 +855,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
@@ -885,11 +878,11 @@ class TestQueueAction(base.FunctionalTestBase):
         assert len(pulls) == 2
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p2["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -908,7 +901,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 1
         assert pulls[0]["number"] == p1["number"]
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_cant_create_tmp_pull_request(self):
         rules = {
@@ -953,11 +946,11 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt_p1)
         await self._assert_cars_contents(
             q,
+            p1["base"]["sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p1["base"]["sha"],
                     p1["base"]["sha"],
                     "updated",
                     None,
@@ -965,7 +958,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p3["number"],
                     [p1["number"]],
-                    p1["base"]["sha"],
                     p1["base"]["sha"],
                     "created",
                     tmp_mq_p3["number"],
@@ -1000,7 +992,8 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 1
         assert pulls[0]["number"] == p2["number"]
-        await self._assert_cars_contents(q, [])
+
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_cancel_and_refresh(self):
         rules = {
@@ -1048,11 +1041,11 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt_p_merged)
         await self._assert_cars_contents(
             q,
+            p1["base"]["sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p1["base"]["sha"],
                     p1["base"]["sha"],
                     "updated",
                     None,
@@ -1061,14 +1054,12 @@ class TestQueueAction(base.FunctionalTestBase):
                     p2["number"],
                     [p1["number"]],
                     p1["base"]["sha"],
-                    p1["base"]["sha"],
                     "created",
                     tmp_mq_p2["number"],
                 ),
                 TrainCarMatcher(
                     p3["number"],
                     [p1["number"], p2["number"]],
-                    p1["base"]["sha"],
                     p1["base"]["sha"],
                     "created",
                     tmp_mq_p3["number"],
@@ -1083,12 +1074,12 @@ class TestQueueAction(base.FunctionalTestBase):
         p1 = await self.get_pull(p1["number"])
         await self._assert_cars_contents(
             q,
+            p1["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
                     p1["base"]["sha"],
-                    p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
                 ),
@@ -1096,7 +1087,6 @@ class TestQueueAction(base.FunctionalTestBase):
                     p3["number"],
                     [p1["number"], p2["number"]],
                     p1["base"]["sha"],
-                    p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p3["number"],
                 ),
@@ -1114,11 +1104,11 @@ class TestQueueAction(base.FunctionalTestBase):
         # p3 is now rebased instead of havin a tmp merge-queue pr
         await self._assert_cars_contents(
             q,
+            p1["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p3["number"],
                     [],
-                    p1["merge_commit_sha"],
                     p1["merge_commit_sha"],
                     "updated",
                     None,
@@ -1152,11 +1142,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p1["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p3["number"],
                     [],
-                    p1["merge_commit_sha"],
                     p1["merge_commit_sha"],
                     "updated",
                     None,
@@ -1164,7 +1154,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p3["number"]],
-                    p1["merge_commit_sha"],
                     p1["merge_commit_sha"],
                     "created",
                     tmp_mq_p2_bis["number"],
@@ -1222,11 +1211,11 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt_p_merged)
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -1234,7 +1223,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_mq_p2["number"],
@@ -1264,11 +1252,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p_merged_in_meantime["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p_merged_in_meantime["merge_commit_sha"],
                     p_merged_in_meantime["merge_commit_sha"],
                     "updated",
                     None,
@@ -1276,7 +1264,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p_merged_in_meantime["merge_commit_sha"],
                     p_merged_in_meantime["merge_commit_sha"],
                     "created",
                     tmp_mq_p2_bis["number"],
@@ -1299,7 +1286,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_queue_priority(self):
         rules = {
@@ -1368,11 +1355,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p_merged["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p_merged["merge_commit_sha"],
                     p_merged["merge_commit_sha"],
                     "updated",
                     None,
@@ -1380,7 +1367,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p_merged["merge_commit_sha"],
                     p_merged["merge_commit_sha"],
                     "created",
                     tmp_mq_p1["number"],
@@ -1404,11 +1390,11 @@ class TestQueueAction(base.FunctionalTestBase):
         # p3 is now the only car in train, as its queue is not the same as p1 and p2
         await self._assert_cars_contents(
             q,
+            p_merged["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p3["number"],
                     [],
-                    p_merged["merge_commit_sha"],
                     p_merged["merge_commit_sha"],
                     "updated",
                     None,
@@ -1451,11 +1437,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p3["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p3["merge_commit_sha"],
                     p3["merge_commit_sha"],
                     "updated",
                     None,
@@ -1463,7 +1449,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p3["merge_commit_sha"],
                     p3["merge_commit_sha"],
                     "created",
                     tmp_mq_p1["number"],
@@ -1593,12 +1578,12 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
 
         await self._assert_cars_contents(
+            p["merge_commit_sha"],
             q,
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -1606,7 +1591,6 @@ class TestQueueAction(base.FunctionalTestBase):
                 TrainCarMatcher(
                     p2["number"],
                     [p1["number"]],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "created",
                     tmp_pull["number"],
@@ -1638,7 +1622,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_more_ci_in_pull_request_rules_succeed(self):
         rules = {
@@ -1687,11 +1671,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -1720,7 +1704,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 0
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
     async def test_more_ci_in_pull_request_rules_failure(self):
         rules = {
@@ -1769,11 +1753,11 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(
             q,
+            p["merge_commit_sha"],
             [
                 TrainCarMatcher(
                     p1["number"],
                     [],
-                    p["merge_commit_sha"],
                     p["merge_commit_sha"],
                     "updated",
                     None,
@@ -1802,7 +1786,7 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 1
 
-        await self._assert_cars_contents(q, [])
+        await self._assert_cars_contents(q, None, [])
 
 
 class TestTrainApiCalls(base.FunctionalTestBase):
