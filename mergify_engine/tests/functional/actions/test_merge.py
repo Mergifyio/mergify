@@ -77,9 +77,13 @@ class TestMergeAction(base.FunctionalTestBase):
         ctxt = await context.Context.create(self.repository_ctxt, p_need_rebase, [])
         q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
-        assert pulls_in_queue == [p_need_rebase["number"]]
+        assert pulls_in_queue == []
         p_ready = await self.get_pull(p_ready["number"])
         assert p_ready["merged"]
+        p_need_rebase = await self.get_pull(p_need_rebase["number"])
+        assert p_need_rebase["merged"]
+        assert p_need_rebase["merged_at"] > p_ready["merged_at"]
+        assert p_need_rebase["base"]["sha"] == p_ready["merge_commit_sha"]
 
     async def test_merge_smart_legacy(self):
         p_need_rebase, p_ready = await self._do_test_smart_order("smart")
