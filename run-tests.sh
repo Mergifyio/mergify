@@ -3,7 +3,7 @@
 set -exo pipefail
 
 waitport() {
-    while ! nc -v -w 1 -i 1 localhost $1 ; do sleep 1 ; done
+    while ! nc -v -z -i 1 localhost $1 ; do sleep 1 ; done
 }
 
 if [ "$CI" != "true" ]; then
