@@ -2,14 +2,8 @@
 
 set -exo pipefail
 
-waitport() {
-    while ! nc -v -z -i 1 localhost $1 ; do sleep 1 ; done
-}
-
 if [ "$CI" != "true" ]; then
     docker-compose up -d --force-recreate --always-recreate-deps --remove-orphans
-
-    waitport 6363
 
     cleanup () {
         ret=$?
@@ -19,6 +13,8 @@ if [ "$CI" != "true" ]; then
     }
     trap cleanup EXIT
 fi
+
+while ! docker run -t --net host --rm redis redis-cli -h localhost -p 6363 keys '*' ; do sleep 1 ; done
 
 cmd=$1
 shift
