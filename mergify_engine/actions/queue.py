@@ -29,7 +29,6 @@ from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
-from mergify_engine.actions import utils as action_utils
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import types
 
@@ -42,6 +41,8 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class QueueAction(merge_base.MergeBaseAction):
+    MESSAGE_ACTION_NAME = "Queue"
+
     UNQUEUE_DOCUMENTATION = f"""
 You can take a look at `{constants.MERGE_QUEUE_SUMMARY_NAME}` check runs for more details.
 
@@ -113,20 +114,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
-
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["merge_bot_account"],
-            option_name="merge_bot_account",
-            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-            missing_feature_message="Queue with `merge_bot_account` set is unavailable",
-            # NOTE(sileht): we don't allow admin, because if branch protection are
-            # enabled, but not enforced on admins, we may bypass them
-            required_permissions=["write", "maintain"],
-        )
-        if bot_account_result is not None:
-            return bot_account_result
-
         return None
 
     async def run(
