@@ -18,6 +18,7 @@ import typing
 
 from mergify_engine import context
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import user_tokens
 
@@ -104,7 +105,7 @@ async def _do_squash(
 async def squash(
     ctxt: context.Context,
     message: str,
-    bot_account: typing.Optional[str] = None,
+    bot_account: typing.Optional[github_types.GitHubLogin] = None,
 ) -> None:
 
     if ctxt.pull["commits"] <= 1:

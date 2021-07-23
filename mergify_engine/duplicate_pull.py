@@ -215,7 +215,7 @@ async def duplicate(
     *,
     title_template: str,
     body_template: str,
-    bot_account: typing.Optional[str] = None,
+    bot_account: typing.Optional[github_types.GitHubLogin] = None,
     labels: typing.Optional[List[str]] = None,
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,

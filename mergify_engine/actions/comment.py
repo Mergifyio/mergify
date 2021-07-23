@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -22,6 +24,7 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
+from mergify_engine import user_tokens
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
@@ -44,15 +47,16 @@ class CommentAction(actions.Action):
                 check_api.Conclusion.SUCCESS, "Message is not set", ""
             )
 
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["bot_account"],
-            required_feature=subscription.Features.BOT_ACCOUNT,
-            missing_feature_message="Comments with `bot_account` set are disabled",
-            required_permissions=[],
-        )
-        if bot_account_result is not None:
-            return bot_account_result
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Comments with `bot_account` set are disabled",
+                required_permissions=[],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
         try:
             message = await ctxt.pull_request.render_template(self.config["message"])
@@ -63,17 +67,16 @@ class CommentAction(actions.Action):
                 str(rmf),
             )
 
-        if bot_account := self.config["bot_account"]:
-            user_tokens = await ctxt.repository.installation.get_user_tokens()
-            github_user = user_tokens.get_token_for(bot_account)
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if bot_account:
+            tokens = await ctxt.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(bot_account)
             if not github_user:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
                     f"Unable to comment: user `{bot_account}` is unknown. ",
                     f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
                 )
-        else:
-            github_user = None
 
         try:
             await ctxt.client.post(

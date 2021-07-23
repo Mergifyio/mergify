@@ -14,18 +14,32 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import dataclasses
 import typing
+
+import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import subscription
 from mergify_engine.clients import http
+from mergify_engine.rules import types
 
 
-async def validate_bot_account(
+GitHubLoginSchema = voluptuous.Schema(types.GitHubLogin)
+
+
+@dataclasses.dataclass
+class RenderBotAccountFailure(Exception):
+    status: check_api.Conclusion
+    title: str
+    reason: str
+
+
+async def render_bot_account(
     ctxt: context.Context,
-    bot_account: typing.Optional[str],
+    bot_account_template: typing.Optional[str],
     *,
     option_name: str = "bot_account",
     # TODO(sileht): make it mandatory when all bot_account need subscription
@@ -34,14 +48,14 @@ async def validate_bot_account(
     required_permissions: typing.Optional[
         typing.List[github_types.GitHubRepositoryPermission]
     ] = None,
-) -> typing.Optional[check_api.Result]:
-    if bot_account is None:
+) -> typing.Optional[github_types.GitHubLogin]:
+    if bot_account_template is None:
         return None
 
     if required_feature is not None and not ctxt.subscription.has_feature(
         required_feature
     ):
-        return check_api.Result(
+        raise RenderBotAccountFailure(
             check_api.Conclusion.ACTION_REQUIRED,
             missing_feature_message,
             ctxt.subscription.missing_feature_reason(
@@ -51,6 +65,26 @@ async def validate_bot_account(
 
     if required_permissions is None:
         required_permissions = ["admin", "write", "maintain"]
+
+    try:
+        bot_account = await ctxt.pull_request.render_template(bot_account_template)
+    except context.RenderTemplateFailure as rmf:
+        raise RenderBotAccountFailure(
+            check_api.Conclusion.FAILURE,
+            f"Invalid {option_name} template",
+            str(rmf),
+        )
+
+    try:
+        bot_account = typing.cast(
+            github_types.GitHubLogin, GitHubLoginSchema(bot_account)
+        )
+    except voluptuous.Invalid as e:
+        raise RenderBotAccountFailure(
+            check_api.Conclusion.FAILURE,
+            f"Invalid {option_name} value",
+            str(e),
+        )
 
     if required_permissions:
         # TODO(sileht): Cache this, people only use one bot account!
@@ -62,7 +96,7 @@ async def validate_bot_account(
                 ),
             )["permission"]
         except http.HTTPNotFound:
-            return check_api.Result(
+            raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,
                 (f"`{bot_account}` account used as `{option_name}` does not exists"),
                 "",
@@ -77,7 +111,7 @@ async def validate_bot_account(
                 fancy_perm += f" or {quoted_required_permissions[-1]}"
             required_permissions[0:-1]
             # `write` or `maintain`
-            return check_api.Result(
+            raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,
                 (
                     f"`{bot_account}` account used as "
@@ -87,4 +121,4 @@ async def validate_bot_account(
                 "",
             )
 
-    return None
+    return bot_account

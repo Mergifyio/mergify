@@ -369,14 +369,14 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "merge on master",
                     "conditions": [f"base={self.master_branch_name}"],
-                    "actions": {"merge": {"merge_bot_account": "mergify-test3"}},
+                    "actions": {"merge": {"merge_bot_account": "{{ body }}"}},
                 },
             ]
         }
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p, _ = await self.create_pr(message="mergify-test3")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 

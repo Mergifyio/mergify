@@ -154,7 +154,7 @@ Unknown pull request attribute: hello
                     "actions": {
                         "review": {
                             "type": "APPROVE",
-                            "bot_account": "mergify-test3",
+                            "bot_account": "{{ body }}",
                         }
                     },
                 },
@@ -177,7 +177,7 @@ Unknown pull request attribute: hello
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p, _ = await self.create_pr(message="mergify-test3")
         await self.run_engine()
 
         await self.wait_for("pull_request_review", {}),

@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import voluptuous
 
 from mergify_engine import actions
@@ -23,6 +24,7 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.rules import types
 
@@ -50,16 +52,16 @@ class ReviewAction(actions.Action):
     ) -> check_api.Result:
         payload = {"event": self.config["type"]}
 
-        if self.config["bot_account"] and not ctxt.subscription.has_feature(
-            subscription.Features.BOT_ACCOUNT
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Reviews with `bot_account` set are disabled",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                option_name="bot_account",
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Reviews with `update_bot_account` set is unavailable",
             )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
         if ctxt.pull["merged"] and self.config["type"] != "COMMENT":
             return check_api.Result(
@@ -113,7 +115,6 @@ class ReviewAction(actions.Action):
             ):
                 break
 
-        bot_account = self.config["bot_account"]
         if bot_account:
             user_tokens = await ctxt.repository.installation.get_user_tokens()
             github_user = user_tokens.get_token_for(bot_account)

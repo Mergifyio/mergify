@@ -29,7 +29,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
                     "name": "comment",
                     "conditions": [f"base={self.master_branch_name}"],
                     "actions": {
-                        "comment": {"message": "WTF?", "bot_account": "mergify-test3"}
+                        "comment": {"message": "WTF?", "bot_account": "{{ body }}"}
                     },
                 }
             ]
@@ -37,7 +37,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p, _ = await self.create_pr(message="mergify-test3")
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
