@@ -33,6 +33,7 @@ if typing.TYPE_CHECKING:
 LOG = daiquiri.getLogger(__name__)
 
 
+@dataclasses.dataclass
 class UserTokensUserNotFound(Exception):
     reason: str
 
