@@ -65,9 +65,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
                 "merge", "squash", "none", None
             ),
-            voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
-                None, types.GitHubLogin
-            ),
+            voluptuous.Required(
+                "merge_bot_account", default=None
+            ): types.Jinja2WithNone,
             voluptuous.Required("commit_message", default="default"): voluptuous.Any(
                 "default", "title+body"
             ),
