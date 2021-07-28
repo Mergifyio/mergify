@@ -559,6 +559,12 @@ class QueueRules:
                 return rule
         raise KeyError(f"{key} not found")
 
+    def get(self, key: QueueName) -> typing.Optional[QueueRule]:
+        try:
+            return self[key]
+        except KeyError:
+            return None
+
     def __len__(self) -> int:
         return len(self.rules)
 
