@@ -789,11 +789,14 @@ class Train(queue.QueueBase):
             )
             return
 
+        queue_rules = mergify_config["queue_rules"]
+
         # NOTE(sileht): workaround for cleaning unwanted PRs queued by this bug:
         # https://github.com/Mergifyio/mergify-engine/pull/2958
         await self._remove_duplicate_pulls()
 
-        await self._populate_cars(mergify_config["queue_rules"])
+        await self._sync_configuration_change(queue_rules)
+        await self._populate_cars(queue_rules)
         await self._save()
         self.log.info("train cars refreshed")
 
@@ -811,6 +814,20 @@ class Train(queue.QueueBase):
                 known_prs.add(wp.user_pull_request_number)
                 wp_to_keep.append(wp)
         self._waiting_pulls = wp_to_keep
+
+    async def _sync_configuration_change(self, queue_rules: rules.QueueRules) -> None:
+        for i, pseudo_car in enumerate(list(self._iter_pseudo_cars())):
+            queue_rule = queue_rules.get(pseudo_car.config["name"])
+            if queue_rule is None:
+                # NOTE(sileht): We just slice the cars list here, so when the
+                # car will be recreated if the rule doesn't exists anymore, the
+                # failure will be reported properly
+                await self._slice_cars_at(i)
+            else:
+                # NOTE(sileht): Update the queue config, so if
+                # speculative_checks change the train will grow or shrink
+                # instantly
+                pseudo_car.config["queue_config"] = queue_rule.config
 
     async def reset(self) -> None:
         await self._slice_cars_at(0)
