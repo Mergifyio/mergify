@@ -15,6 +15,7 @@
 # under the License.
 
 import base64
+import sys
 import typing
 from unittest import mock
 
@@ -578,3 +579,70 @@ async def test_train_with_speculative_checks_decreased(
     await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
     assert [4, 5] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_queue_config_change(
+    repository,
+    monkepatched_traincar,
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
+
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    with mock.patch.object(
+        sys.modules[__name__],
+        "MERGIFY_CONFIG",
+        """
+queue_rules:
+  - name: two
+    conditions: []
+    speculative_checks: 1
+""",
+    ):
+        del repository._cache["mergify_config"]
+        await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._report_failure")
+async def test_train_queue_config_deleted(
+    report_failure,
+    repository,
+    monkepatched_traincar,
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("five", 1000))
+
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    with mock.patch.object(
+        sys.modules[__name__],
+        "MERGIFY_CONFIG",
+        """
+queue_rules:
+  - name: five
+    conditions: []
+    speculative_checks: 5
+""",
+    ):
+        del repository._cache["mergify_config"]
+        await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+    assert len(report_failure.mock_calls) == 1
