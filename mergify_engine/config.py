@@ -18,6 +18,7 @@ import base64
 import distutils.util
 import logging
 import os
+from pathlib import Path
 import typing
 
 import dotenv
@@ -231,11 +232,8 @@ ORG_ADMIN_PERSONAL_TOKEN: str
 ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 
-configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
-if configuration_file:
-    # FIXME: ignore type hit because it's wrong
-    dotenv.load_dotenv(stream=configuration_file, override=True)  # type: ignore
-
+dotenv_path = Path("fake.env")
+dotenv.load_dotenv(dotenv_path=dotenv_path, override=True)
 CONFIG: typing.Dict[str, typing.Any] = {}
 for key, _ in Schema.schema.items():
     val = os.getenv(f"MERGIFYENGINE_{key}")
