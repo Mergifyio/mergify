@@ -566,7 +566,7 @@ class QueueRules:
         names = set()
         for i, rule in enumerate(reversed(self.rules)):
             rule.config["priority"] = i
-            if rule.name is names:
+            if rule.name in names:
                 raise voluptuous.error.Invalid(
                     f"queue_rules names must be unique, found `{rule.name}` twice"
                 )

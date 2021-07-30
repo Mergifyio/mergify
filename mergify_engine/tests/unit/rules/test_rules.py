@@ -1537,6 +1537,37 @@ pull_request_rules:
     ]
 
 
+def test_action_queue_with_duplicate_queue():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+  - name: default
+    conditions: []
+  - name: default
+    conditions: []
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      queue:
+        name: default
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert (
+        str(e.value.error)
+        == "queue_rules names must be unique, found `default` twice for dictionary value @ data['queue_rules']"
+    )
+
+
 def test_action_queue_with_no_default_queue():
     file = context.MergifyConfigFile(
         type="file",
