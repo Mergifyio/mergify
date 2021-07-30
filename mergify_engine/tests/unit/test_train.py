@@ -541,3 +541,40 @@ async def test_train_remove_last_cars(repository, monkepatched_traincar):
     await t.refresh()
     assert [[2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_with_speculative_checks_decreased(
+    repository, monkepatched_traincar
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    old_config = get_config("five", 1000)
+
+    new_config = get_config("five", 1000)
+    new_config["queue_config"] = new_config["queue_config"].copy()
+    new_config["queue_config"]["speculative_checks"] = 2
+
+    assert (
+        old_config["queue_config"]["speculative_checks"]
+        != new_config["queue_config"]["speculative_checks"]
+    )
+    await t.add_pull(await fake_context(repository, 1), old_config)
+    await t.add_pull(await fake_context(repository, 2), new_config)
+    await t.add_pull(await fake_context(repository, 3), new_config)
+    await t.add_pull(await fake_context(repository, 4), new_config)
+    await t.add_pull(await fake_context(repository, 5), new_config)
+
+    await t.refresh()
+    assert [[1], [1, 2], [1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 4, 5]] == get_cars_content(
+        t
+    )
+    assert [] == get_waiting_content(t)
+
+    await t.remove_pull(
+        await fake_context(repository, 1, merged=True, merge_commit_sha="new_sha1")
+    )
+    await t.refresh()
+    assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
+    assert [4, 5] == get_waiting_content(t)

@@ -952,6 +952,7 @@ class Train(queue.QueueBase):
                     to_keep.append(car)
                 else:
                     to_delete.append(car)
+            self._cars = to_keep
             for car in to_delete:
                 await car.delete_pull()
                 self._waiting_pulls.append(
