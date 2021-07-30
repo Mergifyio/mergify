@@ -214,8 +214,9 @@ These are the options of the ``queue`` action:
        rebased, the method defined in ``rebase_fallback`` will be used instead.
        Possible values are ``merge``, ``squash``, ``none``. ``none`` will
        report an error if rebase is not possible.
+
    * - ``merge_bot_account``
-     - string
+     - :ref:`data type template`
      -
      - |premium plan tag|
        Mergify can impersonate a GitHub user to merge pull request.
