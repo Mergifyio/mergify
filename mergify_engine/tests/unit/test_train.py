@@ -452,6 +452,41 @@ async def test_train_mutiple_queue(repository, monkepatched_traincar):
 
 
 @pytest.mark.asyncio
+async def test_train_remove_duplicates(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 4), get_config("two", 1000))
+
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3, 4] == get_waiting_content(t)
+
+    # Insert bugs in queue
+    t._waiting_pulls.extend(
+        [
+            merge_train.WaitingPull(
+                t._cars[0].user_pull_request_number,
+                t._cars[0].config,
+                t._cars[0].queued_at,
+            ),
+            t._waiting_pulls[0],
+        ]
+    )
+    t._cars = t._cars + t._cars
+    assert [[1], [1, 2], [1], [1, 2]] == get_cars_content(t)
+    assert [3, 4, 1, 3] == get_waiting_content(t)
+
+    # Everything should be back to normal
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3, 4] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
 async def test_train_remove_end_wp(repository, monkepatched_traincar):
     t = merge_train.Train(repository, "branch")
     await t.load()
