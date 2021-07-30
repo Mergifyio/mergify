@@ -282,8 +282,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt, ctxt.pull_request
             )
-            # FIXME(sileht): I don't get why this is typing.Any ...
-            return queue_rule_evaluated.conditions.match  # type: ignore[no-any-return]
+            return queue_rule_evaluated.conditions.match
 
         return False
 
