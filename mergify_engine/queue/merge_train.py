@@ -953,10 +953,13 @@ class Train(queue.QueueBase):
                 else:
                     to_delete.append(car)
             self._cars = to_keep
-            for car in to_delete:
+            for car in reversed(to_delete):
                 await car.delete_pull()
-                self._waiting_pulls.append(
-                    WaitingPull(car.user_pull_request_number, car.config, car.queued_at)
+                self._waiting_pulls.insert(
+                    0,
+                    WaitingPull(
+                        car.user_pull_request_number, car.config, car.queued_at
+                    ),
                 )
 
         elif missing_cars > 0 and self._waiting_pulls:
