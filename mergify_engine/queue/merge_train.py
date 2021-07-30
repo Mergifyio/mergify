@@ -789,9 +789,28 @@ class Train(queue.QueueBase):
             )
             return
 
+        # NOTE(sileht): workaround for cleaning unwanted PRs queued by this bug:
+        # https://github.com/Mergifyio/mergify-engine/pull/2958
+        await self._remove_duplicate_pulls()
+
         await self._populate_cars(mergify_config["queue_rules"])
         await self._save()
         self.log.info("train cars refreshed")
+
+    async def _remove_duplicate_pulls(self) -> None:
+        known_prs = set()
+        for i, car in enumerate(self._cars):
+            if car.user_pull_request_number in known_prs:
+                await self._slice_cars_at(i)
+                break
+            else:
+                known_prs.add(car.user_pull_request_number)
+        wp_to_keep = []
+        for wp in self._waiting_pulls:
+            if wp.user_pull_request_number not in known_prs:
+                known_prs.add(wp.user_pull_request_number)
+                wp_to_keep.append(wp)
+        self._waiting_pulls = wp_to_keep
 
     async def reset(self) -> None:
         await self._slice_cars_at(0)
@@ -933,10 +952,14 @@ class Train(queue.QueueBase):
                     to_keep.append(car)
                 else:
                     to_delete.append(car)
-            for car in to_delete:
+            self._cars = to_keep
+            for car in reversed(to_delete):
                 await car.delete_pull()
-                self._waiting_pulls.append(
-                    WaitingPull(car.user_pull_request_number, car.config, car.queued_at)
+                self._waiting_pulls.insert(
+                    0,
+                    WaitingPull(
+                        car.user_pull_request_number, car.config, car.queued_at
+                    ),
                 )
 
         elif missing_cars > 0 and self._waiting_pulls:
