@@ -550,20 +550,20 @@ class PullRequestRules:
 class QueueRules:
     rules: typing.List[QueueRule]
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[QueueRule]:
         return iter(self.rules)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: QueueName) -> QueueRule:
         for rule in self:
             if rule.name == key:
                 return rule
         raise KeyError(f"{key} not found")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.rules)
 
-    def __post_init__(self):
-        names = set()
+    def __post_init__(self) -> None:
+        names: typing.Set[QueueName] = set()
         for i, rule in enumerate(reversed(self.rules)):
             rule.config["priority"] = i
             if rule.name in names:
