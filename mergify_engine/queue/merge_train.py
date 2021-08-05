@@ -120,7 +120,16 @@ class TrainCar(PseudoTrainCar):
 
     @classmethod
     def deserialize(cls, train: "Train", data: "TrainCar.Serialized") -> "TrainCar":
-        return cls(train, **data)
+        return cls(
+            train,
+            user_pull_request_number=data["user_pull_request_number"],
+            parent_pull_request_numbers=data["parent_pull_request_numbers"],
+            initial_current_base_sha=data["initial_current_base_sha"],
+            state=data["state"],
+            queue_pull_request_number=data["queue_pull_request_number"],
+            config=data["config"],
+            queued_at=data["queued_at"],
+        )
 
     def _get_embarked_refs(
         self, include_my_self: bool = True, markdown: bool = False
