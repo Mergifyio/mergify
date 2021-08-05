@@ -319,7 +319,9 @@ async def report(
 
             print("* MERGIFY LAST CHECKS:")
             for c in await ctxt.pull_engine_check_runs:
-                print(f"[{c['name']}]: {c['conclusion']} | {c['output'].get('title')}")
+                print(
+                    f"[{c['name']}]: {c['conclusion']} | {c['output'].get('title')} | {c['html_url']}"
+                )
                 print(
                     "> "
                     + "\n> ".join(

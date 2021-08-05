@@ -19,6 +19,7 @@ from unittest import mock
 import yaml
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import debug
 from mergify_engine import subscription
 from mergify_engine.tests.functional import base
@@ -72,6 +73,11 @@ class TestDebugger(base.FunctionalTestBase):
             s3 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         assert s1.startswith(s2)
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        summary_html_url = [
+            check for check in await ctxt.pull_check_runs if check["name"] == "Summary"
+        ][0]["html_url"]
 
         assert (
             s1.strip()
@@ -141,7 +147,7 @@ pull_request_rules:
 is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:
-[Summary]: success | 1 potential rule
+[Summary]: success | 1 potential rule | {summary_html_url}
 > ### Rule: comment (comment)
 > - [X] `base={self.master_branch_name}`
 > - [ ] any of:
