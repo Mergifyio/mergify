@@ -554,9 +554,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 if check["app"]["id"] == config.INTEGRATION_ID:
                     continue
 
-                title = ""
-                if check["output"]:
-                    title = check["output"]["title"]
+                output_title = ""
+                if check["output"] and check["output"]["title"]:
+                    output_title = f" — {check['output']['title']}"
 
                 check_icon_url = CHECK_ASSERTS.get(
                     check["conclusion"], CHECK_ASSERTS["neutral"]
@@ -566,7 +566,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     "<tr>"
                     f'<td align="center" width="48" height="48"><img src="{check_icon_url}" width="16" height="16" /></td>'
                     f'<td align="center" width="48" height="48"><img src="{check["app"]["owner"]["avatar_url"]}&s=40" width="16" height="16" /></td>'
-                    f'<td><b>{check["app"]["name"]}/{check["name"]}</b> — {title}</td>'
+                    f'<td><b>{check["app"]["name"]}/{check["name"]}</b>{output_title}</td>'
                     f'<td><a href="{check["html_url"]}">details</a></td>'
                     "</tr>"
                 )
