@@ -99,7 +99,7 @@ async def test_unknown_ut(redis_cache):
 
 @pytest.mark.asyncio
 async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
-    ut = user_tokens.UserTokens(redis_cache, 123, [])
+    ut = await user_tokens.UserTokensOnPremise.get(redis_cache, 123)
 
     assert ut.get_token_for("foo") is None
     assert ut.get_token_for("login") is None
@@ -109,6 +109,7 @@ async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
         config, "ACCOUNT_TOKENS", config.AccountTokens("foo:bar,login:token")
     )
 
+    ut = await user_tokens.UserTokensOnPremise.get(redis_cache, 123)
     assert ut.get_token_for("foo")["oauth_access_token"] == "bar"
     assert ut.get_token_for("login")["oauth_access_token"] == "token"
     assert ut.get_token_for("nop") is None
