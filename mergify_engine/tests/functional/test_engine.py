@@ -38,6 +38,36 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
+    async def test_no_configuration(self):
+        await self.setup_repo()
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        assert (
+            "no rules configured, just listening for commands"
+            == checks[0]["output"]["title"]
+        )
+
+    async def test_empty_configuration(self):
+        await self.setup_repo("")
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        assert (
+            "no rules configured, just listening for commands"
+            == checks[0]["output"]["title"]
+        )
+
     async def test_merge_with_not_merged_attribute(self):
         rules = {
             "pull_request_rules": [
