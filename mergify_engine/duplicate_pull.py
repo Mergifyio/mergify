@@ -66,6 +66,7 @@ GIT_MESSAGE_TO_EXCEPTION = {
     "reference already exists": DuplicateAlreadyExists,
     "You may want to first integrate the remote changes": DuplicateAlreadyExists,
     "is a merge but no -m option was given": DuplicateWithMergeFailure,
+    "is not a commit and a branch": DuplicateFailed,
 }
 
 
