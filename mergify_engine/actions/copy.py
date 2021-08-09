@@ -177,7 +177,7 @@ class CopyAction(actions.Action):
                 )
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed: {e.reason}",
                 )
 
         if new_pull:
