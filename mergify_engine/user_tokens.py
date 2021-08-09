@@ -57,7 +57,8 @@ class UserTokens:
 
     @staticmethod
     async def select_users_for(
-        ctxt: "context.Context", bot_account: typing.Optional[str] = None
+        ctxt: "context.Context",
+        bot_account: typing.Optional[github_types.GitHubLogin] = None,
     ) -> typing.List[UserTokensUser]:
         user_tokens = await ctxt.repository.installation.get_user_tokens()
         if bot_account:
@@ -91,10 +92,12 @@ class UserTokens:
             for login, oauth_access_token in config.ACCOUNT_TOKENS.items()
         ]
 
-    def get_token_for(self, wanted_login: str) -> typing.Optional[UserTokensUser]:
-        wanted_login = wanted_login.lower()
+    def get_token_for(
+        self, wanted_login: github_types.GitHubLogin
+    ) -> typing.Optional[UserTokensUser]:
+        wanted_login_lower = wanted_login.lower()
         for user in self.users + self._get_users_from_config():
-            if user["login"].lower() == wanted_login:
+            if user["login"].lower() == wanted_login_lower:
                 return user
         return None
 

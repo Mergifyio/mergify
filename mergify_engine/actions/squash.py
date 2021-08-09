@@ -54,15 +54,16 @@ class SquashAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["bot_account"],
-            required_feature=subscription.Features.BOT_ACCOUNT,
-            missing_feature_message="Squash with `bot_account` set are disabled",
-            required_permissions=[],
-        )
-        if bot_account_result is not None:
-            return bot_account_result
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Squash with `bot_account` set are disabled",
+                required_permissions=[],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
         if ctxt.pull["commits"] <= 1:
             return check_api.Result(
@@ -104,7 +105,7 @@ class SquashAction(actions.Action):
             await squash_pull.squash(
                 ctxt,
                 message,
-                self.config["bot_account"],
+                bot_account,
             )
         except squash_pull.SquashFailure as e:
             return check_api.Result(

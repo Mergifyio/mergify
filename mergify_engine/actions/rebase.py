@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import voluptuous
 
 from mergify_engine import actions
@@ -66,18 +67,19 @@ class RebaseAction(actions.Action):
                     f"Your repository is above {config.NOSUB_MAX_REPO_SIZE_KB} KB.\n{ctxt.subscription.missing_feature_reason(ctxt.pull['base']['repo']['owner']['login'])}",
                 )
 
-            bot_account_result = await action_utils.validate_bot_account(
-                ctxt,
-                self.config["bot_account"],
-                option_name="bot_account",
-                required_feature=subscription.Features.BOT_ACCOUNT,
-                missing_feature_message="Rebase with `update_bot_account` set is unavailable",
-            )
-            if bot_account_result is not None:
-                return bot_account_result
+            try:
+                bot_account = await action_utils.render_bot_account(
+                    ctxt,
+                    self.config["bot_account"],
+                    option_name="bot_account",
+                    required_feature=subscription.Features.BOT_ACCOUNT,
+                    missing_feature_message="Rebase with `update_bot_account` set is unavailable",
+                )
+            except action_utils.RenderBotAccountFailure as e:
+                return check_api.Result(e.status, e.title, e.reason)
 
             try:
-                await branch_updater.rebase_with_git(ctxt, self.config["bot_account"])
+                await branch_updater.rebase_with_git(ctxt, bot_account)
             except branch_updater.BranchUpdateFailure as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, e.title, e.message
