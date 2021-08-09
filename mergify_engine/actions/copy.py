@@ -141,7 +141,6 @@ class CopyAction(actions.Action):
                     label_conflicts=self.config["label_conflicts"],
                     ignore_conflicts=self.config["ignore_conflicts"],
                     assignees=users_to_add,
-                    kind=self.KIND,
                     branch_prefix=self.BRANCH_PREFIX,
                 )
                 await signals.send(
@@ -155,18 +154,18 @@ class CopyAction(actions.Action):
             except duplicate_pull.DuplicateWithMergeFailure:
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"Backport to branch `{branch_name}` failed\nPull request with merge commit are not supported",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed\nPull request with merge commit are not supported",
                 )
 
             except duplicate_pull.DuplicateFailed as e:
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"Backport to branch `{branch_name}` failed\n{e.reason}",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed\n{e.reason}",
                 )
             except duplicate_pull.DuplicateNotNeeded:
                 return (
                     check_api.Conclusion.SUCCESS,
-                    f"Backport to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
                 )
             except duplicate_pull.DuplicateUnexpectedError as e:
                 ctxt.log.error(
