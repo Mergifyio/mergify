@@ -220,7 +220,6 @@ async def duplicate(
     label_conflicts: typing.Optional[str] = None,
     ignore_conflicts: bool = False,
     assignees: typing.Optional[List[str]] = None,
-    kind: KindT = "backport",
     branch_prefix: str = "bp",
 ) -> typing.Optional[github_types.GitHubPullRequest]:
     """Duplicate a pull request.
@@ -234,7 +233,6 @@ async def duplicate(
     :param label_conflicts: The label to add to the created PR when cherry-pick failed.
     :param ignore_conflicts: Whether to commit the result if the cherry-pick fails.
     :param assignees: The list of users to be assigned to the created PR.
-    :param kind: is a backport or a copy
     :param branch_prefix: the prefix of the temporary created branch
     """
     repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
@@ -248,14 +246,11 @@ async def duplicate(
     if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
         if not ctxt.subscription.has_feature(subscription.Features.LARGE_REPOSITORY):
             ctxt.log.warning(
-                "repository too big and no subscription active, refusing to %s",
-                kind,
+                "repository too big and no subscription active, refusing to duplicate pull request",
                 size=repo_info["size"],
             )
-            raise DuplicateFailed(
-                f"{kind} fail: repository is too big and no subscription is active"
-            )
-        ctxt.log.info("running %s on large repository", kind)
+            raise DuplicateFailed("Repository is too big and no subscription is active")
+        ctxt.log.info("running duplicate on large repository")
 
     bot_account_user: typing.Optional[UserTokensUser] = None
     if bot_account is not None:
@@ -263,7 +258,7 @@ async def duplicate(
         bot_account_user = user_tokens.get_token_for(bot_account)
         if not bot_account_user:
             raise DuplicateFailed(
-                f"{kind} fail: user `{bot_account}` is unknown. "
+                f"User `{bot_account}` is unknown. "
                 f"Please make sure `{bot_account}` has logged in Mergify dashboard."
             )
 
