@@ -129,7 +129,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             await delayed_refresh.plan_next_refresh(
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
@@ -142,8 +142,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 await q.reset()
             else:
                 status = await merge_base.get_rule_checks_status(
-                    ctxt,
-                    ctxt.pull_request,
+                    ctxt.log,
+                    [ctxt.pull_request],
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
                 )
@@ -240,7 +240,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         if not await ctxt.is_behind:
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             if queue_rule_evaluated.conditions.match:
                 return True
@@ -267,7 +267,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             return queue_rule_evaluated.conditions.match
 
@@ -291,7 +291,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         car = q.get_car(ctxt)
         if car and car.state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             await delayed_refresh.plan_next_refresh(
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
@@ -299,7 +299,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt, ctxt.pull_request, rule
+                ctxt.log, [ctxt.pull_request], rule
             )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
@@ -307,8 +307,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt,
-                ctxt.pull_request,
+                ctxt.log,
+                [ctxt.pull_request],
                 queue_rule_evaluated,
                 unmatched_conditions_return_failure=False,
             )
@@ -328,7 +328,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         evaluated_pull = await car.get_pull_request_to_evaluate()
         queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-            ctxt, evaluated_pull
+            ctxt.repository, ctxt.pull["base"]["ref"], [evaluated_pull]
         )
         return await car.generate_merge_queue_summary(queue_rule_evaluated)
 

@@ -99,12 +99,24 @@ class RuleCondition:
         rc.partial_filter.value_expanders = self.partial_filter.value_expanders
         return rc
 
-    async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
+    async def __call__(
+        self,
+        obj_or_pull_requests: typing.Union[
+            filter.GetAttrObjectT, typing.List[context.BasePullRequest]
+        ],
+    ) -> bool:
+        objs: typing.List[filter.GetAttrObjectT]
+        if isinstance(obj_or_pull_requests, list):
+            objs = typing.cast(typing.List[filter.GetAttrObjectT], obj_or_pull_requests)
+        else:
+            objs = [obj_or_pull_requests]
+
         if self._used:
             raise RuntimeError("RuleCondition cannot be reused")
         self._used = True
         try:
-            self.match = await self.partial_filter(obj)
+            matches = [await self.partial_filter(obj) for obj in objs] + [True]
+            self.match = operator.and_(*matches)
         except live_resolvers.LiveResolutionFailure as e:
             self.match = False
             self.evaluation_error = e.reason
@@ -148,13 +160,28 @@ class RuleConditionGroup:
 
         self.operator, self.conditions = next(iter(condition.items()))
 
-    async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
+    async def __call__(
+        self,
+        obj_or_pull_requests: typing.Union[
+            filter.GetAttrObjectT, typing.List[context.BasePullRequest]
+        ],
+    ) -> bool:
+        objs: typing.List[filter.GetAttrObjectT]
+        if isinstance(obj_or_pull_requests, list):
+            objs = typing.cast(typing.List[filter.GetAttrObjectT], obj_or_pull_requests)
+        else:
+            objs = [obj_or_pull_requests]
+
         if self._used:
             raise RuntimeError("RuleConditionGroup cannot be re-used")
         self._used = True
-        self.match = await filter.BinaryFilter(
-            typing.cast(filter.TreeT, {self.operator: self.conditions})
-        )(obj)
+        matches = [
+            await filter.BinaryFilter(
+                typing.cast(filter.TreeT, {self.operator: self.conditions})
+            )(obj)
+            for obj in objs
+        ] + [True]
+        self.match = operator.and_(*matches)
         return self.match
 
     def extract_raw_filter_tree(
@@ -249,16 +276,14 @@ def RuleConditions(
 
 
 async def get_branch_protection_conditions(
-    ctxt: context.Context,
+    repository: context.Repository, ref: github_types.GitHubRefType
 ) -> typing.List[typing.Union["RuleConditionGroup", RuleCondition]]:
     return [
         RuleCondition(
             f"check-success-or-neutral={check}",
             description="🛡 GitHub branch protection",
         )
-        for check in await ctxt.repository.get_branch_protection_checks(
-            ctxt.pull["base"]["ref"]
-        )
+        for check in await repository.get_branch_protection_checks(ref)
     ]
 
 
@@ -343,10 +368,13 @@ class QueueRule:
 
     async def get_pull_request_rule(
         self,
-        ctxt: context.Context,
-        pull: context.BasePullRequest,
+        repository: context.Repository,
+        ref: github_types.GitHubRefType,
+        pulls: typing.List[context.BasePullRequest],
     ) -> EvaluatedQueueRule:
-        branch_protection_conditions = await get_branch_protection_conditions(ctxt)
+        branch_protection_conditions = await get_branch_protection_conditions(
+            repository, ref
+        )
         queue_rule_with_branch_protection = QueueRule(
             self.name,
             RuleConditions(
@@ -356,8 +384,8 @@ class QueueRule:
         )
         queue_rules_evaluator = await QueuesRulesEvaluator.create(
             [queue_rule_with_branch_protection],
-            ctxt,
-            pull,
+            repository,
+            pulls,
             False,
         )
         return queue_rules_evaluator.matching_rules[0]
@@ -410,8 +438,8 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
     async def create(
         cls,
         rules: typing.List[T_Rule],
-        ctxt: context.Context,
-        pull: context.BasePullRequest,
+        repository: context.Repository,
+        pulls: typing.List[context.BasePullRequest],
         hide_rule: bool,
     ) -> "GenericRulesEvaluator[T_Rule, T_EvaluatedRule]":
         self = cls(rules)
@@ -422,10 +450,10 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                     condition.partial_filter.value_expanders[
                         attrib
                     ] = functools.partial(  # type: ignore[assignment]
-                        live_resolvers.teams, ctxt
+                        live_resolvers.teams, repository
                     )
 
-            await rule.conditions(pull)
+            await rule.conditions(pulls)
 
             # NOTE(sileht):
             # In the summary, we display rules in four groups:
@@ -444,7 +472,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                     if attr not in self.BASE_ATTRIBUTES:
                         condition.update("number>0")
 
-                await base_conditions(pull)
+                await base_conditions(pulls)
 
                 if not base_conditions.match:
                     self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
@@ -512,7 +540,7 @@ class PullRequestRules:
 
             if actions_with_special_rules:
                 branch_protection_conditions = await get_branch_protection_conditions(
-                    ctxt
+                    ctxt.repository, ctxt.pull["base"]["ref"]
                 )
                 depends_on_conditions = await get_depends_on_conditions(ctxt)
                 if branch_protection_conditions or depends_on_conditions:
@@ -543,7 +571,9 @@ class PullRequestRules:
                     )
                 )
 
-        return await RulesEvaluator.create(runtime_rules, ctxt, ctxt.pull_request, True)
+        return await RulesEvaluator.create(
+            runtime_rules, ctxt.repository, [ctxt.pull_request], True
+        )
 
 
 @dataclasses.dataclass

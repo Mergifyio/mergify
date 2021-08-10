@@ -503,7 +503,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ctxt = await context.Context.create(repository, p, [])
 
         logins = await live_resolvers.teams(
-            ctxt,
+            repository,
             [
                 "user",
                 "@mergifyio-testing/testing",
@@ -519,7 +519,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         logins = await live_resolvers.teams(
-            ctxt,
+            repository,
             [
                 "user",
                 "@testing",
@@ -535,13 +535,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@unknown/team"])
+            await live_resolvers.teams(repository, ["@unknown/team"])
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@mergifyio-testing/not-exists"])
+            await live_resolvers.teams(repository, ["@mergifyio-testing/not-exists"])
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@invalid/team/break-here"])
+            await live_resolvers.teams(repository, ["@invalid/team/break-here"])
 
         summary = [
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
