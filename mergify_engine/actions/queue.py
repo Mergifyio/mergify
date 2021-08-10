@@ -326,9 +326,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if car is None:
             return ""
 
-        evaluated_pull = await car.get_pull_request_to_evaluate()
+        evaluated_pulls = await car.get_pull_requests_to_evaluate()
         queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-            ctxt.repository, ctxt.pull["base"]["ref"], [evaluated_pull]
+            ctxt.repository, ctxt.pull["base"]["ref"], evaluated_pulls
         )
         return await car.generate_merge_queue_summary(queue_rule_evaluated)
 

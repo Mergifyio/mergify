@@ -15,6 +15,7 @@
 # under the License.
 
 import base64
+import datetime
 import sys
 import typing
 from unittest import mock
@@ -32,7 +33,9 @@ from mergify_engine.queue import merge_train
 
 
 async def fake_train_car_create_pull(inner_self, queue_rule):
-    inner_self.queue_pull_request_number = inner_self.user_pull_request_number + 10
+    inner_self.queue_pull_request_number = (
+        inner_self.still_queued_embarked_pulls[-1].user_pull_request_number + 10
+    )
 
 
 async def fake_train_car_update_user_pull(inner_self, queue_rule):
@@ -193,7 +196,10 @@ async def fake_context(repository, number, **kwargs):
 def get_cars_content(train):
     cars = []
     for car in train._cars:
-        cars.append(car.parent_pull_request_numbers + [car.user_pull_request_number])
+        cars.append(
+            car.parent_pull_request_numbers
+            + [ep.user_pull_request_number for ep in car.still_queued_embarked_pulls]
+        )
     return cars
 
 
@@ -433,7 +439,9 @@ async def test_train_mutiple_queue(repository, monkepatched_traincar):
 
     await t.remove_pull(await fake_context(repository, 2))
     await t.refresh()
-    assert [[1], [1, 5]] == get_cars_content(t)
+    assert [[1], [1, 5]] == get_cars_content(
+        t
+    ), f"{get_cars_content(t)} {get_waiting_content(t)}"
     assert [3, 4, 6, 7, 8, 9] == get_waiting_content(t)
 
     await t.remove_pull(await fake_context(repository, 1))
@@ -469,10 +477,10 @@ async def test_train_remove_duplicates(repository, monkepatched_traincar):
     # Insert bugs in queue
     t._waiting_pulls.extend(
         [
-            merge_train.WaitingPull(
-                t._cars[0].user_pull_request_number,
-                t._cars[0].config,
-                t._cars[0].queued_at,
+            merge_train.EmbarkedPull(
+                t._cars[0].still_queued_embarked_pulls[0].user_pull_request_number,
+                t._cars[0].still_queued_embarked_pulls[0].config,
+                t._cars[0].still_queued_embarked_pulls[0].queued_at,
             ),
             t._waiting_pulls[0],
         ]
@@ -658,3 +666,25 @@ queue_rules:
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
     assert len(report_failure.mock_calls) == 1
+
+
+def test_train_batch_split():
+    now = datetime.datetime.utcnow()
+    t = merge_train.Train(repository, "branch")
+    p1_two = merge_train.EmbarkedPull(1, get_config("two"), now)
+    p2_two = merge_train.EmbarkedPull(2, get_config("two"), now)
+    p3_two = merge_train.EmbarkedPull(3, get_config("two"), now)
+    p4_five = merge_train.EmbarkedPull(4, get_config("five"), now)
+
+    assert ([p1_two], [p2_two, p3_two, p4_five]) == t._get_next_batch(
+        [p1_two, p2_two, p3_two, p4_five], "two", 1
+    )
+    assert ([p1_two, p2_two], [p3_two, p4_five]) == t._get_next_batch(
+        [p1_two, p2_two, p3_two, p4_five], "two", 2
+    )
+    assert ([p1_two, p2_two, p3_two], [p4_five]) == t._get_next_batch(
+        [p1_two, p2_two, p3_two, p4_five], "two", 10
+    )
+    assert ([], [p1_two, p2_two, p3_two, p4_five]) == t._get_next_batch(
+        [p1_two, p2_two, p3_two, p4_five], "five", 10
+    )
