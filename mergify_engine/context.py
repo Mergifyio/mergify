@@ -220,6 +220,15 @@ class Repository(object):
 
     # FIXME(sileht): https://github.com/python/mypy/issues/5723
     _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache, repr=False)  # type: ignore
+    log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
+
+    def __post_init__(self):
+        self.log = daiquiri.getLogger(
+            self.__class__.__qualname__,
+            gh_owner=self.installation.owner_login,
+            gh_repo=self.repo["name"],
+            gh_private=self.repo["private"],
+        )
 
     @property
     def base_url(self) -> str:

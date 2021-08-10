@@ -28,7 +28,7 @@ class LiveResolutionFailure(Exception):
 
 
 async def _resolve_login(
-    ctxt: context.Context, name: str
+    repository: context.Repository, name: str
 ) -> typing.List[github_types.GitHubLogin]:
     if not name:
         return []
@@ -42,7 +42,7 @@ async def _resolve_login(
         if not team_slug or "/" in team_slug:
             raise LiveResolutionFailure(f"Team `{name}` is invalid")
         organization = github_types.GitHubLogin(organization[1:])
-        expected_organization = ctxt.pull["base"]["repo"]["owner"]["login"]
+        expected_organization = repository.repo["owner"]["login"]
         if organization != expected_organization:
             raise LiveResolutionFailure(
                 f"Team `{name}` is not part of the organization `{expected_organization}`"
@@ -52,11 +52,11 @@ async def _resolve_login(
         team_slug = github_types.GitHubTeamSlug(name[1:])
 
     try:
-        return await ctxt.repository.installation.get_team_members(team_slug)
+        return await repository.installation.get_team_members(team_slug)
     except http.HTTPNotFound:
         raise LiveResolutionFailure(f"Team `{name}` does not exist")
     except http.HTTPClientSideError as e:
-        ctxt.log.warning(
+        repository.log.warning(
             "fail to get the organization, team or members",
             team=name,
             status_code=e.status_code,
@@ -68,7 +68,7 @@ async def _resolve_login(
 
 
 async def teams(
-    ctxt: context.Context,
+    repository: context.Repository,
     values: typing.Optional[typing.Union[typing.List[str], typing.Tuple[str], str]],
 ) -> typing.List[github_types.GitHubLogin]:
 
@@ -80,6 +80,6 @@ async def teams(
 
     return list(
         itertools.chain.from_iterable(
-            [await _resolve_login(ctxt, value) for value in values]
+            [await _resolve_login(repository, value) for value in values]
         )
     )

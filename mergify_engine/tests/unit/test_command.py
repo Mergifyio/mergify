@@ -112,7 +112,9 @@ async def _create_context(redis_cache, client):
 
     installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
 
-    repository = context.Repository(installation, {"name": "demo", "id": 123})
+    repository = context.Repository(
+        installation, {"name": "demo", "id": 123, "private": True}
+    )
 
     return await context.Context.create(
         repository,

@@ -93,7 +93,9 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         return
 
     pull_request = await car.get_pull_request_to_evaluate()
-    evaluated_queue_rule = await queue_rule.get_pull_request_rule(ctxt, pull_request)
+    evaluated_queue_rule = await queue_rule.get_pull_request_rule(
+        ctxt.repository, ctxt.pull["base"]["ref"], [pull_request]
+    )
     await delayed_refresh.plan_next_refresh(ctxt, [evaluated_queue_rule], pull_request)
 
     unexpected_changes = await have_unexpected_changes(ctxt, car)
@@ -106,8 +108,8 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         real_status = status = check_api.Conclusion.PENDING
     else:
         real_status = status = await merge_base.get_rule_checks_status(
-            ctxt,
-            pull_request,
+            ctxt.log,
+            [pull_request],
             evaluated_queue_rule,
             unmatched_conditions_return_failure=False,
         )
