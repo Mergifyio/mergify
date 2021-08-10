@@ -408,6 +408,9 @@ class StreamProcessor:
             )
             return
         except vcr_errors_CannotOverwriteExistingCassetteException:
+            LOG.error(
+                "failed to process org bucket", gh_owner=owner_login, exc_info=True
+            )
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
             buckets = await self.redis_stream.zrangebyscore(
