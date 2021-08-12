@@ -99,7 +99,7 @@ def config_log() -> None:
     LOG.info("##########################################################")
 
 
-def setup_logging() -> None:
+def setup_logging(dump_config: bool = True) -> None:
     outputs = []
 
     if config.LOG_STDOUT:
@@ -135,4 +135,5 @@ def setup_logging() -> None:
         + [(name, "DEBUG") for name in config.LOG_DEBUG_LOGGER_NAMES]
     )
 
-    config_log()
+    if dump_config:
+        config_log()
