@@ -26,6 +26,7 @@ import tenacity
 from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_types
+from mergify_engine import json
 from mergify_engine import logs
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
@@ -126,16 +127,7 @@ async def count_and_send() -> None:
         await asyncio.sleep(12 * HOUR)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Report used seats")
-    parser.add_argument(
-        "--daemon",
-        "-d",
-        action="store_true",
-        help="Run as daemon and report usage regularly",
-    )
-    args = parser.parse_args()
-
+def report(args: argparse.Namespace) -> None:
     if args.daemon:
         logs.setup_logging()
         asyncio.run(count_and_send())
@@ -145,5 +137,25 @@ def main() -> None:
             LOG.error("on-premise subscription token missing")
         else:
             collaborators = asyncio.run(get_collaborators())
-            seats = count_seats(collaborators)
-            LOG.info("collaborators: %s", seats)
+            if args.json:
+                print(json.dumps(collaborators))
+            else:
+                seats = count_seats(collaborators)
+                LOG.info("collaborators: %s", seats)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Report used seats")
+    parser.add_argument(
+        "--daemon",
+        "-d",
+        action="store_true",
+        help="Run as daemon and report usage regularly",
+    )
+    parser.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Output detailed usage in JSON format",
+    )
+    return report(parser.parse_args())
