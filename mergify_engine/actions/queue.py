@@ -125,7 +125,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
@@ -150,7 +150,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             await car.update_summaries(
                 status, status, queue_rule_evaluated, will_be_reset=need_reset
             )
-        elif car and car.state == "created":
+        elif car and car.creation_state == "created":
             if not ctxt.has_been_only_refreshed():
                 # NOTE(sileht): It's not only refreshed, so we need to
                 # update the associated transient pull request.
@@ -195,7 +195,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # of refreshes between this PR and the transient one.
             q = await merge_train.Train.from_context(ctxt)
             car = q.get_car(ctxt)
-            if car and car.state == "created":
+            if car and car.creation_state == "created":
                 with utils.aredis_for_stream() as redis_stream:
                     await utils.send_refresh(
                         ctxt.repository.installation.redis,
@@ -265,7 +265,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         # * We are good to not wait user CIs list pull_request_rule but only in
         #   queue_rule
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
@@ -289,7 +289,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
