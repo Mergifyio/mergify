@@ -56,7 +56,7 @@ class TrainCarMatcher(typing.NamedTuple):
     user_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     initial_current_base_sha: github_types.SHAType
-    state: merge_train.TrainCarState
+    creation_state: merge_train.TrainCarState
     queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
 
 
@@ -73,7 +73,7 @@ class TestQueueAction(base.FunctionalTestBase):
             car.parent_pull_request_numbers == expected_car.parent_pull_request_numbers
         )
         assert car.initial_current_base_sha == expected_car.initial_current_base_sha
-        assert car.state == expected_car.state
+        assert car.creation_state == expected_car.creation_state
         assert car.queue_pull_request_number == expected_car.queue_pull_request_number
 
     @classmethod

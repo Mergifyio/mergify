@@ -87,7 +87,7 @@ class TrainCar:
     still_queued_embarked_pulls: typing.List[EmbarkedPull]
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     initial_current_base_sha: github_types.SHAType
-    state: TrainCarState = "pending"
+    creation_state: TrainCarState = "pending"
     queue_pull_request_number: typing.Optional[
         github_types.GitHubPullRequestNumber
     ] = dataclasses.field(default=None)
@@ -97,7 +97,7 @@ class TrainCar:
         still_queued_embarked_pulls: typing.List[EmbarkedPull]
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
         initial_current_base_sha: github_types.SHAType
-        state: TrainCarState
+        creation_state: TrainCarState
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
 
     def serialized(self) -> "TrainCar.Serialized":
@@ -106,7 +106,7 @@ class TrainCar:
             still_queued_embarked_pulls=self.still_queued_embarked_pulls,
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
-            state=self.state,
+            creation_state=self.creation_state,
             queue_pull_request_number=self.queue_pull_request_number,
         )
 
@@ -135,13 +135,18 @@ class TrainCar:
             ]
             still_queued_embarked_pulls = initial_embarked_pulls.copy()
 
+        if "creation_state" in data:
+            creation_state = data["creation_state"]
+        else:
+            creation_state = data["state"]  # type: ignore[typeddict-item]
+
         return cls(
             train,
             initial_embarked_pulls=initial_embarked_pulls,
             still_queued_embarked_pulls=still_queued_embarked_pulls,
             parent_pull_request_numbers=data["parent_pull_request_numbers"],
             initial_current_base_sha=data["initial_current_base_sha"],
-            state=data["state"],
+            creation_state=creation_state,
             queue_pull_request_number=data["queue_pull_request_number"],
         )
 
@@ -172,14 +177,17 @@ class TrainCar:
     async def get_pull_requests_to_evaluate(
         self,
     ) -> typing.List[context.BasePullRequest]:
-        if self.state == "updated":
+        if self.creation_state == "updated":
             if len(self.still_queued_embarked_pulls) != 1:
                 raise RuntimeError("multiple embarked_pulls but state==updated")
             ctxt = await self.train.repository.get_pull_request_context(
                 self.still_queued_embarked_pulls[0].user_pull_request_number
             )
             return [ctxt.pull_request]
-        elif self.state == "created" and self.queue_pull_request_number is not None:
+        elif (
+            self.creation_state == "created"
+            and self.queue_pull_request_number is not None
+        ):
             tmp_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
@@ -192,7 +200,7 @@ class TrainCar:
                 )
                 for ep in self.still_queued_embarked_pulls
             ]
-        elif self.state in "failed":
+        elif self.creation_state in "failed":
             # Will be splitted or dropped soon
             return [
                 (
@@ -206,11 +214,14 @@ class TrainCar:
             raise RuntimeError("Invalid state")
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
-        if self.state == "created" and self.queue_pull_request_number is not None:
+        if (
+            self.creation_state == "created"
+            and self.queue_pull_request_number is not None
+        ):
             return await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
-        elif self.state == "updated":
+        elif self.creation_state == "updated":
             if len(self.still_queued_embarked_pulls) != 1:
                 raise RuntimeError("multiple embarked_pulls but state==updated")
             return await self.train.repository.get_pull_request_context(
@@ -555,7 +566,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             for ep in self.still_queued_embarked_pulls
         ]
 
-        if self.state == "created":
+        if self.creation_state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
             summary += queue_summary + "\n"
 
@@ -609,7 +620,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             checks = await tmp_pull_ctxt.pull_check_runs
             statuses = await tmp_pull_ctxt.pull_statuses
             checked_pull = self.queue_pull_request_number
-        elif self.state == "updated":
+        elif self.creation_state == "updated":
             if len(self.still_queued_embarked_pulls) != 1:
                 raise RuntimeError("multiple embarked_pulls but state==updated")
             checks = await original_ctxts[0].pull_check_runs
@@ -691,7 +702,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 report,
             )
 
-            if self.state == "created":
+            if self.creation_state == "created":
                 # NOTE(sileht): refresh it, so the queue action will merge it and delete the
                 # tmp_pull_ctxt branch
                 with utils.aredis_for_stream() as redis_stream:
@@ -703,7 +714,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                         action="internal",
                     )
 
-        if self.state != "created":
+        if self.creation_state != "created":
             return
 
         if conclusion in [
@@ -1060,7 +1071,7 @@ class Train(queue.QueueBase):
             await self._slice_cars(new_queue_size)
 
         elif missing_cars > 0 and self._waiting_pulls:
-            if self._cars and self._cars[-1].state == "failed":
+            if self._cars and self._cars[-1].creation_state == "failed":
                 # NOTE(sileht): the last created pull request have failed, so don't create
                 # the next one, we wait it got removed from the queue
                 return
@@ -1118,10 +1129,10 @@ class Train(queue.QueueBase):
                     if should_be_updated:
                         # No need to create a pull request
                         await car.update_user_pull(queue_rule)
-                        car.state = "updated"
+                        car.creation_state = "updated"
                     else:
                         await car.create_pull(queue_rule)
-                        car.state = "created"
+                        car.creation_state = "created"
 
                 except TrainCarPullRequestCreationPostponed:
                     # NOTE(sileht): We can't create the tmp pull request, we will
@@ -1135,7 +1146,7 @@ class Train(queue.QueueBase):
                     # car.user_pull_request_number and refreshed it, so it will be removed
                     # from the train soon. We don't need to create remaining cars now.
                     # When this car will be removed the remaining one will be created
-                    car.state = "failed"
+                    car.creation_state = "failed"
                     return
 
     async def get_head_sha(self) -> github_types.SHAType:
