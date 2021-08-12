@@ -303,7 +303,9 @@ class GithubAppInstallationAuth(httpx.Auth):
 
 
 _T_get_auth = typing.Union[
-    GithubAppInstallationAuth, GithubActionAccessTokenAuth, GithubTokenAuth
+    GithubAppInstallationAuth,
+    GithubActionAccessTokenAuth,
+    GithubTokenAuth,
 ]
 
 
@@ -364,12 +366,10 @@ def _inject_options(func: typing.Any) -> typing.Any:
     return wrapper
 
 
-class AsyncGithubInstallationClient(http.AsyncClient):
-    auth: _T_get_auth
+class AsyncGithubClient(http.AsyncClient):
+    auth: typing.Union[github_app.GithubBearerAuth, _T_get_auth]
 
-    def __init__(self, auth: _T_get_auth):
-        self._requests: typing.List[typing.Tuple[str, str]] = []
-        self._requests_ratio: int = 1
+    def __init__(self, auth: typing.Union[github_app.GithubBearerAuth, _T_get_auth]):
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
@@ -390,6 +390,10 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 "Accept"
             ] = f"application/vnd.github.{api_version}-preview+json"
         if oauth_token:
+            if isinstance(self.auth, github_app.GithubBearerAuth):
+                raise TypeError(
+                    "oauth_token is not supported for GithubBearerAuth auth"
+                )
             kwargs["auth"] = GithubTokenAuth(
                 oauth_token, self.auth.owner, self.auth.owner_id
             )
@@ -515,6 +519,15 @@ class AsyncGithubInstallationClient(http.AsyncClient):
                 final_params = None
             else:
                 break
+
+
+class AsyncGithubInstallationClient(AsyncGithubClient):
+    auth: _T_get_auth
+
+    def __init__(self, auth: _T_get_auth):
+        self._requests: typing.List[typing.Tuple[str, str]] = []
+        self._requests_ratio: int = 1
+        super().__init__(auth=auth)
 
     async def request(self, method: str, url: str, *args: typing.Any, **kwargs: typing.Any) -> typing.Optional[httpx.Response]:  # type: ignore[override]
         reply = None

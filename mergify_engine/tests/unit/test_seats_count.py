@@ -14,11 +14,25 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from unittest import mock
+
+import pytest
+from pytest_httpserver import httpserver
 
 from mergify_engine import count_seats
-from mergify_engine.tests.functional import base
 
 
-class TestCountSeats(base.FunctionalTestBase):
-    async def test_count_seats(self):
-        assert await count_seats.count_seats() == 5
+@pytest.mark.asyncio
+async def test_send_seats(httpserver: httpserver.HTTPServer) -> None:
+    httpserver.expect_request(
+        "/on-premise/report", method="POST", json={"seats": 5}
+    ).respond_with_data("Accepted", status=201)
+    with mock.patch(
+        "mergify_engine.config.SUBSCRIPTION_BASE_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        await count_seats.send_seats(5)
+
+    assert len(httpserver.log) == 1
+
+    httpserver.check_assertions()
