@@ -36,6 +36,7 @@ payload_decoded = {
     "datetime_aware": datetime.datetime(
         2021, 5, 15, 8, 41, 36, 796485, tzinfo=datetime.timezone.utc
     ),
+    "a set": {1, 2, 3},
 }
 
 payload_encoded = {
@@ -51,6 +52,10 @@ payload_encoded = {
     "datetime_aware": {
         "__pytype__": "datetime.datetime",
         "value": "2021-05-15T08:41:36.796485+00:00",
+    },
+    "a set": {
+        "__pytype__": "set",
+        "value": [1, 2, 3],
     },
 }
 
