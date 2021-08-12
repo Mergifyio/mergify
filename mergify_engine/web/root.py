@@ -327,7 +327,9 @@ async def queues(
             train = typing.cast(merge_train.Train.Serialized, json.loads(train_raw))
             _, _, repo_id, branch = queue.split("~")
             queues[repo_id][branch] = [
-                int(c["user_pull_request_number"]) for c in train["cars"]
+                int(ep[0])
+                for c in train["cars"]
+                for ep in c["still_queued_embarked_pulls"]
             ] + [int(wp[0]) for wp in train["waiting_pulls"]]
 
     return responses.JSONResponse(status_code=200, content=queues)

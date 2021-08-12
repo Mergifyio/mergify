@@ -78,25 +78,34 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     ctxt.log.info(
         "handling train car temporary pull request event",
         sources=ctxt.sources,
-        gh_pull_queued=car.user_pull_request_number,
+        gh_pulls_queued=[
+            ep.user_pull_request_number for ep in car.still_queued_embarked_pulls
+        ],
     )
 
+    queue_name = car.still_queued_embarked_pulls[0].config["name"]
     try:
-        queue_rule = queue_rules[car.config["name"]]
+        queue_rule = queue_rules[queue_name]
     except KeyError:
         ctxt.log.warning(
             "queue_rule not found for this train car",
-            gh_pull_queued=car.user_pull_request_number,
+            gh_pulls_queued=[
+                ep.user_pull_request_number for ep in car.still_queued_embarked_pulls
+            ],
             queue_rules=queue_rules,
-            queue_name=car.config["name"],
+            queue_name=queue_name,
         )
         return
 
-    pull_request = await car.get_pull_request_to_evaluate()
+    pull_requests = await car.get_pull_requests_to_evaluate()
     evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-        ctxt.repository, ctxt.pull["base"]["ref"], [pull_request]
+        ctxt.repository, ctxt.pull["base"]["ref"], pull_requests
     )
-    await delayed_refresh.plan_next_refresh(ctxt, [evaluated_queue_rule], pull_request)
+
+    for pull_request in pull_requests:
+        await delayed_refresh.plan_next_refresh(
+            ctxt, [evaluated_queue_rule], pull_request
+        )
 
     unexpected_changes = await have_unexpected_changes(ctxt, car)
     if unexpected_changes:
@@ -121,7 +130,9 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
-        gh_pull_queued=car.user_pull_request_number,
+        gh_pull_queued=[
+            ep.user_pull_request_number for ep in car.still_queued_embarked_pulls
+        ],
         evaluated_queue_rule=evaluated_queue_rule.conditions.get_summary(),
         unexpected_changes=unexpected_changes,
         reseted=need_reset,
@@ -139,7 +150,10 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
 
     if need_reset:
         ctxt.log.info(
-            "train will be reset", gh_pull_queued=car.user_pull_request_number
+            "train will be reset",
+            gh_pull_queued=[
+                ep.user_pull_request_number for ep in car.still_queued_embarked_pulls
+            ],
         )
         await train.reset()
 
