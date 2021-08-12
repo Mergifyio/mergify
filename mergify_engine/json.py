@@ -42,6 +42,11 @@ class Encoder(json.JSONEncoder):
                 "__pytype__": "datetime.datetime",
                 "value": v.isoformat(),
             }
+        elif isinstance(v, set):
+            return {
+                "__pytype__": "set",
+                "value": list(v),
+            }
         else:
             return super().default(v)
 
@@ -61,6 +66,8 @@ def _decode(v: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
         return enum_cls[enum_name]
     elif v.get("__pytype__") == "datetime.datetime":
         return datetime.datetime.fromisoformat(v["value"])
+    elif v.get("__pytype__") == "set":
+        return set(v["value"])
     return v
 
 
