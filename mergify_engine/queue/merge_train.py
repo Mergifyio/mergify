@@ -184,10 +184,12 @@ class TrainCar:
                 self.still_queued_embarked_pulls[0].user_pull_request_number
             )
             return [ctxt.pull_request]
-        elif (
-            self.creation_state == "created"
-            and self.queue_pull_request_number is not None
-        ):
+        elif self.creation_state == "created":
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    "car state is created, but queue_pull_request_number is None"
+                )
+
             tmp_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
@@ -200,7 +202,7 @@ class TrainCar:
                 )
                 for ep in self.still_queued_embarked_pulls
             ]
-        elif self.creation_state in "failed":
+        elif self.creation_state == "failed":
             # Will be splitted or dropped soon
             return [
                 (
@@ -211,7 +213,7 @@ class TrainCar:
                 for ep in self.still_queued_embarked_pulls
             ]
         else:
-            raise RuntimeError("Invalid state")
+            raise RuntimeError(f"Invalid state: {self.creation_state}")
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
         if (
@@ -235,6 +237,9 @@ class TrainCar:
         # TODO(sileht): rework branch_updater to be able to use it here.
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
+
+        self.creation_state = "updated"
+
         ctxt = await self.train.repository.get_pull_request_context(
             self.still_queued_embarked_pulls[0].user_pull_request_number
         )
@@ -268,7 +273,7 @@ class TrainCar:
                         error=exc.message,
                     )
                     return
-            await self._report_failure(exc.message, "update")
+            await self._set_creation_failure(exc.message, "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
@@ -291,6 +296,8 @@ class TrainCar:
     ) -> None:
         branch_name = f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self._get_pulls_branch_ref()}"
 
+        self.creation_state = "created"
+
         try:
             await self.train.repository.installation.client.post(
                 f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
@@ -304,10 +311,10 @@ class TrainCar:
                 try:
                     await self._delete_branch()
                 except http.HTTPClientSideError as exc_patch:
-                    await self._report_failure(exc_patch.message)
+                    await self._set_creation_failure(exc_patch.message)
                     raise TrainCarPullRequestCreationFailure(self) from exc_patch
             else:
-                await self._report_failure(exc.message)
+                await self._set_creation_failure(exc.message)
                 raise TrainCarPullRequestCreationFailure(self) from exc
 
         for pull_number in self.parent_pull_request_numbers + [
@@ -338,7 +345,7 @@ class TrainCar:
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationPostponed(self) from e
                 else:
-                    await self._report_failure(e.message)
+                    await self._set_creation_failure(e.message)
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
@@ -360,25 +367,14 @@ class TrainCar:
                 )
             ).json()
         except http.HTTPClientSideError as e:
-            await self._report_failure(e.message)
+            await self._set_creation_failure(e.message)
             raise TrainCarPullRequestCreationFailure(self) from e
 
         self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
             tmp_pull["number"]
         )
 
-        tmp_ctxt = await self.train.repository.get_pull_request_context(
-            self.queue_pull_request_number
-        )
-        queue_pull_requests: typing.List[context.BasePullRequest] = [
-            context.QueuePullRequest(
-                await self.train.repository.get_pull_request_context(
-                    ep.user_pull_request_number
-                ),
-                tmp_ctxt,
-            )
-            for ep in self.still_queued_embarked_pulls
-        ]
+        queue_pull_requests = await self.get_pull_requests_to_evaluate()
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
             self.train.repository, self.train.ref, queue_pull_requests
         )
@@ -483,11 +479,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
             else:
                 raise
 
-    async def _report_failure(
+    async def _set_creation_failure(
         self,
         details: str,
         operation: typing.Literal["created", "update"] = "created",
     ) -> None:
+        self.creation_state = "failed"
+
         title = "This pull request cannot be embarked for merge"
 
         if self.queue_pull_request_number is None:
@@ -1121,7 +1119,7 @@ class Train(queue.QueueBase):
                             queue_rules=queue_rules,
                             queue_name=queue_rule_name,
                         )
-                        await car._report_failure(
+                        await car._set_creation_failure(
                             f"queue named `{queue_rule_name}` does not exists anymore"
                         )
                         raise TrainCarPullRequestCreationFailure(car)
@@ -1129,10 +1127,8 @@ class Train(queue.QueueBase):
                     if should_be_updated:
                         # No need to create a pull request
                         await car.update_user_pull(queue_rule)
-                        car.creation_state = "updated"
                     else:
                         await car.create_pull(queue_rule)
-                        car.creation_state = "created"
 
                 except TrainCarPullRequestCreationPostponed:
                     # NOTE(sileht): We can't create the tmp pull request, we will
@@ -1146,7 +1142,6 @@ class Train(queue.QueueBase):
                     # car.user_pull_request_number and refreshed it, so it will be removed
                     # from the train soon. We don't need to create remaining cars now.
                     # When this car will be removed the remaining one will be created
-                    car.creation_state = "failed"
                     return
 
     async def get_head_sha(self) -> github_types.SHAType:
