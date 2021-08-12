@@ -16,13 +16,16 @@
 
 import argparse
 import asyncio
+import collections
 import datetime
+import typing
 
 import daiquiri
 import tenacity
 
 from mergify_engine import config
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
@@ -34,25 +37,48 @@ LOG = daiquiri.getLogger(__name__)
 HOUR = datetime.timedelta(hours=1).total_seconds()
 
 
-async def count_seats() -> int:
+CollaboratorsT = typing.Dict[
+    github_types.GitHubLogin,  # org name
+    typing.Dict[
+        github_types.GitHubRepositoryName, typing.Set[github_types.GitHubLogin]
+    ],
+]
+
+
+def count_seats(collaborators: CollaboratorsT) -> int:
     all_collaborators = set()
+    for repos in collaborators.values():
+        for repo_collabs in repos.values():
+            all_collaborators |= repo_collabs
+    return len(all_collaborators)
+
+
+async def get_collaborators() -> CollaboratorsT:
+    all_collaborators: CollaboratorsT = collections.defaultdict(
+        lambda: collections.defaultdict(set)
+    )
     async with github.AsyncGithubClient(
         auth=github_app.GithubBearerAuth(),
     ) as app_client:
         async for installation in app_client.items("/app/installations"):
+            installation = typing.cast(github_types.GitHubInstallation, installation)
+            orgname = installation["account"]["login"]
             async with github.aget_client(
-                installation["account"]["login"], installation["account"]["id"]
+                orgname, installation["account"]["id"]
             ) as client:
                 async for repository in client.items(
                     "/installation/repositories", list_items="repositories"
                 ):
+                    repository = typing.cast(github_types.GitHubRepository, repository)
                     async for collaborator in client.items(
                         f"{repository['url']}/collaborators"
                     ):
                         if collaborator["permissions"]["push"]:
-                            all_collaborators.add(collaborator["login"])
+                            all_collaborators[orgname][repository["name"]].add(
+                                collaborator["login"]
+                            )
 
-    return len(all_collaborators)
+    return all_collaborators
 
 
 @tenacity.retry(
@@ -87,7 +113,7 @@ async def count_and_send() -> None:
             LOG.info("on-premise subscription token missing, nothing to do.")
         else:
             try:
-                seats = await count_seats()
+                seats = count_seats(await get_collaborators())
             except Exception:
                 LOG.error("failed to count seats", exc_info=True)
             else:
@@ -118,5 +144,6 @@ def main() -> None:
         if config.SUBSCRIPTION_TOKEN is None:
             LOG.error("on-premise subscription token missing")
         else:
-            seats = asyncio.run(count_seats())
+            collaborators = asyncio.run(get_collaborators())
+            seats = count_seats(collaborators)
             LOG.info("collaborators: %s", seats)
