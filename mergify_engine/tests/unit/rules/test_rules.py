@@ -63,6 +63,32 @@ def test_invalid_condition_re():
         rules.RuleCondition("head~=(bar")
 
 
+@pytest.mark.asyncio
+async def test_multiple_pulls_to_match():
+    c = rules.RuleCondition("base=master")
+    assert await c(mock.Mock(base="master"))
+    c = c.copy()
+    assert not await c(mock.Mock(base="main"))
+    c = c.copy()
+    assert await c([mock.Mock(base="master")])
+    c = c.copy()
+    assert not await c([mock.Mock(base="main")])
+    c = c.copy()
+    assert await c([mock.Mock(base="master"), mock.Mock(base="master")])
+    c = c.copy()
+    assert await c(
+        [
+            mock.Mock(base="master"),
+            mock.Mock(base="master"),
+            mock.Mock(base="master"),
+        ]
+    )
+    c = c.copy()
+    assert not await c(
+        [mock.Mock(base="master"), mock.Mock(base="main"), mock.Mock(base="master")]
+    )
+
+
 @pytest.mark.parametrize(
     "valid",
     (

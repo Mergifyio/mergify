@@ -115,8 +115,7 @@ class RuleCondition:
             raise RuntimeError("RuleCondition cannot be reused")
         self._used = True
         try:
-            matches = [await self.partial_filter(obj) for obj in objs] + [True]
-            self.match = operator.and_(*matches)
+            self.match = all([await self.partial_filter(obj) for obj in objs])
         except live_resolvers.LiveResolutionFailure as e:
             self.match = False
             self.evaluation_error = e.reason
@@ -175,13 +174,17 @@ class RuleConditionGroup:
         if self._used:
             raise RuntimeError("RuleConditionGroup cannot be re-used")
         self._used = True
-        matches = [
-            await filter.BinaryFilter(
-                typing.cast(filter.TreeT, {self.operator: self.conditions})
-            )(obj)
-            for obj in objs
-        ] + [True]
-        self.match = operator.and_(*matches)
+        self.match = all(
+            [
+                await filter.BinaryFilter(
+                    typing.cast(
+                        filter.TreeT,
+                        {self.operator: [c.copy() for c in self.conditions]},
+                    )
+                )(obj)
+                for obj in objs
+            ]
+        )
         return self.match
 
     def extract_raw_filter_tree(
