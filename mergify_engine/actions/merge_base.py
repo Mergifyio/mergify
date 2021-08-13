@@ -204,10 +204,6 @@ class MergeBaseAction(actions.Action):
         pass
 
     @abc.abstractmethod
-    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
-        pass
-
-    @abc.abstractmethod
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> str:
@@ -250,10 +246,11 @@ class MergeBaseAction(actions.Action):
 
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
-    async def run(
+    async def _run(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
+        q: queue.QueueBase,
     ) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
@@ -292,8 +289,6 @@ class MergeBaseAction(actions.Action):
         self._set_effective_priority(ctxt)
 
         ctxt.log.info("merge/queue action with config", config=self.config)
-
-        q = await self._get_queue(ctxt)
 
         report = await self.merge_report(ctxt)
         if report is not None:
@@ -335,10 +330,11 @@ class MergeBaseAction(actions.Action):
             await q.remove_pull(ctxt)
         return result
 
-    async def cancel(
+    async def _cancel(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
+        q: queue.QueueBase,
     ) -> check_api.Result:
         try:
             merge_bot_account = await action_utils.render_bot_account(
@@ -367,7 +363,6 @@ class MergeBaseAction(actions.Action):
 
         self._set_effective_priority(ctxt)
 
-        q = await self._get_queue(ctxt)
         output = await self.merge_report(ctxt)
         if output:
             await q.remove_pull(ctxt)
