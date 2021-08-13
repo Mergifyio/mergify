@@ -60,6 +60,7 @@ class RuleCondition:
         self.update(self.condition)
 
     def update(self, condition_raw: typing.Union[str, FakeTreeT]) -> None:
+        self.condition = condition_raw
         try:
             if isinstance(condition_raw, str):
                 condition = parser.search.parseString(condition_raw, parseAll=True)[0]
@@ -99,24 +100,12 @@ class RuleCondition:
         rc.partial_filter.value_expanders = self.partial_filter.value_expanders
         return rc
 
-    async def __call__(
-        self,
-        obj_or_pull_requests: typing.Union[
-            filter.GetAttrObjectT, typing.List[context.BasePullRequest]
-        ],
-    ) -> bool:
-        objs: typing.List[filter.GetAttrObjectT]
-        if isinstance(obj_or_pull_requests, list):
-            objs = typing.cast(typing.List[filter.GetAttrObjectT], obj_or_pull_requests)
-        else:
-            objs = [obj_or_pull_requests]
-
+    async def __call__(self, obj: filter.GetAttrObjectT) -> bool:
         if self._used:
             raise RuntimeError("RuleCondition cannot be reused")
         self._used = True
         try:
-            matches = [await self.partial_filter(obj) for obj in objs] + [True]
-            self.match = operator.and_(*matches)
+            self.match = await self.partial_filter(obj)
         except live_resolvers.LiveResolutionFailure as e:
             self.match = False
             self.evaluation_error = e.reason
@@ -162,26 +151,17 @@ class RuleConditionGroup:
 
     async def __call__(
         self,
-        obj_or_pull_requests: typing.Union[
-            filter.GetAttrObjectT, typing.List[context.BasePullRequest]
-        ],
+        obj: filter.GetAttrObjectT,
     ) -> bool:
-        objs: typing.List[filter.GetAttrObjectT]
-        if isinstance(obj_or_pull_requests, list):
-            objs = typing.cast(typing.List[filter.GetAttrObjectT], obj_or_pull_requests)
-        else:
-            objs = [obj_or_pull_requests]
-
         if self._used:
             raise RuntimeError("RuleConditionGroup cannot be re-used")
         self._used = True
-        matches = [
-            await filter.BinaryFilter(
-                typing.cast(filter.TreeT, {self.operator: self.conditions})
-            )(obj)
-            for obj in objs
-        ] + [True]
-        self.match = operator.and_(*matches)
+        self.match = await filter.BinaryFilter(
+            typing.cast(
+                filter.TreeT,
+                {self.operator: self.conditions},
+            )
+        )(obj)
         return self.match
 
     def extract_raw_filter_tree(
@@ -269,10 +249,66 @@ class RuleConditionGroup:
         return self._walk_for_summary(self.conditions)
 
 
-def RuleConditions(
-    conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]]
-) -> RuleConditionGroup:
-    return RuleConditionGroup({"and": conditions})
+@dataclasses.dataclass
+class QueueRuleConditions:
+    conditions: dataclasses.InitVar[
+        typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
+    ]
+    condition: RuleConditionGroup = dataclasses.field(init=False)
+    _evaluated_conditions: typing.List[
+        typing.Tuple[context.BasePullRequest, RuleConditionGroup]
+    ] = dataclasses.field(default_factory=list, init=False, repr=False)
+    match: bool = dataclasses.field(init=False, default=False)
+    _used: bool = dataclasses.field(init=False, default=False)
+
+    def __post_init__(
+        self,
+        conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
+    ) -> None:
+        self.condition = RuleConditionGroup({"and": conditions})
+
+    def copy(self) -> "QueueRuleConditions":
+        return QueueRuleConditions(self.condition.copy().conditions)
+
+    def extract_raw_filter_tree(self) -> filter.TreeT:
+        return self.condition.extract_raw_filter_tree()
+
+    async def __call__(
+        self, pull_requests: typing.List[context.BasePullRequest]
+    ) -> bool:
+        if self._used:
+            raise RuntimeError("QueueRuleConditions cannot be re-used")
+        self._used = True
+
+        for pull in pull_requests:
+            c = self.condition.copy()
+            await c(pull)
+            self._evaluated_conditions.append((pull, c))
+
+        self.match = all(c.match for p, c in self._evaluated_conditions)
+        return self.match
+
+    def get_summary(self) -> str:
+        if self._used:
+            # TODO(sileht): Improve the summary for batch
+            return self._evaluated_conditions[0][1].get_summary()
+        else:
+            return self.condition.get_summary()
+
+    def is_faulty(self) -> bool:
+        if self._used:
+            return any(c.is_faulty() for p, c in self._evaluated_conditions)
+        else:
+            return self.condition.is_faulty()
+
+    def walk(self) -> typing.Iterator[RuleCondition]:
+        if self._used:
+            for _, conditions in self._evaluated_conditions:
+                for cond in conditions.walk():
+                    yield cond
+        else:
+            for cond in self.condition.walk():
+                yield cond
 
 
 async def get_branch_protection_conditions(
@@ -313,19 +349,60 @@ class DisabledDict(typing.TypedDict):
     reason: str
 
 
+@dataclasses.dataclass
+class PullRequestRuleConditions:
+    conditions: dataclasses.InitVar[
+        typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
+    ]
+    condition: RuleConditionGroup = dataclasses.field(init=False)
+
+    def __post_init__(
+        self,
+        conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
+    ) -> None:
+        self.condition = RuleConditionGroup({"and": conditions})
+
+    async def __call__(self, objs: typing.List[context.BasePullRequest]) -> bool:
+        if len(objs) > 1:
+            raise RuntimeError(
+                "PullRequestRuleConditions take only one pull request at a time"
+            )
+        return await self.condition(objs[0])
+
+    def extract_raw_filter_tree(self) -> filter.TreeT:
+        return self.condition.extract_raw_filter_tree()
+
+    def get_summary(self) -> str:
+        return self.condition.get_summary()
+
+    @property
+    def match(self) -> bool:
+        return self.condition.match
+
+    def is_faulty(self) -> bool:
+        return self.condition.is_faulty()
+
+    def walk(self) -> typing.Iterator[RuleCondition]:
+        for cond in self.condition.walk():
+            yield cond
+
+    def copy(self) -> "PullRequestRuleConditions":
+        return PullRequestRuleConditions(self.condition.copy().conditions)
+
+
 # TODO(sileht): rename me PullRequestRule ?
 @dataclasses.dataclass
 class Rule:
     name: str
     disabled: typing.Union[DisabledDict, None]
-    conditions: RuleConditionGroup
+    conditions: PullRequestRuleConditions
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
 
     class T_from_dict_required(typing.TypedDict):
         name: str
         disabled: typing.Union[DisabledDict, None]
-        conditions: RuleConditionGroup
+        conditions: PullRequestRuleConditions
         actions: typing.Dict[str, actions.Action]
 
     class T_from_dict(T_from_dict_required, total=False):
@@ -353,12 +430,12 @@ QueueName = typing.NewType("QueueName", str)
 @dataclasses.dataclass
 class QueueRule:
     name: QueueName
-    conditions: RuleConditionGroup
+    conditions: QueueRuleConditions
     config: QueueConfig
 
     class T_from_dict(QueueConfig, total=False):
         name: QueueName
-        conditions: RuleConditionGroup
+        conditions: QueueRuleConditions
 
     @classmethod
     def from_dict(cls, d: T_from_dict) -> "QueueRule":
@@ -377,8 +454,9 @@ class QueueRule:
         )
         queue_rule_with_branch_protection = QueueRule(
             self.name,
-            RuleConditions(
-                self.conditions.copy().conditions + branch_protection_conditions
+            QueueRuleConditions(
+                self.conditions.condition.copy().conditions
+                + branch_protection_conditions
             ),
             self.config,
         )
@@ -548,8 +626,8 @@ class PullRequestRules:
                         Rule(
                             name=rule.name,
                             disabled=rule.disabled,
-                            conditions=RuleConditions(
-                                rule.conditions.copy().conditions
+                            conditions=PullRequestRuleConditions(
+                                rule.conditions.condition.copy().conditions
                                 + branch_protection_conditions
                                 + depends_on_conditions
                             ),
@@ -686,7 +764,7 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
                     voluptuous.Required("hidden", default=False): bool,
                     voluptuous.Required("conditions"): voluptuous.All(
                         [voluptuous.Coerce(RuleConditionSchema)],
-                        voluptuous.Coerce(RuleConditions),
+                        voluptuous.Coerce(PullRequestRuleConditions),
                     ),
                     voluptuous.Required("actions"): actions.get_action_schemas(
                         partial_validation
@@ -706,7 +784,7 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("name"): str,
                 voluptuous.Required("conditions"): voluptuous.All(
                     [voluptuous.Coerce(RuleConditionSchema)],
-                    voluptuous.Coerce(RuleConditions),
+                    voluptuous.Coerce(QueueRuleConditions),
                 ),
                 voluptuous.Required("speculative_checks", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
