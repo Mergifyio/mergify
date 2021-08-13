@@ -108,6 +108,16 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 ),
             )
 
+        elif self.queue_rule.config[
+            "batch_size"
+        ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
+            return check_api.Result(
+                check_api.Conclusion.ACTION_REQUIRED,
+                "Queue with `batch_size` set is unavailable.",
+                ctxt.subscription.missing_feature_reason(
+                    ctxt.pull["base"]["repo"]["owner"]["login"]
+                ),
+            )
         elif self.config[
             "priority"
         ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
@@ -159,6 +169,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             await car.update_summaries(
                 status, status, queue_rule_evaluated, will_be_reset=need_reset
             )
+            await q.save()
         elif car and car.creation_state == "created":
             if not ctxt.has_been_only_refreshed():
                 # NOTE(sileht): It's not only refreshed, so we need to

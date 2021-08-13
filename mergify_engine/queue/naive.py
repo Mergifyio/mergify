@@ -77,7 +77,7 @@ class Queue(queue.QueueBase):
                     "update_method": "merge",
                     "name": rules.QueueName(""),
                     "queue_config": rules.QueueConfig(
-                        {"priority": 1, "speculative_checks": 1}
+                        {"priority": 1, "speculative_checks": 1, "batch_size": 1}
                     ),
                 }
             )

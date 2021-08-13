@@ -122,10 +122,14 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
             evaluated_queue_rule,
             unmatched_conditions_return_failure=False,
         )
-        if (
-            real_status == check_api.Conclusion.FAILURE
-            and not await car.has_previous_car_status_succeed()
+        if real_status == check_api.Conclusion.FAILURE and (
+            not car.has_previous_car_status_succeeded()
+            or len(car.initial_embarked_pulls) != 1
         ):
+            # NOTE(sileht): we can't set it as failed as we don't known
+            # yet which pull request is responsible for the failure.
+            # * one of the batch ?
+            # * one of the parent car ?
             status = check_api.Conclusion.PENDING
 
     ctxt.log.info(
@@ -147,6 +151,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         evaluated_queue_rule=evaluated_queue_rule,
         will_be_reset=need_reset,
     )
+    await train.save()
 
     if need_reset:
         ctxt.log.info(

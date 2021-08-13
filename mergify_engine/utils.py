@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 import hashlib
 import hmac
+import math
 import os
 import socket
 import ssl
@@ -220,3 +221,15 @@ async def send_refresh(
     await github_events.filter_and_dispatch(
         redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
     )
+
+
+_T = typing.TypeVar("_T")
+
+
+def split_list(
+    remaining: typing.List[_T], part: int
+) -> typing.Generator[typing.List[_T], None, None]:
+    size = math.ceil(len(remaining) / part)
+    while remaining:
+        yield remaining[:size]
+        remaining = remaining[size:]

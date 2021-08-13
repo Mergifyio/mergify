@@ -19,6 +19,7 @@ import typing
 
 from mergify_engine import date
 from mergify_engine import github_types
+from mergify_engine import json
 from mergify_engine import utils
 
 
@@ -65,6 +66,9 @@ class Conclusion(enum.Enum):
     NEUTRAL = "neutral"
     STALE = "stale"
     ACTION_REQUIRED = "action_required"
+
+
+json.register_type(Conclusion)
 
 
 @dataclasses.dataclass

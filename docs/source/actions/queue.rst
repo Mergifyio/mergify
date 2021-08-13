@@ -298,6 +298,13 @@ A ``queue_rules`` takes the following parameter:
        between 1 and 20.
        See :ref:`speculative checks`.
 
+   * - ``batch_size``
+     - int
+     - 1
+     - |premium plan tag| The maximum number of pull requests per speculative check in the queue. Must be
+       between 1 and 20.
+       See :ref:`speculative checks`.
+
 .. note::
 
    |premium plan tag|
@@ -393,14 +400,14 @@ checks <speculative checks>`. This will allow Mergify to trigger multiple runs
 of the CI in parallel.
 
 In the following example, by setting the ``speculative_checks`` option to
-``3``, Mergify will create up to new 2 pull requests to check if the first
+``2``, Mergify will create up to 2 new pull requests to check if the first
 three enqueued pull requests are mergeable.
 
 .. code-block:: yaml
 
     queue_rules:
       - name: default
-        speculative_checks: 3
+        speculative_checks: 2
         conditions:
           - check-success=Travis CI - Pull Request
 
@@ -413,6 +420,34 @@ three enqueued pull requests are mergeable.
         actions:
           queue:
             name: default
+
+Multiple pull requests can be checked within one speculative check by settings
+``batch_size``.
+
+For example, by settings ``speculative_checks: 2`` and ``batch_size: 3``,
+Mergify will create two pull requests: a first one to check if the first three
+enqueued pull requests are mergeable, and a second one to check the three next
+enqueued pull requests.
+
+.. code-block:: yaml
+
+    queue_rules:
+      - name: default
+        speculative_checks: 2
+        batch_size: 2
+        conditions:
+          - check-success=Travis CI - Pull Request
+
+    pull_request_rules:
+      - name: merge using the merge queue and speculative checks
+        conditions:
+          - base=main
+          - "#approved-reviews-by>=2"
+          - check-success=Travis CI - Pull Request
+        actions:
+          queue:
+            name: default
+
 
 .. _merge-depends-on:
 

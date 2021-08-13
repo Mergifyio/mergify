@@ -66,6 +66,7 @@ EvaluatedRule = typing.NewType("EvaluatedRule", PullRequestRule)
 class QueueConfig(typing.TypedDict):
     priority: int
     speculative_checks: int
+    batch_size: int
 
 
 EvaluatedQueueRule = typing.NewType("EvaluatedQueueRule", "QueueRule")
@@ -436,6 +437,9 @@ QueueRulesSchema = voluptuous.All(
                     voluptuous.Coerce(conditions.QueueRuleConditions),
                 ),
                 voluptuous.Required("speculative_checks", default=1): voluptuous.All(
+                    int, voluptuous.Range(min=1, max=20)
+                ),
+                voluptuous.Required("batch_size", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
             },

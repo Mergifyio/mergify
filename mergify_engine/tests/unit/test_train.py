@@ -23,6 +23,7 @@ from unittest import mock
 import pytest
 import voluptuous
 
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
@@ -74,6 +75,15 @@ queue_rules:
   - name: five
     conditions: []
     speculative_checks: 5
+  - name: 5x3
+    conditions: []
+    speculative_checks: 5
+    batch_size: 3
+  - name: 2x5
+    conditions: []
+    speculative_checks: 2
+    batch_size: 5
+
 """
 
 QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
@@ -83,6 +93,8 @@ QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
 
 @pytest.fixture
 def fake_client():
+    branch = {"commit": {"sha": "sha1"}}
+
     def item_call(url, *args, **kwargs):
         if url == "/repos/user/name/contents/.mergify.yml":
             return {
@@ -92,12 +104,20 @@ def fake_client():
                 "path": ".mergify.yml",
             }
         elif url == "repos/user/name/branches/branch":
-            return {"commit": {"sha": "sha1"}}
-        else:
-            raise Exception(f"url not mocked: {url}")
+            return branch
+
+        for i in range(40, 49):
+            if url.startswith(f"/repos/user/name/pulls/{i}"):
+                return {"merged": True, "merge_commit_sha": f"sha{i}"}
+
+        raise Exception(f"url not mocked: {url}")
+
+    def update_base_sha(sha):
+        branch["commit"]["sha"] = sha
 
     client = mock.Mock()
     client.item = mock.AsyncMock(side_effect=item_call)
+    client.update_base_sha = update_base_sha
     return client
 
 
@@ -689,3 +709,243 @@ def test_train_batch_split():
     assert ([], [p1_two, p2_two, p3_two, p4_five]) == t._get_next_batch(
         [p1_two, p2_two, p3_two, p4_five], "five", 10
     )
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_splitted_on_failure_2x5(
+    report_failure,
+    repository,
+    monkepatched_traincar,
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    for i in range(41, 46):
+        await t.add_pull(await fake_context(repository, i), get_config("2x5", 1000))
+    for i in range(6, 20):
+        await t.add_pull(await fake_context(repository, i), get_config("2x5", 1000))
+
+    await t.refresh()
+    assert [
+        [41, 42, 43, 44, 45],
+        [41, 42, 43, 44, 45, 6, 7, 8, 9, 10],
+    ] == get_cars_content(t)
+    assert list(range(11, 20)) == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    assert [
+        [41, 42, 43, 44, 45],
+        [41, 42, 43, 44, 45, 6, 7, 8, 9, 10],
+    ] == get_cars_content(t)
+    assert list(range(11, 20)) == get_waiting_content(t)
+
+    await t.load()
+    await t.refresh()
+    assert [
+        [41, 42],
+        [41, 42, 43, 44],
+        [41, 42, 43, 44, 45],
+    ] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+
+    # mark [43+44] as failed
+    t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+
+    # nothing should move yet as we don't known yet if [41+42] is broken or not
+    await t.refresh()
+    assert [
+        [41, 42],
+        [41, 42, 43, 44],
+        [41, 42, 43, 44, 45],
+    ] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+
+    # mark [41+42] as ready and merge it
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    await t.save()
+    repository.installation.client.update_base_sha("sha41")
+    await t.remove_pull(
+        await fake_context(repository, 41, merged=True, merge_commit_sha="sha41")
+    )
+    repository.installation.client.update_base_sha("sha42")
+    await t.remove_pull(
+        await fake_context(repository, 42, merged=True, merge_commit_sha="sha42")
+    )
+
+    # [43+44] fail, so it's not 45, but is it 43 or 44?
+    await t.refresh()
+    assert [
+        [41, 42, 43],
+        [41, 42, 43, 44],
+    ] == get_cars_content(t)
+    assert [45] + list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 2
+    assert len(t._cars[1].failure_history) == 1
+
+    # mark [43] as failure
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    await t.remove_pull(await fake_context(repository, 43, merged=False))
+
+    # Train got cut after 43, and we restart from the begining
+    await t.refresh()
+    assert [
+        [44, 45, 6, 7, 8],
+        [44, 45, 6, 7, 8, 9, 10, 11, 12, 13],
+    ] == get_cars_content(t)
+    assert list(range(14, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 0
+    assert len(t._cars[1].failure_history) == 0
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_splitted_on_failure_5x3(
+    report_failure,
+    repository,
+    monkepatched_traincar,
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    for i in range(41, 47):
+        await t.add_pull(await fake_context(repository, i), get_config("5x3", 1000))
+    for i in range(7, 22):
+        await t.add_pull(await fake_context(repository, i), get_config("5x3", 1000))
+
+    await t.refresh()
+    assert [
+        [41, 42, 43],
+        [41, 42, 43, 44, 45, 46],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    ] == get_cars_content(t)
+    assert list(range(16, 22)) == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    assert [
+        [41, 42, 43],
+        [41, 42, 43, 44, 45, 46],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12],
+        [41, 42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    ] == get_cars_content(t)
+    assert list(range(16, 22)) == get_waiting_content(t)
+
+    await t.load()
+    await t.refresh()
+    assert [
+        [41],
+        [41, 42],
+        [41, 42, 43],
+    ] == get_cars_content(t)
+    assert [44, 45, 46] + list(range(7, 22)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+
+    # mark [41] as failed
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    await t.remove_pull(await fake_context(repository, 41, merged=False))
+
+    # nothing should move yet as we don't known yet if [41+42] is broken or not
+    await t.refresh()
+    assert [
+        [42, 43, 44],
+        [42, 43, 44, 45, 46, 7],
+        [42, 43, 44, 45, 46, 7, 8, 9, 10],
+        [42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12, 13],
+        [42, 43, 44, 45, 46, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    ] == get_cars_content(t)
+    assert list(range(17, 22)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 0
+    assert len(t._cars[1].failure_history) == 0
+    assert len(t._cars[2].failure_history) == 0
+    assert len(t._cars[3].failure_history) == 0
+    assert len(t._cars[4].failure_history) == 0
+
+    # mark [42+43+44] as ready and merge it
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    repository.installation.client.update_base_sha("sha42")
+    await t.remove_pull(
+        await fake_context(repository, 42, merged=True, merge_commit_sha="sha42")
+    )
+    repository.installation.client.update_base_sha("sha43")
+    await t.remove_pull(
+        await fake_context(repository, 43, merged=True, merge_commit_sha="sha43")
+    )
+    repository.installation.client.update_base_sha("sha44")
+    await t.remove_pull(
+        await fake_context(repository, 44, merged=True, merge_commit_sha="sha44")
+    )
+
+    await t.refresh()
+    assert [
+        [42, 43, 44, 45],
+        [42, 43, 44, 45, 46],
+        [42, 43, 44, 45, 46, 7],
+    ] == get_cars_content(t)
+    assert list(range(8, 22)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+
+    # mark [45] and [46+46] as success, so it's 7 fault !
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    t._cars[1].checks_conclusion = check_api.Conclusion.SUCCESS
+    await t.save()
+
+    # Nothing change yet!
+    await t.refresh()
+    assert [
+        [42, 43, 44, 45],
+        [42, 43, 44, 45, 46],
+        [42, 43, 44, 45, 46, 7],
+    ] == get_cars_content(t)
+    assert list(range(8, 22)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+    # Merge 45 and 46
+    repository.installation.client.update_base_sha("sha45")
+    await t.remove_pull(
+        await fake_context(repository, 45, merged=True, merge_commit_sha="sha45")
+    )
+    repository.installation.client.update_base_sha("sha46")
+    await t.remove_pull(
+        await fake_context(repository, 46, merged=True, merge_commit_sha="sha46")
+    )
+    await t.refresh()
+    assert [
+        [42, 43, 44, 45, 46, 7],
+    ] == get_cars_content(t)
+    assert t._cars[0].checks_conclusion == check_api.Conclusion.FAILURE
+    assert len(t._cars[0].failure_history) == 0
+
+    # remove the failed 7
+    await t.remove_pull(await fake_context(repository, 7, merged=False))
+
+    # Train got cut after 43, and we restart from the begining
+    await t.refresh()
+    assert [
+        [8, 9, 10],
+        [8, 9, 10, 11, 12, 13],
+        [8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+        [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+    ] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
