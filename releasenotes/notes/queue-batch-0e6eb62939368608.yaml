@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Add ``batch_size`` option to queue rules. The new option allows to check
+    multiple pull requests within each speculative check.

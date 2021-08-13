@@ -103,3 +103,31 @@ def test_to_ordinal_numeric():
 
     assert utils.to_ordinal_numeric(4567) == "4567th"
     assert utils.to_ordinal_numeric(5743) == "5743rd"
+
+
+def test_split_list():
+    assert list(utils.split_list([1, 2, 3, 4, 5, 6, 7, 8, 9], 2)) == [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9],
+    ]
+    assert list(utils.split_list([1, 2, 3, 4, 5, 6, 7, 8, 9], 3)) == [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    assert list(utils.split_list([1, 2, 3, 4, 5, 6, 7, 8, 9], 4)) == [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    assert list(utils.split_list([1, 2], 4)) == [
+        [1],
+        [2],
+    ]
+    assert list(utils.split_list([1, 2], 2)) == [
+        [1],
+        [2],
+    ]
+    assert list(utils.split_list([1], 2)) == [
+        [1],
+    ]

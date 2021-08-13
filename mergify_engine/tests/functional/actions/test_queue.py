@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import itertools
-import logging
+import operator
 import time
 import typing
 
@@ -33,8 +33,6 @@ from mergify_engine.queue import merge_train
 from mergify_engine.rules import conditions
 from mergify_engine.tests.functional import base
 
-
-LOG = logging.getLogger(__name__)
 
 TEMPLATE_GITHUB_ACTION = """
 name: Continuous Integration
@@ -327,6 +325,338 @@ class TestQueueAction(base.FunctionalTestBase):
 
         pulls = await self.get_pulls()
         assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+
+    async def test_batch_queue(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 2,
+                    "batch_size": 2,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr(two_commits=True)
+        p3, _ = await self.create_pr()
+        p4, _ = await self.create_pr()
+        p5, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.add_label(p4["number"], "queue")
+        await self.add_label(p5["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 7
+
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p3["number"],
+                    p4["number"],
+                    p5["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+                TrainCarMatcher(
+                    [p3["number"], p4["number"]],
+                    [p1["number"], p2["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[1]["number"],
+                ),
+            ],
+            [p5["number"]],
+        )
+
+        await self.create_status(tmp_pulls[0])
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 5
+
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p3["number"],
+                    p4["number"],
+                    p5["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        p2 = await self.get_pull(p2["number"])
+        await self._assert_cars_contents(
+            q,
+            p2["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p3["number"], p4["number"]],
+                    [p1["number"], p2["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+                TrainCarMatcher(
+                    [p5["number"]],
+                    [p3["number"], p4["number"]],
+                    p2["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[1]["number"],
+                ),
+            ],
+        )
+
+        await self.create_status(tmp_pulls[0])
+        await self.run_engine()
+        await self.create_status(tmp_pulls[1])
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+
+    async def test_batch_split_queue(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 2,
+                    "batch_size": 3,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr(two_commits=True)
+        p3, _ = await self.create_pr()
+        p4, _ = await self.create_pr()
+        p5, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.add_label(p4["number"], "queue")
+        await self.add_label(p5["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 7
+
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p3["number"],
+                    p4["number"],
+                    p5["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"], p3["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+                TrainCarMatcher(
+                    [p4["number"], p5["number"]],
+                    [p1["number"], p2["number"], p3["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[1]["number"],
+                ),
+            ],
+        )
+
+        await self.create_status(tmp_pulls[0], state="failure")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 7
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p3["number"],
+                    p4["number"],
+                    p5["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        # The train car has been splitted
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[1]["number"],
+                ),
+                TrainCarMatcher(
+                    [p3["number"]],
+                    [p1["number"], p2["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+            ],
+            [p4["number"], p5["number"]],
+        )
+
+        # Merge p1 and p2, p3 should be dropped and p4 et p5 checked
+        p1 = await self.get_pull(p1["number"])
+        await self.create_status(p1)
+        await self.create_status(tmp_pulls[1])
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 4
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p3["number"],
+                    p4["number"],
+                    p5["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        p2 = await self.get_pull(p2["number"])
+        await self._assert_cars_contents(
+            q,
+            p2["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p4["number"], p5["number"]],
+                    [],
+                    p2["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+            ],
+        )
+
+        await self.create_status(tmp_pulls[0])
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 1
 
         await self._assert_cars_contents(q, None, [])
 
@@ -1919,7 +2249,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
-        queue_config = rules.QueueConfig(priority=0, speculative_checks=5)
+        queue_config = rules.QueueConfig(priority=0, speculative_checks=5, batch_size=1)
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
@@ -1975,7 +2305,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
-        queue_config = rules.QueueConfig(priority=0, speculative_checks=5)
+        queue_config = rules.QueueConfig(priority=0, speculative_checks=5, batch_size=1)
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
