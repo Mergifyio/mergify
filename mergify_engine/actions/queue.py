@@ -183,7 +183,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ),
                 )
 
-        return await super().run(ctxt, rule)
+        return await self._run(ctxt, rule, q)
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
@@ -205,7 +205,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
                         action="internal",
                     )
 
-        return await super().cancel(ctxt, rule)
+        q = await merge_train.Train.from_context(ctxt)
+        return await self._cancel(ctxt, rule, q)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["update_bot_account"] = None
@@ -315,9 +316,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
             return queue_rule_checks_status == check_api.Conclusion.FAILURE
 
         return True
-
-    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
-        return await merge_train.Train.from_context(ctxt)
 
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase

@@ -94,7 +94,14 @@ class MergeAction(merge_base.MergeBaseAction):
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
-        return await super().run(ctxt, rule)
+        q = await naive.Queue.from_context(ctxt)
+        return await self._run(ctxt, rule, q)
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        q = await naive.Queue.from_context(ctxt)
+        return await self._cancel(ctxt, rule, q)
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
@@ -143,9 +150,6 @@ class MergeAction(merge_base.MergeBaseAction):
             ctxt.log, [ctxt.pull_request], rule
         )
         return pull_rule_checks_status == check_api.Conclusion.FAILURE
-
-    async def _get_queue(self, ctxt: context.Context) -> queue.QueueBase:
-        return await naive.Queue.from_context(ctxt)
 
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
