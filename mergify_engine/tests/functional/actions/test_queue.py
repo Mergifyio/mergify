@@ -1284,7 +1284,9 @@ class TestQueueAction(base.FunctionalTestBase):
         head_sha = p1["head"]["sha"]
         p1 = await self.get_pull(p1["number"])
         assert p1["head"]["sha"] != head_sha
-        assert tmp_mq_p2_bis["commits"] == 5
+        # Depending on the timing this can have 5 or 6 commits, because
+        # the merge commit due to the update of the first PR may appear or not
+        assert tmp_mq_p2_bis["commits"] in [5, 6]
 
         # Merge the train
         await self.create_status(p1)
