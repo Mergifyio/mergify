@@ -634,7 +634,7 @@ queue_rules:
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.queue.merge_train.TrainCar._report_failure")
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_config_deleted(
     report_failure,
     repository,

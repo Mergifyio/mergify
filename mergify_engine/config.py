@@ -232,9 +232,9 @@ ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
-if configuration_file:
-    # FIXME: ignore type hit because it's wrong
-    dotenv.load_dotenv(stream=configuration_file, override=True)  # type: ignore
+
+if configuration_file is not None:
+    dotenv.load_dotenv(dotenv_path=configuration_file, override=True)
 
 CONFIG: typing.Dict[str, typing.Any] = {}
 for key, _ in Schema.schema.items():
