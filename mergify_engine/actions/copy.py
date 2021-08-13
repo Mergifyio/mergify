@@ -101,7 +101,10 @@ class CopyAction(actions.Action):
             return {}
 
     async def _copy(
-        self, ctxt: context.Context, branch_name: github_types.GitHubRefType
+        self,
+        ctxt: context.Context,
+        branch_name: github_types.GitHubRefType,
+        bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> typing.Tuple[check_api.Conclusion, str]:
         """Copy the PR to a branch.
 
@@ -133,12 +136,11 @@ class CopyAction(actions.Action):
                     branch_name,
                     title_template=self.config["title"],
                     body_template=self.config["body"],
-                    bot_account=self.config["bot_account"],
+                    bot_account=bot_account,
                     labels=self.config["labels"],
                     label_conflicts=self.config["label_conflicts"],
                     ignore_conflicts=self.config["ignore_conflicts"],
                     assignees=users_to_add,
-                    kind=self.KIND,
                     branch_prefix=self.BRANCH_PREFIX,
                 )
                 await signals.send(
@@ -152,18 +154,18 @@ class CopyAction(actions.Action):
             except duplicate_pull.DuplicateWithMergeFailure:
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"Backport to branch `{branch_name}` failed\nPull request with merge commit are not supported",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed\nPull request with merge commit are not supported",
                 )
 
             except duplicate_pull.DuplicateFailed as e:
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"Backport to branch `{branch_name}` failed\n{e.reason}",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed\n{e.reason}",
                 )
             except duplicate_pull.DuplicateNotNeeded:
                 return (
                     check_api.Conclusion.SUCCESS,
-                    f"Backport to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` not needed, change already in branch `{branch_name}`",
                 )
             except duplicate_pull.DuplicateUnexpectedError as e:
                 ctxt.log.error(
@@ -175,7 +177,7 @@ class CopyAction(actions.Action):
                 )
                 return (
                     check_api.Conclusion.FAILURE,
-                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed",
+                    f"{self.KIND.capitalize()} to branch `{branch_name}` failed: {e.reason}",
                 )
 
         if new_pull:
@@ -221,14 +223,15 @@ class CopyAction(actions.Action):
         if template_result is not None:
             return template_result
 
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["bot_account"],
-            required_feature=subscription.Features.BOT_ACCOUNT,
-            missing_feature_message=f"{self.KIND.capitalize()} with `bot_account` set is unavailable",
-        )
-        if bot_account_result is not None:
-            return bot_account_result
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message=f"{self.KIND.capitalize()} with `bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
         branches: typing.List[github_types.GitHubRefType] = self.config["branches"]
         if self.config["regexes"]:
@@ -255,7 +258,9 @@ class CopyAction(actions.Action):
                 "No destination branches found",
             )
 
-        results = [await self._copy(ctxt, branch_name) for branch_name in branches]
+        results = [
+            await self._copy(ctxt, branch_name, bot_account) for branch_name in branches
+        ]
 
         # Pick the first status as the final_status
         conclusion = results[0][0]

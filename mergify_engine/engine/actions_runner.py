@@ -65,7 +65,7 @@ async def get_already_merged_summary(
                 elif attr == "closed":
                     condition.update("closed")
 
-            await custom_conditions(ctxt.pull_request)
+            await custom_conditions([ctxt.pull_request])
             if custom_conditions.match:
                 action_merge_found_and_ran = True
 

@@ -15,8 +15,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing
-
 import daiquiri
 import voluptuous
 
@@ -28,7 +26,6 @@ from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
-from mergify_engine.actions import utils as action_utils
 from mergify_engine.queue import naive
 from mergify_engine.rules import types
 
@@ -37,6 +34,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class MergeAction(merge_base.MergeBaseAction):
+    MESSAGE_ACTION_NAME = "Merge"
 
     validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
@@ -74,10 +72,9 @@ class MergeAction(merge_base.MergeBaseAction):
             {"priority": 0, "speculative_checks": 1}
         )
 
-    async def _subscription_status(
-        self, ctxt: context.Context
-    ) -> typing.Optional[check_api.Result]:
-
+    async def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
         if self.config["bot_account"] is not None:
             if ctxt.subscription.has_feature(subscription.Features.MERGE_BOT_ACCOUNT):
                 ctxt.log.info("legacy bot_account used by paid plan")
@@ -97,38 +94,6 @@ class MergeAction(merge_base.MergeBaseAction):
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
-
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["update_bot_account"],
-            option_name="update_bot_account",
-            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-            missing_feature_message="Merge with `update_bot_account` set is unavailable",
-        )
-        if bot_account_result is not None:
-            return bot_account_result
-
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["merge_bot_account"],
-            option_name="merge_bot_account",
-            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-            missing_feature_message="Merge with `merge_bot_account` set is unavailable",
-            # NOTE(sileht): we don't allow admin, because if branch protection are
-            # enabled, but not enforced on admins, we may bypass them
-            required_permissions=["write", "maintain"],
-        )
-        if bot_account_result is not None:
-            return bot_account_result
-
-        return None
-
-    async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Result:
-        subscription_status = await self._subscription_status(ctxt)
-        if subscription_status:
-            return subscription_status
         return await super().run(ctxt, rule)
 
     async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
@@ -175,7 +140,7 @@ class MergeAction(merge_base.MergeBaseAction):
             return True
 
         pull_rule_checks_status = await merge_base.get_rule_checks_status(
-            ctxt, ctxt.pull_request, rule
+            ctxt.log, [ctxt.pull_request], rule
         )
         return pull_rule_checks_status == check_api.Conclusion.FAILURE
 

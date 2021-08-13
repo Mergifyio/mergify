@@ -50,11 +50,11 @@ def fake_expander(v: str) -> typing.List[str]:
 async def test_expanders():
     rc = rules.RuleCondition("author=@team")
     rc.partial_filter.value_expanders["author"] = fake_expander
-    await rc(mock.Mock(author="foo"))
+    await rc([mock.Mock(author="foo")])
     assert rc.match
 
     copy_rc = rc.copy()
-    await copy_rc(mock.Mock(author="foo"))
+    await copy_rc([mock.Mock(author="foo")])
     assert copy_rc.match
 
 
@@ -902,23 +902,23 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     gh_owner = github_types.GitHubAccount(
         {
-            "login": github_types.GitHubLogin("foobar"),
-            "id": github_types.GitHubAccountIdType(0),
+            "login": github_types.GitHubLogin("another-jd"),
+            "id": github_types.GitHubAccountIdType(2644),
             "type": "User",
             "avatar_url": "",
         }
     )
     gh_repo = github_types.GitHubRepository(
         {
-            "full_name": "foobar/name",
+            "id": github_types.GitHubRepositoryIdType(123321),
             "name": github_types.GitHubRepositoryName("name"),
+            "full_name": "another-jd/name",
             "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
             "archived": False,
             "url": "",
             "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
+            "default_branch": github_types.GitHubRefType(""),
+            "owner": gh_owner,
         }
     )
     installation = context.Installation(
@@ -959,56 +959,16 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "base": {
                     "label": "repo",
                     "ref": github_types.GitHubRefType("master"),
-                    "repo": {
-                        "id": github_types.GitHubRepositoryIdType(123321),
-                        "name": github_types.GitHubRepositoryName("name"),
-                        "full_name": "another-jd/name",
-                        "private": False,
-                        "archived": False,
-                        "url": "",
-                        "html_url": "",
-                        "default_branch": github_types.GitHubRefType(""),
-                        "owner": {
-                            "login": github_types.GitHubLogin("another-jd"),
-                            "id": github_types.GitHubAccountIdType(2644),
-                            "type": "User",
-                            "avatar_url": "",
-                        },
-                    },
-                    "user": {
-                        "login": github_types.GitHubLogin("another-jd"),
-                        "id": github_types.GitHubAccountIdType(2644),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
+                    "repo": gh_repo,
+                    "user": gh_owner,
                     "sha": github_types.SHAType("mew"),
                 },
                 "head": {
                     "label": "foo",
                     "ref": github_types.GitHubRefType("myfeature"),
                     "sha": github_types.SHAType("<sha>"),
-                    "repo": {
-                        "id": github_types.GitHubRepositoryIdType(123321),
-                        "name": github_types.GitHubRepositoryName("head"),
-                        "full_name": "another-jd/head",
-                        "private": False,
-                        "archived": False,
-                        "url": "",
-                        "html_url": "",
-                        "default_branch": github_types.GitHubRefType(""),
-                        "owner": {
-                            "login": github_types.GitHubLogin("another-jd"),
-                            "id": github_types.GitHubAccountIdType(2644),
-                            "type": "User",
-                            "avatar_url": "",
-                        },
-                    },
-                    "user": {
-                        "login": github_types.GitHubLogin("another-jd"),
-                        "id": github_types.GitHubAccountIdType(2644),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
+                    "repo": gh_repo,
+                    "user": gh_owner,
                 },
                 "title": "My awesome job",
                 "body": "",
@@ -1535,6 +1495,37 @@ pull_request_rules:
         "post_check",
         "queue",
     ]
+
+
+def test_action_queue_with_duplicate_queue():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+  - name: default
+    conditions: []
+  - name: default
+    conditions: []
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=master
+    actions:
+      queue:
+        name: default
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as e:
+        rules.get_mergify_config(file)
+
+    assert (
+        str(e.value.error)
+        == "queue_rules names must be unique, found `default` twice for dictionary value @ data['queue_rules']"
+    )
 
 
 def test_action_queue_with_no_default_queue():

@@ -29,7 +29,6 @@ from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
-from mergify_engine.actions import utils as action_utils
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import types
 
@@ -42,6 +41,8 @@ LOG = daiquiri.getLogger(__name__)
 
 
 class QueueAction(merge_base.MergeBaseAction):
+    MESSAGE_ACTION_NAME = "Queue"
+
     UNQUEUE_DOCUMENTATION = f"""
 You can take a look at `{constants.MERGE_QUEUE_SUMMARY_NAME}` check runs for more details.
 
@@ -65,9 +66,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
                 "merge", "squash", "none", None
             ),
-            voluptuous.Required("merge_bot_account", default=None): voluptuous.Any(
-                None, types.GitHubLogin
-            ),
+            voluptuous.Required(
+                "merge_bot_account", default=None
+            ): types.Jinja2WithNone,
             voluptuous.Required("commit_message", default="default"): voluptuous.Any(
                 "default", "title+body"
             ),
@@ -113,20 +114,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
-
-        bot_account_result = await action_utils.validate_bot_account(
-            ctxt,
-            self.config["merge_bot_account"],
-            option_name="merge_bot_account",
-            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-            missing_feature_message="Queue with `merge_bot_account` set is unavailable",
-            # NOTE(sileht): we don't allow admin, because if branch protection are
-            # enabled, but not enforced on admins, we may bypass them
-            required_permissions=["write", "maintain"],
-        )
-        if bot_account_result is not None:
-            return bot_account_result
-
         return None
 
     async def run(
@@ -138,11 +125,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             await delayed_refresh.plan_next_refresh(
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
@@ -155,15 +142,15 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 await q.reset()
             else:
                 status = await merge_base.get_rule_checks_status(
-                    ctxt,
-                    ctxt.pull_request,
+                    ctxt.log,
+                    [ctxt.pull_request],
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
                 )
             await car.update_summaries(
                 status, status, queue_rule_evaluated, will_be_reset=need_reset
             )
-        elif car and car.state == "created":
+        elif car and car.creation_state == "created":
             if not ctxt.has_been_only_refreshed():
                 # NOTE(sileht): It's not only refreshed, so we need to
                 # update the associated transient pull request.
@@ -208,7 +195,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # of refreshes between this PR and the transient one.
             q = await merge_train.Train.from_context(ctxt)
             car = q.get_car(ctxt)
-            if car and car.state == "created":
+            if car and car.creation_state == "created":
                 with utils.aredis_for_stream() as redis_stream:
                     await utils.send_refresh(
                         ctxt.repository.installation.redis,
@@ -253,7 +240,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         if not await ctxt.is_behind:
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             if queue_rule_evaluated.conditions.match:
                 return True
@@ -278,12 +265,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
         # * We are good to not wait user CIs list pull_request_rule but only in
         #   queue_rule
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
-            # FIXME(sileht): I don't get why this is typing.Any ...
-            return queue_rule_evaluated.conditions.match  # type: ignore[no-any-return]
+            return queue_rule_evaluated.conditions.match
 
         return False
 
@@ -303,9 +289,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
-        if car and car.state == "updated":
+        if car and car.creation_state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt, ctxt.pull_request
+                ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
             )
             await delayed_refresh.plan_next_refresh(
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
@@ -313,7 +299,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt, ctxt.pull_request, rule
+                ctxt.log, [ctxt.pull_request], rule
             )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
@@ -321,8 +307,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt,
-                ctxt.pull_request,
+                ctxt.log,
+                [ctxt.pull_request],
                 queue_rule_evaluated,
                 unmatched_conditions_return_failure=False,
             )
@@ -340,9 +326,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if car is None:
             return ""
 
-        evaluated_pull = await car.get_pull_request_to_evaluate()
+        evaluated_pulls = await car.get_pull_requests_to_evaluate()
         queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-            ctxt, evaluated_pull
+            ctxt.repository, ctxt.pull["base"]["ref"], evaluated_pulls
         )
         return await car.generate_merge_queue_summary(queue_rule_evaluated)
 

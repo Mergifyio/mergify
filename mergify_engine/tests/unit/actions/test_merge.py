@@ -27,6 +27,28 @@ from mergify_engine.actions import merge
 from mergify_engine.actions import merge_base
 
 
+GH_OWNER = github_types.GitHubAccount(
+    {
+        "login": github_types.GitHubLogin("user"),
+        "id": github_types.GitHubAccountIdType(0),
+        "type": "User",
+        "avatar_url": "",
+    }
+)
+
+GH_REPO = github_types.GitHubRepository(
+    {
+        "full_name": "user/name",
+        "name": github_types.GitHubRepositoryName("name"),
+        "private": False,
+        "id": github_types.GitHubRepositoryIdType(0),
+        "owner": GH_OWNER,
+        "archived": False,
+        "url": "",
+        "html_url": "",
+        "default_branch": github_types.GitHubRefType("ref"),
+    }
+)
 PR = {
     "number": 43,
     "state": "unknown",
@@ -35,12 +57,12 @@ PR = {
     "merged": False,
     "merged_at": None,
     "title": "My PR title",
-    "user": {"login": "jd"},
-    "head": {"ref": "fork", "sha": "shasha"},
+    "user": {"login": "user"},
+    "head": {"ref": "fork", "sha": "shasha", "repo": GH_REPO},
     "base": {
         "ref": "master",
-        "user": {"login": "jd"},
-        "repo": {"name": "repo", "private": False},
+        "user": {"login": "user"},
+        "repo": GH_REPO,
         "sha": "miaou",
     },
     "assignees": [],
@@ -87,7 +109,7 @@ is longer""",
 Authored-By: {{author}}
 on two lines""",
             "My PR title",
-            "Authored-By: jd\non two lines",
+            "Authored-By: user\non two lines",
             "default",
         ),
         (
@@ -151,7 +173,7 @@ async def test_merge_commit_message(body, title, message, mode):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
-    repository = context.Repository(installation, "whatever", 123)
+    repository = context.Repository(installation, GH_REPO, 123)
     repository._cache["branches"] = {"master": {"protection": {"enabled": False}}}
     ctxt = await context.Context.create(repository=repository, pull=pull)
     ctxt._cache["pull_statuses"] = [
@@ -201,7 +223,7 @@ async def test_merge_commit_message_undefined(body):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
-    repository = context.Repository(installation, "whatever", 123)
+    repository = context.Repository(installation, GH_REPO, 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as x:
         await pr.pull_request.get_commit_message()
@@ -229,7 +251,7 @@ async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     pull["body"] = body
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, redis_cache)
-    repository = context.Repository(installation, "whatever", 123)
+    repository = context.Repository(installation, GH_REPO, 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         await pr.pull_request.get_commit_message()

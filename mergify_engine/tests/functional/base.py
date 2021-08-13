@@ -445,7 +445,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 },
             ],
         )
-        await self.user_tokens.save_to_cache()
+        await typing.cast(
+            user_tokens.UserTokensGitHubCom, self.user_tokens
+        ).save_to_cache()
 
         # Let's start recording
         cassette = self.recorder.use_cassette("http.json")
@@ -539,12 +541,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             return user_tokens.UserTokens(redis_cache, owner_id, {})
 
         mock.patch(
-            "mergify_engine.user_tokens.UserTokens._retrieve_from_db",
+            "mergify_engine.user_tokens.UserTokensGitHubCom._retrieve_from_db",
             side_effect=fake_retrieve_user_tokens_from_db,
         ).start()
 
         mock.patch(
-            "mergify_engine.user_tokens.UserTokens.get",
+            "mergify_engine.user_tokens.UserTokensGitHubCom.get",
             side_effect=fake_user_tokens,
         ).start()
 
@@ -674,14 +676,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git("remote", "add", "main", self.git_main)
         await self.git("remote", "add", "fork", self.git_fork)
 
-        if mergify_config:
-            with open(self.git.tmp + "/.mergify.yml", "w") as f:
-                f.write(mergify_config)
-            await self.git("add", ".mergify.yml")
-        else:
+        if mergify_config is None:
             with open(self.git.tmp + "/.gitkeep", "w") as f:
                 f.write("repo must not be empty")
             await self.git("add", ".gitkeep")
+        else:
+            with open(self.git.tmp + "/.mergify.yml", "w") as f:
+                f.write(mergify_config)
+            await self.git("add", ".mergify.yml")
 
         if files:
             await self._git_create_files(files)

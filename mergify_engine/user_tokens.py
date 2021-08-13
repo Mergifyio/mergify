@@ -33,6 +33,7 @@ if typing.TYPE_CHECKING:
 LOG = daiquiri.getLogger(__name__)
 
 
+@dataclasses.dataclass
 class UserTokensUserNotFound(Exception):
     reason: str
 
@@ -44,19 +45,19 @@ class UserTokensUser(typing.TypedDict):
     email: typing.Optional[str]
 
 
+UserTokensT = typing.TypeVar("UserTokensT", bound="UserTokensBase")
+
+
 @dataclasses.dataclass
-class UserTokens:
+class UserTokensBase:
     redis: utils.RedisCache
     owner_id: int
     users: typing.List[UserTokensUser]
-    ttl: int = -2
-
-    RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
-    VALIDITY_SECONDS = 3600
 
     @staticmethod
     async def select_users_for(
-        ctxt: "context.Context", bot_account: typing.Optional[str] = None
+        ctxt: "context.Context",
+        bot_account: typing.Optional[github_types.GitHubLogin] = None,
     ) -> typing.List[UserTokensUser]:
         user_tokens = await ctxt.repository.installation.get_user_tokens()
         if bot_account:
@@ -74,28 +75,38 @@ class UserTokens:
         users = sorted(users, key=lambda x: x["login"] != ctxt.pull["user"]["login"])
         return users
 
+    def get_token_for(
+        self, wanted_login: github_types.GitHubLogin
+    ) -> typing.Optional[UserTokensUser]:
+        wanted_login_lower = wanted_login.lower()
+        for user in self.users:
+            if user["login"].lower() == wanted_login_lower:
+                return user
+        return None
+
+    @classmethod
+    async def delete(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    async def get(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> UserTokensT:
+        raise NotImplementedError
+
+
+@dataclasses.dataclass
+class UserTokensGitHubCom(UserTokensBase):
+    ttl: int = -2
+
+    RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
+    VALIDITY_SECONDS = 3600
+
     @staticmethod
     def _cache_key(owner_id: int) -> str:
         return f"user-tokens-cache-owner-{owner_id}"
-
-    @staticmethod
-    def _get_users_from_config() -> typing.List[UserTokensUser]:
-        return [
-            {
-                "login": github_types.GitHubLogin(login),
-                "oauth_access_token": github_types.GitHubOAuthToken(oauth_access_token),
-                "email": None,
-                "name": None,
-            }
-            for login, oauth_access_token in config.ACCOUNT_TOKENS.items()
-        ]
-
-    def get_token_for(self, wanted_login: str) -> typing.Optional[UserTokensUser]:
-        wanted_login = wanted_login.lower()
-        for user in self.users + self._get_users_from_config():
-            if user["login"].lower() == wanted_login:
-                return user
-        return None
 
     async def _has_expired(self) -> bool:
         if self.ttl < 0:  # not cached
@@ -104,13 +115,24 @@ class UserTokens:
         return elapsed_since_stored > self.VALIDITY_SECONDS
 
     @classmethod
-    async def delete(cls, redis: utils.RedisCache, owner_id: int) -> None:
-        await redis.delete(cls._cache_key(owner_id))
+    async def delete(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> None:
+        await redis.delete(typing.cast(UserTokensGitHubCom, cls)._cache_key(owner_id))
 
     @classmethod
-    async def get(cls, redis: utils.RedisCache, owner_id: int) -> "UserTokens":
-        """Get a tokens."""
+    async def get(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> UserTokensT:
+        return typing.cast(
+            UserTokensT,
+            await typing.cast(UserTokensGitHubCom, cls)._get(redis, owner_id),
+        )
 
+    @classmethod
+    async def _get(
+        cls, redis: utils.RedisCache, owner_id: int
+    ) -> "UserTokensGitHubCom":
         cached_tokens = await cls._retrieve_from_cache(redis, owner_id)
         if cached_tokens is None or await cached_tokens._has_expired():
             try:
@@ -137,25 +159,9 @@ class UserTokens:
         self.ttl = self.RETENTION_SECONDS
 
     @classmethod
-    async def _retrieve_from_db(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "UserTokens":
-        async with http.AsyncClient() as client:
-            try:
-                resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/user_tokens/{owner_id}",
-                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
-                )
-            except http.HTTPNotFound:
-                return cls(redis, owner_id, [])
-            else:
-                tokens = resp.json()
-                return cls(redis, owner_id, tokens["user_tokens"])
-
-    @classmethod
     async def _retrieve_from_cache(
         cls, redis: utils.RedisCache, owner_id: int
-    ) -> typing.Optional["UserTokens"]:
+    ) -> typing.Optional["UserTokensGitHubCom"]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(owner_id))
             await pipe.ttl(cls._cache_key(owner_id))
@@ -173,3 +179,62 @@ class UserTokens:
 
             return cls(redis, owner_id, decrypted_tokens["user_tokens"], ttl)
         return None
+
+    @classmethod
+    async def _retrieve_from_db(
+        cls, redis: utils.RedisCache, owner_id: int
+    ) -> "UserTokensGitHubCom":
+        async with http.AsyncClient() as client:
+            try:
+                resp = await client.get(
+                    f"{config.SUBSCRIPTION_BASE_URL}/engine/user_tokens/{owner_id}",
+                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+                )
+            except http.HTTPNotFound:
+                return cls(redis, owner_id, [])
+            else:
+                tokens = resp.json()
+                return cls(redis, owner_id, tokens["user_tokens"])
+
+
+@dataclasses.dataclass
+class UserTokensOnPremise(UserTokensBase):
+    @classmethod
+    async def delete(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> None:
+        pass
+
+    @classmethod
+    async def get(
+        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+    ) -> UserTokensT:
+        return cls(
+            redis,
+            owner_id,
+            [
+                {
+                    "login": github_types.GitHubLogin(login),
+                    "oauth_access_token": github_types.GitHubOAuthToken(
+                        oauth_access_token
+                    ),
+                    "email": None,
+                    "name": None,
+                }
+                for login, oauth_access_token in config.ACCOUNT_TOKENS.items()
+            ],
+        )
+
+
+if config.SUBSCRIPTION_TOKEN is not None:
+
+    @dataclasses.dataclass
+    class UserTokens(UserTokensOnPremise):
+        pass
+
+
+else:
+
+    @dataclasses.dataclass
+    class UserTokens(UserTokensGitHubCom):  # type: ignore [no-redef]
+        pass

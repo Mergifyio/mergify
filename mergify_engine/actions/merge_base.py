@@ -15,6 +15,7 @@
 # under the License.
 import abc
 import enum
+import logging
 import re
 import typing
 
@@ -26,10 +27,14 @@ from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import subscription
+from mergify_engine import user_tokens
 from mergify_engine import utils
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 
 
@@ -97,8 +102,8 @@ def strict_merge_parameter(v):
 
 
 async def get_rule_checks_status(
-    ctxt: context.Context,
-    pull: context.BasePullRequest,
+    log: logging.LoggerAdapter,
+    pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
     *,
     unmatched_conditions_return_failure: bool = True,
@@ -130,8 +135,8 @@ async def get_rule_checks_status(
             condition_with_all_check.update_attribute_name("check")
 
     # NOTE(sileht): Something unrelated to checks unmatch?
-    await conditions_without_checks(pull)
-    ctxt.log.debug(
+    await conditions_without_checks(pulls)
+    log.debug(
         "something unrelated to checks doesn't match? %s",
         conditions_without_checks.get_summary(),
     )
@@ -142,8 +147,8 @@ async def get_rule_checks_status(
             return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Have all checks reported their status?
-    await conditions_with_all_checks(pull)
-    ctxt.log.debug(
+    await conditions_with_all_checks(pulls)
+    log.debug(
         "did check report their status? %s",
         conditions_with_all_checks.get_summary(),
     )
@@ -151,8 +156,8 @@ async def get_rule_checks_status(
         return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Are remaining unmatch checks success or pending?
-    await conditions_with_check_not_failing(pull)
-    ctxt.log.debug(
+    await conditions_with_check_not_failing(pulls)
+    log.debug(
         "did checks report success-or-neutral-or-pending? %s",
         conditions_with_check_not_failing.get_summary(),
     )
@@ -166,6 +171,7 @@ class MergeBaseAction(actions.Action):
     only_once = True
     can_be_used_on_configuration_change = False
     UNQUEUE_DOCUMENTATION = ""
+    MESSAGE_ACTION_NAME = "Merge"
 
     @abc.abstractmethod
     async def _should_be_queued(
@@ -245,7 +251,9 @@ class MergeBaseAction(actions.Action):
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
     ) -> check_api.Result:
         if not config.GITHUB_APP:
             if self.config["strict_method"] == "rebase":
@@ -255,6 +263,31 @@ class MergeBaseAction(actions.Action):
                     "Due to GitHub Action limitation, `strict_method: rebase` "
                     "is only available with the Mergify GitHub App",
                 )
+
+        try:
+            merge_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["merge_bot_account"],
+                option_name="merge_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `merge_bot_account` set is unavailable",
+                # NOTE(sileht): we don't allow admin, because if branch protection are
+                # enabled, but not enforced on admins, we may bypass them
+                required_permissions=["write", "maintain"],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        try:
+            update_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["update_bot_account"],
+                option_name="update_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
         self._set_effective_priority(ctxt)
 
@@ -284,9 +317,13 @@ class MergeBaseAction(actions.Action):
 
         try:
             if await self._should_be_merged(ctxt, q):
-                result = await self._merge(ctxt, rule, q)
+                result = await self._merge(
+                    ctxt, rule, q, merge_bot_account, update_bot_account
+                )
             elif await self._should_be_synced(ctxt, q):
-                result = await self._sync_with_base_branch(ctxt, rule, q)
+                result = await self._sync_with_base_branch(
+                    ctxt, rule, q, update_bot_account
+                )
             else:
                 result = await self.get_queue_status(
                     ctxt, rule, q, is_behind=await ctxt.is_behind
@@ -299,8 +336,35 @@ class MergeBaseAction(actions.Action):
         return result
 
     async def cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
     ) -> check_api.Result:
+        try:
+            merge_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["merge_bot_account"],
+                option_name="merge_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `merge_bot_account` set is unavailable",
+                # NOTE(sileht): we don't allow admin, because if branch protection are
+                # enabled, but not enforced on admins, we may bypass them
+                required_permissions=["write", "maintain"],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        try:
+            update_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["update_bot_account"],
+                option_name="update_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
         self._set_effective_priority(ctxt)
 
         q = await self._get_queue(ctxt)
@@ -323,14 +387,18 @@ class MergeBaseAction(actions.Action):
             try:
                 if await self._should_be_merged(ctxt, q):
                     if await self._should_be_merged_during_cancel(ctxt, q):
-                        result = await self._merge(ctxt, rule, q)
+                        result = await self._merge(
+                            ctxt, rule, q, merge_bot_account, update_bot_account
+                        )
                     else:
                         result = await self.get_queue_status(
                             ctxt, rule, q, is_behind=await ctxt.is_behind
                         )
                 elif await self._should_be_synced(ctxt, q):
                     # Something got merged in the base branch in the meantime: rebase it again
-                    result = await self._sync_with_base_branch(ctxt, rule, q)
+                    result = await self._sync_with_base_branch(
+                        ctxt, rule, q, update_bot_account
+                    )
                 else:
                     result = await self.get_queue_status(
                         ctxt, rule, q, is_behind=await ctxt.is_behind
@@ -354,12 +422,16 @@ class MergeBaseAction(actions.Action):
         )
 
     async def _sync_with_base_branch(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: queue.QueueBase,
+        update_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> check_api.Result:
         method = self.config["strict_method"]
-        user = self.config["update_bot_account"]
+
         try:
-            await branch_updater.update(method, ctxt, user)
+            await branch_updater.update(method, ctxt, update_bot_account)
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.
@@ -383,6 +455,8 @@ class MergeBaseAction(actions.Action):
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
         q: queue.QueueBase,
+        merge_bot_account: typing.Optional[github_types.GitHubLogin],
+        update_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
@@ -420,18 +494,16 @@ class MergeBaseAction(actions.Action):
         data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method
 
-        bot_account = self.config["merge_bot_account"]
-        if bot_account:
-            user_tokens = await ctxt.repository.installation.get_user_tokens()
-            github_user = user_tokens.get_token_for(bot_account)
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if merge_bot_account:
+            tokens = await ctxt.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(merge_bot_account)
             if not github_user:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE,
-                    f"Unable to rebase: user `{bot_account}` is unknown. ",
-                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                    f"Unable to rebase: user `{merge_bot_account}` is unknown. ",
+                    f"Please make sure `{merge_bot_account}` has logged in Mergify dashboard.",
                 )
-        else:
-            github_user = None
 
         try:
             await ctxt.client.put(
@@ -444,7 +516,9 @@ class MergeBaseAction(actions.Action):
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")
             else:
-                return await self._handle_merge_error(e, ctxt, rule, q)
+                return await self._handle_merge_error(
+                    e, ctxt, rule, q, update_bot_account
+                )
         else:
             await self.send_signal(ctxt)
             await ctxt.update()
@@ -466,6 +540,7 @@ class MergeBaseAction(actions.Action):
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
         q: queue.QueueBase,
+        update_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
@@ -488,7 +563,9 @@ class MergeBaseAction(actions.Action):
             # FIXME(sileht): Not sure this code handles all cases, maybe we should just
             # send a refresh to this PR to retry later
             if await self._should_be_synced(ctxt, q):
-                return await self._sync_with_base_branch(ctxt, rule, q)
+                return await self._sync_with_base_branch(
+                    ctxt, rule, q, update_bot_account
+                )
             else:
                 return await self.get_queue_status(
                     ctxt, rule, q, is_behind=await ctxt.is_behind

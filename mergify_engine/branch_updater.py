@@ -21,6 +21,7 @@ import tenacity
 
 from mergify_engine import context
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import user_tokens
 from mergify_engine.clients import http
@@ -200,7 +201,7 @@ async def update_with_api(ctxt: context.Context) -> None:
 
 
 async def rebase_with_git(
-    ctxt: context.Context, bot_account: typing.Optional[str] = None
+    ctxt: context.Context, bot_account: typing.Optional[github_types.GitHubLogin] = None
 ) -> None:
     ctxt.log.info("updating base branch with git")
 
@@ -236,7 +237,7 @@ async def rebase_with_git(
 async def update(
     method: typing.Literal["merge", "rebase"],
     ctxt: context.Context,
-    user: typing.Optional[str] = None,
+    user: typing.Optional[github_types.GitHubLogin] = None,
 ) -> None:
     if method == "merge":
         await update_with_api(ctxt)

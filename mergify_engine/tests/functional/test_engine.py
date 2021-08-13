@@ -38,6 +38,36 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
+    async def test_no_configuration(self):
+        await self.setup_repo()
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        assert (
+            "no rules configured, just listening for commands"
+            == checks[0]["output"]["title"]
+        )
+
+    async def test_empty_configuration(self):
+        await self.setup_repo("")
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["name"] == "Summary"
+        assert (
+            "no rules configured, just listening for commands"
+            == checks[0]["output"]["title"]
+        )
+
     async def test_merge_with_not_merged_attribute(self):
         rules = {
             "pull_request_rules": [
@@ -473,7 +503,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ctxt = await context.Context.create(repository, p, [])
 
         logins = await live_resolvers.teams(
-            ctxt,
+            repository,
             [
                 "user",
                 "@mergifyio-testing/testing",
@@ -489,7 +519,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         logins = await live_resolvers.teams(
-            ctxt,
+            repository,
             [
                 "user",
                 "@testing",
@@ -505,13 +535,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@unknown/team"])
+            await live_resolvers.teams(repository, ["@unknown/team"])
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@mergifyio-testing/not-exists"])
+            await live_resolvers.teams(repository, ["@mergifyio-testing/not-exists"])
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(ctxt, ["@invalid/team/break-here"])
+            await live_resolvers.teams(repository, ["@invalid/team/break-here"])
 
         summary = [
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"

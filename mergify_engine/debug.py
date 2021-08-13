@@ -232,9 +232,17 @@ async def report(
     )
 
     cached_tokens = await user_tokens.UserTokens.get(redis_cache, client.auth.owner_id)
-    db_tokens = await user_tokens.UserTokens._retrieve_from_db(
-        redis_cache, client.auth.owner_id
-    )
+    if issubclass(user_tokens.UserTokens, user_tokens.UserTokensGitHubCom):
+        db_tokens = typing.cast(
+            user_tokens.UserTokens,
+            (
+                await user_tokens.UserTokensGitHubCom._retrieve_from_db(
+                    redis_cache, client.auth.owner_id
+                )
+            ),
+        )
+    else:
+        db_tokens = cached_tokens
 
     print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
@@ -319,7 +327,9 @@ async def report(
 
             print("* MERGIFY LAST CHECKS:")
             for c in await ctxt.pull_engine_check_runs:
-                print(f"[{c['name']}]: {c['conclusion']} | {c['output'].get('title')}")
+                print(
+                    f"[{c['name']}]: {c['conclusion']} | {c['output'].get('title')} | {c['html_url']}"
+                )
                 print(
                     "> "
                     + "\n> ".join(
