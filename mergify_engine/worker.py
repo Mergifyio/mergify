@@ -512,6 +512,7 @@ class StreamProcessor:
                 break
 
             pulls_processed += 1
+            installation.client.set_requests_ratio(pulls_processed)
 
             logger = daiquiri.getLogger(
                 __name__,
