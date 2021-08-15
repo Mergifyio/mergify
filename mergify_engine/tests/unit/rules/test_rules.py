@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 from base64 import encodebytes
+import dataclasses
 import typing
 from unittest import mock
 
@@ -50,17 +51,61 @@ def fake_expander(v: str) -> typing.List[str]:
 async def test_expanders():
     rc = rules.RuleCondition("author=@team")
     rc.partial_filter.value_expanders["author"] = fake_expander
-    await rc([mock.Mock(author="foo")])
+    await rc(mock.Mock(author="foo"))
     assert rc.match
 
     copy_rc = rc.copy()
-    await copy_rc([mock.Mock(author="foo")])
+    await copy_rc(mock.Mock(author="foo"))
     assert copy_rc.match
 
 
 def test_invalid_condition_re():
     with pytest.raises(voluptuous.Invalid):
         rules.RuleCondition("head~=(bar")
+
+
+@dataclasses.dataclass
+class FakePullRequest:
+    _base: str
+
+    @property
+    async def base(self):
+        return self._base
+
+
+@pytest.mark.asyncio
+async def test_multiple_pulls_to_match():
+    c = rules.QueueRuleConditions(
+        [
+            rules.RuleConditionGroup(
+                {
+                    "or": [
+                        rules.RuleCondition("base=master"),
+                        rules.RuleCondition("base=main"),
+                    ]
+                }
+            )
+        ]
+    )
+    assert await c([FakePullRequest("master")])
+    c = c.copy()
+    assert await c([FakePullRequest("main")])
+    c = c.copy()
+    assert not await c([FakePullRequest("other")])
+    c = c.copy()
+    assert await c([FakePullRequest("master"), FakePullRequest("main")])
+    c = c.copy()
+    assert await c(
+        [
+            FakePullRequest("master"),
+            FakePullRequest("main"),
+            FakePullRequest("master"),
+        ]
+    )
+    c = c.copy()
+    assert not await c(
+        [FakePullRequest("master"), FakePullRequest("main"), FakePullRequest("other")]
+    )
 
 
 @pytest.mark.parametrize(
@@ -988,7 +1033,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             rules.Rule(
                 name="default",
                 disabled=None,
-                conditions=rules.RuleConditions([]),
+                conditions=rules.PullRequestRuleConditions([]),
                 actions={},
             )
         ]
@@ -1344,10 +1389,10 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     assert [r.name for r in match.rules] == ["default", "default"]
     assert list(match.matching_rules[0].actions.keys()) == ["merge"]
-    assert len(match.matching_rules[0].conditions.conditions) == 1
+    assert len(match.matching_rules[0].conditions.condition.conditions) == 1
     assert not match.matching_rules[0].conditions.match
     assert (
-        str(match.matching_rules[0].conditions.conditions[0])
+        str(match.matching_rules[0].conditions.condition.conditions[0])
         == "check-success-or-neutral=awesome-ci"
     )
     missing_conditions = [
@@ -1355,7 +1400,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     ]
     assert str(missing_conditions[0]) == "check-success-or-neutral=awesome-ci"
     assert list(match.matching_rules[1].actions.keys()) == ["comment"]
-    assert len(match.matching_rules[1].conditions.conditions) == 0
+    assert len(match.matching_rules[1].conditions.condition.conditions) == 0
 
 
 def test_check_runs_custom():

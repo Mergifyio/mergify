@@ -112,21 +112,22 @@ async def get_rule_checks_status(
     if rule.conditions.match:
         return check_api.Conclusion.SUCCESS
 
+    conditions_initial = rule.conditions.copy()
     conditions_without_checks = rule.conditions.copy()
     conditions_with_all_checks = rule.conditions.copy()
     conditions_with_check_not_failing = rule.conditions.copy()
     for (
-        evaluated_condition,
+        condition_initial,
         condition_without_check,
         condition_with_all_check,
         condition_with_check_not_failing,
     ) in zip(
-        rule.conditions.walk(),
+        conditions_initial.walk(),
         conditions_without_checks.walk(),
         conditions_with_all_checks.walk(),
         conditions_with_check_not_failing.walk(),
     ):
-        attr = evaluated_condition.get_attribute_name()
+        attr = condition_initial.get_attribute_name()
         if attr.startswith("check-") or attr.startswith("status-"):
             condition_without_check.update("number>0")
             condition_with_check_not_failing.update_attribute_name(

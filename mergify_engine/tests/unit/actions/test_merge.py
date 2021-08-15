@@ -315,7 +315,7 @@ async def test_queue_summary(redis_cache):
 ---
 
 """ + constants.MERGIFY_PULL_REQUEST_DOC == await action._get_queue_summary(
-            ctxt, mock.Mock(conditions=rules.RuleConditions([])), q
+            ctxt, mock.Mock(conditions=rules.QueueRuleConditions([])), q
         )
 
 

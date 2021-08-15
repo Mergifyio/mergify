@@ -144,7 +144,9 @@ async def run_command(
 
     report = await command.action.run(
         ctxt,
-        rules.EvaluatedRule(rules.Rule("", None, rules.RuleConditions([]), {}, False)),
+        rules.EvaluatedRule(
+            rules.Rule("", None, rules.PullRequestRuleConditions([]), {}, False)
+        ),
     )
 
     if command.args:
