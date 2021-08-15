@@ -408,6 +408,7 @@ GitHubCheckRunConclusion = typing.Literal[
     "timed_out",
     "action_required",
     "stale",
+    None,
 ]
 
 
