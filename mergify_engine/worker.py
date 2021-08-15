@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+# mypy: disallow-untyped-defs
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -794,7 +795,7 @@ class Worker:
     )
 
     @property
-    def worker_count(self):
+    def worker_count(self) -> int:
         return self.worker_per_process * self.process_count
 
     async def stream_worker_task(self, worker_id: int) -> None:
@@ -1048,7 +1049,7 @@ async def async_status() -> None:
     redis_stream = utils.create_aredis_for_stream()
     org_bucket_selector = OrgBucketSelector(redis_stream, 0, worker_count)
 
-    def sorter(item):
+    def sorter(item: typing.Tuple[bytes, float]) -> int:
         org_bucket, score = item
         return org_bucket_selector.get_worker_id_for(org_bucket)
 
