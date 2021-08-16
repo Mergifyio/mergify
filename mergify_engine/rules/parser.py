@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+# mypy: disallow-untyped-defs
 #
 # Copyright © 2018—2021 Mergify SAS
 #
@@ -107,20 +108,33 @@ _TIMEDELTA_TO_NOW_RE = re.compile(
 )
 
 
-def _parse_timedelta_to_now(tokens):
+class _TimedeltaRegex(typing.TypedDict):
+    days: typing.Optional[str]
+    hours: typing.Optional[str]
+    minutes: typing.Optional[str]
+
+
+def _parse_timedelta_to_now(
+    tokens: typing.List[pyparsing.Token],
+) -> date.RelativeDatetime:
     m = _TIMEDELTA_TO_NOW_RE.match(tokens[0])
     if m is None:
         raise pyparsing.ParseException("invalid relative timestamp")
-    kw = m.groupdict()
-    days = datetime.timedelta(float(kw.pop("days", 0) or 0))
-    kw = {k: float(v) for k, v in kw.items() if v is not None}
-    return date.RelativeDatetime(date.utcnow() - (days + datetime.timedelta(**kw)))
+    kw = typing.cast(_TimedeltaRegex, m.groupdict())
+    return date.RelativeDatetime(
+        date.utcnow()
+        - datetime.timedelta(
+            days=int(kw["days"] or 0),
+            hours=int(kw["hours"] or 0),
+            minutes=int(kw["minutes"] or 0),
+        )
+    )
 
 
 timedelta_to_now = text.copy().setParseAction(_parse_timedelta_to_now)
 
 
-def _iso_datetime(tokens):
+def _iso_datetime(tokens: typing.List[pyparsing.Token]) -> datetime.datetime:
     try:
         return date.fromisoformat(tokens[0])
     except ValueError:
@@ -153,13 +167,13 @@ _schedule = (_day_of_week_range + pyparsing.White(" ") + _time_range).setParseAc
 _schedule = _schedule | _time_range | _day_of_week_range
 
 
-def convert_equality_to_at(toks):
-    not_ = toks[1] == "!="
-    toks[1] = "@"
+def convert_equality_to_at(
+    tokens: typing.List[pyparsing.Token],
+) -> None:
+    not_ = tokens[1] == "!="
+    tokens[1] = "@"
     if not_:
-        return True, *toks
-    else:
-        return toks
+        tokens.insert(0, True)
 
 
 regex_operators = pyparsing.Literal("~=")
