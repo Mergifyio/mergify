@@ -24,7 +24,7 @@ jobs:
       - name: Build release notes 📝
         id: relnote
         run: |
-          pip install reno
+          pip install reno pandoc
 
           git fetch --tag
           VERSION=$(reno -q semver-next)
@@ -32,7 +32,9 @@ jobs:
           git tag $VERSION
           git push origin $VERSION
 
-          reno -q report --title "Mergify Engine $VERSION" > ${{ github.workspace }}-CHANGELOG.txt
+          reno -q report --version $VERSION --title "" --no-show-source | \
+              pandoc -t markdown --shift-heading-level-by=-1 | \
+              sed -e '1,6d' > ${{ github.workspace }}-CHANGELOG.txt
           echo "::set-output name=VERSION::$VERSION"
 
       - name: Release 🏎️
