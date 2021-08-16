@@ -27,6 +27,7 @@ from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.rules import conditions
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -145,7 +146,7 @@ async def run_command(
     report = await command.action.run(
         ctxt,
         rules.EvaluatedRule(
-            rules.Rule("", None, rules.PullRequestRuleConditions([]), {}, False)
+            rules.Rule("", None, conditions.PullRequestRuleConditions([]), {}, False)
         ),
     )
 
