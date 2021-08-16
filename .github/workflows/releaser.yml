@@ -1,0 +1,42 @@
+# Release command:
+#
+#  gh workflow run Releaser
+#
+name: Releaser
+permissions: write-all
+on:
+  workflow_dispatch:
+
+jobs:
+  releaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: 3.9.6
+
+      - name: Build release notes 📝
+        id: relnote
+        run: |
+          pip install reno
+
+          git fetch --tag
+          VERSION=$(reno -q semver-next)
+
+          git tag $VERSION
+          git push origin $VERSION
+
+          reno -q report --title "Mergify Engine $VERSION" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "::set-output name=VERSION::$VERSION"
+
+      - name: Release 🏎️
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          tag_name: ${{ steps.relnote.outputs.VERSION }}

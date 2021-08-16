@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+# mypy: disallow-untyped-defs
 #
 # Copyright © 2020—2021 Mergify SAS
 #
@@ -222,7 +223,7 @@ class Repository(object):
     _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache, repr=False)  # type: ignore
     log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
             gh_owner=self.installation.owner_login,
@@ -984,14 +985,26 @@ class Context(object):
         return statuses
 
     @property
-    async def checks(self):
+    async def checks(
+        self,
+    ) -> typing.Dict[
+        str,
+        typing.Union[
+            github_types.GitHubCheckRunConclusion, github_types.GitHubStatusState
+        ],
+    ]:
         # NOTE(sileht): check-runs are returned in reverse chronogical order,
         # so if it has ran twice we must keep only the more recent
         # statuses are good as GitHub already ensures the uniqueness of the name
 
         # First put all branch protections checks as pending and then override with
         # the real status
-        checks = {
+        checks: typing.Dict[
+            str,
+            typing.Union[
+                github_types.GitHubCheckRunConclusion, github_types.GitHubStatusState
+            ],
+        ] = {
             context: "pending"
             for context in await self.repository.get_branch_protection_checks(
                 self.pull["base"]["ref"]
@@ -1245,7 +1258,7 @@ class RenderTemplateFailure(Exception):
     message: str
     lineno: typing.Optional[int] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
 
@@ -1301,7 +1314,7 @@ class PullRequest(BasePullRequest):
     async def __getattr__(self, name: str) -> ContextAttributeType:
         return await self.context._get_consolidated_data(name.replace("_", "-"))
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[str]:
         return iter(self.ATTRIBUTES | self.LIST_ATTRIBUTES)
 
     async def items(self) -> typing.Dict[str, ContextAttributeType]:
@@ -1333,13 +1346,13 @@ class PullRequest(BasePullRequest):
 
     @staticmethod
     @contextlib.contextmanager
-    def _template_exceptions_mapping():
+    def _template_exceptions_mapping() -> typing.Iterator[None]:
         try:
             yield
         except jinja2.exceptions.TemplateSyntaxError as tse:
-            raise RenderTemplateFailure(tse.message, tse.lineno)
+            raise RenderTemplateFailure(tse.message or "", tse.lineno)
         except jinja2.exceptions.TemplateError as te:
-            raise RenderTemplateFailure(te.message)
+            raise RenderTemplateFailure(te.message or "")
         except PullRequestAttributeError as e:
             raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
 

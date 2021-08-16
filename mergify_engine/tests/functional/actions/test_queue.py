@@ -1832,7 +1832,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         )
         await car.create_pull(
             rules.QueueRule(
-                name="foo", conditions=rules.RuleConditions([]), config=queue_config
+                name="foo",
+                conditions=rules.QueueRuleConditions([]),
+                config=queue_config,
             )
         )
         assert car.queue_pull_request_number is not None
@@ -1886,7 +1888,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
             await car.create_pull(
                 rules.QueueRule(
-                    name="foo", conditions=rules.RuleConditions([]), config=queue_config
+                    name="foo",
+                    conditions=rules.QueueRuleConditions([]),
+                    config=queue_config,
                 )
             )
             assert exc_info.value.car == car
