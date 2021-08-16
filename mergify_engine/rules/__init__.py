@@ -38,9 +38,8 @@ class DisabledDict(typing.TypedDict):
     reason: str
 
 
-# TODO(sileht): rename me PullRequestRule ?
 @dataclasses.dataclass
-class Rule:
+class PullRequestRule:
     name: str
     disabled: typing.Union[DisabledDict, None]
     conditions: conditions.PullRequestRuleConditions
@@ -57,11 +56,11 @@ class Rule:
         hidden: bool
 
     @classmethod
-    def from_dict(cls, d: T_from_dict) -> "Rule":
+    def from_dict(cls, d: T_from_dict) -> "PullRequestRule":
         return cls(**d)
 
 
-EvaluatedRule = typing.NewType("EvaluatedRule", Rule)
+EvaluatedRule = typing.NewType("EvaluatedRule", PullRequestRule)
 
 
 class QueueConfig(typing.TypedDict):
@@ -117,7 +116,7 @@ class QueueRule:
         return queue_rules_evaluator.matching_rules[0]
 
 
-T_Rule = typing.TypeVar("T_Rule", Rule, QueueRule)
+T_Rule = typing.TypeVar("T_Rule", PullRequestRule, QueueRule)
 T_EvaluatedRule = typing.TypeVar("T_EvaluatedRule", EvaluatedRule, EvaluatedQueueRule)
 
 
@@ -214,13 +213,13 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         return self
 
 
-RulesEvaluator = GenericRulesEvaluator[Rule, EvaluatedRule]
+RulesEvaluator = GenericRulesEvaluator[PullRequestRule, EvaluatedRule]
 QueuesRulesEvaluator = GenericRulesEvaluator[QueueRule, EvaluatedQueueRule]
 
 
 @dataclasses.dataclass
 class PullRequestRules:
-    rules: typing.List[Rule]
+    rules: typing.List[PullRequestRule]
 
     def __post_init__(self):
         # NOTE(sileht): Make sure each rule has a unique name because they are
@@ -246,7 +245,7 @@ class PullRequestRules:
         for rule in self.rules:
             if not rule.actions:
                 runtime_rules.append(
-                    Rule(
+                    PullRequestRule(
                         name=rule.name,
                         disabled=rule.disabled,
                         conditions=rule.conditions.copy(),
@@ -273,7 +272,7 @@ class PullRequestRules:
                 depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
                 if branch_protection_conditions or depends_on_conditions:
                     runtime_rules.append(
-                        Rule(
+                        PullRequestRule(
                             name=rule.name,
                             disabled=rule.disabled,
                             conditions=conditions.PullRequestRuleConditions(
@@ -290,7 +289,7 @@ class PullRequestRules:
 
             if actions_without_special_rules:
                 runtime_rules.append(
-                    Rule(
+                    PullRequestRule(
                         name=rule.name,
                         disabled=rule.disabled,
                         conditions=rule.conditions.copy(),
@@ -420,7 +419,7 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
                         partial_validation
                     ),
                 },
-                voluptuous.Coerce(Rule.from_dict),
+                voluptuous.Coerce(PullRequestRule.from_dict),
             ),
         ],
         voluptuous.Coerce(PullRequestRules),
