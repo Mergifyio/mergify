@@ -1031,7 +1031,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     # Empty conditions
     pull_request_rules = rules.PullRequestRules(
         [
-            rules.Rule(
+            rules.PullRequestRule(
                 name="default",
                 disabled=None,
                 conditions=conditions.PullRequestRuleConditions([]),
