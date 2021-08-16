@@ -21,10 +21,10 @@ import voluptuous
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.actions import merge
 from mergify_engine.actions import merge_base
+from mergify_engine.rules import conditions
 
 
 GH_OWNER = github_types.GitHubAccount(
@@ -315,7 +315,7 @@ async def test_queue_summary(redis_cache):
 ---
 
 """ + constants.MERGIFY_PULL_REQUEST_DOC == await action._get_queue_summary(
-            ctxt, mock.Mock(conditions=rules.QueueRuleConditions([])), q
+            ctxt, mock.Mock(conditions=conditions.QueueRuleConditions([])), q
         )
 
 

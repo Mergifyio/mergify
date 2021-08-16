@@ -28,6 +28,7 @@ from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
+from mergify_engine.rules import conditions
 from mergify_engine.rules import get_mergify_config
 
 
@@ -39,7 +40,7 @@ def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
 
 
 def test_valid_condition():
-    c = rules.RuleCondition("head~=bar")
+    c = conditions.RuleCondition("head~=bar")
     assert str(c) == "head~=bar"
 
 
@@ -49,7 +50,7 @@ def fake_expander(v: str) -> typing.List[str]:
 
 @pytest.mark.asyncio
 async def test_expanders():
-    rc = rules.RuleCondition("author=@team")
+    rc = conditions.RuleCondition("author=@team")
     rc.partial_filter.value_expanders["author"] = fake_expander
     await rc(mock.Mock(author="foo"))
     assert rc.match
@@ -61,7 +62,7 @@ async def test_expanders():
 
 def test_invalid_condition_re():
     with pytest.raises(voluptuous.Invalid):
-        rules.RuleCondition("head~=(bar")
+        conditions.RuleCondition("head~=(bar")
 
 
 @dataclasses.dataclass
@@ -75,13 +76,13 @@ class FakePullRequest:
 
 @pytest.mark.asyncio
 async def test_multiple_pulls_to_match():
-    c = rules.QueueRuleConditions(
+    c = conditions.QueueRuleConditions(
         [
-            rules.RuleConditionGroup(
+            conditions.RuleConditionGroup(
                 {
                     "or": [
-                        rules.RuleCondition("base=master"),
-                        rules.RuleCondition("base=main"),
+                        conditions.RuleCondition("base=master"),
+                        conditions.RuleCondition("base=main"),
                     ]
                 }
             )
@@ -1033,7 +1034,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             rules.Rule(
                 name="default",
                 disabled=None,
-                conditions=rules.PullRequestRuleConditions([]),
+                conditions=conditions.PullRequestRuleConditions([]),
                 actions={},
             )
         ]

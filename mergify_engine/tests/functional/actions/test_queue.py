@@ -30,6 +30,7 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import conditions
 from mergify_engine.tests.functional import base
 
 
@@ -1833,7 +1834,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await car.create_pull(
             rules.QueueRule(
                 name="foo",
-                conditions=rules.QueueRuleConditions([]),
+                conditions=conditions.QueueRuleConditions([]),
                 config=queue_config,
             )
         )
@@ -1889,7 +1890,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             await car.create_pull(
                 rules.QueueRule(
                     name="foo",
-                    conditions=rules.QueueRuleConditions([]),
+                    conditions=conditions.QueueRuleConditions([]),
                     config=queue_config,
                 )
             )
