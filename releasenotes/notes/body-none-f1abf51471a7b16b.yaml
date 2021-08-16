@@ -1,0 +1,5 @@
+---
+fixes:
+  - |
+    Handles the rare case where GitHub pull request API returns a buggy `null`
+    instead of a string for the body.

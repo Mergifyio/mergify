@@ -780,7 +780,7 @@ class Context(object):
             return self.pull["title"]
 
         elif name == "body":
-            return self.pull["body"]
+            return self.pull["body"] or ""
 
         elif name == "files":
             return [f["filename"] for f in await self.files]
@@ -924,7 +924,7 @@ class Context(object):
     )
 
     def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
-        if not self.pull["body"]:
+        if self.pull["body"] is None:
             return set()
         return {
             github_types.GitHubPullRequestNumber(int(pull))

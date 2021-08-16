@@ -492,3 +492,107 @@ footer
 
     ctxt = await context.Context.create(mock.Mock(), pull)
     assert ctxt.get_depends_on() == {123, 456, 789, 42, 48}
+
+
+@pytest.mark.asyncio
+async def test_context_body_null():
+    gh_owner = github_types.GitHubAccount(
+        {
+            "login": github_types.GitHubLogin("user"),
+            "id": github_types.GitHubAccountIdType(0),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "id": github_types.GitHubRepositoryIdType(456),
+            "full_name": "user/repo",
+            "name": github_types.GitHubRepositoryName("repo"),
+            "private": False,
+            "owner": gh_owner,
+        }
+    )
+
+    pull = github_types.GitHubPullRequest(
+        {
+            "locked": False,
+            "assignees": [],
+            "requested_reviewers": [],
+            "requested_teams": [],
+            "milestone": None,
+            "title": "",
+            "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
+            "closed_at": None,
+            "id": github_types.GitHubPullRequestId(0),
+            "maintainer_can_modify": False,
+            "rebaseable": False,
+            "draft": False,
+            "merge_commit_sha": None,
+            "labels": [],
+            "number": github_types.GitHubPullRequestNumber(6),
+            "commits": 1,
+            "merged": True,
+            "state": "closed",
+            "changed_files": 1,
+            "html_url": "<html_url>",
+            "base": {
+                "label": "",
+                "sha": github_types.SHAType("sha"),
+                "user": {
+                    "login": github_types.GitHubLogin("user"),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                    "avatar_url": "",
+                },
+                "ref": github_types.GitHubRefType("ref"),
+                "label": "",
+                "repo": gh_repo,
+            },
+            "head": {
+                "label": "",
+                "sha": github_types.SHAType("old-sha-one"),
+                "ref": github_types.GitHubRefType("fork"),
+                "user": {
+                    "login": github_types.GitHubLogin("user"),
+                    "id": github_types.GitHubAccountIdType(0),
+                    "type": "User",
+                    "avatar_url": "",
+                },
+                "repo": {
+                    "archived": False,
+                    "url": "",
+                    "html_url": "",
+                    "default_branch": github_types.GitHubRefType(""),
+                    "id": github_types.GitHubRepositoryIdType(123),
+                    "full_name": "fork/other",
+                    "name": github_types.GitHubRepositoryName("other"),
+                    "private": False,
+                    "owner": {
+                        "login": github_types.GitHubLogin("user"),
+                        "id": github_types.GitHubAccountIdType(0),
+                        "type": "User",
+                        "avatar_url": "",
+                    },
+                },
+            },
+            "user": {
+                "login": github_types.GitHubLogin("user"),
+                "id": github_types.GitHubAccountIdType(0),
+                "type": "User",
+                "avatar_url": "",
+            },
+            "merged_by": None,
+            "merged_at": None,
+            "mergeable_state": "clean",
+            "body": None,
+        }
+    )
+    ctxt = await context.Context.create(mock.Mock(), pull)
+    assert await ctxt._get_consolidated_data("body") == ""
