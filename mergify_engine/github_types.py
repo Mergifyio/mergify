@@ -236,7 +236,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
     title: str
-    body: str
+    body: typing.Optional[str]
     changed_files: int
     commits: int
     locked: bool
