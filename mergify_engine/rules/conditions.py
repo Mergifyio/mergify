@@ -249,9 +249,9 @@ class QueueRuleConditions:
         typing.List[typing.Union["RuleConditionGroup", RuleCondition]],
     ]
     condition: RuleConditionGroup = dataclasses.field(init=False)
-    _evaluated_conditions: typing.List[
-        typing.Tuple[context.BasePullRequest, RuleConditionGroup]
-    ] = dataclasses.field(default_factory=list, init=False, repr=False)
+    _evaluated_conditions: typing.Dict[
+        github_types.GitHubPullRequestNumber, RuleConditionGroup
+    ] = dataclasses.field(default_factory=dict, init=False, repr=False)
     match: bool = dataclasses.field(init=False, default=False)
     _used: bool = dataclasses.field(init=False, default=False)
 
@@ -277,27 +277,120 @@ class QueueRuleConditions:
         for pull in pull_requests:
             c = self.condition.copy()
             await c(pull)
-            self._evaluated_conditions.append((pull, c))
+            self._evaluated_conditions[
+                await pull.number  # type: ignore[attr-defined]
+            ] = c
 
-        self.match = all(c.match for p, c in self._evaluated_conditions)
+        self.match = all(c.match for c in self._evaluated_conditions.values())
         return self.match
+
+    @classmethod
+    def _get_rule_condition_summary(
+        cls,
+        conditions: typing.Mapping[github_types.GitHubPullRequestNumber, RuleCondition],
+    ) -> str:
+
+        first_key = next(iter(conditions))
+        display_detail = (
+            conditions[first_key].get_attribute_name()
+            not in context.QueuePullRequest.QUEUE_ATTRIBUTES
+        )
+
+        summary = "- "
+        if not display_detail:
+            checked = "X" if conditions[first_key].match else " "
+            summary += f"[{checked}] "
+        summary += f"`{conditions[first_key]}`"
+
+        if conditions[first_key].description:
+            summary += f" [{conditions[first_key].description}]"
+        summary += "\n"
+
+        if display_detail:
+            for pull_number, cond in conditions.items():
+                checked = "X" if cond.match else " "
+                summary += f"  - [{checked}] #{pull_number}"
+                if cond.evaluation_error:
+                    summary += f" ⚠️ {cond.evaluation_error}"
+                summary += "\n"
+
+        return summary
+
+    @classmethod
+    def _walk_for_summary(
+        cls,
+        evaluated_conditions: typing.Mapping[
+            github_types.GitHubPullRequestNumber,
+            typing.Union["RuleConditionGroup", "RuleCondition"],
+        ],
+        operator: typing.Literal["and", "or"],
+        level: int = -1,
+    ) -> str:
+        summary = ""
+        if not evaluated_conditions:
+            raise RuntimeError("Empty conditions group")
+        first_key = next(iter(evaluated_conditions))
+        if isinstance(evaluated_conditions[first_key], RuleCondition):
+            evaluated_conditions = typing.cast(
+                typing.Mapping[
+                    github_types.GitHubPullRequestNumber,
+                    RuleCondition,
+                ],
+                evaluated_conditions,
+            )
+            summary += cls._get_rule_condition_summary(evaluated_conditions)
+        elif isinstance(evaluated_conditions[first_key], RuleConditionGroup):
+            evaluated_conditions = typing.cast(
+                typing.Mapping[
+                    github_types.GitHubPullRequestNumber,
+                    RuleConditionGroup,
+                ],
+                evaluated_conditions,
+            )
+            if level >= 0:
+                label = (
+                    "all of"
+                    if evaluated_conditions[first_key].operator == "and"
+                    else "any of"
+                )
+                global_match = all(c.match for c in evaluated_conditions.values())
+                checked = "X" if global_match else " "
+                summary += f"- [{checked}] {label}:\n"
+
+            inner_conditions = []
+            for i in range(len(evaluated_conditions[first_key].conditions)):
+                inner_conditions.append(
+                    {p: c.conditions[i] for p, c in evaluated_conditions.items()}
+                )
+            for inner_condition in inner_conditions:
+                for _sum in cls._walk_for_summary(
+                    inner_condition,
+                    evaluated_conditions[first_key].operator,
+                    level + 1,
+                ):
+                    summary += _sum
+        else:
+            raise RuntimeError(
+                f"Unsupported condition type: {type(evaluated_conditions[first_key])}"
+            )
+
+        return textwrap.indent(summary, "  " * level)
 
     def get_summary(self) -> str:
         if self._used:
-            # TODO(sileht): Improve the summary for batch
-            return self._evaluated_conditions[0][1].get_summary()
+            return self._walk_for_summary(self._evaluated_conditions, "and")
         else:
             return self.condition.get_summary()
 
     def is_faulty(self) -> bool:
         if self._used:
-            return any(c.is_faulty() for p, c in self._evaluated_conditions)
+            return any(c.is_faulty() for c in self._evaluated_conditions.values())
         else:
             return self.condition.is_faulty()
 
     def walk(self) -> typing.Iterator[RuleCondition]:
         if self._used:
-            for _, conditions in self._evaluated_conditions:
+            for conditions in self._evaluated_conditions.values():
                 for cond in conditions.walk():
                     yield cond
         else:
