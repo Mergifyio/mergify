@@ -22,6 +22,7 @@ import pytest
 import voluptuous
 
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
@@ -66,12 +67,12 @@ def test_invalid_condition_re():
 
 
 @dataclasses.dataclass
-class FakePullRequest:
-    _base: str
+class FakeQueuePullRequest:
+    attrs: typing.Dict[str, context.ContextAttributeType]
 
-    @property
-    async def base(self):
-        return self._base
+    async def __getattr__(self, name: str) -> context.ContextAttributeType:
+        fancy_name = name.replace("_", "-")
+        return self.attrs[fancy_name]
 
 
 @pytest.mark.asyncio
@@ -88,24 +89,33 @@ async def test_multiple_pulls_to_match():
             )
         ]
     )
-    assert await c([FakePullRequest("master")])
+    assert await c([FakeQueuePullRequest({"number": 1, "base": "master"})])
     c = c.copy()
-    assert await c([FakePullRequest("main")])
+    assert await c([FakeQueuePullRequest({"number": 1, "base": "main"})])
     c = c.copy()
-    assert not await c([FakePullRequest("other")])
-    c = c.copy()
-    assert await c([FakePullRequest("master"), FakePullRequest("main")])
+    assert not await c([FakeQueuePullRequest({"number": 1, "base": "other"})])
     c = c.copy()
     assert await c(
         [
-            FakePullRequest("master"),
-            FakePullRequest("main"),
-            FakePullRequest("master"),
+            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
+        ]
+    )
+    c = c.copy()
+    assert await c(
+        [
+            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
+            FakeQueuePullRequest({"number": 1, "base": "master"}),
         ]
     )
     c = c.copy()
     assert not await c(
-        [FakePullRequest("master"), FakePullRequest("main"), FakePullRequest("other")]
+        [
+            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
+            FakeQueuePullRequest({"number": 1, "base": "other"}),
+        ]
     )
 
 
@@ -1704,4 +1714,134 @@ Expected end of text, found '-'  (at char 23), (line:1, col:24)
 ```
 * expected a dictionary for dictionary value @ pull_request_rules → item 0 → actions
 * extra keys not allowed @ pull_request_rules → item 0 → merge"""
+    )
+
+
+@pytest.mark.asyncio
+async def test_queue_rules_summary():
+    schema = voluptuous.Schema(
+        voluptuous.All(
+            [voluptuous.Coerce(rules.RuleConditionSchema)],
+            voluptuous.Coerce(conditions.QueueRuleConditions),
+        )
+    )
+
+    c = schema(
+        [
+            "base=master",
+            {"or": ["head=feature-1", "head=feature-2", "head=feature-3"]},
+            {"or": ["label=urgent", "status-failure!=noway"]},
+            {"or": ["label=bar", "check-success-or-neutral=first-ci"]},
+            {"or": ["label=foo", "check-success-or-neutral!=first-ci"]},
+            {"and": ["label=foo", "check-success-or-neutral=first-ci"]},
+            {"and": ["label=foo", "check-success-or-neutral!=first-ci"]},
+            "current-year=2018",
+        ]
+    )
+    c.condition.conditions.extend(
+        [
+            conditions.RuleCondition(
+                "check-success-or-neutral=my-awesome-ci",
+                description="🛡 GitHub branch protection",
+            ),
+            conditions.RuleCondition(
+                "author=me",
+                description="Another mechanism to get condtions",
+            ),
+        ]
+    )
+
+    pulls = [
+        FakeQueuePullRequest(
+            {
+                "number": 1,
+                "current-year": date.Year(2018),
+                "author": "me",
+                "base": "master",
+                "head": "feature-1",
+                "label": ["foo", "bar"],
+                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "status-failure": ["noway"],
+            }
+        ),
+        FakeQueuePullRequest(
+            {
+                "number": 2,
+                "current-year": date.Year(2018),
+                "author": "me",
+                "base": "master",
+                "head": "feature-2",
+                "label": ["foo", "urgent"],
+                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "status-failure": ["noway"],
+            }
+        ),
+        FakeQueuePullRequest(
+            {
+                "number": 3,
+                "current-year": date.Year(2018),
+                "author": "not-me",
+                "base": "master",
+                "head": "feature-3",
+                "label": ["foo", "urgent"],
+                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "status-failure": ["noway"],
+            }
+        ),
+    ]
+    await c(pulls)
+
+    assert (
+        c.get_summary()
+        == """- [X] `base=master`
+- [X] any of:
+  - `head=feature-1`
+    - [X] #1
+    - [ ] #2
+    - [ ] #3
+  - `head=feature-2`
+    - [ ] #1
+    - [X] #2
+    - [ ] #3
+  - `head=feature-3`
+    - [ ] #1
+    - [ ] #2
+    - [X] #3
+- [ ] any of:
+  - `label=urgent`
+    - [ ] #1
+    - [X] #2
+    - [X] #3
+  - [ ] `status-failure!=noway`
+- [X] any of:
+  - `label=bar`
+    - [X] #1
+    - [ ] #2
+    - [ ] #3
+  - [X] `check-success-or-neutral=first-ci`
+- [X] any of:
+  - `label=foo`
+    - [X] #1
+    - [X] #2
+    - [X] #3
+  - [ ] `check-success-or-neutral!=first-ci`
+- [X] all of:
+  - `label=foo`
+    - [X] #1
+    - [X] #2
+    - [X] #3
+  - [X] `check-success-or-neutral=first-ci`
+- [ ] all of:
+  - `label=foo`
+    - [X] #1
+    - [X] #2
+    - [X] #3
+  - [ ] `check-success-or-neutral!=first-ci`
+- [X] `current-year=2018`
+- [X] `check-success-or-neutral=my-awesome-ci` [🛡 GitHub branch protection]
+- `author=me` [Another mechanism to get condtions]
+  - [X] #1
+  - [X] #2
+  - [ ] #3
+"""
     )

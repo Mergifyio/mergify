@@ -1416,13 +1416,33 @@ class QueuePullRequest(BasePullRequest):
     context: Context
     queue_context: Context
 
+    # These attributes are evaluated on the temporary pull request or are
+    # always the same within the same batch
+    QUEUE_ATTRIBUTES = (
+        "base",
+        "status-success",
+        "status-failure",
+        "status-neutral",
+        "check",
+        "check-success",
+        "check-success-or-neutral",
+        "check-failure",
+        "check-neutral",
+        "check-skipped",
+        "check-pending",
+        "check-stale",
+        "current-time",
+        "current-day",
+        "current-month",
+        "current-year",
+        "current-day-of-week",
+        "current-timestamp",
+        "schedule",
+    )
+
     async def __getattr__(self, name: str) -> ContextAttributeType:
         fancy_name = name.replace("_", "-")
-        if (
-            fancy_name == "check"
-            or fancy_name.startswith("check-")
-            or fancy_name.startswith("status-")
-        ):
+        if fancy_name in self.QUEUE_ATTRIBUTES:
             return await self.queue_context._get_consolidated_data(fancy_name)
         else:
             return await self.context._get_consolidated_data(fancy_name)
