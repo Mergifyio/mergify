@@ -51,7 +51,7 @@ class DismissReviewsAction(actions.Action):
             # his access_token instead of the Mergify installation token.
             # As workaround we track in redis merge commit id
             # This is only true for method="rebase"
-            if await ctxt.redis.get(f"branch-update-{ctxt.pull['head']['sha']}"):
+            if not await ctxt.has_been_synchronized_by_user():
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
                     "Updated by Mergify, ignoring",

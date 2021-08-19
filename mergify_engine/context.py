@@ -1099,14 +1099,25 @@ class Context(object):
             "ref"
         ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 
+    async def has_been_synchronized_by_user(self) -> bool:
+        for source in self.sources:
+            if source["event_type"] == "pull_request":
+                event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
+                if event["action"] == "synchronize":
+                    is_mergify = event["sender"][
+                        "id"
+                    ] == config.BOT_USER_ID or await self.redis.get(
+                        f"branch-update-{self.pull['head']['sha']}"
+                    )
+                    if not is_mergify:
+                        return True
+        return False
+
     def has_been_synchronized(self) -> bool:
         for source in self.sources:
             if source["event_type"] == "pull_request":
                 event = typing.cast(github_types.GitHubEventPullRequest, source["data"])
-                if (
-                    event["action"] == "synchronize"
-                    and event["sender"]["id"] != config.BOT_USER_ID
-                ):
+                if event["action"] == "synchronize":
                     return True
         return False
 
