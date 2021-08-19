@@ -29,10 +29,11 @@ LOG = daiquiri.getLogger(__name__)
 
 class PullQueueConfig(typing.TypedDict):
     strict_method: typing.Literal["merge", "rebase"]
+    update_method: typing.Literal["merge", "rebase"]
     priority: int
     effective_priority: int
-    bot_account: typing.Optional[str]
-    update_bot_account: typing.Optional[str]
+    bot_account: typing.Optional[github_types.GitHubLogin]
+    update_bot_account: typing.Optional[github_types.GitHubLogin]
     name: rules.QueueName
     queue_config: rules.QueueConfig
 

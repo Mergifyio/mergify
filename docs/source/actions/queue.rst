@@ -224,6 +224,27 @@ These are the options of the ``queue`` action:
        itself. The user account **must** have already been
        logged in Mergify dashboard once and have **write** or **maintain** permission.
 
+   * - ``update_method``
+     - string
+     - ``merge``
+     - Method to use to update the pull request with its base branch when the
+       speculative check is done in-place.
+       Possible values:
+
+       * ``merge`` to merge the base branch into the pull request.
+       * ``rebase`` to rebase the pull request against its base branch.
+
+       Note that the ``rebase`` method has some drawbacks, see :ref:`update method rebase`.
+   * - ``update_bot_account``
+     - :ref:`data type template`
+     -
+     - |premium plan tag|
+       For certain actions, such as rebasing branches, Mergify has to
+       impersonate a GitHub user. You can specify the account to use with this
+       option. If no ``update_bot_account`` is set, Mergify picks randomly one of the
+       organization users instead. The user account **must** have already been
+       logged in Mergify dashboard once.
+
    * - ``priority``
      - 1 <= integer <= 10000 or ``low`` or ``medium`` or ``high``
      - ``medium``
@@ -420,5 +441,30 @@ request:
 .. warning::
 
     This feature does not work for cross-repository dependencies.
+
+.. _update method rebase:
+
+Using Rebase to Update
+=======================
+
+Using the ``rebase`` method to update a pull request with its base branch has some
+drawbacks:
+
+* It doesn't work for private forked repositories.
+
+* Every commits SHA-1 of the pull request will change. The pull request author
+  will need to force-push its own branch if they add new commits.
+
+* GitHub branch protections of your repository may dismiss approved reviews.
+
+* GitHub branch protection of the contributor repository may deny Mergify
+  force-pushing the rebased pull request.
+
+* GPG signed commits will lose their signatures.
+
+* Mergify will impersonate one of the repository members to force-push the
+  branch as GitHub Applications are not authorized to do that by themselves.
+  If you need to control which user is impersonated, you can use the ``update_bot_account`` option.
+  Be aware that the GitHub UI will show the collaborator as the author of the push, while it was actually executed by Mergify.
 
 .. include:: ../global-substitutions.rst

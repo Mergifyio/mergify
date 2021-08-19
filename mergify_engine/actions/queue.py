@@ -69,6 +69,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required(
                 "merge_bot_account", default=None
             ): types.Jinja2WithNone,
+            voluptuous.Required(
+                "update_bot_account", default=None
+            ): types.Jinja2WithNone,
+            voluptuous.Required("update_method", default="merge"): voluptuous.Any(
+                "rebase", "merge"
+            ),
             voluptuous.Required("commit_message", default="default"): voluptuous.Any(
                 "default", "title+body"
             ),
@@ -114,6 +120,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
+
         return None
 
     async def run(
@@ -211,7 +218,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
         return await self._cancel(ctxt, rule, q)
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        self.config["update_bot_account"] = None
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
 
         try:

@@ -252,6 +252,7 @@ def get_config(
     return queue.PullQueueConfig(
         name=queue_name,
         strict_method="merge",
+        update_method="merge",
         priority=priority,
         effective_priority=effective_priority,
         bot_account=None,
