@@ -328,6 +328,68 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_no_inplace(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                    "allow_inplace_speculative_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 2
+
+        tmp_pull = await self.get_pull(pulls[0]["number"])
+        assert tmp_pull["number"] not in [p1["number"]]
+
+        # No parent PR, but created instead updated
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull["number"],
+                ),
+            ],
+        )
+
     async def test_batch_queue(self):
         rules = {
             "queue_rules": [
@@ -2249,7 +2311,12 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
-        queue_config = rules.QueueConfig(priority=0, speculative_checks=5, batch_size=1)
+        queue_config = rules.QueueConfig(
+            priority=0,
+            speculative_checks=5,
+            batch_size=1,
+            allow_inplace_speculative_checks=True,
+        )
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
@@ -2309,7 +2376,12 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         head_sha = await q.get_head_sha()
 
-        queue_config = rules.QueueConfig(priority=0, speculative_checks=5, batch_size=1)
+        queue_config = rules.QueueConfig(
+            priority=0,
+            speculative_checks=5,
+            batch_size=1,
+            allow_inplace_speculative_checks=True,
+        )
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",

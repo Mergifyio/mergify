@@ -69,7 +69,12 @@ class MergeAction(merge_base.MergeBaseAction):
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["queue_config"] = rules.QueueConfig(
-            {"priority": 0, "speculative_checks": 1, "batch_size": 1}
+            {
+                "priority": 0,
+                "speculative_checks": 1,
+                "batch_size": 1,
+                "allow_inplace_speculative_checks": True,
+            }
         )
 
     async def run(

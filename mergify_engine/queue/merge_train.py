@@ -265,6 +265,12 @@ class TrainCar:
         else:
             return None
 
+    async def is_behind(self) -> bool:
+        ctxt = await self.train.repository.get_pull_request_context(
+            self.still_queued_embarked_pulls[0].user_pull_request_number
+        )
+        return await ctxt.is_behind
+
     async def update_user_pull(self, queue_rule: rules.QueueRule) -> None:
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
@@ -1202,6 +1208,7 @@ class Train(queue.QueueBase):
                     parent_pull_request_numbers,
                     self._current_base_sha,
                 )
+
                 self._cars.append(car)
 
                 try:
@@ -1220,12 +1227,24 @@ class Train(queue.QueueBase):
         queue_rules: rules.QueueRules,
         car: TrainCar,
     ) -> None:
+        allow_inplace_speculative_checks = car.still_queued_embarked_pulls[0].config[
+            "queue_config"
+        ]["allow_inplace_speculative_checks"]
 
-        should_be_updated = (
+        can_be_updated = (
             self._cars[0] == car
             and len(car.still_queued_embarked_pulls) == 1
             and len(car.parent_pull_request_numbers) == 0
         )
+        if can_be_updated:
+            if allow_inplace_speculative_checks:
+                must_be_updated = True
+            else:
+                # The pull request is already up2date no need to create
+                # a pull request
+                must_be_updated = not await car.is_behind()
+        else:
+            must_be_updated = False
 
         try:
             # get_next_batch() ensure all embarked_pulls has same config
@@ -1243,7 +1262,7 @@ class Train(queue.QueueBase):
                 )
                 raise TrainCarPullRequestCreationFailure(car)
 
-            if should_be_updated:
+            if must_be_updated:
                 # No need to create a pull request
                 await car.update_user_pull(queue_rule)
             else:

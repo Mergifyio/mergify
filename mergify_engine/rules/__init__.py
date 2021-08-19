@@ -67,6 +67,7 @@ class QueueConfig(typing.TypedDict):
     priority: int
     speculative_checks: int
     batch_size: int
+    allow_inplace_speculative_checks: bool
 
 
 EvaluatedQueueRule = typing.NewType("EvaluatedQueueRule", "QueueRule")
@@ -442,6 +443,9 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("batch_size", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
+                voluptuous.Required(
+                    "allow_inplace_speculative_checks", default=True
+                ): bool,
             },
             voluptuous.Coerce(QueueRule.from_dict),
         )
