@@ -25,6 +25,8 @@ from starlette import requests
 from starlette import responses
 import voluptuous
 
+# To load the json serializer need to read queues
+from mergify_engine import check_api  # noqa
 from mergify_engine import config
 from mergify_engine import github_events
 from mergify_engine import github_types
