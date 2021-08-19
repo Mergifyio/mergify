@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import dataclasses
 import re
 import typing
 
@@ -37,6 +38,7 @@ COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|fail
 
 MERGE_QUEUE_COMMAND_MESSAGE = "Command not allowed on merge queue pull request."
 UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command. Please consult [the commands documentation](https://docs.mergify.io/commands.html) \U0001F4DA."
+INVALID_COMMAND_ARGS_MESSAGE = "Sorry but I didn't understand the arguments of the command `{command}`. Please consult [the commands documentation](https://docs.mergify.io/commands.html) \U0001F4DA."  # noqa
 WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 CONFIGURATION_CHANGE_MESSAGE = (
     "Sorry but this action cannot run when the configuration is updated"
@@ -66,10 +68,15 @@ async def post_comment(
         )
 
 
+@dataclasses.dataclass
+class CommandInvalid(Exception):
+    message: str
+
+
 def load_command(
     mergify_config: rules.MergifyConfig,
     message: str,
-) -> typing.Optional[Command]:
+) -> Command:
     """Load an action from a message.
 
     :return: A tuple with 3 values: the command name, the commands args and the action."""
@@ -87,12 +94,17 @@ def load_command(
                     action_config = default_action_config
 
         action_config.update(action_class.command_to_config(command_args))
-        action = voluptuous.Schema(action_class.get_schema(partial_validation=False))(
-            action_config
-        )
+        try:
+            action = voluptuous.Schema(
+                action_class.get_schema(partial_validation=False)
+            )(action_config)
+        except voluptuous.Invalid:
+            raise CommandInvalid(
+                INVALID_COMMAND_ARGS_MESSAGE.format(command=action_name)
+            )
         return Command(action_name, command_args, action)
 
-    return None
+    raise CommandInvalid(UNKNOWN_COMMAND_MESSAGE)
 
 
 async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
@@ -210,11 +222,11 @@ async def handle(
             await post_comment(ctxt, message + footer)
             return
 
-    command = load_command(mergify_config, comment)
-    if not command:
-        message = UNKNOWN_COMMAND_MESSAGE
-        log(message)
-        await post_comment(ctxt, message + footer)
+    try:
+        command = load_command(mergify_config, comment)
+    except CommandInvalid as e:
+        log(e.message)
+        await post_comment(ctxt, e.message + footer)
         return
 
     if (

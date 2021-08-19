@@ -24,20 +24,19 @@ from mergify_engine import subscription
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
 from mergify_engine.clients import github
-from mergify_engine.engine.commands_runner import handle
-from mergify_engine.engine.commands_runner import load_command
+from mergify_engine.engine import commands_runner
 
 
 def test_command_loader():
     config = {"raw": {}}
-    action = load_command(config, "@mergifyio notexist foobar\n")
-    assert action is None
+    with pytest.raises(commands_runner.CommandInvalid):
+        action = commands_runner.load_command(config, "@mergifyio notexist foobar\n")
 
-    action = load_command(config, "@mergifyio comment foobar\n")
-    assert action is None
+    with pytest.raises(commands_runner.CommandInvalid):
+        action = commands_runner.load_command(config, "@mergifyio comment foobar\n")
 
-    action = load_command(config, "@Mergifyio comment foobar\n")
-    assert action is None
+    with pytest.raises(commands_runner.CommandInvalid):
+        action = commands_runner.load_command(config, "@Mergifyio comment foobar\n")
 
     for message in [
         "@mergify rebase",
@@ -47,11 +46,11 @@ def test_command_loader():
         "@mergifyio rebase foobar",
         "@mergifyio rebase foobar\nsecondline\n",
     ]:
-        command, args, action = load_command(config, message)
+        command, args, action = commands_runner.load_command(config, message)
         assert command == "rebase"
         assert isinstance(action, RebaseAction)
 
-    command, args, action = load_command(
+    command, args, action = commands_runner.load_command(
         config, "@mergifyio backport branch-3.1 branch-3.2\nfoobar\n"
     )
     assert command == "backport"
@@ -83,7 +82,7 @@ def test_command_loader_with_defaults():
             }
         }
     }
-    command = load_command(config, "@mergifyio backport")
+    command = commands_runner.load_command(config, "@mergifyio backport")
     assert command.name == "backport"
     assert command.args == ""
     assert isinstance(command.action, BackportAction)
@@ -166,7 +165,7 @@ async def test_run_command_without_rerun_and_without_user(redis_cache):
     ctxt = await _create_context(redis_cache, client)
 
     with pytest.raises(RuntimeError) as error_msg:
-        await handle(
+        await commands_runner.handle(
             ctxt=ctxt, mergify_config={}, comment="@Mergifyio update", user=None
         )
     assert "user must be set if rerun is false" in str(error_msg.value)
@@ -187,7 +186,7 @@ async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch)
 
     monkeypatch.setattr(client, "post", mock_post)
 
-    await handle(
+    await commands_runner.handle(
         ctxt=ctxt,
         mergify_config={},
         comment="@mergifyio something",
@@ -275,9 +274,37 @@ async def test_run_command_with_user(
 
     monkeypatch.setattr(client, "post", mock_post)
 
-    await handle(
+    await commands_runner.handle(
         ctxt=ctxt, mergify_config={}, comment="@mergifyio something", user=user
     )
 
     assert len(http_calls) == 1
     assert result in http_calls[0][1]["json"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_run_command_with_wrong_arg(redis_cache, monkeypatch):
+    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+
+    ctxt = await _create_context(redis_cache, client)
+
+    http_calls = []
+
+    async def mock_post(*args, **kwargs):
+        http_calls.append((args, kwargs))
+        return
+
+    monkeypatch.setattr(client, "post", mock_post)
+
+    await commands_runner.handle(
+        ctxt=ctxt,
+        mergify_config={"raw": {}},
+        comment="@mergifyio squash invalid-arg",
+        rerun=True,
+        user=None,
+    )
+
+    assert len(http_calls) == 1
+    assert http_calls[0][1]["json"]["body"].startswith(
+        "Sorry but I didn't understand the arguments of the command `squash`"
+    )
