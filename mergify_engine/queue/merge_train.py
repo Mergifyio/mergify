@@ -23,6 +23,7 @@ from urllib import parse
 import daiquiri
 import first
 
+from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
@@ -233,8 +234,6 @@ class TrainCar:
             return None
 
     async def update_user_pull(self, queue_rule: rules.QueueRule) -> None:
-        # TODO(sileht): Add support for strict method and  update_bot_account
-        # TODO(sileht): rework branch_updater to be able to use it here.
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
 
@@ -256,24 +255,17 @@ class TrainCar:
             return
 
         try:
-            await ctxt.client.put(
-                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/update-branch",
-                api_version="lydian",
-                json={"expected_head_sha": ctxt.pull["head"]["sha"]},
+            # TODO(sileht): fallback to "merge" and None until all configs has
+            # the new fields
+            await branch_updater.update(
+                self.still_queued_embarked_pulls[0].config.get(
+                    "update_method", "merge"
+                ),
+                ctxt,
+                self.still_queued_embarked_pulls[0].config.get("update_bot_account"),
             )
-        except http.HTTPClientSideError as exc:
-            if exc.status_code == 422:
-                refreshed_pull = await ctxt.client.item(
-                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
-                )
-                if refreshed_pull["head"]["sha"] != ctxt.pull["head"]["sha"]:
-                    ctxt.log.info(
-                        "branch updated in the meantime",
-                        status_code=exc.status_code,
-                        error=exc.message,
-                    )
-                    return
-            await self._set_creation_failure(exc.message, "update")
+        except branch_updater.BranchUpdateFailure as exc:
+            await self._set_creation_failure(f"{exc.title}\n\n{exc.message}", "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(

@@ -224,6 +224,112 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_with_rebase_update_method(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.master_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {
+                        "queue": {
+                            "name": "default",
+                            "priority": "high",
+                            "update_method": "rebase",
+                            "update_bot_account": "mergify-test3",
+                        }
+                    },
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr(two_commits=True)
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        tmp_pull = await self.get_pull(pulls[0]["number"])
+        assert tmp_pull["number"] not in [p1["number"], p2["number"]]
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull["number"],
+                ),
+            ],
+        )
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+        commits = await self.get_commits(p1["number"])
+        assert len(commits) == 1
+        assert commits[0]["commit"]["committer"]["name"] == "mergify-test3"
+
+        await self.run_engine()
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+        assert tmp_pull["commits"] == 5
+
+        await self.create_status(p1)
+        await self.run_engine()
+        await self.create_status(tmp_pull)
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+
     async def test_queue_already_ready(self):
         rules = {
             "queue_rules": [
@@ -1817,6 +1923,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
+            update_method="merge",
             priority=0,
             effective_priority=0,
             bot_account=None,
@@ -1872,6 +1979,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         config = queue.PullQueueConfig(
             name="foo",
             strict_method="merge",
+            update_method="merge",
             priority=0,
             effective_priority=0,
             bot_account=None,

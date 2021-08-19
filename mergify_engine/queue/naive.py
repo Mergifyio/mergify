@@ -74,6 +74,7 @@ class Queue(queue.QueueBase):
                     "effective_priority": 2000,
                     "bot_account": None,
                     "update_bot_account": None,
+                    "update_method": "merge",
                     "name": rules.QueueName(""),
                     "queue_config": rules.QueueConfig(
                         {"priority": 1, "speculative_checks": 1}
