@@ -135,7 +135,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
             )
 
-            need_reset = ctxt.has_been_synchronized() or await ctxt.is_behind
+            need_reset = (
+                await ctxt.has_been_synchronized_by_user() or await ctxt.is_behind
+            )
             if need_reset:
                 status = check_api.Conclusion.PENDING
                 ctxt.log.info("train will be reset")
@@ -285,7 +287,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if ctxt.closed:
             return True
 
-        if ctxt.has_been_synchronized():
+        if await ctxt.has_been_synchronized_by_user():
             return True
 
         q = await merge_train.Train.from_context(ctxt)

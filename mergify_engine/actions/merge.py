@@ -143,7 +143,7 @@ class MergeAction(merge_base.MergeBaseAction):
         if ctxt.closed:
             return True
 
-        if ctxt.has_been_synchronized():
+        if await ctxt.has_been_synchronized_by_user():
             return True
 
         pull_rule_checks_status = await merge_base.get_rule_checks_status(
