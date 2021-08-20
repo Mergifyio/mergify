@@ -2268,19 +2268,23 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             [p1["number"]],
             head_sha,
         )
-        await car.create_pull(
-            rules.QueueRule(
-                name="foo",
-                conditions=conditions.QueueRuleConditions([]),
-                config=queue_config,
-            )
+        q._cars.append(car)
+
+        queue_rule = rules.QueueRule(
+            name="foo",
+            conditions=conditions.QueueRuleConditions([]),
+            config=queue_config,
         )
+        await car.create_pull(queue_rule)
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
         assert len(pulls) == 3
 
         tmp_pull = [p for p in pulls if p["number"] == car.queue_pull_request_number][0]
         assert tmp_pull["draft"]
+
+        expected_table = f"| 1 | test_create_pull_basic: pull request n2 from fork ([#{p2['number']}]({p2['html_url']})) | foo/0 | #{tmp_pull['number']} | <fake_pretty_datetime()>|"
+        assert expected_table in await car.generate_merge_queue_summary(queue_rule)
 
         await car.delete_pull()
 

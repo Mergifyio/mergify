@@ -67,6 +67,11 @@ class TrainCarPullRequestCreationFailure(Exception):
     car: "TrainCar"
 
 
+class EmbarkedPullWithCar(typing.NamedTuple):
+    embarked_pull: "EmbarkedPull"
+    car: typing.Optional["TrainCar"]
+
+
 class EmbarkedPull(typing.NamedTuple):
     user_pull_request_number: github_types.GitHubPullRequestNumber
     config: queue.PullQueueConfig
@@ -439,7 +444,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 "| | Pull request | Queue/Priority | Speculative checks | Queued",
                 "| ---: | :--- | :--- | :--- | :--- |",
             ]
-            for i, embarked_pull in enumerate(self.train._iter_embarked_pulls()):
+            for i, (embarked_pull, car) in enumerate(self.train._iter_embarked_pulls()):
                 ctxt = await self.train.repository.get_pull_request_context(
                     embarked_pull.user_pull_request_number
                 )
@@ -452,13 +457,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     fancy_priority = str(embarked_pull.config["priority"])
 
                 speculative_checks = ""
-                if isinstance(embarked_pull, TrainCar):
-                    if embarked_pull.state == "updated":
+                if car is not None:
+                    if car.creation_state == "updated":
                         speculative_checks = f"[in place]({pull_html_url})"
-                    elif embarked_pull.state == "created":
-                        speculative_checks = (
-                            f"#{embarked_pull.queue_pull_request_number}"
-                        )
+                    elif car.creation_state == "created":
+                        speculative_checks = f"#{car.queue_pull_request_number}"
 
                 queued_at = date.pretty_datetime(embarked_pull.queued_at)
                 table.append(
@@ -928,7 +931,7 @@ class Train(queue.QueueBase):
         self._waiting_pulls = wp_to_keep
 
     async def _sync_configuration_change(self, queue_rules: rules.QueueRules) -> None:
-        for i, embarked_pull in enumerate(list(self._iter_embarked_pulls())):
+        for i, (embarked_pull, _) in enumerate(list(self._iter_embarked_pulls())):
             queue_rule = queue_rules.get(embarked_pull.config["name"])
             if queue_rule is None:
                 # NOTE(sileht): We just slice the cars list here, so when the
@@ -960,14 +963,16 @@ class Train(queue.QueueBase):
         self._cars = new_cars
         self._waiting_pulls = new_waiting_pulls + self._waiting_pulls
 
-    def _iter_embarked_pulls(self) -> typing.Iterator[EmbarkedPull]:
+    def _iter_embarked_pulls(
+        self,
+    ) -> typing.Iterator[EmbarkedPullWithCar]:
         for car in self._cars:
             for embarked_pull in car.still_queued_embarked_pulls:
-                yield embarked_pull
+                yield EmbarkedPullWithCar(embarked_pull, car)
         for embarked_pull in self._waiting_pulls:
             # NOTE(sileht): NamedTuple doesn't support multiple inheritance
             # the Protocol can't be inherited
-            yield embarked_pull
+            yield EmbarkedPullWithCar(embarked_pull, None)
 
     async def add_pull(
         self, ctxt: context.Context, config: queue.PullQueueConfig
@@ -975,7 +980,7 @@ class Train(queue.QueueBase):
         # TODO(sileht): handle base branch change
 
         best_position = -1
-        for position, embarked_pull in enumerate(self._iter_embarked_pulls()):
+        for position, (embarked_pull, _) in enumerate(self._iter_embarked_pulls()):
             if embarked_pull.user_pull_request_number == ctxt.pull["number"]:
                 # already in queue, we are good
                 self.log.info(
@@ -1149,7 +1154,7 @@ class Train(queue.QueueBase):
             return
 
         try:
-            head = next(self._iter_embarked_pulls())
+            head = next(self._iter_embarked_pulls()).embarked_pull
         except StopIteration:
             return
 
@@ -1290,19 +1295,25 @@ class Train(queue.QueueBase):
     ) -> queue.PullQueueConfig:
         item = first.first(
             self._iter_embarked_pulls(),
-            key=lambda c: c.user_pull_request_number == pull_number,
+            key=lambda c: c.embarked_pull.user_pull_request_number == pull_number,
         )
         if item is not None:
-            return item.config
+            return item.embarked_pull.config
 
         raise RuntimeError("get_config on unknown pull request")
 
     async def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
-        return [item.user_pull_request_number for item in self._iter_embarked_pulls()]
+        return [
+            item.embarked_pull.user_pull_request_number
+            for item in self._iter_embarked_pulls()
+        ]
 
     async def is_first_pull(self, ctxt: context.Context) -> bool:
         item = first.first(self._iter_embarked_pulls())
-        return item is not None and item.user_pull_request_number == ctxt.pull["number"]
+        return (
+            item is not None
+            and item.embarked_pull.user_pull_request_number == ctxt.pull["number"]
+        )
 
     @staticmethod
     def _get_next_batch(
