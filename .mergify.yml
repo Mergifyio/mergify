@@ -36,6 +36,7 @@ queue_rules:
       - check-success=heroku
       - schedule=Mon-Fri 08:00-17:00
     speculative_checks: 3
+    batch_size: 5
 
 pull_request_rules:
   - name: automatic merge
