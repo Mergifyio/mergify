@@ -82,11 +82,11 @@ You can also combine ``or`` and ``and`` like this:
     conditions:
       - or:
         - and:
-            author=foo
-            label=core
+            - author=foo
+            - label=core
         - and:
-            author=bar
-            label=backend
+            - author=bar
+            - label=backend
 
 
 .. note::
