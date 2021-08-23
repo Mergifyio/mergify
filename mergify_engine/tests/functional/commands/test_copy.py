@@ -20,27 +20,15 @@ class TestCommandCopy(base.FunctionalTestBase):
     async def test_command_copy(self):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "auto-copy",
-                    "conditions": [f"base={self.main_branch_name}"],
-                    "actions": {
-                        "comment": {
-                            "message": f"@mergifyio copy {stable_branch} {feature_branch}"
-                        }
-                    },
-                }
-            ]
-        }
 
         await self.setup_repo(
-            yaml.dump(rules), test_branches=[stable_branch, feature_branch]
+            yaml.dump({}), test_branches=[stable_branch, feature_branch]
         )
         p, _ = await self.create_pr()
 
-        await self.run_engine()
-        await self.wait_for("issue_comment", {"action": "created"})
+        await self.create_comment(
+            p["number"], f"@mergifyio copy {stable_branch} {feature_branch}"
+        )
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         await self.run_engine()

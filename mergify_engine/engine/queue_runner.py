@@ -107,6 +107,10 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
             ctxt, [evaluated_queue_rule], pull_request
         )
 
+    if not ctxt.sources:
+        # NOTE(sileht): Only comment/command, don't need to go further
+        return None
+
     unexpected_changes = await have_unexpected_changes(ctxt, car)
     if unexpected_changes:
         need_reset = True

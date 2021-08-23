@@ -208,12 +208,13 @@ async def filter_and_dispatch(
         elif event["action"] != "created":
             ignore_reason = f"comment has been {event['action']}"
 
+        elif event["comment"]["user"]["id"] == config.BOT_USER_ID:
+            ignore_reason = "comment by Mergify[bot]"
+
         elif (
-            "@mergify " not in event["comment"]["body"].lower()
-            and "@mergifyio " not in event["comment"]["body"].lower()
+            "@mergify " in event["comment"]["body"].lower()
+            or "@mergifyio " in event["comment"]["body"].lower()
         ):
-            ignore_reason = "comment is not for Mergify"
-        else:
             # NOTE(sileht): nothing important should happen in this hook as we don't retry it
             try:
                 await commands_runner.on_each_event(event)

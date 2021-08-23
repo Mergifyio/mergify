@@ -484,6 +484,11 @@ async def handle(
     await delayed_refresh.plan_next_refresh(
         ctxt, match.matching_rules, ctxt.pull_request
     )
+
+    if not ctxt.sources:
+        # NOTE(sileht): Only comment/command, don't need to go further
+        return None
+
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
