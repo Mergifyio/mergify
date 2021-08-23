@@ -1,11 +1,11 @@
-name: Upload docs to GitHub pages
+name: Upload docs to GCP
 on:
   push:
     branches:
       - main
 
 jobs:
-  docs-upload-to-gh-pages:
+  docs-upload-to-gcp-prod:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -25,13 +25,20 @@ jobs:
 
       - name: Build 🔧
         run: |
-          sudo apt-get install graphviz
+          sudo apt-get install -y graphviz
           pip install tox
           tox -e docs
 
-      - name: Deploy 🚀
-        uses: peaceiris/actions-gh-pages@v3.8.0
+      - name: Setup gcloud 🔧
+        uses: google-github-actions/setup-gcloud@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/build
-          cname: docs.mergify.io
+          service_account_email: ${{ secrets.GCP_DOCS_EMAIL }}
+          service_account_key: ${{ secrets.GCP_DOCS_KEY }}
+          export_default_credentials: true
+
+      - name: Deploy 🚀
+        uses: google-github-actions/upload-cloud-storage@main
+        with:
+          path: docs/build
+          destination: mergify-docs-prod
+          parent: false
