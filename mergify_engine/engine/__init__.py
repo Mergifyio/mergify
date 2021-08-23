@@ -298,9 +298,6 @@ async def run(
                 ic_source["data"]["comment"]["user"],
             )
 
-    if not ctxt.sources:
-        return None
-
     await _ensure_summary_on_head_sha(ctxt)
 
     # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
