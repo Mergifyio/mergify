@@ -23,7 +23,8 @@ from mergify_engine import gitter
 
 
 @pytest.mark.asyncio
-async def test_gitter():
+async def test_gitter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANG", "C")
     git = gitter.Gitter(mock.Mock())
     try:
         await git.init()
@@ -36,6 +37,9 @@ async def test_gitter():
         assert (
             exc_info.value.output == "fatal: pathspec 'toto' did not match any files\n"
         )
+
+        if git.tmp is None:
+            pytest.fail("No tmp dir")
 
         with open(git.tmp + "/.mergify.yml", "w") as f:
             f.write("pull_request_rules:")
