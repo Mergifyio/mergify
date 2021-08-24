@@ -1119,11 +1119,3 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 self.client_admin.items("/orgs/mergifyio-testing/teams"),
             )
         ]
-
-    async def add_team_permission(
-        self, slug: github_types.GitHubTeamSlug, permission: str
-    ) -> None:
-        await self.client_admin.put(
-            f"/orgs/mergifyio-testing/teams/{slug}/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}",
-            json={"permission": permission},
-        )
