@@ -49,7 +49,6 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
     async def test_request_reviews_teams(self):
         team = (await self.get_teams())[0]
-        await self.add_team_permission(team["slug"], "push")
 
         rules = {
             "pull_request_rules": [
