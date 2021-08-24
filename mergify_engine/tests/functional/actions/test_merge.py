@@ -35,8 +35,8 @@ class TestMergeAction(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
-                    "conditions": [f"base={self.master_branch_name}", "label=ready"],
+                    "name": "Merge on main",
+                    "conditions": [f"base={self.main_branch_name}", "label=ready"],
                     "actions": {"merge": {"strict": strict}},
                 },
             ]
@@ -44,16 +44,16 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p_need_rebase, _ = await self.create_pr(base_repo="main")
+        p_need_rebase, _ = await self.create_pr(base_repo="origin")
 
         # To force previous to be rebased to be rebased
-        p, _ = await self.create_pr(base_repo="main")
+        p, _ = await self.create_pr(base_repo="origin")
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {})
 
         await self.git("fetch", "--all")
-        p_ready, _ = await self.create_pr(base_repo="main")
+        p_ready, _ = await self.create_pr(base_repo="origin")
 
         await self.add_label(p_need_rebase["number"], "ready")
         await self.add_label(p_ready["number"], "ready")
@@ -101,7 +101,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=high",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -112,7 +112,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority default",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=medium",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -121,7 +121,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority low",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=low",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -202,7 +202,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=high",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -213,7 +213,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority medium",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=medium",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -222,7 +222,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority low",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=low",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -271,7 +271,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=automerge",
                     ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
@@ -311,7 +311,7 @@ class TestMergeAction(base.FunctionalTestBase):
                 {
                     "name": "Merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=automerge",
                     ],
                     "actions": {"merge": {"strict": "smart+ordered"}},
@@ -346,8 +346,8 @@ class TestMergeAction(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "merge on master",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 },
             ]
@@ -367,8 +367,8 @@ class TestMergeAction(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "merge on master",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {"merge_bot_account": "{{ body }}"}},
                 },
             ]

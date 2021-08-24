@@ -26,7 +26,7 @@ class TestRebaseAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "rebase",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"rebase": {}},
                 }
             ]
@@ -37,14 +37,14 @@ class TestRebaseAction(base.FunctionalTestBase):
         p, commits = await self.create_pr()
         pr_initial_sha = commits[-1]["sha"]
 
-        await self.git("checkout", self.master_branch_name)
+        await self.git("checkout", self.main_branch_name)
 
         open(self.git.tmp + "/an_other_file", "wb").close()
         await self.git("add", "an_other_file")
 
         await self.git("commit", "--no-edit", "-m", "commit ahead")
-        await self.git("push", "--quiet", "main", self.master_branch_name)
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.git("push", "--quiet", "origin", self.main_branch_name)
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.run_engine(1)
         p = await self.get_pull(p["number"])

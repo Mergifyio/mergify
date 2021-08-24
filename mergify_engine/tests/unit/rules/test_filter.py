@@ -822,7 +822,7 @@ async def test_chain() -> None:
 
 
 async def test_parser_leaf() -> None:
-    for string in ("head=foobar", "-base=master", "#files>3"):
+    for string in ("head=foobar", "-base=main", "#files>3"):
         tree = parser.search.parseString(string, parseAll=True)[0]
         assert string == str(filter.BinaryFilter(tree))
 

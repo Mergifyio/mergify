@@ -28,7 +28,7 @@ class TestGithubClient(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "simulator",
-                    "conditions": [f"base!={self.master_branch_name}"],
+                    "conditions": [f"base!={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -80,7 +80,7 @@ class TestGithubClient(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "fake PR",
-                    "conditions": ["base=master"],
+                    "conditions": ["base=main"],
                     "actions": {"merge": {}},
                 }
             ]

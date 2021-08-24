@@ -27,7 +27,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "comment": {"message": "WTF?", "bot_account": "{{ body }}"}
                     },
@@ -52,7 +52,7 @@ class TestCommentAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"comment": {"message": "WTF?"}},
                 }
             ]
@@ -100,7 +100,7 @@ class TestCommentAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"comment": {"message": "Thank you {{author}}"}},
                 }
             ]
@@ -120,7 +120,7 @@ class TestCommentAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"comment": {"message": None}},
                 }
             ]
@@ -147,7 +147,7 @@ class TestCommentAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"comment": {"message": msg}},
                 }
             ]
@@ -197,7 +197,7 @@ Unknown pull request attribute: hello
             "pull_request_rules": [
                 {
                     "name": "comment",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "comment": {"message": "WTF?", "bot_account": "mergify-test3"}
                     },

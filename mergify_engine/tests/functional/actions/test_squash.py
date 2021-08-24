@@ -26,7 +26,7 @@ class TestActionSquash(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"squash": {}},
                 }
             ]
@@ -40,7 +40,7 @@ class TestActionSquash(base.FunctionalTestBase):
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{self.master_branch_name}",
+            f"{repo_name}/{self.main_branch_name}",
             "-b",
             branch_name,
         )
@@ -58,9 +58,9 @@ class TestActionSquash(base.FunctionalTestBase):
         # create a PR with several commits to squash
         pr = (
             await client.post(
-                f"{self.url_main}/pulls",
+                f"{self.url_origin}/pulls",
                 json={
-                    "base": self.master_branch_name,
+                    "base": self.main_branch_name,
                     "head": f"{owner_name}:{branch_name}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
@@ -85,7 +85,7 @@ Awesome body
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         # get the PR
-        pr = await client.item(f"{self.url_main}/pulls/{pr['number']}")
+        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
         ctxt = await context.Context.create(self.repository_ctxt, pr, [])

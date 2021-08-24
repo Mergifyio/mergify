@@ -39,7 +39,7 @@ name: Continuous Integration
 on:
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   unit-tests:
@@ -127,7 +127,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -237,7 +237,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {
@@ -344,7 +344,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -406,7 +406,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -550,7 +550,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -735,7 +735,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -773,7 +773,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -893,7 +893,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                         "status-success=continuous-integration/fake-ci",
                     ],
@@ -1004,7 +1004,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1058,7 +1058,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1124,7 +1124,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Merge p1
         await self.create_status(p1)
         await self.run_engine()
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine(3)
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -1203,7 +1203,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1290,7 +1290,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.create_status(p1)
         await self.run_engine()
 
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine(3)
 
         pulls = await self.get_pulls()
@@ -1317,7 +1317,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1401,7 +1401,7 @@ class TestQueueAction(base.FunctionalTestBase):
         p2 = await self.get_pull(p2["number"])
         await self.create_status(p2)
         await self.run_engine()
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
 
         # Only p1 is still there and the queue is empty
@@ -1425,7 +1425,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1490,10 +1490,10 @@ class TestQueueAction(base.FunctionalTestBase):
         # Merge the train
         await self.create_status(p1)
         await self.run_engine()
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.create_status(tmp_mq_p3)
         await self.run_engine()
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         # Only p2 is remaining and not in train
         pulls = await self.get_pulls()
@@ -1517,7 +1517,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Tchou tchou",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default"}},
@@ -1683,7 +1683,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -1746,7 +1746,7 @@ class TestQueueAction(base.FunctionalTestBase):
         p_merged_in_meantime, _ = await self.create_pr()
         await self.merge_pull(p_merged_in_meantime["number"])
         await self.wait_for("pull_request", {"action": "closed"})
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         p_merged_in_meantime = await self.get_pull(p_merged_in_meantime["number"])
 
         await self.run_engine(3)
@@ -1819,7 +1819,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue-urgent",
                     ],
                     "actions": {"queue": {"name": "urgent"}},
@@ -1827,7 +1827,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default"}},
@@ -1922,7 +1922,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         assert r.json() == {
             f"{self.RECORD_CONFIG['repository_id']}": {
-                self.master_branch_name: [p3["number"], p1["number"], p2["number"]]
+                self.main_branch_name: [p3["number"], p1["number"], p2["number"]]
             }
         }
 
@@ -1986,7 +1986,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge train",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default"}},
@@ -2034,7 +2034,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=queue",
                     ],
                     "actions": {"queue": {"name": "default", "priority": "high"}},
@@ -2065,7 +2065,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # Merge base branch into p2
         await self.client_admin.put(
-            f"{self.url_main}/pulls/{p2['number']}/update-branch",
+            f"{self.url_origin}/pulls/{p2['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": p2["head"]["sha"]},
         )
@@ -2148,7 +2148,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "status-success=very-long-ci",
                         "label=queue",
@@ -2208,7 +2208,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.create_status(p1)
         await self.run_engine()
 
-        await self.wait_for("push", {"ref": f"refs/heads/{self.master_branch_name}"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         pulls = await self.get_pulls()
         assert len(pulls) == 0
@@ -2230,7 +2230,7 @@ class TestQueueAction(base.FunctionalTestBase):
                 {
                     "name": "Merge priority high",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "status-success=very-long-ci",
                         "label=queue",

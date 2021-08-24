@@ -39,7 +39,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "dismiss reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "dismiss_reviews": {
                             "message": msg,
@@ -106,7 +106,7 @@ Unknown pull request attribute: Loser
             "pull_request_rules": [
                 {
                     "name": "dismiss reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "dismiss_reviews": {
                             "approved": True,
@@ -181,7 +181,7 @@ Unknown pull request attribute: Loser
             "pull_request_rules": [
                 {
                     "name": "dismiss reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "dismiss_reviews": {
                             "approved": True,
@@ -204,8 +204,8 @@ Unknown pull request attribute: Loser
         )
 
         # Move base branch
-        await self.git("checkout", self.master_branch_name)
-        await self._push_for_synchronize(self.master_branch_name, remote="main")
+        await self.git("checkout", self.main_branch_name)
+        await self._push_for_synchronize(self.main_branch_name, remote="origin")
         await self.run_engine()
 
         await self.create_comment(p["number"], "@mergifyio refresh")

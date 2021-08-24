@@ -25,7 +25,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
                 {
                     "name": "delete on merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=merge",
                         "merged",
                     ],
@@ -34,7 +34,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
                 {
                     "name": "delete on close",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=close",
                         "closed",
                     ],
@@ -47,8 +47,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
-        p2, _ = await self.create_pr(base_repo="main", branch=second_branch)
+        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
+        p2, _ = await self.create_pr(base_repo="origin", branch=second_branch)
         await self.add_label(p1["number"], "merge")
         await self.add_label(p2["number"], "close")
 
@@ -61,14 +61,14 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         await self.run_engine()
 
         pulls = await self.get_pulls(
-            params={"state": "all", "base": self.master_branch_name}
+            params={"state": "all", "base": self.main_branch_name}
         )
         self.assertEqual(2, len(pulls))
 
         branches = await self.get_branches()
         self.assertEqual(2, len(branches))
-        self.assertEqual(self.master_branch_name, branches[0]["name"])
-        self.assertEqual("master", branches[1]["name"])
+        self.assertEqual(self.main_branch_name, branches[0]["name"])
+        self.assertEqual("main", branches[1]["name"])
 
     async def test_delete_branch_with_dep_no_force(self):
         rules = {
@@ -76,7 +76,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
                 {
                     "name": "delete on merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=merge",
                         "merged",
                     ],
@@ -89,9 +89,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
+        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
         p2, _ = await self.create_pr(
-            base_repo="main", branch=second_branch, base=first_branch
+            base_repo="origin", branch=second_branch, base=first_branch
         )
 
         await self.merge_pull(p1["number"])
@@ -102,7 +102,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         await self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
 
         pulls = await self.get_pulls(
-            params={"state": "all", "base": self.master_branch_name}
+            params={"state": "all", "base": self.main_branch_name}
         )
         assert 1 == len(pulls)
         pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
@@ -110,7 +110,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         branches = await self.get_branches()
         assert 4 == len(branches)
-        assert {"master", self.master_branch_name, first_branch, second_branch} == {
+        assert {"main", self.main_branch_name, first_branch, second_branch} == {
             b["name"] for b in branches
         }
 
@@ -120,7 +120,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
                 {
                     "name": "delete on merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=merge",
                         "merged",
                     ],
@@ -133,9 +133,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = await self.create_pr(base_repo="main", branch=first_branch)
+        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
         p2, _ = await self.create_pr(
-            base_repo="main", branch=second_branch, base=first_branch
+            base_repo="origin", branch=second_branch, base=first_branch
         )
 
         await self.merge_pull(p1["number"])
@@ -150,7 +150,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         await self.run_engine()
 
         pulls = await self.get_pulls(
-            params={"state": "all", "base": self.master_branch_name}
+            params={"state": "all", "base": self.main_branch_name}
         )
         assert 1 == len(pulls)
         pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
@@ -158,6 +158,6 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         branches = await self.get_branches()
         assert 3 == len(branches)
-        assert {"master", self.master_branch_name, second_branch} == {
+        assert {"main", self.main_branch_name, second_branch} == {
             b["name"] for b in branches
         }

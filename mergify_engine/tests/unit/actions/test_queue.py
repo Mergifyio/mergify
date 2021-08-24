@@ -72,7 +72,7 @@ def fake_client():
             raise Exception(f"url not mocked: {url}")
 
     def item_call(url, *args, **kwargs):
-        if url == "/repos/user/name/branches/master":
+        if url == "/repos/user/name/branches/main":
             return {"commit": {"sha": "sha1"}, "protection": {"enabled": False}}
         else:
             raise Exception(f"url not mocked: {url}")
@@ -118,7 +118,7 @@ async def fake_context(repository, number, **kwargs):
             "ref": "feature-branch",
             "repo": {
                 "id": 123,
-                "default_branch": "master",
+                "default_branch": "main",
                 "name": "mergify-engine",
                 "full_name": "Mergifyio/mergify-engine",
                 "archived": False,
@@ -144,11 +144,11 @@ async def fake_context(repository, number, **kwargs):
         "merged_at": None,
         "html_url": "https://...",
         "base": {
-            "label": "Mergifyio:master",
-            "ref": "master",
+            "label": "Mergifyio:main",
+            "ref": "main",
             "repo": {
                 "id": 123,
-                "default_branch": "master",
+                "default_branch": "main",
                 "name": "mergify-engine",
                 "full_name": "Mergifyio/mergify-engine",
                 "archived": False,

@@ -28,7 +28,7 @@ def test_config_validator() -> None:
                     {
                         "name": "Automerge",
                         "conditions": [
-                            "base=master",
+                            "base=main",
                             "#files>100",
                         ],
                         "actions": {"merge": {}},

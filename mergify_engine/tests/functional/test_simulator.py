@@ -31,7 +31,7 @@ class TestSimulator(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "simulator",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -42,7 +42,7 @@ class TestSimulator(base.FunctionalTestBase):
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
-      - base={self.master_branch_name}
+      - base={self.main_branch_name}
       - or:
         - schedule=MON-SUN 00:00-23:59
         - label=foobar
@@ -75,7 +75,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         assert r.json()["title"] == "1 rule matches"
         assert r.json()["summary"].startswith(
-            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n- [X] any of:\n  - [X] `schedule=MON-SUN 00:00-23:59`\n  - [ ] `label=foobar`\n\n<hr />"
+            f"### Rule: assign (assign)\n- [X] `base={self.main_branch_name}`\n- [X] any of:\n  - [X] `schedule=MON-SUN 00:00-23:59`\n  - [ ] `label=foobar`\n\n<hr />"
         ), r.json()["summary"]
 
         mergify_yaml = """pull_request_rules:
@@ -134,7 +134,7 @@ class TestSimulator(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "simulator",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -145,7 +145,7 @@ class TestSimulator(base.FunctionalTestBase):
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
-      - base={self.master_branch_name}
+      - base={self.main_branch_name}
     actions:
       assign:
         users:
@@ -172,7 +172,7 @@ class TestSimulator(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "simulator",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -183,7 +183,7 @@ class TestSimulator(base.FunctionalTestBase):
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
-      - base={self.master_branch_name}
+      - base={self.main_branch_name}
     actions:
       assign:
         users:
@@ -213,7 +213,7 @@ class TestSimulator(base.FunctionalTestBase):
 
         assert r.json()["title"] == "1 rule matches"
         assert r.json()["summary"].startswith(
-            f"### Rule: assign (assign)\n- [X] `base={self.master_branch_name}`\n\n<hr />"
+            f"### Rule: assign (assign)\n- [X] `base={self.main_branch_name}`\n\n<hr />"
         )
 
         r = await self.app.post(

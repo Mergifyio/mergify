@@ -24,7 +24,7 @@ class TestCommandBackport(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "auto-backport",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "comment": {
                             "message": f"@mergifyio backport {stable_branch} {feature_branch}"
@@ -60,7 +60,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         reactions = [
             r
             async for r in self.client_admin.items(
-                f"{self.url_main}/issues/comments/{comments[0]['id']}/reactions",
+                f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
             )
         ]
@@ -69,7 +69,7 @@ class TestCommandBackport(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/bp"])
         ]
         assert sorted(refs) == [
             f"refs/heads/mergify/bp/{feature_branch}/pr-{p['number']}",
@@ -84,7 +84,7 @@ class TestCommandBackport(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/bp"])
         ]
         assert refs == []
 
@@ -98,7 +98,7 @@ class TestCommandBackport(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "auto-backport",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"comment": {"message": "@mergifyio backport"}},
                 }
             ],
@@ -126,7 +126,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         reactions = [
             r
             async for r in self.client_admin.items(
-                f"{self.url_main}/issues/comments/{comments[0]['id']}/reactions",
+                f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
             )
         ]
@@ -162,7 +162,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         reactions = [
             r
             async for r in self.client_admin.items(
-                f"{self.url_main}/issues/comments/{comments[0]['id']}/reactions",
+                f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
             )
         ]
@@ -171,7 +171,7 @@ class TestCommandBackport(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/bp"])
         ]
         assert sorted(refs) == [
             f"refs/heads/mergify/bp/{feature_branch}/pr-{p['number']}",
@@ -186,7 +186,7 @@ class TestCommandBackport(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/bp"])
         ]
         assert refs == []
 

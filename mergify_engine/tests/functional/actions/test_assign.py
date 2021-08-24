@@ -24,7 +24,7 @@ class TestAssignAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"assign": {"users": ["mergify-test1"]}},
                 }
             ]
@@ -36,7 +36,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
@@ -48,7 +48,7 @@ class TestAssignAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"assign": {"add_users": ["mergify-test1"]}},
                 }
             ]
@@ -60,7 +60,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
@@ -72,7 +72,7 @@ class TestAssignAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"assign": {"users": ["{{author}}"]}},
                 }
             ]
@@ -84,7 +84,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test2"]),
@@ -96,7 +96,7 @@ class TestAssignAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"assign": {"add_users": ["mergify-test1"]}},
                 }
             ]
@@ -108,7 +108,7 @@ class TestAssignAction(base.FunctionalTestBase):
         await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             sorted(["mergify-test1"]),
@@ -120,7 +120,7 @@ class TestAssignAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "assign",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"assign": {"remove_users": ["mergify-test1"]}},
                 }
             ]
@@ -132,7 +132,7 @@ class TestAssignAction(base.FunctionalTestBase):
         await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         self.assertEqual(1, len(pulls))
         self.assertEqual(
             [],

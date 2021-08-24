@@ -27,7 +27,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{self.master_branch_name}",
+            f"{repo_name}/{self.main_branch_name}",
             "-b",
             branch_name,
         )
@@ -45,9 +45,9 @@ class TestCommandSquash(base.FunctionalTestBase):
         # create a PR with several commits to squash
         pr = (
             await client.post(
-                f"{self.url_main}/pulls",
+                f"{self.url_origin}/pulls",
                 json={
-                    "base": self.master_branch_name,
+                    "base": self.main_branch_name,
                     "head": f"{owner_name}:{branch_name}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
@@ -69,7 +69,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         # get the PR
-        pr = await client.item(f"{self.url_main}/pulls/{pr['number']}")
+        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
     async def test_squash_several_commits_with_one_merge_commit_and_custom_message(
@@ -82,7 +82,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{self.master_branch_name}",
+            f"{repo_name}/{self.main_branch_name}",
             "-b",
             branch_name1,
         )
@@ -127,9 +127,9 @@ class TestCommandSquash(base.FunctionalTestBase):
         # create a new PR between main & fork
         pr = (
             await client.post(
-                f"{self.url_main}/pulls",
+                f"{self.url_origin}/pulls",
                 json={
-                    "base": self.master_branch_name,
+                    "base": self.main_branch_name,
                     "head": f"{owner_name}:{branch_name1}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
@@ -157,7 +157,7 @@ Awesome body
         # wait after the update & get the PR
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        pr = await client.item(f"{self.url_main}/pulls/{pr['number']}")
+        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
         ctxt = await context.Context.create(self.repository_ctxt, pr, [])
@@ -174,7 +174,7 @@ Awesome body
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{self.master_branch_name}",
+            f"{repo_name}/{self.main_branch_name}",
             "-b",
             branch_name1,
         )
@@ -221,7 +221,7 @@ Awesome body
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{self.master_branch_name}",
+            f"{repo_name}/{self.main_branch_name}",
             "-b",
             branch_name3,
         )
@@ -246,9 +246,9 @@ Awesome body
         # create a new PR between main & fork
         pr = (
             await client.post(
-                f"{self.url_main}/pulls",
+                f"{self.url_origin}/pulls",
                 json={
-                    "base": self.master_branch_name,
+                    "base": self.main_branch_name,
                     "head": f"{owner_name}:{branch_name1}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
@@ -270,5 +270,5 @@ Awesome body
         # wait after the update & get the PR
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        pr = await client.item(f"{self.url_main}/pulls/{pr['number']}")
+        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
