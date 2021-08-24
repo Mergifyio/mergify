@@ -41,7 +41,7 @@ class TestGithubClient(base.FunctionalTestBase):
 
         client = github.aget_client("mergifyio-testing")
 
-        url = f"/repos/mergifyio-testing/{self.REPO_NAME}/pulls"
+        url = f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}/pulls"
 
         pulls = [p async for p in client.items(url)]
         self.assertEqual(3, len(pulls))
@@ -88,6 +88,6 @@ class TestGithubClient(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
-        url = f"/repos/mergifyio-testing/{self.REPO_NAME}/pulls"
+        url = f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}/pulls"
         pulls = [p async for p in self.client_integration.items(url)]
         self.assertEqual(1, len(pulls))

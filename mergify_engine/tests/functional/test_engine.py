@@ -310,7 +310,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         assert r.json() == {
-            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
+            f"{self.RECORD_CONFIG['repository_id']}": {
+                self.master_branch_name: [p2["number"]]
+            }
         }
 
         # Queue with token
@@ -323,7 +325,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         assert r.json() == {
-            f"{self.REPO_ID}": {self.master_branch_name: [p2["number"]]}
+            f"{self.RECORD_CONFIG['repository_id']}": {
+                self.master_branch_name: [p2["number"]]
+            }
         }
 
         p2 = await self.get_pull(p2["number"])
@@ -1364,8 +1368,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert checks[0]["output"]["summary"] == "PENDING"
 
     async def test_get_repository_by_id(self):
-        repo = await self.installation_ctxt.get_repository_by_id(self.REPO_ID)
-        assert repo.repo["name"] == self.REPO_NAME
+        repo = await self.installation_ctxt.get_repository_by_id(
+            self.RECORD_CONFIG["repository_id"]
+        )
+        assert repo.repo["name"] == self.RECORD_CONFIG["repository_name"]
         assert repo.repo["name"] == self.repository_ctxt.repo["name"]
 
 

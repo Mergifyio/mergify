@@ -118,7 +118,7 @@ class TestCommandSquash(base.FunctionalTestBase):
             f"{self.url_fork}/merges",
             json={
                 "owner": owner_name,
-                "repo": self.REPO_NAME,
+                "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
             },
@@ -210,7 +210,7 @@ Awesome body
             f"{self.url_fork}/merges",
             json={
                 "owner": owner_name,
-                "repo": self.REPO_NAME,
+                "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
             },
@@ -237,7 +237,7 @@ Awesome body
             f"{self.url_fork}/merges",
             json={
                 "owner": owner_name,
-                "repo": self.REPO_NAME,
+                "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name3,
             },
