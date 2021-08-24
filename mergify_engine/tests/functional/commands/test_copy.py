@@ -74,6 +74,8 @@ class TestCommandCopy(base.FunctionalTestBase):
             f"refs/heads/mergify/copy/{stable_branch}/pr-{p['number']}",
         ]
 
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
         await self.merge_pull(pulls_feature[0]["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.merge_pull(pulls_stable[0]["number"])
