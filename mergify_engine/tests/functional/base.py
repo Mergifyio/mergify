@@ -154,16 +154,16 @@ class GitterRecorder(gitter.Gitter):
 
 
 class EventReader:
-    def __init__(self, app: httpx.AsyncClient) -> None:
+    def __init__(
+        self, app: httpx.AsyncClient, repository_id: github_types.GitHubRepositoryIdType
+    ) -> None:
         self._app = app
         self._session = http.AsyncClient()
         self._handled_events: asyncio.Queue[ForwardedEvent] = asyncio.Queue()
         self._counter = 0
 
         hostname = parse.urlparse(config.GITHUB_URL).hostname
-        self._namespace_endpoint = (
-            f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}"
-        )
+        self._namespace_endpoint = f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}/{repository_id}"
 
     async def drain(self) -> None:
         # NOTE(sileht): Drop any pending events still on the server
@@ -303,17 +303,22 @@ class EventReader:
             return data
 
 
+class RecordConfigType(typing.TypedDict):
+    organization_id: github_types.GitHubAccountIdType
+    organization_name: github_types.GitHubLogin
+    repository_id: github_types.GitHubRepositoryIdType
+    repository_name: github_types.GitHubRepositoryName
+    branch_prefix: str
+
+
 @pytest.mark.usefixtures("logger_checker")
 class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
-    REPO_ID = config.TESTING_REPOSITORY_ID
-    REPO_NAME = config.TESTING_REPOSITORY_NAME
     FORK_PERSONAL_TOKEN = config.EXTERNAL_USER_PERSONAL_TOKEN
     SUBSCRIPTION_ACTIVE = False
 
     # To run tests on private repository, you can use:
-    # REPO_NAME = "functional-testing-repo-private"
     # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
     # SUBSCRIPTION_ACTIVE = True
 
@@ -393,15 +398,30 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # Web authentification always pass
         mock.patch("hmac.compare_digest", return_value=True).start()
 
-        branch_prefix_path = os.path.join(self.cassette_library_dir, "branch_prefix")
+        record_config_file = os.path.join(self.cassette_library_dir, "config.json")
 
         if RECORD:
-            self.BRANCH_PREFIX = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-            with open(branch_prefix_path, "w") as f:
-                f.write(self.BRANCH_PREFIX)
-        else:
-            with open(branch_prefix_path, "r") as f:
-                self.BRANCH_PREFIX = f.read()
+            with open(record_config_file, "w") as f:
+                f.write(
+                    json.dumps(
+                        RecordConfigType(
+                            {
+                                "organization_id": config.TESTING_ORGANIZATION_ID,
+                                "organization_name": config.TESTING_ORGANIZATION_NAME,
+                                "repository_id": config.TESTING_REPOSITORY_ID,
+                                "repository_name": github_types.GitHubRepositoryName(
+                                    config.TESTING_REPOSITORY_NAME
+                                ),
+                                "branch_prefix": datetime.datetime.utcnow().strftime(
+                                    "%Y%m%d%H%M%S"
+                                ),
+                            }
+                        )
+                    )
+                )
+
+        with open(record_config_file, "r") as f:
+            self.RECORD_CONFIG = typing.cast(RecordConfigType, json.loads(f.read()))
 
         self.master_branch_name = self.get_full_branch_name("master")
 
@@ -476,12 +496,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.client_admin.auth.owner = github_types.GitHubLogin("mergify-test1")
             self.client_fork.auth.owner = github_types.GitHubLogin("mergify-test2")
 
-        self.url_main = f"/repos/mergifyio-testing/{self.REPO_NAME}"
-        self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.REPO_NAME}"
-        self.git_main = f"{config.GITHUB_URL}/mergifyio-testing/{self.REPO_NAME}"
-        self.git_fork = (
-            f"{config.GITHUB_URL}/{self.client_fork.auth.owner}/{self.REPO_NAME}"
+        self.url_main = (
+            f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
         )
+        self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
+        self.git_main = f"{config.GITHUB_URL}/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
+        self.git_fork = f"{config.GITHUB_URL}/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
 
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
@@ -491,7 +511,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.redis_cache,
         )
         self.repository_ctxt = await self.installation_ctxt.get_repository_by_id(
-            self.REPO_ID
+            github_types.GitHubRepositoryIdType(self.RECORD_CONFIG["repository_id"])
         )
 
         real_get_subscription = subscription.Subscription.get_subscription
@@ -561,7 +581,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             side_effect=fake_pretty_datetime,
         ).start()
 
-        self._event_reader = EventReader(self.app)
+        self._event_reader = EventReader(self.app, self.RECORD_CONFIG["repository_id"])
         await self._event_reader.drain()
 
         # NOTE(sileht): Prepare a fresh redis
@@ -665,12 +685,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.add_cred(
             config.ORG_ADMIN_PERSONAL_TOKEN,
             "",
-            f"mergifyio-testing/{self.REPO_NAME}",
+            f"mergifyio-testing/{self.RECORD_CONFIG['repository_name']}",
         )
         await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
-            f"{self.client_fork.auth.owner}/{self.REPO_NAME}",
+            f"{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}",
         )
         await self.git("config", "user.name", f"{config.CONTEXT}-tester")
         await self.git("remote", "add", "main", self.git_main)
@@ -771,7 +791,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         return response
 
     def get_full_branch_name(self, name: str) -> str:
-        return f"{self.BRANCH_PREFIX}/{self._testMethodName}/{name}"
+        return f"{self.RECORD_CONFIG['branch_prefix']}/{self._testMethodName}/{name}"
 
     async def create_pr(
         self,
@@ -1101,6 +1121,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self, slug: github_types.GitHubTeamSlug, permission: str
     ) -> None:
         await self.client_admin.put(
-            f"/orgs/mergifyio-testing/teams/{slug}/repos/mergifyio-testing/{self.REPO_NAME}",
+            f"/orgs/mergifyio-testing/teams/{slug}/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}",
             json={"permission": permission},
         )

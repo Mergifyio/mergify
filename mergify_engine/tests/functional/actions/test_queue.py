@@ -1921,7 +1921,7 @@ class TestQueueAction(base.FunctionalTestBase):
         )
 
         assert r.json() == {
-            f"{self.REPO_ID}": {
+            f"{self.RECORD_CONFIG['repository_id']}": {
                 self.master_branch_name: [p3["number"], p1["number"], p2["number"]]
             }
         }
