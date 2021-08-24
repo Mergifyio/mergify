@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import logging
+import operator
 
 from freezegun import freeze_time
 import pytest
@@ -327,3 +328,33 @@ class TestAttributesWithSub(base.FunctionalTestBase):
 - [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
 """
         assert expected == summary["output"]["summary"][: len(expected)]
+
+    async def test_statuses_error(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "statuses-error-state",
+                    "conditions": ["check-failure=sick-ci"],
+                    "actions": {"post_check": {}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        sorted_checks = sorted(
+            await ctxt.pull_engine_check_runs, key=operator.itemgetter("name")
+        )
+        assert len(sorted_checks) == 2
+        assert "failure" == sorted_checks[0]["conclusion"]
+
+        await self.create_status(p, "sick-ci", "error")
+        await self.run_engine()
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        sorted_checks = sorted(
+            await ctxt.pull_engine_check_runs, key=operator.itemgetter("name")
+        )
+        assert len(sorted_checks) == 2
+        assert "success" == sorted_checks[0]["conclusion"]

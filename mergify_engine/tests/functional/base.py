@@ -878,7 +878,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self,
         pull: github_types.GitHubPullRequest,
         context: str = "continuous-integration/fake-ci",
-        state: typing.Literal["success", "pending", "failure"] = "success",
+        state: github_types.GitHubStatusState = "success",
     ) -> None:
         await self.client_admin.post(
             f"{self.url_origin}/statuses/{pull['head']['sha']}",
