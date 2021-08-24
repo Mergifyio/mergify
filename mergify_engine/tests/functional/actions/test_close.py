@@ -25,7 +25,7 @@ class TestCloseAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "close",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"close": {"message": "WTF?"}},
                 }
             ]
@@ -47,7 +47,7 @@ class TestCloseAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "close",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"close": {"message": "Thank you {{author}}"}},
                 }
             ]
@@ -69,7 +69,7 @@ class TestCloseAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "close",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"close": {"message": msg}},
                 }
             ]

@@ -32,7 +32,7 @@ class TestDebugger(base.FunctionalTestBase):
                 {
                     "name": "comment",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         {
                             "or": [
                                 "label=doubt",
@@ -102,7 +102,7 @@ pull_request_rules:
     comment:
       message: WTF?
   conditions:
-  - base={self.master_branch_name}
+  - base={self.main_branch_name}
   - or:
     - label=doubt
     - label=suspect
@@ -117,7 +117,7 @@ pull_request_rules:
 {{'approved-reviews-by': [],
  'assignee': [],
  'author': 'mergify-test2',
- 'base': '{self.master_branch_name}',
+ 'base': '{self.main_branch_name}',
  'body': 'test_debugger: pull request n1 from fork',
  'changes-requested-reviews-by': [],
  'check-failure': [],
@@ -149,7 +149,7 @@ mergeable_state: clean
 * MERGIFY LAST CHECKS:
 [Summary]: success | 1 potential rule | {summary_html_url}
 > ### Rule: comment (comment)
-> - [X] `base={self.master_branch_name}`
+> - [X] `base={self.main_branch_name}`
 > - [ ] any of:
 >   - [ ] `label=doubt`
 >   - [ ] `label=suspect`
@@ -188,7 +188,7 @@ mergeable_state: clean
 * MERGIFY LIVE MATCHES:
 [Summary]: success | 1 potential rule
 > ### Rule: comment (comment)
-> - [X] `base={self.master_branch_name}`
+> - [X] `base={self.main_branch_name}`
 > - [ ] any of:
 >   - [ ] `label=doubt`
 >   - [ ] `label=suspect`

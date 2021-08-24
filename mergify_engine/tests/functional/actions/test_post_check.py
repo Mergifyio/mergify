@@ -33,7 +33,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
                 {
                     "name": "body need sentry ticket",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#title>10",
                         "#title<50",
                         "#body<4096",
@@ -66,7 +66,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
                 {
                     "name": "body need sentry ticket",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#title>10",
                         "#title<50",
                         "#body<4096",
@@ -139,7 +139,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
                 {
                     "name": "body need sentry ticket",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#title>10",
                         "#title<50",
                         "#body<4096",

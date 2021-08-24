@@ -34,9 +34,9 @@ class BackportActionTestBase(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {"merge": {"method": method, "rebase_fallback": None}},
@@ -44,7 +44,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
                 {
                     "name": "Backport to stable/#3.1",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {"backport": config or {"branches": [stable_branch]}},
@@ -67,7 +67,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
         assert await self.is_pull_merged(p["number"])
 
         pulls = await self.get_pulls(
-            params={"state": "all", "base": self.master_branch_name}
+            params={"state": "all", "base": self.main_branch_name}
         )
         assert 1 == len(pulls)
         assert "closed" == pulls[0]["state"]
@@ -111,7 +111,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/bp"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/bp"])
         ]
         assert [f"refs/heads/mergify/bp/{stable_branch}/pr-{p['number']}"] == refs
         return await self.get_pull(pulls[0]["number"])
@@ -125,7 +125,7 @@ class TestBackportAction(BackportActionTestBase):
                 {
                     "name": "backport",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-3.1",
                     ],
                     "actions": {"backport": {"branches": [stable_branch]}},
@@ -155,9 +155,9 @@ class TestBackportAction(BackportActionTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {"merge": {"method": "merge", "rebase_fallback": None}},
@@ -165,7 +165,7 @@ class TestBackportAction(BackportActionTestBase):
                 {
                     "name": "Backport",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {"backport": {"branches": ["crashme"]}},
@@ -199,9 +199,9 @@ class TestBackportAction(BackportActionTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {"merge": {"method": "rebase"}},
@@ -209,7 +209,7 @@ class TestBackportAction(BackportActionTestBase):
                 {
                     "name": "Backport to stable/#3.1",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=backport-#3.1",
                     ],
                     "actions": {
@@ -228,12 +228,12 @@ class TestBackportAction(BackportActionTestBase):
 
         # Commit something in stable
         await self.git("checkout", "--quiet", stable_branch)
-        # Write in the file that create_pr will create in master
+        # Write in the file that create_pr will create in main
         with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
             f.write(b"conflicts incoming")
         await self.git("add", "conflicts")
         await self.git("commit", "--no-edit", "-m", "add conflict")
-        await self.git("push", "--quiet", "main", stable_branch)
+        await self.git("push", "--quiet", "origin", stable_branch)
 
         p, commits = await self.create_pr(files={"conflicts": "ohoh"})
 
@@ -256,9 +256,9 @@ class TestBackportAction(BackportActionTestBase):
         p, checks = await self._do_backport_conflicts(False)
 
         # Retrieve the new commit id that has been be cherry-picked
-        await self.git("fetch", "main")
+        await self.git("fetch", "origin")
         commit_id = (
-            await self.git("show-ref", "--hash", f"main/{self.master_branch_name}")
+            await self.git("show-ref", "--hash", f"origin/{self.main_branch_name}")
         ).strip()
 
         assert "failure" == checks[0]["conclusion"]

@@ -423,7 +423,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         with open(record_config_file, "r") as f:
             self.RECORD_CONFIG = typing.cast(RecordConfigType, json.loads(f.read()))
 
-        self.master_branch_name = self.get_full_branch_name("master")
+        self.main_branch_name = self.get_full_branch_name("main")
 
         self.git = self.get_gitter(LOG)
         await self.git.init()
@@ -496,11 +496,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.client_admin.auth.owner = github_types.GitHubLogin("mergify-test1")
             self.client_fork.auth.owner = github_types.GitHubLogin("mergify-test2")
 
-        self.url_main = (
+        self.url_origin = (
             f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
         )
         self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
-        self.git_main = f"{config.GITHUB_URL}/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
+        self.git_origin = f"{config.GITHUB_URL}/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
         self.git_fork = f"{config.GITHUB_URL}/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
 
         self.installation_ctxt = context.Installation(
@@ -607,7 +607,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0.5)
 
             await self.client_admin.patch(
-                self.url_main, json={"default_branch": "master"}
+                self.url_origin, json={"default_branch": "main"}
             )
             for branch in await self.get_branches():
                 if branch["name"].startswith("20") or branch["name"].startswith(
@@ -616,12 +616,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     if branch["protected"]:
                         await self.branch_protection_unprotect(branch["name"])
                     await self.client_admin.delete(
-                        f"{self.url_main}/git/refs/heads/{parse.quote(branch['name'])}"
+                        f"{self.url_origin}/git/refs/heads/{parse.quote(branch['name'])}"
                     )
 
             for label in await self.get_labels():
                 await self.client_admin.delete(
-                    f"{self.url_main}/labels/{parse.quote(label['name'], safe='')}"
+                    f"{self.url_origin}/labels/{parse.quote(label['name'], safe='')}"
                 )
 
             for pull in await self.get_pulls():
@@ -693,7 +693,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             f"{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}",
         )
         await self.git("config", "user.name", f"{config.CONTEXT}-tester")
-        await self.git("remote", "add", "main", self.git_main)
+        await self.git("remote", "add", "origin", self.git_origin)
         await self.git("remote", "add", "fork", self.git_fork)
 
         if mergify_config is None:
@@ -709,20 +709,18 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             await self._git_create_files(files)
 
         await self.git("commit", "--no-edit", "-m", "initial commit")
-        await self.git("branch", "-M", self.master_branch_name)
+        await self.git("branch", "-M", self.main_branch_name)
 
         for test_branch in test_branches:
-            await self.git("branch", test_branch, self.master_branch_name)
+            await self.git("branch", test_branch, self.main_branch_name)
 
         await self.git(
-            "push", "--quiet", "main", self.master_branch_name, *test_branches
+            "push", "--quiet", "origin", self.main_branch_name, *test_branches
         )
-        await self.git(
-            "push", "--quiet", "fork", self.master_branch_name, *test_branches
-        )
+        await self.git("push", "--quiet", "fork", self.main_branch_name, *test_branches)
 
         await self.client_admin.patch(
-            self.url_main, json={"default_branch": self.master_branch_name}
+            self.url_origin, json={"default_branch": self.main_branch_name}
         )
 
     @staticmethod
@@ -798,7 +796,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         base: typing.Optional[str] = None,
         files: typing.Optional[typing.Dict[str, str]] = None,
         two_commits: bool = False,
-        base_repo: typing.Literal["main", "fork"] = "fork",
+        base_repo: typing.Literal["origin", "fork"] = "fork",
         branch: typing.Optional[str] = None,
         message: typing.Optional[str] = None,
         draft: bool = False,
@@ -811,7 +809,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("self.git.init() not called, tmp dir empty")
 
         if base is None:
-            base = self.master_branch_name
+            base = self.main_branch_name
 
         if not branch:
             branch = f"{base_repo}/pr{self.pr_counter}"
@@ -843,7 +841,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             login = github_types.GitHubLogin("mergifyio-testing")
 
         resp = await client.post(
-            f"{self.url_main}/pulls",
+            f"{self.url_origin}/pulls",
             json={
                 "base": base,
                 "head": f"{login}:{branch}",
@@ -879,7 +877,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         state: typing.Literal["success", "pending", "failure"] = "success",
     ) -> None:
         await self.client_admin.post(
-            f"{self.url_main}/statuses/{pull['head']['sha']}",
+            f"{self.url_origin}/statuses/{pull['head']['sha']}",
             json={
                 "state": state,
                 "description": f"The CI is {state}",
@@ -896,7 +894,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         ] = "APPROVE",
     ) -> None:
         await self.client_admin.post(
-            f"{self.url_main}/pulls/{pull_number}/reviews",
+            f"{self.url_origin}/pulls/{pull_number}/reviews",
             json={"event": event, "body": f"event: {event}"},
         )
         await self.wait_for("pull_request_review", {"action": "submitted"})
@@ -908,7 +906,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         return typing.cast(
             github_types.GitHubRequestedReviewers,
             await self.client_admin.item(
-                f"{self.url_main}/pulls/{pull_number}/requested_reviewers",
+                f"{self.url_origin}/pulls/{pull_number}/requested_reviewers",
             ),
         )
 
@@ -918,7 +916,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         reviewers: typing.List[str],
     ) -> None:
         await self.client_admin.post(
-            f"{self.url_main}/pulls/{pull_number}/requested_reviewers",
+            f"{self.url_origin}/pulls/{pull_number}/requested_reviewers",
             json={"reviewers": reviewers},
         )
         await self.wait_for("pull_request", {"action": "review_requested"})
@@ -927,13 +925,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self, pull_number: github_types.GitHubPullRequestNumber, message: str
     ) -> None:
         await self.client_admin.post(
-            f"{self.url_main}/issues/{pull_number}/comments", json={"body": message}
+            f"{self.url_origin}/issues/{pull_number}/comments", json={"body": message}
         )
         await self.wait_for("issue_comment", {"action": "created"})
 
     async def create_issue(self, title: str, body: str) -> github_types.GitHubIssue:
         resp = await self.client_admin.post(
-            f"{self.url_main}/issues", json={"body": body, "title": title}
+            f"{self.url_origin}/issues", json={"body": body, "title": title}
         )
         # NOTE(sileht):Our GitHubApp doesn't subscribe to issues event
         # await self.wait_for("issues", {"action": "created"})
@@ -943,7 +941,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self, pull_number: github_types.GitHubPullRequestNumber, assignee: str
     ) -> None:
         await self.client_admin.post(
-            f"{self.url_main}/issues/{pull_number}/assignees",
+            f"{self.url_origin}/issues/{pull_number}/assignees",
             json={"assignees": [assignee]},
         )
         await self.wait_for("pull_request", {"action": "assigned"})
@@ -954,7 +952,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if label not in self.existing_labels:
             try:
                 await self.client_admin.post(
-                    f"{self.url_main}/labels", json={"name": label, "color": "000000"}
+                    f"{self.url_origin}/labels", json={"name": label, "color": "000000"}
                 )
             except http.HTTPClientSideError as e:
                 if e.status_code != 422:
@@ -963,7 +961,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.existing_labels.append(label)
 
         await self.client_admin.post(
-            f"{self.url_main}/issues/{pull_number}/labels", json={"labels": [label]}
+            f"{self.url_origin}/issues/{pull_number}/labels", json={"labels": [label]}
         )
         await self.wait_for("pull_request", {"action": "labeled"})
 
@@ -971,13 +969,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self, pull_number: github_types.GitHubPullRequestNumber, label: str
     ) -> None:
         await self.client_admin.delete(
-            f"{self.url_main}/issues/{pull_number}/labels/{label}"
+            f"{self.url_origin}/issues/{pull_number}/labels/{label}"
         )
         await self.wait_for("pull_request", {"action": "unlabeled"})
 
     async def branch_protection_unprotect(self, branch: str) -> None:
         await self.client_admin.delete(
-            f"{self.url_main}/branches/{branch}/protection",
+            f"{self.url_origin}/branches/{branch}/protection",
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
         self.protected_branches.remove(branch)
@@ -990,14 +988,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             protection["required_pull_request_reviews"]["dismissal_restrictions"] = {}
 
         await self.client_admin.put(
-            f"{self.url_main}/branches/{branch}/protection",
+            f"{self.url_origin}/branches/{branch}/protection",
             json=protection,
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
         self.protected_branches.add(branch)
 
     async def get_branches(self) -> typing.List[github_types.GitHubBranch]:
-        return [c async for c in self.client_admin.items(f"{self.url_main}/branches")]
+        return [c async for c in self.client_admin.items(f"{self.url_origin}/branches")]
 
     async def get_commits(
         self, pull_number: github_types.GitHubPullRequestNumber
@@ -1006,7 +1004,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             c
             async for c in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubBranchCommit, None],
-                self.client_admin.items(f"{self.url_main}/pulls/{pull_number}/commits"),
+                self.client_admin.items(
+                    f"{self.url_origin}/pulls/{pull_number}/commits"
+                ),
             )
         ]
 
@@ -1014,7 +1014,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         return typing.cast(
             github_types.GitHubBranch,
             await self.client_admin.item(
-                f"{self.url_main}/branches/{self.master_branch_name}"
+                f"{self.url_origin}/branches/{self.main_branch_name}"
             ),
         )["commit"]
 
@@ -1026,7 +1026,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             async for comment in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubComment, None],
                 self.client_admin.items(
-                    f"{self.url_main}/issues/{pull_number}/comments"
+                    f"{self.url_origin}/issues/{pull_number}/comments"
                 ),
             )
         ]
@@ -1038,7 +1038,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             review
             async for review in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubReview, None],
-                self.client_admin.items(f"{self.url_main}/pulls/{pull_number}/reviews"),
+                self.client_admin.items(
+                    f"{self.url_origin}/pulls/{pull_number}/reviews"
+                ),
             )
         ]
 
@@ -1047,7 +1049,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     ) -> github_types.GitHubPullRequest:
         return typing.cast(
             github_types.GitHubPullRequest,
-            await self.client_admin.item(f"{self.url_main}/pulls/{pull_number}"),
+            await self.client_admin.item(f"{self.url_origin}/pulls/{pull_number}"),
         )
 
     async def get_pulls(
@@ -1055,7 +1057,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         **kwargs: typing.Any,
     ) -> typing.List[github_types.GitHubPullRequest]:
         return [
-            i async for i in self.client_admin.items(f"{self.url_main}/pulls", **kwargs)
+            i
+            async for i in self.client_admin.items(f"{self.url_origin}/pulls", **kwargs)
         ]
 
     async def edit_pull(
@@ -1067,7 +1070,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             github_types.GitHubPullRequest,
             (
                 await self.client_admin.patch(
-                    f"{self.url_main}/pulls/{pull_number}", json=payload
+                    f"{self.url_origin}/pulls/{pull_number}", json=payload
                 )
             ).json(),
         )
@@ -1077,7 +1080,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         pull_number: github_types.GitHubPullRequestNumber,
     ) -> bool:
         try:
-            await self.client_admin.get(f"{self.url_main}/pulls/{pull_number}/merge")
+            await self.client_admin.get(f"{self.url_origin}/pulls/{pull_number}/merge")
         except http.HTTPNotFound:
             return False
         else:
@@ -1087,14 +1090,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self,
         pull_number: github_types.GitHubPullRequestNumber,
     ) -> None:
-        await self.client_admin.put(f"{self.url_main}/pulls/{pull_number}/merge")
+        await self.client_admin.put(f"{self.url_origin}/pulls/{pull_number}/merge")
 
     async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
         return [
             label
             async for label in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubLabel, None],
-                self.client_admin.items(f"{self.url_main}/labels"),
+                self.client_admin.items(f"{self.url_origin}/labels"),
             )
         ]
 

@@ -31,7 +31,7 @@ def test_simulator_without_pull_request() -> None:
                     {
                         "name": "Automerge",
                         "conditions": [
-                            "base=master",
+                            "base=main",
                             "#files>100",
                             "-#files<=100",
                         ],

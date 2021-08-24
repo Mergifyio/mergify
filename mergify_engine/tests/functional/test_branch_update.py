@@ -77,7 +77,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         assert oldsha != p2["head"]["sha"]
         f = typing.cast(
             github_types.GitHubContentFile,
-            await self.client_admin.item(f"{self.url_main}/contents/TESTING"),
+            await self.client_admin.item(f"{self.url_origin}/contents/TESTING"),
         )
         data = base64.b64decode(bytearray(f["content"], "utf-8"))
         assert data == b"p2\n\nfoobar\n\n\np1"

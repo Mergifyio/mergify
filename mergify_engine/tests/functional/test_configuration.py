@@ -96,7 +96,7 @@ expected alphabetic or numeric character, but found"""
             "pull_request_rules": [
                 {
                     "name": "foobar",
-                    "conditions": ["base=master"],
+                    "conditions": ["base=main"],
                     "actions": {
                         "comment": {"message": "hello"},
                     },
@@ -125,7 +125,7 @@ expected alphabetic or numeric character, but found"""
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": [f"base!={self.master_branch_name}"],
+                    "conditions": [f"base!={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]

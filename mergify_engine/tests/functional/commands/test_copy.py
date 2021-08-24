@@ -24,7 +24,7 @@ class TestCommandCopy(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "auto-copy",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "comment": {
                             "message": f"@mergifyio copy {stable_branch} {feature_branch}"
@@ -58,7 +58,7 @@ class TestCommandCopy(base.FunctionalTestBase):
         reactions = [
             r
             async for r in self.client_admin.items(
-                f"{self.url_main}/issues/comments/{comments[0]['id']}/reactions",
+                f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
             )
         ]
@@ -67,7 +67,7 @@ class TestCommandCopy(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/copy"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/copy"])
         ]
         assert sorted(refs) == [
             f"refs/heads/mergify/copy/{feature_branch}/pr-{p['number']}",
@@ -82,6 +82,6 @@ class TestCommandCopy(base.FunctionalTestBase):
 
         refs = [
             ref["ref"]
-            async for ref in self.find_git_refs(self.url_main, ["mergify/copy"])
+            async for ref in self.find_git_refs(self.url_origin, ["mergify/copy"])
         ]
         assert refs == []

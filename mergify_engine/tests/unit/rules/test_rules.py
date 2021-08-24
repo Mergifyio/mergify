@@ -82,14 +82,14 @@ async def test_multiple_pulls_to_match():
             conditions.RuleConditionGroup(
                 {
                     "or": [
-                        conditions.RuleCondition("base=master"),
+                        conditions.RuleCondition("base=main"),
                         conditions.RuleCondition("base=main"),
                     ]
                 }
             )
         ]
     )
-    assert await c([FakeQueuePullRequest({"number": 1, "base": "master"})])
+    assert await c([FakeQueuePullRequest({"number": 1, "base": "main"})])
     c = c.copy()
     assert await c([FakeQueuePullRequest({"number": 1, "base": "main"})])
     c = c.copy()
@@ -97,22 +97,22 @@ async def test_multiple_pulls_to_match():
     c = c.copy()
     assert await c(
         [
-            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
             FakeQueuePullRequest({"number": 1, "base": "main"}),
         ]
     )
     c = c.copy()
     assert await c(
         [
-            FakeQueuePullRequest({"number": 1, "base": "master"}),
             FakeQueuePullRequest({"number": 1, "base": "main"}),
-            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
         ]
     )
     c = c.copy()
     assert not await c(
         [
-            FakeQueuePullRequest({"number": 1, "base": "master"}),
+            FakeQueuePullRequest({"number": 1, "base": "main"}),
             FakeQueuePullRequest({"number": 1, "base": "main"}),
             FakeQueuePullRequest({"number": 1, "base": "other"}),
         ]
@@ -122,7 +122,7 @@ async def test_multiple_pulls_to_match():
 @pytest.mark.parametrize(
     "valid",
     (
-        {"name": "hello", "conditions": ["head:master"], "actions": {}},
+        {"name": "hello", "conditions": ["head:main"], "actions": {}},
         {"name": "hello", "conditions": ["body:foo", "body:baz"], "actions": {}},
         {
             "name": "and",
@@ -229,7 +229,7 @@ def test_jinja_with_list_attribute():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   comment:
                     message: |
@@ -262,7 +262,7 @@ def test_jinja_with_wrong_syntax():
                 """pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       comment:
         message: |
@@ -283,7 +283,7 @@ def test_jinja_with_wrong_syntax():
                 """pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       comment:
         message: |
@@ -309,7 +309,7 @@ def test_jinja_with_wrong_syntax():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   comment:
                     message: |
@@ -321,7 +321,7 @@ def test_jinja_with_wrong_syntax():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   comment:
                     message: |
@@ -340,7 +340,7 @@ def test_jinja_with_wrong_syntax():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   comment:
                     message: |
@@ -358,7 +358,7 @@ def test_jinja_with_wrong_syntax():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   comment: {}
                   rebase: {}
@@ -434,7 +434,7 @@ defaults:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       comment:
         message: I love Mergify
@@ -509,7 +509,7 @@ defaults:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       comment:
         message: I really love Mergify
@@ -929,7 +929,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             return {"permission": "write"}
         elif url == "/repos/another-jd/name/collaborators/jd/permission":
             return {"permission": "write"}
-        elif url == "/repos/another-jd/name/branches/master":
+        elif url == "/repos/another-jd/name/branches/main":
             return {"protection": {"enabled": False}}
         raise RuntimeError(f"not handled url {url}")
 
@@ -1014,7 +1014,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "changed_files": 1,
                 "base": {
                     "label": "repo",
-                    "ref": github_types.GitHubRefType("master"),
+                    "ref": github_types.GitHubRefType("main"),
                     "repo": gh_repo,
                     "user": gh_owner,
                     "sha": github_types.SHAType("mew"),
@@ -1057,7 +1057,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         assert rule.actions == {}
 
     pull_request_rules = pull_request_rule_from_list(
-        [{"name": "hello", "conditions": ["base:master"], "actions": {}}]
+        [{"name": "hello", "conditions": ["base:main"], "actions": {}}]
     )
 
     match = await pull_request_rules.get_pull_request_rule(ctxt)
@@ -1068,8 +1068,8 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     pull_request_rules = pull_request_rule_from_list(
         [
-            {"name": "hello", "conditions": ["base:master"], "actions": {}},
-            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+            {"name": "hello", "conditions": ["base:main"], "actions": {}},
+            {"name": "backport", "conditions": ["base:main"], "actions": {}},
         ]
     )
 
@@ -1082,7 +1082,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     pull_request_rules = pull_request_rule_from_list(
         [
             {"name": "hello", "conditions": ["author:foobar"], "actions": {}},
-            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+            {"name": "backport", "conditions": ["base:main"], "actions": {}},
         ]
     )
 
@@ -1095,7 +1095,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     pull_request_rules = pull_request_rule_from_list(
         [
             {"name": "hello", "conditions": ["author:another-jd"], "actions": {}},
-            {"name": "backport", "conditions": ["base:master"], "actions": {}},
+            {"name": "backport", "conditions": ["base:main"], "actions": {}},
         ]
     )
 
@@ -1129,7 +1129,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "merge",
                 "conditions": [
-                    "base=master",
+                    "base=main",
                     "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=1",
                 ],
@@ -1149,7 +1149,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "merge",
                 "conditions": [
-                    "base=master",
+                    "base=main",
                     "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=2",
                 ],
@@ -1158,7 +1158,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "fast merge",
                 "conditions": [
-                    "base=master",
+                    "base=main",
                     "label=fast-track",
                     "check-success=continuous-integration/fake-ci",
                     "#approved-reviews-by>=1",
@@ -1168,7 +1168,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "fast merge with alternate ci",
                 "conditions": [
-                    "base=master",
+                    "base=main",
                     {
                         "or": [
                             {
@@ -1188,7 +1188,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "fast merge from a bot",
                 "conditions": [
-                    "base=master",
+                    "base=main",
                     {
                         "or": [
                             "label=python-deps",
@@ -1376,7 +1376,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     # branch protection
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
-        if url == "/repos/another-jd/name/branches/master":
+        if url == "/repos/another-jd/name/branches/main":
             return {
                 "protection": {
                     "enabled": True,
@@ -1421,7 +1421,7 @@ def test_check_runs_custom():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   post_check:
                     title: '{{ check_rule_name }} whatever'
@@ -1445,7 +1445,7 @@ def test_check_runs_default():
             pull_request_rules:
               - name: ahah
                 conditions:
-                - base=master
+                - base=main
                 actions:
                   post_check: {}
             """
@@ -1462,7 +1462,7 @@ def test_merge_config():
         "pull_request_rules": [
             {
                 "name": "hello",
-                "conditions": ["head:master"],
+                "conditions": ["head:main"],
                 "actions": {"rebase": {}},
             }
         ],
@@ -1487,7 +1487,7 @@ def test_merge_config():
         "pull_request_rules": [
             {
                 "name": "hello",
-                "conditions": ["head:master"],
+                "conditions": ["head:main"],
                 "actions": {"rebase": {"bot_account": "bar"}},
             }
         ],
@@ -1501,7 +1501,7 @@ def test_merge_config():
         "pull_request_rules": [
             {
                 "name": "hello",
-                "conditions": ["head:master"],
+                "conditions": ["head:main"],
                 "actions": {"rebase": {"bot_account": "bar"}},
             }
         ],
@@ -1533,7 +1533,7 @@ queue_rules:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       comment:
       rebase:
@@ -1568,7 +1568,7 @@ queue_rules:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       queue:
         name: default
@@ -1594,7 +1594,7 @@ def test_action_queue_with_no_default_queue():
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       queue:
         name: missing
@@ -1615,7 +1615,7 @@ pull_request_rules:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       queue:
             """,
@@ -1649,7 +1649,7 @@ queue_rules:
 pull_request_rules:
   - name: ahah
     conditions:
-    - base=master
+    - base=main
     actions:
       queue:
         name: default
@@ -1728,7 +1728,7 @@ async def test_queue_rules_summary():
 
     c = schema(
         [
-            "base=master",
+            "base=main",
             {"or": ["head=feature-1", "head=feature-2", "head=feature-3"]},
             {"or": ["label=urgent", "status-failure!=noway"]},
             {"or": ["label=bar", "check-success-or-neutral=first-ci"]},
@@ -1757,7 +1757,7 @@ async def test_queue_rules_summary():
                 "number": 1,
                 "current-year": date.Year(2018),
                 "author": "me",
-                "base": "master",
+                "base": "main",
                 "head": "feature-1",
                 "label": ["foo", "bar"],
                 "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
@@ -1769,7 +1769,7 @@ async def test_queue_rules_summary():
                 "number": 2,
                 "current-year": date.Year(2018),
                 "author": "me",
-                "base": "master",
+                "base": "main",
                 "head": "feature-2",
                 "label": ["foo", "urgent"],
                 "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
@@ -1781,7 +1781,7 @@ async def test_queue_rules_summary():
                 "number": 3,
                 "current-year": date.Year(2018),
                 "author": "not-me",
-                "base": "master",
+                "base": "main",
                 "head": "feature-3",
                 "label": ["foo", "urgent"],
                 "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
@@ -1793,7 +1793,7 @@ async def test_queue_rules_summary():
 
     assert (
         c.get_summary()
-        == """- [X] `base=master`
+        == """- [X] `base=main`
 - [X] any of:
   - `head=feature-1`
     - [X] #1

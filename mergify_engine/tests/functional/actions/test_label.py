@@ -24,7 +24,7 @@ class TestLabelAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "rename label",
-                    "conditions": [f"base={self.master_branch_name}", "label=stable"],
+                    "conditions": [f"base={self.main_branch_name}", "label=stable"],
                     "actions": {
                         "label": {
                             "add": ["unstable", "foobar"],
@@ -53,7 +53,7 @@ class TestLabelAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "rename label",
-                    "conditions": [f"base={self.master_branch_name}", "label=stable"],
+                    "conditions": [f"base={self.main_branch_name}", "label=stable"],
                     "actions": {
                         "label": {
                             "add": [],
@@ -82,7 +82,7 @@ class TestLabelAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "delete all labels",
-                    "conditions": [f"base={self.master_branch_name}", "label=stable"],
+                    "conditions": [f"base={self.main_branch_name}", "label=stable"],
                     "actions": {"label": {"remove_all": True}},
                 }
             ]

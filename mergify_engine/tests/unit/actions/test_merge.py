@@ -60,7 +60,7 @@ PR = {
     "user": {"login": "user"},
     "head": {"ref": "fork", "sha": "shasha", "repo": GH_REPO},
     "base": {
-        "ref": "master",
+        "ref": "main",
         "user": {"login": "user"},
         "repo": GH_REPO,
         "sha": "miaou",
@@ -174,7 +174,7 @@ async def test_merge_commit_message(body, title, message, mode):
     client = mock.MagicMock()
     installation = context.Installation(123, "whatever", {}, client, None)
     repository = context.Repository(installation, GH_REPO, 123)
-    repository._cache["branches"] = {"master": {"protection": {"enabled": False}}}
+    repository._cache["branches"] = {"main": {"protection": {"enabled": False}}}
     ctxt = await context.Context.create(repository=repository, pull=pull)
     ctxt._cache["pull_statuses"] = [
         github_types.GitHubStatus(

@@ -27,13 +27,13 @@ class TestReviewAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"review": {"type": "APPROVE"}},
                 },
                 {
                     "name": "requested",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#approved-reviews-by>=1",
                     ],
                     "actions": {
@@ -63,13 +63,13 @@ class TestReviewAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"review": {"type": "APPROVE"}},
                 },
                 {
                     "name": "requested",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#approved-reviews-by>=1",
                     ],
                     "actions": {
@@ -102,7 +102,7 @@ class TestReviewAction(base.FunctionalTestBase):
                 {
                     "name": "review",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                     ],
                     "actions": {"review": {"message": msg, "type": "REQUEST_CHANGES"}},
                 },
@@ -150,7 +150,7 @@ Unknown pull request attribute: hello
             "pull_request_rules": [
                 {
                     "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "review": {
                             "type": "APPROVE",
@@ -161,7 +161,7 @@ Unknown pull request attribute: hello
                 {
                     "name": "requested",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#approved-reviews-by>=1",
                     ],
                     "actions": {

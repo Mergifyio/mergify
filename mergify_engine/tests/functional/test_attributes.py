@@ -61,7 +61,7 @@ class TestAttributes(base.FunctionalTestBase):
                     "name": "merge",
                     "disabled": {"reason": "code freeze"},
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "-closed",
                         "label!=foo",
                     ],
@@ -70,7 +70,7 @@ class TestAttributes(base.FunctionalTestBase):
                 {
                     "name": "nothing",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "closed",
                         "label=foo",
                     ],
@@ -177,7 +177,7 @@ class TestAttributes(base.FunctionalTestBase):
             "restrictions": None,
             "enforce_admins": False,
         }
-        await self.branch_protection_protect(self.master_branch_name, protection)
+        await self.branch_protection_protect(self.main_branch_name, protection)
 
         pr, _ = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, pr)
@@ -228,7 +228,7 @@ class TestAttributes(base.FunctionalTestBase):
             "milestone": "",
             "label": [],
             "body": "test_draft: pull request n2 from fork",
-            "base": self.master_branch_name,
+            "base": self.main_branch_name,
             "review-requested": [],
             "check-success": ["Summary"],
             "status-success": ["Summary"],
@@ -258,7 +258,7 @@ class TestAttributes(base.FunctionalTestBase):
                             "or": [
                                 {
                                     "and": [
-                                        f"base={self.master_branch_name}",
+                                        f"base={self.main_branch_name}",
                                         "closed",
                                         "label=foo",
                                     ]
@@ -293,7 +293,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
                 {
                     "name": "merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "label=automerge",
                     ],
                     "actions": {"merge": {}},
@@ -320,7 +320,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
         ][0]
         expected = f"""### Rule: merge (merge)
-- [X] `base={self.master_branch_name}`
+- [X] `base={self.main_branch_name}`
 - [X] `label=automerge`
 - [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from fork** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]
 - [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from fork** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]

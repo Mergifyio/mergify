@@ -29,7 +29,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"request_reviews": {"users": ["mergify-test1"]}},
                 }
             ]
@@ -40,7 +40,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 1 == len(pulls)
         requests = await self.get_review_requests(pulls[0]["number"])
         assert sorted(["mergify-test1"]) == sorted(
@@ -55,7 +55,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "request_reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"request_reviews": {"teams": [team["slug"]]}},
                 }
             ]
@@ -66,7 +66,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 1 == len(pulls)
         requests = await self.get_review_requests(pulls[0]["number"])
         assert sorted([team["slug"]]) == sorted(
@@ -81,12 +81,12 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "approve",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"review": {"type": "APPROVE"}},
                 },
                 {
                     "name": "request_reviews",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "request_reviews": {"users": ["mergify-test1", "mergify-test"]}
                     },
@@ -99,7 +99,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 1 == len(pulls)
         requests = await self.get_review_requests(pulls[0]["number"])
         assert ["mergify-test1"] == [user["login"] for user in requests["users"]]
@@ -132,7 +132,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
                 {
                     "name": "request_reviews",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "#review-requested>0",
                     ],
                     "actions": {
@@ -150,7 +150,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
         await self.run_engine()
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 1 == len(pulls)
         await self.create_review_request(pulls[0]["number"], ["mergify-test1"])
         await self.run_engine()

@@ -72,8 +72,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "merge on master",
-                    "conditions": [f"base={self.master_branch_name}", "-merged"],
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}", "-merged"],
                     "actions": {"merge": {}},
                 },
             ]
@@ -90,7 +90,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         for check in await ctxt.pull_check_runs:
-            if check["name"] == "Rule: merge on master (merge)":
+            if check["name"] == "Rule: merge on main (merge)":
                 assert (
                     "The pull request has been merged automatically"
                     == check["output"]["title"]
@@ -107,8 +107,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
-                    "conditions": [f"base={self.master_branch_name}", "label=squash"],
+                    "name": "Merge on main",
+                    "conditions": [f"base={self.main_branch_name}", "label=squash"],
                     "actions": {"merge": {"method": "squash"}},
                 },
             ]
@@ -135,8 +135,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
-                    "conditions": [f"base={self.master_branch_name}", "label=squash"],
+                    "name": "Merge on main",
+                    "conditions": [f"base={self.main_branch_name}", "label=squash"],
                     "actions": {"merge": {"strict": "smart", "method": "squash"}},
                 },
             ]
@@ -163,9 +163,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "smart strict merge on master",
+                    "name": "smart strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -183,7 +183,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = (await self.get_head_commit())["sha"]
+        previous_main_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
         await self.create_review(p2["number"])
@@ -206,19 +206,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = (await self.get_head_commit())["sha"]
-        assert previous_master_sha != master_sha
+        main_sha = (await self.get_head_commit())["sha"]
+        assert previous_main_sha != main_sha
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_strict_default(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "smart strict merge on master",
+                    "name": "smart strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -236,7 +236,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = (await self.get_head_commit())["sha"]
+        previous_main_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
         await self.create_review(p2["number"])
@@ -248,9 +248,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2 = await self.get_pull(p2["number"])
         commits2 = await self.get_commits(p2["number"])
 
-        # Check master have been merged into the PR
+        # Check main have been merged into the PR
         assert (
-            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
+            f"Merge branch '{self.main_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
             in commits2[-1]["commit"]["message"]
         )
 
@@ -261,19 +261,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = (await self.get_head_commit())["sha"]
-        assert previous_master_sha != master_sha
+        main_sha = (await self.get_head_commit())["sha"]
+        assert previous_main_sha != main_sha
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_smart_strict(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "strict merge on master",
+                    "name": "strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -291,7 +291,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = (await self.get_head_commit())["sha"]
+        previous_main_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2)
         await self.create_review(p2["number"])
@@ -311,7 +311,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert r.json() == {
             f"{self.RECORD_CONFIG['repository_id']}": {
-                self.master_branch_name: [p2["number"]]
+                self.main_branch_name: [p2["number"]]
             }
         }
 
@@ -326,22 +326,22 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert r.json() == {
             f"{self.RECORD_CONFIG['repository_id']}": {
-                self.master_branch_name: [p2["number"]]
+                self.main_branch_name: [p2["number"]]
             }
         }
 
         p2 = await self.get_pull(p2["number"])
         commits2 = await self.get_commits(p2["number"])
 
-        # Check master have been merged into the PR
+        # Check main have been merged into the PR
         assert (
-            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
+            f"Merge branch '{self.main_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
             in commits2[-1]["commit"]["message"]
         )
 
         ctxt = await context.Context.create(self.repository_ctxt, p2, [])
         for check in await ctxt.pull_check_runs:
-            if check["name"] == "Rule: strict merge on master (merge)":
+            if check["name"] == "Rule: strict merge on main (merge)":
                 assert (
                     "The pull request is the 1st in the queue to be merged"
                     == check["output"]["title"]
@@ -349,7 +349,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 assert (
                     f"""**Required conditions for merge:**
 
-- [X] `base={self.master_branch_name}`
+- [X] `base={self.main_branch_name}`
 - [ ] `status-success=continuous-integration/fake-ci`
 - [X] `#approved-reviews-by>=1`
 
@@ -372,19 +372,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = (await self.get_head_commit())["sha"]
-        assert previous_master_sha != master_sha
+        main_sha = (await self.get_head_commit())["sha"]
+        assert previous_main_sha != main_sha
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 0 == len(pulls)
 
     async def test_merge_failure_smart_strict(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "strict merge on master",
+                    "name": "strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"strict": "smart"}},
@@ -402,7 +402,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        previous_master_sha = (await self.get_head_commit())["sha"]
+        previous_main_sha = (await self.get_head_commit())["sha"]
 
         await self.create_status(p2, "continuous-integration/fake-ci", "success")
         await self.run_engine()
@@ -415,7 +415,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2 = await self.get_pull(p2["number"])
         commits2 = await self.get_commits(p2["number"])
         assert (
-            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
+            f"Merge branch '{self.main_branch_name}' into {self.get_full_branch_name('fork/pr2')}"
             == commits2[-1]["commit"]["message"]
         )
 
@@ -434,7 +434,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p3 = await self.get_pull(p3["number"])
         commits3 = await self.get_commits(p3["number"])
         assert (
-            f"Merge branch '{self.master_branch_name}' into {self.get_full_branch_name('fork/pr3')}"
+            f"Merge branch '{self.main_branch_name}' into {self.get_full_branch_name('fork/pr3')}"
             == commits3[-1]["commit"]["message"]
         )
 
@@ -442,10 +442,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
-        master_sha = (await self.get_head_commit())["sha"]
-        assert previous_master_sha != master_sha
+        main_sha = (await self.get_head_commit())["sha"]
+        assert previous_main_sha != main_sha
 
-        pulls = await self.get_pulls(params={"base": self.master_branch_name})
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
         assert 1 == len(pulls)
 
     async def test_teams(self):
@@ -454,7 +454,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "valid teams",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@mergifyio-testing/testing",
                     ],
@@ -463,7 +463,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "short teams",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@testing",
                     ],
@@ -472,7 +472,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "not exists teams",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@mergifyio-testing/noexists",
                     ],
@@ -481,7 +481,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "invalid organization",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "approved-reviews-by=@another-org/testing",
                     ],
@@ -563,9 +563,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": method}},
@@ -617,7 +617,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": "merge"}},
@@ -678,9 +678,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {
@@ -712,9 +712,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {"method": "merge"}},
@@ -739,22 +739,22 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert await self.is_pull_merged(p["number"])
 
         pulls = await self.get_pulls(
-            params={"state": "all", "base": self.master_branch_name}
+            params={"state": "all", "base": self.main_branch_name}
         )
         assert 1 == len(pulls)
         assert p["number"] == pulls[0]["number"]
         assert "closed" == pulls[0]["state"]
 
-        issue = await self.client_admin.item(f"{self.url_main}/issues/{i['number']}")
+        issue = await self.client_admin.item(f"{self.url_origin}/issues/{i['number']}")
         assert "closed" == issue["state"]
 
     async def test_rebase(self):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "Merge on master",
+                    "name": "Merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -780,7 +780,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "merge",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {}, "comment": {"message": "yo"}},
                 }
             ]
@@ -799,7 +799,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "enforce_admins": False,
         }
 
-        await self.branch_protection_protect(self.master_branch_name, protection)
+        await self.branch_protection_protect(self.main_branch_name, protection)
 
         p, _ = await self.create_pr()
 
@@ -828,12 +828,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ][0]
         assert (
             f"""### Rule: merge (merge)
-- [X] `base={self.master_branch_name}`
+- [X] `base={self.main_branch_name}`
 - [ ] `check-success-or-neutral=continuous-integration/fake-ci` [🛡 GitHub branch protection]
 - [ ] `check-success-or-neutral=neutral-ci` [🛡 GitHub branch protection]
 
 ### Rule: merge (comment)
-- [X] `base={self.master_branch_name}`
+- [X] `base={self.main_branch_name}`
 """
             in summary["output"]["summary"]
         )
@@ -856,7 +856,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "merge",
-                    "conditions": [f"base={self.master_branch_name}"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {"merge": {"strict": True}},
                 }
             ]
@@ -875,7 +875,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "enforce_admins": False,
         }
 
-        await self.branch_protection_protect(self.master_branch_name, protection)
+        await self.branch_protection_protect(self.main_branch_name, protection)
 
         p, _ = await self.create_pr()
 
@@ -962,7 +962,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "merge",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "actions": {"merge": {}},
@@ -988,7 +988,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.merge_pull(p1["number"])
 
-        await self.branch_protection_protect(self.master_branch_name, protection)
+        await self.branch_protection_protect(self.main_branch_name, protection)
 
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1015,7 +1015,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": [f"base!={self.master_branch_name}"],
+                    "conditions": [f"base!={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1067,7 +1067,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": [f"base!={self.master_branch_name}"],
+                    "conditions": [f"base!={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1089,7 +1089,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert resp.status_code == 202, resp.text
 
         resp = await self.app.post(
-            f"/refresh/{p1['base']['repo']['full_name']}/branch/master",
+            f"/refresh/{p1['base']['repo']['full_name']}/branch/main",
             headers={"X-Hub-Signature": "sha1=" + base.FAKE_HMAC},
         )
         assert resp.status_code == 202, resp.text
@@ -1105,7 +1105,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "nothing",
-                    "conditions": [f"base!={self.master_branch_name}"],
+                    "conditions": [f"base!={self.main_branch_name}"],
                     "actions": {"merge": {}},
                 }
             ]
@@ -1213,7 +1213,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "user",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "review-requested=mergify-test3",
                     ],
                     "actions": {"comment": {"message": "review-requested user"}},
@@ -1221,7 +1221,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "team",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "review-requested=@testing",
                     ],
                     "actions": {"comment": {"message": "review-requested team"}},
@@ -1303,7 +1303,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         rules["pull_request_rules"][0]["conditions"][
             0
-        ] = f"base={self.master_branch_name}"
+        ] = f"base={self.main_branch_name}"
         p_config, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.merge_pull(p_config["number"])
         await self.wait_for("pull_request", {"action": "closed"})
@@ -1382,9 +1382,9 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "smart strict merge on master",
+                    "name": "smart strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -1419,7 +1419,7 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
         events2 = [
             e
             async for e in self.client_admin.items(
-                f"{self.url_main}/issues/{p2['number']}/events"
+                f"{self.url_origin}/issues/{p2['number']}/events"
             )
         ]
 
@@ -1432,9 +1432,9 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
         rules = {
             "pull_request_rules": [
                 {
-                    "name": "smart strict merge on master",
+                    "name": "smart strict merge on main",
                     "conditions": [
-                        f"base={self.master_branch_name}",
+                        f"base={self.main_branch_name}",
                         "status-success=continuous-integration/fake-ci",
                         "#approved-reviews-by>=1",
                     ],
@@ -1471,7 +1471,7 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: smart strict merge on master (merge)"
+            if c["name"] == "Rule: smart strict merge on main (merge)"
         ]
         assert (
             checks[0]["output"]["title"]
