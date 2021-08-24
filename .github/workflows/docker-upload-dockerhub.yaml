@@ -1,5 +1,6 @@
-name: Publish Docker image
+name: Upload docker image to Docker Hub
 permissions: read-all
+
 on:
   push:
     tags:
