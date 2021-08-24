@@ -1,0 +1,693 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<meta content="Mergify Documentation for Conditions" name="description" />
+<meta content="mergify, conditions" name="keywords" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <title>🎯 Conditions &#8212; Mergify  documentation</title>
+
+  <link rel="stylesheet" href="../_bootstrap/bootstrap.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mergify.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+
+  
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+  <script src="../_bootstrap/bootstrap.min.js"></script>
+  <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="../_static/mergify.js"></script>
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-118666091-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="🚀 Actions" href="../actions/" />
+    <link rel="prev" title="🔖 Configuration File" href="../configuration/" /> 
+  </head><body>
+<div class="body-container">
+  <nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
+  <a class="navbar-brand" href="../">
+    <img class="logo" src="../_static/mergify-logo-horizontal.png" alt="Mergify"/>
+  </a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io/about" target="_blank">About</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://blog.mergify.io" target="_blank">Blog</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://dashboard.mergify.io" target="_blank">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://github.com/Mergifyio/mergify-engine/discussions" target="_blank">Discussions</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
+      </li>
+    </ul>
+    <form class="row row-cols-lg-auto" action="../search/" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
+    </form>
+  </div>
+</nav>
+  <nav class="related d-flex justify-content-between flex-wrap" role="navigation" aria-label="related navigation">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item active">🎯 Conditions</li>
+  </ol>
+  <div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
+      <a href="../configuration/" title="Previous Chapter: 🔖 Configuration File" class="btn btn-primary" role="button" accesskey="P">
+        &laquo; 🔖 Configuration File
+      </a>
+      <a href="../actions/" title="Next Chapter: 🚀 Actions" class="btn btn-primary" role="button" accesskey="N">
+        🚀 Actions &raquo;
+      </a>
+    </div>
+  </div>
+</nav>
+  <div class="main container-fluid">
+    <div class="row">
+      <div class="sphinxsidebar col" aria-label="main navigation"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/">➡️ Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#understanding-mergify-check-report">Understanding Mergify Check Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#controlling-mergify-with-commands">Controlling Mergify with Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration/">🔖 Configuration File</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/#file-used">File Used</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/#format">Format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/#data-types">Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">🎯 Conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#grammar">Grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#combining-conditions-with-operators">Combining Conditions with Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#attributes">Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#operators">Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-match-lists">How To Match Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#about-status-checks">About Status Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../actions/">🚀 Actions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../actions/assign/">assign</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/backport/">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/close/">close</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/copy/">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/comment/">comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/delete_head_branch/">delete_head_branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/dismiss_reviews/">dismiss_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/label/">label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/merge/">merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/post_check/">post_check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/queue/">queue</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/queue/#using-rebase-to-update">Using Rebase to Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/rebase/">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/request_reviews/">request_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/review/">review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/update/">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/squash/">squash</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../commands/">⚙️ Commands</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#rebase">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#update">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#backport">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#copy">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#squash">squash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#refresh">refresh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/">🧪 Example Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#automatic-merge-when-ci-works-and-approving-reviews">✅ Automatic Merge when CI works and approving reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#merging-based-on-modified-files">🗂 Merging based on Modified Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#less-strict-rules-for-stable-branches">🏖 Less Strict Rules for Stable Branches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#using-labels-to-enable-disable-merge">🎬 Using Labels to Enable/Disable Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#using-labels-to-prioritize-merge">⚡️ Using Labels to Prioritize Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#require-all-requested-reviews-to-be-approved">🙅️ Require All Requested Reviews to Be Approved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#matching-pull-requests-with-task-lists">☑️ Matching Pull Requests with Task Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#bots">🤖 Bots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../badge/">🎖 Badge</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../badge/#embedding">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../badge/#styles">Styles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/">💬 FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#mergify-is-unable-to-merge-my-pull-request-due-to-my-branch-protection-settings">Mergify is unable to merge my pull request due to my branch protection settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#why-did-mergify-seem-to-have-merged-my-pull-request-whereas-all-conditions-were-not-true">Why did Mergify seem to have merged my pull request whereas all conditions were not true?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#i-see-a-rebase-and-force-push-done-by-a-member-of-the-repository-but-mergify-actually-did-it">I see a rebase and force-push done by a member of the repository, but Mergify actually did it.</a></li>
+</ul>
+</li>
+</ul>
+
+
+      </div>
+      <div class="document col-12 col-lg-8 col-xl-9">
+      <div class="documentwrapper">
+        <div class="body" role="main">
+          
+  <section id="conditions">
+<span id="id1"></span><h1>🎯 Conditions<a class="headerlink" href="#conditions" title="Permalink to this headline">🔗</a></h1>
+<p>Conditions are used in pull request rules and queue rules to check if a pull
+request matches a certain rule. If a pull request matches all of the listed
+conditions in a rule, the subsequent actions listed in that rule will be
+applied. Conditions must be listed under the <code class="docutils literal notranslate"><span class="pre">conditions</span></code> section of the
+<code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> or <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> entries — see <a class="reference internal" href="../configuration/#configuration-file-format"><span class="std std-ref">🔖 Configuration File</span></a>.</p>
+<section id="grammar">
+<h2>Grammar<a class="headerlink" href="#grammar" title="Permalink to this headline">🔗</a></h2>
+<p>A condition is a string that has the following format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span> <span class="s2">&quot;-&quot;</span> <span class="p">]</span> <span class="p">[</span> <span class="s2">&quot;#&quot;</span> <span class="p">]</span> <span class="o">&lt;</span><span class="n">attribute</span><span class="o">&gt;</span> <span class="p">[</span> <span class="o">&lt;</span><span class="n">operator</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">value</span><span class="o">&gt;</span> <span class="p">]</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The optional <code class="docutils literal notranslate"><span class="pre">-</span></code> prefix is equivalent to the <cite>not</cite> operator.</p></li>
+<li><p>The optional <code class="docutils literal notranslate"><span class="pre">#</span></code> prefix indicates to consider the length of the attribute
+value rather than its content.</p></li>
+<li><p>An <code class="docutils literal notranslate"><span class="pre">attribute</span></code> is a property of a pull request, such as its author, its
+title or its base branch.</p></li>
+<li><p>An <code class="docutils literal notranslate"><span class="pre">operator</span></code> is used to determine how the match between the pull request’s
+<code class="docutils literal notranslate"><span class="pre">attribute</span></code> and the defined <code class="docutils literal notranslate"><span class="pre">value</span></code> occurs.</p></li>
+</ul>
+<p>For example:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">author=jd</span></code> evaluates to true if the GitHub login of the author of the pull
+request is <code class="docutils literal notranslate"><span class="pre">jd</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base~=^stable/</span></code> matches any pull request whose base branch matches the
+regular expression <code class="docutils literal notranslate"><span class="pre">^stable/</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">approved-reviews-by=sileht</span></code> matches if the user <code class="docutils literal notranslate"><span class="pre">sileht</span></code> is in the list
+of contributors who approved the pull request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#approved-reviews-by&gt;=2</span></code> matches if at least 2 collaborators approved the
+pull request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-merged</span></code> matches if the pull requested has not been merged.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">#</span></code> character is considered as a comment delimiter in YAML. As <code class="docutils literal notranslate"><span class="pre">#</span></code>
+is the length operator in Mergify’s conditions system, don’t forget to use
+<code class="docutils literal notranslate"><span class="pre">&quot;</span></code> around the condition to write valid YAML syntax.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">operator</span></code> and <code class="docutils literal notranslate"><span class="pre">value</span></code> are only optional if the <code class="docutils literal notranslate"><span class="pre">attribute</span></code> type is
+<code class="docutils literal notranslate"><span class="pre">Boolean</span></code>.</p>
+</div>
+</section>
+<section id="combining-conditions-with-operators">
+<h2>Combining Conditions with Operators<a class="headerlink" href="#combining-conditions-with-operators" title="Permalink to this headline">🔗</a></h2>
+<p>The <cite>conditions</cite> do support the <code class="docutils literal notranslate"><span class="pre">or</span></code> and <code class="docutils literal notranslate"><span class="pre">and</span></code> operators.</p>
+<p>For example, you can match if its author is <code class="docutils literal notranslate"><span class="pre">foo</span></code> or
+<code class="docutils literal notranslate"><span class="pre">bar</span></code>, you could write:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">conditions</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">or</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=foo</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=bar</span>
+</pre></div>
+</div>
+<p>You can also combine <code class="docutils literal notranslate"><span class="pre">or</span></code> and <code class="docutils literal notranslate"><span class="pre">and</span></code> like this:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">conditions</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">or</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">and</span><span class="p">:</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=foo</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=core</span>
+    <span class="p p-Indicator">-</span> <span class="nt">and</span><span class="p">:</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=bar</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=backend</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The depth on combined conditions is limited to 3.</p>
+</div>
+</section>
+<section id="attributes">
+<span id="id2"></span><h2>Attributes<a class="headerlink" href="#attributes" title="Permalink to this headline">🔗</a></h2>
+<p>Here’s the list of pull request attribute that can be used in conditions:</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute Name</p></th>
+<th class="head"><p>Value type</p></th>
+<th class="head"><p>Value description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">assignee</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that are assigned to the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">approved-reviews-by</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that approved the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.
+This only matches reviewers with <code class="docutils literal notranslate"><span class="pre">admin</span></code>, <code class="docutils literal notranslate"><span class="pre">write</span></code> or <code class="docutils literal notranslate"><span class="pre">maintain</span></code>
+permission on the repository.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">author</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The GitHub user or team login of the author of the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">base</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The name of the branch the pull request should be pulled into.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">body</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The contents of the pull request.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">changes-requested-reviews-by</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that have requested changes in a
+review for the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.
+This only matches reviewers with <code class="docutils literal notranslate"><span class="pre">admin</span></code>, <code class="docutils literal notranslate"><span class="pre">write</span></code> or <code class="docutils literal notranslate"><span class="pre">maintain</span></code>
+permission on the repository.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">closed</span></code></p></td>
+<td><p>Boolean</p></td>
+<td><p>Whether the pull request is closed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conflict</span></code></p></td>
+<td><p>Boolean</p></td>
+<td><p>Whether the pull request is conflicting with its base branch.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">commented-reviews-by</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that have commented in a review
+for the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.
+This only matches reviewers with <code class="docutils literal notranslate"><span class="pre">admin</span></code>, <code class="docutils literal notranslate"><span class="pre">write</span></code> or <code class="docutils literal notranslate"><span class="pre">maintain</span></code>
+permission on the repository.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dismissed-reviews-by</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that have their review dismissed
+in the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.
+This only matches reviewers with <code class="docutils literal notranslate"><span class="pre">admin</span></code>, <code class="docutils literal notranslate"><span class="pre">write</span></code> or <code class="docutils literal notranslate"><span class="pre">maintain</span></code>
+permission on the repository.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">draft</span></code></p></td>
+<td><p>Boolean</p></td>
+<td><p>Whether the pull request is in draft state.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">files</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The files that are modified, deleted or added by the pull request.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">head</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The name of the branch where the pull request changes are implemented.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">label</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of labels of the pull request.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">locked</span></code></p></td>
+<td><p>Boolean</p></td>
+<td><p>Whether the pull request is locked.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">merged</span></code></p></td>
+<td><p>Boolean</p></td>
+<td><p>Whether the pull request is merged.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">merged-by</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The GitHub user or team login that merged the pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">milestone</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The milestone title associated to the pull request.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">number</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>The pull request number.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">review-requested</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of GitHub user or team login that were requested to review the
+pull request.
+Team logins are prefixed with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character and must belong to the
+repository organization.
+This only matches reviewers with <code class="docutils literal notranslate"><span class="pre">admin</span></code>, <code class="docutils literal notranslate"><span class="pre">write</span></code> or <code class="docutils literal notranslate"><span class="pre">maintain</span></code>
+permission on the repository.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">check-success</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that successfully passed for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">check-neutral</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that are neutral for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">check-success-or-neutral</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that successfully passed or are neutral for
+the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">check-failure</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that failed for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.
+Checks that report being cancelled, timed out, and action
+required are also considered as failures.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">check-skipped</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that was skipped for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">check-pending</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that is pending for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">check-stale</span></code></p></td>
+<td><p>list of string</p></td>
+<td><p>The list of status checks that are stale for the pull request.
+This is the name of a <em>status check</em> such as
+<cite>continuous-integration/travis-ci/pr</cite> or of a <em>check run</em> such as
+<cite>Travis CI - Pull Request</cite>. See <a class="reference internal" href="#about-status-checks">About Status Checks</a> for more
+details.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">title</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The title of the pull request.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">created-at</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#iso-timestamp"><span class="std std-ref">Timestamp</span></a> or <a class="reference internal" href="../configuration/#relative-timestamp"><span class="std std-ref">Relative timestamp</span></a></p></td>
+<td><p>The time the pull request was created at.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">updated-at</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#iso-timestamp"><span class="std std-ref">Timestamp</span></a> or <a class="reference internal" href="../configuration/#relative-timestamp"><span class="std std-ref">Relative timestamp</span></a></p></td>
+<td><p>The time the pull request was updated at.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">merged-at</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#iso-timestamp"><span class="std std-ref">Timestamp</span></a> or <a class="reference internal" href="../configuration/#relative-timestamp"><span class="std std-ref">Relative timestamp</span></a></p></td>
+<td><p>The time the pull request was merged at.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">closed-at</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#iso-timestamp"><span class="std std-ref">Timestamp</span></a> or <a class="reference internal" href="../configuration/#relative-timestamp"><span class="std std-ref">Relative timestamp</span></a></p></td>
+<td><p>The time the pull request was closed at.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">current-timestamp</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#iso-timestamp"><span class="std std-ref">Timestamp</span></a></p></td>
+<td><p>The current date and time.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">current-time</span></code></p></td>
+<td><p><a class="reference internal" href="../configuration/#time-format"><span class="std std-ref">Time</span></a></p></td>
+<td><p>The current time in format <code class="docutils literal notranslate"><span class="pre">HH:MM</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">current-day</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>The current day of the month, from 1 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">current-month</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>The current month, from 1 to 12.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">current-year</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>The current year, from 1900 to 9999.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">current-day-of-week</span></code></p></td>
+<td><p>integer or string</p></td>
+<td><p>The current day of the week. From 1 (Monday) to 7 (Sunday), or one of
+<code class="docutils literal notranslate"><span class="pre">Mon</span></code>, <code class="docutils literal notranslate"><span class="pre">Tue</span></code>, <code class="docutils literal notranslate"><span class="pre">Wed</span></code>, <code class="docutils literal notranslate"><span class="pre">Thu</span></code>, <code class="docutils literal notranslate"><span class="pre">Fri</span></code>, <code class="docutils literal notranslate"><span class="pre">Sat</span></code>, <code class="docutils literal notranslate"><span class="pre">Sun</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Monday</span></code>, <code class="docutils literal notranslate"><span class="pre">Tuesday</span></code>, <code class="docutils literal notranslate"><span class="pre">Wednesday</span></code>, <code class="docutils literal notranslate"><span class="pre">Thursday</span></code>, <code class="docutils literal notranslate"><span class="pre">Friday</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Saturday</span></code>, <code class="docutils literal notranslate"><span class="pre">Sunday</span></code>. Weeks start on Monday.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">schedule</span></code></p></td>
+<td><p>string</p></td>
+<td><p>A schedule, e.g., <code class="docutils literal notranslate"><span class="pre">Mon-Fri</span></code>, <code class="docutils literal notranslate"><span class="pre">12:00-18:00</span></code> or <code class="docutils literal notranslate"><span class="pre">Mon-Fri</span> <span class="pre">12:00-18:00</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Time-based conditions have a 5 minutes precision at best. Do not write
+conditions based on time ranges that are too narrow or the condition might
+never be true.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">current-datetime</span></code>, <code class="docutils literal notranslate"><span class="pre">current-time</span></code>, <code class="docutils literal notranslate"><span class="pre">created-at</span></code>, <code class="docutils literal notranslate"><span class="pre">updated-at</span></code>,
+<code class="docutils literal notranslate"><span class="pre">closed-at</span></code> and <code class="docutils literal notranslate"><span class="pre">merged-at</span></code> do not support the <code class="docutils literal notranslate"><span class="pre">~=</span></code>, <code class="docutils literal notranslate"><span class="pre">=</span></code> and <code class="docutils literal notranslate"><span class="pre">!=</span></code>
+operators. <code class="docutils literal notranslate"><span class="pre">schedule</span></code> only supports the <code class="docutils literal notranslate"><span class="pre">=</span></code> and <code class="docutils literal notranslate"><span class="pre">!=</span></code> operators.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The timezone for all time-based conditions is UTC.</p>
+</div>
+</section>
+<section id="operators">
+<span id="id3"></span><h2>Operators<a class="headerlink" href="#operators" title="Permalink to this headline">🔗</a></h2>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 17%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Operator Name</p></th>
+<th class="head"><p>Symbol</p></th>
+<th class="head"><p>Operator Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Equal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">=</span></code> or <code class="docutils literal notranslate"><span class="pre">:</span></code></p></td>
+<td><p>This operator checks for strict equality. If the target attribute type
+is a list, each element of the list is compared against the value and
+the condition is true if any value matches.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Not Equal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">!=</span></code> or <code class="docutils literal notranslate"><span class="pre">≠</span></code></p></td>
+<td><p>This operator checks for non equality. If the target attribute type
+is a list, each element of the list is compared against the value and
+the condition is true if no value matches.</p></td>
+</tr>
+<tr class="row-even"><td><p>Match</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">~=</span></code></p></td>
+<td><p>This operator checks for <a class="reference internal" href="../configuration/#regular-expressions"><span class="std std-ref">regular expressions</span></a> matching. If the target attribute type is a list, each
+element of the list is matched against the value and the condition is
+true if any value matches.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Greater Than or Equal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> or <code class="docutils literal notranslate"><span class="pre">≥</span></code></p></td>
+<td><p>This operator checks for the value to be greater than or equal to the
+provided value. It’s usually used to compare against the length of a
+list using the <code class="docutils literal notranslate"><span class="pre">#</span></code> prefix.</p></td>
+</tr>
+<tr class="row-even"><td><p>Greater Than</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&gt;</span></code></p></td>
+<td><p>This operator checks for the value to be greater than the provided
+value. It’s usually used to compare against the length of a list using
+the <code class="docutils literal notranslate"><span class="pre">#</span></code> prefix.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesser Than or Equal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;=</span></code> or <code class="docutils literal notranslate"><span class="pre">≤</span></code></p></td>
+<td><p>This operator checks for the value to be lesser then or equal to the
+provided value. It’s usually used to compare against the length of a
+list using the <code class="docutils literal notranslate"><span class="pre">#</span></code> prefix.</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesser Than</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;</span></code></p></td>
+<td><p>This operator checks for the value to be lesser than the provided value.
+It’s usually used to compare against the length of a list using the
+<code class="docutils literal notranslate"><span class="pre">#</span></code> prefix.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="how-to-match-lists">
+<h2>How To Match Lists<a class="headerlink" href="#how-to-match-lists" title="Permalink to this headline">🔗</a></h2>
+<p>Some attributes have a type of <code class="docutils literal notranslate"><span class="pre">list</span></code>. Most <a class="reference internal" href="#operators">Operators</a> are able to match
+value against lists: they will iterate over all the values of the list and
+return true if any of the value matches.</p>
+<p>For example, the <code class="docutils literal notranslate"><span class="pre">label</span></code> attribute is a list of string containing the names
+of the label attached to a pull request. With a pull request whose labels are
+<code class="docutils literal notranslate"><span class="pre">(bug,</span> <span class="pre">work-in-progress)</span></code>, then:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">label=work-in-progress</span></code> is <strong>true</strong> because there is a label named
+<code class="docutils literal notranslate"><span class="pre">work-in-progress</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">label=enhancement</span></code> is <strong>false</strong> because there is no label named
+<code class="docutils literal notranslate"><span class="pre">enhancement</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">label!=work-in-progress</span></code> is <strong>false</strong> because there is a label named
+<code class="docutils literal notranslate"><span class="pre">work-in-progress</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">label~=^work</span></code> is <strong>true</strong> because there is a label matching the regular
+expression <code class="docutils literal notranslate"><span class="pre">^work</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-label~=^work</span></code> is <strong>false</strong> because there is a label matching the regular
+expression <code class="docutils literal notranslate"><span class="pre">^work</span></code> but the condition is reversed with the <code class="docutils literal notranslate"><span class="pre">-</span></code> prefix.</p></li>
+</ul>
+<p>The same applies for the <code class="docutils literal notranslate"><span class="pre">files</span></code> attribute — which contains the list of
+modified files:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">files=README</span></code> is <strong>true</strong> if the file <code class="docutils literal notranslate"><span class="pre">README</span></code> is modified in the pull
+request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">files!=README</span></code> is <strong>true</strong> if the file <code class="docutils literal notranslate"><span class="pre">README</span></code> is not modified in the
+pull request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">files~=^src/</span></code> is <strong>true</strong> if any files in the <code class="docutils literal notranslate"><span class="pre">src</span></code> directory is
+modified in the pull request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-files~=^src/</span></code> is <strong>true</strong> if none of the files that are modified are in
+the <code class="docutils literal notranslate"><span class="pre">src</span></code> directory.</p></li>
+</ul>
+</section>
+<section id="about-status-checks">
+<h2>About Status Checks<a class="headerlink" href="#about-status-checks" title="Permalink to this headline">🔗</a></h2>
+<section id="generic-status-check">
+<h3>Generic Status Check<a class="headerlink" href="#generic-status-check" title="Permalink to this headline">🔗</a></h3>
+<p>When using the <code class="docutils literal notranslate"><span class="pre">check-success</span></code>, <code class="docutils literal notranslate"><span class="pre">check-neutral</span></code>, <code class="docutils literal notranslate"><span class="pre">check-failure</span></code>,
+<code class="docutils literal notranslate"><span class="pre">check-skipped</span></code>, <code class="docutils literal notranslate"><span class="pre">check-pending</span></code>, and <code class="docutils literal notranslate"><span class="pre">check-stale</span></code>
+conditions, you need to use the name of your check service. This can be find by
+opening an existing pull request and scrolling down near the <code class="docutils literal notranslate"><span class="pre">Merge</span></code> button.</p>
+<img alt="Status check example" src="../_images/status-check-example.png" />
+<p>The name of the status check is written in bold on the left side. In the
+example above, it should be <code class="docutils literal notranslate"><span class="pre">Uno.UI</span> <span class="pre">-</span> <span class="pre">CI</span></code>. A condition that would make sure
+this checks succeed before doing any action should be written as:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">conditions</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Uno.UI - CI</span>
+</pre></div>
+</div>
+</section>
+<section id="github-actions">
+<h3>GitHub Actions<a class="headerlink" href="#github-actions" title="Permalink to this headline">🔗</a></h3>
+<p>GitHub Actions works slightly differently. To match a status check when using
+GitHub Action, only the job name is used.</p>
+<img alt="Status check GitHub Action example" src="../_images/status-check-gh-example.png" />
+<p>In the example above, it would be <code class="docutils literal notranslate"><span class="pre">A</span> <span class="pre">job</span> <span class="pre">to</span> <span class="pre">say</span> <span class="pre">hello</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">conditions</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=A job to say hello</span>
+</pre></div>
+</div>
+</section>
+<section id="validating-all-status-checks">
+<h3>Validating All Status Checks<a class="headerlink" href="#validating-all-status-checks" title="Permalink to this headline">🔗</a></h3>
+<p>A common condition is to require that “every status check (CI) passes” —
+especially before executing the <a class="reference internal" href="../actions/merge/#merge-action"><span class="std std-ref">merge</span></a> action.</p>
+<p><strong>There is no such thing as “every status check” in GitHub.</strong></p>
+<p>Here’s why:</p>
+<ol class="arabic simple">
+<li><p>Each pull request can have its own custom list of status checks.</p></li>
+<li><p>On creation, or when a new commit is pushed, a pull request has <strong>no</strong>
+status check.</p></li>
+<li><p>A status check might not be reported by a service (CI) (e.g., because it’s
+broken) and therefore be absent.</p></li>
+</ol>
+<p>Those three facts make it <strong>mandatory</strong> to write explicitly the checks that are
+expected for your condition to be valid. Therefore you must list explicitly
+every status check that is expected, e.g.:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">conditions</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">check-success=build</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Windows</span>
+  <span class="p p-Indicator">-</span> <span class="nt">check-success=build</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Linux</span>
+</pre></div>
+</div>
+<p><strong>Do not</strong> use conditions such as:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">#check-failure=0</span></code>, because this will be true as soon as the pull request is
+created and before any service report its status (see point 2. above).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">check-success~=build</span></code> while expecting this to wait for “all” status checks
+that have <code class="docutils literal notranslate"><span class="pre">build</span></code> in their name (see point 1. and 2.above).</p></li>
+</ul>
+<p>Such conditions won’t do what you want them to do.</p>
+</section>
+</section>
+</section>
+
+
+        </div>
+      </div>
+    </div>
+      <div class="clearer"></div>
+    </div>
+  </div>
+</div>
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+        <div>&copy; Copyright 2021, Mergify</div>
+    </div>
+    <div>
+      <a href="https://github.com/Mergifyio/mergify-engine/tree/main/docs/source/conditions.rst"
+         class="btn btn-dark btn-sm active">
+        Edit on GitHub <i class="fas fa-external-link-square-alt"></i>
+      </a>
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
+  </body>
+</html>

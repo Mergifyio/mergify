@@ -1,0 +1,341 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<meta content="Mergify Configuration Examples for Bots" name="description" />
+<meta content="mergify, examples, dependabot, greenkeeper, renovate, pyup, imgbot" name="keywords" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <title>🤖 Bots &#8212; Mergify  documentation</title>
+
+  <link rel="stylesheet" href="../../_bootstrap/bootstrap.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mergify.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+
+  
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+  <script src="../../_bootstrap/bootstrap.min.js"></script>
+  <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="../../_static/mergify.js"></script>
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-118666091-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex/" />
+    <link rel="search" title="Search" href="../../search/" /> 
+  </head><body>
+<div class="body-container">
+  <nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
+  <a class="navbar-brand" href="../../">
+    <img class="logo" src="../../_static/mergify-logo-horizontal.png" alt="Mergify"/>
+  </a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io/about" target="_blank">About</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://blog.mergify.io" target="_blank">Blog</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://dashboard.mergify.io" target="_blank">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://github.com/Mergifyio/mergify-engine/discussions" target="_blank">Discussions</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
+      </li>
+    </ul>
+    <form class="row row-cols-lg-auto" action="../../search/" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
+    </form>
+  </div>
+</nav>
+  <nav class="related d-flex justify-content-between flex-wrap" role="navigation" aria-label="related navigation">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item active">🤖 Bots</li>
+  </ol>
+  <div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
+    </div>
+  </div>
+</nav>
+  <div class="main container-fluid">
+    <div class="row">
+      <div class="sphinxsidebar col" aria-label="main navigation"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getting-started/">➡️ Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#understanding-mergify-check-report">Understanding Mergify Check Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#controlling-mergify-with-commands">Controlling Mergify with Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration/">🔖 Configuration File</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#file-used">File Used</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#format">Format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#data-types">Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../conditions/">🎯 Conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#grammar">Grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#combining-conditions-with-operators">Combining Conditions with Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#attributes">Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#operators">Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#how-to-match-lists">How To Match Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#about-status-checks">About Status Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../actions/">🚀 Actions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/assign/">assign</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/backport/">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/close/">close</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/copy/">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/comment/">comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/delete_head_branch/">delete_head_branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/dismiss_reviews/">dismiss_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/label/">label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/merge/">merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/post_check/">post_check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/queue/">queue</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/queue/#using-rebase-to-update">Using Rebase to Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/rebase/">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/request_reviews/">request_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/review/">review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/update/">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../actions/squash/">squash</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../commands/">⚙️ Commands</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#rebase">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#update">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#backport">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#copy">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#squash">squash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#refresh">refresh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../">🧪 Example Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../#automatic-merge-when-ci-works-and-approving-reviews">✅ Automatic Merge when CI works and approving reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#merging-based-on-modified-files">🗂 Merging based on Modified Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#less-strict-rules-for-stable-branches">🏖 Less Strict Rules for Stable Branches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#using-labels-to-enable-disable-merge">🎬 Using Labels to Enable/Disable Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#using-labels-to-prioritize-merge">⚡️ Using Labels to Prioritize Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#require-all-requested-reviews-to-be-approved">🙅️ Require All Requested Reviews to Be Approved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#matching-pull-requests-with-task-lists">☑️ Matching Pull Requests with Task Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../#bots">🤖 Bots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../badge/">🎖 Badge</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#embedding">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#styles">Styles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq/">💬 FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#mergify-is-unable-to-merge-my-pull-request-due-to-my-branch-protection-settings">Mergify is unable to merge my pull request due to my branch protection settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#why-did-mergify-seem-to-have-merged-my-pull-request-whereas-all-conditions-were-not-true">Why did Mergify seem to have merged my pull request whereas all conditions were not true?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#i-see-a-rebase-and-force-push-done-by-a-member-of-the-repository-but-mergify-actually-did-it">I see a rebase and force-push done by a member of the repository, but Mergify actually did it.</a></li>
+</ul>
+</li>
+</ul>
+
+
+      </div>
+      <div class="document col-12 col-lg-8 col-xl-9">
+      <div class="documentwrapper">
+        <div class="body" role="main">
+          
+  <section id="bots">
+<h1>🤖 Bots<a class="headerlink" href="#bots" title="Permalink to this headline">🔗</a></h1>
+<p>Some pull requests might be created automatically by other tools, such as the
+ones sending automatic dependencies update. You might decide that there’s no
+need to manually review and approve those pull request as long as your
+continuous integration system validates them.</p>
+<p>The rules below are examples for such services: they are designed to
+automatically merge those updates without human intervention if the continuous
+integration system validates them. <code class="docutils literal notranslate"><span class="pre">Travis</span> <span class="pre">CI</span> <span class="pre">-</span> <span class="pre">Pull</span> <span class="pre">Request</span></code> is used as the
+CI check name here — adjust it to whatever you use.</p>
+<section id="dependabot">
+<h2>Dependabot<a class="headerlink" href="#dependabot" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://github.com/features/security">Dependabot</a> is the bot behind GitHub
+automatic security update. It sends automatic updates for your project’s
+dependencies, making sure they are secure.</p>
+<p>You can automate the merge of pull request created by <cite>dependabot</cite> with a rule
+such as:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Dependabot pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author~=^dependabot(|-preview)\[bot\]$</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+<p>Alternatively, you can also enable the automatic merge for <cite>dependabot</cite> pull
+request only if they are for the same major version.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Dependabot pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author~=^dependabot(|-preview)\[bot\]$</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">title~=^Bump [^\s]+ from ([\d]+)\..+ to \1\.</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+<p>The additional <cite>title</cite> based rule in <code class="docutils literal notranslate"><span class="pre">conditions</span></code> make sure that only the
+updates from <cite>1.x</cite> to <cite>1.y</cite> will be automatically merged. Updates from, e.g.,
+<cite>2.x</cite> to <cite>3.x</cite> will be ignored by Mergify.</p>
+</section>
+<section id="snyk">
+<h2>Snyk<a class="headerlink" href="#snyk" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://snyk.io">Snyk</a> sends automatic updates for your
+project’s dependencies.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Snyk pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">title~=^\[Snyk\]</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">head~=^snyk-fix</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success~=^security/snyk</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+<section id="renovate">
+<h2>Renovate<a class="headerlink" href="#renovate" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://renovatebot.com/">Renovate</a> sends automatic updates for your
+project’s dependencies.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Renovate pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=renovate[bot]</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+<section id="requires-io">
+<h2>Requires.io<a class="headerlink" href="#requires-io" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://requires.io/">Requires.io</a> sends automatic updates for your
+project’s dependencies (only Python’s packages).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Requires.io pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">title~=^\[requires.io\]</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">head~=^requires-io</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+<section id="pyup">
+<h2>PyUp<a class="headerlink" href="#pyup" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://pyup.io/">PyUp</a> sends automatic updates for your project’s
+Python dependencies.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for PyUp pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=pyup-bot</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+<section id="depfu">
+<h2>Depfu<a class="headerlink" href="#depfu" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://depfu.com/">Depfu</a> notifies you automatically about new versions of
+your Ruby, JavaScript, and Elixir project’s dependencies.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for Depfu pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=depfu[bot]</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+<section id="imgbot">
+<h2>ImgBot<a class="headerlink" href="#imgbot" title="Permalink to this headline">🔗</a></h2>
+<p><a class="reference external" href="https://github.com/marketplace/imgbot">ImgBot</a> optimizes your images and
+saves you time.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for ImgBot pull requests</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">author=imgbot[bot]</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+        </div>
+      </div>
+    </div>
+      <div class="clearer"></div>
+    </div>
+  </div>
+</div>
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+        <div>&copy; Copyright 2021, Mergify</div>
+    </div>
+    <div>
+      <a href="https://github.com/Mergifyio/mergify-engine/tree/main/docs/source/examples/bots.rst"
+         class="btn btn-dark btn-sm active">
+        Edit on GitHub <i class="fas fa-external-link-square-alt"></i>
+      </a>
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
+  </body>
+</html>

@@ -1,0 +1,339 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<meta content="Mergify Documentation for Request Review Action" name="description" />
+<meta content="mergify, request, review, pull request" name="keywords" />
+<meta content="Request review from users or teams for a pull request." name="summary" />
+<meta content="binoculars" name="doc:icon" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <title>request_reviews &#8212; Mergify  documentation</title>
+
+  <link rel="stylesheet" href="../../_bootstrap/bootstrap.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mergify.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+
+  
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+  <script src="../../_bootstrap/bootstrap.min.js"></script>
+  <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="../../_static/mergify.js"></script>
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-118666091-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex/" />
+    <link rel="search" title="Search" href="../../search/" />
+    <link rel="next" title="review" href="../review/" />
+    <link rel="prev" title="rebase" href="../rebase/" /> 
+  </head><body>
+<div class="body-container">
+  <nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
+  <a class="navbar-brand" href="../../">
+    <img class="logo" src="../../_static/mergify-logo-horizontal.png" alt="Mergify"/>
+  </a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io/about" target="_blank">About</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://blog.mergify.io" target="_blank">Blog</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://dashboard.mergify.io" target="_blank">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://github.com/Mergifyio/mergify-engine/discussions" target="_blank">Discussions</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
+      </li>
+    </ul>
+    <form class="row row-cols-lg-auto" action="../../search/" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
+    </form>
+  </div>
+</nav>
+  <nav class="related d-flex justify-content-between flex-wrap" role="navigation" aria-label="related navigation">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="../"
+                                   
+                                   accesskey="U"
+                                   class="active"
+                                   >🚀 Actions</a></li>
+    <li class="breadcrumb-item active">request_reviews</li>
+  </ol>
+  <div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
+      <a href="../rebase/" title="Previous Chapter: rebase" class="btn btn-primary" role="button" accesskey="P">
+        &laquo; rebase
+      </a>
+      <a href="../review/" title="Next Chapter: review" class="btn btn-primary" role="button" accesskey="N">
+        review &raquo;
+      </a>
+    </div>
+  </div>
+</nav>
+  <div class="main container-fluid">
+    <div class="row">
+      <div class="sphinxsidebar col" aria-label="main navigation"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting-started/">➡️ Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#understanding-mergify-check-report">Understanding Mergify Check Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#controlling-mergify-with-commands">Controlling Mergify with Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration/">🔖 Configuration File</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#file-used">File Used</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#format">Format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#data-types">Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../conditions/">🎯 Conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#grammar">Grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#combining-conditions-with-operators">Combining Conditions with Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#attributes">Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#operators">Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#how-to-match-lists">How To Match Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#about-status-checks">About Status Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../">🚀 Actions</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../assign/">assign</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backport/">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../close/">close</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../copy/">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../comment/">comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../delete_head_branch/">delete_head_branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dismiss_reviews/">dismiss_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../label/">label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../merge/">merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../post_check/">post_check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../queue/">queue</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../queue/#using-rebase-to-update">Using Rebase to Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rebase/">rebase</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">request_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../review/">review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../update/">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../squash/">squash</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../commands/">⚙️ Commands</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#rebase">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#update">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#backport">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#copy">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#squash">squash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#refresh">refresh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/">🧪 Example Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#automatic-merge-when-ci-works-and-approving-reviews">✅ Automatic Merge when CI works and approving reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#merging-based-on-modified-files">🗂 Merging based on Modified Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#less-strict-rules-for-stable-branches">🏖 Less Strict Rules for Stable Branches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#using-labels-to-enable-disable-merge">🎬 Using Labels to Enable/Disable Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#using-labels-to-prioritize-merge">⚡️ Using Labels to Prioritize Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#require-all-requested-reviews-to-be-approved">🙅️ Require All Requested Reviews to Be Approved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#matching-pull-requests-with-task-lists">☑️ Matching Pull Requests with Task Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#bots">🤖 Bots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../badge/">🎖 Badge</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#embedding">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#styles">Styles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq/">💬 FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#mergify-is-unable-to-merge-my-pull-request-due-to-my-branch-protection-settings">Mergify is unable to merge my pull request due to my branch protection settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#why-did-mergify-seem-to-have-merged-my-pull-request-whereas-all-conditions-were-not-true">Why did Mergify seem to have merged my pull request whereas all conditions were not true?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#i-see-a-rebase-and-force-push-done-by-a-member-of-the-repository-but-mergify-actually-did-it">I see a rebase and force-push done by a member of the repository, but Mergify actually did it.</a></li>
+</ul>
+</li>
+</ul>
+
+
+      </div>
+      <div class="document col-12 col-lg-8 col-xl-9">
+      <div class="documentwrapper">
+        <div class="body" role="main">
+          
+  <section id="request-reviews">
+<span id="request-reviews-action"></span><h1>request_reviews<a class="headerlink" href="#request-reviews" title="Permalink to this headline">🔗</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>GitHub does not allow to request more than 15 users or teams for a review.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">request_reviews</span></code> action requests reviews from users for the pull
+request.</p>
+<section id="options">
+<h2>Options<a class="headerlink" href="#options" title="Permalink to this headline">🔗</a></h2>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key Name</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Value Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">users</span></code></p></td>
+<td><p>list of string or dictionary of login and weight</p></td>
+<td></td>
+<td><p>The username to request reviews from.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">teams</span></code></p></td>
+<td><p>list of string or dictionary of login and weight</p></td>
+<td></td>
+<td><p>The team name to request reviews from.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">random_count</span></code></p></td>
+<td><p>integer between 1 and 15</p></td>
+<td></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div> <div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-success">Essential Plan<br/>Feature 💪</span></a></div>
+Pick random users and teams from the provided lists. When
+<code class="docutils literal notranslate"><span class="pre">random_count</span></code> is specified, <code class="docutils literal notranslate"><span class="pre">users</span></code> and <code class="docutils literal notranslate"><span class="pre">teams</span></code> can be a
+dictionary where the key is the login and the value is the weight to use.
+Weight must be between 1 and 65535 included.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">🔗</a></h2>
+<section id="flexible-reviewers-assignment">
+<h3>👀 Flexible Reviewers Assignment<a class="headerlink" href="#flexible-reviewers-assignment" title="Permalink to this headline">🔗</a></h3>
+<p>You can assign people for review based on any criteria you like. A classic is
+to use the name of modified files to do it:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ask jd to review changes on python files</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">files~=\.py$</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">-closed</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">request_reviews</span><span class="p">:</span>
+        <span class="nt">users</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">jd</span>
+</pre></div>
+</div>
+<p>You can also ask entire teams to review a pull request based on, e.g., labels:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ask the security team to review security labelled PR</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=security</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">request_reviews</span><span class="p">:</span>
+        <span class="nt">teams</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="s">&quot;@myorg/security-dev&quot;</span>
+          <span class="p p-Indicator">-</span> <span class="s">&quot;@myorg/security-ops&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="random-review-assignment">
+<h3>👘 Random Review Assignment<a class="headerlink" href="#random-review-assignment" title="Permalink to this headline">🔗</a></h3>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div>
+<div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-success">Essential Plan<br/>Feature 💪</span></a></div></p>
+<p>It's not fair to ask for the same users or teams to always do the review. You
+can rather randomly assign a pull request to a group of users.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ask the security team to review security labelled PR</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=security</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">request_reviews</span><span class="p">:</span>
+        <span class="nt">users</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">jd</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">sileht</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">CamClrt</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">GuillaumeOj</span>
+      <span class=" -Error"> </span><span class="nt">random_count</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+</pre></div>
+</div>
+<p>In that case, 2 users from this list of 4 users will get a review requested for
+this pull request.</p>
+<p>If you prefer some users to have a larger portion of the pull requests
+assigned, you can add a weight to the user list:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ask the security team to review security labelled PR</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=security</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">request_reviews</span><span class="p">:</span>
+        <span class="nt">users</span><span class="p">:</span>
+          <span class="nt">jd</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+          <span class="nt">sileht</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">3</span>
+          <span class="nt">CamClrt</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+          <span class="nt">GuillaumeOj</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+      <span class="nt">random_count</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+</pre></div>
+</div>
+<p>In that case, it's 3 times more likely then the user <code class="docutils literal notranslate"><span class="pre">sileht</span></code> will get a pull
+request assigned rather than <code class="docutils literal notranslate"><span class="pre">GuillaumeOj</span></code>.</p>
+</section>
+</section>
+</section>
+
+
+        </div>
+      </div>
+    </div>
+      <div class="clearer"></div>
+    </div>
+  </div>
+</div>
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+        <div>&copy; Copyright 2021, Mergify</div>
+    </div>
+    <div>
+      <a href="https://github.com/Mergifyio/mergify-engine/tree/main/docs/source/actions/request_reviews.rst"
+         class="btn btn-dark btn-sm active">
+        Edit on GitHub <i class="fas fa-external-link-square-alt"></i>
+      </a>
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
+  </body>
+</html>

@@ -1,0 +1,501 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<meta content="Mergify Documentation for Configuration" name="description" />
+<meta content="mergify, configuration" name="keywords" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <title>🔖 Configuration File &#8212; Mergify  documentation</title>
+
+  <link rel="stylesheet" href="../_bootstrap/bootstrap.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mergify.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+
+  
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+  <script src="../_bootstrap/bootstrap.min.js"></script>
+  <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="../_static/mergify.js"></script>
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-118666091-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="🎯 Conditions" href="../conditions/" />
+    <link rel="prev" title="➡️ Getting Started" href="../getting-started/" /> 
+  </head><body>
+<div class="body-container">
+  <nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
+  <a class="navbar-brand" href="../">
+    <img class="logo" src="../_static/mergify-logo-horizontal.png" alt="Mergify"/>
+  </a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io/about" target="_blank">About</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://blog.mergify.io" target="_blank">Blog</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://dashboard.mergify.io" target="_blank">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://github.com/Mergifyio/mergify-engine/discussions" target="_blank">Discussions</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
+      </li>
+    </ul>
+    <form class="row row-cols-lg-auto" action="../search/" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
+    </form>
+  </div>
+</nav>
+  <nav class="related d-flex justify-content-between flex-wrap" role="navigation" aria-label="related navigation">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item active">🔖 Configuration File</li>
+  </ol>
+  <div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
+      <a href="../getting-started/" title="Previous Chapter: ➡️ Getting Started" class="btn btn-primary" role="button" accesskey="P">
+        &laquo; ➡️ Getting Started
+      </a>
+      <a href="../conditions/" title="Next Chapter: 🎯 Conditions" class="btn btn-primary" role="button" accesskey="N">
+        🎯 Conditions &raquo;
+      </a>
+    </div>
+  </div>
+</nav>
+  <div class="main container-fluid">
+    <div class="row">
+      <div class="sphinxsidebar col" aria-label="main navigation"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/">➡️ Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#understanding-mergify-check-report">Understanding Mergify Check Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting-started/#controlling-mergify-with-commands">Controlling Mergify with Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">🔖 Configuration File</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#file-used">File Used</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#format">Format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-types">Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../conditions/">🎯 Conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#grammar">Grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#combining-conditions-with-operators">Combining Conditions with Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#attributes">Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#operators">Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#how-to-match-lists">How To Match Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../conditions/#about-status-checks">About Status Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../actions/">🚀 Actions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../actions/assign/">assign</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/backport/">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/close/">close</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/copy/">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/comment/">comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/delete_head_branch/">delete_head_branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/dismiss_reviews/">dismiss_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/label/">label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/merge/">merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/post_check/">post_check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/queue/">queue</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/queue/#using-rebase-to-update">Using Rebase to Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/rebase/">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/request_reviews/">request_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/review/">review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/update/">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../actions/squash/">squash</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../commands/">⚙️ Commands</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#rebase">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#update">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#backport">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#copy">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#squash">squash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/#refresh">refresh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/">🧪 Example Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#automatic-merge-when-ci-works-and-approving-reviews">✅ Automatic Merge when CI works and approving reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#merging-based-on-modified-files">🗂 Merging based on Modified Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#less-strict-rules-for-stable-branches">🏖 Less Strict Rules for Stable Branches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#using-labels-to-enable-disable-merge">🎬 Using Labels to Enable/Disable Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#using-labels-to-prioritize-merge">⚡️ Using Labels to Prioritize Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#require-all-requested-reviews-to-be-approved">🙅️ Require All Requested Reviews to Be Approved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#matching-pull-requests-with-task-lists">☑️ Matching Pull Requests with Task Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/#bots">🤖 Bots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../badge/">🎖 Badge</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../badge/#embedding">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../badge/#styles">Styles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/">💬 FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#mergify-is-unable-to-merge-my-pull-request-due-to-my-branch-protection-settings">Mergify is unable to merge my pull request due to my branch protection settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#why-did-mergify-seem-to-have-merged-my-pull-request-whereas-all-conditions-were-not-true">Why did Mergify seem to have merged my pull request whereas all conditions were not true?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../faq/#i-see-a-rebase-and-force-push-done-by-a-member-of-the-repository-but-mergify-actually-did-it">I see a rebase and force-push done by a member of the repository, but Mergify actually did it.</a></li>
+</ul>
+</li>
+</ul>
+
+
+      </div>
+      <div class="document col-12 col-lg-8 col-xl-9">
+      <div class="documentwrapper">
+        <div class="body" role="main">
+          
+  <section id="configuration-file">
+<span id="configuration-file-format"></span><h1>🔖 Configuration File<a class="headerlink" href="#configuration-file" title="Permalink to this headline">🔗</a></h1>
+<section id="file-used">
+<h2>File Used<a class="headerlink" href="#file-used" title="Permalink to this headline">🔗</a></h2>
+<p>Mergify uses the configuration file that is:</p>
+<ul class="simple">
+<li><p>The file named <code class="docutils literal notranslate"><span class="pre">.mergify.yml</span></code>, or, as a fallback, <code class="docutils literal notranslate"><span class="pre">.mergify/config.yml</span></code> or <code class="docutils literal notranslate"><span class="pre">.github/mergify.yml</span></code>
+from the root directory.</p></li>
+<li><p>In the default repository branch configured on GitHub — usually <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p></li>
+</ul>
+</section>
+<section id="format">
+<h2>Format<a class="headerlink" href="#format" title="Permalink to this headline">🔗</a></h2>
+<p>Here’s what you need to know about the file format:</p>
+<ul class="simple">
+<li><p>The file format is <a class="reference external" href="http://yaml.org/">YAML</a>.</p></li>
+<li><p>The file main type is a dictionary whose keys are named
+<code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> and <code class="docutils literal notranslate"><span class="pre">defaults</span></code>.</p></li>
+</ul>
+<section id="pull-request-rules">
+<h3>Pull Request Rules<a class="headerlink" href="#pull-request-rules" title="Permalink to this headline">🔗</a></h3>
+<ul class="simple">
+<li><p>The value type of the <code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> is list.</p></li>
+<li><p>Each entry in <code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> must be a dictionary.</p></li>
+</ul>
+<p>Each dictionary must have the following keys:</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key Name</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Value Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The name of the rule. This is not used by the engine directly, but is
+used when reporting information about a rule.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code></p></td>
+<td><p>dictionary with <code class="docutils literal notranslate"><span class="pre">reason</span></code> key</p></td>
+<td><p>This optional key allows to disabled a rule and cancel any ongoing
+actions. A reason must be set using the <code class="docutils literal notranslate"><span class="pre">reason</span></code> key.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conditions</span></code></p></td>
+<td><p>list of <a class="reference internal" href="../conditions/#conditions"><span class="std std-ref">🎯 Conditions</span></a></p></td>
+<td><p>A list of <a class="reference internal" href="../conditions/#conditions"><span class="std std-ref">🎯 Conditions</span></a> string that must match against the pull
+request for the rule to be applied.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">actions</span></code></p></td>
+<td><p>dictionary of <a class="reference internal" href="../actions/#actions"><span class="std std-ref">🚀 Actions</span></a></p></td>
+<td><p>A dictionary made of <a class="reference internal" href="../actions/#actions"><span class="std std-ref">🚀 Actions</span></a> that will be executed on the
+matching pull requests.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The rules are evaluated in the order they are defined in <code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code>
+and, therefore, the actions are executed in that same order.</p>
+<p>See <a class="reference internal" href="../examples/#examples"><span class="std std-ref">🧪 Example Rules</span></a> for configuration file examples.</p>
+</section>
+<section id="queue-rules">
+<h3>Queue Rules<a class="headerlink" href="#queue-rules" title="Permalink to this headline">🔗</a></h3>
+<ul class="simple">
+<li><p>The value type of the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> is list.</p></li>
+<li><p>Each entry in <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> must be a dictionary.</p></li>
+</ul>
+<p>See <a class="reference internal" href="../actions/queue/#queue-rules"><span class="std std-ref">Queue Rules</span></a> for the complete list and description of options.</p>
+</section>
+<section id="defaults">
+<h3>Defaults<a class="headerlink" href="#defaults" title="Permalink to this headline">🔗</a></h3>
+<ul class="simple">
+<li><p>The value type of <code class="docutils literal notranslate"><span class="pre">defaults</span></code> is a dictionary.</p></li>
+</ul>
+<p>This dictionary must have the following key:</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key Name</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Value Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">actions</span></code></p></td>
+<td><p>dictionary of <a class="reference internal" href="../actions/#actions"><span class="std std-ref">🚀 Actions</span></a></p></td>
+<td><p>A dictionary made of <a class="reference internal" href="../actions/#actions"><span class="std std-ref">🚀 Actions</span></a> whose configuration will be used by default.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <code class="docutils literal notranslate"><span class="pre">defaults</span></code> section is used to define default configuration valued for actions run by pull request rules and by <a class="reference internal" href="../commands/#commands"><span class="std std-ref">⚙️ Commands</span></a>.
+If the options are defined in <code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> they are used, otherwise, the values set in <code class="docutils literal notranslate"><span class="pre">defaults</span></code> are used.</p>
+<p>For example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">defaults</span><span class="p">:</span>
+  <span class="nt">actions</span><span class="p">:</span>
+    <span class="nt">comment</span><span class="p">:</span>
+      <span class="nt">bot_account</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Autobot</span>
+
+<span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">comment with default</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=comment</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">comment</span><span class="p">:</span>
+        <span class="nt">message</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">I 💙 Mergify</span>
+</pre></div>
+</div>
+<p>The configuration above is the same as below:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">comment with default</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=comment</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">comment</span><span class="p">:</span>
+        <span class="nt">message</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">I 💙 Mergify</span>
+        <span class="nt">bot_account</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Autobot</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="data-types">
+<h2>Data Types<a class="headerlink" href="#data-types" title="Permalink to this headline">🔗</a></h2>
+<section id="regular-expressions">
+<span id="id1"></span><h3>Regular Expressions<a class="headerlink" href="#regular-expressions" title="Permalink to this headline">🔗</a></h3>
+<p>You can use regular expression with matching <a class="reference internal" href="../conditions/#operators"><span class="std std-ref">operators</span></a> in
+your <a class="reference internal" href="../conditions/#conditions"><span class="std std-ref">conditions</span></a> .</p>
+<p>Mergify leverages <a class="reference external" href="https://docs.python.org/3/library/re.html">Python regular expressions</a> to match rules.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can use <a class="reference external" href="https://regex101.com/">regex101</a>, <a class="reference external" href="http://www.pyregex.com">PyRegex</a> or <a class="reference external" href="https://pythex.org/">Pythex</a> to test your
+regular expressions.</p>
+</div>
+<section id="examples">
+<h4>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">🔗</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">add python label if a Python file is modified</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">files~=\.py$</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">label</span><span class="p">:</span>
+        <span class="nt">add</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">python</span>
+
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for main when the title does not contain “WIP” (ignoring case)</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">-title~=(?i)wip</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">merge</span><span class="p">:</span>
+        <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="time">
+<span id="time-format"></span><h3>Time<a class="headerlink" href="#time" title="Permalink to this headline">🔗</a></h3>
+<p>This format represents the time of the day in the 24-hours format.
+It can be used with any of the greater and lesser operators (<code class="docutils literal notranslate"><span class="pre">&gt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>).</p>
+<section id="id2">
+<h4>Examples<a class="headerlink" href="#id2" title="Permalink to this headline">🔗</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">comment after 18:00</span>
+  <span class="nt">conditions</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">current-time&gt;=18:00</span>
+  <span class="nt">actions</span><span class="p">:</span>
+    <span class="nt">close</span><span class="p">:</span>
+      <span class="nt">message</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">It&#39;s too late for this!</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="timestamp">
+<span id="iso-timestamp"></span><h3>Timestamp<a class="headerlink" href="#timestamp" title="Permalink to this headline">🔗</a></h3>
+<p>The timestamp format must follow the <a class="reference external" href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601 standard</a>. If the timezone is missing, the
+timestamp is assumed to be in UTC.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">2021</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">05</span>
+<span class="mi">2012</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mi">17</span><span class="n">T22</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">51</span>
+<span class="mi">2008</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mi">22</span><span class="n">T14</span><span class="p">:</span><span class="mi">01</span><span class="p">:</span><span class="mi">54</span><span class="n">Z</span>
+<span class="mi">2013</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">05</span><span class="n">T07</span><span class="p">:</span><span class="mi">19</span><span class="p">:</span><span class="mi">04</span><span class="o">-</span><span class="mi">08</span><span class="p">:</span><span class="mi">00</span>
+</pre></div>
+</div>
+<section id="id3">
+<h4>Examples<a class="headerlink" href="#id3" title="Permalink to this headline">🔗</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">end of life version 10.0</span>
+  <span class="nt">conditions</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=stable/10.0</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">-closed</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">current-datetime&gt;=2021-04-05</span>
+  <span class="nt">actions</span><span class="p">:</span>
+    <span class="nt">close</span><span class="p">:</span>
+      <span class="nt">message</span><span class="p">:</span> <span class="p p-Indicator">|</span>
+        <span class="no">The pull request base branch has reached end-of-life.</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="relative-timestamp">
+<span id="id4"></span><h3>Relative Timestamp<a class="headerlink" href="#relative-timestamp" title="Permalink to this headline">🔗</a></h3>
+<p>Timestamps can be expressed relative to the current date and time.
+The format is <code class="docutils literal notranslate"><span class="pre">[DD</span> <span class="pre">days]</span> <span class="pre">[HH:MM]</span> <span class="pre">ago</span></code>:</p>
+<ul class="simple">
+<li><p>DD, the number of days</p></li>
+<li><p>HH, the number of hours</p></li>
+<li><p>MM, the number of minutes</p></li>
+</ul>
+<p>If the current date is 18th June 2020, <code class="docutils literal notranslate"><span class="pre">updated-at&gt;=14</span> <span class="pre">days</span> <span class="pre">ago</span></code> will be translated <code class="docutils literal notranslate"><span class="pre">updated-at&gt;=2020-06-04T00:00:00</span></code>.</p>
+<section id="id5">
+<h4>Examples<a class="headerlink" href="#id5" title="Permalink to this headline">🔗</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">close stale pull request</span>
+  <span class="nt">conditions</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">-closed</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">updated-at&lt;14 days ago</span>
+  <span class="nt">actions</span><span class="p">:</span>
+    <span class="nt">close</span><span class="p">:</span>
+      <span class="nt">message</span><span class="p">:</span> <span class="p p-Indicator">|</span>
+        <span class="no">This pull request looks stale. Feel free to reopen it if you think it&#39;s a mistake.</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="disabling-rules">
+<h3>Disabling Rules<a class="headerlink" href="#disabling-rules" title="Permalink to this headline">🔗</a></h3>
+<p>You can disable a rule while keeping it in the configuration. This allows
+gracefully handling the cancellation of any ongoing actions (e.g., like stopping
+the merge queue).</p>
+<section id="id6">
+<h4>Examples<a class="headerlink" href="#id6" title="Permalink to this headline">🔗</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">automatic merge for main when the title does not contain “WIP” (ignoring case)</span>
+  <span class="nt">disabled</span><span class="p">:</span>
+    <span class="nt">reason</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">code freeze</span>
+  <span class="nt">conditions</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">-title~=(?i)wip</span>
+  <span class="nt">actions</span><span class="p">:</span>
+    <span class="nt">merge</span><span class="p">:</span>
+      <span class="nt">method</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="template">
+<span id="data-type-template"></span><h3>Template<a class="headerlink" href="#template" title="Permalink to this headline">🔗</a></h3>
+<p>The template data type is a regular string that is rendered using the <a class="reference external" href="https://jinja.palletsprojects.com/templates/">Jinja2
+template language</a>.</p>
+<p>If you don’t need any of the power coming with this templating language, you
+can just use this as a regular string.</p>
+<p>However, those templates allow to use any of the <a class="reference internal" href="../conditions/#attributes"><span class="std std-ref">pull request attribute</span></a> in the final string.</p>
+<p>For example the template string:</p>
+<div class="highlight-jinja notranslate"><div class="highlight"><pre><span></span><span class="x">Thank you @</span><span class="cp">{{</span><span class="nv">author</span><span class="cp">}}</span><span class="x"> for your contribution!</span>
+</pre></div>
+</div>
+<p>will render to:</p>
+<div class="highlight-jinja notranslate"><div class="highlight"><pre><span></span><span class="x">Thank you @jd for your contribution!</span>
+</pre></div>
+</div>
+<p>when used in your configuration file — considering the pull request author
+login is <code class="docutils literal notranslate"><span class="pre">jd</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You need to replace the <code class="docutils literal notranslate"><span class="pre">-</span></code> character by <code class="docutils literal notranslate"><span class="pre">_</span></code> from the <a class="reference internal" href="../conditions/#attributes"><span class="std std-ref">pull request
+attribute</span></a> names when using templates. The <code class="docutils literal notranslate"><span class="pre">-</span></code> is not a valid
+character for variable names in Jinja2 template.</p>
+</div>
+</section>
+</section>
+<section id="validation">
+<h2>Validation<a class="headerlink" href="#validation" title="Permalink to this headline">🔗</a></h2>
+<p>Changes to the configuration file should be done via a pull request in order
+for Mergify to validate it via a GitHub check.</p>
+<p>However, if you want to validate your configuration file before sending a pull
+request, you can use the following command line:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ curl -F <span class="s1">&#39;data=@.mergify.yml&#39;</span> https://gh.mergify.io/validate
+</pre></div>
+</div>
+<p>Or by uploading the configuration file with this form:</p>
+<form method=post enctype=multipart/form-data action=https://gh.mergify.io/validate target=_blank>
+  <input type=file name=data>
+  <input type=submit value=Validate>
+</form></section>
+</section>
+
+
+        </div>
+      </div>
+    </div>
+      <div class="clearer"></div>
+    </div>
+  </div>
+</div>
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+        <div>&copy; Copyright 2021, Mergify</div>
+    </div>
+    <div>
+      <a href="https://github.com/Mergifyio/mergify-engine/tree/main/docs/source/configuration.rst"
+         class="btn btn-dark btn-sm active">
+        Edit on GitHub <i class="fas fa-external-link-square-alt"></i>
+      </a>
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
+  </body>
+</html>

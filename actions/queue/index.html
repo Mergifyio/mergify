@@ -1,0 +1,664 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<meta content="Mergify Documentation for Queue Action" name="description" />
+<meta content="mergify, queue, pull request" name="keywords" />
+<meta content="Put a pull request in queue before merging." name="summary" />
+<meta content="train" name="doc:icon" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <title>queue &#8212; Mergify  documentation</title>
+
+  <link rel="stylesheet" href="../../_bootstrap/bootstrap.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mergify.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+
+  
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+  <script src="../../_bootstrap/bootstrap.min.js"></script>
+  <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="../../_static/mergify.js"></script>
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-118666091-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex/" />
+    <link rel="search" title="Search" href="../../search/" />
+    <link rel="next" title="rebase" href="../rebase/" />
+    <link rel="prev" title="post_check" href="../post_check/" /> 
+  </head><body>
+<div class="body-container">
+  <nav class="navbar navbar-expand-md sticky-top navbar-light bg-white">
+  <a class="navbar-brand" href="../../">
+    <img class="logo" src="../../_static/mergify-logo-horizontal.png" alt="Mergify"/>
+  </a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="top-navbar">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io" target="_blank">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://mergify.io/about" target="_blank">About</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://blog.mergify.io" target="_blank">Blog</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://dashboard.mergify.io" target="_blank">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://github.com/Mergifyio/mergify-engine/discussions" target="_blank">Discussions</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://status.mergify.io" target="_blank">Status</a>
+      </li>
+    </ul>
+    <form class="row row-cols-lg-auto" action="../../search/" method="get">
+      <div class="col-8-lg">
+        <input type="text" name="q" class="form-control mr-sm-2"/>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </div>
+      <div class="col-4-lg">
+        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+      </div>
+    </form>
+  </div>
+</nav>
+  <nav class="related d-flex justify-content-between flex-wrap" role="navigation" aria-label="related navigation">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="../"
+                                   
+                                   accesskey="U"
+                                   class="active"
+                                   >🚀 Actions</a></li>
+    <li class="breadcrumb-item active">queue</li>
+  </ol>
+  <div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Basic example">
+      <a href="../post_check/" title="Previous Chapter: post_check" class="btn btn-primary" role="button" accesskey="P">
+        &laquo; post_check
+      </a>
+      <a href="../rebase/" title="Next Chapter: rebase" class="btn btn-primary" role="button" accesskey="N">
+        rebase &raquo;
+      </a>
+    </div>
+  </div>
+</nav>
+  <div class="main container-fluid">
+    <div class="row">
+      <div class="sphinxsidebar col" aria-label="main navigation"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting-started/">➡️ Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#understanding-mergify-check-report">Understanding Mergify Check Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting-started/#controlling-mergify-with-commands">Controlling Mergify with Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration/">🔖 Configuration File</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#file-used">File Used</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#format">Format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#data-types">Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration/#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../conditions/">🎯 Conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#grammar">Grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#combining-conditions-with-operators">Combining Conditions with Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#attributes">Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#operators">Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#how-to-match-lists">How To Match Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../conditions/#about-status-checks">About Status Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../">🚀 Actions</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../assign/">assign</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backport/">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../close/">close</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../copy/">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../comment/">comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../delete_head_branch/">delete_head_branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dismiss_reviews/">dismiss_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../label/">label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../merge/">merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../post_check/">post_check</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">queue</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-rebase-to-update">Using Rebase to Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rebase/">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../request_reviews/">request_reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../review/">review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../update/">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../squash/">squash</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../commands/">⚙️ Commands</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#rebase">rebase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#update">update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#backport">backport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#copy">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#squash">squash</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../commands/#refresh">refresh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/">🧪 Example Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#automatic-merge-when-ci-works-and-approving-reviews">✅ Automatic Merge when CI works and approving reviews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#merging-based-on-modified-files">🗂 Merging based on Modified Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#less-strict-rules-for-stable-branches">🏖 Less Strict Rules for Stable Branches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#using-labels-to-enable-disable-merge">🎬 Using Labels to Enable/Disable Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#using-labels-to-prioritize-merge">⚡️ Using Labels to Prioritize Merge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#require-all-requested-reviews-to-be-approved">🙅️ Require All Requested Reviews to Be Approved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#matching-pull-requests-with-task-lists">☑️ Matching Pull Requests with Task Lists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/#bots">🤖 Bots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../badge/">🎖 Badge</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#embedding">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../badge/#styles">Styles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq/">💬 FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#mergify-is-unable-to-merge-my-pull-request-due-to-my-branch-protection-settings">Mergify is unable to merge my pull request due to my branch protection settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#why-did-mergify-seem-to-have-merged-my-pull-request-whereas-all-conditions-were-not-true">Why did Mergify seem to have merged my pull request whereas all conditions were not true?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../faq/#i-see-a-rebase-and-force-push-done-by-a-member-of-the-repository-but-mergify-actually-did-it">I see a rebase and force-push done by a member of the repository, but Mergify actually did it.</a></li>
+</ul>
+</li>
+</ul>
+
+
+      </div>
+      <div class="document col-12 col-lg-8 col-xl-9">
+      <div class="documentwrapper">
+        <div class="body" role="main">
+          
+  <section id="queue">
+<span id="queue-action"></span><h1>queue<a class="headerlink" href="#queue" title="Permalink to this headline">🔗</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">queue</span></code> action moves the pull request into one of the merge queue defined
+in <a class="reference internal" href="#queue-rules"><span class="std std-ref">Queue Rules</span></a>.</p>
+<p>Merge queues prevent merging broken pull requests by serializing their merge.
+Merging broken pull requests can happen when outdated pull requests are being
+merged in their base branch.</p>
+<p>Mergify always respects the <a class="reference external" href="https://docs.github.com/en/github/administering-a-repository/about-protected-branches">branch protection</a> settings. When the conditions
+match and the <code class="docutils literal notranslate"><span class="pre">queue</span></code> action runs, Mergify waits for the branch protection to
+be validated before embarking and merging the pull request.</p>
+<p>Mergify also waits for dependent pull requests to get merged first (see <a class="reference internal" href="#merge-depends-on"><span class="std std-ref">⛓️ Defining Pull Request Dependencies</span></a>).</p>
+<section id="why-queues">
+<h2>Why Queues?<a class="headerlink" href="#why-queues" title="Permalink to this headline">🔗</a></h2>
+<p id="merge-queue-problem">To understand the problem queues resolve, imagine the following situation:</p>
+<ul class="simple">
+<li><p>The base branch (e.g., <code class="docutils literal notranslate"><span class="pre">main</span></code>) has its continuous integration testing
+passing correctly.</p></li>
+<li><p>A pull request is created, which also passes the CI.</p></li>
+</ul>
+<p>The state of the repository can be represented like this:</p>
+<div class="graphviz"><img src="../../_images/graphviz-37a87eb05921955db02ff2d0a0dba469d3093d8e.png" alt="Pull request is open" class="graphviz" /></div>
+<p>While the pull request is open, another commit is pushed to <code class="docutils literal notranslate"><span class="pre">main</span></code> — let's
+call it <cite>new commit</cite>. That new commit can be pushed directly to <code class="docutils literal notranslate"><span class="pre">main</span></code> or
+merged from another pull request; it doesn't matter.</p>
+<p>The tests are run against the <code class="docutils literal notranslate"><span class="pre">main</span></code> branch by the CI, and they pass. The
+state of the repository and its continuous integration system can be now
+described like this:</p>
+<div class="graphviz"><img src="../../_images/graphviz-6bd8fabbf22bdbb69c3e8706e61cdba1e00ed7f7.png" alt="Base branch adds a new commit" class="graphviz" /></div>
+<p>The pull request is still marked as valid by the continuous integration system
+since it did not change. As there is no code conflict, the pull request is
+considered as <cite>mergeable</cite> by GitHub: the merge button is green.</p>
+<p>If you click that merge button, this is what <cite>might</cite> happen:</p>
+<div class="graphviz"><img src="../../_images/graphviz-b736a22e53b320a2fb33595e0175a1c454ea02ad.png" alt="Base branch is broken" class="graphviz" /></div>
+<p>As a new merge commit is created to merge the pull request, it is possible that
+the continuous integration testing fails. Indeed, the continuous integration
+did not test the pull request with the <cite>new commit</cite> added to the base branch.
+This <cite>new commit</cite> might have introduced some new tests in the base branch while
+the pull request was open. That pull request may not have the correct code to
+pass this new test.</p>
+<section id="using-queues">
+<h3>Using Queues<a class="headerlink" href="#using-queues" title="Permalink to this headline">🔗</a></h3>
+<p>Using a merge queue solves that issue by updating any pull request that is not
+up-to-date with its base branch before being merged. That forces the continuous
+integration system to retest the pull request with the new code from its base
+branch.</p>
+<p>If a merge queue were being used in the previous example, Mergify would
+automatically merge the <code class="docutils literal notranslate"><span class="pre">main</span></code> in the base branch. The continuous integration
+system would have rerun and marked the pull request as failing the test,
+removing it from the merge queue altogether.</p>
+<div class="graphviz"><img src="../../_images/graphviz-0cad74332cfe55f291db6658049fea003df8a549.png" alt="Rebase make CI fails" class="graphviz" /></div>
+<p>When multiple pull requests are mergeable, they are scheduled to be merged
+sequentially, and are updated on top of each other. The pull request branch
+update is only done when the pull request is ready to be merged by the engine,
+e.g., when all the <cite>conditions</cite> are validated.</p>
+<p>That means that when a first pull request has been merged, and the second one
+is outdated like this:</p>
+<div class="graphviz"><img src="../../_images/graphviz-f5d31236042f3bf1c8c611823d30c6c0999add29.png" alt="strict merge with PR2 open" class="graphviz" /></div>
+<p>Mergify will make sure the pull request #2 is updated with the latest tip of
+the base branch before merging:</p>
+<div class="graphviz"><img src="../../_images/graphviz-021be1fe688f01ad6004169a74ceee3213aeb395.png" alt="strict merge" class="graphviz" /></div>
+<p>That way, there's no way to merge a broken pull request into the base branch.</p>
+</section>
+</section>
+<section id="configuring-the-merge-queues">
+<h2>Configuring the Merge Queues<a class="headerlink" href="#configuring-the-merge-queues" title="Permalink to this headline">🔗</a></h2>
+<p>The <cite>merge queues</cite> rely on two configuration items: the <code class="docutils literal notranslate"><span class="pre">queues_rules</span></code> and
+the <code class="docutils literal notranslate"><span class="pre">queue</span></code> action.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">queue</span></code> action places the pull request inside the merge queue: the set of
+conditions described in the <code class="docutils literal notranslate"><span class="pre">pull_request_rules</span></code> allows the pull request to
+enter the queue when all conditions match.</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">queue</span></code> action conditions do not match anymore, the pull request is
+removed from the merge queue.</p>
+<p>When a pull request is at the top of the queue, Mergify looks at the second set
+of conditions defined this time in <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> and wait that they all match
+to merge the pull request.</p>
+<p>When multiple queues are defined, they are processed one after the other in the
+order they are defined in the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> list. Queue processing is blocked
+until all preceding queues are empty.</p>
+</section>
+<section id="viewing-the-merge-queue">
+<h2>Viewing the Merge Queue<a class="headerlink" href="#viewing-the-merge-queue" title="Permalink to this headline">🔗</a></h2>
+<p>The merge queue can be visualized from your <a class="reference external" href="https://dashboard.mergify.io">dashboard</a>:</p>
+<figure class="align-default">
+<img alt="The merge queue from the dashboard" src="../../_images/merge-queue.png" />
+</figure>
+</section>
+<section id="speculative-checks">
+<span id="id1"></span><h2>Speculative Checks<a class="headerlink" href="#speculative-checks" title="Permalink to this headline">🔗</a></h2>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div></p>
+<p>Merging pull requests one by one serially can take a lot of time, depending on
+the continuous integration run time. To merge pull requests faster, Mergify
+queues support <cite>speculative checks</cite>.</p>
+<p>With speculative checks, the first pull requests from the queue are embarked in
+a <cite>merge train</cite> and tested together in parallel so they can be merged faster. A
+merge train consists of two or more pull requests embarked together to be
+tested speculatively. To test them, Mergify creates temporary pull requests
+where multiple queued pull requests are merged together.</p>
+<p>The upside of creating multiple temporary pull requests is that continuous
+integration pipelines can run on all of them in parallel. Currently, Mergify
+embarks up from 1 to 20 pull requests into the merge train (you can set the
+value with the <code class="docutils literal notranslate"><span class="pre">speculative_checks</span></code> settings in <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code>).</p>
+<figure class="align-default" id="id5">
+<div class="graphviz"><img src="../../_images/graphviz-778c7bc579a1248df647b483c60ac1a33070521e.png" alt="Merge train" class="graphviz" /></div>
+<figcaption>
+<p><span class="caption-text">A merge queue with 5 pull requests and <code class="docutils literal notranslate"><span class="pre">speculative_checks</span></code> set to 3</span><a class="headerlink" href="#id5" title="Permalink to this image">🔗</a></p>
+</figcaption>
+</figure>
+<p>In the above example, three pull requests are tested at the same time by the
+continuous integration system: <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span></code>, <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#2</span></code> and <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#2</span>
+<span class="pre">+</span> <span class="pre">PR#3</span></code>. By creating temporary pull requests that combine multiple pull
+requests, Mergify is able to schedule in advance the testing of the combined
+results of every pull request in the queue.</p>
+<p>Those temporary pull requests check if the resulting branch can be merged
+according to the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> conditions. If any of the merge car fails to
+match the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> conditions, the culprit pull request is removed from
+the queue.</p>
+<p>When the pull request <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#2</span></code> matches the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> conditions,
+the pull requests <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span></code> and <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#2</span></code> are merged and the temporary pull
+request <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#1</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#2</span></code> is deleted. The same goes for the pull request <code class="docutils literal notranslate"><span class="pre">PR</span>
+<span class="pre">#1</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#2</span> <span class="pre">+</span> <span class="pre">PR</span> <span class="pre">#3</span></code> and <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#3</span></code>.</p>
+<p>In the case where a new commit is pushed on the base branch, Mergify resets the
+merge train and starts over the process.</p>
+<p>If an embarked pull request doesn't match the <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> anymore, it is
+removed from the merge train. All pull requests embarked after it are
+disembarked and re-embarked.</p>
+</section>
+<section id="options">
+<h2>Options<a class="headerlink" href="#options" title="Permalink to this headline">🔗</a></h2>
+<section id="id2">
+<h3>Queue Action<a class="headerlink" href="#id2" title="Permalink to this headline">🔗</a></h3>
+<p>These are the options of the <code class="docutils literal notranslate"><span class="pre">queue</span></code> action:</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key Name</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Value Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>string</p></td>
+<td></td>
+<td><p>The name of the merge queue where to move the pull request.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">method</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">merge</span></code></p></td>
+<td><p>Merge method to use. Possible values are <code class="docutils literal notranslate"><span class="pre">merge</span></code>, <code class="docutils literal notranslate"><span class="pre">squash</span></code> or
+<code class="docutils literal notranslate"><span class="pre">rebase</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rebase_fallback</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">merge</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">method</span></code> is set to <code class="docutils literal notranslate"><span class="pre">rebase</span></code>, but the pull request cannot be
+rebased, the method defined in <code class="docutils literal notranslate"><span class="pre">rebase_fallback</span></code> will be used instead.
+Possible values are <code class="docutils literal notranslate"><span class="pre">merge</span></code>, <code class="docutils literal notranslate"><span class="pre">squash</span></code>, <code class="docutils literal notranslate"><span class="pre">none</span></code>. <code class="docutils literal notranslate"><span class="pre">none</span></code> will
+report an error if rebase is not possible.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">merge_bot_account</span></code></p></td>
+<td><p><a class="reference internal" href="../../configuration/#data-type-template"><span class="std std-ref">Template</span></a></p></td>
+<td></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div>
+Mergify can impersonate a GitHub user to merge pull request.
+If no <code class="docutils literal notranslate"><span class="pre">merge_bot_account</span></code> is set, Mergify will merge the pull request
+itself. The user account <strong>must</strong> have already been
+logged in Mergify dashboard once and have <strong>write</strong> or <strong>maintain</strong> permission.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">update_method</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">merge</span></code></p></td>
+<td><p>Method to use to update the pull request with its base branch when the
+speculative check is done in-place.
+Possible values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">merge</span></code> to merge the base branch into the pull request.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rebase</span></code> to rebase the pull request against its base branch.</p></li>
+</ul>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">rebase</span></code> method has some drawbacks, see <a class="reference internal" href="#update-method-rebase"><span class="std std-ref">Using Rebase to Update</span></a>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">update_bot_account</span></code></p></td>
+<td><p><a class="reference internal" href="../../configuration/#data-type-template"><span class="std std-ref">Template</span></a></p></td>
+<td></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div>
+For certain actions, such as rebasing branches, Mergify has to
+impersonate a GitHub user. You can specify the account to use with this
+option. If no <code class="docutils literal notranslate"><span class="pre">update_bot_account</span></code> is set, Mergify picks randomly one of the
+organization users instead. The user account <strong>must</strong> have already been
+logged in Mergify dashboard once.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">priority</span></code></p></td>
+<td><p>1 &lt;= integer &lt;= 10000 or <code class="docutils literal notranslate"><span class="pre">low</span></code> or <code class="docutils literal notranslate"><span class="pre">medium</span></code> or <code class="docutils literal notranslate"><span class="pre">high</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">medium</span></code></p></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div> This sets the priority of the pull request in the queue. The pull
+request with the highest priority is merged first.
+<code class="docutils literal notranslate"><span class="pre">low</span></code>, <code class="docutils literal notranslate"><span class="pre">medium</span></code>, <code class="docutils literal notranslate"><span class="pre">high</span></code> are aliases for <code class="docutils literal notranslate"><span class="pre">1000</span></code>, <code class="docutils literal notranslate"><span class="pre">2000</span></code>, <code class="docutils literal notranslate"><span class="pre">3000</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">commit_message</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
+<td><p>Defines what commit message to use when merging using the <code class="docutils literal notranslate"><span class="pre">squash</span></code> or
+<code class="docutils literal notranslate"><span class="pre">merge</span></code> method. Possible values are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">default</span></code> to use the default commit message provided by GitHub
+or defined in the pull request body (see <a class="reference internal" href="../merge/#commit-message"><span class="std std-ref">Defining the Commit Message</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">title+body</span></code> means to use the title and body from the pull request
+itself as the commit message. The pull request number will be added to
+end of the title.</p></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="queue-rules">
+<span id="id3"></span><h3>Queue Rules<a class="headerlink" href="#queue-rules" title="Permalink to this headline">🔗</a></h3>
+<p>A <code class="docutils literal notranslate"><span class="pre">queue_rules</span></code> takes the following parameter:</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key Name</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Value Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>string</p></td>
+<td></td>
+<td><p>The name of the merge queue.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conditions</span></code></p></td>
+<td><p>list of <a class="reference internal" href="../../conditions/#conditions"><span class="std std-ref">🎯 Conditions</span></a></p></td>
+<td></td>
+<td><p>The list of <code class="docutils literal notranslate"><span class="pre">conditions</span></code> to match to get the queued pull request merged,
+In case of speculative merge pull request, the conditions starting by
+<code class="docutils literal notranslate"><span class="pre">check-</span></code> are evaluated against the temporary pull request instead of the
+original one.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">speculative_checks</span></code></p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div> The maximum number of checks to run in parallel in the queue. Must be
+between 1 and 20.
+See <a class="reference internal" href="#speculative-checks"><span class="std std-ref">Speculative Checks</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">allow_inplace_speculative_checks</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>True</p></td>
+<td><p>Allow to update/rebase the original pull request if possible to check its mergeability.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, a draft pull request is always created.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code></p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div> The maximum number of pull requests per speculative check in the queue. Must be
+between 1 and 20.
+See <a class="reference internal" href="#speculative-checks"><span class="std std-ref">Speculative Checks</span></a>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div>
+Defining multiple queue rules is only available for <a class="reference external" href="https://mergify.io/pricing">Premium subscribers</a>.</p>
+</div>
+</section>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">🔗</a></h2>
+<section id="single-queue">
+<h3>🐛 Single Queue<a class="headerlink" href="#single-queue" title="Permalink to this headline">🔗</a></h3>
+<p>A simple usage of the queue is to merge pull requests serially, ensuring they
+all pass the CI one after the other. The following example defines a queue
+named <code class="docutils literal notranslate"><span class="pre">default</span></code> which allows any pull request to be merged once it enters it.</p>
+<p>To enter the queue, pull requests need to be based on the <code class="docutils literal notranslate"><span class="pre">main</span></code> branch, have
+2 approving reviews and pass the CI. Once a pull request is in first position
+in the queue, it will be updated with the latest commit of its base branch.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">queue_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+
+<span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge using the merge queue</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="s">&quot;#approved-reviews-by&gt;=2&quot;</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">queue</span><span class="p">:</span>
+        <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+</pre></div>
+</div>
+</section>
+<section id="multiple-queues">
+<h3>🚥 Multiple Queues<a class="headerlink" href="#multiple-queues" title="Permalink to this headline">🔗</a></h3>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div></p>
+<p>By using multiple queues, it's possible to put some pull requests in a higher
+priority queue. As queues are processed one after the other, the following
+example allow to add a label <code class="docutils literal notranslate"><span class="pre">urgent</span></code> to a pull request so it gets put in the
+higher priority queue.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">queue_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">urgent</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+
+<span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">move to urgent queue when 2 reviews and label urgent</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="s">&quot;#approved-reviews-by&gt;=2&quot;</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label=urgent</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">queue</span><span class="p">:</span>
+        <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">urgent</span>
+
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge using the merge queue</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="s">&quot;#approved-reviews-by&gt;=2&quot;</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">label!=urgent</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">queue</span><span class="p">:</span>
+        <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+</pre></div>
+</div>
+<p>With such a configuration, a pull request with the label <code class="docutils literal notranslate"><span class="pre">urgent</span></code> will get
+into the queue as soon as it's approved by 2 developers but before the CI has
+even run on it. It will be in front of the <code class="docutils literal notranslate"><span class="pre">default</span></code> queue. Mergify will
+update the pull request with its base branch if necessary, wait for the CI to
+pass and then merge the pull request.</p>
+</section>
+<section id="id4">
+<h3>🎲 Speculative Checks<a class="headerlink" href="#id4" title="Permalink to this headline">🔗</a></h3>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div></p>
+<p>If your continuous integration system takes a long time to validate the
+enqueued pull requests, it might be interesting to enable <a class="reference internal" href="#speculative-checks"><span class="std std-ref">speculative
+checks</span></a>. This will allow Mergify to trigger multiple runs
+of the CI in parallel.</p>
+<p>In the following example, by setting the <code class="docutils literal notranslate"><span class="pre">speculative_checks</span></code> option to
+<code class="docutils literal notranslate"><span class="pre">2</span></code>, Mergify will create up to 2 new pull requests to check if the first
+three enqueued pull requests are mergeable.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">queue_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+    <span class="nt">speculative_checks</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+
+<span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge using the merge queue and speculative checks</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="s">&quot;#approved-reviews-by&gt;=2&quot;</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">queue</span><span class="p">:</span>
+        <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+</pre></div>
+</div>
+<p>Multiple pull requests can be checked within one speculative check by settings
+<code class="docutils literal notranslate"><span class="pre">batch_size</span></code>.</p>
+<p>For example, by settings <code class="docutils literal notranslate"><span class="pre">speculative_checks:</span> <span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size:</span> <span class="pre">3</span></code>,
+Mergify will create two pull requests: a first one to check if the first three
+enqueued pull requests are mergeable, and a second one to check the three next
+enqueued pull requests.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">queue_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+    <span class="nt">speculative_checks</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+    <span class="nt">batch_size</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+
+<span class="nt">pull_request_rules</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">merge using the merge queue and speculative checks</span>
+    <span class="nt">conditions</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">base=main</span>
+      <span class="p p-Indicator">-</span> <span class="s">&quot;#approved-reviews-by&gt;=2&quot;</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">check-success=Travis CI - Pull Request</span>
+    <span class="nt">actions</span><span class="p">:</span>
+      <span class="nt">queue</span><span class="p">:</span>
+        <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="defining-pull-request-dependencies">
+<span id="merge-depends-on"></span><h2>⛓️ Defining Pull Request Dependencies<a class="headerlink" href="#defining-pull-request-dependencies" title="Permalink to this headline">🔗</a></h2>
+<p><div class="feature-tag"><a href="https://mergify.io/pricing" target="_blank"><span class="badge bg-warning">Premium Plan<br/>Feature 🦾</span></a></div>
+<div class="feature-tag"><span class="badge bg-primary">Open Source<br /> Feature 💖</span></div></p>
+<p>You can specify dependencies between pull requests from the same repository.
+Mergify waits for the linked pull requests to be merged before merging any pull
+request with a <code class="docutils literal notranslate"><span class="pre">Depends-On:</span></code> header.</p>
+<p>To use this feature, adds the <code class="docutils literal notranslate"><span class="pre">Depends-On:</span></code> header to the body of your pull
+request:</p>
+<div class="highlight-md notranslate"><div class="highlight"><pre><span></span>New awesome feature 🎉
+
+To get the full picture, you may need to look at these pull requests:
+
+Depends-On: <span class="ni">#42</span>
+Depends-On: https://github.com/organization/repository/pull/123
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This feature does not work for cross-repository dependencies.</p>
+</div>
+</section>
+</section>
+<section id="using-rebase-to-update">
+<span id="update-method-rebase"></span><h1>Using Rebase to Update<a class="headerlink" href="#using-rebase-to-update" title="Permalink to this headline">🔗</a></h1>
+<p>Using the <code class="docutils literal notranslate"><span class="pre">rebase</span></code> method to update a pull request with its base branch has some
+drawbacks:</p>
+<ul class="simple">
+<li><p>It doesn't work for private forked repositories.</p></li>
+<li><p>Every commits SHA-1 of the pull request will change. The pull request author
+will need to force-push its own branch if they add new commits.</p></li>
+<li><p>GitHub branch protections of your repository may dismiss approved reviews.</p></li>
+<li><p>GitHub branch protection of the contributor repository may deny Mergify
+force-pushing the rebased pull request.</p></li>
+<li><p>GPG signed commits will lose their signatures.</p></li>
+<li><p>Mergify will impersonate one of the repository members to force-push the
+branch as GitHub Applications are not authorized to do that by themselves.
+If you need to control which user is impersonated, you can use the <code class="docutils literal notranslate"><span class="pre">update_bot_account</span></code> option.
+Be aware that the GitHub UI will show the collaborator as the author of the push, while it was actually executed by Mergify.</p></li>
+</ul>
+</section>
+
+
+        </div>
+      </div>
+    </div>
+      <div class="clearer"></div>
+    </div>
+  </div>
+</div>
+<footer class="footer d-flex justify-content-between flex-wrap">
+    <div class="copyright">
+        <div>&copy; Copyright 2021, Mergify</div>
+    </div>
+    <div>
+      <a href="https://github.com/Mergifyio/mergify-engine/tree/main/docs/source/actions/queue.rst"
+         class="btn btn-dark btn-sm active">
+        Edit on GitHub <i class="fas fa-external-link-square-alt"></i>
+      </a>
+    </div>
+    <div>
+        <a href="#" class="btn btn-primary btn-sm" role="button">Back to top</a>
+    </div>
+</footer>
+  </body>
+</html>
