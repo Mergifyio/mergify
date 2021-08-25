@@ -192,6 +192,9 @@ async def handle(
     user: typing.Optional[github_types.GitHubAccount],
     rerun: bool = False,
 ) -> None:
+    if "@mergify " not in comment.lower() and "@mergifyio " not in comment.lower():
+        return
+
     # Run command only if this is a pending task or if user have permission to do it.
     if not rerun and not user:
         raise RuntimeError("user must be set if rerun is false")
