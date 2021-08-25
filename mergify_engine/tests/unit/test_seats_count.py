@@ -31,7 +31,7 @@ async def test_send_seats(httpserver: httpserver.HTTPServer) -> None:
         "mergify_engine.config.SUBSCRIPTION_BASE_URL",
         httpserver.url_for("/")[:-1],
     ):
-        await count_seats.send_seats(5)
+        await count_seats.send_seats(count_seats.SeatsCountResultT(5, 2))
 
     assert len(httpserver.log) == 1
 

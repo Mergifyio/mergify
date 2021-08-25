@@ -14,10 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import json
 import os
 from unittest import mock
 
+from freezegun import freeze_time
 import pytest
 
 from mergify_engine import config
@@ -94,3 +96,41 @@ async def test_filter_and_dispatch(
         assert e.event_type == event_type
         assert e.event_id == event_id
         assert isinstance(e.reason, str)
+
+
+GITHUB_SAMPLE_EVENTS = {}
+_EVENT_DIR = os.path.join(os.path.dirname(__file__), "events")
+for filename in os.listdir(_EVENT_DIR):
+    event_type = filename.split(".")[0]
+    with open(os.path.join(_EVENT_DIR, filename), "r") as event:
+        GITHUB_SAMPLE_EVENTS[filename] = (event_type, json.load(event))
+
+
+@freeze_time("2011-11-11")
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
+async def test_store_active_users(event_type, event, redis_cache):
+    await github_events.store_active_users(redis_cache, event_type, event)
+    one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+    if event_type in (
+        "pull_request",
+        "push",
+    ):
+        assert (
+            await redis_cache.zrangebyscore(
+                "active-users~21031067~186853002",
+                min=one_month_ago.timestamp(),
+                max="+inf",
+                withscores=True,
+            )
+            == [("21031067", 1320969600.0)]
+        )
+    else:
+        assert (
+            await redis_cache.zrangebyscore(
+                "active-users~21031067~186853002",
+                min=one_month_ago.timestamp(),
+                max="+inf",
+            )
+            == []
+        )

@@ -15,6 +15,7 @@
 # under the License.
 
 import dataclasses
+import time
 import typing
 
 import daiquiri
@@ -33,6 +34,44 @@ from mergify_engine.engine import commands_runner
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+async def store_active_users(
+    redis_cache: utils.RedisCache, event_type: str, event: github_types.GitHubEvent
+) -> None:
+    typed_event: typing.Optional[
+        typing.Union[
+            github_types.GitHubEventPush,
+            github_types.GitHubEventIssueComment,
+            github_types.GitHubEventPullRequest,
+            github_types.GitHubEventPullRequestReview,
+            github_types.GitHubEventPullRequestReviewComment,
+        ]
+    ] = None
+
+    if event_type == "push":
+        typed_event = typing.cast(github_types.GitHubEventPush, event)
+    elif event_type == "issue_comment":
+        typed_event = typing.cast(github_types.GitHubEventIssueComment, event)
+    elif event_type == "pull_request":
+        typed_event = typing.cast(github_types.GitHubEventPullRequest, event)
+    elif event_type == "pull_request_review":
+        typed_event = typing.cast(github_types.GitHubEventPullRequestReview, event)
+    elif event_type == "pull_request_review_comment":
+        typed_event = typing.cast(
+            github_types.GitHubEventPullRequestReviewComment, event
+        )
+
+    if typed_event is not None:
+        # TODO(sileht): sender is generic but when bot inpersonnate an used
+        # if can differ from the real user, for example we may need to also
+        # count for issue_comment the comment.user.id
+        sender_id = str(typed_event["sender"]["id"])
+
+        organization_id = typed_event["repository"]["owner"]["id"]
+        repository_id = typed_event["repository"]["id"]
+        key = f"active-users~{organization_id}~{repository_id}"
+        await redis_cache.zadd(key, **{sender_id: time.time()})
 
 
 def meter_event(
@@ -448,6 +487,7 @@ async def filter_and_dispatch(
     event: github_types.GitHubEvent,
 ) -> None:
     meter_event(event_type, event)
+    await store_active_users(redis_cache, event_type, event)
     await push_to_worker(redis_cache, redis_stream, event_type, event_id, event)
 
 

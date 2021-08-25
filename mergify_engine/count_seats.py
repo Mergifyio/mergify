@@ -28,6 +28,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import logs
+from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
@@ -38,26 +39,39 @@ LOG = daiquiri.getLogger(__name__)
 HOUR = datetime.timedelta(hours=1).total_seconds()
 
 
+class SeatsCountResultT(typing.NamedTuple):
+    write: int
+    active: int
+
+
+class CollaboratorsSetsT(typing.TypedDict):
+    write: typing.Set[github_types.GitHubLogin]
+    active: typing.Set[github_types.GitHubAccountIdType]
+
+
 CollaboratorsT = typing.Dict[
     github_types.GitHubLogin,  # org name
-    typing.Dict[
-        github_types.GitHubRepositoryName, typing.Set[github_types.GitHubLogin]
-    ],
+    typing.Dict[github_types.GitHubRepositoryName, CollaboratorsSetsT],
 ]
 
 
-def count_seats(collaborators: CollaboratorsT) -> int:
-    all_collaborators = set()
+def count_seats(collaborators: CollaboratorsT) -> SeatsCountResultT:
+    all_write_collaborators = set()
+    all_active_collaborators = set()
     for repos in collaborators.values():
-        for repo_collabs in repos.values():
-            all_collaborators |= repo_collabs
-    return len(all_collaborators)
+        for sets in repos.values():
+            all_write_collaborators |= sets["write"]
+            all_active_collaborators |= sets["active"]
+    return SeatsCountResultT(
+        len(all_write_collaborators), len(all_active_collaborators)
+    )
 
 
 async def get_collaborators() -> CollaboratorsT:
-    all_collaborators: CollaboratorsT = collections.defaultdict(
-        lambda: collections.defaultdict(set)
-    )
+    one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+
+    all_collaborators: CollaboratorsT = collections.defaultdict(dict)
+    redis_cache = utils.create_aredis_for_cache()
     async with github.AsyncGithubClient(
         auth=github_app.GithubBearerAuth(),
     ) as app_client:
@@ -71,13 +85,29 @@ async def get_collaborators() -> CollaboratorsT:
                     "/installation/repositories", list_items="repositories"
                 ):
                     repository = typing.cast(github_types.GitHubRepository, repository)
+
+                    repository_id = repository["id"]
+                    organization_id = installation["account"]["id"]
+                    repo_active_users = {
+                        github_types.GitHubAccountIdType(int(user_id))
+                        for user_id in await redis_cache.zrangebyscore(
+                            f"active-users~{organization_id}~{repository_id}",
+                            min=one_month_ago.timestamp(),
+                            max="+inf",
+                        )
+                    }
+
+                    repo_write_collabs = set()
                     async for collaborator in client.items(
                         f"{repository['url']}/collaborators"
                     ):
                         if collaborator["permissions"]["push"]:
-                            all_collaborators[orgname][repository["name"]].add(
-                                collaborator["login"]
-                            )
+                            repo_write_collabs.add(collaborator["login"])
+
+                    all_collaborators[orgname][repository["name"]] = {
+                        "write": repo_write_collabs,
+                        "active": repo_active_users,
+                    }
 
     return all_collaborators
 
@@ -87,13 +117,17 @@ async def get_collaborators() -> CollaboratorsT:
     stop=tenacity.stop_after_attempt(5),
     reraise=True,
 )
-async def send_seats(seats: int) -> None:
+async def send_seats(seats: SeatsCountResultT) -> None:
     async with http.AsyncClient() as client:
         try:
             await client.post(
                 f"{config.SUBSCRIPTION_BASE_URL}/on-premise/report",
                 headers={"Authorization": f"token {config.SUBSCRIPTION_TOKEN}"},
-                json={"seats": seats},
+                json={
+                    "seats": seats.write,
+                    "seats_write": seats.write,
+                    "seats_active": seats.active,
+                },
             )
         except Exception as exc:
             if exceptions.should_be_ignored(exc):
@@ -141,7 +175,8 @@ def report(args: argparse.Namespace) -> None:
                 print(json.dumps(collaborators))
             else:
                 seats = count_seats(collaborators)
-                LOG.info("collaborators: %s", seats)
+                LOG.info("collaborators with write access: %s", seats.write)
+                LOG.info("active collaborators: %s", seats.active)
 
 
 def main() -> None:
