@@ -39,6 +39,20 @@ queue_rules:
     batch_size: 5
 
 pull_request_rules:
+  - name: automatic merge for hotfix
+    conditions:
+      - base=main
+      - author=@devs
+      - check-success=Semantic Pull Request
+      - body~=(?m)^Fixes MERGIFY-ENGINE-
+      - label=hotfix
+      - "#changes-requested-reviews-by=0"
+      - label!=work-in-progress
+      - label!=manual merge
+    actions:
+      queue:
+        name: hotfix
+
   - name: automatic merge
     conditions:
       - base=main
@@ -55,20 +69,6 @@ pull_request_rules:
       - label!=manual merge
     actions:
       queue:
-
-  - name: automatic merge for hotfix
-    conditions:
-      - base=main
-      - author=@devs
-      - check-success=Semantic Pull Request
-      - body~=(?m)^Fixes MERGIFY-ENGINE-
-      - label=hotfix
-      - "#changes-requested-reviews-by=0"
-      - label!=work-in-progress
-      - label!=manual merge
-    actions:
-      queue:
-        name: hotfix
 
   - name: automatic merge from dependabot
     conditions:
