@@ -34,9 +34,7 @@ from mergify_engine.web import root
 )
 def test_app_event_forward(_, __, httpserver):
 
-    with open(
-        os.path.join(os.path.dirname(__file__), "events", "push_event.json")
-    ) as f:
+    with open(os.path.join(os.path.dirname(__file__), "events", "push.json")) as f:
         data = f.read()
 
     headers = {
@@ -67,7 +65,7 @@ def test_app_event_forward(_, __, httpserver):
 def test_market_event_forward(_, httpserver):
 
     with open(
-        os.path.join(os.path.dirname(__file__), "events", "market_event.json")
+        os.path.join(os.path.dirname(__file__), "events", "marketplace.json")
     ) as f:
         data = f.read()
 

@@ -24,12 +24,10 @@ from mergify_engine import utils
 from mergify_engine.web import root
 
 
-with open(os.path.join(os.path.dirname(__file__), "events", "push_event.json")) as f:
+with open(os.path.join(os.path.dirname(__file__), "events", "push.json")) as f:
     push_event = json.load(f)
 
-with open(
-    os.path.join(os.path.dirname(__file__), "events", "pull_request_event.json")
-) as f:
+with open(os.path.join(os.path.dirname(__file__), "events", "pull_request.json")) as f:
     pull_request_event = json.load(f)
 
 

@@ -52,14 +52,14 @@ async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls
 @pytest.mark.asyncio
 async def test_event_to_pull_check_run_forked_repo(redis_cache):
     await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run_event_from_forked_repo.json", []
+        redis_cache, "check_run.event_from_forked_repo.json", []
     )
 
 
 @pytest.mark.asyncio
 async def test_event_to_pull_check_run_same_repo(redis_cache):
     await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run_event_from_same_repo.json", [409]
+        redis_cache, "check_run.event_from_same_repo.json", [409]
     )
 
 
