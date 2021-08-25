@@ -275,6 +275,15 @@ async def test_run_command_with_user(
     monkeypatch.setattr(client, "post", mock_post)
 
     await commands_runner.handle(
+        ctxt=ctxt,
+        mergify_config={},
+        comment="unrelated",
+        user=None,
+        rerun=True,
+    )
+    assert len(http_calls) == 0
+
+    await commands_runner.handle(
         ctxt=ctxt, mergify_config={}, comment="@mergifyio something", user=user
     )
 
