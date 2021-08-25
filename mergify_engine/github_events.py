@@ -24,6 +24,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import count_seats
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -448,6 +449,7 @@ async def filter_and_dispatch(
     event: github_types.GitHubEvent,
 ) -> None:
     meter_event(event_type, event)
+    await count_seats.store_active_users(redis_cache, event_type, event)
     await push_to_worker(redis_cache, redis_stream, event_type, event_id, event)
 
 
