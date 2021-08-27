@@ -43,7 +43,7 @@ async def fake_train_car_update_user_pull(inner_self, queue_rule):
     pass
 
 
-async def fake_train_car_delete_pull(inner_self):
+async def fake_train_car_delete_pull(inner_self, reason):
     pass
 
 

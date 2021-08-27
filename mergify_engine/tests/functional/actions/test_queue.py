@@ -2353,7 +2353,13 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         expected_table = f"| 1 | test_create_pull_basic: pull request n2 from fork ([#{p2['number']}]({p2['html_url']})) | foo/0 | #{tmp_pull['number']} | <fake_pretty_datetime()>|"
         assert expected_table in await car.generate_merge_queue_summary(queue_rule)
 
-        await car.delete_pull()
+        await car.delete_pull(reason="testing deleted reason")
+
+        ctxt = context.Context(self.repository_ctxt, tmp_pull)
+        summary = await ctxt.get_engine_check_run(context.Context.SUMMARY_NAME)
+        assert summary is not None
+        assert summary["conclusion"] == "cancelled"
+        assert "testing deleted reason" in summary["output"]["summary"]
 
         # NOTE(sileht): When branch is deleted the associated Pull is deleted in an async
         # fashion on GitHub side.
