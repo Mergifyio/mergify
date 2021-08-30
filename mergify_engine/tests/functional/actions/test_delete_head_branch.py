@@ -114,55 +114,6 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
             b["name"] for b in branches
         }
 
-    async def test_delete_branch_with_shared_head_branches_and_dep_no_force(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "delete on merge",
-                    "conditions": [],
-                    "actions": {"delete_head_branch": None},
-                }
-            ]
-        }
-        another_branch = self.get_full_branch_name("another")
-        await self.setup_repo(yaml.dump(rules), test_branches=[another_branch])
-
-        p1, _ = await self.create_pr(base_repo="origin")
-        p2 = (
-            await self.client_admin.post(
-                f"{self.url_origin}/pulls",
-                json={
-                    "base": another_branch,
-                    "head": p1["head"]["label"],
-                    "title": f"{p1['title']} copy",
-                    "body": p1["body"],
-                    "draft": p1["draft"],
-                },
-            )
-        ).json()
-        assert p1["base"]["ref"] != p2["base"]["ref"]
-        await self.wait_for("pull_request", {"action": "opened"})
-        await self.merge_pull(p1["number"])
-        await self.run_engine()
-
-        await self.wait_for("check_run", {"check_run": {"conclusion": "neutral"}})
-
-        pulls = await self.get_pulls(
-            params={"state": "all", "base": self.main_branch_name}
-        )
-        assert 1 == len(pulls)
-        pulls = await self.get_pulls(params={"state": "all", "base": another_branch})
-        assert 1 == len(pulls)
-
-        branches = await self.get_branches()
-        assert 4 == len(branches)
-        assert {
-            "main",
-            self.main_branch_name,
-            another_branch,
-            p1["head"]["ref"],
-        } == {b["name"] for b in branches}
-
     async def test_delete_branch_with_dep_force(self):
         rules = {
             "pull_request_rules": [
