@@ -421,7 +421,9 @@ class TrainCar:
 
     async def generate_merge_queue_summary(
         self,
-        queue_rule: typing.Union[rules.EvaluatedQueueRule, rules.QueueRule],
+        queue_rule: typing.Optional[
+            typing.Union[rules.EvaluatedQueueRule, rules.QueueRule]
+        ],
         *,
         for_queue_pull_request: bool = False,
         show_queue: bool = True,
@@ -442,8 +444,9 @@ This pull request has been created by Mergify to speculatively check the mergeab
 You don't need to do anything. Mergify will close this pull request automatically when it is complete.
 """
 
-        description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
-        description += queue_rule.conditions.get_summary()
+        if queue_rule is not None:
+            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
+            description += queue_rule.conditions.get_summary()
 
         if show_queue:
             table = [
@@ -489,9 +492,48 @@ You don't need to do anything. Mergify will close this pull request automaticall
         description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
         return description.strip()
 
-    async def delete_pull(self) -> None:
+    async def delete_pull(self, reason: typing.Optional[str]) -> None:
         if not self.queue_pull_request_number or self.head_branch is None:
             return
+
+        if self.creation_state == "created" and reason is not None:
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    "car state is created, but queue_pull_request_number is None"
+                )
+
+            tmp_pull_ctxt = await self.train.repository.get_pull_request_context(
+                self.queue_pull_request_number
+            )
+            check = await tmp_pull_ctxt.get_engine_check_run(
+                context.Context.SUMMARY_NAME
+            )
+            if (
+                check is None
+                or check["conclusion"] == check_api.Conclusion.PENDING.value
+            ):
+                reason = f"✨ {reason}. The pull request {self._get_user_refs()} has been re-embarked. ✨"
+                body = await self.generate_merge_queue_summary(
+                    None,
+                    for_queue_pull_request=True,
+                    headline=reason,
+                    show_queue=False,
+                )
+
+                if tmp_pull_ctxt.pull["body"] != body:
+                    await tmp_pull_ctxt.client.patch(
+                        f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
+                        json={"body": body},
+                    )
+
+                await tmp_pull_ctxt.set_summary_check(
+                    check_api.Result(
+                        check_api.Conclusion.CANCELLED,
+                        title=f"The pull request {self._get_user_refs()} has been re-embarked for merge",
+                        summary=reason,
+                    )
+                )
+                tmp_pull_ctxt.log.info("train car deleted", reason=reason)
         await self._delete_branch()
 
     async def _delete_branch(self) -> None:
@@ -923,7 +965,9 @@ class Train(queue.QueueBase):
         for car in self._cars:
             for embarked_pull in car.still_queued_embarked_pulls:
                 if embarked_pull.user_pull_request_number in known_prs:
-                    await self._slice_cars(i)
+                    await self._slice_cars(
+                        i, reason="The pull request has been queued twice"
+                    )
                     break
                 else:
                     known_prs.add(embarked_pull.user_pull_request_number)
@@ -943,7 +987,9 @@ class Train(queue.QueueBase):
                 # NOTE(sileht): We just slice the cars list here, so when the
                 # car will be recreated if the rule doesn't exists anymore, the
                 # failure will be reported properly
-                await self._slice_cars(i)
+                await self._slice_cars(
+                    i, reason="The associated queue rule does not exist anymore"
+                )
             else:
                 # NOTE(sileht): Update the queue config, so if
                 # speculative_checks change the train will grow or shrink
@@ -951,11 +997,12 @@ class Train(queue.QueueBase):
                 embarked_pull.config["queue_config"] = queue_rule.config
 
     async def reset(self) -> None:
-        await self._slice_cars(0)
+        await self._slice_cars(0, reason="Unexpected queue change")
         await self.save()
         self.log.info("train cars reset")
 
-    async def _slice_cars(self, new_queue_size: int) -> None:
+    async def _slice_cars(self, new_queue_size: int, reason: str) -> None:
+        sliced = False
         new_cars: typing.List[TrainCar] = []
         new_waiting_pulls: typing.List[EmbarkedPull] = []
         for c in self._cars:
@@ -963,8 +1010,14 @@ class Train(queue.QueueBase):
             if new_queue_size >= 0:
                 new_cars.append(c)
             else:
+                sliced = True
                 new_waiting_pulls.extend(c.still_queued_embarked_pulls)
-                await c.delete_pull()
+                await c.delete_pull(reason)
+
+        if sliced:
+            self.log.info(
+                "queue has been sliced", new_queue_size=new_queue_size, reason=reason
+            )
 
         self._cars = new_cars
         self._waiting_pulls = new_waiting_pulls + self._waiting_pulls
@@ -1009,7 +1062,10 @@ class Train(queue.QueueBase):
         if best_position == -1:
             self._waiting_pulls.append(new_embarked_pull)
         else:
-            await self._slice_cars(best_position)
+            await self._slice_cars(
+                best_position,
+                reason="Pull request with higher priority has been queued",
+            )
             number_of_pulls_in_cars = sum(
                 len(c.still_queued_embarked_pulls) for c in self._cars
             )
@@ -1043,7 +1099,7 @@ class Train(queue.QueueBase):
             del self._cars[0].still_queued_embarked_pulls[0]
             if len(self._cars[0].still_queued_embarked_pulls) == 0:
                 deleted_car = self._cars[0]
-                await deleted_car.delete_pull()
+                await deleted_car.delete_pull(reason=None)
                 self._cars = self._cars[1:]
 
             if ctxt.pull["merge_commit_sha"] is None:
@@ -1059,7 +1115,9 @@ class Train(queue.QueueBase):
         position = await self.get_position(ctxt)
         if position is None:
             return
-        await self._slice_cars(position)
+        await self._slice_cars(
+            position, reason="Pull request ahead in queue got removed from the queue"
+        )
         number_of_pulls_in_cars = sum(
             len(c.still_queued_embarked_pulls) for c in self._cars
         )
@@ -1099,7 +1157,10 @@ class Train(queue.QueueBase):
                 # NOTE(sileht): This batch failed, we can drop everything else
                 # after has we known now they will not work, and split this one
                 # in two
-                await self._slice_cars(current_queue_position)
+                await self._slice_cars(
+                    current_queue_position,
+                    reason="Pull request ahead in queue failed to get merged",
+                )
 
                 # We move this car later at the end to not retest it
                 del self._cars[-1]
@@ -1178,7 +1239,10 @@ class Train(queue.QueueBase):
                     for car in self._cars[:speculative_checks]
                 ]
             )
-            await self._slice_cars(new_queue_size)
+            await self._slice_cars(
+                new_queue_size,
+                reason="The number of speculative checks has been reduced",
+            )
 
         elif missing_cars > 0 and self._waiting_pulls:
             # Not enough cars
