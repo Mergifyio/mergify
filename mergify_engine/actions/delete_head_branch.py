@@ -41,18 +41,11 @@ class DeleteHeadBranchAction(actions.Action):
         if ctxt.closed:
             if not self.config["force"]:
                 pulls_using_this_branch = [
-                    pull
-                    async for pull in ctxt.client.items(
+                    branch
+                    async for branch in ctxt.client.items(
                         f"{ctxt.base_url}/pulls",
                         params={"base": ctxt.pull["head"]["ref"]},
                     )
-                ] + [
-                    pull
-                    async for pull in ctxt.client.items(
-                        f"{ctxt.base_url}/pulls",
-                        params={"head": ctxt.pull["head"]["ref"]},
-                    )
-                    if pull["number"] is not ctxt.pull["number"]
                 ]
                 if pulls_using_this_branch:
                     pulls_using_this_branch_formatted = "\n".join(
