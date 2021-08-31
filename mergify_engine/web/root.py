@@ -28,6 +28,7 @@ import voluptuous
 # To load the json serializer need to read queues
 from mergify_engine import check_api  # noqa
 from mergify_engine import config
+from mergify_engine import count_seats
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import json
@@ -170,6 +171,20 @@ async def refresh_branch(
         ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
     return responses.Response("Refresh queued", status_code=202)
+
+
+@app.get(
+    "/organization/{owner_id}/usage",  # noqa: FS003
+    dependencies=[fastapi.Depends(auth.signature)],
+)
+async def get_stats(
+    owner_id: github_types.GitHubAccountIdType,
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+) -> responses.Response:
+    seats = await count_seats.Seats.get(redis_cache, write_users=False)
+    return responses.Response(content=seats.jsonify(), media_type="application/json")
 
 
 @app.put(
