@@ -36,6 +36,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Mergify"
+language = "en"
 copyright = "%s, Mergify" % datetime.date.today().year
 version = pkg_resources.get_distribution("mergify_engine").version
 
