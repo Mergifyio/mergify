@@ -25,6 +25,9 @@ jobs:
       - name: Build release notes 📝
         id: relnote
         run: |
+          set -e
+          set -o pipefail
+
           pip install reno pandoc
 
           git fetch --tag
@@ -33,9 +36,21 @@ jobs:
           git tag $VERSION
           git push origin $VERSION
 
+          echo "** RENO **"
+          reno -q report --version $VERSION --title "" --no-show-source
+
+          echo "** MARKDOWN **"
+          reno -q report --version $VERSION --title "" --no-show-source |\
+              pandoc -t markdown --shift-heading-level-by=-1
+
+          echo "** FILTER **"
+          reno -q report --version $VERSION --title "" --no-show-source |\
+              pandoc -t markdown --shift-heading-level-by=-1 |\
+              sed -e '/^\.\./,+1d' -e '1,4d'
+
           reno -q report --version $VERSION --title "" --no-show-source | \
               pandoc -t markdown --shift-heading-level-by=-1 | \
-              sed -e '1,6d' > ${{ github.workspace }}-CHANGELOG.txt
+              sed -e '/^\.\./,+1d' -e '1,4d' > ${{ github.workspace }}-CHANGELOG.txt
           echo "::set-output name=VERSION::$VERSION"
 
       - name: Release 🏎️
