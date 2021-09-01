@@ -829,7 +829,8 @@ class Context(object):
             return [
                 ctxt
                 for ctxt, state in (await self.checks).items()
-                if state in ["failure", "action_required", "cancelled", "timed_out"]
+                if state
+                in ["failure", "action_required", "cancelled", "timed_out", "error"]
             ]
         elif name in ("status-neutral", "check-neutral"):
             return [
