@@ -6,7 +6,11 @@ name: Releaser
 permissions: write-all
 on:
   workflow_dispatch:
-
+    inputs:
+      dry_run:
+        description: "don't push thing"
+        required: false
+        default: false
 jobs:
   releaser:
     runs-on: ubuntu-latest
@@ -33,9 +37,6 @@ jobs:
           git fetch --tag
           VERSION=$(reno -q semver-next)
 
-          git tag $VERSION
-          git push origin $VERSION
-
           echo "** RENO **"
           reno -q report --version $VERSION --title "" --no-show-source
 
@@ -53,8 +54,15 @@ jobs:
               sed -e '/^\.\./,+1d' -e '1,4d' > ${{ github.workspace }}-CHANGELOG.txt
           echo "::set-output name=VERSION::$VERSION"
 
-      - name: Release 🏎️
+      - name: Push git tag 🏎️
+        if: ${{ !github.event.inputs.dry_run }}
+        run: |
+          git tag ${{ steps.relnote.outputs.VERSION }}
+          git push origin ${{ steps.relnote.outputs.VERSION }}
+
+      - name: Push GitHub release 🏎️
         uses: softprops/action-gh-release@v1
+        if: ${{ !github.event.inputs.dry_run }}
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt
           tag_name: ${{ steps.relnote.outputs.VERSION }}
