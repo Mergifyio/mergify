@@ -355,6 +355,10 @@ Then, re-embark the pull request into the merge queue by posting the comment
             "action.queue",
             {
                 "speculative_checks": self.config["queue_config"]["speculative_checks"]
-                > 1
+                > 1,
+                "batch_size": self.config["queue_config"]["batch_size"] > 1,
+                "allow_inplace_speculative_checks": self.config["queue_config"][
+                    "allow_inplace_speculative_checks"
+                ],
             },
         )
