@@ -360,5 +360,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         asyncio.run(report(args.url))
+    except KeyboardInterrupt:
+        print("Interruped...")
     except BrokenPipeError:
         pass
