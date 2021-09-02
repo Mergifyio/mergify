@@ -37,6 +37,8 @@ jobs:
           git fetch --tag
           VERSION=$(reno -q semver-next)
 
+          git tag ${VERSION}
+
           echo "** RENO **"
           reno -q report --version $VERSION --title "" --no-show-source
 
@@ -57,7 +59,6 @@ jobs:
       - name: Push git tag 🏎️
         if: ${{ !github.event.inputs.dry_run }}
         run: |
-          git tag ${{ steps.relnote.outputs.VERSION }}
           git push origin ${{ steps.relnote.outputs.VERSION }}
 
       - name: Push GitHub release 🏎️
