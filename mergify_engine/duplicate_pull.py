@@ -304,7 +304,17 @@ async def duplicate(
             #    "--shallow-since='%s'" % last_commit_date)
             try:
                 await git("cherry-pick", "-x", commit["sha"])
+            except (
+                gitter.GitAuthenticationFailure,
+                gitter.GitErrorRetriable,
+                gitter.GitFatalError,
+            ):
+                raise
             except gitter.GitError as e:  # pragma: no cover
+                for message in GIT_MESSAGE_TO_EXCEPTION.keys():
+                    if message in e.output:
+                        raise
+
                 ctxt.log.info("fail to cherry-pick %s: %s", commit["sha"], e.output)
                 output = await git("status")
                 cherry_pick_error += f"Cherry-pick of {commit['sha']} has failed:\n```\n{output}```\n\n\n"
