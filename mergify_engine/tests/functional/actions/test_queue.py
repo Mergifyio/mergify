@@ -2325,7 +2325,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -2396,7 +2395,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(

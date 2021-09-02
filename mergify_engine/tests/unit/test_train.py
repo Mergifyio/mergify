@@ -277,7 +277,6 @@ def get_config(
         effective_priority=effective_priority,
         bot_account=None,
         update_bot_account=None,
-        queue_config=QUEUE_RULES[queue_name].config,
     )
 
 
@@ -580,21 +579,15 @@ async def test_train_with_speculative_checks_decreased(
     t = merge_train.Train(repository, "branch")
     await t.load()
 
-    old_config = get_config("five", 1000)
+    config = get_config("five", 1000)
+    await t.add_pull(await fake_context(repository, 1), config)
 
-    new_config = get_config("five", 1000)
-    new_config["queue_config"] = new_config["queue_config"].copy()
-    new_config["queue_config"]["speculative_checks"] = 2
+    QUEUE_RULES["five"].config["speculative_checks"] = 2
 
-    assert (
-        old_config["queue_config"]["speculative_checks"]
-        != new_config["queue_config"]["speculative_checks"]
-    )
-    await t.add_pull(await fake_context(repository, 1), old_config)
-    await t.add_pull(await fake_context(repository, 2), new_config)
-    await t.add_pull(await fake_context(repository, 3), new_config)
-    await t.add_pull(await fake_context(repository, 4), new_config)
-    await t.add_pull(await fake_context(repository, 5), new_config)
+    await t.add_pull(await fake_context(repository, 2), config)
+    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await fake_context(repository, 4), config)
+    await t.add_pull(await fake_context(repository, 5), config)
 
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 4, 5]] == get_cars_content(
@@ -684,8 +677,8 @@ queue_rules:
     ):
         del repository._cache["mergify_config"]
         await t.refresh()
-    assert [[1]] == get_cars_content(t)
-    assert [2, 3] == get_waiting_content(t)
+    assert [] == get_cars_content(t)
+    assert [1, 2, 3] == get_waiting_content(t)
     assert len(report_failure.mock_calls) == 1
 
 
