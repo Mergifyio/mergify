@@ -990,11 +990,6 @@ class Train(queue.QueueBase):
                 await self._slice_cars(
                     i, reason="The associated queue rule does not exist anymore"
                 )
-            else:
-                # NOTE(sileht): Update the queue config, so if
-                # speculative_checks change the train will grow or shrink
-                # instantly
-                embarked_pull.config["queue_config"] = queue_rule.config
 
     async def reset(self) -> None:
         await self._slice_cars(0, reason="Unexpected queue change")
@@ -1154,6 +1149,20 @@ class Train(queue.QueueBase):
                 self.log.info(
                     "spliting failed car", position=current_queue_position, car=car
                 )
+
+                queue_name = car.still_queued_embarked_pulls[0].config["name"]
+                try:
+                    queue_rule = queue_rules[queue_name]
+                except KeyError:
+                    # We just need to wait the pull request has been removed from
+                    # the queue by the action
+                    self.log.info(
+                        "cant split failed batch TrainCar, queue rule does not exist anymore",
+                        queue_rules=queue_rules,
+                        queue_name=queue_name,
+                    )
+                    return
+
                 # NOTE(sileht): This batch failed, we can drop everything else
                 # after has we known now they will not work, and split this one
                 # in two
@@ -1165,14 +1174,10 @@ class Train(queue.QueueBase):
                 # We move this car later at the end to not retest it
                 del self._cars[-1]
 
-                speculative_checks = car.still_queued_embarked_pulls[0].config[
-                    "queue_config"
-                ]["speculative_checks"]
-
                 parents: typing.List[EmbarkedPull] = []
                 for pulls in utils.split_list(
                     car.still_queued_embarked_pulls[:-1],
-                    speculative_checks,
+                    queue_rule.config["speculative_checks"],
                 ):
                     self._cars.append(
                         TrainCar(
@@ -1188,7 +1193,7 @@ class Train(queue.QueueBase):
 
                     parents += pulls
                     try:
-                        await self._create_car(queue_rules, self._cars[-1])
+                        await self._create_car(queue_rule, self._cars[-1])
                     except (
                         TrainCarPullRequestCreationPostponed,
                         TrainCarPullRequestCreationFailure,
@@ -1228,7 +1233,23 @@ class Train(queue.QueueBase):
         if self._current_base_sha is None or not self._cars:
             self._current_base_sha = await self.get_head_sha()
 
-        speculative_checks = head.config["queue_config"]["speculative_checks"]
+        try:
+            queue_rule = queue_rules[head.config["name"]]
+        except KeyError:
+            # We just need to wait the pull request has been removed from
+            # the queue by the action
+            self.log.info(
+                "cant populate cars, queue rule does not exist",
+                queue_rules=queue_rules,
+                queue_name=head.config["name"],
+            )
+            car = TrainCar(self, [head], [head], [], self._current_base_sha)
+            await car._set_creation_failure(
+                f"queue named `{head.config['name']}` does not exist anymore"
+            )
+            return
+
+        speculative_checks = queue_rule.config["speculative_checks"]
         missing_cars = speculative_checks - len(self._cars)
 
         if missing_cars < 0:
@@ -1250,7 +1271,7 @@ class Train(queue.QueueBase):
                 pulls_to_check, self._waiting_pulls = self._get_next_batch(
                     self._waiting_pulls,
                     head.config["name"],
-                    head.config["queue_config"]["batch_size"],
+                    queue_rule.config["batch_size"],
                 )
                 if not pulls_to_check:
                     return
@@ -1276,7 +1297,7 @@ class Train(queue.QueueBase):
                 self._cars.append(car)
 
                 try:
-                    await self._create_car(queue_rules, car)
+                    await self._create_car(queue_rule, car)
                 except TrainCarPullRequestCreationPostponed:
                     return
                 except TrainCarPullRequestCreationFailure:
@@ -1288,20 +1309,16 @@ class Train(queue.QueueBase):
 
     async def _create_car(
         self,
-        queue_rules: rules.QueueRules,
+        queue_rule: rules.QueueRule,
         car: TrainCar,
     ) -> None:
-        allow_inplace_speculative_checks = car.still_queued_embarked_pulls[0].config[
-            "queue_config"
-        ]["allow_inplace_speculative_checks"]
-
         can_be_updated = (
             self._cars[0] == car
             and len(car.still_queued_embarked_pulls) == 1
             and len(car.parent_pull_request_numbers) == 0
         )
         if can_be_updated:
-            if allow_inplace_speculative_checks:
+            if queue_rule.config["allow_inplace_speculative_checks"]:
                 must_be_updated = True
             else:
                 # The pull request is already up2date no need to create
@@ -1312,20 +1329,6 @@ class Train(queue.QueueBase):
 
         try:
             # get_next_batch() ensure all embarked_pulls has same config
-            queue_rule_name = car.still_queued_embarked_pulls[0].config["name"]
-            try:
-                queue_rule = queue_rules[queue_rule_name]
-            except KeyError:
-                self.log.warning(
-                    "queue_rule not found for this train car",
-                    queue_rules=queue_rules,
-                    queue_name=queue_rule_name,
-                )
-                await car._set_creation_failure(
-                    f"queue named `{queue_rule_name}` does not exists anymore"
-                )
-                raise TrainCarPullRequestCreationFailure(car)
-
             if must_be_updated:
                 # No need to create a pull request
                 await car.update_user_pull(queue_rule)
