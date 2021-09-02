@@ -71,7 +71,7 @@ class TestCountSeats(base.FunctionalTestBase):
                         github_types.GitHubLogin("sileht"),
                     ),
                 },
-                "active_users": set(),
+                "active_users": None,
             }
             for _id, _name in REPOSITORIES
         }
@@ -85,11 +85,11 @@ class TestCountSeats(base.FunctionalTestBase):
         # NOTE(sileht): we add active users only on the repository used for
         # recording the fixture
         collaborators = copy.deepcopy(self.COLLABORATORS)
-        users = collaborators[self.ORGANIZATION][
+        repository = collaborators[self.ORGANIZATION][
             count_seats.SeatRepository(
                 self.repository_ctxt.repo["id"], self.repository_ctxt.repo["name"]
             )
-        ]["active_users"]
+        ]
 
         if self.client_admin.auth.owner_id is None:
             raise RuntimeError("client_admin owner_id is None")
@@ -99,16 +99,14 @@ class TestCountSeats(base.FunctionalTestBase):
             raise RuntimeError("client_admin owner is None")
         if self.client_fork.auth.owner is None:
             raise RuntimeError("client_fork owner is None")
-        users.add(
+        repository["active_users"] = {
             count_seats.ActiveUser(
                 self.client_admin.auth.owner_id, self.client_admin.auth.owner
-            )
-        )
-        users.add(
+            ),
             count_seats.ActiveUser(
                 self.client_fork.auth.owner_id, self.client_fork.auth.owner
-            )
-        )
+            ),
+        }
         return count_seats.Seats(collaborators)
 
     async def test_get_collaborators(self) -> None:

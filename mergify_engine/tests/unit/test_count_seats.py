@@ -134,7 +134,7 @@ async def test_store_active_users(event_type, event, redis_cache):
 @freeze_time("2011-11-11")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
-async def test_get_stats(event_type, event, redis_cache):
+async def test_get_usage(event_type, event, redis_cache):
     await (count_seats.store_active_users(redis_cache, event_type, event))
     charset = "utf8"
     await redis.startup()
@@ -163,7 +163,7 @@ async def test_get_stats(event_type, event, redis_cache):
                                 "active_users": [
                                     {"id": 21031067, "login": "Codertocat"}
                                 ],
-                                "write_users": [],
+                                "write_users": None,
                             },
                             "id": 186853002,
                             "name": "Hello-World",

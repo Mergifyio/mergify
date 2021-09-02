@@ -69,8 +69,8 @@ class SeatsCountResultT(typing.NamedTuple):
 
 
 class CollaboratorsSetsT(typing.TypedDict):
-    write_users: typing.Set[SeatAccount]
-    active_users: typing.Set[ActiveUser]
+    write_users: typing.Optional[typing.Set[SeatAccount]]
+    active_users: typing.Optional[typing.Set[ActiveUser]]
 
 
 CollaboratorsT = typing.Dict[
@@ -161,8 +161,8 @@ class SeatCollaboratorJsonT(typing.TypedDict):
 
 
 class SeatCollaboratorsJsonT(typing.TypedDict):
-    write_users: typing.List[SeatCollaboratorJsonT]
-    active_users: typing.List[SeatCollaboratorJsonT]
+    write_users: typing.Optional[typing.List[SeatCollaboratorJsonT]]
+    active_users: typing.Optional[typing.List[SeatCollaboratorJsonT]]
 
 
 class SeatRepositoryJsonT(typing.TypedDict):
@@ -186,7 +186,7 @@ class Seats:
     seats: CollaboratorsT = dataclasses.field(
         default_factory=lambda: collections.defaultdict(
             lambda: collections.defaultdict(
-                lambda: {"write_users": set(), "active_users": set()}
+                lambda: {"write_users": None, "active_users": None}
             )
         )
     )
@@ -212,14 +212,22 @@ class Seats:
             for repo, _seats in repos.items():
                 collaborators_json = SeatCollaboratorsJsonT(
                     {
-                        "write_users": [
-                            {"id": seat.id, "login": seat.login}
-                            for seat in _seats["write_users"]
-                        ],
-                        "active_users": [
-                            {"id": seat.id, "login": seat.login}
-                            for seat in _seats["active_users"]
-                        ],
+                        "write_users": (
+                            None
+                            if _seats["write_users"] is None
+                            else [
+                                {"id": seat.id, "login": seat.login}
+                                for seat in _seats["write_users"]
+                            ]
+                        ),
+                        "active_users": (
+                            None
+                            if _seats["active_users"] is None
+                            else [
+                                {"id": seat.id, "login": seat.login}
+                                for seat in _seats["active_users"]
+                            ]
+                        ),
                     }
                 )
                 repos_json.append(
@@ -247,8 +255,10 @@ class Seats:
         all_active_users_collaborators = set()
         for repos in self.seats.values():
             for sets in repos.values():
-                all_write_users_collaborators |= sets["write_users"]
-                all_active_users_collaborators |= sets["active_users"]
+                if sets["write_users"] is not None:
+                    all_write_users_collaborators |= sets["write_users"]
+                if sets["active_users"] is not None:
+                    all_active_users_collaborators |= sets["active_users"]
         return SeatsCountResultT(
             len(all_write_users_collaborators), len(all_active_users_collaborators)
         )
@@ -264,9 +274,13 @@ class Seats:
                 github_types.GitHubRepositoryIdType(int(repo_id)),
                 github_types.GitHubRepositoryName(repo_name),
             )
-            self.seats[org][repo]["active_users"] |= await get_active_users(
-                redis_cache, key
-            )
+            active_users = await get_active_users(redis_cache, key)
+
+            repo_seats = self.seats[org][repo]
+            if repo_seats["active_users"] is None:
+                repo_seats["active_users"] = active_users
+            else:
+                repo_seats["active_users"] |= active_users
 
     async def populate_with_collaborators_with_write_users_access(self) -> None:
         async with github.AsyncGithubClient(
@@ -291,11 +305,14 @@ class Seats:
                             f"{repository['url']}/collaborators"
                         ):
                             if collaborator["permissions"]["push"]:
-                                self.seats[org][repo]["write_users"].add(
-                                    SeatAccount(
-                                        collaborator["id"], collaborator["login"]
-                                    )
+                                seat = SeatAccount(
+                                    collaborator["id"], collaborator["login"]
                                 )
+                                repo_seats = self.seats[org][repo]
+                                if repo_seats["write_users"] is None:
+                                    repo_seats["write_users"] = {seat}
+                                else:
+                                    repo_seats["write_users"].add(seat)
 
 
 @tenacity.retry(
