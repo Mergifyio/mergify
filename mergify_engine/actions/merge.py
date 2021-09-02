@@ -54,9 +54,6 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
-        # NOTE(sileht): Alias of update_bot_account, it's now undocumented but we have
-        # users that use it so, we have to keep it
-        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
@@ -80,13 +77,6 @@ class MergeAction(merge_base.MergeBaseAction):
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
-        if self.config["bot_account"] is not None:
-            if ctxt.subscription.has_feature(subscription.Features.MERGE_BOT_ACCOUNT):
-                ctxt.log.info("legacy bot_account used by paid plan")
-
-        if self.config["update_bot_account"] is None:
-            self.config["update_bot_account"] = self.config["bot_account"]
-
         if self.config[
             "priority"
         ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
@@ -202,8 +192,7 @@ class MergeAction(merge_base.MergeBaseAction):
             "action.merge",
             {
                 "merge_bot_account": bool(self.config["merge_bot_account"]),
-                "update_bot_account": bool(self.config["update_bot_account"])
-                or bool(self.config["bot_account"]),
+                "update_bot_account": bool(self.config["update_bot_account"]),
                 "strict": self.config["strict"].value,
             },
         )
