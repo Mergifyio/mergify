@@ -298,7 +298,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         return False
 
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
         # It's closed, it's not going to change
         if ctxt.closed:
@@ -307,8 +307,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if await ctxt.has_been_synchronized_by_user():
             return True
 
-        q = await merge_train.Train.from_context(ctxt)
-        car = q.get_car(ctxt)
+        position = await q.get_position(ctxt)
+        if position is None:
+            return True
+
+        car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.creation_state == "updated":
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt.repository, ctxt.pull["base"]["ref"], [ctxt.pull_request]
