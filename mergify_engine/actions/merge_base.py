@@ -200,7 +200,7 @@ class MergeBaseAction(actions.Action):
 
     @abc.abstractmethod
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
         pass
 
@@ -378,7 +378,7 @@ class MergeBaseAction(actions.Action):
         if self.config[
             "strict"
         ] is not StrictMergeParameter.false and not await self._should_be_cancel(
-            ctxt, rule
+            ctxt, rule, q
         ):
             try:
                 if await self._should_be_merged(ctxt, q):
