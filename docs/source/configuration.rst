@@ -177,6 +177,14 @@ This format represents the time of the day in the 24-hours format.
 It can be used with any of the greater and lesser operators (``>=``, ``>``,
 ``<=``, ``<``).
 
+
+.. code-block::
+
+  current-time>=18:00[Europe/Paris
+  schedule: Mon-Fri 09:00-19:00[America/Vancouver]
+  schedule: Mon-Fri 09:00[Europe/Paris]-19:00[America/Vancouver]
+
+
 Examples
 ++++++++
 
@@ -188,6 +196,11 @@ Examples
         actions:
           close:
             message: It's too late for this!
+      - name: merge on working hour
+        conditions:
+          - schedule: Mon-Fri 09:00-19:00[America/Vancouver]
+        actions:
+          merge:
 
 
 .. _iso timestamp:
@@ -205,6 +218,7 @@ timestamp is assumed to be in UTC.
    2012-09-17T22:02:51
    2008-09-22T14:01:54Z
    2013-12-05T07:19:04-08:00
+   2013-12-05T07:19:04[Europe/Paris]
 
 Examples
 ++++++++
