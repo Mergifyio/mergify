@@ -51,6 +51,7 @@ class GitReferenceAlreadyExists(GitError):
 GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
     [
         ("Authentication failed", GitAuthenticationFailure),
+        ("RPC failed; HTTP 401", GitAuthenticationFailure),
         ("This repository was archived so it is read-only.", GitFatalError),
         ("organization has enabled or enforced SAML SSO.", GitFatalError),
         ("could not apply", GitFatalError),
