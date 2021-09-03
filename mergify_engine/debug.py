@@ -306,9 +306,13 @@ async def report(
             repository = await installation.get_repository_by_name(
                 github_types.GitHubRepositoryName(repo)
             )
-            ctxt = await repository.get_pull_request_context(
-                github_types.GitHubPullRequestNumber(int(pull_number))
-            )
+            try:
+                ctxt = await repository.get_pull_request_context(
+                    github_types.GitHubPullRequestNumber(int(pull_number))
+                )
+            except http.HTTPNotFound:
+                print(f"Pull request `{url}` does not exist")
+                return client
 
             # FIXME queues could also be printed if no pull number given
             # TODO(sileht): display train if any
@@ -360,5 +364,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         asyncio.run(report(args.url))
+    except KeyboardInterrupt:
+        print("Interruped...")
     except BrokenPipeError:
         pass
