@@ -204,6 +204,8 @@ class TrainCar:
 
         if include_my_self:
             return f"{', '.join(refs)} and {self._get_user_refs()}"
+        elif len(refs) == 1:
+            return refs[-1]
         else:
             return f"{', '.join(refs[:-1])} and {refs[-1]}"
 
