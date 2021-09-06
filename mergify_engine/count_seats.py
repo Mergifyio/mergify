@@ -132,27 +132,49 @@ async def store_active_users(
         ]
     ] = None
 
+    users = {}
+
+    def _add_user(user: github_types.GitHubAccount) -> None:
+        users[user["id"]] = user["login"]
+
     if event_type == "push":
         typed_event = typing.cast(github_types.GitHubEventPush, event)
     elif event_type == "issue_comment":
         typed_event = typing.cast(github_types.GitHubEventIssueComment, event)
+        _add_user(typed_event["issue"]["user"])
+        _add_user(typed_event["comment"]["user"])
     elif event_type == "pull_request":
         typed_event = typing.cast(github_types.GitHubEventPullRequest, event)
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
     elif event_type == "pull_request_review":
         typed_event = typing.cast(github_types.GitHubEventPullRequestReview, event)
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
+        _add_user(typed_event["review"]["user"])
     elif event_type == "pull_request_review_comment":
         typed_event = typing.cast(
             github_types.GitHubEventPullRequestReviewComment, event
         )
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
+        _add_user(typed_event["comment"]["user"])
 
-    if typed_event is not None:
-        # TODO(sileht): `sender_id` may be impersonated by bot, GitHub Action
-        # or GitHub UI. We may also want to look at other attributes like for
-        # `issue_comment` event the `comment.user.id`.
-        user = f"{typed_event['sender']['id']}~{typed_event['sender']['login']}"
+    if typed_event is None:
+        return
 
-        key = _get_active_users_key(typed_event["repository"])
-        await redis_cache.zadd(key, **{user: time.time()})
+    _add_user(typed_event["sender"])
+
+    if not users:
+        return
+
+    repo_key = _get_active_users_key(typed_event["repository"])
+    transaction = await redis_cache.pipeline()
+    for user_id, user_login in users.items():
+        user_key = f"{user_id}~{user_login}"
+        await transaction.zadd(repo_key, **{user_key: time.time()})
+
+    await transaction.execute()
 
 
 class SeatCollaboratorJsonT(typing.TypedDict):
