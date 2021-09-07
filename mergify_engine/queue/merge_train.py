@@ -638,6 +638,23 @@ You don't need to do anything. Mergify will close this pull request automaticall
         queue_summary = "\n\nRequired conditions for merge:\n\n"
         queue_summary += evaluated_queue_rule.conditions.get_summary()
 
+        if self.failure_history:
+            batch_failure_summary = f"\n\nThe pull request {self._get_user_refs()} is part of a speculative checks batch that previously failed:\n"
+            batch_failure_summary += (
+                "| Pull request | Parents pull requests | Speculative checks |\n"
+            )
+            batch_failure_summary += "| ---: | :--- | :--- |\n"
+            for failure in self.failure_history:
+                if failure.creation_state == "updated":
+                    speculative_checks = "[in place]"
+                elif failure.creation_state == "created":
+                    speculative_checks = f"#{failure.queue_pull_request_number}"
+                else:
+                    speculative_checks = ""
+            batch_failure_summary += f"| {self._get_user_refs()} | {self._get_embarked_refs(include_my_self=False)} | {speculative_checks} |"
+        else:
+            batch_failure_summary = ""
+
         original_ctxts = [
             await self.train.repository.get_pull_request_context(
                 ep.user_pull_request_number
@@ -647,7 +664,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if self.creation_state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
-            summary += queue_summary + "\n"
+            summary += queue_summary + "\n" + batch_failure_summary
 
             if self.queue_pull_request_number is None:
                 raise RuntimeError(
@@ -755,11 +772,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
         else:
             checks_copy_summary = ""
 
-        # TODO(sileht): Add a section about failure history
-
         # Update the original Pull Request
         if will_be_reset:
-            # TODO(sileht): display train cars ?
             original_pull_title = "The pull request is going to be re-embarked soon"
         else:
             if conclusion == check_api.Conclusion.SUCCESS:
@@ -772,7 +786,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
-            summary=queue_summary + "\n" + checks_copy_summary,
+            summary=queue_summary
+            + "\n"
+            + checks_copy_summary
+            + "\n"
+            + batch_failure_summary,
         )
         for original_ctxt in original_ctxts:
             original_ctxt.log.info(
