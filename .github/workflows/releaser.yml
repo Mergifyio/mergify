@@ -47,21 +47,12 @@ jobs:
 
           git tag ${VERSION}
 
-          echo "** RENO **"
-          reno -q report --version $VERSION --title "" --no-show-source
-
-          echo "** MARKDOWN **"
-          reno -q report --version $VERSION --title "" --no-show-source |\
-              ./pandoc -t markdown --shift-heading-level-by=-1
-
-          echo "** FILTER **"
-          reno -q report --version $VERSION --title "" --no-show-source |\
-              ./pandoc -t markdown --shift-heading-level-by=-1 |\
-              sed -e '/^\.\./,+1d' -e '1,4d'
-
           reno -q report --version $VERSION --title "" --no-show-source | \
               ./pandoc -t markdown --shift-heading-level-by=-1 | \
               sed -e '/^\.\./,+1d' -e '1,4d' > ${{ github.workspace }}-CHANGELOG.txt
+
+          cat ${{ github.workspace }}-CHANGELOG.txt
+
           echo "::set-output name=VERSION::$VERSION"
 
       - name: Push git tag 🏎️
