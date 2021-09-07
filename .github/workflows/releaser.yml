@@ -26,14 +26,21 @@ jobs:
         with:
           python-version: 3.9.6
 
-      - name: Build release notes 📝
-        id: relnote
+      - name: Setup dependencies 🔧
         run: |
           set -e
           set -o pipefail
 
           pip install reno
-          sudo apt install -y pandoc
+
+          curl -L https://github.com/jgm/pandoc/releases/download/2.14.2/pandoc-2.14.2-linux-amd64.tar.gz \
+            | tar -xzf - --strip-components=2 pandoc-2.14.2/bin/pandoc
+
+      - name: Build release notes 📝
+        id: relnote
+        run: |
+          set -e
+          set -o pipefail
 
           git fetch --tag
           VERSION=$(reno -q semver-next)
@@ -45,15 +52,15 @@ jobs:
 
           echo "** MARKDOWN **"
           reno -q report --version $VERSION --title "" --no-show-source |\
-              pandoc -t markdown --shift-heading-level-by=-1
+              ./pandoc -t markdown --shift-heading-level-by=-1
 
           echo "** FILTER **"
           reno -q report --version $VERSION --title "" --no-show-source |\
-              pandoc -t markdown --shift-heading-level-by=-1 |\
+              ./pandoc -t markdown --shift-heading-level-by=-1 |\
               sed -e '/^\.\./,+1d' -e '1,4d'
 
           reno -q report --version $VERSION --title "" --no-show-source | \
-              pandoc -t markdown --shift-heading-level-by=-1 | \
+              ./pandoc -t markdown --shift-heading-level-by=-1 | \
               sed -e '/^\.\./,+1d' -e '1,4d' > ${{ github.workspace }}-CHANGELOG.txt
           echo "::set-output name=VERSION::$VERSION"
 
