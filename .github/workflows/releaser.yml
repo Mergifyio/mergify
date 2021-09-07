@@ -33,7 +33,7 @@ jobs:
           set -o pipefail
 
           pip install reno
-          apt install -y pandoc
+          sudo apt install -y pandoc
 
           git fetch --tag
           VERSION=$(reno -q semver-next)
