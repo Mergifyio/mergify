@@ -108,7 +108,7 @@ class QueueBase(abc.ABC):
                     and except_pull_request == pull_number
                 ):
                     continue
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.repository.installation.redis,
                     redis_stream,
                     repository,

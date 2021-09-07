@@ -30,11 +30,12 @@ class RefreshAction(actions.Action):
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         with utils.aredis_for_stream() as redis_stream:
-            await utils.send_refresh(
+            await utils.send_pull_refresh(
                 ctxt.redis,
                 redis_stream,
                 ctxt.pull["base"]["repo"],
                 pull_request_number=ctxt.pull["number"],
+                action="user",
             )
         await signals.send(ctxt, "action.refresh")
         return check_api.Result(

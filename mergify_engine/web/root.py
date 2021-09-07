@@ -99,7 +99,12 @@ async def refresh_repo(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(redis_cache, redis_stream, repository)
+    await utils.send_repository_refresh(
+        redis_cache,
+        redis_stream,
+        repository,
+        action="user",
+    )
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -131,12 +136,12 @@ async def refresh_pull(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(
+    await utils.send_pull_refresh(
         redis_cache,
         redis_stream,
         repository,
-        pull_request_number=pull_request_number,
         action=action,
+        pull_request_number=pull_request_number,
     )
     return responses.Response("Refresh queued", status_code=202)
 
@@ -164,10 +169,11 @@ async def refresh_branch(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(
+    await utils.send_branch_refresh(
         redis_cache,
         redis_stream,
         repository,
+        action="user",
         ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
     return responses.Response("Refresh queued", status_code=202)
