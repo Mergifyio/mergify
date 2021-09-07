@@ -171,13 +171,16 @@ Then, re-embark the pull request into the merge queue by posting the comment
             )
             await q.save()
         elif car and car.creation_state == "created":
-            if not ctxt.has_been_only_refreshed():
+            if (
+                not ctxt.has_been_only_refreshed()
+                and car.queue_pull_request_number is not None
+            ):
                 # NOTE(sileht): It's not only refreshed, so we need to
                 # update the associated transient pull request.
                 # This is mandatory to filter out refresh to avoid loop
                 # of refreshes between this PR and the transient one.
                 with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_refresh(
+                    await utils.send_pull_refresh(
                         ctxt.repository.installation.redis,
                         redis_stream,
                         ctxt.pull["base"]["repo"],
@@ -215,9 +218,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # of refreshes between this PR and the transient one.
             q = await merge_train.Train.from_context(ctxt)
             car = q.get_car(ctxt)
-            if car and car.creation_state == "created":
+            if (
+                car
+                and car.creation_state == "created"
+                and car.queue_pull_request_number is not None
+            ):
                 with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_refresh(
+                    await utils.send_pull_refresh(
                         ctxt.repository.installation.redis,
                         redis_stream,
                         ctxt.pull["base"]["repo"],

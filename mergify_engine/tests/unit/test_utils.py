@@ -12,8 +12,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import msgpack
 import pytest
 
+from mergify_engine import github_types
 from mergify_engine import utils
 
 
@@ -131,3 +133,70 @@ def test_split_list():
     assert list(utils.split_list([1], 2)) == [
         [1],
     ]
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_pull_request_number(
+    redis_stream: utils.RedisStream,
+    redis_cache: utils.RedisCache,
+) -> None:
+
+    gh_owner = github_types.GitHubAccount(
+        {
+            "id": github_types.GitHubAccountIdType(1),
+            "login": github_types.GitHubLogin("foo"),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+
+    gh_repo = github_types.GitHubRepository(
+        {
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "full_name": "",
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "name": github_types.GitHubRepositoryName("test"),
+            "private": False,
+        }
+    )
+
+    await utils.send_pull_refresh(
+        redis_cache,
+        redis_stream,
+        gh_repo,
+        pull_request_number=github_types.GitHubPullRequestNumber(5),
+        action="internal",
+    )
+    await utils.send_branch_refresh(
+        redis_cache,
+        redis_stream,
+        gh_repo,
+        ref=github_types.GitHubRefType("master"),
+        action="admin",
+    )
+
+    keys = await redis_stream.keys("*")
+    assert set(keys) == {
+        b"bucket~1~foo",
+        b"bucket-sources~0~test~0",
+        b"bucket-sources~0~test~5",
+        b"streams",
+    }
+
+    messages = await redis_stream.xrange("bucket-sources~0~test~5")
+    assert len(messages) == 1
+    event = msgpack.unpackb(messages[0][1][b"source"])["data"]
+    assert event["action"] == "internal"
+    assert event["ref"] is None
+    assert event["pull_request_number"] == 5
+
+    messages = await redis_stream.xrange("bucket-sources~0~test~0")
+    assert len(messages) == 1
+    event = msgpack.unpackb(messages[0][1][b"source"])["data"]
+    assert event["action"] == "admin"
+    assert event["ref"] == "master"
+    assert event["pull_request_number"] is None
