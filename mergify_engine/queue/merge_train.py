@@ -285,7 +285,7 @@ class TrainCar:
         if not await ctxt.is_behind:
             # Already done, just refresh it to merge it
             with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.train.repository.installation.redis,
                     redis_stream,
                     ctxt.pull["base"]["repo"],
@@ -596,7 +596,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             )
 
             with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.train.repository.installation.redis,
                     redis_stream,
                     original_ctxt.pull["base"]["repo"],
@@ -790,7 +790,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 # NOTE(sileht): refresh it, so the queue action will merge it and delete the
                 # tmp_pull_ctxt branch
                 with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_refresh(
+                    await utils.send_pull_refresh(
                         self.train.repository.installation.redis,
                         redis_stream,
                         original_ctxt.pull["base"]["repo"],
@@ -1131,14 +1131,15 @@ class Train(queue.QueueBase):
         ):
             # A earlier batch failed and it was the fault of the last PR of the batch
             # we refresh the draft PR, so it will set the final state
-            with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
-                    self.repository.installation.redis,
-                    redis_stream,
-                    self.repository.repo,
-                    pull_request_number=self._cars[0].queue_pull_request_number,
-                    action="internal",
-                )
+            if self._cars[0].queue_pull_request_number is not None:
+                with utils.aredis_for_stream() as redis_stream:
+                    await utils.send_pull_refresh(
+                        self.repository.installation.redis,
+                        redis_stream,
+                        self.repository.repo,
+                        pull_request_number=self._cars[0].queue_pull_request_number,
+                        action="internal",
+                    )
             return
 
         for car in self._cars:
