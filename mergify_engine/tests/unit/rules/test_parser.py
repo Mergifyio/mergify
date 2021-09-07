@@ -334,6 +334,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             f"current-timestamp<={now.isoformat()}",
             {"<=": ("current-timestamp", now)},
         ),
+        ("-linear-history", {"-": {"=": ("linear-history", True)}}),
         ("-locked", {"-": {"=": ("locked", True)}}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
         ("#assignee=3", {"=": ("#assignee", 3)}),

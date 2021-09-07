@@ -173,6 +173,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``label``
      - list of string
      - The list of labels of the pull request.
+   * - ``linear-history``
+     - Boolean
+     - Whether the pull request commits history is linear (no merge commit).
    * - ``locked``
      - Boolean
      - Whether the pull request is locked.
