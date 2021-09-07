@@ -46,6 +46,7 @@ class BranchUpdateNeedRetry(exceptions.EngineNeedRetry):
 
 GIT_MESSAGE_TO_EXCEPTION = {
     "error: could not apply ": BranchUpdateFailure,
+    "Patch failed at": BranchUpdateFailure,
 }
 
 
