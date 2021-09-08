@@ -224,12 +224,15 @@ class Seats:
         redis_cache: utils.RedisCache,
         write_users: bool = True,
         active_users: bool = True,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> "Seats":
         seats = cls()
         if write_users:
+            if owner_id is not None:
+                raise RuntimeError("Can't get `write_users` if `owner_id` is set")
             await seats.populate_with_collaborators_with_write_users_access()
         if active_users:
-            await seats.populate_with_active_users(redis_cache)
+            await seats.populate_with_active_users(redis_cache, owner_id)
         return seats
 
     def jsonify(self) -> str:
@@ -290,11 +293,17 @@ class Seats:
             len(all_write_users_collaborators), len(all_active_users_collaborators)
         )
 
-    async def populate_with_active_users(self, redis_cache: utils.RedisCache) -> None:
-        async for key in get_active_users_keys(redis_cache):
-            _, owner_id, owner_login, repo_id, repo_name = key.split("~")
+    async def populate_with_active_users(
+        self,
+        redis_cache: utils.RedisCache,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+    ) -> None:
+        async for key in get_active_users_keys(
+            redis_cache, owner_id="*" if owner_id is None else owner_id
+        ):
+            _, _owner_id, owner_login, repo_id, repo_name = key.split("~")
             org = SeatAccount(
-                github_types.GitHubAccountIdType(int(owner_id)),
+                github_types.GitHubAccountIdType(int(_owner_id)),
                 github_types.GitHubLogin(owner_login),
             )
             repo = SeatRepository(

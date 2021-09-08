@@ -151,6 +151,12 @@ async def test_get_usage(event_type, event, redis_cache):
         "Content-Type": f"application/json; charset={charset}",
     }
     reply = await client.request(
+        "GET", "/organization/1234/usage", content=data, headers=headers
+    )
+    assert reply.status_code == 200, reply.content
+    assert json.loads(reply.content) == {"organizations": []}
+
+    reply = await client.request(
         "GET", "/organization/21031067/usage", content=data, headers=headers
     )
     assert reply.status_code == 200, reply.content

@@ -189,7 +189,9 @@ async def get_stats(
         redis.get_redis_cache
     ),
 ) -> responses.Response:
-    seats = await count_seats.Seats.get(redis_cache, write_users=False)
+    seats = await count_seats.Seats.get(
+        redis_cache, write_users=False, owner_id=owner_id
+    )
     return responses.Response(content=seats.jsonify(), media_type="application/json")
 
 
