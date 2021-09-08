@@ -192,7 +192,16 @@ async def get_stats(
     seats = await count_seats.Seats.get(
         redis_cache, write_users=False, owner_id=owner_id
     )
-    return responses.Response(content=seats.jsonify(), media_type="application/json")
+    data = seats.jsonify()
+    if data["organizations"]:
+        if len(data["organizations"]) > 1:
+            raise RuntimeError(
+                "count_seats.Seats.get() returns more than one organization"
+            )
+        repos = data["organizations"][0]["repositories"]
+    else:
+        repos = []
+    return responses.JSONResponse({"repositories": repos})
 
 
 @app.put(

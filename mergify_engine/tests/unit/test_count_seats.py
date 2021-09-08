@@ -154,7 +154,7 @@ async def test_get_usage(event_type, event, redis_cache):
         "GET", "/organization/1234/usage", content=data, headers=headers
     )
     assert reply.status_code == 200, reply.content
-    assert json.loads(reply.content) == {"organizations": []}
+    assert json.loads(reply.content) == {"repositories": []}
 
     reply = await client.request(
         "GET", "/organization/21031067/usage", content=data, headers=headers
@@ -162,47 +162,35 @@ async def test_get_usage(event_type, event, redis_cache):
     assert reply.status_code == 200, reply.content
     if event_type == "pull_request":
         assert json.loads(reply.content) == {
-            "organizations": [
+            "repositories": [
                 {
-                    "id": 21031067,
-                    "login": "Codertocat",
-                    "repositories": [
-                        {
-                            "collaborators": {
-                                "active_users": [
-                                    {"id": 21031067, "login": "Codertocat"},
-                                    {"id": 12345678, "login": "AnotherUser"},
-                                ],
-                                "write_users": None,
-                            },
-                            "id": 186853002,
-                            "name": "Hello-World",
-                        }
-                    ],
+                    "collaborators": {
+                        "active_users": [
+                            {"id": 21031067, "login": "Codertocat"},
+                            {"id": 12345678, "login": "AnotherUser"},
+                        ],
+                        "write_users": None,
+                    },
+                    "id": 186853002,
+                    "name": "Hello-World",
                 }
             ],
         }
     elif event_type == "push":
         assert json.loads(reply.content) == {
-            "organizations": [
+            "repositories": [
                 {
-                    "id": 21031067,
-                    "login": "Codertocat",
-                    "repositories": [
-                        {
-                            "collaborators": {
-                                "active_users": [
-                                    {"id": 21031067, "login": "Codertocat"},
-                                ],
-                                "write_users": None,
-                            },
-                            "id": 186853002,
-                            "name": "Hello-World",
-                        }
-                    ],
+                    "collaborators": {
+                        "active_users": [
+                            {"id": 21031067, "login": "Codertocat"},
+                        ],
+                        "write_users": None,
+                    },
+                    "id": 186853002,
+                    "name": "Hello-World",
                 }
             ],
         }
 
     else:
-        assert json.loads(reply.content) == {"organizations": []}
+        assert json.loads(reply.content) == {"repositories": []}
