@@ -129,8 +129,6 @@ class Gitter(object):
                             output,
                         )
 
-                if p.returncode == 128:
-                    raise GitFatalError(p.returncode, output)
                 raise GitError(p.returncode, output)
             else:
                 return output
