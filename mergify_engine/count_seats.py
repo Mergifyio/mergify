@@ -235,7 +235,7 @@ class Seats:
             await seats.populate_with_active_users(redis_cache, owner_id)
         return seats
 
-    def jsonify(self) -> str:
+    def jsonify(self) -> SeatsJsonT:
         data = SeatsJsonT({"organizations": []})
         for org, repos in self.seats.items():
             repos_json = []
@@ -278,7 +278,7 @@ class Seats:
                     }
                 )
             )
-        return json.dumps(data)
+        return data
 
     def count(self) -> SeatsCountResultT:
         all_write_users_collaborators = set()
@@ -413,7 +413,7 @@ async def report(args: argparse.Namespace) -> None:
         else:
             seats = await Seats.get(redis_cache)
             if args.json:
-                print(seats.jsonify())
+                print(json.dumps(seats.jsonify()))
             else:
                 seats_count = seats.count()
                 LOG.info(
