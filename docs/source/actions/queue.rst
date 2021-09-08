@@ -485,7 +485,7 @@ request:
 .. _update method rebase:
 
 Using Rebase to Update
-=======================
+~~~~~~~~~~~~~~~~~~~~~~
 
 Using the ``rebase`` method to update a pull request with its base branch has some
 drawbacks:
