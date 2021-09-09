@@ -35,6 +35,7 @@ class LabelAction(actions.Action):
     }
 
     silent_report = True
+    always_run = True
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
