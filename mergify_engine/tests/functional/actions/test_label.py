@@ -24,7 +24,7 @@ class TestLabelAction(base.FunctionalTestBase):
             "pull_request_rules": [
                 {
                     "name": "rename label",
-                    "conditions": [f"base={self.main_branch_name}", "label=stable"],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "label": {
                             "add": ["unstable", "foobar"],
@@ -38,7 +38,17 @@ class TestLabelAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
-        await self.add_label(p["number"], "stable")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        self.assertEqual(1, len(pulls))
+        self.assertEqual(
+            sorted(["unstable", "foobar"]),
+            sorted(label["name"] for label in pulls[0]["labels"]),
+        )
+
+        # Ensure it's idempotant
+        await self.remove_label(p["number"], "unstable")
         await self.run_engine()
 
         pulls = await self.get_pulls()
