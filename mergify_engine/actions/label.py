@@ -45,7 +45,7 @@ class LabelAction(actions.Action):
 
         if self.config["add"]:
             for label in self.config["add"]:
-                ctxt.repository.ensure_label_exists(label)
+                await ctxt.repository.ensure_label_exists(label)
 
             missing_labels = set(self.config["add"]) - pull_labels
             if missing_labels:
