@@ -35,7 +35,12 @@ class AssignAction(actions.Action):
         voluptuous.Required("remove_users", default=[]): [types.Jinja2],
     }
 
-    silent_report = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        # FIXME(sileht): MRGFY-561
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

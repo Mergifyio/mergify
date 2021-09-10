@@ -234,7 +234,8 @@ async def handle(
 
     if (
         ctxt.configuration_changed
-        and not command.action.can_be_used_on_configuration_change
+        and actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        not in command.action.flags
     ):
         message = CONFIGURATION_CHANGE_MESSAGE
         log(message)

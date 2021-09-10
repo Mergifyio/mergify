@@ -169,8 +169,14 @@ async def get_rule_checks_status(
 
 
 class MergeBaseAction(actions.Action, abc.ABC):
-    only_once = True
-    can_be_used_on_configuration_change = False
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        # FIXME(sileht): MRGFY-562
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
+
     UNQUEUE_DOCUMENTATION = ""
     MESSAGE_ACTION_NAME = "Merge"
 
