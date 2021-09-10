@@ -95,7 +95,7 @@ class SubscriptionBase(abc.ABC):
 
     def has_feature(self, feature: Features) -> bool:
         """Return if the feature for a plan is available."""
-        return self.active and feature in self.features
+        return feature in self.features
 
     @staticmethod
     def missing_feature_reason(owner: str) -> str:

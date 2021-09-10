@@ -444,7 +444,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 for f in subscription.Features.__members__
             )
             if self.SUBSCRIPTION_ACTIVE
-            else frozenset(),
+            else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
         )
         await self.subscription._save_subscription_to_cache()
         self.user_tokens = user_tokens.UserTokens(
@@ -528,7 +528,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 owner_id,
                 False,
                 "We're just testing",
-                set(),
+                set(subscription.Features.PUBLIC_REPOSITORY),
             )
 
         async def fake_subscription(redis_cache, owner_id):
@@ -539,7 +539,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 owner_id,
                 False,
                 "We're just testing",
-                set(),
+                set(subscription.Features.PUBLIC_REPOSITORY),
             )
 
         mock.patch(

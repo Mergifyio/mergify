@@ -239,15 +239,22 @@ async def run(
             summary="You can accept them at https://dashboard.mergify.io/",
         )
 
-    if ctxt.pull["base"]["repo"]["private"] and not ctxt.subscription.has_feature(
-        subscription.Features.PRIVATE_REPOSITORY
-    ):
-        ctxt.log.info("mergify disabled: private repository")
-        return check_api.Result(
-            check_api.Conclusion.FAILURE,
-            title="Mergify is disabled",
-            summary=ctxt.subscription.reason,
-        )
+    if ctxt.pull["base"]["repo"]["private"]:
+        if not ctxt.subscription.has_feature(subscription.Features.PRIVATE_REPOSITORY):
+            ctxt.log.info("mergify disabled: private repository")
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Mergify is disabled",
+                summary=ctxt.subscription.reason,
+            )
+    else:
+        if not ctxt.subscription.has_feature(subscription.Features.PUBLIC_REPOSITORY):
+            ctxt.log.info("mergify disabled: public repository")
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="Mergify is disabled",
+                summary=ctxt.subscription.reason,
+            )
 
     config_file = await ctxt.repository.get_mergify_config_file()
 
