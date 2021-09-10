@@ -17,6 +17,7 @@
 import datetime
 import re
 import typing
+import zoneinfo
 
 import pyparsing
 
@@ -35,6 +36,16 @@ text = (
 )
 milestone = pyparsing.CharsNotIn(" ")
 
+
+_timezone = pyparsing.Optional(
+    (
+        pyparsing.Literal("[")
+        + pyparsing.oneOf(zoneinfo.available_timezones())
+        + pyparsing.Literal("]")
+    ).setParseAction(lambda toks: zoneinfo.ZoneInfo(key=toks[1])),
+    default=datetime.timezone.utc,
+)
+
 _match_time = (
     pyparsing.Word(pyparsing.nums).addCondition(
         lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 24
@@ -43,10 +54,9 @@ _match_time = (
     + pyparsing.Word(pyparsing.nums).addCondition(
         lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 60
     )
+    + _timezone
 ).setParseAction(
-    lambda toks: datetime.time(
-        hour=int(toks[0]), minute=int(toks[2]), tzinfo=datetime.timezone.utc
-    )
+    lambda toks: datetime.time(hour=int(toks[0]), minute=int(toks[2]), tzinfo=toks[3])
 )
 
 _day = (
@@ -134,14 +144,16 @@ def _parse_timedelta_to_now(
 timedelta_to_now = text.copy().setParseAction(_parse_timedelta_to_now)
 
 
-def _iso_datetime(tokens: typing.List[pyparsing.Token]) -> datetime.datetime:
+def _iso_datetime_with_timezone(
+    tokens: typing.List[pyparsing.Token],
+) -> datetime.datetime:
     try:
-        return date.fromisoformat(tokens[0])
+        return date.fromisoformat(tokens[0]).astimezone(tokens[1])
     except ValueError:
         raise pyparsing.ParseException("invalid timestamp")
 
 
-iso_datetime = text.copy().setParseAction(_iso_datetime)
+iso_datetime = (text.copy() + _timezone).setParseAction(_iso_datetime_with_timezone)
 
 _day_of_week_range = (
     _day_of_week + pyparsing.Literal("-") + _day_of_week
@@ -153,13 +165,27 @@ _day_of_week_range = (
         )
     }
 )
-_time_range = (_match_time + pyparsing.Literal("-") + _match_time).setParseAction(
-    lambda toks: {
+
+
+def _parse_time_range(toks: typing.List[pyparsing.Token]) -> typing.Any:
+    time1 = toks[0]
+    time2 = toks[2]
+
+    # NOTE(sileht): In case of the format is `10:00-18:00[Europe/Paris]`,
+    # we assume the first time is also [Europe/Paris]
+    if time1.tzinfo != time2.tzinfo and time2.tzinfo != datetime.timezone.utc:
+        time1 = time1.replace(tzinfo=time2.tzinfo)
+
+    return {
         "and": (
-            {">=": ("current-time", toks[0])},
-            {"<=": ("current-time", toks[2])},
+            {">=": ("current-time", time1)},
+            {"<=": ("current-time", time2)},
         )
     }
+
+
+_time_range = (_match_time + pyparsing.Literal("-") + _match_time).setParseAction(
+    _parse_time_range
 )
 _schedule = (_day_of_week_range + pyparsing.White(" ") + _time_range).setParseAction(
     lambda toks: {"and": (toks[0], toks[2])}

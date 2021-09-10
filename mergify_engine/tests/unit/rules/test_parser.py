@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import zoneinfo
 
 from freezegun import freeze_time
 import pyparsing
@@ -29,6 +30,64 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
 @pytest.mark.parametrize(
     "line, result",
     (
+        (
+            "schedule!=Mon-Fri 12:00-23:59[Europe/Paris]",
+            {
+                "-": {
+                    "@": (
+                        "schedule",
+                        {
+                            "and": (
+                                {
+                                    "and": (
+                                        {
+                                            ">=": (
+                                                "current-day-of-week",
+                                                date.DayOfWeek(1),
+                                            )
+                                        },
+                                        {
+                                            "<=": (
+                                                "current-day-of-week",
+                                                date.DayOfWeek(5),
+                                            )
+                                        },
+                                    )
+                                },
+                                {
+                                    "and": (
+                                        {
+                                            ">=": (
+                                                "current-time",
+                                                datetime.time(
+                                                    12,
+                                                    0,
+                                                    tzinfo=zoneinfo.ZoneInfo(
+                                                        "Europe/Paris"
+                                                    ),
+                                                ),
+                                            )
+                                        },
+                                        {
+                                            "<=": (
+                                                "current-time",
+                                                datetime.time(
+                                                    23,
+                                                    59,
+                                                    tzinfo=zoneinfo.ZoneInfo(
+                                                        "Europe/Paris"
+                                                    ),
+                                                ),
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    )
+                }
+            },
+        ),
         (
             "schedule!=Mon-Fri 12:00-23:59",
             {
@@ -86,6 +145,15 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
         ("-author~=jd", {"-": {"~=": ("author", "jd")}}),
         ("¬author~=jd", {"-": {"~=": ("author", "jd")}}),
         ("conflict", {"=": ("conflict", True)}),
+        (
+            "current-time>=10:00[PST8PDT]",
+            {
+                ">=": (
+                    "current-time",
+                    datetime.time(10, 0, tzinfo=zoneinfo.ZoneInfo("PST8PDT")),
+                )
+            },
+        ),
         (
             "current-time>=10:00",
             {
@@ -349,6 +417,8 @@ def test_search(line, result):
         "updated-at=7 days 18:00",
         "updated-at>=100",
         "current-datetime>=100",
+        "current-time>=10:00[InvalidTZ]",
+        "schedule=MON-friday 10:02-22:35[InvalidTZ]",
     ),
 )
 def test_invalid(line):
