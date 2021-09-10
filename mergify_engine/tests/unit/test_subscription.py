@@ -155,7 +155,7 @@ async def test_active_feature(redis_cache):
         "friend",
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
-    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
+    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True
     sub = subscription.Subscription(
         redis_cache,
         123,
