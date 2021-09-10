@@ -38,8 +38,7 @@ class AssignAction(actions.Action):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
-        # FIXME(sileht): MRGFY-561
-        # | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALWAYS_RUN
     )
 
     async def run(
