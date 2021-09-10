@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import random
 from urllib import parse
 
 import voluptuous
@@ -45,20 +44,8 @@ class LabelAction(actions.Action):
         pull_labels = {label["name"] for label in ctxt.pull["labels"]}
 
         if self.config["add"]:
-            all_label = [
-                label["name"]
-                async for label in ctxt.client.items(f"{ctxt.base_url}/labels")
-            ]
             for label in self.config["add"]:
-                if label not in all_label:
-                    color = f"{random.randrange(16 ** 6):06x}"  # nosec
-                    try:
-                        await ctxt.client.post(
-                            f"{ctxt.base_url}/labels",
-                            json={"name": label, "color": color},
-                        )
-                    except http.HTTPClientSideError:
-                        continue
+                ctxt.repository.ensure_label_exists(label)
 
             missing_labels = set(self.config["add"]) - pull_labels
             if missing_labels:

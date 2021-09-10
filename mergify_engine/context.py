@@ -21,6 +21,7 @@ import datetime
 import itertools
 import json
 import logging
+import random
 import re
 import typing
 from urllib import parse
@@ -209,6 +210,7 @@ class Installation:
 class RepositoryCache(typing.TypedDict, total=False):
     mergify_config: typing.Optional[MergifyConfigFile]
     branches: typing.Dict[github_types.GitHubRefType, github_types.GitHubBranch]
+    labels: typing.List[str]
 
 
 @dataclasses.dataclass
@@ -519,6 +521,29 @@ class Repository(object):
         if not branch["protection"]["enabled"]:
             return []
         return branch["protection"]["required_status_checks"]["contexts"]
+
+    async def get_labels(self) -> typing.List[str]:
+        if "labels" not in self._cache:
+            self._cache["labels"] = [
+                label
+                async for label in self.installation.client.items(
+                    f"{self.base_url}/labels"
+                )
+            ]
+        return self._cache["labels"]
+
+    async def ensure_label_exists(self, label: str) -> None:
+        if label not in await self.get_labels():
+            color = f"{random.randrange(16 ** 6):06x}"  # nosec
+            try:
+                await self.installation.client.post(
+                    f"{self.base_url}/labels",
+                    json={"name": label, "color": color},
+                )
+            except http.HTTPClientSideError:
+                return
+            else:
+                self._cache["labels"].append(label)
 
 
 class ContextCache(typing.TypedDict, total=False):
