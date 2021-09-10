@@ -168,7 +168,7 @@ async def get_rule_checks_status(
         return check_api.Conclusion.FAILURE
 
 
-class MergeBaseAction(actions.Action):
+class MergeBaseAction(actions.Action, abc.ABC):
     only_once = True
     can_be_used_on_configuration_change = False
     UNQUEUE_DOCUMENTATION = ""

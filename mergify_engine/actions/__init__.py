@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import abc
 import dataclasses
 import typing
 
@@ -57,7 +56,7 @@ def get_commands() -> typing.Dict[str, "Action"]:
 
 
 @dataclasses.dataclass
-class Action(abc.ABC):
+class Action:
     is_action = True
     is_command = False
 
