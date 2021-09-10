@@ -27,14 +27,17 @@ from mergify_engine.clients import http
 
 
 class LabelAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_RUN
+    )
+
     validator = {
         voluptuous.Required("add", default=[]): [str],
         voluptuous.Required("remove", default=[]): [str],
         voluptuous.Required("remove_all", default=False): bool,
     }
-
-    silent_report = True
-    always_run = True
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

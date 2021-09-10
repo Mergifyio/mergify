@@ -39,6 +39,14 @@ def CheckRunJinja2(v):
 
 
 class PostCheckAction(actions.Action):
+
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALLOW_RETRIGGER_MERGIFY
+    )
     validator = {
         voluptuous.Required(
             "title",
@@ -48,9 +56,6 @@ class PostCheckAction(actions.Action):
             "summary", default="{{ check_conditions }}"
         ): CheckRunJinja2,
     }
-
-    always_run = True
-    allow_retrigger_mergify = True
 
     async def _post(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

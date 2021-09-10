@@ -28,6 +28,11 @@ from mergify_engine.rules import types
 
 
 class RequestReviewsAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+    )
 
     # This is the maximum number of review you can request on a PR.
     # It's not documented in the API, but it is shown in GitHub UI.
@@ -56,10 +61,6 @@ class RequestReviewsAction(actions.Action):
             voluptuous.Range(1, GITHUB_MAXIMUM_REVIEW_REQUEST),
         ),
     }
-
-    silent_report = True
-
-    always_run = True
 
     def _get_random_reviewers(
         self, random_number: int, pr_author: str

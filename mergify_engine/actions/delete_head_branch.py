@@ -27,7 +27,12 @@ from mergify_engine.clients import http
 
 
 class DeleteHeadBranchAction(actions.Action):
-    only_once = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+    )
     validator = {voluptuous.Required("force", default=False): bool}
 
     async def run(
