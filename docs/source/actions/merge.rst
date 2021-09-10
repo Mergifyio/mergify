@@ -150,6 +150,13 @@ request:
 
     This feature does not work for cross-repository dependencies.
 
+.. warning::
+
+    If the dependency happens between pull requests targeting different
+    branches, the evaluation of the dependent will not be automatic. You might
+    need to use the :ref:`refresh command <refresh command>` to make Mergify
+    realize the dependency has been merged.
+
 
 .. _commit message:
 

@@ -100,6 +100,9 @@ Runs the :ref:`squash action` action.
   * - Example
     - ``@Mergifyio squash first-commit``
 
+
+.. _refresh command:
+
 refresh
 ========
 
