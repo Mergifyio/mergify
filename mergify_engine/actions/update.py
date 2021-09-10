@@ -29,8 +29,7 @@ class UpdateAction(actions.Action):
         | actions.ActionFlag.ALLOW_AS_COMMAND
         | actions.ActionFlag.ALWAYS_RUN
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
-        # FIXME(sileht): it doesn't make sense to update the code twice
-        # | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 

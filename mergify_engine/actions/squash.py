@@ -36,8 +36,7 @@ class SquashAction(actions.Action):
         | actions.ActionFlag.ALLOW_AS_COMMAND
         | actions.ActionFlag.ALWAYS_RUN
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
-        # FIXME(sileht): it doesn't make sense to squash the code twice
-        # | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
