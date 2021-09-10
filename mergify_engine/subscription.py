@@ -39,6 +39,7 @@ SubscriptionT = typing.TypeVar("SubscriptionT", bound="SubscriptionBase")
 @enum.unique
 class Features(enum.Enum):
     PRIVATE_REPOSITORY = "private_repository"
+    PUBLIC_REPOSITORY = "public_repository"
     LARGE_REPOSITORY = "large_repository"
     PRIORITY_QUEUES = "priority_queues"
     CUSTOM_CHECKS = "custom_checks"
@@ -55,6 +56,7 @@ class SubscriptionDict(typing.TypedDict):
     features: typing.List[
         typing.Literal[
             "private_repository",
+            "public_repository",
             "large_repository",
             "priority_queues",
             "custom_checks",
