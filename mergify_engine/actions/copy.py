@@ -83,11 +83,11 @@ class CopyAction(actions.Action):
             voluptuous.Required("bot_account", default=None): voluptuous.Any(
                 None, types.Jinja2
             ),
-            voluptuous.Required("branches", default=[]): [str],
-            voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
+            voluptuous.Required("branches", default=list): [str],
+            voluptuous.Required("regexes", default=list): [voluptuous.Coerce(Regex)],
             voluptuous.Required("ignore_conflicts", default=True): bool,
-            voluptuous.Required("assignees", default=[]): [types.Jinja2],
-            voluptuous.Required("labels", default=[]): [str],
+            voluptuous.Required("assignees", default=list): [types.Jinja2],
+            voluptuous.Required("labels", default=list): [str],
             voluptuous.Required("label_conflicts", default="conflicts"): str,
             voluptuous.Required(
                 "title", default=f"{{{{ title }}}} ({cls.KIND} #{{{{ number }}}})"

@@ -44,13 +44,13 @@ class RequestReviewsAction(actions.Action):
     )
 
     validator = {
-        voluptuous.Required("users", default=[]): voluptuous.Any(
+        voluptuous.Required("users", default=list): voluptuous.Any(
             [types.GitHubLogin],
             {
                 types.GitHubLogin: _random_weight,
             },
         ),
-        voluptuous.Required("teams", default=[]): voluptuous.Any(
+        voluptuous.Required("teams", default=list): voluptuous.Any(
             [types.GitHubTeam],
             {
                 types.GitHubTeam: _random_weight,
