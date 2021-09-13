@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import abc
 import dataclasses
 import enum
 import typing
@@ -24,6 +25,13 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+
+
+CANCELLED_CHECK_REPORT = check_api.Result(
+    check_api.Conclusion.CANCELLED,
+    "The rule doesn't match anymore",
+    "This action has been cancelled.",
+)
 
 
 global _ACTIONS_CLASSES
@@ -80,16 +88,10 @@ def get_commands() -> typing.Dict[str, "Action"]:
     }
 
 
-@dataclasses.dataclass
-class Action:
+@dataclasses.dataclass  # type: ignore[misc]
+class Action(abc.ABC):
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
     config: typing.Dict[str, typing.Any]
-
-    cancelled_check_report = check_api.Result(
-        check_api.Conclusion.CANCELLED,
-        "The rule doesn't match anymore",
-        "This action has been cancelled.",
-    )
 
     flags: typing.ClassVar[ActionFlag] = ActionFlag.NONE
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]]
@@ -126,10 +128,11 @@ class Action:
     ) -> check_api.Result:  # pragma: no cover
         pass
 
+    @abc.abstractmethod
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
-        return self.cancelled_check_report
+        ...
 
     @staticmethod
     async def wanted_users(

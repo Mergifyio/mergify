@@ -217,3 +217,8 @@ class RequestReviewsAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "No new reviewers to request", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

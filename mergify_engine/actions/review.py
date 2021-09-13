@@ -150,3 +150,8 @@ class ReviewAction(actions.Action):
 
         await signals.send(ctxt, "action.review")
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

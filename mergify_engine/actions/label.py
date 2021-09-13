@@ -86,3 +86,8 @@ class LabelAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "No label to add or remove", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

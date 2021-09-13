@@ -96,3 +96,8 @@ class CommentAction(actions.Action):
             ctxt, "action.comment", {"bot_account": bool(self.config["bot_account"])}
         )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

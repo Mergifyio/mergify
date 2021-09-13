@@ -94,3 +94,8 @@ class DeleteHeadBranchAction(actions.Action):
             f"Branch `{ctxt.pull['head']['ref']}` will be deleted once the pull request is closed",
             "",
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

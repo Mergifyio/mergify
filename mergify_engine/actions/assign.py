@@ -60,6 +60,11 @@ class AssignAction(actions.Action):
             "",
         )
 
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT
+
     async def _add_assignees(
         self, ctxt: context.Context, users_to_add: typing.List[str]
     ) -> check_api.Result:
