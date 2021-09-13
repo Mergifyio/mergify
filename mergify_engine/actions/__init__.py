@@ -115,7 +115,6 @@ class Action(abc.ABC):
     def get_config_schema(
         cls, partial_validation: bool
     ) -> typing.Dict[typing.Any, typing.Any]:
-        # TODO(sileht): move all actions to this signature.
         return cls.validator
 
     @staticmethod
