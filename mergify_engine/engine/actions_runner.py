@@ -309,8 +309,8 @@ def get_previous_conclusion(
 ) -> check_api.Conclusion:
     if name in previous_conclusions:
         return previous_conclusions[name]
-    # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
-    # synchronization event issue is fixed
+    # NOTE(sileht): fallback on posted check-run in case we lose the Summary
+    # somehow
     elif name in checks:
         return check_api.Conclusion(checks[name]["conclusion"])
     return check_api.Conclusion.NEUTRAL
