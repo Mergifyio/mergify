@@ -88,7 +88,6 @@ class ReviewAction(actions.Action):
                 "body"
             ] = f"Pull request automatically reviewed by Mergify: {self.config['type']}"
 
-        # TODO(sileht): We should catch it some how, when we drop pygithub for sure
         reviews = reversed(
             list(
                 filter(
