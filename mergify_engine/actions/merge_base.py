@@ -168,7 +168,7 @@ async def get_rule_checks_status(
         return check_api.Conclusion.FAILURE
 
 
-class MergeBaseAction(actions.Action, abc.ABC):
+class MergeBaseAction(actions.Action):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALWAYS_SEND_REPORT

@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -32,17 +34,21 @@ class DismissReviewsAction(actions.Action):
         | actions.ActionFlag.ALWAYS_RUN
     )
 
-    validator = {
-        voluptuous.Required("approved", default=True): voluptuous.Any(
-            True, False, [types.GitHubLogin]
-        ),
-        voluptuous.Required("changes_requested", default=True): voluptuous.Any(
-            True, False, [types.GitHubLogin]
-        ),
-        voluptuous.Required(
-            "message", default="Pull request has been modified."
-        ): types.Jinja2,
-    }
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("approved", default=True): voluptuous.Any(
+                True, False, [types.GitHubLogin]
+            ),
+            voluptuous.Required("changes_requested", default=True): voluptuous.Any(
+                True, False, [types.GitHubLogin]
+            ),
+            voluptuous.Required(
+                "message", default="Pull request has been modified."
+            ): types.Jinja2,
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

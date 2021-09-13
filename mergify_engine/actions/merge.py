@@ -15,6 +15,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import daiquiri
 import voluptuous
 
@@ -36,33 +38,41 @@ LOG = daiquiri.getLogger(__name__)
 class MergeAction(merge_base.MergeBaseAction):
     MESSAGE_ACTION_NAME = "Merge"
 
-    validator = {
-        voluptuous.Required("method", default="merge"): voluptuous.Any(
-            "rebase", "merge", "squash"
-        ),
-        # NOTE(sileht): None is supported for legacy reason
-        voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
-            "merge", "squash", "none", None
-        ),
-        voluptuous.Required("strict", default=False): voluptuous.All(
-            voluptuous.Any(
-                bool, "smart", "smart+fastpath", "smart+fasttrack", "smart+ordered"
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("method", default="merge"): voluptuous.Any(
+                "rebase", "merge", "squash"
             ),
-            voluptuous.Coerce(merge_base.strict_merge_parameter),
-            merge_base.StrictMergeParameter,
-        ),
-        voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
-            "rebase", "merge"
-        ),
-        voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
-        voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
-        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
-        ),
-        voluptuous.Required(
-            "priority", default=merge_base.PriorityAliases.medium.value
-        ): merge_base.PrioritySchema,
-    }
+            # NOTE(sileht): None is supported for legacy reason
+            voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
+                "merge", "squash", "none", None
+            ),
+            voluptuous.Required("strict", default=False): voluptuous.All(
+                voluptuous.Any(
+                    bool, "smart", "smart+fastpath", "smart+fasttrack", "smart+ordered"
+                ),
+                voluptuous.Coerce(merge_base.strict_merge_parameter),
+                merge_base.StrictMergeParameter,
+            ),
+            voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
+                "rebase", "merge"
+            ),
+            voluptuous.Required(
+                "merge_bot_account", default=None
+            ): types.Jinja2WithNone,
+            voluptuous.Required(
+                "update_bot_account", default=None
+            ): types.Jinja2WithNone,
+            voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+                "default", "title+body"
+            ),
+            voluptuous.Required(
+                "priority", default=merge_base.PriorityAliases.medium.value
+            ): merge_base.PrioritySchema,
+        }
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["queue_config"] = rules.QueueConfig(

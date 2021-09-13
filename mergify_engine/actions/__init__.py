@@ -13,7 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import abc
 import dataclasses
 import enum
 import typing
@@ -80,8 +80,8 @@ def get_commands() -> typing.Dict[str, "Action"]:
     }
 
 
-@dataclasses.dataclass
-class Action:
+@dataclasses.dataclass  # type: ignore[misc]
+class Action(abc.ABC):
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
     config: typing.Dict[str, typing.Any]
 
@@ -92,12 +92,18 @@ class Action:
     )
 
     flags: typing.ClassVar[ActionFlag] = ActionFlag.NONE
-    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]]
 
     def validate_config(
         self, mergify_config: "rules.MergifyConfig"
     ) -> None:  # pragma: no cover
         pass
+
+    @classmethod
+    @abc.abstractmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        ...
 
     @classmethod
     def get_schema(cls, partial_validation: bool = False) -> ActionSchema:
@@ -109,22 +115,16 @@ class Action:
             )
         )
 
-    @classmethod
-    def get_config_schema(
-        cls, partial_validation: bool
-    ) -> typing.Dict[typing.Any, typing.Any]:
-        # TODO(sileht): move all actions to this signature.
-        return cls.validator
-
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:
         """Convert string to dict config"""
         return {}
 
+    @abc.abstractmethod
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
-        pass
+        ...
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"

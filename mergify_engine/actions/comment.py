@@ -35,10 +35,15 @@ class CommentAction(actions.Action):
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
     )
-    validator = {
-        voluptuous.Required("message", default=None): types.Jinja2WithNone,
-        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
-    }
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("message", default=None): types.Jinja2WithNone,
+            voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

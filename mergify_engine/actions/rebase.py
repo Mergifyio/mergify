@@ -15,6 +15,8 @@
 # under the License.
 
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -37,11 +39,16 @@ class RebaseAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
-    validator = {
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.Jinja2
-        ),
-    }
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("bot_account", default=None): voluptuous.Any(
+                None, types.Jinja2
+            ),
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

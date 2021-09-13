@@ -38,14 +38,19 @@ class SquashAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
-    validator = {
-        voluptuous.Required("bot_account", default=None): voluptuous.Any(
-            None, types.Jinja2
-        ),
-        voluptuous.Required("commit_message", default="all-commits"): voluptuous.Any(
-            "all-commits", "first-commit", "title+body"
-        ),
-    }
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("bot_account", default=None): voluptuous.Any(
+                None, types.Jinja2
+            ),
+            voluptuous.Required(
+                "commit_message", default="all-commits"
+            ): voluptuous.Any("all-commits", "first-commit", "title+body"),
+        }
 
     @staticmethod
     def command_to_config(string: str) -> typing.Dict[str, typing.Any]:

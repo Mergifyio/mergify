@@ -15,6 +15,8 @@
 # under the License.
 
 
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -43,13 +45,18 @@ class ReviewAction(actions.Action):
         # FIXME(sileht): MRGFY-565
         # | actions.ActionFlag.ALWAYS_RUN
     )
-    validator = {
-        voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
-            "APPROVE", "REQUEST_CHANGES", "COMMENT"
-        ),
-        voluptuous.Required("message", default=None): types.Jinja2WithNone,
-        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
-    }
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
+                "APPROVE", "REQUEST_CHANGES", "COMMENT"
+            ),
+            voluptuous.Required("message", default=None): types.Jinja2WithNone,
+            voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

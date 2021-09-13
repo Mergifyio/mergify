@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
 from urllib import parse
 
 import voluptuous
@@ -33,7 +34,12 @@ class DeleteHeadBranchAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.ALWAYS_SEND_REPORT
     )
-    validator = {voluptuous.Required("force", default=False): bool}
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {voluptuous.Required("force", default=False): bool}
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

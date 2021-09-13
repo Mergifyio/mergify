@@ -28,18 +28,22 @@ from mergify_engine.rules import types
 
 
 class AssignAction(actions.Action):
-    validator = {
-        # NOTE: "users" is deprecated, but kept as legacy code for old config
-        voluptuous.Required("users", default=[]): [types.Jinja2],
-        voluptuous.Required("add_users", default=[]): [types.Jinja2],
-        voluptuous.Required("remove_users", default=[]): [types.Jinja2],
-    }
-
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.ALWAYS_RUN
     )
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            # NOTE: "users" is deprecated, but kept as legacy code for old config
+            voluptuous.Required("users", default=[]): [types.Jinja2],
+            voluptuous.Required("add_users", default=[]): [types.Jinja2],
+            voluptuous.Required("remove_users", default=[]): [types.Jinja2],
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

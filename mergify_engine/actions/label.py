@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
 from urllib import parse
 
 import voluptuous
@@ -33,11 +34,15 @@ class LabelAction(actions.Action):
         | actions.ActionFlag.ALWAYS_RUN
     )
 
-    validator = {
-        voluptuous.Required("add", default=[]): [str],
-        voluptuous.Required("remove", default=[]): [str],
-        voluptuous.Required("remove_all", default=False): bool,
-    }
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required("add", default=[]): [str],
+            voluptuous.Required("remove", default=[]): [str],
+            voluptuous.Required("remove_all", default=False): bool,
+        }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

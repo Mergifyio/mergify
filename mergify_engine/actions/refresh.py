@@ -27,7 +27,11 @@ class RefreshAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
     )
 
-    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {}
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

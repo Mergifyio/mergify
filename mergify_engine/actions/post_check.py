@@ -47,15 +47,20 @@ class PostCheckAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.ALLOW_RETRIGGER_MERGIFY
     )
-    validator = {
-        voluptuous.Required(
-            "title",
-            default="'{{ check_rule_name }}' {% if check_succeed %}succeed{% else %}failed{% endif %}",  # noqa:FS003
-        ): CheckRunJinja2,
-        voluptuous.Required(
-            "summary", default="{{ check_conditions }}"
-        ): CheckRunJinja2,
-    }
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {
+            voluptuous.Required(
+                "title",
+                default="'{{ check_rule_name }}' {% if check_succeed %}succeed{% else %}failed{% endif %}",  # noqa:FS003
+            ): CheckRunJinja2,
+            voluptuous.Required(
+                "summary", default="{{ check_conditions }}"
+            ): CheckRunJinja2,
+        }
 
     async def _post(
         self, ctxt: context.Context, rule: rules.EvaluatedRule

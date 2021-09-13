@@ -39,28 +39,33 @@ class RequestReviewsAction(actions.Action):
     # Any review passed that number is ignored by GitHub API.
     GITHUB_MAXIMUM_REVIEW_REQUEST = 15
 
-    _random_weight = voluptuous.Required(
-        voluptuous.All(int, voluptuous.Range(min=1, max=65535)), default=1
-    )
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
 
-    validator = {
-        voluptuous.Required("users", default=[]): voluptuous.Any(
-            [types.GitHubLogin],
-            {
-                types.GitHubLogin: _random_weight,
-            },
-        ),
-        voluptuous.Required("teams", default=[]): voluptuous.Any(
-            [types.GitHubTeam],
-            {
-                types.GitHubTeam: _random_weight,
-            },
-        ),
-        "random_count": voluptuous.All(
-            int,
-            voluptuous.Range(1, GITHUB_MAXIMUM_REVIEW_REQUEST),
-        ),
-    }
+        _random_weight = voluptuous.Required(
+            voluptuous.All(int, voluptuous.Range(min=1, max=65535)), default=1
+        )
+
+        return {
+            voluptuous.Required("users", default=[]): voluptuous.Any(
+                [types.GitHubLogin],
+                {
+                    types.GitHubLogin: _random_weight,
+                },
+            ),
+            voluptuous.Required("teams", default=[]): voluptuous.Any(
+                [types.GitHubTeam],
+                {
+                    types.GitHubTeam: _random_weight,
+                },
+            ),
+            "random_count": voluptuous.All(
+                int,
+                voluptuous.Range(1, cls.GITHUB_MAXIMUM_REVIEW_REQUEST),
+            ),
+        }
 
     def _get_random_reviewers(
         self, random_number: int, pr_author: str

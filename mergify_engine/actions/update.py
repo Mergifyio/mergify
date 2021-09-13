@@ -31,7 +31,12 @@ class UpdateAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
-    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
+
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        return {}
 
     @staticmethod
     async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
