@@ -42,8 +42,7 @@ async def render_bot_account(
     bot_account_template: typing.Optional[str],
     *,
     option_name: str = "bot_account",
-    # TODO(sileht): make it mandatory when all bot_account need subscription
-    required_feature: typing.Optional[subscription.Features],
+    required_feature: subscription.Features,
     missing_feature_message: str = "This action with `bot_account` set is unavailable",
     required_permissions: typing.Optional[
         typing.List[github_types.GitHubRepositoryPermission]
