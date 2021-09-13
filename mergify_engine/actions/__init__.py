@@ -122,10 +122,11 @@ class Action(abc.ABC):
         """Convert string to dict config"""
         return {}
 
+    @abc.abstractmethod
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
-        pass
+        ...
 
     @abc.abstractmethod
     async def cancel(
