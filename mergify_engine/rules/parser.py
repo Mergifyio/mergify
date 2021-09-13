@@ -353,8 +353,11 @@ merged = _match_boolean("merged")
 closed = _match_boolean("closed")
 conflict = _match_boolean("conflict")
 draft = _match_boolean("draft")
+linear_history = _match_boolean("linear-history")
 
-non_quantifiable_attributes = locked | closed | conflict | draft | merged
+non_quantifiable_attributes = (
+    locked | closed | conflict | draft | merged | linear_history
+)
 
 datetime_attributes = (
     current_time

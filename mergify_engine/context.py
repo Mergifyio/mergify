@@ -749,6 +749,7 @@ class Context(object):
         return self._cache["consolidated_reviews"]
 
     async def _get_consolidated_data(self, name: str) -> ContextAttributeType:
+
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
@@ -791,6 +792,9 @@ class Context(object):
 
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
+
+        elif name == "linear-history":
+            return all(len(commit["parents"]) == 1 for commit in await self.commits)
 
         elif name == "base":
             return self.pull["base"]["ref"]
@@ -1320,6 +1324,7 @@ class PullRequest(BasePullRequest):
         "milestone",
         "number",
         "conflict",
+        "linear-history",
         "base",
         "head",
         "locked",
