@@ -55,3 +55,8 @@ class UpdateAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

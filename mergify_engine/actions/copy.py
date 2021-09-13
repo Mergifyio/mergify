@@ -292,6 +292,11 @@ class CopyAction(actions.Action):
             "\n".join(f"* {detail}" for detail in (r[1] for r in results)),
         )
 
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT
+
     @classmethod
     async def get_existing_duplicate_pull(
         cls, ctxt: context.Context, branch_name: github_types.GitHubRefType
