@@ -168,9 +168,15 @@ async def get_rule_checks_status(
         return check_api.Conclusion.FAILURE
 
 
-class MergeBaseAction(actions.Action):
-    only_once = True
-    can_be_used_on_configuration_change = False
+class MergeBaseAction(actions.Action, abc.ABC):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        # FIXME(sileht): MRGFY-562
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
+
     UNQUEUE_DOCUMENTATION = ""
     MESSAGE_ACTION_NAME = "Merge"
 
@@ -200,7 +206,7 @@ class MergeBaseAction(actions.Action):
 
     @abc.abstractmethod
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
         pass
 
@@ -378,7 +384,7 @@ class MergeBaseAction(actions.Action):
         if self.config[
             "strict"
         ] is not StrictMergeParameter.false and not await self._should_be_cancel(
-            ctxt, rule
+            ctxt, rule, q
         ):
             try:
                 if await self._should_be_merged(ctxt, q):

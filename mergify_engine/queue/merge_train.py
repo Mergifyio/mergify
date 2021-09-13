@@ -204,6 +204,8 @@ class TrainCar:
 
         if include_my_self:
             return f"{', '.join(refs)} and {self._get_user_refs()}"
+        elif len(refs) == 1:
+            return refs[-1]
         else:
             return f"{', '.join(refs[:-1])} and {refs[-1]}"
 
@@ -283,7 +285,7 @@ class TrainCar:
         if not await ctxt.is_behind:
             # Already done, just refresh it to merge it
             with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.train.repository.installation.redis,
                     redis_stream,
                     ctxt.pull["base"]["repo"],
@@ -594,7 +596,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             )
 
             with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.train.repository.installation.redis,
                     redis_stream,
                     original_ctxt.pull["base"]["repo"],
@@ -636,6 +638,23 @@ You don't need to do anything. Mergify will close this pull request automaticall
         queue_summary = "\n\nRequired conditions for merge:\n\n"
         queue_summary += evaluated_queue_rule.conditions.get_summary()
 
+        if self.failure_history:
+            batch_failure_summary = f"\n\nThe pull request {self._get_user_refs()} is part of a speculative checks batch that previously failed:\n"
+            batch_failure_summary += (
+                "| Pull request | Parents pull requests | Speculative checks |\n"
+            )
+            batch_failure_summary += "| ---: | :--- | :--- |\n"
+            for failure in self.failure_history:
+                if failure.creation_state == "updated":
+                    speculative_checks = "[in place]"
+                elif failure.creation_state == "created":
+                    speculative_checks = f"#{failure.queue_pull_request_number}"
+                else:
+                    speculative_checks = ""
+            batch_failure_summary += f"| {self._get_user_refs()} | {self._get_embarked_refs(include_my_self=False)} | {speculative_checks} |"
+        else:
+            batch_failure_summary = ""
+
         original_ctxts = [
             await self.train.repository.get_pull_request_context(
                 ep.user_pull_request_number
@@ -645,7 +664,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if self.creation_state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
-            summary += queue_summary + "\n"
+            summary += queue_summary + "\n" + batch_failure_summary
 
             if self.queue_pull_request_number is None:
                 raise RuntimeError(
@@ -753,11 +772,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
         else:
             checks_copy_summary = ""
 
-        # TODO(sileht): Add a section about failure history
-
         # Update the original Pull Request
         if will_be_reset:
-            # TODO(sileht): display train cars ?
             original_pull_title = "The pull request is going to be re-embarked soon"
         else:
             if conclusion == check_api.Conclusion.SUCCESS:
@@ -770,7 +786,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
-            summary=queue_summary + "\n" + checks_copy_summary,
+            summary=queue_summary
+            + "\n"
+            + checks_copy_summary
+            + "\n"
+            + batch_failure_summary,
         )
         for original_ctxt in original_ctxts:
             original_ctxt.log.info(
@@ -788,7 +808,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 # NOTE(sileht): refresh it, so the queue action will merge it and delete the
                 # tmp_pull_ctxt branch
                 with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_refresh(
+                    await utils.send_pull_refresh(
                         self.train.repository.installation.redis,
                         redis_stream,
                         original_ctxt.pull["base"]["repo"],
@@ -990,11 +1010,6 @@ class Train(queue.QueueBase):
                 await self._slice_cars(
                     i, reason="The associated queue rule does not exist anymore"
                 )
-            else:
-                # NOTE(sileht): Update the queue config, so if
-                # speculative_checks change the train will grow or shrink
-                # instantly
-                embarked_pull.config["queue_config"] = queue_rule.config
 
     async def reset(self) -> None:
         await self._slice_cars(0, reason="Unexpected queue change")
@@ -1134,14 +1149,15 @@ class Train(queue.QueueBase):
         ):
             # A earlier batch failed and it was the fault of the last PR of the batch
             # we refresh the draft PR, so it will set the final state
-            with utils.aredis_for_stream() as redis_stream:
-                await utils.send_refresh(
-                    self.repository.installation.redis,
-                    redis_stream,
-                    self.repository.repo,
-                    pull_request_number=self._cars[0].queue_pull_request_number,
-                    action="internal",
-                )
+            if self._cars[0].queue_pull_request_number is not None:
+                with utils.aredis_for_stream() as redis_stream:
+                    await utils.send_pull_refresh(
+                        self.repository.installation.redis,
+                        redis_stream,
+                        self.repository.repo,
+                        pull_request_number=self._cars[0].queue_pull_request_number,
+                        action="internal",
+                    )
             return
 
         for car in self._cars:
@@ -1154,6 +1170,20 @@ class Train(queue.QueueBase):
                 self.log.info(
                     "spliting failed car", position=current_queue_position, car=car
                 )
+
+                queue_name = car.still_queued_embarked_pulls[0].config["name"]
+                try:
+                    queue_rule = queue_rules[queue_name]
+                except KeyError:
+                    # We just need to wait the pull request has been removed from
+                    # the queue by the action
+                    self.log.info(
+                        "cant split failed batch TrainCar, queue rule does not exist anymore",
+                        queue_rules=queue_rules,
+                        queue_name=queue_name,
+                    )
+                    return
+
                 # NOTE(sileht): This batch failed, we can drop everything else
                 # after has we known now they will not work, and split this one
                 # in two
@@ -1165,14 +1195,10 @@ class Train(queue.QueueBase):
                 # We move this car later at the end to not retest it
                 del self._cars[-1]
 
-                speculative_checks = car.still_queued_embarked_pulls[0].config[
-                    "queue_config"
-                ]["speculative_checks"]
-
                 parents: typing.List[EmbarkedPull] = []
                 for pulls in utils.split_list(
                     car.still_queued_embarked_pulls[:-1],
-                    speculative_checks,
+                    queue_rule.config["speculative_checks"],
                 ):
                     self._cars.append(
                         TrainCar(
@@ -1188,7 +1214,7 @@ class Train(queue.QueueBase):
 
                     parents += pulls
                     try:
-                        await self._create_car(queue_rules, self._cars[-1])
+                        await self._create_car(queue_rule, self._cars[-1])
                     except (
                         TrainCarPullRequestCreationPostponed,
                         TrainCarPullRequestCreationFailure,
@@ -1228,7 +1254,23 @@ class Train(queue.QueueBase):
         if self._current_base_sha is None or not self._cars:
             self._current_base_sha = await self.get_head_sha()
 
-        speculative_checks = head.config["queue_config"]["speculative_checks"]
+        try:
+            queue_rule = queue_rules[head.config["name"]]
+        except KeyError:
+            # We just need to wait the pull request has been removed from
+            # the queue by the action
+            self.log.info(
+                "cant populate cars, queue rule does not exist",
+                queue_rules=queue_rules,
+                queue_name=head.config["name"],
+            )
+            car = TrainCar(self, [head], [head], [], self._current_base_sha)
+            await car._set_creation_failure(
+                f"queue named `{head.config['name']}` does not exist anymore"
+            )
+            return
+
+        speculative_checks = queue_rule.config["speculative_checks"]
         missing_cars = speculative_checks - len(self._cars)
 
         if missing_cars < 0:
@@ -1250,7 +1292,7 @@ class Train(queue.QueueBase):
                 pulls_to_check, self._waiting_pulls = self._get_next_batch(
                     self._waiting_pulls,
                     head.config["name"],
-                    head.config["queue_config"]["batch_size"],
+                    queue_rule.config["batch_size"],
                 )
                 if not pulls_to_check:
                     return
@@ -1276,7 +1318,7 @@ class Train(queue.QueueBase):
                 self._cars.append(car)
 
                 try:
-                    await self._create_car(queue_rules, car)
+                    await self._create_car(queue_rule, car)
                 except TrainCarPullRequestCreationPostponed:
                     return
                 except TrainCarPullRequestCreationFailure:
@@ -1288,20 +1330,16 @@ class Train(queue.QueueBase):
 
     async def _create_car(
         self,
-        queue_rules: rules.QueueRules,
+        queue_rule: rules.QueueRule,
         car: TrainCar,
     ) -> None:
-        allow_inplace_speculative_checks = car.still_queued_embarked_pulls[0].config[
-            "queue_config"
-        ]["allow_inplace_speculative_checks"]
-
         can_be_updated = (
             self._cars[0] == car
             and len(car.still_queued_embarked_pulls) == 1
             and len(car.parent_pull_request_numbers) == 0
         )
         if can_be_updated:
-            if allow_inplace_speculative_checks:
+            if queue_rule.config["allow_inplace_speculative_checks"]:
                 must_be_updated = True
             else:
                 # The pull request is already up2date no need to create
@@ -1312,20 +1350,6 @@ class Train(queue.QueueBase):
 
         try:
             # get_next_batch() ensure all embarked_pulls has same config
-            queue_rule_name = car.still_queued_embarked_pulls[0].config["name"]
-            try:
-                queue_rule = queue_rules[queue_rule_name]
-            except KeyError:
-                self.log.warning(
-                    "queue_rule not found for this train car",
-                    queue_rules=queue_rules,
-                    queue_name=queue_rule_name,
-                )
-                await car._set_creation_failure(
-                    f"queue named `{queue_rule_name}` does not exists anymore"
-                )
-                raise TrainCarPullRequestCreationFailure(car)
-
             if must_be_updated:
                 # No need to create a pull request
                 await car.update_user_pull(queue_rule)

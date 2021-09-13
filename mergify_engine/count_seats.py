@@ -132,27 +132,54 @@ async def store_active_users(
         ]
     ] = None
 
+    users = {}
+
+    def _add_user(user: github_types.GitHubAccount) -> None:
+        if user["id"] == config.BOT_USER_ID:
+            return
+        elif user["login"] == "web-flow":
+            return
+
+        users[user["id"]] = user["login"]
+
     if event_type == "push":
         typed_event = typing.cast(github_types.GitHubEventPush, event)
     elif event_type == "issue_comment":
         typed_event = typing.cast(github_types.GitHubEventIssueComment, event)
+        _add_user(typed_event["issue"]["user"])
+        _add_user(typed_event["comment"]["user"])
     elif event_type == "pull_request":
         typed_event = typing.cast(github_types.GitHubEventPullRequest, event)
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
     elif event_type == "pull_request_review":
         typed_event = typing.cast(github_types.GitHubEventPullRequestReview, event)
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
+        _add_user(typed_event["review"]["user"])
     elif event_type == "pull_request_review_comment":
         typed_event = typing.cast(
             github_types.GitHubEventPullRequestReviewComment, event
         )
+        _add_user(typed_event["pull_request"]["user"])
+        list(map(_add_user, typed_event["pull_request"]["assignees"]))
+        _add_user(typed_event["comment"]["user"])
 
-    if typed_event is not None:
-        # TODO(sileht): `sender_id` may be impersonated by bot, GitHub Action
-        # or GitHub UI. We may also want to look at other attributes like for
-        # `issue_comment` event the `comment.user.id`.
-        user = f"{typed_event['sender']['id']}~{typed_event['sender']['login']}"
+    if typed_event is None:
+        return
 
-        key = _get_active_users_key(typed_event["repository"])
-        await redis_cache.zadd(key, **{user: time.time()})
+    _add_user(typed_event["sender"])
+
+    if not users:
+        return
+
+    repo_key = _get_active_users_key(typed_event["repository"])
+    transaction = await redis_cache.pipeline()
+    for user_id, user_login in users.items():
+        user_key = f"{user_id}~{user_login}"
+        await transaction.zadd(repo_key, **{user_key: time.time()})
+
+    await transaction.execute()
 
 
 class SeatCollaboratorJsonT(typing.TypedDict):
@@ -197,15 +224,18 @@ class Seats:
         redis_cache: utils.RedisCache,
         write_users: bool = True,
         active_users: bool = True,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> "Seats":
         seats = cls()
         if write_users:
+            if owner_id is not None:
+                raise RuntimeError("Can't get `write_users` if `owner_id` is set")
             await seats.populate_with_collaborators_with_write_users_access()
         if active_users:
-            await seats.populate_with_active_users(redis_cache)
+            await seats.populate_with_active_users(redis_cache, owner_id)
         return seats
 
-    def jsonify(self) -> str:
+    def jsonify(self) -> SeatsJsonT:
         data = SeatsJsonT({"organizations": []})
         for org, repos in self.seats.items():
             repos_json = []
@@ -248,7 +278,7 @@ class Seats:
                     }
                 )
             )
-        return json.dumps(data)
+        return data
 
     def count(self) -> SeatsCountResultT:
         all_write_users_collaborators = set()
@@ -263,11 +293,17 @@ class Seats:
             len(all_write_users_collaborators), len(all_active_users_collaborators)
         )
 
-    async def populate_with_active_users(self, redis_cache: utils.RedisCache) -> None:
-        async for key in get_active_users_keys(redis_cache):
-            _, owner_id, owner_login, repo_id, repo_name = key.split("~")
+    async def populate_with_active_users(
+        self,
+        redis_cache: utils.RedisCache,
+        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+    ) -> None:
+        async for key in get_active_users_keys(
+            redis_cache, owner_id="*" if owner_id is None else owner_id
+        ):
+            _, _owner_id, owner_login, repo_id, repo_name = key.split("~")
             org = SeatAccount(
-                github_types.GitHubAccountIdType(int(owner_id)),
+                github_types.GitHubAccountIdType(int(_owner_id)),
                 github_types.GitHubLogin(owner_login),
             )
             repo = SeatRepository(
@@ -377,7 +413,7 @@ async def report(args: argparse.Namespace) -> None:
         else:
             seats = await Seats.get(redis_cache)
             if args.json:
-                print(seats.jsonify())
+                print(json.dumps(seats.jsonify()))
             else:
                 seats_count = seats.count()
                 LOG.info(

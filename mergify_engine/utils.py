@@ -185,13 +185,13 @@ class FakePR:
         setattr(self, key, value)
 
 
-async def send_refresh(
+async def _send_refresh(
     redis_cache: RedisCache,
     redis_stream: RedisStream,
     repository: github_types.GitHubRepository,
+    action: github_types.GitHubEventRefreshActionType,
     pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber] = None,
     ref: typing.Optional[github_types.GitHubRefType] = None,
-    action: github_types.GitHubEventRefreshActionType = "user",
 ) -> None:
     # Break circular import
     from mergify_engine import github_events
@@ -200,8 +200,8 @@ async def send_refresh(
         {
             "action": action,
             "ref": ref,
-            "repository": repository,
             "pull_request_number": pull_request_number,
+            "repository": repository,
             "sender": {
                 "login": github_types.GitHubLogin("<internal>"),
                 "id": github_types.GitHubAccountIdType(0),
@@ -221,6 +221,41 @@ async def send_refresh(
     await github_events.filter_and_dispatch(
         redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
     )
+
+
+async def send_pull_refresh(
+    redis_cache: RedisCache,
+    redis_stream: RedisStream,
+    repository: github_types.GitHubRepository,
+    action: github_types.GitHubEventRefreshActionType,
+    pull_request_number: github_types.GitHubPullRequestNumber,
+) -> None:
+    await _send_refresh(
+        redis_cache,
+        redis_stream,
+        repository,
+        action,
+        pull_request_number=pull_request_number,
+    )
+
+
+async def send_repository_refresh(
+    redis_cache: RedisCache,
+    redis_stream: RedisStream,
+    repository: github_types.GitHubRepository,
+    action: github_types.GitHubEventRefreshActionType,
+) -> None:
+    await _send_refresh(redis_cache, redis_stream, repository, action)
+
+
+async def send_branch_refresh(
+    redis_cache: RedisCache,
+    redis_stream: RedisStream,
+    repository: github_types.GitHubRepository,
+    action: github_types.GitHubEventRefreshActionType,
+    ref: github_types.GitHubRefType,
+) -> None:
+    await _send_refresh(redis_cache, redis_stream, repository, action, ref=ref)
 
 
 _T = typing.TypeVar("_T")

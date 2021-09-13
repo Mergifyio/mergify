@@ -99,7 +99,12 @@ async def refresh_repo(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(redis_cache, redis_stream, repository)
+    await utils.send_repository_refresh(
+        redis_cache,
+        redis_stream,
+        repository,
+        action="user",
+    )
     return responses.Response("Refresh queued", status_code=202)
 
 
@@ -131,12 +136,12 @@ async def refresh_pull(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(
+    await utils.send_pull_refresh(
         redis_cache,
         redis_stream,
         repository,
-        pull_request_number=pull_request_number,
         action=action,
+        pull_request_number=pull_request_number,
     )
     return responses.Response("Refresh queued", status_code=202)
 
@@ -164,10 +169,11 @@ async def refresh_branch(
                 status_code=404, content="repository not found"
             )
 
-    await utils.send_refresh(
+    await utils.send_branch_refresh(
         redis_cache,
         redis_stream,
         repository,
+        action="user",
         ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
     return responses.Response("Refresh queued", status_code=202)
@@ -183,8 +189,19 @@ async def get_stats(
         redis.get_redis_cache
     ),
 ) -> responses.Response:
-    seats = await count_seats.Seats.get(redis_cache, write_users=False)
-    return responses.Response(content=seats.jsonify(), media_type="application/json")
+    seats = await count_seats.Seats.get(
+        redis_cache, write_users=False, owner_id=owner_id
+    )
+    data = seats.jsonify()
+    if data["organizations"]:
+        if len(data["organizations"]) > 1:
+            raise RuntimeError(
+                "count_seats.Seats.get() returns more than one organization"
+            )
+        repos = data["organizations"][0]["repositories"]
+    else:
+        repos = []
+    return responses.JSONResponse({"repositories": repos})
 
 
 @app.put(

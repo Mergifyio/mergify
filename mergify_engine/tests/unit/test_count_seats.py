@@ -107,19 +107,25 @@ for filename in os.listdir(_EVENT_DIR):
 async def test_store_active_users(event_type, event, redis_cache):
     await count_seats.store_active_users(redis_cache, event_type, event)
     one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
-    if event_type in (
-        "pull_request",
-        "push",
-    ):
-        assert (
-            await redis_cache.zrangebyscore(
-                "active-users~21031067~Codertocat~186853002~Hello-World",
-                min=one_month_ago.timestamp(),
-                max="+inf",
-                withscores=True,
-            )
-            == [("21031067~Codertocat", 1320969600.0)]
-        )
+    if event_type == "push":
+        assert await redis_cache.zrangebyscore(
+            "active-users~21031067~Codertocat~186853002~Hello-World",
+            min=one_month_ago.timestamp(),
+            max="+inf",
+            withscores=True,
+        ) == [
+            ("21031067~Codertocat", 1320969600.0),
+        ]
+    elif event_type == "pull_request":
+        assert await redis_cache.zrangebyscore(
+            "active-users~21031067~Codertocat~186853002~Hello-World",
+            min=one_month_ago.timestamp(),
+            max="+inf",
+            withscores=True,
+        ) == [
+            ("12345678~AnotherUser", 1320969600.0),
+            ("21031067~Codertocat", 1320969600.0),
+        ]
     else:
         assert (
             await redis_cache.zrangebyscore(
@@ -145,32 +151,46 @@ async def test_get_usage(event_type, event, redis_cache):
         "Content-Type": f"application/json; charset={charset}",
     }
     reply = await client.request(
+        "GET", "/organization/1234/usage", content=data, headers=headers
+    )
+    assert reply.status_code == 200, reply.content
+    assert json.loads(reply.content) == {"repositories": []}
+
+    reply = await client.request(
         "GET", "/organization/21031067/usage", content=data, headers=headers
     )
     assert reply.status_code == 200, reply.content
-    if event_type in (
-        "pull_request",
-        "push",
-    ):
+    if event_type == "pull_request":
         assert json.loads(reply.content) == {
-            "organizations": [
+            "repositories": [
                 {
-                    "id": 21031067,
-                    "login": "Codertocat",
-                    "repositories": [
-                        {
-                            "collaborators": {
-                                "active_users": [
-                                    {"id": 21031067, "login": "Codertocat"}
-                                ],
-                                "write_users": None,
-                            },
-                            "id": 186853002,
-                            "name": "Hello-World",
-                        }
-                    ],
+                    "collaborators": {
+                        "active_users": [
+                            {"id": 21031067, "login": "Codertocat"},
+                            {"id": 12345678, "login": "AnotherUser"},
+                        ],
+                        "write_users": None,
+                    },
+                    "id": 186853002,
+                    "name": "Hello-World",
                 }
             ],
         }
+    elif event_type == "push":
+        assert json.loads(reply.content) == {
+            "repositories": [
+                {
+                    "collaborators": {
+                        "active_users": [
+                            {"id": 21031067, "login": "Codertocat"},
+                        ],
+                        "write_users": None,
+                    },
+                    "id": 186853002,
+                    "name": "Hello-World",
+                }
+            ],
+        }
+
     else:
-        assert json.loads(reply.content) == {"organizations": []}
+        assert json.loads(reply.content) == {"repositories": []}

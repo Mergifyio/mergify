@@ -30,12 +30,13 @@ from mergify_engine.rules import types
 
 
 class RebaseAction(actions.Action):
-    is_command = True
-
-    always_run = True
-
-    silent_report = True
-
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+    )
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
             None, types.Jinja2

@@ -128,7 +128,7 @@ class TestCountSeats(base.FunctionalTestBase):
                 await count_seats.report(args)
                 s = "".join(call.args[0] for call in stdout.write.mock_calls)
                 expected_seats = count_seats.Seats(self.COLLABORATORS)
-                assert json.loads(s) == json.loads(expected_seats.jsonify())
+                assert json.loads(s) == expected_seats.jsonify()
 
     async def test_stored_user_in_redis(self):
         rules = {

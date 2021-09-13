@@ -61,7 +61,12 @@ def DuplicateTitleJinja2(v):
 
 
 class CopyAction(actions.Action):
-    is_command: bool = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+    )
 
     KIND: duplicate_pull.KindT = "copy"
     HOOK_EVENT_NAME: signals.EventName = "action.copy"

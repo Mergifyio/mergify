@@ -16,6 +16,7 @@
 
 import typing
 
+from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
@@ -26,7 +27,12 @@ from mergify_engine.actions import copy
 
 
 class BackportAction(copy.CopyAction):
-    is_command: bool = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+    )
 
     KIND: duplicate_pull.KindT = "backport"
     HOOK_EVENT_NAME: signals.EventName = "action.backport"

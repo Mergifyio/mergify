@@ -35,7 +35,6 @@ class PullQueueConfig(typing.TypedDict):
     bot_account: typing.Optional[github_types.GitHubLogin]
     update_bot_account: typing.Optional[github_types.GitHubLogin]
     name: rules.QueueName
-    queue_config: rules.QueueConfig
 
 
 QueueT = typing.TypeVar("QueueT", bound="QueueBase")
@@ -109,7 +108,7 @@ class QueueBase(abc.ABC):
                     and except_pull_request == pull_number
                 ):
                     continue
-                await utils.send_refresh(
+                await utils.send_pull_refresh(
                     self.repository.installation.redis,
                     redis_stream,
                     repository,

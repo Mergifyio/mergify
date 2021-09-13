@@ -132,13 +132,17 @@ class MergeAction(merge_base.MergeBaseAction):
         return False
 
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
         # It's closed, it's not going to change
         if ctxt.closed:
             return True
 
         if await ctxt.has_been_synchronized_by_user():
+            return True
+
+        position = await q.get_position(ctxt)
+        if position is None:
             return True
 
         pull_rule_checks_status = await merge_base.get_rule_checks_status(

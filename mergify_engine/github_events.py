@@ -72,6 +72,7 @@ def _extract_slim_event(event_type, data):
         # To get PR from sha or branch name
         slim_data["action"] = data["action"]
         slim_data["ref"] = data["ref"]
+        slim_data["pull_request_number"] = data["pull_request_number"]
 
     elif event_type == "push":
         # To get PR from sha

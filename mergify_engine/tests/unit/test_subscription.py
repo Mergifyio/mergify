@@ -191,6 +191,7 @@ async def test_subscription_on_premise_valid(
             "subscription_reason": "azertyuio",
             "features": [
                 "private_repository",
+                "public_repository",
                 "large_repository",
                 "priority_queues",
                 "custom_checks",
