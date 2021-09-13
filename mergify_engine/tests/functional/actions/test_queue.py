@@ -2309,7 +2309,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
-        head_sha = await q.get_head_sha()
+        base_sha = await q.get_base_sha()
 
         queue_config = rules.QueueConfig(
             priority=0,
@@ -2332,7 +2332,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
             [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
             [p1["number"]],
-            head_sha,
+            base_sha,
         )
         q._cars.append(car)
 
@@ -2379,7 +2379,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p)
         q = await merge_train.Train.from_context(ctxt)
-        head_sha = await q.get_head_sha()
+        base_sha = await q.get_base_sha()
 
         queue_config = rules.QueueConfig(
             priority=0,
@@ -2402,7 +2402,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
             [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
             [p1["number"], p2["number"]],
-            head_sha,
+            base_sha,
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
             await car.create_pull(
