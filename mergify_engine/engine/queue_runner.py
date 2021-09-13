@@ -23,7 +23,7 @@ from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
 
 
-async def have_unexpected_changes(
+async def have_unexpected_draft_pull_request_changes(
     ctxt: context.Context, car: merge_train.TrainCar
 ) -> bool:
     if ctxt.pull["base"]["sha"] != car.initial_current_base_sha:
@@ -75,6 +75,11 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         )
         return
 
+    if car.queue_pull_request_number is None:
+        raise RuntimeError(
+            "Got draft pull request event on car without queue_pull_request_number"
+        )
+
     ctxt.log.info(
         "handling train car temporary pull request event",
         sources=ctxt.sources,
@@ -111,15 +116,19 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         # NOTE(sileht): Only comment/command, don't need to go further
         return None
 
-    unexpected_changes = await have_unexpected_changes(ctxt, car)
-    if unexpected_changes:
-        need_reset = True
+    unexpected_changes: typing.Optional[merge_train.UnexpectedChange] = None
+    if await have_unexpected_draft_pull_request_changes(ctxt, car):
+        unexpected_changes = merge_train.UnexpectedDraftPullRequestChange(
+            car.queue_pull_request_number
+        )
     else:
-        need_reset = not await train.is_synced_with_the_base_branch()
+        current_base_sha = await train.get_base_sha()
+        if not await train.is_synced_with_the_base_branch(current_base_sha):
+            unexpected_changes = merge_train.UnexpectedBaseBranchChange(
+                current_base_sha
+            )
 
-    if need_reset:
-        real_status = status = check_api.Conclusion.PENDING
-    else:
+    if unexpected_changes is None:
         real_status = status = await merge_base.get_rule_checks_status(
             ctxt.log,
             [pull_request],
@@ -135,6 +144,8 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
             # * one of the batch ?
             # * one of the parent car ?
             status = check_api.Conclusion.PENDING
+    else:
+        real_status = status = check_api.Conclusion.PENDING
 
     ctxt.log.info(
         "train car temporary pull request evaluation",
@@ -143,7 +154,6 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         ],
         evaluated_queue_rule=evaluated_queue_rule.conditions.get_summary(),
         unexpected_changes=unexpected_changes,
-        reseted=need_reset,
         temporary_status=status,
         real_status=real_status,
         event_types=[se["event_type"] for se in ctxt.sources],
@@ -153,23 +163,23 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         status,
         real_status,
         evaluated_queue_rule=evaluated_queue_rule,
-        will_be_reset=need_reset,
+        unexpected_change=unexpected_changes,
     )
     await train.save()
 
-    if need_reset:
+    if unexpected_changes:
         ctxt.log.info(
             "train will be reset",
             gh_pull_queued=[
                 ep.user_pull_request_number for ep in car.still_queued_embarked_pulls
             ],
+            unexpected_changes=unexpected_changes,
         )
-        await train.reset()
+        await train.reset(unexpected_changes)
 
-    if unexpected_changes:
         await ctxt.client.post(
             f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
             json={
-                "body": "This pull request has unexpected changes. The whole train will be reset."
+                "body": f"This pull request has unexpected changes: {unexpected_changes}. The whole train will be reset."
             },
         )
