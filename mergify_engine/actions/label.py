@@ -34,8 +34,8 @@ class LabelAction(actions.Action):
     )
 
     validator = {
-        voluptuous.Required("add", default=[]): [str],
-        voluptuous.Required("remove", default=[]): [str],
+        voluptuous.Required("add", default=list): [str],
+        voluptuous.Required("remove", default=list): [str],
         voluptuous.Required("remove_all", default=False): bool,
     }
 

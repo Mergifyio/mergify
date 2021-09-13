@@ -30,9 +30,9 @@ from mergify_engine.rules import types
 class AssignAction(actions.Action):
     validator = {
         # NOTE: "users" is deprecated, but kept as legacy code for old config
-        voluptuous.Required("users", default=[]): [types.Jinja2],
-        voluptuous.Required("add_users", default=[]): [types.Jinja2],
-        voluptuous.Required("remove_users", default=[]): [types.Jinja2],
+        voluptuous.Required("users", default=list): [types.Jinja2],
+        voluptuous.Required("add_users", default=list): [types.Jinja2],
+        voluptuous.Required("remove_users", default=list): [types.Jinja2],
     }
 
     flags = (
