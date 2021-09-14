@@ -144,53 +144,53 @@ async def test_get_usage(event_type, event, redis_cache):
     await (count_seats.store_active_users(redis_cache, event_type, event))
     charset = "utf8"
     await redis.startup()
-    client = httpx.AsyncClient(base_url="http://whatever", app=root.app)
-    data = b"a" * 123
-    headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
-        "Content-Type": f"application/json; charset={charset}",
-    }
-    reply = await client.request(
-        "GET", "/organization/1234/usage", content=data, headers=headers
-    )
-    assert reply.status_code == 200, reply.content
-    assert json.loads(reply.content) == {"repositories": []}
-
-    reply = await client.request(
-        "GET", "/organization/21031067/usage", content=data, headers=headers
-    )
-    assert reply.status_code == 200, reply.content
-    if event_type == "pull_request":
-        assert json.loads(reply.content) == {
-            "repositories": [
-                {
-                    "collaborators": {
-                        "active_users": [
-                            {"id": 21031067, "login": "Codertocat"},
-                            {"id": 12345678, "login": "AnotherUser"},
-                        ],
-                        "write_users": None,
-                    },
-                    "id": 186853002,
-                    "name": "Hello-World",
-                }
-            ],
+    async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
+        data = b"a" * 123
+        headers = {
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "Content-Type": f"application/json; charset={charset}",
         }
-    elif event_type == "push":
-        assert json.loads(reply.content) == {
-            "repositories": [
-                {
-                    "collaborators": {
-                        "active_users": [
-                            {"id": 21031067, "login": "Codertocat"},
-                        ],
-                        "write_users": None,
-                    },
-                    "id": 186853002,
-                    "name": "Hello-World",
-                }
-            ],
-        }
-
-    else:
+        reply = await client.request(
+            "GET", "/organization/1234/usage", content=data, headers=headers
+        )
+        assert reply.status_code == 200, reply.content
         assert json.loads(reply.content) == {"repositories": []}
+
+        reply = await client.request(
+            "GET", "/organization/21031067/usage", content=data, headers=headers
+        )
+        assert reply.status_code == 200, reply.content
+        if event_type == "pull_request":
+            assert json.loads(reply.content) == {
+                "repositories": [
+                    {
+                        "collaborators": {
+                            "active_users": [
+                                {"id": 21031067, "login": "Codertocat"},
+                                {"id": 12345678, "login": "AnotherUser"},
+                            ],
+                            "write_users": None,
+                        },
+                        "id": 186853002,
+                        "name": "Hello-World",
+                    }
+                ],
+            }
+        elif event_type == "push":
+            assert json.loads(reply.content) == {
+                "repositories": [
+                    {
+                        "collaborators": {
+                            "active_users": [
+                                {"id": 21031067, "login": "Codertocat"},
+                            ],
+                            "write_users": None,
+                        },
+                        "id": 186853002,
+                        "name": "Hello-World",
+                    }
+                ],
+            }
+
+        else:
+            assert json.loads(reply.content) == {"repositories": []}
