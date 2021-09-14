@@ -153,10 +153,18 @@ class MergeAction(merge_base.MergeBaseAction):
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> str:
-        summary = "**Required conditions for merge:**\n\n"
+        pulls = await q.get_pulls()
+
+        if pulls and ctxt.pull["number"] == pulls[0] and await ctxt.is_behind:
+            summary = (
+                "The pull request base branch will be updated before being merged.\n\n"
+            )
+        else:
+            summary = ""
+
+        summary += "**Required conditions for merge:**\n\n"
         summary += rule.conditions.get_summary()
 
-        pulls = await q.get_pulls()
         if pulls:
             table = [
                 "| | Pull request | Priority |",

@@ -281,6 +281,7 @@ async def test_queue_summary(redis_cache):
     )
     ctxt.missing_feature_reason = subscription.Subscription.missing_feature_reason
     ctxt.pull = {
+        "number": 0,
         "base": {
             "repo": {
                 "owner": {

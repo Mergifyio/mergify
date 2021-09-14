@@ -229,7 +229,6 @@ class MergeBaseAction(actions.Action, abc.ABC):
         is_behind: bool = False,
     ) -> check_api.Result:
 
-        summary = ""
         if self.config["strict"] in (
             StrictMergeParameter.fasttrack,
             StrictMergeParameter.ordered,
@@ -242,15 +241,12 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 _ord = utils.to_ordinal_numeric(position + 1)
                 title = f"The pull request is the {_ord} in the queue to be merged"
 
-            if is_behind:
-                summary = "The pull request base branch will be updated before being merged.\n\n"
-
         elif self.config["strict"] is not StrictMergeParameter.false and is_behind:
             title = "The pull request will be updated with its base branch soon"
         else:
             title = "The pull request will be merged soon"
 
-        summary += await self._get_queue_summary(ctxt, rule, q)
+        summary = await self._get_queue_summary(ctxt, rule, q)
 
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
