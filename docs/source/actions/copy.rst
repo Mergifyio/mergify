@@ -9,13 +9,6 @@
 copy
 ====
 
-.. warning::
-
-   |premium plan tag|
-   |essential plan tag|
-   If the repository is bigger than 512 MB, the ``copy`` action is only
-   available for `Essential and Premium  Plan subscribers <https://mergify.io/pricing>`_.
-
 The ``copy`` action creates a copy of the pull request targeting other branches.
 
 Options
