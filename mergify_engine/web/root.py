@@ -100,10 +100,7 @@ async def refresh_repo(
             )
 
     await utils.send_repository_refresh(
-        redis_cache,
-        redis_stream,
-        repository,
-        action="user",
+        redis_cache, redis_stream, repository, action="user", source="API"
     )
     return responses.Response("Refresh queued", status_code=202)
 
@@ -142,6 +139,7 @@ async def refresh_pull(
         repository,
         action=action,
         pull_request_number=pull_request_number,
+        source="API",
     )
     return responses.Response("Refresh queued", status_code=202)
 
@@ -174,6 +172,7 @@ async def refresh_branch(
         redis_stream,
         repository,
         action="user",
+        source="API",
         ref=github_types.GitHubRefType(f"refs/heads/{branch}"),
     )
     return responses.Response("Refresh queued", status_code=202)

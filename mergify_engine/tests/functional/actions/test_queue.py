@@ -534,6 +534,130 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_first_batch_split_queue(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 2,
+                    "batch_size": 3,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+            ],
+        )
+
+        await self.create_status(tmp_pulls[0], state="failure")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+        tmp_pulls = sorted(
+            [
+                tmp
+                for tmp in pulls
+                if tmp["number"]
+                not in (
+                    p1["number"],
+                    p2["number"],
+                    p["number"],
+                )
+            ],
+            key=operator.itemgetter("number"),
+        )
+
+        # The train car has been splitted
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pulls[0]["number"],
+                ),
+            ],
+            [],
+        )
+
+        # Merge p1, p2 should be marked as failure
+        p1 = await self.get_pull(p1["number"])
+        await self.create_status(p1)
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 1
+
+        await self._assert_cars_contents(q, None, [])
+
     async def test_batch_split_queue(self):
         rules = {
             "queue_rules": [
@@ -2309,7 +2433,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
-        head_sha = await q.get_head_sha()
+        base_sha = await q.get_base_sha()
 
         queue_config = rules.QueueConfig(
             priority=0,
@@ -2332,7 +2456,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
             [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
             [p1["number"]],
-            head_sha,
+            base_sha,
         )
         q._cars.append(car)
 
@@ -2379,7 +2503,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         ctxt = context.Context(self.repository_ctxt, p)
         q = await merge_train.Train.from_context(ctxt)
-        head_sha = await q.get_head_sha()
+        base_sha = await q.get_base_sha()
 
         queue_config = rules.QueueConfig(
             priority=0,
@@ -2402,7 +2526,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
             [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
             [p1["number"], p2["number"]],
-            head_sha,
+            base_sha,
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
             await car.create_pull(

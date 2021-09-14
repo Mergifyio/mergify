@@ -15,6 +15,9 @@
 # under the License.
 import dataclasses
 import datetime
+import functools
+import typing
+import zoneinfo
 
 
 DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
@@ -51,6 +54,47 @@ class Month(PartialDatetime):
 @dataclasses.dataclass
 class Day(PartialDatetime):
     pass
+
+
+@functools.total_ordering
+@dataclasses.dataclass
+class Time:
+    hour: int
+    minute: int
+    tzinfo: datetime.tzinfo
+
+    def __str__(self) -> str:
+        value = f"{self.hour:02d}:{self.minute:02d}"
+        if isinstance(self.tzinfo, zoneinfo.ZoneInfo):
+            value += f"[{self.tzinfo.key}]"
+        return value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, (Time, datetime.datetime)):
+            raise ValueError(f"Unsupport comparaison type: {type(other)}")
+        now = utcnow()
+        d1 = self._to_dt(self, now)
+        d2 = self._to_dt(other, now)
+        return d1 == d2
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, (Time, datetime.datetime)):
+            raise ValueError(f"Unsupport comparaison type: {type(other)}")
+        now = utcnow()
+        d1 = self._to_dt(self, now)
+        d2 = self._to_dt(other, now)
+        return d1 > d2
+
+    @staticmethod
+    def _to_dt(
+        obj: typing.Union["Time", datetime.datetime], ref: datetime.datetime
+    ) -> datetime.datetime:
+        if isinstance(obj, datetime.datetime):
+            return obj
+        elif isinstance(obj, Time):
+            return ref.replace(minute=obj.minute, hour=obj.hour, tzinfo=obj.tzinfo)
+        else:
+            raise ValueError(f"Unsupport comparaison type: {type(obj)}")
 
 
 @dataclasses.dataclass
