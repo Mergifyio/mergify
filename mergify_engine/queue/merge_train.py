@@ -319,6 +319,7 @@ class TrainCar:
                     ctxt.pull["base"]["repo"],
                     pull_request_number=ctxt.pull["number"],
                     action="internal",
+                    source="updated pull need to be merge",
                 )
             return
 
@@ -630,6 +631,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     original_ctxt.pull["base"]["repo"],
                     pull_request_number=original_ctxt.pull["number"],
                     action="internal",
+                    source="draft pull creation error",
                 )
 
     async def update_summaries(
@@ -847,6 +849,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                         original_ctxt.pull["base"]["repo"],
                         pull_request_number=original_ctxt.pull["number"],
                         action="internal",
+                        source="draft pull request state change",
                     )
 
         if self.creation_state != "created":
@@ -1131,7 +1134,9 @@ class Train(queue.QueueBase):
 
         # Refresh summary of others
         await self._refresh_pulls(
-            ctxt.pull["base"]["repo"], except_pull_request=ctxt.pull["number"]
+            ctxt.pull["base"]["repo"],
+            source="pull added to queue",
+            except_pull_request=ctxt.pull["number"],
         )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
@@ -1159,7 +1164,10 @@ class Train(queue.QueueBase):
 
             await self.save()
             ctxt.log.info("removed from head train", position=0)
-            await self._refresh_pulls(ctxt.pull["base"]["repo"])
+            await self._refresh_pulls(
+                ctxt.pull["base"]["repo"],
+                source="pull removed from queue",
+            )
             return
 
         position = await self.get_position(ctxt)
@@ -1174,7 +1182,9 @@ class Train(queue.QueueBase):
         del self._waiting_pulls[position - number_of_pulls_in_cars]
         await self.save()
         ctxt.log.info("removed from train", position=position)
-        await self._refresh_pulls(ctxt.pull["base"]["repo"])
+        await self._refresh_pulls(
+            ctxt.pull["base"]["repo"], source="pull removed from queue"
+        )
 
     async def _split_failed_batches(self, queue_rules: rules.QueueRules) -> None:
         current_queue_position = 0
@@ -1192,6 +1202,7 @@ class Train(queue.QueueBase):
                         self.repository.repo,
                         pull_request_number=self._cars[0].queue_pull_request_number,
                         action="internal",
+                        source="batch failed due to last pull",
                     )
             return
 
@@ -1270,7 +1281,9 @@ class Train(queue.QueueBase):
                 self._cars.append(car)
 
                 # Refresh summary of others
-                await self._refresh_pulls(self.repository.repo)
+                await self._refresh_pulls(
+                    self.repository.repo, source="batch got split"
+                )
                 break
 
     async def _populate_cars(self, queue_rules: rules.QueueRules) -> None:
