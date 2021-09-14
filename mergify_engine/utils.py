@@ -24,10 +24,13 @@ import typing
 import uuid
 
 import aredis
+import daiquiri
 
 from mergify_engine import config
 from mergify_engine import github_types
 
+
+LOG = daiquiri.getLogger()
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 
@@ -230,6 +233,15 @@ async def send_pull_refresh(
     action: github_types.GitHubEventRefreshActionType,
     pull_request_number: github_types.GitHubPullRequestNumber,
 ) -> None:
+    LOG.info(
+        "sending pull refresh",
+        gh_owner=repository["owner"]["login"],
+        gh_repo=repository["name"],
+        gh_private=repository["private"],
+        gh_pull=pull_request_number,
+        action=action,
+    )
+
     await _send_refresh(
         redis_cache,
         redis_stream,
@@ -245,6 +257,14 @@ async def send_repository_refresh(
     repository: github_types.GitHubRepository,
     action: github_types.GitHubEventRefreshActionType,
 ) -> None:
+    LOG.info(
+        "sending repository refresh",
+        gh_owner=repository["owner"]["login"],
+        gh_repo=repository["name"],
+        gh_private=repository["private"],
+        action=action,
+    )
+
     await _send_refresh(redis_cache, redis_stream, repository, action)
 
 
@@ -255,6 +275,14 @@ async def send_branch_refresh(
     action: github_types.GitHubEventRefreshActionType,
     ref: github_types.GitHubRefType,
 ) -> None:
+    LOG.info(
+        "sending repository branch refresh",
+        gh_owner=repository["owner"]["login"],
+        gh_repo=repository["name"],
+        gh_private=repository["private"],
+        gh_ref=ref,
+        action=action,
+    )
     await _send_refresh(redis_cache, redis_stream, repository, action, ref=ref)
 
 
