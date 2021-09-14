@@ -59,7 +59,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                         {
                                             ">=": (
                                                 "current-time",
-                                                datetime.time(
+                                                date.Time(
                                                     12,
                                                     0,
                                                     tzinfo=zoneinfo.ZoneInfo(
@@ -71,7 +71,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                         {
                                             "<=": (
                                                 "current-time",
-                                                datetime.time(
+                                                date.Time(
                                                     23,
                                                     59,
                                                     tzinfo=zoneinfo.ZoneInfo(
@@ -117,7 +117,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                         {
                                             ">=": (
                                                 "current-time",
-                                                datetime.time(
+                                                date.Time(
                                                     12, 0, tzinfo=datetime.timezone.utc
                                                 ),
                                             )
@@ -125,7 +125,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                         {
                                             "<=": (
                                                 "current-time",
-                                                datetime.time(
+                                                date.Time(
                                                     23, 59, tzinfo=datetime.timezone.utc
                                                 ),
                                             )
@@ -150,7 +150,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             {
                 ">=": (
                     "current-time",
-                    datetime.time(10, 0, tzinfo=zoneinfo.ZoneInfo("PST8PDT")),
+                    date.Time(10, 0, tzinfo=zoneinfo.ZoneInfo("PST8PDT")),
                 )
             },
         ),
@@ -159,7 +159,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             {
                 ">=": (
                     "current-time",
-                    datetime.time(10, 0, tzinfo=datetime.timezone.utc),
+                    date.Time(10, 0, tzinfo=datetime.timezone.utc),
                 )
             },
         ),
@@ -191,7 +191,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                     {
                                         ">=": (
                                             "current-time",
-                                            datetime.time(
+                                            date.Time(
                                                 10, 2, tzinfo=datetime.timezone.utc
                                             ),
                                         )
@@ -199,7 +199,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                     {
                                         "<=": (
                                             "current-time",
-                                            datetime.time(
+                                            date.Time(
                                                 22, 35, tzinfo=datetime.timezone.utc
                                             ),
                                         )
@@ -235,13 +235,13 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                             {
                                 ">=": (
                                     "current-time",
-                                    datetime.time(10, 2, tzinfo=datetime.timezone.utc),
+                                    date.Time(10, 2, tzinfo=datetime.timezone.utc),
                                 )
                             },
                             {
                                 "<=": (
                                     "current-time",
-                                    datetime.time(22, 35, tzinfo=datetime.timezone.utc),
+                                    date.Time(22, 35, tzinfo=datetime.timezone.utc),
                                 )
                             },
                         )
