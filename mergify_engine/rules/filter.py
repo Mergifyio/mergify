@@ -346,12 +346,13 @@ def _as_datetime(value: typing.Any) -> datetime.datetime:
             return dt.replace(year=value.value, month=1, day=1)
         else:
             return date.DT_MAX
-    elif isinstance(value, datetime.time):
+    elif isinstance(value, date.Time):
         return date.utcnow().replace(
             hour=value.hour,
             minute=value.minute,
-            second=value.second,
-            microsecond=value.microsecond,
+            second=0,
+            microsecond=0,
+            tzinfo=value.tzinfo,
         )
     else:
         return date.DT_MAX
@@ -419,7 +420,7 @@ def _dt_op(
                 else:
                     return _dt_in_future(dt_ref)
             else:
-                if isinstance(ref, datetime.time):
+                if isinstance(ref, date.Time):
                     # Condition will change next day at 00:00:00
                     dt_ref = dt_ref + datetime.timedelta(days=1)
                 elif isinstance(value, date.DayOfWeek):
