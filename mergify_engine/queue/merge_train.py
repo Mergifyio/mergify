@@ -1191,6 +1191,7 @@ class Train(queue.QueueBase):
         if (
             len(self._cars) == 1
             and self._cars[0].checks_conclusion == check_api.Conclusion.FAILURE
+            and len(self._cars[0].initial_embarked_pulls) == 1
         ):
             # A earlier batch failed and it was the fault of the last PR of the batch
             # we refresh the draft PR, so it will set the final state
