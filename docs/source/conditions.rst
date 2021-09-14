@@ -302,7 +302,7 @@ Here's the list of pull request attribute that can be used in conditions:
 
 .. note::
 
-   ``current-datetime``, ``current-time``, ``created-at``, ``updated-at``,
+   ``current-timestamp``, ``current-time``, ``created-at``, ``updated-at``,
    ``closed-at`` and ``merged-at`` do not support the ``~=``, ``=`` and ``!=``
    operators. ``schedule`` only supports the ``=`` and ``!=`` operators.
 
