@@ -40,8 +40,7 @@ class ReviewAction(actions.Action):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
-        # FIXME(sileht): MRGFY-565
-        # | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALWAYS_RUN
     )
     validator = {
         voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
