@@ -175,7 +175,6 @@ async def test_active_feature(redis_cache):
         },
     )
     assert sub.has_feature(subscription.Features.PRIVATE_REPOSITORY) is True
-    assert sub.has_feature(subscription.Features.LARGE_REPOSITORY) is True
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
 
 

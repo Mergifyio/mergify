@@ -13,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from unittest import mock
-
 import yaml
 
 from mergify_engine.tests.functional import base
@@ -55,8 +53,3 @@ class TestRebaseAction(base.FunctionalTestBase):
     async def test_rebase_ok(self):
         pr_initial_sha, final_sha = await self._do_test_rebase()
         self.assertNotEqual(pr_initial_sha, final_sha)
-
-    async def test_rebase_fail_heavy_repo(self):
-        with mock.patch("mergify_engine.config.NOSUB_MAX_REPO_SIZE_KB", -1):
-            pr_initial_sha, final_sha = await self._do_test_rebase()
-            self.assertEqual(pr_initial_sha, final_sha)
