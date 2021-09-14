@@ -3,6 +3,8 @@ defaults:
     queue:
       name: default
       method: rebase
+    squash:
+      commit_message: first-commit
 
 queue_rules:
   - name: hotfix
