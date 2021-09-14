@@ -417,7 +417,7 @@ def test_search(line, result):
         "current-day>100",
         "updated-at=7 days 18:00",
         "updated-at>=100",
-        "current-datetime>=100",
+        "current-timestamp>=100",
         "current-time>=10:00[InvalidTZ]",
         "schedule=MON-friday 10:02-22:35[InvalidTZ]",
     ),

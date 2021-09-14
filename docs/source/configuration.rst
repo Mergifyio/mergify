@@ -229,7 +229,7 @@ Examples
         conditions:
           - base=stable/10.0
           - -closed
-          - current-datetime>=2021-04-05
+          - current-timestamp>=2021-04-05
         actions:
           close:
             message: |
