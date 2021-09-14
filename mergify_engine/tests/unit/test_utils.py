@@ -170,6 +170,7 @@ async def test_refresh_with_pull_request_number(
         gh_repo,
         pull_request_number=github_types.GitHubPullRequestNumber(5),
         action="internal",
+        source="test",
     )
     await utils.send_branch_refresh(
         redis_cache,
@@ -177,6 +178,7 @@ async def test_refresh_with_pull_request_number(
         gh_repo,
         ref=github_types.GitHubRefType("master"),
         action="admin",
+        source="test",
     )
 
     keys = await redis_stream.keys("*")

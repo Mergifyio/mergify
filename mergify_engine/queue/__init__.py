@@ -96,6 +96,7 @@ class QueueBase(abc.ABC):
     async def _refresh_pulls(
         self,
         repository: github_types.GitHubRepository,
+        source: str,
         except_pull_request: typing.Optional[
             github_types.GitHubPullRequestNumber
         ] = None,
@@ -114,4 +115,5 @@ class QueueBase(abc.ABC):
                     repository,
                     pull_request_number=pull_number,
                     action="internal",
+                    source=source,
                 )

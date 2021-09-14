@@ -39,6 +39,7 @@ class RefreshAction(actions.Action):
                 ctxt.pull["base"]["repo"],
                 pull_request_number=ctxt.pull["number"],
                 action="user",
+                source="action/command",
             )
         await signals.send(ctxt, "action.refresh")
         return check_api.Result(

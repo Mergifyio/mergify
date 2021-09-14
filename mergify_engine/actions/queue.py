@@ -193,6 +193,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                         ctxt.pull["base"]["repo"],
                         pull_request_number=car.queue_pull_request_number,
                         action="internal",
+                        source="forward from queue action (run)",
                     )
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
@@ -237,6 +238,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                         ctxt.pull["base"]["repo"],
                         pull_request_number=car.queue_pull_request_number,
                         action="internal",
+                        source="forward from queue action (cancel)",
                     )
 
         q = await merge_train.Train.from_context(ctxt)
