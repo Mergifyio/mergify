@@ -152,14 +152,18 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 ctxt, [queue_rule_evaluated], ctxt.pull_request
             )
 
-            need_reset = (
-                await ctxt.has_been_synchronized_by_user() or await ctxt.is_behind
-            )
-            if need_reset:
+            unexpected_changes: typing.Optional[merge_train.UnexpectedChange]
+            if await ctxt.has_been_synchronized_by_user() or await ctxt.is_behind:
+                unexpected_changes = merge_train.UnexpectedUpdatedPullRequestChange(
+                    ctxt.pull["number"]
+                )
                 status = check_api.Conclusion.PENDING
-                ctxt.log.info("train will be reset")
-                await q.reset()
+                ctxt.log.info(
+                    "train will be reset", unexpected_changes=unexpected_changes
+                )
+                await q.reset(unexpected_changes)
             else:
+                unexpected_changes = None
                 status = await merge_base.get_rule_checks_status(
                     ctxt.log,
                     [ctxt.pull_request],
@@ -167,7 +171,10 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     unmatched_conditions_return_failure=False,
                 )
             await car.update_summaries(
-                status, status, queue_rule_evaluated, will_be_reset=need_reset
+                status,
+                status,
+                queue_rule_evaluated,
+                unexpected_change=unexpected_changes,
             )
             await q.save()
         elif car and car.creation_state == "created":

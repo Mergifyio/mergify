@@ -57,6 +57,34 @@ CHECK_ASSERTS = {
 }
 
 
+class UnexpectedChange:
+    pass
+
+
+@dataclasses.dataclass
+class UnexpectedDraftPullRequestChange(UnexpectedChange):
+    draft_pull_request_number: github_types.GitHubPullRequestNumber
+
+    def __str__(self) -> str:
+        return f"the draft pull request #{self.draft_pull_request_number} has been manually updated"
+
+
+@dataclasses.dataclass
+class UnexpectedUpdatedPullRequestChange(UnexpectedChange):
+    updated_pull_request_number: github_types.GitHubPullRequestNumber
+
+    def __str__(self) -> str:
+        return f"the updated pull request #{self.updated_pull_request_number} has been manually updated"
+
+
+@dataclasses.dataclass
+class UnexpectedBaseBranchChange(UnexpectedChange):
+    base_sha: github_types.SHAType
+
+    def __str__(self) -> str:
+        return f"an external action moved the branch head {self.base_sha}"
+
+
 @dataclasses.dataclass
 class TrainCarPullRequestCreationPostponed(Exception):
     car: "TrainCar"
@@ -610,7 +638,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         checks_conclusion: check_api.Conclusion,
         evaluated_queue_rule: rules.EvaluatedQueueRule,
         *,
-        will_be_reset: bool = False,
+        unexpected_change: typing.Optional[UnexpectedChange] = None,
     ) -> None:
         self.checks_conclusion = checks_conclusion
 
@@ -687,8 +715,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 )
                 show_queue = False
             elif conclusion == check_api.Conclusion.PENDING:
-                if will_be_reset:
-                    headline = f"✨ Unexpected queue change. The pull request {self._get_user_refs()} will be re-embarked soon. ✨"
+                if unexpected_change is not None:
+                    headline = f"✨ Unexpected queue change: {unexpected_change}. The pull request {self._get_user_refs()} will be re-embarked soon. ✨"
                 elif checks_conclusion == check_api.Conclusion.FAILURE:
                     if self.has_previous_car_status_succeeded():
                         headline = "🕵️  This combination of pull requests has failed checks. Mergify will split this batch to understand which pull request is responsible for the failure. 🕵️"
@@ -773,20 +801,25 @@ You don't need to do anything. Mergify will close this pull request automaticall
             checks_copy_summary = ""
 
         # Update the original Pull Request
-        if will_be_reset:
-            original_pull_title = "The pull request is going to be re-embarked soon"
-        else:
+        unexpected_change_summary = ""
+        if unexpected_change is None:
             if conclusion == check_api.Conclusion.SUCCESS:
                 original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} is mergeable"
             elif conclusion == check_api.Conclusion.PENDING:
                 original_pull_title = f"The pull request is embarked with {self._get_embarked_refs(include_my_self=False)} for merge"
             else:
                 original_pull_title = f"The pull request embarked with {self._get_embarked_refs(include_my_self=False)} cannot be merged and has been disembarked"
+        else:
+            original_pull_title = "The pull request is going to be re-embarked soon"
+            unexpected_change_summary = (
+                f"✨ Unexpected queue change: {unexpected_change}. ✨\n\n"
+            )
 
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
-            summary=queue_summary
+            summary=unexpected_change_summary
+            + queue_summary
             + "\n"
             + checks_copy_summary
             + "\n"
@@ -1011,8 +1044,10 @@ class Train(queue.QueueBase):
                     i, reason="The associated queue rule does not exist anymore"
                 )
 
-    async def reset(self) -> None:
-        await self._slice_cars(0, reason="Unexpected queue change")
+    async def reset(self, unexpected_change: UnexpectedChange) -> None:
+        await self._slice_cars(
+            0, reason=f"Unexpected queue change: {unexpected_change}."
+        )
         await self.save()
         self.log.info("train cars reset")
 
@@ -1107,7 +1142,7 @@ class Train(queue.QueueBase):
             and self._cars
             and ctxt.pull["number"]
             == self._cars[0].still_queued_embarked_pulls[0].user_pull_request_number
-            and await self.is_synced_with_the_base_branch()
+            and await self.is_synced_with_the_base_branch(await self.get_base_sha())
         ):
             # Head of the train was merged and the base_sha haven't changed, we can keep
             # other running cars
@@ -1252,7 +1287,7 @@ class Train(queue.QueueBase):
             return
 
         if self._current_base_sha is None or not self._cars:
-            self._current_base_sha = await self.get_head_sha()
+            self._current_base_sha = await self.get_base_sha()
 
         try:
             queue_rule = queue_rules[head.config["name"]]
@@ -1364,7 +1399,7 @@ class Train(queue.QueueBase):
             self._waiting_pulls.extend(car.still_queued_embarked_pulls)
             raise
 
-    async def get_head_sha(self) -> github_types.SHAType:
+    async def get_base_sha(self) -> github_types.SHAType:
         escaped_branch_name = parse.quote(self.ref, safe="")
         return typing.cast(
             github_types.GitHubBranch,
@@ -1373,12 +1408,13 @@ class Train(queue.QueueBase):
             ),
         )["commit"]["sha"]
 
-    async def is_synced_with_the_base_branch(self) -> bool:
+    async def is_synced_with_the_base_branch(
+        self, base_sha: github_types.SHAType
+    ) -> bool:
         if not self._cars:
             return True
 
-        head_sha = await self.get_head_sha()
-        if head_sha == self._current_base_sha:
+        if base_sha == self._current_base_sha:
             return True
 
         if not self._cars:
@@ -1395,7 +1431,7 @@ class Train(queue.QueueBase):
         pull: github_types.GitHubPullRequest = await self.repository.installation.client.item(
             f"{self.repository.base_url}/pulls/{self._cars[0].still_queued_embarked_pulls[0].user_pull_request_number}"
         )
-        return pull["merged"] and pull["merge_commit_sha"] == head_sha
+        return pull["merged"] and pull["merge_commit_sha"] == base_sha
 
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
