@@ -242,62 +242,44 @@ class PullRequestRules:
     def has_user_rules(self) -> bool:
         return any(rule for rule in self.rules if not rule.hidden)
 
+    @staticmethod
+    def _gen_rule_from(
+        rule: PullRequestRule,
+        new_actions: typing.Dict[str, actions.Action],
+        extra_conditions: typing.List[
+            typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+        ],
+    ) -> PullRequestRule:
+        return PullRequestRule(
+            name=rule.name,
+            disabled=rule.disabled,
+            conditions=conditions.PullRequestRuleConditions(
+                rule.conditions.condition.copy().conditions + extra_conditions
+            ),
+            actions=new_actions,
+            hidden=rule.hidden,
+        )
+
     async def get_pull_request_rule(self, ctxt: context.Context) -> RulesEvaluator:
         runtime_rules = []
         for rule in self.rules:
             if not rule.actions:
-                runtime_rules.append(
-                    PullRequestRule(
-                        name=rule.name,
-                        disabled=rule.disabled,
-                        conditions=rule.conditions.copy(),
-                        actions=rule.actions,
-                        hidden=rule.hidden,
-                    )
-                )
+                runtime_rules.append(self._gen_rule_from(rule, rule.actions, []))
                 continue
 
-            actions_with_special_rules = {}
             actions_without_special_rules = {}
             for name, action in rule.actions.items():
-                if name in ["queue", "merge"]:
-                    actions_with_special_rules[name] = action
+                conditions = await action.get_conditions_requirements(ctxt)
+                if conditions:
+                    runtime_rules.append(
+                        self._gen_rule_from(rule, {name: action}, conditions)
+                    )
                 else:
                     actions_without_special_rules[name] = action
 
-            if actions_with_special_rules:
-                branch_protection_conditions = (
-                    await conditions.get_branch_protection_conditions(
-                        ctxt.repository, ctxt.pull["base"]["ref"]
-                    )
-                )
-                depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
-                if branch_protection_conditions or depends_on_conditions:
-                    runtime_rules.append(
-                        PullRequestRule(
-                            name=rule.name,
-                            disabled=rule.disabled,
-                            conditions=conditions.PullRequestRuleConditions(
-                                rule.conditions.condition.copy().conditions
-                                + branch_protection_conditions
-                                + depends_on_conditions
-                            ),
-                            actions=actions_with_special_rules,
-                            hidden=rule.hidden,
-                        )
-                    )
-                else:
-                    actions_without_special_rules.update(actions_with_special_rules)
-
             if actions_without_special_rules:
                 runtime_rules.append(
-                    PullRequestRule(
-                        name=rule.name,
-                        disabled=rule.disabled,
-                        conditions=rule.conditions.copy(),
-                        actions=actions_without_special_rules,
-                        hidden=rule.hidden,
-                    )
+                    self._gen_rule_from(rule, actions_without_special_rules, [])
                 )
 
         return await RulesEvaluator.create(

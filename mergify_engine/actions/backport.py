@@ -24,6 +24,7 @@ from mergify_engine import duplicate_pull
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import copy
+from mergify_engine.rules import conditions
 
 
 class BackportAction(copy.CopyAction):
@@ -57,11 +58,16 @@ class BackportAction(copy.CopyAction):
                 "Due to Github Action limitation, the `backport` action/command is only "
                 "available with the Mergify GitHub App.",
             )
-
-        if not ctxt.pull["merged"]:
-            return check_api.Result(
-                check_api.Conclusion.PENDING,
-                "Waiting for the pull request to get merged",
-                "",
-            )
         return await super().run(ctxt, rule)
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        return [
+            conditions.RuleCondition(
+                "merged", description=":pushpin: backport requirement"
+            )
+        ]

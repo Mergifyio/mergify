@@ -25,6 +25,7 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine.rules import conditions
 
 
 CANCELLED_CHECK_REPORT = check_api.Result(
@@ -150,3 +151,11 @@ class Action(abc.ABC):
                 wanted.add(user)
 
         return list(wanted)
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        return []
