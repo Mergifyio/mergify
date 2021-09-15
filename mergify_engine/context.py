@@ -972,18 +972,20 @@ class Context(object):
         re.MULTILINE | re.IGNORECASE,
     )
 
-    def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
+    def get_depends_on(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         if self.pull["body"] is None:
-            return set()
-        return {
-            github_types.GitHubPullRequestNumber(int(pull))
-            for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
-            if (owner == "" and repo == "")
-            or (
-                owner == self.pull["base"]["user"]["login"]
-                and repo == self.pull["base"]["repo"]["name"]
-            )
-        }
+            return []
+        return sorted(
+            {
+                github_types.GitHubPullRequestNumber(int(pull))
+                for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
+                if (owner == "" and repo == "")
+                or (
+                    owner == self.pull["base"]["user"]["login"]
+                    and repo == self.pull["base"]["repo"]["name"]
+                )
+            }
+        )
 
     async def update_pull_check_runs(self, check: github_types.GitHubCheckRun) -> None:
         self._cache["pull_check_runs"] = [
