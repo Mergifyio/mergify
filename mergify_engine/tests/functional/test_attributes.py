@@ -314,7 +314,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, pr)
-        assert ctxt.get_depends_on() == {pr1["number"], pr2["number"], 9999999}
+        assert ctxt.get_depends_on() == [pr1["number"], pr2["number"], 9999999]
         assert await ctxt._get_consolidated_data("depends-on") == [f"#{pr2['number']}"]
 
         repo_url = ctxt.pull["base"]["repo"]["html_url"]
