@@ -491,7 +491,7 @@ footer
     )
 
     ctxt = await context.Context.create(mock.Mock(), pull)
-    assert ctxt.get_depends_on() == {123, 456, 789, 42, 48}
+    assert ctxt.get_depends_on() == [42, 48, 123, 456, 789]
 
 
 @pytest.mark.asyncio
