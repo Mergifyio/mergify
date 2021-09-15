@@ -177,24 +177,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 unexpected_change=unexpected_changes,
             )
             await q.save()
-        elif car and car.creation_state == "created":
-            if (
-                not ctxt.has_been_only_refreshed()
-                and car.queue_pull_request_number is not None
-            ):
-                # NOTE(sileht): It's not only refreshed, so we need to
-                # update the associated transient pull request.
-                # This is mandatory to filter out refresh to avoid loop
-                # of refreshes between this PR and the transient one.
-                with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_pull_refresh(
-                        ctxt.repository.installation.redis,
-                        redis_stream,
-                        ctxt.pull["base"]["repo"],
-                        pull_request_number=car.queue_pull_request_number,
-                        action="internal",
-                        source="forward from queue action (run)",
-                    )
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
@@ -214,35 +196,63 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ),
                 )
 
-        return await self._run(ctxt, rule, q)
+        ret = await self._run(ctxt, rule, q)
 
-    async def cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Result:
-        if not ctxt.has_been_only_refreshed():
+        # NOTE(sileht): Only refresh if the car still exists and is the same as
+        # before we run the action
+        new_car = q.get_car(ctxt)
+        if (
+            car
+            and car.queue_pull_request_number is not None
+            and new_car
+            and new_car.creation_state == "created"
+            and new_car.queue_pull_request_number is not None
+            and new_car.queue_pull_request_number == car.queue_pull_request_number
+            and not ctxt.has_been_only_refreshed()
+        ):
             # NOTE(sileht): It's not only refreshed, so we need to
             # update the associated transient pull request.
             # This is mandatory to filter out refresh to avoid loop
             # of refreshes between this PR and the transient one.
-            q = await merge_train.Train.from_context(ctxt)
-            car = q.get_car(ctxt)
-            if (
-                car
-                and car.creation_state == "created"
-                and car.queue_pull_request_number is not None
-            ):
-                with utils.aredis_for_stream() as redis_stream:
-                    await utils.send_pull_refresh(
-                        ctxt.repository.installation.redis,
-                        redis_stream,
-                        ctxt.pull["base"]["repo"],
-                        pull_request_number=car.queue_pull_request_number,
-                        action="internal",
-                        source="forward from queue action (cancel)",
-                    )
+            with utils.aredis_for_stream() as redis_stream:
+                await utils.send_pull_refresh(
+                    ctxt.repository.installation.redis,
+                    redis_stream,
+                    ctxt.pull["base"]["repo"],
+                    pull_request_number=new_car.queue_pull_request_number,
+                    action="internal",
+                    source="forward from queue action (run)",
+                )
+        return ret
 
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
         q = await merge_train.Train.from_context(ctxt)
-        return await self._cancel(ctxt, rule, q)
+        ret = await self._cancel(ctxt, rule, q)
+
+        # NOTE(sileht): Only refresh if the car still exists
+        car = q.get_car(ctxt)
+        if (
+            car
+            and car.creation_state == "created"
+            and car.queue_pull_request_number is not None
+            and not ctxt.has_been_only_refreshed()
+        ):
+            # NOTE(sileht): It's not only refreshed, so we need to
+            # update the associated transient pull request.
+            # This is mandatory to filter out refresh to avoid loop
+            # of refreshes between this PR and the transient one.
+            with utils.aredis_for_stream() as redis_stream:
+                await utils.send_pull_refresh(
+                    ctxt.repository.installation.redis,
+                    redis_stream,
+                    ctxt.pull["base"]["repo"],
+                    pull_request_number=car.queue_pull_request_number,
+                    action="internal",
+                    source="forward from queue action (cancel)",
+                )
+        return ret
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
