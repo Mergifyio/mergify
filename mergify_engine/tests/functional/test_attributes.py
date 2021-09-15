@@ -228,6 +228,7 @@ class TestAttributes(base.FunctionalTestBase):
             "commented-reviews-by": [],
             "milestone": "",
             "label": [],
+            "linear-history": True,
             "body": "test_draft: pull request n2 from fork",
             "base": self.main_branch_name,
             "review-requested": [],
@@ -313,7 +314,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, pr)
-        assert ctxt.get_depends_on() == {pr1["number"], pr2["number"], 9999999}
+        assert ctxt.get_depends_on() == [pr1["number"], pr2["number"], 9999999]
         assert await ctxt._get_consolidated_data("depends-on") == [f"#{pr2['number']}"]
 
         repo_url = ctxt.pull["base"]["repo"]["html_url"]
@@ -358,3 +359,32 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         )
         assert len(sorted_checks) == 2
         assert "success" == sorted_checks[0]["conclusion"]
+
+    async def test_linear_history(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "noways",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "-linear-history",
+                    ],
+                    "actions": {"close": {}},
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        await self.merge_pull(p1["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        await self.client_admin.put(
+            f"{self.repository_ctxt.base_url}/pulls/{p2['number']}/update-branch",
+            api_version="lydian",
+            json={"expected_head_sha": p2["head"]["sha"]},
+        )
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})

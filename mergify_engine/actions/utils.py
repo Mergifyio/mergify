@@ -42,8 +42,7 @@ async def render_bot_account(
     bot_account_template: typing.Optional[str],
     *,
     option_name: str = "bot_account",
-    # TODO(sileht): make it mandatory when all bot_account need subscription
-    required_feature: typing.Optional[subscription.Features],
+    required_feature: subscription.Features,
     missing_feature_message: str = "This action with `bot_account` set is unavailable",
     required_permissions: typing.Optional[
         typing.List[github_types.GitHubRepositoryPermission]
@@ -87,14 +86,9 @@ async def render_bot_account(
         )
 
     if required_permissions:
-        # TODO(sileht): Cache this, people only use one bot account!
         try:
-            permission = typing.cast(
-                github_types.GitHubRepositoryCollaboratorPermission,
-                await ctxt.client.item(
-                    f"{ctxt.base_url}/collaborators/{bot_account}/permission"
-                ),
-            )["permission"]
+            user = await ctxt.repository.installation.get_user(bot_account)
+            permission = await ctxt.repository.get_user_permission(user)
         except http.HTTPNotFound:
             raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,

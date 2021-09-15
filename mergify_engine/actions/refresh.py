@@ -22,8 +22,11 @@ from mergify_engine import utils
 
 
 class RefreshAction(actions.Action):
-    is_command = True
-    is_action = False
+    flags = (
+        actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+    )
+
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     async def run(
@@ -36,8 +39,14 @@ class RefreshAction(actions.Action):
                 ctxt.pull["base"]["repo"],
                 pull_request_number=ctxt.pull["number"],
                 action="user",
+                source="action/command",
             )
         await signals.send(ctxt, "action.refresh")
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

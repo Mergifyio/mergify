@@ -30,12 +30,13 @@ from mergify_engine.rules import types
 
 
 class RebaseAction(actions.Action):
-    is_command = True
-
-    always_run = True
-
-    silent_report = True
-
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+    )
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
             None, types.Jinja2
@@ -54,19 +55,6 @@ class RebaseAction(actions.Action):
             )
 
         if await ctxt.is_behind:
-            repo_info = await ctxt.client.item(ctxt.pull["base"]["repo"]["url"])
-
-            if repo_info[
-                "size"
-            ] > config.NOSUB_MAX_REPO_SIZE_KB and not ctxt.subscription.has_feature(
-                subscription.Features.LARGE_REPOSITORY
-            ):
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "Branch rebase failed",
-                    f"Your repository is above {config.NOSUB_MAX_REPO_SIZE_KB} KB.\n{ctxt.subscription.missing_feature_reason(ctxt.pull['base']['repo']['owner']['login'])}",
-                )
-
             try:
                 bot_account = await action_utils.render_bot_account(
                     ctxt,
@@ -97,3 +85,8 @@ class RebaseAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

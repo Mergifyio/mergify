@@ -24,9 +24,13 @@ from mergify_engine import signals
 
 
 class UpdateAction(actions.Action):
-    is_command = True
-    always_run = True
-    silent_report = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+    )
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
 
     @staticmethod
@@ -51,3 +55,8 @@ class UpdateAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

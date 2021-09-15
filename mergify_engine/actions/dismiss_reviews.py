@@ -26,6 +26,12 @@ from mergify_engine.rules import types
 
 
 class DismissReviewsAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_RUN
+    )
+
     validator = {
         voluptuous.Required("approved", default=True): voluptuous.Any(
             True, False, [types.GitHubLogin]
@@ -37,10 +43,6 @@ class DismissReviewsAction(actions.Action):
             "message", default="Pull request has been modified."
         ): types.Jinja2,
     }
-
-    always_run = True
-
-    silent_report = True
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
@@ -98,3 +100,8 @@ class DismissReviewsAction(actions.Action):
                 "Nothing to do, pull request have not been synchronized",
                 "",
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

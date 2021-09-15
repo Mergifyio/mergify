@@ -29,7 +29,12 @@ MSG = "This pull request has been automatically closed by Mergify."
 
 
 class CloseAction(actions.Action):
-    only_once = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+    )
     validator = {voluptuous.Required("message", default=MSG): types.Jinja2}
 
     async def run(
@@ -74,3 +79,8 @@ class CloseAction(actions.Action):
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "The pull request has been closed", message
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

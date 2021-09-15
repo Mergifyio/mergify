@@ -19,13 +19,11 @@ from typing import List
 
 import tenacity
 
-from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
-from mergify_engine import subscription
 from mergify_engine.clients import http
 from mergify_engine.user_tokens import UserTokensUser
 
@@ -236,22 +234,11 @@ async def duplicate(
     :param assignees: The list of users to be assigned to the created PR.
     :param branch_prefix: the prefix of the temporary created branch
     """
-    repo_full_name = ctxt.pull["base"]["repo"]["full_name"]
     bp_branch = get_destination_branch_name(
         ctxt.pull["number"], branch_name, branch_prefix
     )
 
     cherry_pick_error: str = ""
-
-    repo_info = await ctxt.client.item(f"/repos/{repo_full_name}")
-    if repo_info["size"] > config.NOSUB_MAX_REPO_SIZE_KB:
-        if not ctxt.subscription.has_feature(subscription.Features.LARGE_REPOSITORY):
-            ctxt.log.warning(
-                "repository too big and no subscription active, refusing to duplicate pull request",
-                size=repo_info["size"],
-            )
-            raise DuplicateFailed("Repository is too big and no subscription is active")
-        ctxt.log.info("running duplicate on large repository")
 
     bot_account_user: typing.Optional[UserTokensUser] = None
     if bot_account is not None:

@@ -28,6 +28,11 @@ from mergify_engine.rules import types
 
 
 class RequestReviewsAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+    )
 
     # This is the maximum number of review you can request on a PR.
     # It's not documented in the API, but it is shown in GitHub UI.
@@ -39,13 +44,13 @@ class RequestReviewsAction(actions.Action):
     )
 
     validator = {
-        voluptuous.Required("users", default=[]): voluptuous.Any(
+        voluptuous.Required("users", default=list): voluptuous.Any(
             [types.GitHubLogin],
             {
                 types.GitHubLogin: _random_weight,
             },
         ),
-        voluptuous.Required("teams", default=[]): voluptuous.Any(
+        voluptuous.Required("teams", default=list): voluptuous.Any(
             [types.GitHubTeam],
             {
                 types.GitHubTeam: _random_weight,
@@ -56,10 +61,6 @@ class RequestReviewsAction(actions.Action):
             voluptuous.Range(1, GITHUB_MAXIMUM_REVIEW_REQUEST),
         ),
     }
-
-    silent_report = True
-
-    always_run = True
 
     def _get_random_reviewers(
         self, random_number: int, pr_author: str
@@ -216,3 +217,8 @@ class RequestReviewsAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "No new reviewers to request", ""
             )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

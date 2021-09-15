@@ -100,6 +100,21 @@ class Installation:
             )
         return self._user_tokens
 
+    USER_ID_MAPPING_CACHE_KEY: str = "user-id-mapping"
+
+    async def get_user(
+        self, login: github_types.GitHubLogin
+    ) -> github_types.GitHubAccount:
+        data = await self.redis.hget(self.USER_ID_MAPPING_CACHE_KEY, login)
+        if data is not None:
+            return typing.cast(github_types.GitHubAccount, json.loads(data))
+
+        user = typing.cast(
+            github_types.GitHubAccount, await self.client.item(f"/users/{login}")
+        )
+        await self.redis.hset(self.USER_ID_MAPPING_CACHE_KEY, login, json.dumps(user))
+        return user
+
     async def get_pull_request_context(
         self,
         repo_id: github_types.GitHubRepositoryIdType,
@@ -407,25 +422,31 @@ class Repository(object):
             await pipeline.delete(key)
         await pipeline.execute()
 
-    async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+    async def get_user_permission(
+        self,
+        user: github_types.GitHubAccount,
+    ) -> github_types.GitHubRepositoryPermission:
         key = self._users_permission_cache_key
-        permission = await self.installation.redis.hget(key, user["id"])
+        permission = typing.cast(
+            typing.Optional[github_types.GitHubRepositoryPermission],
+            await self.installation.redis.hget(key, user["id"]),
+        )
         if permission is None:
-            permission = (
+            permission = typing.cast(
+                github_types.GitHubRepositoryCollaboratorPermission,
                 await self.installation.client.item(
                     f"{self.base_url}/collaborators/{user['login']}/permission"
-                )
+                ),
             )["permission"]
             pipe = await self.installation.redis.pipeline()
             await pipe.hset(key, user["id"], permission)
             await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
             await pipe.execute()
+        return permission
 
-        return permission in (
-            "admin",
-            "maintain",
-            "write",
-        )
+    async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
+        permission = await self.get_user_permission(user)
+        return permission in ("admin", "maintain", "write")
 
     TEAMS_PERMISSION_CACHE_KEY_PREFIX = "teams_permission"
     TEAMS_PERMISSION_CACHE_KEY_DELIMITER = "/"
@@ -749,6 +770,7 @@ class Context(object):
         return self._cache["consolidated_reviews"]
 
     async def _get_consolidated_data(self, name: str) -> ContextAttributeType:
+
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
@@ -791,6 +813,9 @@ class Context(object):
 
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
+
+        elif name == "linear-history":
+            return all(len(commit["parents"]) == 1 for commit in await self.commits)
 
         elif name == "base":
             return self.pull["base"]["ref"]
@@ -901,10 +926,8 @@ class Context(object):
                 if ctxt.pull["merged"]:
                     depends_on.append(f"#{pull_request_number}")
             return depends_on
-        elif name == "current-timestamp":
+        elif name in ("current-timestamp", "current-time"):
             return date.utcnow()
-        elif name == "current-time":
-            return date.utcnow().timetz()
         elif name == "current-day":
             return date.Day(date.utcnow().day)
         elif name == "current-month":
@@ -949,18 +972,20 @@ class Context(object):
         re.MULTILINE | re.IGNORECASE,
     )
 
-    def get_depends_on(self) -> typing.Set[github_types.GitHubPullRequestNumber]:
+    def get_depends_on(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         if self.pull["body"] is None:
-            return set()
-        return {
-            github_types.GitHubPullRequestNumber(int(pull))
-            for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
-            if (owner == "" and repo == "")
-            or (
-                owner == self.pull["base"]["user"]["login"]
-                and repo == self.pull["base"]["repo"]["name"]
-            )
-        }
+            return []
+        return sorted(
+            {
+                github_types.GitHubPullRequestNumber(int(pull))
+                for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
+                if (owner == "" and repo == "")
+                or (
+                    owner == self.pull["base"]["user"]["login"]
+                    and repo == self.pull["base"]["repo"]["name"]
+                )
+            }
+        )
 
     async def update_pull_check_runs(self, check: github_types.GitHubCheckRun) -> None:
         self._cache["pull_check_runs"] = [
@@ -1320,6 +1345,7 @@ class PullRequest(BasePullRequest):
         "milestone",
         "number",
         "conflict",
+        "linear-history",
         "base",
         "head",
         "locked",

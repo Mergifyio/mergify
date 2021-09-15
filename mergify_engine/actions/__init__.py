@@ -16,6 +16,7 @@
 
 import abc
 import dataclasses
+import enum
 import typing
 
 import pkg_resources
@@ -26,10 +27,37 @@ from mergify_engine import context
 from mergify_engine import rules
 
 
+CANCELLED_CHECK_REPORT = check_api.Result(
+    check_api.Conclusion.CANCELLED,
+    "The rule doesn't match anymore",
+    "This action has been cancelled.",
+)
+
+
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES: typing.Optional[typing.Dict[str, "Action"]] = None
 
 ActionSchema = typing.NewType("ActionSchema", voluptuous.All)  # type: ignore
+
+
+@enum.unique
+class ActionFlag(enum.Flag):
+    NONE = 0
+    # Action can be used as pull_request_rules/actions
+    ALLOW_AS_ACTION = enum.auto()
+    # Action can be used as command
+    ALLOW_AS_COMMAND = enum.auto()
+    # The action run()/cancel() is executed whatever the previous state was
+    ALWAYS_RUN = enum.auto()
+    # The result of action will be posted as GitHub Check-run
+    ALWAYS_SEND_REPORT = enum.auto()
+    # The action can be run when the Mergify configuration change
+    ALLOW_ON_CONFIGURATION_CHANGED = enum.auto()
+    # Allow to rerun an action if it's part of another rule
+    DISALLOW_RERUN_ON_OTHER_RULES = enum.auto()
+    # This makes checks created by mergify retriggering Mergify, beware to
+    # not create something that endup with a infinite loop of events
+    ALLOW_RETRIGGER_MERGIFY = enum.auto()
 
 
 def get_classes() -> typing.Dict[str, "Action"]:
@@ -48,43 +76,24 @@ def get_action_schemas(
     return {
         name: obj.get_schema(partial_validation)
         for name, obj in get_classes().items()
-        if obj.is_action
+        if ActionFlag.ALLOW_AS_ACTION in obj.flags
     }
 
 
 def get_commands() -> typing.Dict[str, "Action"]:
-    return {name: obj for name, obj in get_classes().items() if obj.is_command}
+    return {
+        name: obj
+        for name, obj in get_classes().items()
+        if ActionFlag.ALLOW_AS_COMMAND in obj.flags
+    }
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass  # type: ignore[misc]
 class Action(abc.ABC):
-    is_action = True
-    is_command = False
-
-    can_be_used_on_configuration_change = True
-
-    always_run = False
-
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
     config: typing.Dict[str, typing.Any]
 
-    cancelled_check_report = check_api.Result(
-        check_api.Conclusion.CANCELLED,
-        "The rule doesn't match anymore",
-        "This action has been cancelled.",
-    )
-
-    # If an action can't be twice in a rule this must be set to true
-    only_once = False
-
-    # If set to True, does not post the report to the Check API
-    # Only keep it for internal tracking
-    silent_report = False
-
-    # This makes checks created by mergify retriggering Mergify, beware to
-    # not create something that endup with a infinite loop of events
-    allow_retrigger_mergify = False
-
+    flags: typing.ClassVar[ActionFlag] = ActionFlag.NONE
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]]
 
     def validate_config(
@@ -106,7 +115,6 @@ class Action(abc.ABC):
     def get_config_schema(
         cls, partial_validation: bool
     ) -> typing.Dict[typing.Any, typing.Any]:
-        # TODO(sileht): move all actions to this signature.
         return cls.validator
 
     @staticmethod
@@ -114,15 +122,17 @@ class Action(abc.ABC):
         """Convert string to dict config"""
         return {}
 
+    @abc.abstractmethod
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
-        pass
+        ...
 
+    @abc.abstractmethod
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
-        return self.cancelled_check_report
+        ...
 
     @staticmethod
     async def wanted_users(

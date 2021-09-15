@@ -30,12 +30,16 @@ from mergify_engine.rules import types
 class AssignAction(actions.Action):
     validator = {
         # NOTE: "users" is deprecated, but kept as legacy code for old config
-        voluptuous.Required("users", default=[]): [types.Jinja2],
-        voluptuous.Required("add_users", default=[]): [types.Jinja2],
-        voluptuous.Required("remove_users", default=[]): [types.Jinja2],
+        voluptuous.Required("users", default=list): [types.Jinja2],
+        voluptuous.Required("add_users", default=list): [types.Jinja2],
+        voluptuous.Required("remove_users", default=list): [types.Jinja2],
     }
 
-    silent_report = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_RUN
+    )
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
@@ -55,6 +59,11 @@ class AssignAction(actions.Action):
             "Users added/removed from assignees",
             "",
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT
 
     async def _add_assignees(
         self, ctxt: context.Context, users_to_add: typing.List[str]

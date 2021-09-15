@@ -168,9 +168,15 @@ async def get_rule_checks_status(
         return check_api.Conclusion.FAILURE
 
 
-class MergeBaseAction(actions.Action):
-    only_once = True
-    can_be_used_on_configuration_change = False
+class MergeBaseAction(actions.Action, abc.ABC):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        # FIXME(sileht): MRGFY-562
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
+
     UNQUEUE_DOCUMENTATION = ""
     MESSAGE_ACTION_NAME = "Merge"
 
@@ -370,7 +376,7 @@ class MergeBaseAction(actions.Action):
             if ctxt.closed:
                 return output
             else:
-                return self.cancelled_check_report
+                return actions.CANCELLED_CHECK_REPORT
 
         # We just rebase the pull request, don't cancel it yet if CIs are
         # running. The pull request will be merged if all rules match again.
@@ -408,7 +414,7 @@ class MergeBaseAction(actions.Action):
 
         await q.remove_pull(ctxt)
 
-        return self.cancelled_check_report
+        return actions.CANCELLED_CHECK_REPORT
 
     def _set_effective_priority(self, ctxt: context.Context) -> None:
         self.config["effective_priority"] = typing.cast(

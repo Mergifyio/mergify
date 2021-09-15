@@ -27,7 +27,12 @@ from mergify_engine.clients import http
 
 
 class DeleteHeadBranchAction(actions.Action):
-    only_once = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+    )
     validator = {voluptuous.Required("force", default=False): bool}
 
     async def run(
@@ -72,7 +77,13 @@ class DeleteHeadBranchAction(actions.Action):
                     f"{ctxt.base_url}/git/refs/heads/{ref_to_delete}"
                 )
             except http.HTTPClientSideError as e:
-                if e.status_code not in [422, 404]:
+                if e.status_code in [422, 404]:
+                    return check_api.Result(
+                        check_api.Conclusion.SUCCESS,
+                        f"Branch `{ctxt.pull['head']['ref']}` does not exists",
+                        "",
+                    )
+                else:
                     return check_api.Result(
                         check_api.Conclusion.FAILURE,
                         "Unable to delete the head branch",
@@ -89,3 +100,8 @@ class DeleteHeadBranchAction(actions.Action):
             f"Branch `{ctxt.pull['head']['ref']}` will be deleted once the pull request is closed",
             "",
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

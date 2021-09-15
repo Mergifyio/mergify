@@ -17,6 +17,7 @@ import typing
 from datadog import statsd
 import yaml
 
+from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
@@ -308,8 +309,8 @@ def get_previous_conclusion(
 ) -> check_api.Conclusion:
     if name in previous_conclusions:
         return previous_conclusions[name]
-    # TODO(sileht): Remove usage of legacy checks after the 15/02/2020 and if the
-    # synchronization event issue is fixed
+    # NOTE(sileht): fallback on posted check-run in case we lose the Summary
+    # somehow
     elif name in checks:
         return check_api.Conclusion(checks[name]["conclusion"])
     return check_api.Conclusion.NEUTRAL
@@ -351,14 +352,18 @@ async def run_actions(
         for action, action_obj in rule.actions.items():
             check_name = f"Rule: {rule.name} ({action})"
 
-            done_by_another_action = action_obj.only_once and action in actions_ran
+            done_by_another_action = (
+                actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES in action_obj.flags
+                and action in actions_ran
+            )
 
             if (
                 not rule.conditions.match
                 or rule.disabled is not None
                 or (
                     ctxt.configuration_changed
-                    and not action_obj.can_be_used_on_configuration_change
+                    and actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+                    not in action_obj.flags
                 )
             ):
                 method_name = "cancel"
@@ -379,7 +384,7 @@ async def run_actions(
             )
 
             need_to_be_run = (
-                action_obj.always_run
+                actions.ActionFlag.ALWAYS_RUN in action_obj.flags
                 or admin_refresh_requested
                 or (
                     user_refresh_requested
@@ -427,7 +432,7 @@ async def run_actions(
                 statsd.increment("engine.actions.count", tags=[f"name:{action}"])
 
             if need_to_be_run and (
-                not action_obj.silent_report
+                actions.ActionFlag.ALWAYS_SEND_REPORT in action_obj.flags
                 or report.conclusion
                 not in (
                     check_api.Conclusion.SUCCESS,
@@ -437,7 +442,7 @@ async def run_actions(
             ):
                 external_id = (
                     check_api.USER_CREATED_CHECKS
-                    if action_obj.allow_retrigger_mergify
+                    if actions.ActionFlag.ALLOW_RETRIGGER_MERGIFY in action_obj.flags
                     else None
                 )
                 try:

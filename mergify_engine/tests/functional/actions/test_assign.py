@@ -35,12 +35,26 @@ class TestAssignAction(base.FunctionalTestBase):
         p, _ = await self.create_pr()
 
         await self.run_engine()
-
-        pulls = await self.get_pulls(params={"base": self.main_branch_name})
-        self.assertEqual(1, len(pulls))
+        p = await self.get_pull(p["number"])
         self.assertEqual(
             sorted(["mergify-test1"]),
-            sorted(user["login"] for user in pulls[0]["assignees"]),
+            sorted(user["login"] for user in p["assignees"]),
+        )
+
+        await self.client_admin.request(
+            "DELETE",
+            f"{self.repository_ctxt.base_url}/issues/{p['number']}/assignees",
+            json={"assignees": ["mergify-test1"]},
+        )
+        await self.wait_for("pull_request", {"action": "assigned"})
+        p = await self.get_pull(p["number"])
+        self.assertEqual([], p["assignees"])
+
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+        self.assertEqual(
+            sorted(["mergify-test1"]),
+            sorted(user["login"] for user in p["assignees"]),
         )
 
     async def test_assign_with_add_users(self):

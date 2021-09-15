@@ -282,7 +282,6 @@ class _GitHubTeam:
                 f"Team `{self.raw}` is not part of the organization `{expected_organization}`"
             )
 
-        # TODO(sileht): cache me
         if not await ctxt.repository.team_has_read_permission(self.team):
             raise InvalidTeam(
                 f"Team `{self.raw}` does not exist or has not access to this repository"

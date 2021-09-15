@@ -37,6 +37,11 @@ EVENT_STATE_MAP = {
 
 
 class ReviewAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_RUN
+    )
     validator = {
         voluptuous.Required("type", default="APPROVE"): voluptuous.Any(
             "APPROVE", "REQUEST_CHANGES", "COMMENT"
@@ -44,8 +49,6 @@ class ReviewAction(actions.Action):
         voluptuous.Required("message", default=None): types.Jinja2WithNone,
         voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
     }
-
-    silent_report = True
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
@@ -84,7 +87,6 @@ class ReviewAction(actions.Action):
                 "body"
             ] = f"Pull request automatically reviewed by Mergify: {self.config['type']}"
 
-        # TODO(sileht): We should catch it some how, when we drop pygithub for sure
         reviews = reversed(
             list(
                 filter(
@@ -147,3 +149,8 @@ class ReviewAction(actions.Action):
 
         await signals.send(ctxt, "action.review")
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

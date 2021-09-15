@@ -1389,7 +1389,7 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
                         "merge": {
                             "strict": True,
                             "strict_method": "rebase",
-                            "bot_account": "mergify-test1",
+                            "update_bot_account": "mergify-test1",
                         }
                     },
                 }
@@ -1439,7 +1439,7 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
                         "merge": {
                             "strict": True,
                             "strict_method": "rebase",
-                            "bot_account": "not-exists",
+                            "update_bot_account": "not-exists",
                         }
                     },
                 }

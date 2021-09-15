@@ -3,6 +3,8 @@ defaults:
     queue:
       name: default
       method: rebase
+    squash:
+      commit_message: first-commit
 
 queue_rules:
   - name: hotfix
@@ -23,7 +25,7 @@ queue_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
-      - schedule=Mon-Fri 08:00-17:00
+      - schedule=Mon-Fri 09:00-17:30[Europe/Paris]
     speculative_checks: 5
 
   - name: lowprio
@@ -34,7 +36,7 @@ queue_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
-      - schedule=Mon-Fri 08:00-17:00
+      - schedule=Mon-Fri 09:30-17:00[Europe/Paris]
     speculative_checks: 3
     batch_size: 5
 

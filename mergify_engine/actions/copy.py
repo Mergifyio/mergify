@@ -61,7 +61,12 @@ def DuplicateTitleJinja2(v):
 
 
 class CopyAction(actions.Action):
-    is_command: bool = True
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+    )
 
     KIND: duplicate_pull.KindT = "copy"
     HOOK_EVENT_NAME: signals.EventName = "action.copy"
@@ -78,11 +83,11 @@ class CopyAction(actions.Action):
             voluptuous.Required("bot_account", default=None): voluptuous.Any(
                 None, types.Jinja2
             ),
-            voluptuous.Required("branches", default=[]): [str],
-            voluptuous.Required("regexes", default=[]): [voluptuous.Coerce(Regex)],
+            voluptuous.Required("branches", default=list): [str],
+            voluptuous.Required("regexes", default=list): [voluptuous.Coerce(Regex)],
             voluptuous.Required("ignore_conflicts", default=True): bool,
-            voluptuous.Required("assignees", default=[]): [types.Jinja2],
-            voluptuous.Required("labels", default=[]): [str],
+            voluptuous.Required("assignees", default=list): [types.Jinja2],
+            voluptuous.Required("labels", default=list): [str],
             voluptuous.Required("label_conflicts", default="conflicts"): str,
             voluptuous.Required(
                 "title", default=f"{{{{ title }}}} ({cls.KIND} #{{{{ number }}}})"
@@ -286,6 +291,11 @@ class CopyAction(actions.Action):
             message,
             "\n".join(f"* {detail}" for detail in (r[1] for r in results)),
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT
 
     @classmethod
     async def get_existing_duplicate_pull(

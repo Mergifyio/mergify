@@ -56,7 +56,7 @@ _match_time = (
     )
     + _timezone
 ).setParseAction(
-    lambda toks: datetime.time(hour=int(toks[0]), minute=int(toks[2]), tzinfo=toks[3])
+    lambda toks: date.Time(hour=int(toks[0]), minute=int(toks[2]), tzinfo=toks[3])
 )
 
 _day = (
@@ -174,7 +174,7 @@ def _parse_time_range(toks: typing.List[pyparsing.Token]) -> typing.Any:
     # NOTE(sileht): In case of the format is `10:00-18:00[Europe/Paris]`,
     # we assume the first time is also [Europe/Paris]
     if time1.tzinfo != time2.tzinfo and time2.tzinfo != datetime.timezone.utc:
-        time1 = time1.replace(tzinfo=time2.tzinfo)
+        time1.tzinfo = time2.tzinfo
 
     return {
         "and": (
@@ -353,8 +353,11 @@ merged = _match_boolean("merged")
 closed = _match_boolean("closed")
 conflict = _match_boolean("conflict")
 draft = _match_boolean("draft")
+linear_history = _match_boolean("linear-history")
 
-non_quantifiable_attributes = locked | closed | conflict | draft | merged
+non_quantifiable_attributes = (
+    locked | closed | conflict | draft | merged | linear_history
+)
 
 datetime_attributes = (
     current_time

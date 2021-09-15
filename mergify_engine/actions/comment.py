@@ -31,12 +31,14 @@ from mergify_engine.rules import types
 
 
 class CommentAction(actions.Action):
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+    )
     validator = {
         voluptuous.Required("message", default=None): types.Jinja2WithNone,
         voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
     }
-
-    silent_report = True
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
@@ -94,3 +96,8 @@ class CommentAction(actions.Action):
             ctxt, "action.comment", {"bot_account": bool(self.config["bot_account"])}
         )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

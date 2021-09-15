@@ -140,9 +140,6 @@ Schema = voluptuous.Schema(
         GitHubAppRequired("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
-        voluptuous.Required(
-            "NOSUB_MAX_REPO_SIZE_KB", default=512 * 1000
-        ): voluptuous.Coerce(int),
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
             float
         ),
@@ -208,7 +205,6 @@ SUBSCRIPTION_TOKEN: str
 OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
 ACTION_ID: int
-NOSUB_MAX_REPO_SIZE_KB: int
 GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]

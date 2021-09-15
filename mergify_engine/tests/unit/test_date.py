@@ -14,7 +14,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import zoneinfo
 
+from freezegun import freeze_time
 import pytest
 
 from mergify_engine import date
@@ -88,3 +90,31 @@ def test_fromisoformat(value: str, expected: datetime.datetime) -> None:
 )
 def test_pretty_datetime(dt: datetime.datetime, expected_string: str) -> None:
     assert date.pretty_datetime(dt) == expected_string
+
+
+def test_time_compare():
+    with freeze_time("2012-01-14T12:15:00", tz_offset=0):
+        utc = datetime.timezone.utc
+        assert date.Time(12, 0, utc) < date.utcnow()
+        assert date.Time(15, 45, utc) > date.utcnow()
+        assert date.Time(12, 15, utc) == date.utcnow()
+        assert date.utcnow() > date.Time(12, 0, utc)
+        assert date.utcnow() < date.Time(15, 45, utc)
+        assert date.utcnow() == date.Time(12, 15, utc)
+        assert date.Time(13, 15, utc) == date.Time(13, 15, utc)
+        assert date.Time(13, 15, utc) < date.Time(15, 15, utc)
+        assert date.Time(15, 0, utc) > date.Time(5, 0, utc)
+
+        zone = zoneinfo.ZoneInfo("Europe/Paris")
+        assert date.Time(10, 0, zone) < date.utcnow()
+        assert date.Time(18, 45, zone) > date.utcnow()
+        assert date.Time(13, 15, zone) == date.utcnow()
+        assert date.utcnow() > date.Time(10, 0, zone)
+        assert date.utcnow() < date.Time(18, 45, zone)
+        assert date.utcnow() == date.Time(13, 15, zone)
+        assert date.Time(13, 15, zone) == date.Time(13, 15, zone)
+        assert date.Time(13, 15, zone) < date.Time(15, 15, zone)
+        assert date.Time(15, 0, zone) > date.Time(5, 0, zone)
+
+        assert date.utcnow() == date.utcnow()
+        assert (date.utcnow() > date.utcnow()) is False

@@ -31,10 +31,13 @@ from mergify_engine.rules import types
 
 
 class SquashAction(actions.Action):
-    is_command = True
-    always_run = True
-    silent_report = True
-
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALLOW_AS_COMMAND
+        | actions.ActionFlag.ALWAYS_RUN
+        | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+    )
     validator = {
         voluptuous.Required("bot_account", default=None): voluptuous.Any(
             None, types.Jinja2
@@ -116,3 +119,8 @@ class SquashAction(actions.Action):
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "Pull request squashed successfully", ""
         )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

@@ -134,6 +134,7 @@ pull_request_rules:
  'files': ['test1'],
  'head': '{p['head']['ref']}',
  'label': [],
+ 'linear-history': True,
  'locked': False,
  'merged': False,
  'merged-by': '',
