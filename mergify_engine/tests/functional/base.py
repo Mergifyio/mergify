@@ -375,9 +375,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
             # NOTE(sileht): httpx pyvcr stubs does not replay auth_flow as it directly patch client.send()
             # So anything occurring during auth_flow have to be mocked during replay
-            def get_auth(owner_name=None, owner_id=None, auth=None):
+            def get_auth(owner_id=None, auth=None):
                 if auth is None:
-                    auth = github.get_auth(owner_name, owner_id)
+                    auth = github.get_auth(owner_id)
                     auth.installation = {
                         "id": config.INSTALLATION_ID,
                     }
@@ -386,10 +386,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     auth.owner = config.TESTING_ORGANIZATION_NAME
                 return auth
 
-            def github_aclient(owner_name=None, owner_id=None, auth=None):
-                return github.AsyncGithubInstallationClient(
-                    get_auth(owner_name, owner_id, auth)
-                )
+            def github_aclient(owner_id=None, auth=None):
+                return github.AsyncGithubInstallationClient(get_auth(owner_id, auth))
 
             mock.patch.object(github, "aget_client", github_aclient).start()
 
@@ -480,9 +478,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         cassette.__enter__()
         self.addCleanup(cassette.__exit__)
 
-        self.client_integration = github.aget_client(
-            config.TESTING_ORGANIZATION_NAME, config.TESTING_ORGANIZATION_ID
-        )
+        self.client_integration = github.aget_client(config.TESTING_ORGANIZATION_ID)
         self.client_admin = github.AsyncGithubInstallationClient(
             auth=github.GithubTokenAuth(token=config.ORG_ADMIN_PERSONAL_TOKEN)
         )

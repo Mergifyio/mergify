@@ -117,7 +117,8 @@ async def _simulator(
         if token:
             auth = github.GithubTokenAuth(token)
         else:
-            auth = github.get_auth(owner)
+            owner_id = await github.get_owner_id_from_login(owner)
+            auth = github.get_auth(github_types.GitHubAccountIdType(owner_id))
 
         async with github.aget_client(auth=auth) as client:
             try:

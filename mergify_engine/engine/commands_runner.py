@@ -111,11 +111,12 @@ async def on_each_event(event: github_types.GitHubEventIssueComment) -> None:
     action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(event["comment"]["body"])
     if match and match[1] in action_classes:
-        owner = event["repository"]["owner"]["login"]
+        owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
         repo = event["repository"]["name"]
-        async with github.aget_client(owner) as client:
+        async with github.aget_client(owner_id) as client:
             await client.post(
-                f"/repos/{owner}/{repo}/issues/comments/{event['comment']['id']}/reactions",
+                f"/repos/{owner_login}/{repo}/issues/comments/{event['comment']['id']}/reactions",
                 json={"content": "+1"},
                 api_version="squirrel-girl",
             )

@@ -329,7 +329,7 @@ class Seats:
                 org = SeatAccount(
                     installation["account"]["id"], installation["account"]["login"]
                 )
-                async with github.aget_client(org.login, org.id) as client:
+                async with github.aget_client(org.id) as client:
                     async for repository in client.items(
                         "/installation/repositories", list_items="repositories"
                     ):

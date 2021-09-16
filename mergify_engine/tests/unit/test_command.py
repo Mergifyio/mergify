@@ -173,7 +173,7 @@ async def test_run_command_without_rerun_and_without_user(redis_cache):
 @pytest.mark.asyncio
 async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch):
 
-    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+    client = github.aget_client(owner_id=123)
 
     ctxt = await _create_context(redis_cache, client)
 
@@ -237,7 +237,7 @@ async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch)
 async def test_run_command_with_user(
     user_id, permission, result, redis_cache, monkeypatch
 ):
-    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+    client = github.aget_client(owner_id=123)
 
     ctxt = await _create_context(redis_cache, client)
 
@@ -292,7 +292,7 @@ async def test_run_command_with_user(
 
 @pytest.mark.asyncio
 async def test_run_command_with_wrong_arg(redis_cache, monkeypatch):
-    client = github.aget_client(owner_name="Mergifyio", owner_id=123)
+    client = github.aget_client(owner_id=123)
 
     ctxt = await _create_context(redis_cache, client)
 

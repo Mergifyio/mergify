@@ -327,7 +327,7 @@ async def run(
 async def create_initial_summary(
     redis: utils.RedisCache, event: github_types.GitHubEventPullRequest
 ) -> None:
-    owner = event["repository"]["owner"]["login"]
+    owner = event["repository"]["owner"]["id"]
 
     if not await redis.exists(
         context.Repository.get_config_location_cache_key(

@@ -136,6 +136,18 @@ async def test_configuration_changed(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
 ) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        }
+    )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
         GH_PULL,
         status=200,
@@ -178,7 +190,7 @@ async def test_configuration_changed(
     ).respond_with_json({}, status=200)
 
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["login"])
+        github.get_auth(GH_OWNER["id"])
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -213,6 +225,19 @@ async def test_configuration_duplicated(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
 ) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        }
+    )
+
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
         GH_PULL,
         status=200,
@@ -276,7 +301,7 @@ async def test_configuration_duplicated(
     ).respond_with_json({}, status=200)
 
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["login"])
+        github.get_auth(GH_OWNER["id"])
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -311,6 +336,18 @@ async def test_configuration_not_changed(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
 ) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        }
+    )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
         GH_PULL,
         status=200,
@@ -364,7 +401,7 @@ async def test_configuration_not_changed(
     ).respond_with_json({}, status=200)
 
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["login"])
+        github.get_auth(GH_OWNER["id"])
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -399,6 +436,18 @@ async def test_configuration_initial(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
 ) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        }
+    )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
         GH_PULL,
         status=200,
@@ -440,7 +489,7 @@ async def test_configuration_initial(
     ).respond_with_json({}, status=200)
 
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["login"])
+        github.get_auth(GH_OWNER["id"])
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
