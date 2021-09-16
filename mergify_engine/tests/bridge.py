@@ -21,6 +21,7 @@ import logging
 import os
 import time
 
+from mergify_engine import config
 from mergify_engine import logs
 from mergify_engine import utils
 from mergify_engine.clients import http
@@ -46,15 +47,16 @@ async def main() -> None:
         headers={"X-Hub-Signature": "sha1=" + payload_hmac},
     ) as session:
 
+        url = (
+            f"/events/github.com/{config.INTEGRATION_ID}/{config.TESTING_REPOSITORY_ID}"
+        )
         if args.clean:
-            r = await session.request("DELETE", "/events-testing", content=payload_data)
+            r = await session.request("DELETE", url, content=payload_data)
             r.raise_for_status()
 
         while True:
             try:
-                resp = await session.request(
-                    "GET", "/events-testing", content=payload_data
-                )
+                resp = await session.request("GET", url, content=payload_data)
                 events = resp.json()
                 for event in reversed(events):
                     LOG.info("")
