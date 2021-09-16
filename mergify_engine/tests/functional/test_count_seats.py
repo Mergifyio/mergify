@@ -18,6 +18,7 @@ import copy
 import time
 from unittest import mock
 
+import pytest
 import yaml
 
 from mergify_engine import config
@@ -37,6 +38,9 @@ REPOSITORIES = (
 )
 
 
+@pytest.mark.skip(
+    "Thoses tests aren't reliable, the testing organization could change repo-wise, user-wise etc."
+)
 class TestCountSeats(base.FunctionalTestBase):
     ORGANIZATION = count_seats.SeatAccount(
         github_types.GitHubAccountIdType(40527191),
@@ -121,6 +125,9 @@ class TestCountSeats(base.FunctionalTestBase):
             await count_seats.Seats.get(self.redis_cache)
         ).count() == count_seats.SeatsCountResultT(5, 2)
 
+    @pytest.mark.skip(
+        reason="The tests shouldn't have hardcoded repos and users in case of change in the testing organization."
+    )
     async def test_run_count_seats_report(self) -> None:
         args = argparse.Namespace(json=True, daemon=False)
         with mock.patch("sys.stdout") as stdout:

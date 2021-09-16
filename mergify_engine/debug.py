@@ -19,6 +19,8 @@ import pprint
 import typing
 import urllib
 
+import daiquiri
+
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import engine
@@ -35,6 +37,9 @@ from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.queue import merge_train
 from mergify_engine.queue import naive
+
+
+LOG = daiquiri.getLogger(__name__)
 
 
 async def get_repositories_setuped(
@@ -195,15 +200,16 @@ async def report(
     redis_cache = utils.create_aredis_for_cache(max_idle_time=0)
 
     try:
-        owner, repo, pull_number = _url_parser(url)
+        owner_login, repo, pull_number = _url_parser(url)
     except ValueError:
         print(f"{url} is not valid")
         return None
 
+    owner_id = await github.get_owner_id_from_login(owner_login)
     try:
-        client = github.aget_client(owner)
+        client = github.aget_client(github_types.GitHubAccountIdType(owner_id))
     except exceptions.MergifyNotInstalled:
-        print(f"* Mergify is not installed on account {owner}")
+        print(f"* Mergify is not installed on account {owner_login}")
         return None
 
     # Do a dumb request just to authenticate
@@ -221,7 +227,7 @@ async def report(
     if repo is None:
         slug = None
     else:
-        slug = owner + "/" + repo
+        slug = owner_login + "/" + repo
 
     cached_sub = await subscription.Subscription.get_subscription(
         redis_cache, client.auth.owner_id
@@ -257,10 +263,10 @@ async def report(
         client.auth.installation["id"], db_sub, db_tokens, "DASHBOARD", slug
     )
 
-    await report_worker_status(owner)
+    await report_worker_status(owner_login)
 
     installation = context.Installation(
-        client.auth.owner_id, owner, cached_sub, client, redis_cache
+        client.auth.owner_id, owner_login, cached_sub, client, redis_cache
     )
 
     if repo is not None:
@@ -290,7 +296,7 @@ async def report(
         if pull_number is None:
             async for branch in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubBranch, None],
-                client.items(f"/repos/{owner}/{repo}/branches"),
+                client.items(f"/repos/{owner_login}/{repo}/branches"),
             ):
                 # TODO(sileht): Add some informations on the train
                 q: queue.QueueBase = naive.Queue(repository, branch["name"])

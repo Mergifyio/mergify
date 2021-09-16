@@ -91,7 +91,11 @@ async def refresh_repo(
         redis.get_redis_stream
     ),
 ) -> responses.Response:
-    async with github.aget_client(owner_name=owner) as client:
+    async with github.aget_client(
+        owner_id=github_types.GitHubAccountIdType(
+            await github.get_owner_id_from_login(owner)
+        )
+    ) as client:
         try:
             repository = await client.item(f"/repos/{owner}/{repo_name}")
         except http.HTTPNotFound:
@@ -125,7 +129,11 @@ async def refresh_pull(
     ),
 ) -> responses.Response:
     action = RefreshActionSchema(action)
-    async with github.aget_client(owner_name=owner) as client:
+    async with github.aget_client(
+        owner_id=github_types.GitHubAccountIdType(
+            await github.get_owner_id_from_login(owner)
+        )
+    ) as client:
         try:
             repository = await client.item(f"/repos/{owner}/{repo_name}")
         except http.HTTPNotFound:
@@ -159,7 +167,11 @@ async def refresh_branch(
         redis.get_redis_stream
     ),
 ) -> responses.Response:
-    async with github.aget_client(owner_name=owner) as client:
+    async with github.aget_client(
+        owner_id=github_types.GitHubAccountIdType(
+            await github.get_owner_id_from_login(owner)
+        )
+    ) as client:
         try:
             repository = await client.item(f"/repos/{owner}/{repo_name}")
         except http.HTTPNotFound:
