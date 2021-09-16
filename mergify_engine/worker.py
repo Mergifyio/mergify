@@ -55,6 +55,8 @@ import typing
 import aredis
 import daiquiri
 from datadog import statsd
+import ddtrace
+from ddtrace import tracer
 import msgpack
 import tenacity
 
@@ -349,17 +351,12 @@ class StreamProcessor:
             )
             raise OrgBucketRetry(org_bucket_name, attempts, retry_at)
 
-    def _extract_owner(
-        self, org_bucket_name: OrgBucketNameType
-    ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
-        org_bucket_splitted = org_bucket_name.split("~")[1:]
-        return (
-            github_types.GitHubAccountIdType(int(org_bucket_splitted[0])),
-            github_types.GitHubLogin(org_bucket_splitted[1]),
-        )
-
-    async def consume(self, org_bucket_name: OrgBucketNameType) -> None:
-        owner_id, owner_login = self._extract_owner(org_bucket_name)
+    async def consume(
+        self,
+        org_bucket_name: OrgBucketNameType,
+        owner_id: github_types.GitHubAccountIdType,
+        owner_login: github_types.GitHubLogin,
+    ) -> None:
         LOG.debug("consoming org bucket", gh_owner=owner_login)
 
         try:
@@ -598,15 +595,17 @@ class StreamProcessor:
                     message_ids=message_ids,
                 )
                 try:
-                    await self._consume_pull(
-                        bucket_key,
-                        installation,
-                        repo_id,
-                        repo_name,
-                        pull_number,
-                        message_ids,
-                        sources,
-                    )
+                    with tracer.trace("pull processing") as span:
+                        span.set_tags({"gh_repo": repo_name, "gh_pull": pull_number})
+                        await self._consume_pull(
+                            bucket_key,
+                            installation,
+                            repo_id,
+                            repo_name,
+                            pull_number,
+                            message_ids,
+                            sources,
+                        )
                 except OrgBucketRetry:
                     raise
                 except OrgBucketUnused:
@@ -798,6 +797,16 @@ class Worker:
     def worker_count(self) -> int:
         return self.worker_per_process * self.process_count
 
+    @staticmethod
+    def _extract_owner(
+        org_bucket_name: OrgBucketNameType,
+    ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
+        org_bucket_splitted = org_bucket_name.split("~")[1:]
+        return (
+            github_types.GitHubAccountIdType(int(org_bucket_splitted[0])),
+            github_types.GitHubLogin(org_bucket_splitted[1]),
+        )
+
     async def stream_worker_task(self, worker_id: int) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
@@ -818,9 +827,14 @@ class Worker:
                     LOG.debug(
                         "worker %s take org bucket: %s", worker_id, org_bucket_name
                     )
+                    owner_id, owner_login = self._extract_owner(org_bucket_name)
                     try:
-                        with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
-                            await stream_processor.consume(org_bucket_name)
+                        with tracer.trace("org bucket processing") as span:
+                            span.set_tag("gh_owner", owner_login)
+                            with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
+                                await stream_processor.consume(
+                                    org_bucket_name, owner_id, owner_login
+                                )
                     finally:
                         LOG.debug(
                             "worker %s release org bucket: %s",
@@ -1036,6 +1050,7 @@ async def run_forever() -> None:
 
 
 def main() -> None:
+    ddtrace.config.service = "engine-worker"
     logs.setup_logging()
     signals.setup()
     return asyncio.run(run_forever())
