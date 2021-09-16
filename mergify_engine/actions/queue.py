@@ -208,6 +208,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             and new_car.creation_state == "created"
             and new_car.queue_pull_request_number is not None
             and new_car.queue_pull_request_number == car.queue_pull_request_number
+            and self.need_draft_pull_request_refresh()
             and not ctxt.has_been_only_refreshed()
         ):
             # NOTE(sileht): It's not only refreshed, so we need to
@@ -237,6 +238,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             car
             and car.creation_state == "created"
             and car.queue_pull_request_number is not None
+            and self.need_draft_pull_request_refresh()
             and not ctxt.has_been_only_refreshed()
         ):
             # NOTE(sileht): It's not only refreshed, so we need to
@@ -391,3 +393,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 ],
             },
         )
+
+    def need_draft_pull_request_refresh(self) -> bool:
+        # NOTE(sileht): if the queue rules don't use attributes linked to the
+        # original pull request we don't need to refresh the draft pull request
+        conditions = self.queue_rule.conditions.copy()
+        for cond in conditions.walk():
+            attr = cond.get_attribute_name()
+            if attr not in context.QueuePullRequest.QUEUE_ATTRIBUTES:
+                return True
+        return False
