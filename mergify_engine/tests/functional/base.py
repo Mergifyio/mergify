@@ -324,6 +324,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         super(FunctionalTestBase, self).setUp()
+
+        # NOTE(sileht): don't preempted bucket consumption
+        # Otherwise preemption doesn't occur at the same moment during record
+        # and replay. Making some tests working during record and failing
+        # during replay.
+        config.BUCKET_PROCESSING_MAX_SECONDS = 100000
+
         self.existing_labels: typing.List[str] = []
         self.protected_branches: typing.Set[str] = set()
         self.pr_counter: int = 0
