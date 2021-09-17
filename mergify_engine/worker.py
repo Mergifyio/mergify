@@ -143,23 +143,6 @@ def get_low_priority_minimal_score() -> float:
     return date.utcnow().timestamp() * 2
 
 
-def compute_priority_score(
-    pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
-    event_type: github_types.GitHubEventType,
-    original_score: typing.Optional[str] = None,
-) -> str:
-    now = date.utcnow()
-    # NOTE(sileht): lower timestamps are processed first
-    # TODO(sileht): instead of * 10 looks at what we
-    # already have in the pipe and maybe process it earlier
-    if event_type == "push" and pull_number is not None:
-        return str(now.timestamp() * 10)
-    elif original_score is None:
-        return str(now.timestamp())
-    else:
-        return original_score
-
-
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
@@ -175,7 +158,7 @@ async def push(
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
-    original_score: typing.Optional[str] = None,
+    score: typing.Optional[str] = None,
 ) -> None:
     now = date.utcnow()
     event = msgpack.packb(
@@ -188,7 +171,9 @@ async def push(
     )
     scheduled_at = now + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
 
-    score = compute_priority_score(pull_number, event_type, original_score)
+    # NOTE(sileht): lower timestamps are processed first
+    if score is None:
+        score = str(date.utcnow().timestamp())
 
     await worker_lua.push_pull(
         redis,
@@ -642,6 +627,11 @@ class StreamProcessor:
             source["data"],
             pulls,
         )
+
+        # NOTE(sileht): refreshing all opened pull request because something got merged
+        # has a lower priority
+        if source["event_type"] == "push":
+            score = str(date.utcnow().timestamp() * 10)
 
         for pull_number in pull_numbers:
             if pull_number is None:
