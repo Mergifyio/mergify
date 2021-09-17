@@ -225,7 +225,7 @@ class Installation:
 class RepositoryCache(typing.TypedDict, total=False):
     mergify_config: typing.Optional[MergifyConfigFile]
     branches: typing.Dict[github_types.GitHubRefType, github_types.GitHubBranch]
-    labels: typing.List[str]
+    labels: typing.List[github_types.GitHubLabel]
 
 
 @dataclasses.dataclass
@@ -543,10 +543,10 @@ class Repository(object):
             return []
         return branch["protection"]["required_status_checks"]["contexts"]
 
-    async def get_labels(self) -> typing.List[str]:
+    async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
         if "labels" not in self._cache:
             self._cache["labels"] = [
-                label["name"]
+                label
                 async for label in typing.cast(
                     typing.AsyncIterator[github_types.GitHubLabel],
                     self.installation.client.items(f"{self.base_url}/labels"),
@@ -554,23 +554,26 @@ class Repository(object):
             ]
         return self._cache["labels"]
 
-    async def ensure_label_exists(self, label: str) -> None:
-        if label not in await self.get_labels():
+    async def ensure_label_exists(self, label_name: str) -> None:
+        labels = await self.get_labels()
+        names = [label["name"] for label in labels]
+        if label_name not in names:
             color = f"{random.randrange(16 ** 6):06x}"  # nosec
             try:
-                await self.installation.client.post(
+                resp = await self.installation.client.post(
                     f"{self.base_url}/labels",
-                    json={"name": label, "color": color},
+                    json={"name": label_name, "color": color},
                 )
             except http.HTTPClientSideError as e:
                 self.log.warning(
                     "fail to create label",
-                    label=label,
+                    label=label_name,
                     status_code=e.status_code,
                     error_message=e.message,
                 )
                 return
             else:
+                label = typing.cast(github_types.GitHubLabel, resp.json())
                 self._cache["labels"].append(label)
 
 
