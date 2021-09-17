@@ -121,7 +121,22 @@ class GitHubBranchProtectionRequiredStatusChecks(typing.TypedDict):
     contexts: typing.List[str]
 
 
-class GitHubBranchProtection(typing.TypedDict):
+class GitHubBranchProtectionRequirePullRequestReviews(typing.TypedDict):
+    require_code_owner_reviews: bool
+    required_approving_review_count: int
+
+
+class GitHubBranchProtectionBoolean(typing.TypedDict):
+    enabled: bool
+
+
+class GitHubBranchProtection(typing.TypedDict, total=False):
+    required_linear_history: GitHubBranchProtectionBoolean
+    required_status_checks: GitHubBranchProtectionRequiredStatusChecks
+    required_pull_request_reviews: GitHubBranchProtectionRequirePullRequestReviews
+
+
+class GitHubBranchProtectionLight(typing.TypedDict):
     enabled: bool
     required_status_checks: GitHubBranchProtectionRequiredStatusChecks
 
@@ -129,7 +144,7 @@ class GitHubBranchProtection(typing.TypedDict):
 class GitHubBranch(typing.TypedDict):
     name: GitHubRefType
     commit: GitHubBranchCommit
-    protection: GitHubBranchProtection
+    protection: GitHubBranchProtectionLight
 
 
 class GitHubBranchRef(typing.TypedDict):
@@ -559,7 +574,9 @@ class GitHubRequestedReviewers(typing.TypedDict):
     teams: typing.List[GitHubTeam]
 
 
-GitHubApiVersion = typing.Literal["squirrel-girl", "lydian", "groot", "antiope"]
+GitHubApiVersion = typing.Literal[
+    "squirrel-girl", "lydian", "groot", "antiope", "luke-cage"
+]
 GitHubOAuthToken = typing.NewType("GitHubOAuthToken", str)
 
 

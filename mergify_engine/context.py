@@ -226,6 +226,9 @@ class RepositoryCache(typing.TypedDict, total=False):
     mergify_config: typing.Optional[MergifyConfigFile]
     branches: typing.Dict[github_types.GitHubRefType, github_types.GitHubBranch]
     labels: typing.List[github_types.GitHubLabel]
+    branch_protections: typing.Dict[
+        github_types.GitHubRefType, typing.Optional[github_types.GitHubBranchProtection]
+    ]
 
 
 @dataclasses.dataclass
@@ -531,17 +534,47 @@ class Repository(object):
 
         return read_permission
 
-    async def get_branch_protection_checks(
+    async def get_branch_protection(
         self,
         branch_name: github_types.GitHubRefType,
-    ) -> typing.List[str]:
-        try:
-            branch = await self.get_branch(branch_name)
-        except http.HTTPNotFound:
-            return []
-        if not branch["protection"]["enabled"]:
-            return []
-        return branch["protection"]["required_status_checks"]["contexts"]
+    ) -> typing.Optional[github_types.GitHubBranchProtection]:
+        branch_protections = self._cache.setdefault("branch_protections", {})
+        if branch_name not in branch_protections:
+            escaped_branch_name = parse.quote(branch_name, safe="")
+            try:
+                branch_protections[branch_name] = typing.cast(
+                    github_types.GitHubBranchProtection,
+                    await self.installation.client.item(
+                        f"{self.base_url}/branches/{escaped_branch_name}/protection",
+                        api_version="luke-cage",
+                    ),
+                )
+            except http.HTTPNotFound:
+                branch_protections[branch_name] = None
+            except http.HTTPForbidden as e:
+                if (
+                    e.status_code != 403
+                    or "Resource not accessible by integration" not in e.message
+                ):
+                    raise
+                try:
+                    branch = await self.get_branch(branch_name)
+                except http.HTTPNotFound:
+                    branch_protections[branch_name] = None
+                else:
+                    if branch["protection"]["enabled"]:
+                        branch_protections[
+                            branch_name
+                        ] = github_types.GitHubBranchProtection(
+                            {
+                                "required_status_checks": branch["protection"][
+                                    "required_status_checks"
+                                ],
+                            }
+                        )
+                    else:
+                        branch_protections[branch_name] = None
+        return branch_protections[branch_name]
 
     async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
         if "labels" not in self._cache:
@@ -1058,19 +1091,30 @@ class Context(object):
         # so if it has ran twice we must keep only the more recent
         # statuses are good as GitHub already ensures the uniqueness of the name
 
-        # First put all branch protections checks as pending and then override with
-        # the real status
         checks: typing.Dict[
             str,
             typing.Union[
                 github_types.GitHubCheckRunConclusion, github_types.GitHubStatusState
             ],
-        ] = {
-            context: "pending"
-            for context in await self.repository.get_branch_protection_checks(
-                self.pull["base"]["ref"]
+        ] = {}
+
+        # First put all branch protections checks as pending and then override with
+        # the real status
+        protection = await self.repository.get_branch_protection(
+            self.pull["base"]["ref"]
+        )
+        if (
+            protection
+            and "required_status_checks" in protection
+            and protection["required_status_checks"]
+        ):
+            checks.update(
+                {
+                    context: "pending"
+                    for context in protection["required_status_checks"]["contexts"]
+                }
             )
-        }
+
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
         checks.update(

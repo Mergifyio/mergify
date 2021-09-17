@@ -405,19 +405,58 @@ class QueueRuleConditions:
 async def get_branch_protection_conditions(
     repository: context.Repository, ref: github_types.GitHubRefType
 ) -> typing.List[typing.Union["RuleConditionGroup", RuleCondition]]:
-    return [
-        RuleConditionGroup(
-            {
-                "or": [
-                    RuleCondition(f"check-success={check}"),
-                    RuleCondition(f"check-neutral={check}"),
-                    RuleCondition(f"check-skipped={check}"),
+    protection = await repository.get_branch_protection(ref)
+    conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]] = []
+    if protection:
+        if "required_status_checks" in protection:
+            conditions.extend(
+                [
+                    RuleConditionGroup(
+                        {
+                            "or": [
+                                RuleCondition(f"check-success={check}"),
+                                RuleCondition(f"check-neutral={check}"),
+                                RuleCondition(f"check-skipped={check}"),
+                            ]
+                        },
+                        description="🛡 GitHub branch protection",
+                    )
+                    for check in protection["required_status_checks"]["contexts"]
                 ]
-            },
-            description="🛡 GitHub branch protection",
-        )
-        for check in await repository.get_branch_protection_checks(ref)
-    ]
+            )
+        if (
+            "required_linear_history" in protection
+            and protection["required_linear_history"]["enabled"]
+        ):
+            conditions.append(
+                RuleCondition(
+                    "linear-history",
+                    description="🛡 GitHub branch protection",
+                )
+            )
+        if "required_pull_request_reviews" in protection:
+            conditions.extend(
+                [
+                    RuleCondition(
+                        f"#approved-reviews-by>={protection['required_pull_request_reviews']['required_approving_review_count']}",
+                        description="🛡 GitHub branch protection",
+                    ),
+                    RuleCondition(
+                        "#changes-requested-reviews-by=0",
+                        description="🛡 GitHub branch protection",
+                    ),
+                ]
+            )
+            if protection["required_pull_request_reviews"][
+                "require_code_owner_reviews"
+            ]:
+                conditions.append(
+                    RuleCondition(
+                        "#review-requested=0",
+                        description="🛡 GitHub branch protection",
+                    )
+                )
+    return conditions
 
 
 async def get_depends_on_conditions(
