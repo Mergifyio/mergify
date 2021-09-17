@@ -546,9 +546,10 @@ class Repository(object):
     async def get_labels(self) -> typing.List[str]:
         if "labels" not in self._cache:
             self._cache["labels"] = [
-                label
-                async for label in self.installation.client.items(
-                    f"{self.base_url}/labels"
+                label["name"]
+                async for label in typing.cast(
+                    typing.AsyncIterator[github_types.GitHubLabel],
+                    self.installation.client.items(f"{self.base_url}/labels"),
                 )
             ]
         return self._cache["labels"]
@@ -561,7 +562,13 @@ class Repository(object):
                     f"{self.base_url}/labels",
                     json={"name": label, "color": color},
                 )
-            except http.HTTPClientSideError:
+            except http.HTTPClientSideError as e:
+                self.log.warning(
+                    "fail to create label",
+                    label=label,
+                    status_code=e.status_code,
+                    error_message=e.message,
+                )
                 return
             else:
                 self._cache["labels"].append(label)

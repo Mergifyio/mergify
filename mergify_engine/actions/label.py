@@ -73,7 +73,13 @@ class LabelAction(actions.Action):
                         await ctxt.client.delete(
                             f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels/{label_escaped}"
                         )
-                    except http.HTTPClientSideError:
+                    except http.HTTPClientSideError as e:
+                        ctxt.log.warning(
+                            "fail to delete label",
+                            label=label,
+                            status_code=e.status_code,
+                            error_message=e.message,
+                        )
                         continue
                     labels_changed = True
 
