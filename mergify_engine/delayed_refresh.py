@@ -82,6 +82,15 @@ async def send(
         pull_request_number = github_types.GitHubPullRequestNumber(
             int(pull_request_number_str)
         )
+
+        LOG.info(
+            "sending delayed pull request refresh",
+            gh_owner=owner_login,
+            gh_repo=repository_name,
+            action="internal",
+            source="delayed-refresh",
+        )
+
         await worker.push(
             redis_stream,
             owner_id,
@@ -93,6 +102,7 @@ async def send(
             {
                 "action": "internal",
                 "ref": None,
+                "source": "delayed-refresh",
             },  # type: ignore[typeddict-item]
         )
 
