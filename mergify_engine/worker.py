@@ -150,14 +150,13 @@ def compute_priority_score(
 ) -> str:
     now = date.utcnow()
     # NOTE(sileht): lower timestamps are processed first
-    # TODO(sileht): instead of * 10 looks at what we
-    # already have in the pipe and maybe process it earlier
-    if event_type == "push" and pull_number is not None:
-        return str(now.timestamp() * 10)
-    elif original_score is None:
-        return str(now.timestamp())
-    else:
-        return original_score
+    if original_score is None:
+        score = now.timestamp()
+        if event_type == "push" and pull_number is not None:
+            score = score * 10
+        return str(score)
+
+    return original_score
 
 
 @tenacity.retry(
