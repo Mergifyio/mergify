@@ -929,8 +929,10 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             return {"permission": "write"}
         elif url == "/repos/another-jd/name/collaborators/jd/permission":
             return {"permission": "write"}
-        elif url == "/repos/another-jd/name/branches/main":
-            return {"protection": {"enabled": False}}
+        elif url == "/repos/another-jd/name/branches/main/protection":
+            raise http.HTTPNotFound(
+                message="boom", response=mock.Mock(), request=mock.Mock()
+            )
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item
@@ -1376,17 +1378,15 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     # branch protection
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
-        if url == "/repos/another-jd/name/branches/main":
+        if url == "/repos/another-jd/name/branches/main/protection":
             return {
-                "protection": {
-                    "enabled": True,
-                    "required_status_checks": {"contexts": ["awesome-ci"]},
-                },
+                "required_status_checks": {"contexts": ["awesome-ci"]},
+                "required_linear_history": {"enabled": False},
             }
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item_with_branch_protection_enabled
-    del ctxt.repository._cache["branches"]
+    del ctxt.repository._cache["branch_protections"]
     pull_request_rules = pull_request_rule_from_list(
         [
             {

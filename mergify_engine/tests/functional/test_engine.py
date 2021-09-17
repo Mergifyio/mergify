@@ -781,7 +781,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 {
                     "name": "merge",
                     "conditions": [f"base={self.main_branch_name}"],
-                    "actions": {"merge": {}, "comment": {"message": "yo"}},
+                    "actions": {
+                        "merge": {"method": "rebase"},
+                        "comment": {"message": "yo"},
+                    },
                 }
             ]
         }
@@ -798,7 +801,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                     "skipped-ci",
                 ],
             },
-            "required_pull_request_reviews": None,
+            "required_pull_request_reviews": {
+                "require_code_owner_reviews": True,
+                "required_approving_review_count": 1,
+            },
+            "required_linear_history": True,
             "restrictions": None,
             "enforce_admins": False,
         }
@@ -830,8 +837,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         summary = [
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
         ][0]
-        assert (
-            f"""### Rule: merge (merge)
+        assert f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
 - [ ] any of: [🛡 GitHub branch protection]
   - [ ] `check-success=continuous-integration/fake-ci`
@@ -845,14 +851,19 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
   - [ ] `check-success=skipped-ci`
   - [ ] `check-neutral=skipped-ci`
   - [ ] `check-skipped=skipped-ci`
+- [X] `linear-history` [🛡 GitHub branch protection]
+- [ ] `#approved-reviews-by>=1` [🛡 GitHub branch protection]
+- [X] `#changes-requested-reviews-by=0` [🛡 GitHub branch protection]
+- [X] `#review-requested=0` [🛡 GitHub branch protection]
 
 ### Rule: merge (comment)
 - [X] `base={self.main_branch_name}`
-"""
-            in summary["output"]["summary"]
+""" == "\n".join(
+            summary["output"]["summary"].split("\n")[:22]
         )
 
         await self.create_status(p)
+        await self.create_review(p["number"])
         await check_api.set_check_run(
             ctxt,
             "neutral-ci",
