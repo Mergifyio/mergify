@@ -1050,6 +1050,7 @@ async def run_forever() -> None:
 
 
 def main() -> None:
+    statsd.constant_tags.append("service:engine-worker")
     ddtrace.config.service = "engine-worker"
     logs.setup_logging()
     signals.setup()
