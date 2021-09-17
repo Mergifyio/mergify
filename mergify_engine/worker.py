@@ -595,7 +595,11 @@ class StreamProcessor:
                     message_ids=message_ids,
                 )
                 try:
-                    with tracer.trace("pull processing") as span:
+                    with tracer.trace(
+                        "pull processing",
+                        span_type="worker",
+                        resource=f"{installation.owner_login}/{repo_name}/{pull_number}",
+                    ) as span:
                         span.set_tags({"gh_repo": repo_name, "gh_pull": pull_number})
                         await self._consume_pull(
                             bucket_key,
@@ -829,7 +833,11 @@ class Worker:
                     )
                     owner_id, owner_login = self._extract_owner(org_bucket_name)
                     try:
-                        with tracer.trace("org bucket processing") as span:
+                        with tracer.trace(
+                            "org bucket processing",
+                            span_type="worker",
+                            resource=owner_login,
+                        ) as span:
                             span.set_tag("gh_owner", owner_login)
                             with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
                                 await stream_processor.consume(
