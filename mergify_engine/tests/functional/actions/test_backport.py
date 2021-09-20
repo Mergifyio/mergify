@@ -63,8 +63,10 @@ class BackportActionTestBase(base.FunctionalTestBase):
         await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
-
         assert await self.is_pull_merged(p["number"])
+
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "opened"})
 
         pulls = await self.get_pulls(
             params={"state": "all", "base": self.main_branch_name}
@@ -180,6 +182,7 @@ class TestBackportAction(BackportActionTestBase):
         await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = [
@@ -240,6 +243,7 @@ class TestBackportAction(BackportActionTestBase):
         await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         return (
