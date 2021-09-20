@@ -57,12 +57,21 @@ class LabelAction(actions.Action):
                     json={"labels": list(missing_labels)},
                 )
                 labels_changed = True
+                labels_by_name = {
+                    _l["name"]: _l for _l in await ctxt.repository.get_labels()
+                }
+                ctxt.pull["labels"].extend(
+                    [labels_by_name[label_name] for label_name in missing_labels]
+                )
+
+        pull_labels = {label["name"] for label in ctxt.pull["labels"]}
 
         if self.config["remove_all"]:
             if ctxt.pull["labels"]:
                 await ctxt.client.delete(
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels"
                 )
+                ctxt.pull["labels"] = []
                 labels_changed = True
 
         elif self.config["remove"]:
@@ -81,6 +90,9 @@ class LabelAction(actions.Action):
                             error_message=e.message,
                         )
                         continue
+                    ctxt.pull["labels"] = [
+                        _l for _l in ctxt.pull["labels"] if _l["name"] != label
+                    ]
                     labels_changed = True
 
         if labels_changed:
