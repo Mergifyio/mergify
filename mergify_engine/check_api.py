@@ -63,6 +63,7 @@ class Conclusion(enum.Enum):
     CANCELLED = "cancelled"
     SUCCESS = "success"
     FAILURE = "failure"
+    SKIPPED = "skipped"
     NEUTRAL = "neutral"
     STALE = "stale"
     ACTION_REQUIRED = "action_required"
