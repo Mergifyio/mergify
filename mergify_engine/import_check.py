@@ -13,12 +13,12 @@
 # under the License.
 
 
-from mergify_engine import logs
+from mergify_engine import service
 from mergify_engine import signals
 
 
 def main() -> int:
-    logs.setup_logging()
+    service.setup("import-check")
     signals.setup()
 
     from mergify_engine.web.root import app  # noqa isort:skip
