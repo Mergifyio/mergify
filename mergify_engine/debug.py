@@ -246,11 +246,11 @@ async def report(
 
     print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
-    for f in db_sub.features:
-        print(f"  - {f.value}")
+    for v in sorted(f.value for f in db_sub.features):
+        print(f"  - {v}")
     print("* Features (db):")
-    for f in cached_sub.features:
-        print(f"  - {f.value}")
+    for v in sorted(f.value for f in cached_sub.features):
+        print(f"  - {v}")
 
     await report_dashboard_synchro(
         client.auth.installation["id"], cached_sub, cached_tokens, "ENGINE-CACHE", slug

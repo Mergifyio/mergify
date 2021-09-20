@@ -52,7 +52,12 @@ class TestDebugger(base.FunctionalTestBase):
         }
 
         # Enable one feature to see the debug output
-        self.subscription.features = frozenset([subscription.Features.PRIORITY_QUEUES])
+        self.subscription.features = frozenset(
+            [
+                subscription.Features.PRIORITY_QUEUES,
+                subscription.Features.PUBLIC_REPOSITORY,
+            ]
+        )
 
         await self.setup_repo(yaml.dump(rules))
         p, _ = await self.create_pr()
@@ -85,8 +90,10 @@ class TestDebugger(base.FunctionalTestBase):
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
+  - public_repository
 * Features (db):
   - priority_queues
+  - public_repository
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
@@ -210,8 +217,10 @@ mergeable_state: clean
 * SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
+  - public_repository
 * Features (db):
   - priority_queues
+  - public_repository
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * DASHBOARD SUB DETAIL: You're not nice
