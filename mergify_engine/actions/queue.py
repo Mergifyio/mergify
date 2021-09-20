@@ -142,7 +142,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
-        if car and car.creation_state == "updated":
+        if car and car.creation_state == "updated" and not ctxt.closed:
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
