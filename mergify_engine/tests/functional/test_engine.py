@@ -792,7 +792,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         protection = {
             "required_status_checks": {
                 "strict": False,
-                "contexts": ["continuous-integration/fake-ci", "neutral-ci"],
+                "contexts": [
+                    "continuous-integration/fake-ci",
+                    "neutral-ci",
+                    "skipped-ci",
+                ],
             },
             "required_pull_request_reviews": None,
             "restrictions": None,
@@ -829,8 +833,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert (
             f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
-- [ ] `check-success-or-neutral=continuous-integration/fake-ci` [🛡 GitHub branch protection]
-- [ ] `check-success-or-neutral=neutral-ci` [🛡 GitHub branch protection]
+- [ ] any of: [🛡 GitHub branch protection]
+  - [ ] `check-success=continuous-integration/fake-ci`
+  - [ ] `check-neutral=continuous-integration/fake-ci`
+  - [ ] `check-skipped=continuous-integration/fake-ci`
+- [ ] any of: [🛡 GitHub branch protection]
+  - [ ] `check-success=neutral-ci`
+  - [ ] `check-neutral=neutral-ci`
+  - [ ] `check-skipped=neutral-ci`
+- [ ] any of: [🛡 GitHub branch protection]
+  - [ ] `check-success=skipped-ci`
+  - [ ] `check-neutral=skipped-ci`
+  - [ ] `check-skipped=skipped-ci`
 
 ### Rule: merge (comment)
 - [X] `base={self.main_branch_name}`
@@ -843,6 +857,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ctxt,
             "neutral-ci",
             check_api.Result(check_api.Conclusion.NEUTRAL, title="bla", summary=""),
+        )
+        await check_api.set_check_run(
+            ctxt,
+            "skipped-ci",
+            check_api.Result(
+                check_api.Conclusion.SKIPPED, title="bla-skipped", summary=""
+            ),
         )
 
         await self.run_engine()
