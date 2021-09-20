@@ -128,6 +128,7 @@ class RuleConditionGroup:
     conditions: typing.List[
         typing.Union["RuleConditionGroup", RuleCondition]
     ] = dataclasses.field(init=False)
+    description: typing.Optional[str] = None
     match: bool = dataclasses.field(init=False, default=False)
     _used: bool = dataclasses.field(init=False, default=False)
 
@@ -231,7 +232,10 @@ class RuleConditionGroup:
             elif isinstance(condition, RuleConditionGroup):
                 label = "all of" if condition.operator == "and" else "any of"
                 checked = "X" if condition.match else " "
-                summary += f"- [{checked}] {label}:\n"
+                summary += f"- [{checked}] {label}:"
+                if condition.description:
+                    summary += f" [{condition.description}]"
+                summary += "\n"
                 for _sum in cls._walk_for_summary(condition.conditions, level + 1):
                     summary += _sum
             else:
@@ -402,8 +406,14 @@ async def get_branch_protection_conditions(
     repository: context.Repository, ref: github_types.GitHubRefType
 ) -> typing.List[typing.Union["RuleConditionGroup", RuleCondition]]:
     return [
-        RuleCondition(
-            f"check-success-or-neutral={check}",
+        RuleConditionGroup(
+            {
+                "or": [
+                    RuleCondition(f"check-success={check}"),
+                    RuleCondition(f"check-neutral={check}"),
+                    RuleCondition(f"check-skipped={check}"),
+                ]
+            },
             description="🛡 GitHub branch protection",
         )
         for check in await repository.get_branch_protection_checks(ref)

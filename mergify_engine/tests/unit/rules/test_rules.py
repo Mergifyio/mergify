@@ -1402,14 +1402,20 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert list(match.matching_rules[0].actions.keys()) == ["merge"]
     assert len(match.matching_rules[0].conditions.condition.conditions) == 1
     assert not match.matching_rules[0].conditions.match
-    assert (
-        str(match.matching_rules[0].conditions.condition.conditions[0])
-        == "check-success-or-neutral=awesome-ci"
-    )
+    group = match.matching_rules[0].conditions.condition.conditions[0]
+    assert isinstance(group, rules.conditions.RuleConditionGroup)
+    assert group.operator == "or"
+    assert len(group.conditions) == 3
+    assert str(group.conditions[0]) == "check-success=awesome-ci"
+    assert str(group.conditions[1]) == "check-neutral=awesome-ci"
+    assert str(group.conditions[2]) == "check-skipped=awesome-ci"
     missing_conditions = [
         c for c in match.matching_rules[0].conditions.walk() if not c.match
     ]
-    assert str(missing_conditions[0]) == "check-success-or-neutral=awesome-ci"
+    assert len(missing_conditions) == 3
+    assert str(missing_conditions[0]) == "check-success=awesome-ci"
+    assert str(missing_conditions[1]) == "check-neutral=awesome-ci"
+    assert str(missing_conditions[2]) == "check-skipped=awesome-ci"
     assert list(match.matching_rules[1].actions.keys()) == ["comment"]
     assert len(match.matching_rules[1].conditions.condition.conditions) == 0
 
