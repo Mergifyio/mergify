@@ -55,7 +55,6 @@ import typing
 import aredis
 import daiquiri
 from datadog import statsd
-import ddtrace
 from ddtrace import tracer
 import msgpack
 import tenacity
@@ -69,6 +68,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
+from mergify_engine import service
 from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine import utils
@@ -1058,9 +1058,7 @@ async def run_forever() -> None:
 
 
 def main() -> None:
-    statsd.constant_tags.append("service:engine-worker")
-    ddtrace.config.service = "engine-worker"
-    logs.setup_logging()
+    service.setup("worker")
     signals.setup()
     return asyncio.run(run_forever())
 
