@@ -78,21 +78,12 @@ def config_log() -> None:
     for key, value in config.CONFIG.items():
         name = str(key)
         if (
-            name
-            in [
-                "PRIVATE_KEY",
-                "WEBHOOK_SECRET",
-                "CACHE_TOKEN_SECRET",
-                "SUBSCRIPTION_TOKEN",
-                "OAUTH_CLIENT_ID",
-                "OAUTH_CLIENT_SECRET",
-                "MAIN_TOKEN",
-                "FORK_TOKEN",
-                "MAIN_TOKEN_DELETE",
-                "FORK_TOKEN_DELETE",
-            ]
-            and value is not None
-        ):
+            name == "OAUTH_CLIENT_ID"
+            or "PRIVATE_KEY" in name
+            or "TOKEN" in name
+            or "SECRET" in name
+            or "PRIVATE_KEY" in name
+        ) and value is not None:
             value = "*****"
         if "URL" in name and value is not None:
             value = re.sub(r"://[^@]*@", "://*****@", value)
