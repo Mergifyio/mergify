@@ -13,16 +13,22 @@
 # under the License.
 import os
 
+import ddtrace
 import sentry_sdk
 
 from mergify_engine import config
 
 
+_version = os.environ.get("HEROKU_RELEASE_VERSION")
+
 if config.SENTRY_URL:  # pragma: no cover
     sentry_sdk.init(
         config.SENTRY_URL,
         max_breadcrumbs=10,
-        release=os.environ.get("HEROKU_RELEASE_VERSION"),
+        release=_version,
         environment=config.SENTRY_ENVIRONMENT,
     )
     sentry_sdk.utils.MAX_STRING_LENGTH = 2048
+
+
+ddtrace.config.version = _version
