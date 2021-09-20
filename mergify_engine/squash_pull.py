@@ -21,6 +21,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import user_tokens
+from mergify_engine.subscription import Features
 
 
 @dataclasses.dataclass
@@ -46,7 +47,7 @@ async def _do_squash(
     try:
         await git.init()
 
-        if ctxt.subscription.active:
+        if ctxt.subscription.has_feature(Features.BOT_ACCOUNT):
             await git.configure(user["name"] or user["login"], user["email"])
         else:
             await git.configure()

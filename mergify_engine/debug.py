@@ -243,7 +243,6 @@ async def report(
     else:
         db_tokens = cached_tokens
 
-    print(f"* SUBSCRIBED (cache/db): {cached_sub.active} / {db_sub.active}")
     print("* Features (cache):")
     for v in sorted(f.value for f in db_sub.features):
         print(f"  - {v}")

@@ -26,6 +26,7 @@ from mergify_engine import delayed_refresh
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine import subscription
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -124,7 +125,7 @@ async def gen_summary(
     summary += await gen_summary_rules(ctxt, match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
-    if not ctxt.subscription.active:
+    if not ctxt.subscription.has_feature(subscription.Features.SHOW_SPONSOR):
         summary += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
 
     summary += "<hr />\n"
