@@ -23,6 +23,7 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
+from mergify_engine import subscription
 from mergify_engine import user_tokens
 from mergify_engine.clients import http
 
@@ -97,7 +98,11 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
     retry=tenacity.retry_if_exception_type(BranchUpdateNeedRetry),
     reraise=True,
 )
-async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) -> None:
+async def _do_rebase(
+    ctxt: context.Context,
+    user: user_tokens.UserTokensUser,
+    bot_account_feature: subscription.Features,
+) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
     # 2
@@ -119,7 +124,7 @@ async def _do_rebase(ctxt: context.Context, user: user_tokens.UserTokensUser) ->
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        if ctxt.subscription.active:
+        if ctxt.subscription.has_feature(bot_account_feature):
             await git.configure(user["name"] or user["login"], user["email"])
         else:
             await git.configure()
@@ -202,7 +207,9 @@ async def update_with_api(ctxt: context.Context) -> None:
 
 
 async def rebase_with_git(
-    ctxt: context.Context, bot_account: typing.Optional[github_types.GitHubLogin] = None
+    ctxt: context.Context,
+    bot_account_feature: subscription.Features,
+    bot_account: typing.Optional[github_types.GitHubLogin] = None,
 ) -> None:
     ctxt.log.info("updating base branch with git")
 
@@ -215,7 +222,7 @@ async def rebase_with_git(
 
     for user in users:
         try:
-            await _do_rebase(ctxt, user)
+            await _do_rebase(ctxt, user, bot_account_feature)
         except gitter.GitAuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",
@@ -238,9 +245,10 @@ async def rebase_with_git(
 async def update(
     method: typing.Literal["merge", "rebase"],
     ctxt: context.Context,
+    bot_account_feature: subscription.Features,
     user: typing.Optional[github_types.GitHubLogin] = None,
 ) -> None:
     if method == "merge":
         await update_with_api(ctxt)
     else:
-        await rebase_with_git(ctxt, user)
+        await rebase_with_git(ctxt, bot_account_feature, user)

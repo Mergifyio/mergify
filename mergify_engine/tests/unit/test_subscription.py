@@ -14,7 +14,6 @@ async def test_init(redis_cache):
     subscription.Subscription(
         redis_cache,
         123,
-        True,
         "friend",
         frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
@@ -26,7 +25,6 @@ async def test_dict(redis_cache):
     sub = subscription.Subscription(
         redis_cache,
         owner_id,
-        True,
         "friend",
         frozenset({subscription.Features.PRIVATE_REPOSITORY}),
     )
@@ -41,6 +39,7 @@ async def test_dict(redis_cache):
         {subscription.Features.PRIVATE_REPOSITORY},
         {
             subscription.Features.PRIVATE_REPOSITORY,
+            subscription.Features.PUBLIC_REPOSITORY,
             subscription.Features.PRIORITY_QUEUES,
         },
     ),
@@ -51,7 +50,6 @@ async def test_save_sub(features, redis_cache):
     sub = subscription.Subscription(
         redis_cache,
         owner_id,
-        True,
         "friend",
         frozenset(features),
     )
@@ -69,7 +67,12 @@ async def test_subscription_db_unavailable(
     retrieve_subscription_from_db_mock, redis_cache
 ):
     owner_id = 1234
-    sub = subscription.Subscription(redis_cache, owner_id, True, "friend", frozenset())
+    sub = subscription.Subscription(
+        redis_cache,
+        owner_id,
+        "friend",
+        frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+    )
     retrieve_subscription_from_db_mock.return_value = sub
 
     # no cache, no db -> reraise
@@ -124,17 +127,19 @@ async def test_unknown_sub(redis_cache):
 
 @pytest.mark.asyncio
 async def test_from_dict_unknown_features(redis_cache):
-    assert (
-        subscription.Subscription.from_dict(
-            redis_cache,
-            123,
-            {
-                "subscription_active": True,
-                "subscription_reason": "friend",
-                "features": ["unknown feature"],
-            },
-        )
-        == subscription.Subscription(redis_cache, 123, True, "friend", frozenset(), -2)
+    assert subscription.Subscription.from_dict(
+        redis_cache,
+        123,
+        {
+            "subscription_reason": "friend",
+            "features": ["unknown feature"],
+        },
+    ) == subscription.Subscription(
+        redis_cache,
+        123,
+        "friend",
+        frozenset(),
+        -2,
     )
 
 
@@ -143,23 +148,14 @@ async def test_active_feature(redis_cache):
     sub = subscription.Subscription(
         redis_cache,
         123,
-        True,
-        "friend",
-        frozenset(),
-    )
-    assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
-    sub = subscription.Subscription(
-        redis_cache,
-        123,
-        False,
         "friend",
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
+
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is True
     sub = subscription.Subscription(
         redis_cache,
         123,
-        True,
         "friend",
         frozenset([subscription.Features.PRIORITY_QUEUES]),
     )
@@ -169,7 +165,6 @@ async def test_active_feature(redis_cache):
         redis_cache,
         123,
         {
-            "subscription_active": True,
             "subscription_reason": "friend",
             "features": ["private_repository"],
         },
@@ -186,7 +181,6 @@ async def test_subscription_on_premise_valid(
 
     httpserver.expect_request("/on-premise/subscription/1234").respond_with_json(
         {
-            "subscription_active": True,
             "subscription_reason": "azertyuio",
             "features": [
                 "private_repository",
@@ -196,6 +190,7 @@ async def test_subscription_on_premise_valid(
                 "random_request_reviews",
                 "merge_bot_account",
                 "queue_action",
+                "show_sponsor",
             ],
         }
     )

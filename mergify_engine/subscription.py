@@ -47,10 +47,10 @@ class Features(enum.Enum):
     BOT_ACCOUNT = "bot_account"
     QUEUE_ACTION = "queue_action"
     DEPENDS_ON = "depends_on"
+    SHOW_SPONSOR = "show_sponsor"
 
 
 class SubscriptionDict(typing.TypedDict):
-    subscription_active: bool
     subscription_reason: str
     features: typing.List[
         typing.Literal[
@@ -62,6 +62,7 @@ class SubscriptionDict(typing.TypedDict):
             "merge_bot_account",
             "queue_action",
             "depends_on",
+            "show_sponsor",
         ]
     ]
 
@@ -70,7 +71,6 @@ class SubscriptionDict(typing.TypedDict):
 class SubscriptionBase(abc.ABC):
     redis: utils.RedisCache
     owner_id: int
-    active: bool
     reason: str
     features: typing.FrozenSet[enum.Enum]
     ttl: int = -2
@@ -110,7 +110,6 @@ class SubscriptionBase(abc.ABC):
         return cls(
             redis,
             owner_id,
-            sub["subscription_active"],
             sub["subscription_reason"],
             cls._to_features(sub.get("features", [])),
             ttl,
@@ -118,7 +117,6 @@ class SubscriptionBase(abc.ABC):
 
     def to_dict(self) -> SubscriptionDict:
         return {
-            "subscription_active": self.active,
             "subscription_reason": self.reason,
             "features": [f.value for f in self.features],
         }
@@ -243,11 +241,7 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
                 raise exceptions.MergifyNotInstalled()
             else:
                 sub = resp.json()
-                if not sub["subscription_active"]:
-                    LOG.critical(
-                        "The subscription attached to SUBSCRIPTION_TOKEN is not active"
-                    )
-                    raise exceptions.MergifyNotInstalled()
+
                 return cls.from_dict(redis, owner_id, sub)
 
 

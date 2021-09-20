@@ -33,6 +33,7 @@ from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
@@ -331,6 +332,7 @@ class TrainCar:
                     "update_method", "merge"
                 ),
                 ctxt,
+                subscription.Features.MERGE_BOT_ACCOUNT,
                 self.still_queued_embarked_pulls[0].config.get("update_bot_account"),
             )
         except branch_updater.BranchUpdateFailure as exc:

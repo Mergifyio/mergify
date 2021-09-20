@@ -50,7 +50,9 @@ async def test_signals(redis_cache):
     client = mock.AsyncMock()
     client.auth.get_access_token.return_value = "<token>"
 
-    sub = subscription.Subscription(redis_cache, 0, False, "", frozenset())
+    sub = subscription.Subscription(
+        redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
+    )
     installation = context.Installation(
         gh_owner["id"],
         gh_owner["login"],

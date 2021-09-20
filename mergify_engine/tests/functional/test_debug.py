@@ -83,11 +83,9 @@ class TestDebugger(base.FunctionalTestBase):
         summary_html_url = [
             check for check in await ctxt.pull_check_runs if check["name"] == "Summary"
         ][0]["html_url"]
-
         assert (
             s1.strip()
             == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
-* SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
   - public_repository
@@ -214,7 +212,6 @@ mergeable_state: clean
         assert (
             s3.strip()
             == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
-* SUBSCRIBED (cache/db): False / False
 * Features (cache):
   - priority_queues
   - public_repository
