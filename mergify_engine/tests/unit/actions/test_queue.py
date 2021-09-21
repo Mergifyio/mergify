@@ -25,6 +25,7 @@ from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine.actions import merge_base
+from mergify_engine.clients import http
 
 
 def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
@@ -74,6 +75,10 @@ def fake_client():
     def item_call(url, *args, **kwargs):
         if url == "/repos/user/name/branches/main":
             return {"commit": {"sha": "sha1"}, "protection": {"enabled": False}}
+        if url == "/repos/user/name/branches/main/protection":
+            raise http.HTTPNotFound(
+                message="boom", response=mock.Mock(), request=mock.Mock()
+            )
         else:
             raise Exception(f"url not mocked: {url}")
 
