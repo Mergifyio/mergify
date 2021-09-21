@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    Mergify generates automatically conditions for ``merge`` and ``queue``
+    action based on branch protection settings: ``required_linear_history``,
+    ``required_approving_review_count`` and ``require_code_owner_reviews``.
