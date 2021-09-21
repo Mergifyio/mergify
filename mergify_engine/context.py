@@ -1543,6 +1543,7 @@ class QueuePullRequest(BasePullRequest):
         "check",
         "check-success",
         "check-success-or-neutral",
+        "check-success-or-neutral-or-pending",
         "check-failure",
         "check-neutral",
         "check-skipped",
