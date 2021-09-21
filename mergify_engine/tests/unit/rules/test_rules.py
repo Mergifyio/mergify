@@ -21,12 +21,14 @@ from unittest import mock
 import pytest
 import voluptuous
 
+from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
 from mergify_engine import utils
+from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
 from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import conditions
@@ -1851,3 +1853,53 @@ async def test_queue_rules_summary():
   - [ ] #3
 """
     )
+
+
+@pytest.mark.asyncio
+async def test_rules_conditions_update():
+    pulls = [
+        FakeQueuePullRequest(
+            {
+                "number": 1,
+                "current-year": date.Year(2018),
+                "author": "me",
+                "base": "main",
+                "head": "feature-1",
+                "label": ["foo", "bar"],
+                "check-success": ["tests"],
+                "check-failure": ["jenkins/fake-tests"],
+                "check": ["tests", "jenkins/fake-tests"],
+                "check-success-or-neutral-or-pending": ["tests"],
+            }
+        ),
+    ]
+    schema = voluptuous.Schema(
+        voluptuous.All(
+            [voluptuous.Coerce(rules.RuleConditionSchema)],
+            voluptuous.Coerce(conditions.QueueRuleConditions),
+        )
+    )
+
+    c = schema(
+        [
+            "label=foo",
+            "check-success=tests",
+            "check-success=jenkins/fake-tests",
+        ]
+    )
+
+    await c(pulls)
+
+    assert (
+        c.get_summary()
+        == """- `label=foo`
+  - [X] #1
+- [X] `check-success=tests`
+- [ ] `check-success=jenkins/fake-tests`
+"""
+    )
+
+    state = await merge_base.get_rule_checks_status(
+        mock.Mock(), pulls, mock.Mock(conditions=c)
+    )
+    assert state == check_api.Conclusion.FAILURE
