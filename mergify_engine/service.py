@@ -39,4 +39,6 @@ def setup(service_name: str, dump_config: bool = True) -> None:
     statsd.constant_tags.append(f"service:{service_name}")
     ddtrace.config.service = service_name
 
+    ddtrace.config.httpx["split_by_domain"] = True
+
     logs.setup_logging(dump_config=dump_config)
