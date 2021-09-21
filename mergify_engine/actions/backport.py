@@ -17,11 +17,8 @@
 import typing
 
 from mergify_engine import actions
-from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import copy
 from mergify_engine.rules import conditions
@@ -47,18 +44,6 @@ class BackportAction(copy.CopyAction):
             return {"branches": string.split(" ")}
         else:
             return {}
-
-    async def run(
-        self, ctxt: context.Context, rule: rules.EvaluatedRule
-    ) -> check_api.Result:
-        if not config.GITHUB_APP:
-            return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                "Unavailable with the GitHub Action",
-                "Due to Github Action limitation, the `backport` action/command is only "
-                "available with the Mergify GitHub App.",
-            )
-        return await super().run(ctxt, rule)
 
     async def get_conditions_requirements(
         self,
