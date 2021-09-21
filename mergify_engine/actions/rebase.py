@@ -20,7 +20,6 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
@@ -46,14 +45,6 @@ class RebaseAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if not config.GITHUB_APP:
-            return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                "Unavailable with GitHub Action",
-                "Due to GitHub Action limitation, the `rebase` command is only available "
-                "with the Mergify GitHub App.",
-            )
-
         if await ctxt.is_behind:
             try:
                 bot_account = await action_utils.render_bot_account(

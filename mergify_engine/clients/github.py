@@ -66,28 +66,6 @@ class CachedToken:
         CachedToken.STORAGE.pop(self.installation_id, None)
 
 
-class GithubActionAccessTokenAuth(httpx.Auth):
-    owner_id: github_types.GitHubAccountIdType
-    owner: typing.Optional[github_types.GitHubLogin]
-
-    def __init__(self) -> None:
-        self.permissions_need_to_be_updated = False
-        self.installation = {
-            "id": config.ACTION_ID,
-        }
-        # TODO(sileht): To be defined when we handle subscription for GitHub Action
-        self.owner = None
-        self.owner_id = github_types.GitHubAccountIdType(0)
-
-    def auth_flow(self, request):
-        request.headers["Authorization"] = f"token {config.GITHUB_TOKEN}"
-        yield request
-
-    def get_access_token(self):
-        """Legacy method for backport/copy actions"""
-        raise NotImplementedError
-
-
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owner: typing.Optional[github_types.GitHubLogin]
@@ -304,7 +282,6 @@ class GithubAppInstallationAuth(httpx.Auth):
 
 _T_get_auth = typing.Union[
     GithubAppInstallationAuth,
-    GithubActionAccessTokenAuth,
     GithubTokenAuth,
 ]
 
@@ -313,12 +290,9 @@ def get_auth(
     owner_name: typing.Optional[github_types.GitHubLogin] = None,
     owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
 ) -> _T_get_auth:
-    if config.GITHUB_APP:
-        if owner_name is None and owner_id is None:
-            raise ValueError("No owner provided")
-        return GithubAppInstallationAuth(owner_name=owner_name, owner_id=owner_id)
-    else:
-        return GithubActionAccessTokenAuth()
+    if owner_name is None and owner_id is None:
+        raise ValueError("No owner provided")
+    return GithubAppInstallationAuth(owner_name=owner_name, owner_id=owner_id)
 
 
 def _check_rate_limit(response: httpx.Response) -> None:
