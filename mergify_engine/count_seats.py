@@ -29,7 +29,7 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import json
-from mergify_engine import logs
+from mergify_engine import service
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
@@ -404,10 +404,10 @@ async def count_and_send(redis_cache: utils.RedisCache) -> None:
 async def report(args: argparse.Namespace) -> None:
     redis_cache = utils.create_aredis_for_cache()
     if args.daemon:
-        logs.setup_logging()
+        service.setup("count-seats")
         await count_and_send(redis_cache)
     else:
-        logs.setup_logging(dump_config=False)
+        service.setup("count-seats", dump_config=False)
         if config.SUBSCRIPTION_TOKEN is None:
             LOG.error("on-premise subscription token missing")
         else:
