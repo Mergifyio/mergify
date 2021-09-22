@@ -112,7 +112,6 @@ async def _simulator(
     try:
         auth: typing.Union[
             github.GithubAppInstallationAuth,
-            github.GithubActionAccessTokenAuth,
             github.GithubTokenAuth,
         ]
         if token:

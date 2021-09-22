@@ -256,15 +256,6 @@ class MergeBaseAction(actions.Action, abc.ABC):
         rule: "rules.EvaluatedRule",
         q: queue.QueueBase,
     ) -> check_api.Result:
-        if not config.GITHUB_APP:
-            if self.config["strict_method"] == "rebase":
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "Misconfigured for GitHub Action",
-                    "Due to GitHub Action limitation, `strict_method: rebase` "
-                    "is only available with the Mergify GitHub App",
-                )
-
         try:
             merge_bot_account = await action_utils.render_bot_account(
                 ctxt,

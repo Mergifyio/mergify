@@ -26,15 +26,6 @@ import voluptuous
 from mergify_engine import github_types
 
 
-GITHUB_APP = os.environ.get("MERGIFYENGINE_MODE", "github_app") == "github_app"
-if GITHUB_APP:
-    GitHubAppRequired = voluptuous.Required
-    GitHubActionRequired = voluptuous.Optional
-else:
-    GitHubAppRequired = voluptuous.Optional
-    GitHubActionRequired = voluptuous.Required
-
-
 # NOTE(sileht) we coerce bool and int in case they are loaded from the environment
 def CoercedBool(value: typing.Any) -> bool:
     return bool(distutils.util.strtobool(str(value)))
@@ -84,14 +75,11 @@ Schema = voluptuous.Schema(
         voluptuous.Required("SENTRY_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SENTRY_ENVIRONMENT", default="test"): str,
         # GitHub App mandatory
-        GitHubAppRequired("INTEGRATION_ID"): voluptuous.Coerce(int),
-        GitHubAppRequired("PRIVATE_KEY"): str,
-        GitHubAppRequired("OAUTH_CLIENT_ID"): str,
-        GitHubAppRequired("OAUTH_CLIENT_SECRET"): str,
-        GitHubAppRequired("WEBHOOK_SECRET"): str,
-        # GitHub Action mandatory
-        GitHubActionRequired("ACTION_ID"): voluptuous.Coerce(int),
-        GitHubActionRequired("GITHUB_TOKEN"): str,
+        voluptuous.Required("INTEGRATION_ID"): voluptuous.Coerce(int),
+        voluptuous.Required("PRIVATE_KEY"): str,
+        voluptuous.Required("OAUTH_CLIENT_ID"): str,
+        voluptuous.Required("OAUTH_CLIENT_SECRET"): str,
+        voluptuous.Required("WEBHOOK_SECRET"): str,
         # GitHub common
         voluptuous.Required("BOT_USER_ID"): voluptuous.Coerce(int),
         voluptuous.Required("BOT_USER_LOGIN"): str,
@@ -137,7 +125,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "BUCKET_PROCESSING_MAX_SECONDS", default=30
         ): voluptuous.Coerce(int),
-        GitHubAppRequired("CACHE_TOKEN_SECRET"): str,
+        voluptuous.Required("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
@@ -204,7 +192,6 @@ SUBSCRIPTION_BASE_URL: str
 SUBSCRIPTION_TOKEN: str
 OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
-ACTION_ID: int
 GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]
