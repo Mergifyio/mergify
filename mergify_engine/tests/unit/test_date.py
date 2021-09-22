@@ -93,8 +93,13 @@ def test_pretty_datetime(dt: datetime.datetime, expected_string: str) -> None:
 
 
 def test_time_compare():
+    utc = datetime.timezone.utc
+    with freeze_time("2021-09-22T08:00:05", tz_offset=0):
+        assert datetime.datetime(2021, 9, 22, 8, 0, 5, tzinfo=utc) >= date.Time(
+            8, 0, utc
+        )
+
     with freeze_time("2012-01-14T12:15:00", tz_offset=0):
-        utc = datetime.timezone.utc
         assert date.Time(12, 0, utc) < date.utcnow()
         assert date.Time(15, 45, utc) > date.utcnow()
         assert date.Time(12, 15, utc) == date.utcnow()
