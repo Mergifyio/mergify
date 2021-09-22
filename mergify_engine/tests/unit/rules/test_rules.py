@@ -18,6 +18,7 @@ import dataclasses
 import typing
 from unittest import mock
 
+from freezegun import freeze_time
 import pytest
 import voluptuous
 
@@ -1903,3 +1904,49 @@ async def test_rules_conditions_update():
         mock.Mock(), pulls, mock.Mock(conditions=c)
     )
     assert state == check_api.Conclusion.FAILURE
+
+
+@pytest.mark.asyncio
+@freeze_time("2021-09-22T08:00:05", tz_offset=0)
+async def test_rules_conditions_schedule():
+    pulls = [
+        FakeQueuePullRequest(
+            {
+                "number": 1,
+                "author": "me",
+                "base": "main",
+                "current-timestamp": date.utcnow(),
+                "current-time": date.utcnow(),
+                "current-day": date.Day(22),
+                "current-month": date.Month(9),
+                "current-year": date.Year(2021),
+                "current-day-of-week": date.DayOfWeek(3),
+            }
+        ),
+    ]
+    schema = voluptuous.Schema(
+        voluptuous.All(
+            [voluptuous.Coerce(rules.RuleConditionSchema)],
+            voluptuous.Coerce(conditions.QueueRuleConditions),
+        )
+    )
+
+    c = schema(
+        [
+            "base=main",
+            "schedule=MON-FRI 08:00-17:00",
+            "schedule=MON-FRI 10:00-12:00",
+            "schedule=SAT-SUN 07:00-12:00",
+        ]
+    )
+
+    await c(pulls)
+
+    assert (
+        c.get_summary()
+        == """- [X] `base=main`
+- [X] `schedule=MON-FRI 08:00-17:00`
+- [ ] `schedule=MON-FRI 10:00-12:00`
+- [ ] `schedule=SAT-SUN 07:00-12:00`
+"""
+    )
