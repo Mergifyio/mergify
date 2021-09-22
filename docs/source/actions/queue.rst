@@ -182,6 +182,32 @@ If an embarked pull request doesn't match the ``queue_rules`` anymore, it is
 removed from the merge train. All pull requests embarked after it are
 disembarked and re-embarked.
 
+
+Batch Size
+----------
+
+|premium plan tag|
+
+Mergify allows checking the mergeability of multiple pull requests at once using
+the ``batch_size`` option. If set to ``3``, Mergify will create a draft pull
+request with the latest version of the base branch and merge the commits of the 3
+next queued pull requests.
+
+If the CI validates the draft pull request, Mergify will merge the 3 queued
+pull requests and close the draft one. If the CI reports a failure, Mergify uses a binary
+search to build a smaller batch of pull requests to check in order to find the culprit.
+Once the failing pull request is found, Mergify removes it from the queue. The rest of the
+queue is processed as usual.
+
+``batch_size`` and ``speculative_checks`` can be combined to increase the
+merge queue throughput.
+
+For example, if your queue is 15 pull requests long and you have
+``speculative_checks`` set to ``3`` and ``batch_size`` to ``5``, you'll have 3
+draft pull requests of 5 pull requests each being tested at the same time. If
+your CI time is 10 min, you can merge those 15 pull requests in only 10 minutes.
+
+
 Options
 -------
 
