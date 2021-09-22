@@ -47,6 +47,7 @@ async def get_repositories_setuped(
         headers={
             "Authorization": token,
             "Accept": "application/vnd.github.machine-man-preview+json",
+            "User-Agent": "PyGithub/Python",
         },
     ) as session:
         while True:
