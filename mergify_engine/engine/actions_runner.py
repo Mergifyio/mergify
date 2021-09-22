@@ -27,6 +27,8 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine.queue import merge_train
+from mergify_engine.queue import naive
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -483,6 +485,46 @@ async def run_actions(
     return conclusions
 
 
+async def cleanup_pending_actions_with_no_associated_rules(
+    ctxt: context.Context,
+    match: rules.RulesEvaluator,
+    checks: typing.Dict[str, github_types.GitHubCheckRun],
+    previous_conclusions: typing.Dict[str, check_api.Conclusion],
+) -> None:
+    check_names = {
+        f"Rule: {rule.name} ({action})"
+        for rule in match.matching_rules
+        for action, action_obj in rule.actions.items()
+    }
+    removed_checks_to_cleanup = {
+        check_name
+        for check_name in previous_conclusions.keys()
+        if check_name not in check_names
+        and check_name.startswith("Rule: ")
+        and (check_name.endswith(" (queue)") or check_name.endswith(" (merge)"))
+        and check_name in checks
+        and checks[check_name]["conclusion"] is None
+    }
+
+    for check_name in removed_checks_to_cleanup:
+        ctxt.log.info("action removal cleanup", check_name=check_name)
+        if check_name in checks:
+            await check_api.set_check_run(
+                ctxt,
+                check_name,
+                check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    "The rule/action does not exists anymore",
+                    "",
+                ),
+            )
+
+        if check_name.endswith(" (merge)"):
+            await naive.Queue.force_remove_pull(ctxt)
+        elif check_name.endswith(" (queue)"):
+            await merge_train.Train.force_remove_pull(ctxt)
+
+
 async def handle(
     pull_request_rules: rules.PullRequestRules, ctxt: context.Context
 ) -> typing.Optional[check_api.Result]:
@@ -499,6 +541,9 @@ async def handle(
 
     summary_check = checks.get(ctxt.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
+    await cleanup_pending_actions_with_no_associated_rules(
+        ctxt, match, checks, previous_conclusions
+    )
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
     return await get_summary_check_result(
         ctxt,

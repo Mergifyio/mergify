@@ -172,3 +172,17 @@ class Queue(queue.QueueBase):
                 self._redis_queue_key, "-inf", "+inf"
             )
         ]
+
+    @classmethod
+    async def force_remove_pull(cls, ctxt: context.Context) -> None:
+        queue_prefix = f"merge-queue~{ctxt.repository.installation.owner_id}~{ctxt.repository.repo['id']}~*"
+        async for queue_name in ctxt.repository.installation.redis.scan_iter(
+            queue_prefix, count=10000
+        ):
+            score = await ctxt.repository.installation.redis.zscore(
+                queue_name, ctxt.pull["number"]
+            )
+            if score is not None:
+                ref = github_types.GitHubRefType(queue_name.split("~")[-1])
+                queue = cls(ctxt.repository, ref)
+                await queue.remove_pull(ctxt)

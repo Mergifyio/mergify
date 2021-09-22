@@ -16,6 +16,7 @@
 import datetime
 import logging
 
+from first import first
 import pytest
 import yaml
 
@@ -383,3 +384,71 @@ class TestMergeAction(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
         self.assertEqual(True, p["merged"])
         self.assertEqual("mergify-test3", p["merged_by"]["login"])
+
+    async def test_merge_rule_deleted(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge me",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+        # Force rebase
+        p_rebase, _ = await self.create_pr()
+        await self.merge_pull(p_rebase["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.create_status(p)
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await naive.Queue.from_context(ctxt)
+        assert len(await q.get_pulls()) == 1
+
+        check = first(
+            await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge me (merge)",
+        )
+        assert check["conclusion"] is None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        updated_rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge only if label is present",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "status-success=continuous-integration/fake-ci",
+                        "label=automerge",
+                    ],
+                    "actions": {"merge": {"strict": "smart+ordered"}},
+                },
+            ],
+        }
+
+        p2, _ = await self.create_pr(files={".mergify.yml": yaml.dump(updated_rules)})
+        await self.merge_pull(p2["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        check = first(
+            await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge me (merge)",
+        )
+        assert check["conclusion"] == "cancelled"
+        assert check["output"]["title"] == "The rule/action does not exists anymore"
+        q = await naive.Queue.from_context(ctxt)
+        assert len(await q.get_pulls()) == 0
