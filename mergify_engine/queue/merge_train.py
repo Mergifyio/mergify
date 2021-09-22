@@ -1500,3 +1500,9 @@ class Train(queue.QueueBase):
         else:
             _i += 1
         return pulls[:_i], pulls[_i:]
+
+    @classmethod
+    async def force_remove_pull(cls, ctxt: context.Context) -> None:
+        async for train in cls.iter_trains(ctxt.repository.installation):
+            await train.load()
+            await train.remove_pull(ctxt)

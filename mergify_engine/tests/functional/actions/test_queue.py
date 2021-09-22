@@ -112,6 +112,81 @@ class TestQueueAction(base.FunctionalTestBase):
             wp = q._waiting_pulls[i]
             assert wp.user_pull_request_number == expected_waiting_pull
 
+    async def test_queue_rule_deleted(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge me",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+        await self.run_engine()
+        pulls = await self.get_pulls()
+        assert len(pulls) == 1
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        assert len(await q.get_pulls()) == 1
+
+        check = first(
+            await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge me (queue)",
+        )
+        assert check["conclusion"] is None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        updated_rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                    "allow_inplace_speculative_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge only if label is present",
+                    "conditions": [f"base={self.main_branch_name}", "label=automerge"],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+
+        p2, _ = await self.create_pr(files={".mergify.yml": yaml.dump(updated_rules)})
+        await self.merge_pull(p2["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+
+        p = await self.get_pull(p["number"])
+        check = first(
+            await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge me (queue)",
+        )
+        assert check["conclusion"] == "cancelled"
+        assert check["output"]["title"] == "The rule/action does not exists anymore"
+        q = await merge_train.Train.from_context(ctxt)
+        assert len(await q.get_pulls()) == 0
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
