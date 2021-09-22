@@ -92,7 +92,13 @@ class Time:
         if isinstance(obj, datetime.datetime):
             return obj
         elif isinstance(obj, Time):
-            return ref.replace(minute=obj.minute, hour=obj.hour, tzinfo=obj.tzinfo)
+            return ref.replace(
+                minute=obj.minute,
+                hour=obj.hour,
+                second=0,
+                microsecond=0,
+                tzinfo=obj.tzinfo,
+            )
         else:
             raise ValueError(f"Unsupport comparaison type: {type(obj)}")
 
