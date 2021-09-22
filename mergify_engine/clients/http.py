@@ -21,6 +21,7 @@ import typing
 
 import daiquiri
 import httpx
+from httpx import _types as httpx_types
 import tenacity
 import tenacity.wait
 from werkzeug.http import parse_date
@@ -37,15 +38,13 @@ PYTHON_VERSION = (
 )
 HTTPX_VERSION = httpx.__version__
 
-DEFAULT_HEADERS = {
-    "Accept": "application/vnd.github.machine-man-preview+json",
-    "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/${PYTHON_VERSION} httpx/{HTTPX_VERSION}",
-}
+DEFAULT_HEADERS = httpx.Headers(
+    {
+        "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/{PYTHON_VERSION} httpx/{HTTPX_VERSION}"
+    }
+)
 
-DEFAULT_CLIENT_OPTIONS = {
-    "headers": DEFAULT_HEADERS,
-    "timeout": httpx.Timeout(5.0, read=10.0),
-}
+DEFAULT_TIMEOUT = httpx.Timeout(5.0, read=10.0)
 
 HTTPStatusError = httpx.HTTPStatusError
 RequestError = httpx.RequestError
@@ -209,6 +208,23 @@ def raise_for_status(resp: httpx.Response) -> None:
 
 
 class AsyncClient(httpx.AsyncClient):
+    def __init__(
+        self,
+        auth: httpx_types.AuthTypes = None,
+        headers: typing.Optional[httpx_types.HeaderTypes] = None,
+        timeout: httpx_types.TimeoutTypes = DEFAULT_TIMEOUT,
+        base_url: httpx_types.URLTypes = "",
+    ):
+        final_headers = DEFAULT_HEADERS.copy()
+        if headers is not None:
+            final_headers.update(headers)
+        super().__init__(
+            auth=auth,
+            base_url=base_url,
+            headers=final_headers,
+            timeout=timeout,
+        )
+
     @connectivity_issue_retry
     async def request(self, *args: typing.Any, **kwargs: typing.Any) -> httpx.Response:
         resp = await super().request(*args, **kwargs)

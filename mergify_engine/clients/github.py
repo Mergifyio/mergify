@@ -347,7 +347,7 @@ class AsyncGithubClient(http.AsyncClient):
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
-            **http.DEFAULT_CLIENT_OPTIONS,  # type: ignore
+            headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
 
     def __repr__(self):
