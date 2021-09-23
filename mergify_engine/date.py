@@ -123,7 +123,7 @@ class DayOfWeek(PartialDatetime):
         except ValueError:
             pass
         try:
-            return cls(cls._LONG_DAY.index(string) + 1)
+            return cls(cls._LONG_DAY.index(string.lower()) + 1)
         except ValueError:
             pass
         return cls(int(string))

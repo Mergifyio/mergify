@@ -1935,7 +1935,7 @@ async def test_rules_conditions_schedule():
         [
             "base=main",
             "schedule=MON-FRI 08:00-17:00",
-            "schedule=MON-FRI 10:00-12:00",
+            "schedule=MONDAY-FRIDAY 10:00-12:00",
             "schedule=SAT-SUN 07:00-12:00",
         ]
     )
@@ -1946,7 +1946,7 @@ async def test_rules_conditions_schedule():
         c.get_summary()
         == """- [X] `base=main`
 - [X] `schedule=MON-FRI 08:00-17:00`
-- [ ] `schedule=MON-FRI 10:00-12:00`
+- [ ] `schedule=MONDAY-FRIDAY 10:00-12:00`
 - [ ] `schedule=SAT-SUN 07:00-12:00`
 """
     )
