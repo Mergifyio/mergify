@@ -120,39 +120,6 @@ class BackportActionTestBase(base.FunctionalTestBase):
 
 
 class TestBackportAction(BackportActionTestBase):
-    async def test_backport_cancelled(self):
-        stable_branch = self.get_full_branch_name("stable/3.1")
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "backport",
-                    "conditions": [
-                        f"base={self.main_branch_name}",
-                        "label=backport-3.1",
-                    ],
-                    "actions": {"backport": {"branches": [stable_branch]}},
-                }
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
-
-        p, _ = await self.create_pr()
-
-        await self.add_label(p["number"], "backport-3.1")
-        await self.run_engine()
-        await self.remove_label(p["number"], "backport-3.1")
-        await self.run_engine()
-
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = [
-            c
-            for c in await ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: backport (backport)"
-        ]
-        assert "cancelled" == checks[0]["conclusion"]
-        assert "The rule doesn't match anymore" == checks[0]["output"]["title"]
-
     async def test_backport_no_branch(self):
         rules = {
             "pull_request_rules": [

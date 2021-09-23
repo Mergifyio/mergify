@@ -534,6 +534,25 @@ class Repository(object):
 
         return read_permission
 
+    async def _get_branch_protection_from_branch(
+        self,
+        branch_name: github_types.GitHubRefType,
+    ) -> typing.Optional[github_types.GitHubBranchProtection]:
+        try:
+            branch = await self.get_branch(branch_name)
+        except http.HTTPNotFound:
+            return None
+
+        if branch["protection"]["enabled"]:
+            return github_types.GitHubBranchProtection(
+                {
+                    "required_status_checks": branch["protection"][
+                        "required_status_checks"
+                    ],
+                }
+            )
+        return None
+
     async def get_branch_protection(
         self,
         branch_name: github_types.GitHubRefType,
@@ -553,27 +572,16 @@ class Repository(object):
                 branch_protections[branch_name] = None
             except http.HTTPForbidden as e:
                 if (
-                    e.status_code != 403
-                    or "Resource not accessible by integration" not in e.message
+                    "or make this repository public to enable this feature."
+                    in e.message
                 ):
-                    raise
-                try:
-                    branch = await self.get_branch(branch_name)
-                except http.HTTPNotFound:
                     branch_protections[branch_name] = None
+                elif "Resource not accessible by integration" in e.message:
+                    branch_protections[
+                        branch_name
+                    ] = await self._get_branch_protection_from_branch(branch_name)
                 else:
-                    if branch["protection"]["enabled"]:
-                        branch_protections[
-                            branch_name
-                        ] = github_types.GitHubBranchProtection(
-                            {
-                                "required_status_checks": branch["protection"][
-                                    "required_status_checks"
-                                ],
-                            }
-                        )
-                    else:
-                        branch_protections[branch_name] = None
+                    raise
         return branch_protections[branch_name]
 
     async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
