@@ -123,3 +123,23 @@ def test_time_compare():
 
         assert date.utcnow() == date.utcnow()
         assert (date.utcnow() > date.utcnow()) is False
+
+
+@pytest.mark.parametrize(
+    "dow,expected_string",
+    [
+        ("MON", "Mon"),
+        ("wed", "Wed"),
+        ("Sun", "Sun"),
+        ("FRI", "Fri"),
+        ("monday", "Mon"),
+        ("tuesday", "Tue"),
+        ("WEDNESDAY", "Wed"),
+        ("thursday", "Thu"),
+        ("fRiday", "Fri"),
+        ("SATURDAY", "Sat"),
+        ("sunday", "Sun"),
+    ],
+)
+def test_day_of_week_from_string(dow, expected_string):
+    assert str(date.DayOfWeek.from_string(dow)) == expected_string
