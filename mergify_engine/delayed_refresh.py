@@ -68,7 +68,7 @@ async def send(
     redis_stream: utils.RedisStream,
     redis_cache: utils.RedisCache,
 ) -> None:
-    score = date.utcnow().timestamp()
+    score = (date.utcnow() - datetime.timedelta(minutes=1)).timestamp()
     for subkey in await redis_cache.zrangebyscore(DELAYED_REFRESH_KEY, "-inf", score):
         (
             owner_id_str,
