@@ -340,7 +340,11 @@ class TrainCar:
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-            self.train.repository, self.train.ref, [ctxt.pull_request]
+            self.train.repository,
+            self.train.ref,
+            [ctxt.pull_request],
+            ctxt.log,
+            ctxt.has_been_refreshed_by_timer(),
         )
         await self.update_summaries(
             check_api.Conclusion.PENDING,
@@ -444,7 +448,11 @@ class TrainCar:
 
         queue_pull_requests = await self.get_pull_requests_to_evaluate()
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-            self.train.repository, self.train.ref, queue_pull_requests
+            self.train.repository,
+            self.train.ref,
+            queue_pull_requests,
+            self.train.repository.log,
+            False,
         )
         await self.update_summaries(
             check_api.Conclusion.PENDING,

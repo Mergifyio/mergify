@@ -1240,6 +1240,17 @@ class Context(object):
                 return False
         return True
 
+    def has_been_refreshed_by_timer(self) -> bool:
+        for source in self.sources:
+            if source["event_type"] == "refresh":
+                event = typing.cast(github_types.GitHubEventRefresh, source["data"])
+                if (
+                    event["action"] == "internal"
+                    and event["source"] == "delayed-refresh"
+                ):
+                    return True
+        return False
+
     def has_been_opened(self) -> bool:
         for source in self.sources:
             if source["event_type"] == "pull_request":
