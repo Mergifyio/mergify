@@ -241,7 +241,9 @@ async def run(
 
     if ctxt.pull["base"]["repo"]["private"]:
         if not ctxt.subscription.has_feature(subscription.Features.PRIVATE_REPOSITORY):
-            ctxt.log.info("mergify disabled: private repository")
+            ctxt.log.info(
+                "mergify disabled: private repository", reason=ctxt.subscription.reason
+            )
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="Mergify is disabled",
@@ -249,7 +251,9 @@ async def run(
             )
     else:
         if not ctxt.subscription.has_feature(subscription.Features.PUBLIC_REPOSITORY):
-            ctxt.log.info("mergify disabled: public repository")
+            ctxt.log.info(
+                "mergify disabled: public repository", reason=ctxt.subscription.reason
+            )
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="Mergify is disabled",
