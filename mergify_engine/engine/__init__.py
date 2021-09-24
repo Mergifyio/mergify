@@ -307,16 +307,6 @@ async def run(
 
     await _ensure_summary_on_head_sha(ctxt)
 
-    # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
-    # to have such things run properly. Like hooks based on events that you could
-    # register. It feels hackish otherwise.
-    for s in ctxt.sources:
-        if s["event_type"] == "pull_request":
-            event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
-            if event["action"] == "closed":
-                await ctxt.clear_cached_last_summary_head_sha()
-                break
-
     ctxt.log.debug("engine handle actions")
     if ctxt.is_merge_queue_pr():
         return await queue_runner.handle(mergify_config["queue_rules"], ctxt)
