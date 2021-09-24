@@ -172,15 +172,14 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         return
 
     sha = await ctxt.get_cached_last_summary_head_sha()
-    if sha is None:
-        ctxt.log.warning("head sha not stored in redis")
-    elif sha != ctxt.pull["head"]["sha"]:
-        ctxt.log.debug(
-            "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
-        )
-    else:
-        ctxt.log.debug("head sha didn't changed, no need to copy summary")
-        return
+    if sha is not None:
+        if sha == ctxt.pull["head"]["sha"]:
+            ctxt.log.debug("head sha didn't changed, no need to copy summary")
+            return
+        else:
+            ctxt.log.debug(
+                "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
+            )
 
     previous_summary = None
 
@@ -205,8 +204,15 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
                 summary=previous_summary["output"]["summary"],
             )
         )
-    else:
-        ctxt.log.warning("the pull request doesn't have a summary")
+
+    summary = await ctxt.get_engine_check_run(context.Context.SUMMARY_NAME)
+    if summary is None:
+        ctxt.log.warning(
+            "the pull request doesn't have a summary",
+            last_summary_head_sha=sha,
+            head_sha=ctxt.pull["head"]["sha"],
+            previous_summary=previous_summary,
+        )
 
 
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
@@ -241,7 +247,9 @@ async def run(
 
     if ctxt.pull["base"]["repo"]["private"]:
         if not ctxt.subscription.has_feature(subscription.Features.PRIVATE_REPOSITORY):
-            ctxt.log.info("mergify disabled: private repository")
+            ctxt.log.info(
+                "mergify disabled: private repository", reason=ctxt.subscription.reason
+            )
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="Mergify is disabled",
@@ -249,7 +257,9 @@ async def run(
             )
     else:
         if not ctxt.subscription.has_feature(subscription.Features.PUBLIC_REPOSITORY):
-            ctxt.log.info("mergify disabled: public repository")
+            ctxt.log.info(
+                "mergify disabled: public repository", reason=ctxt.subscription.reason
+            )
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="Mergify is disabled",
@@ -306,16 +316,6 @@ async def run(
             )
 
     await _ensure_summary_on_head_sha(ctxt)
-
-    # NOTE(jd): that's fine for now, but I wonder if we wouldn't need a higher abstraction
-    # to have such things run properly. Like hooks based on events that you could
-    # register. It feels hackish otherwise.
-    for s in ctxt.sources:
-        if s["event_type"] == "pull_request":
-            event = typing.cast(github_types.GitHubEventPullRequest, s["data"])
-            if event["action"] == "closed":
-                await ctxt.clear_cached_last_summary_head_sha()
-                break
 
     ctxt.log.debug("engine handle actions")
     if ctxt.is_merge_queue_pr():

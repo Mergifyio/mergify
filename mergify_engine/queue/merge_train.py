@@ -33,6 +33,7 @@ from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
@@ -331,6 +332,7 @@ class TrainCar:
                     "update_method", "merge"
                 ),
                 ctxt,
+                subscription.Features.MERGE_BOT_ACCOUNT,
                 self.still_queued_embarked_pulls[0].config.get("update_bot_account"),
             )
         except branch_updater.BranchUpdateFailure as exc:
@@ -338,7 +340,11 @@ class TrainCar:
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-            self.train.repository, self.train.ref, [ctxt.pull_request]
+            self.train.repository,
+            self.train.ref,
+            [ctxt.pull_request],
+            ctxt.log,
+            ctxt.has_been_refreshed_by_timer(),
         )
         await self.update_summaries(
             check_api.Conclusion.PENDING,
@@ -442,7 +448,11 @@ class TrainCar:
 
         queue_pull_requests = await self.get_pull_requests_to_evaluate()
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-            self.train.repository, self.train.ref, queue_pull_requests
+            self.train.repository,
+            self.train.ref,
+            queue_pull_requests,
+            self.train.repository.log,
+            False,
         )
         await self.update_summaries(
             check_api.Conclusion.PENDING,

@@ -421,7 +421,12 @@ class MergeBaseAction(actions.Action, abc.ABC):
         method = self.config["strict_method"]
 
         try:
-            await branch_updater.update(method, ctxt, update_bot_account)
+            await branch_updater.update(
+                method,
+                ctxt,
+                subscription.Features.MERGE_BOT_ACCOUNT,
+                update_bot_account,
+            )
         except branch_updater.BranchUpdateFailure as e:
             # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
             # in the meantime. So double check that to not report a wrong status.

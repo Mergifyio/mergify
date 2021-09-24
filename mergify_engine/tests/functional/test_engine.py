@@ -1451,7 +1451,6 @@ class TestEngineWithSubscription(base.FunctionalTestBase):
                 f"{self.url_origin}/issues/{p2['number']}/events"
             )
         ]
-
         assert 1 == len(commits2)
         assert commits[0]["sha"] != commits2[0]["sha"]
         assert commits[0]["commit"]["message"] == commits2[0]["commit"]["message"]

@@ -156,13 +156,12 @@ async def prepare_context(client, redis_cache, subscribed=True):
     sub = subscription.Subscription(
         redis_cache,
         123,
-        subscribed,
         "sub or not to sub",
         frozenset(
             getattr(subscription.Features, f) for f in subscription.Features.__members__
         )
         if subscribed
-        else frozenset(),
+        else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
     )
 
     gh_owner = github_types.GitHubAccount(

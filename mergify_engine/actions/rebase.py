@@ -58,7 +58,9 @@ class RebaseAction(actions.Action):
                 return check_api.Result(e.status, e.title, e.reason)
 
             try:
-                await branch_updater.rebase_with_git(ctxt, bot_account)
+                await branch_updater.rebase_with_git(
+                    ctxt, subscription.Features.BOT_ACCOUNT, bot_account
+                )
             except branch_updater.BranchUpdateFailure as e:
                 return check_api.Result(
                     check_api.Conclusion.FAILURE, e.title, e.message

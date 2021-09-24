@@ -122,7 +122,6 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         self.subscription = subscription.Subscription(
             utils.create_aredis_for_cache(max_idle_time=0),
             config.INSTALLATION_ID,
-            self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
             frozenset(
                 getattr(subscription.Features, f)
@@ -130,7 +129,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
                 if f is not subscription.Features.CUSTOM_CHECKS
             )
             if self.SUBSCRIPTION_ACTIVE
-            else frozenset(),
+            else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
         )
         await self.subscription._save_subscription_to_cache()
 

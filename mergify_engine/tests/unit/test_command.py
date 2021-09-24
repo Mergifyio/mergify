@@ -103,10 +103,9 @@ async def _create_context(redis_cache, client):
     sub = subscription.Subscription(
         redis_cache,
         123,
-        True,
         "",
         {},
-        frozenset({}),
+        frozenset({subscription.Features.PUBLIC_REPOSITORY}),
     )
 
     installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)

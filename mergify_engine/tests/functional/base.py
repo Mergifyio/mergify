@@ -444,7 +444,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.subscription = subscription.Subscription(
             self.redis_cache,
             config.TESTING_ORGANIZATION_ID,
-            self.SUBSCRIPTION_ACTIVE,
             "You're not nice",
             frozenset(
                 getattr(subscription.Features, f)
@@ -533,7 +532,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             return subscription.Subscription(
                 redis_cache,
                 owner_id,
-                False,
                 "We're just testing",
                 set(subscription.Features.PUBLIC_REPOSITORY),
             )
@@ -544,7 +542,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             return subscription.Subscription(
                 redis_cache,
                 owner_id,
-                False,
                 "We're just testing",
                 set(subscription.Features.PUBLIC_REPOSITORY),
             )

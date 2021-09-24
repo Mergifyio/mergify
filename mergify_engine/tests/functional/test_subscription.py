@@ -25,7 +25,6 @@ class TestSubscription(base.FunctionalTestBase):
         self.subscription = subscription.Subscription(
             self.redis_cache,
             config.TESTING_ORGANIZATION_ID,
-            self.SUBSCRIPTION_ACTIVE,
             "Abuse",
             frozenset(
                 getattr(subscription.Features, f)
