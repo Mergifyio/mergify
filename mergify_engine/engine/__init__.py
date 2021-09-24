@@ -172,15 +172,14 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         return
 
     sha = await ctxt.get_cached_last_summary_head_sha()
-    if sha is None:
-        ctxt.log.warning("head sha not stored in redis")
-    elif sha != ctxt.pull["head"]["sha"]:
-        ctxt.log.debug(
-            "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
-        )
-    else:
-        ctxt.log.debug("head sha didn't changed, no need to copy summary")
-        return
+    if sha is not None:
+        if sha == ctxt.pull["head"]["sha"]:
+            ctxt.log.debug("head sha didn't changed, no need to copy summary")
+            return
+        else:
+            ctxt.log.debug(
+                "head sha changed need to copy summary", gh_pull_previous_head_sha=sha
+            )
 
     previous_summary = None
 
@@ -205,8 +204,15 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
                 summary=previous_summary["output"]["summary"],
             )
         )
-    else:
-        ctxt.log.warning("the pull request doesn't have a summary")
+
+    summary = await ctxt.get_engine_check_run(context.Context.SUMMARY_NAME)
+    if summary is None:
+        ctxt.log.warning(
+            "the pull request doesn't have a summary",
+            last_summary_head_sha=sha,
+            head_sha=ctxt.pull["head"]["sha"],
+            previous_summary=previous_summary,
+        )
 
 
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
