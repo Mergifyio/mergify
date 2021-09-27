@@ -16,7 +16,7 @@ jobs:
       - run: sudo apt update -y && sudo apt install -y unzip python
       - run: mkdir docs
       - id: download-artifact
-        uses: actions/github-script@v4.1
+        uses: actions/github-script@v5
         with:
           result-encoding: string
           script: |
@@ -49,7 +49,7 @@ jobs:
         with:
           path: docs
           destination: mergify-docs-preview/${{steps.download-artifact.outputs.result}}
-      - uses: actions/github-script@v4.1
+      - uses: actions/github-script@v5
         with:
           script: |
             var pr = "${{ steps.download-artifact.outputs.result }}";
