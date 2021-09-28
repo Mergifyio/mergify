@@ -15,6 +15,7 @@ import base64
 import typing
 
 from datadog import statsd
+import ddtrace
 import yaml
 
 from mergify_engine import actions
@@ -416,7 +417,11 @@ async def run_actions(
                 message = "ignored, another has already been run"
 
             else:
-                with statsd.timed("engine.actions.runtime", tags=[f"name:{action}"]):  # type: ignore[no-untyped-call]
+                with ddtrace.tracer.trace(
+                    f"action.{action}",
+                    span_type="worker",
+                    resource=str(ctxt),
+                ) as span:
                     # NOTE(sileht): check state change so we have to run "run" or "cancel"
                     report = await exec_action(
                         method_name,
@@ -424,6 +429,8 @@ async def run_actions(
                         action,
                         ctxt,
                     )
+                    span.set_tags({"conclusion": str(report.conclusion)})
+
                 message = "executed"
 
             conclusions[check_name] = report.conclusion
