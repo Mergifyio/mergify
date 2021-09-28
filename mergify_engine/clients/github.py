@@ -66,6 +66,10 @@ class CachedToken:
         CachedToken.STORAGE.pop(self.installation_id, None)
 
 
+class InstallationInaccessible(Exception):
+    message: str
+
+
 class GithubTokenAuth(httpx.Auth):
     owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owner: typing.Optional[github_types.GitHubLogin]
@@ -83,7 +87,7 @@ class GithubTokenAuth(httpx.Auth):
 
     @property
     def installation(self):
-        raise RuntimeError(
+        raise InstallationInaccessible(
             f"{self.__class__.__name__} must not be used for installation dependent code"
         )
 

@@ -1331,6 +1331,20 @@ class Context(object):
             return False
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
 
+    def can_change_github_workflow(self) -> bool:
+        try:
+            if self.client.auth.installation is None:
+                raise github.InstallationInaccessible
+            workflows_perm = self.client.auth.installation["permissions"].get(
+                "workflows"
+            )
+        except github.InstallationInaccessible:
+            # Just assume the installation has the permissions, Mergify will
+            # got a `403 Ressource not accessible by integration`, and this is
+            # not a big deal
+            return True
+        return workflows_perm == "write"
+
     async def github_workflow_changed(self) -> bool:
         for f in await self.files:
             if f["filename"].startswith(".github/workflows"):

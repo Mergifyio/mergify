@@ -84,10 +84,11 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
             "You cannot `rebase` a pull request from a private fork.",
             title="Pull request can't be updated with latest base branch changes",
         )
-    elif await ctxt.github_workflow_changed():
+    elif not ctxt.can_change_github_workflow() and await ctxt.github_workflow_changed():
         raise BranchUpdateFailure(
-            "GitHub App like Mergify are not allowed to rebase pull request where `.github/workflows` is changed.\n"
-            "This pull request must be rebased manually.",
+            "The new Mergify permissions must be accepted to rebase pull request with `.github/workflows` changes.\n"
+            "You can accept them at https://dashboard.mergify.io/.\n"
+            "In the meantime, this pull request must be rebased manually.",
             title="Pull request can't be updated with latest base branch changes",
         )
 
