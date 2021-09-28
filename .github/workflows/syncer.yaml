@@ -12,7 +12,7 @@ jobs:
         with:
           github-token: ${{ secrets.DEPLOY_BOT_PAT_TOKEN_FOR_SYNCER }}
           script: |
-            var resp = await github.actions.createWorkflowDispatch({
+            var resp = await github.rest.actions.createWorkflowDispatch({
               owner: "Mergifyio",
               repo: "mergify-engine-prod",
               workflow_id: ".github/workflows/syncer.yml",
