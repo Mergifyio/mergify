@@ -941,6 +941,8 @@ class Train(queue.QueueBase):
         repository_id: typing.Union[
             github_types.GitHubRepositoryIdType, typing.Literal["*"]
         ] = "*",
+        *,
+        exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
     ) -> typing.AsyncIterator["Train"]:
         async for train_name in installation.redis.scan_iter(
             cls.get_redis_key_for(installation.owner_id, repository_id, "*"),
@@ -949,6 +951,8 @@ class Train(queue.QueueBase):
             train_name_split = train_name.split("~")
             repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
             ref = github_types.GitHubRefType(train_name_split[3])
+            if exclude_ref is not None and ref == exclude_ref:
+                continue
             repository = await installation.get_repository_by_id(repo_id)
             yield cls(repository, ref)
 
@@ -1107,7 +1111,9 @@ class Train(queue.QueueBase):
     async def add_pull(
         self, ctxt: context.Context, config: queue.PullQueueConfig
     ) -> None:
-        # TODO(sileht): handle base branch change
+
+        # NOTE(sileht): first, ensure the pull is not in another branch
+        await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
 
         best_position = -1
         for position, (embarked_pull, _) in enumerate(self._iter_embarked_pulls()):
@@ -1507,9 +1513,16 @@ class Train(queue.QueueBase):
         return pulls[:_i], pulls[_i:]
 
     @classmethod
-    async def force_remove_pull(cls, ctxt: context.Context) -> None:
+    async def force_remove_pull(
+        cls,
+        ctxt: context.Context,
+        *,
+        exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
+    ) -> None:
         async for train in cls.iter_trains(
-            ctxt.repository.installation, ctxt.repository.repo["id"]
+            ctxt.repository.installation,
+            ctxt.repository.repo["id"],
+            exclude_ref=exclude_ref,
         ):
             await train.load()
             await train.remove_pull(ctxt)
