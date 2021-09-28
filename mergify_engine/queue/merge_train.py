@@ -936,10 +936,15 @@ class Train(queue.QueueBase):
 
     @classmethod
     async def iter_trains(
-        cls, installation: context.Installation
+        cls,
+        installation: context.Installation,
+        repository_id: typing.Union[
+            github_types.GitHubRepositoryIdType, typing.Literal["*"]
+        ] = "*",
     ) -> typing.AsyncIterator["Train"]:
         async for train_name in installation.redis.scan_iter(
-            cls.get_redis_key_for(installation.owner_id, "*", "*"), count=10000
+            cls.get_redis_key_for(installation.owner_id, repository_id, "*"),
+            count=10000,
         ):
             train_name_split = train_name.split("~")
             repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
@@ -1503,6 +1508,8 @@ class Train(queue.QueueBase):
 
     @classmethod
     async def force_remove_pull(cls, ctxt: context.Context) -> None:
-        async for train in cls.iter_trains(ctxt.repository.installation):
+        async for train in cls.iter_trains(
+            ctxt.repository.installation, ctxt.repository.repo["id"]
+        ):
             await train.load()
             await train.remove_pull(ctxt)
