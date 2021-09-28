@@ -1,0 +1,9 @@
+---
+features:
+  - |
+    Pull request that changes the content of  `.github/worflows` directory are
+    now supported by `backport`, `copy`, `merge` and `queue` actions.
+upgrade:
+  - |
+    For GitHub Enterprise, the repository `Workflow` permission must be set to
+    `Read&Write` for all Mergify GitHub App installation.

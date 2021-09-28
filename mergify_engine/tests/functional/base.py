@@ -380,6 +380,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                     auth = github.get_auth(owner_id)
                     auth.installation = {
                         "id": config.INSTALLATION_ID,
+                        "permissions": {
+                            "workflows": "write",
+                        },
                     }
                     auth.permissions_need_to_be_updated = False
                     auth.owner_id = config.TESTING_ORGANIZATION_ID

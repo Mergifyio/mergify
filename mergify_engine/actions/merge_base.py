@@ -701,12 +701,17 @@ class MergeBaseAction(actions.Action, abc.ABC):
             title = "Branch protection setting 'strict' conflicts with Mergify configuration"
             summary = ""
 
-        elif await ctxt.github_workflow_changed():
+        elif (
+            not ctxt.can_change_github_workflow()
+            and await ctxt.github_workflow_changed()
+        ):
             conclusion = check_api.Conclusion.ACTION_REQUIRED
             title = "Pull request must be merged manually."
-            summary = """GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.
-<br />
-This pull request must be merged manually."""
+            summary = """The new Mergify permissions must be accepted to merge pull request with `.github/workflows` changes.\n
+You can accept them at https://dashboard.mergify.io/\n
+\n
+In the meantime, the pull request must be merged manually."
+"""
 
         # NOTE(sileht): remaining state "behind, clean, unstable, has_hooks
         # are OK for us
