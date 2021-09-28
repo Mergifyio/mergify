@@ -1264,12 +1264,7 @@ class Context(object):
         repo = self.pull["base"]["repo"]["name"]
         number = self.pull["number"]
         branch = self.pull["base"]["ref"]
-        pr_state = (
-            "merged"
-            if self.pull["merged"]
-            else (self.pull["mergeable_state"] or "none")
-        )
-        return f"{login}/{repo}/pull/{number}@{branch} s:{pr_state}"
+        return f"{login}/{repo}/pull/{number}@{branch}"
 
     @property
     async def reviews(self) -> typing.List[github_types.GitHubReview]:
