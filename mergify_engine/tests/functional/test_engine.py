@@ -495,7 +495,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, commits = await self.create_pr()
         await self.run_engine()
 
-        client = github.aget_client(p["base"]["user"]["login"])
+        client = github.aget_client(p["base"]["user"]["id"])
         installation = context.Installation(
             p["base"]["user"]["id"],
             p["base"]["user"]["login"],

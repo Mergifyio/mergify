@@ -290,21 +290,10 @@ class TestMergeAction(base.FunctionalTestBase):
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 2
         check = checks[1]
-        assert check["conclusion"] == "action_required"
-        assert check["output"]["title"] == "Pull request must be merged manually."
+        assert check["conclusion"] == "success"
         assert (
-            check["output"]["summary"]
-            == "GitHub App like Mergify are not allowed to merge pull request where `.github/workflows` is changed.\n<br />\nThis pull request must be merged manually."
+            check["output"]["title"] == "The pull request has been merged automatically"
         )
-
-        await self.remove_label(p["number"], "automerge")
-        await self.run_engine()
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 2
-        check = checks[1]
-        assert check["conclusion"] == "cancelled"
-        assert check["output"]["title"] == "The rule doesn't match anymore"
 
     async def test_merge_draft(self):
         rules = {

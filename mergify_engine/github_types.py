@@ -47,6 +47,7 @@ GitHubInstallationPermissionsK = typing.Literal[
     "pull_requests",
     "statuses",
     "members",
+    "workflows",
 ]
 
 

@@ -28,6 +28,35 @@ LOG = logging.getLogger(__name__)
 
 
 class TestAttributes(base.FunctionalTestBase):
+    async def test_jit_schedule_on_queue_rules(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": ["schedule: MON-FRI 08:00-17:00"],
+                    "allow_inplace_speculative_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "fast queue",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"queue": {"name": "default"}},
+                }
+            ],
+        }
+        with freeze_time("2021-09-22T08:00:02", tick=True):
+            await self.setup_repo(yaml.dump(rules))
+            pr, _ = await self.create_pr()
+            pr_force_rebase, _ = await self.create_pr()
+            await self.merge_pull(pr_force_rebase["number"])
+            await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+            await self.run_engine()
+            await self.wait_for("pull_request", {"action": "opened"})
+            await self.run_engine()
+            pr = await self.get_pull(pr["number"])
+            assert pr["merged"]
+
     async def test_time(self):
         rules = {
             "pull_request_rules": [

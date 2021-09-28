@@ -8,7 +8,7 @@ jobs:
   trigger-syncer-workflow:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v4.1
+      - uses: actions/github-script@v5
         with:
           github-token: ${{ secrets.DEPLOY_BOT_PAT_TOKEN_FOR_SYNCER }}
           script: |

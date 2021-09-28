@@ -39,7 +39,8 @@ class TestGithubClient(base.FunctionalTestBase):
         p2, _ = await self.create_pr()
         await self.create_pr(base=other_branch)
 
-        client = github.aget_client("mergifyio-testing")
+        owner_id = await github.get_owner_id_from_login("mergifyio-testing")
+        client = github.aget_client(owner_id)
 
         url = f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}/pulls"
 

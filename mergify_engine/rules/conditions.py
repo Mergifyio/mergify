@@ -447,15 +447,6 @@ async def get_branch_protection_conditions(
                     ),
                 ]
             )
-            if protection["required_pull_request_reviews"][
-                "require_code_owner_reviews"
-            ]:
-                conditions.append(
-                    RuleCondition(
-                        "#review-requested=0",
-                        description="🛡 GitHub branch protection",
-                    )
-                )
     return conditions
 
 

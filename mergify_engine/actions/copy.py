@@ -208,11 +208,15 @@ class CopyAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if await ctxt.github_workflow_changed():
+        if (
+            not ctxt.can_change_github_workflow()
+            and await ctxt.github_workflow_changed()
+        ):
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 self.FAILURE_MESSAGE,
-                "GitHub App like Mergify are not allowed to create pull request where `.github/workflows` is changed.",
+                "The new Mergify permissions must be accepted to create pull request with `.github/workflows` changes.\n"
+                "You can accept them at https://dashboard.mergify.io/",
             )
 
         template_result = await self._verify_template(ctxt)

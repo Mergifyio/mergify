@@ -1240,6 +1240,17 @@ class Context(object):
                 return False
         return True
 
+    def has_been_refreshed_by_timer(self) -> bool:
+        for source in self.sources:
+            if source["event_type"] == "refresh":
+                event = typing.cast(github_types.GitHubEventRefresh, source["data"])
+                if (
+                    event["action"] == "internal"
+                    and event["source"] == "delayed-refresh"
+                ):
+                    return True
+        return False
+
     def has_been_opened(self) -> bool:
         for source in self.sources:
             if source["event_type"] == "pull_request":
@@ -1319,6 +1330,20 @@ class Context(object):
             # Deleted fork repository
             return False
         return self.pull["head"]["repo"]["id"] != self.pull["base"]["repo"]["id"]
+
+    def can_change_github_workflow(self) -> bool:
+        try:
+            if self.client.auth.installation is None:
+                raise github.InstallationInaccessible
+            workflows_perm = self.client.auth.installation["permissions"].get(
+                "workflows"
+            )
+        except github.InstallationInaccessible:
+            # Just assume the installation has the permissions, Mergify will
+            # got a `403 Ressource not accessible by integration`, and this is
+            # not a big deal
+            return True
+        return workflows_perm == "write"
 
     async def github_workflow_changed(self) -> bool:
         for f in await self.files:
