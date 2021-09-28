@@ -182,24 +182,9 @@ async def fake_context(repository, number, **kwargs):
         "merged_at": None,
         "html_url": "https://...",
         "base": {
-            "label": "Mergifyio:main",
-            "ref": "main",
-            "repo": {
-                "id": 123,
-                "default_branch": "main",
-                "name": "mergify-engine",
-                "full_name": "Mergifyio/mergify-engine",
-                "archived": False,
-                "private": False,
-                "owner": {
-                    "id": 123,
-                    "type": "Orgs",
-                    "login": "Mergifyio",
-                    "avatar_url": "",
-                },
-                "url": "https://api.github.com/repos/Mergifyio/mergify-engine",
-                "html_url": "https://github.com/Mergifyio/mergify-engine",
-            },
+            "label": "Mergifyio:branch",
+            "ref": "branch",
+            "repo": repository.repo,
             "sha": "miaou",
             "user": {
                 "id": 123,
