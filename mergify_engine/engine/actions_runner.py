@@ -128,7 +128,7 @@ async def gen_summary(
     summary += await gen_summary_rules(ctxt, match.matching_rules)
     ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
 
-    if not ctxt.subscription.has_feature(subscription.Features.SHOW_SPONSOR):
+    if ctxt.subscription.has_feature(subscription.Features.SHOW_SPONSOR):
         summary += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
 
     summary += "<hr />\n"
