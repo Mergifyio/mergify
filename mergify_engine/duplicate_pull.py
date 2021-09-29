@@ -311,6 +311,12 @@ async def duplicate(
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
         await git("push", "origin", bp_branch)
+    except gitter.GitMergifyNamespaceConflict as e:
+        raise DuplicateUnexpectedError(
+            "`Mergify uses `mergify/...` namespace for creating temporary branches. "
+            "A branch of your repository is conflicting with this namespace\n"
+            f"```\n{e.output}\n```\n"
+        )
     except gitter.GitAuthenticationFailure as e:
         if bot_account_user is None:
             # Need to get a new token

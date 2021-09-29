@@ -17,6 +17,7 @@ import asyncio
 import collections
 import dataclasses
 import logging
+import re
 import shutil
 import tempfile
 import typing
@@ -48,7 +49,13 @@ class GitReferenceAlreadyExists(GitError):
     pass
 
 
-GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
+class GitMergifyNamespaceConflict(GitError):
+    pass
+
+
+GIT_MESSAGE_TO_EXCEPTION: typing.Dict[
+    typing.Union[str, re.Pattern[str]], typing.Type[GitError]
+] = collections.OrderedDict(
     [
         ("Authentication failed", GitAuthenticationFailure),
         ("RPC failed; HTTP 401", GitAuthenticationFailure),
@@ -59,6 +66,12 @@ GIT_MESSAGE_TO_EXCEPTION = collections.OrderedDict(
         ("The requested URL returned error: 403", GitAuthenticationFailure),
         ("remote contains work that you do", GitErrorRetriable),
         ("remote end hung up unexpectedly", GitErrorRetriable),
+        (
+            re.compile(
+                "cannot lock ref 'refs/heads/mergify/[^']*': 'refs/heads/mergify(|/bp|/copy|/merge-queue)' exists"
+            ),
+            GitMergifyNamespaceConflict,
+        ),
         ("cannot lock ref 'refs/heads/", GitErrorRetriable),
         ("Could not resolve host", GitErrorRetriable),
         ("Operation timed out", GitErrorRetriable),
@@ -112,28 +125,35 @@ class Gitter(object):
             )
             output = stdout.decode("utf-8")
             if p.returncode:
-                if output == "":
-                    # SIGKILL...
-                    raise GitErrorRetriable(p.returncode, "Git process got killed")
-                elif self._is_force_push_lease_reject(output):
-                    raise GitErrorRetriable(
-                        p.returncode,
-                        "Remote branch changed in the meantime: \n"
-                        f"```\n{output}\n```\n",
-                    )
-
-                for message, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
-                    if message in output:
-                        raise out_exception(
-                            p.returncode,
-                            output,
-                        )
-
-                raise GitError(p.returncode, output)
+                raise self._get_git_exception(p.returncode, output)
             else:
                 return output
         finally:
             self.logger.debug("finish: %s", " ".join(args))
+
+    @classmethod
+    def _get_git_exception(cls, returncode: int, output: str) -> GitError:
+        if output == "":
+            # SIGKILL...
+            return GitErrorRetriable(returncode, "Git process got killed")
+        elif cls._is_force_push_lease_reject(output):
+            return GitErrorRetriable(
+                returncode,
+                "Remote branch changed in the meantime: \n" f"```\n{output}\n```\n",
+            )
+
+        for pattern, out_exception in GIT_MESSAGE_TO_EXCEPTION.items():
+            if isinstance(pattern, re.Pattern):
+                match = pattern.search(output) is not None
+            else:
+                match = pattern in output
+            if match:
+                return out_exception(
+                    returncode,
+                    output,
+                )
+
+        return GitError(returncode, output)
 
     @staticmethod
     def _is_force_push_lease_reject(message: str) -> bool:
