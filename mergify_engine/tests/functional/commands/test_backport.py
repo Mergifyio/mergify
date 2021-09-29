@@ -80,25 +80,18 @@ class TestCommandBackport(base.FunctionalTestBase):
             "defaults": {
                 "actions": {"backport": {"branches": [stable_branch, feature_branch]}},
             },
-            "pull_request_rules": [
-                {
-                    "name": "auto-backport",
-                    "conditions": [f"base={self.main_branch_name}"],
-                    "actions": {"comment": {"message": "@mergifyio backport"}},
-                }
-            ],
         }
 
         await self.setup_repo(
             yaml.dump(rules), test_branches=[stable_branch, feature_branch]
         )
         p, _ = await self.create_pr()
-
-        await self.run_engine()
-        await self.wait_for("issue_comment", {"action": "created"})
-
+        await self.create_comment(
+            p["number"], f"@mergifyio backport {stable_branch} {feature_branch}"
+        )
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
+
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
