@@ -13,8 +13,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 import os
+import typing
 from unittest import mock
 
 import pytest
@@ -50,3 +50,43 @@ async def test_gitter(monkeypatch: pytest.MonkeyPatch) -> None:
     finally:
         await git.cleanup()
         assert not os.path.exists(f"{git.tmp}/.git")
+
+
+@pytest.mark.parametrize(
+    "stdout, exception, exc_message",
+    (
+        (
+            """To https://github.com/owner/repo
+ ! [remote rejected] mergify/bp/main/pr-42 -> mergify/bp/main/pr-42 (cannot lock ref 'refs/heads/mergify/bp/main/pr-42': 'refs/heads/mergify/merge-queue' exists; cannot create 'refs/heads/mergify/bp/main/pr-42')
+error: failed to push some refs to 'https://github.com/owner/repo'
+
+""",
+            gitter.GitMergifyNamespaceConflict,
+            "cannot lock ref",
+        ),
+        (
+            """To https://github.com/owner/repo
+ ! [remote rejected] mergify/bp/main/pr-42 -> mergify/bp/main/pr-42 (cannot lock ref 'refs/heads/mergify/bp/main/pr-42': 'refs/heads/mergify' exists; cannot create 'refs/heads/mergify/bp/main/pr-42')
+error: failed to push some refs to 'https://github.com/owner/repo'
+
+""",
+            gitter.GitMergifyNamespaceConflict,
+            "cannot lock ref",
+        ),
+        (
+            """
+To gitlab.com:example/my-project.git
+ ! [rejected]        my-branch -> my-branch (stale info)
+error: failed to push some refs to 'git@gitlab.com:example/my-project.git'
+""",
+            gitter.GitErrorRetriable,
+            "Remote branch changed in the meantime",
+        ),
+    ),
+)
+def test_gitter_error_catching(
+    stdout: str, exception: typing.Type[Exception], exc_message: str
+) -> None:
+    with pytest.raises(exception) as excinfo:
+        raise gitter.Gitter._get_git_exception(1, stdout)
+    assert exc_message in str(excinfo.value)

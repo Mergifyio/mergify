@@ -147,6 +147,12 @@ async def _do_rebase(
         expected_sha = (await git("log", "-1", "--format=%H")).strip()
         # NOTE(sileht): We store this for dismissal action
         await ctxt.redis.setex(f"branch-update-{expected_sha}", 60 * 60, expected_sha)
+    except gitter.GitMergifyNamespaceConflict as e:
+        raise BranchUpdateFailure(
+            "`Mergify uses `mergify/...` namespace for creating temporary branches. "
+            "A branch of your repository is conflicting with this namespace\n"
+            f"```\n{e.output}\n```\n"
+        )
     except gitter.GitAuthenticationFailure:
         raise
     except gitter.GitErrorRetriable as e:
