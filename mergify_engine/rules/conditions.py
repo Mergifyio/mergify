@@ -424,16 +424,6 @@ async def get_branch_protection_conditions(
                     for check in protection["required_status_checks"]["contexts"]
                 ]
             )
-        if (
-            "required_linear_history" in protection
-            and protection["required_linear_history"]["enabled"]
-        ):
-            conditions.append(
-                RuleCondition(
-                    "linear-history",
-                    description="🛡 GitHub branch protection",
-                )
-            )
         if "required_pull_request_reviews" in protection:
             conditions.extend(
                 [
