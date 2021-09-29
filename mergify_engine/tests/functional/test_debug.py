@@ -56,6 +56,7 @@ class TestDebugger(base.FunctionalTestBase):
             [
                 subscription.Features.PRIORITY_QUEUES,
                 subscription.Features.PUBLIC_REPOSITORY,
+                subscription.Features.SHOW_SPONSOR,
             ]
         )
 
@@ -89,9 +90,11 @@ class TestDebugger(base.FunctionalTestBase):
 * Features (cache):
   - priority_queues
   - public_repository
+  - show_sponsor
 * Features (db):
   - priority_queues
   - public_repository
+  - show_sponsor
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
@@ -215,9 +218,11 @@ mergeable_state: clean
 * Features (cache):
   - priority_queues
   - public_repository
+  - show_sponsor
 * Features (db):
   - priority_queues
   - public_repository
+  - show_sponsor
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test3)
 * DASHBOARD SUB DETAIL: You're not nice
