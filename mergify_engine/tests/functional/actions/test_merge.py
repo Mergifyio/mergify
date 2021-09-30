@@ -374,6 +374,45 @@ class TestMergeAction(base.FunctionalTestBase):
         self.assertEqual(True, p["merged"])
         self.assertEqual("mergify-test3", p["merged_by"]["login"])
 
+    async def test_merge_branch_protection_linear_history(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": None,
+            "required_linear_history": True,
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        p1, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
+
+        ctxt = await context.Context.create(self.repository_ctxt, p1, [])
+        checks = [
+            c
+            for c in await ctxt.pull_engine_check_runs
+            if c["name"] == "Rule: merge (merge)"
+        ]
+        assert "failure" == checks[0]["conclusion"]
+        assert (
+            "Branch protection setting 'linear history' conflicts with Mergify configuration"
+            == checks[0]["output"]["title"]
+        )
+
     async def test_merge_rule_deleted(self):
         rules = {
             "pull_request_rules": [

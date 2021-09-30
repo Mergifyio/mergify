@@ -805,7 +805,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 "require_code_owner_reviews": True,
                 "required_approving_review_count": 1,
             },
-            "required_linear_history": True,
+            "required_linear_history": False,
             "restrictions": None,
             "enforce_admins": False,
         }
@@ -851,15 +851,13 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
   - [ ] `check-success=skipped-ci`
   - [ ] `check-neutral=skipped-ci`
   - [ ] `check-skipped=skipped-ci`
-- [X] `linear-history` [🛡 GitHub branch protection]
 - [ ] `#approved-reviews-by>=1` [🛡 GitHub branch protection]
 - [X] `#changes-requested-reviews-by=0` [🛡 GitHub branch protection]
-- [X] `#review-requested=0` [🛡 GitHub branch protection]
 
 ### Rule: merge (comment)
 - [X] `base={self.main_branch_name}`
 """ == "\n".join(
-            summary["output"]["summary"].split("\n")[:22]
+            summary["output"]["summary"].split("\n")[:20]
         )
 
         await self.create_status(p)

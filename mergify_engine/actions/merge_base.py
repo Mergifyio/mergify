@@ -702,11 +702,19 @@ class MergeBaseAction(actions.Action, abc.ABC):
             summary = ""
 
         elif (
+            await self._is_branch_protection_linear_history_enabled(ctxt)
+            and self.config["method"] == "merge"
+        ):
+            conclusion = check_api.Conclusion.FAILURE
+            title = "Branch protection setting 'linear history' conflicts with Mergify configuration"
+            summary = "Branch protection setting 'linear history' works only if `method: squash` or `method: rebase`."
+
+        elif (
             not ctxt.can_change_github_workflow()
             and await ctxt.github_workflow_changed()
         ):
             conclusion = check_api.Conclusion.ACTION_REQUIRED
-            title = "Pull request must be merged manually."
+            title = "Pull request must be merged manually"
             summary = """The new Mergify permissions must be accepted to merge pull request with `.github/workflows` changes.\n
 You can accept them at https://dashboard.mergify.io/\n
 \n
@@ -719,6 +727,19 @@ In the meantime, the pull request must be merged manually."
             return None
 
         return check_api.Result(conclusion, title, summary)
+
+    @staticmethod
+    async def _is_branch_protection_linear_history_enabled(
+        ctxt: context.Context,
+    ) -> bool:
+        protection = await ctxt.repository.get_branch_protection(
+            ctxt.pull["base"]["ref"]
+        )
+        return (
+            protection is not None
+            and "required_linear_history" in protection
+            and protection["required_linear_history"]["enabled"]
+        )
 
     async def get_conditions_requirements(
         self,
