@@ -176,3 +176,34 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
                 break
         else:
             pytest.fail("Unable to find request review check run")
+
+
+class TestRequestReviewsSubAction(base.FunctionalTestBase):
+    SUBSCRIPTION_ACTIVE = True
+
+    async def test_request_reviews_users_from_teams(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "request_reviews",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "request_reviews": {
+                            "users_from_teams": ["testing", "bot"],
+                            "random_count": 2,
+                        }
+                    },
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        pulls = await self.get_pulls(params={"base": self.main_branch_name})
+        assert 1 == len(pulls)
+        requests = await self.get_review_requests(pulls[0]["number"])
+        assert len(requests["users"]) == 2
+        assert len(requests["teams"]) == 0

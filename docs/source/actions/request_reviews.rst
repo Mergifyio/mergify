@@ -35,6 +35,10 @@ Options
     - list of string or dictionary of login and weight
     -
     - The team name to request reviews from.
+  * - ``users_from_teams``
+    - list of string or dictionary of login and weight
+    -
+    - The team names to get the list of users to request reviews from.
   * - ``random_count``
     - integer between 1 and 15
     -
