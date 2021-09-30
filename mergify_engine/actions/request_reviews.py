@@ -27,6 +27,19 @@ from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
+ReviewEntityWithWeightT = typing.Union[
+    typing.Dict[types.GitHubLogin, int], typing.Dict[types.GitHubTeam, int]
+]
+ReviewEntityT = typing.Union[
+    typing.List[types.GitHubLogin],
+    typing.List[types.GitHubTeam],
+]
+
+
+def _ensure_weight(entities: ReviewEntityT) -> ReviewEntityWithWeightT:
+    return {entity: 1 for entity in entities}
+
+
 class RequestReviewsAction(actions.Action):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
@@ -45,13 +58,19 @@ class RequestReviewsAction(actions.Action):
 
     validator = {
         voluptuous.Required("users", default=list): voluptuous.Any(
-            [types.GitHubLogin],
+            voluptuous.All(
+                [types.GitHubLogin],
+                voluptuous.Coerce(_ensure_weight),
+            ),
             {
                 types.GitHubLogin: _random_weight,
             },
         ),
         voluptuous.Required("teams", default=list): voluptuous.Any(
-            [types.GitHubTeam],
+            voluptuous.All(
+                [types.GitHubTeam],
+                voluptuous.Coerce(_ensure_weight),
+            ),
             {
                 types.GitHubTeam: _random_weight,
             },
@@ -65,19 +84,11 @@ class RequestReviewsAction(actions.Action):
     def _get_random_reviewers(
         self, random_number: int, pr_author: str
     ) -> typing.Set[str]:
-        if isinstance(self.config["users"], dict):
-            user_weights = self.config["users"]
-        else:
-            user_weights = {user: 1 for user in self.config["users"]}
-
-        if isinstance(self.config["teams"], dict):
-            team_weights = self.config["teams"]
-        else:
-            team_weights = {team: 1 for team in self.config["teams"]}
-
         choices = {
-            **{user.lower(): weight for user, weight in user_weights.items()},
-            **{f"@{team.team}": weight for team, weight in team_weights.items()},
+            **{user.lower(): weight for user, weight in self.config["users"].items()},
+            **{
+                f"@{team.team}": weight for team, weight in self.config["teams"].items()
+            },
         }
 
         try:
@@ -106,8 +117,8 @@ class RequestReviewsAction(actions.Action):
                 else:
                     user_reviews_to_request.add(reviewer)
         else:
-            user_reviews_to_request = set(self.config["users"])
-            team_reviews_to_request = {t.team for t in self.config["teams"]}
+            user_reviews_to_request = set(self.config["users"].keys())
+            team_reviews_to_request = {t.team for t in self.config["teams"].keys()}
 
         user_reviews_to_request -= existing_reviews
         user_reviews_to_request -= {pr_author}
@@ -147,13 +158,8 @@ class RequestReviewsAction(actions.Action):
             )
         )
 
-        if isinstance(self.config["teams"], dict):
-            teams = self.config["teams"].keys()
-        else:
-            teams = self.config["teams"]
-
         team_errors = set()
-        for team in teams:
+        for team in self.config["teams"].keys():
             try:
                 await team.has_read_permission(ctxt)
             except types.InvalidTeam as e:
