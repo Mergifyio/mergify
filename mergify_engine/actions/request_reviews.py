@@ -75,6 +75,15 @@ class RequestReviewsAction(actions.Action):
                 types.GitHubTeam: _random_weight,
             },
         ),
+        voluptuous.Required("users_from_teams", default=list): voluptuous.Any(
+            voluptuous.All(
+                [types.GitHubTeam],
+                voluptuous.Coerce(_ensure_weight),
+            ),
+            {
+                types.GitHubTeam: _random_weight,
+            },
+        ),
         "random_count": voluptuous.All(
             int,
             voluptuous.Range(1, GITHUB_MAXIMUM_REVIEW_REQUEST),
@@ -164,6 +173,21 @@ class RequestReviewsAction(actions.Action):
                 await team.has_read_permission(ctxt)
             except types.InvalidTeam as e:
                 team_errors.add(e.details)
+
+        for team, weight in self.config["users_from_teams"].items():
+            try:
+                await team.has_read_permission(ctxt)
+            except types.InvalidTeam as e:
+                team_errors.add(e.details)
+            else:
+                self.config["users"].update(
+                    {
+                        user: weight
+                        for user in await ctxt.repository.installation.get_team_members(
+                            team.team
+                        )
+                    }
+                )
 
         if team_errors:
             return check_api.Result(
