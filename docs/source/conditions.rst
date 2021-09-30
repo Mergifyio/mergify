@@ -145,6 +145,7 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``conflict``
      - Boolean
      - Whether the pull request is conflicting with its base branch.
+       Due to GitHub API restriction, this is always false when a pull request is a draft.
    * - ``commented-reviews-by``
      - list of string
      - The list of GitHub user or team login that have commented in a review
