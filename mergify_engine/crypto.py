@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives import hashes
 from mergify_engine import config
 
 
-digest = hashes.Hash(hashes.SHA256(), backend=default_backend())  # type: ignore[no-untyped-call]
+digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
 digest.update(config.CACHE_TOKEN_SECRET.encode())
 
 SECRET_KEY = digest.finalize()
@@ -48,7 +48,7 @@ def encrypt(value: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv),
-        backend=default_backend(),  # type: ignore[no-untyped-call]
+        backend=default_backend(),
     )
     encryptor = cipher.encryptor()  # type: ignore[no-untyped-call]
     encrypted = encryptor.update(value) + encryptor.finalize()
@@ -74,7 +74,7 @@ def decrypt(value: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv, tag),
-        backend=default_backend(),  # type: ignore[no-untyped-call]
+        backend=default_backend(),
     )
     decryptor = cipher.decryptor()  # type: ignore[no-untyped-call]
     try:
