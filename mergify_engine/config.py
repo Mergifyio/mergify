@@ -58,6 +58,9 @@ def AccountTokens(v: str) -> typing.Dict[str, str]:
 
 Schema = voluptuous.Schema(
     {
+        voluptuous.Required(
+            "VERSION", default=os.getenv("HEROKU_SLUG_COMMIT", "dev")
+        ): str,
         # Logging
         voluptuous.Required(
             "LOG_DEBUG_LOGGER_NAMES", default=""
@@ -169,6 +172,7 @@ Schema = voluptuous.Schema(
 )
 
 # Config variables available
+VERSION: str
 SENTRY_URL: str
 SENTRY_ENVIRONMENT: str
 CACHE_TOKEN_SECRET: str

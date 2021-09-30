@@ -80,7 +80,7 @@ async def test_send_seats(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request(
         "/on-premise/report",
         method="POST",
-        json={"seats": 5, "write_users": 5, "active_users": 2},
+        json={"seats": 5, "write_users": 5, "active_users": 2, "engine_version": "dev"},
     ).respond_with_data("Accepted", status=201)
     with mock.patch(
         "mergify_engine.config.SUBSCRIPTION_BASE_URL",
