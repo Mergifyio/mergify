@@ -229,6 +229,9 @@ class RepositoryCache(typing.TypedDict, total=False):
     branch_protections: typing.Dict[
         github_types.GitHubRefType, typing.Optional[github_types.GitHubBranchProtection]
     ]
+    commits: typing.Dict[
+        github_types.GitHubRefType, typing.List[github_types.GitHubBranchCommit]
+    ]
 
 
 @dataclasses.dataclass
@@ -331,6 +334,26 @@ class Repository(object):
         await self.installation.redis.delete(config_location_cache)
         self._cache["mergify_config"] = None
         return None
+
+    async def get_commits(
+        self,
+        branch_name: github_types.GitHubRefType,
+    ) -> typing.List[github_types.GitHubBranchCommit]:
+        """Returns the last commits from a branch.
+
+        This only returns the last 100 commits."""
+
+        commits = self._cache.setdefault("commits", {})
+        if branch_name not in commits:
+            commits[branch_name] = typing.cast(
+                typing.List[github_types.GitHubBranchCommit],
+                await self.installation.client.item(
+                    f"{self.base_url}/commits",
+                    params={"per_page": "100", "sha": branch_name},
+                ),
+            )
+
+        return commits[branch_name]
 
     async def get_branch(
         self,
@@ -861,6 +884,22 @@ class Context(object):
 
         elif name == "number":
             return typing.cast(int, self.pull["number"])
+
+        elif name == "commits-behind":
+            if self.pull["merged"]:
+                return []
+            else:
+                return list(
+                    itertools.takewhile(
+                        lambda sha: sha != self.pull["base"]["sha"],
+                        (
+                            c["sha"]
+                            for c in await self.repository.get_commits(
+                                self.pull["base"]["ref"]
+                            )
+                        ),
+                    )
+                )
 
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
@@ -1453,6 +1492,7 @@ class PullRequest(BasePullRequest):
         "check-skipped",
         "check-pending",
         "check-stale",
+        "commits-behind",
         "files",
     }
 

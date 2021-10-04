@@ -169,6 +169,46 @@ class TestAttributes(base.FunctionalTestBase):
 
         assert await self.redis_cache.zcard("delayed-refresh") == 1
 
+    async def test_commits_behind_conditions(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "not up2date",
+                    "conditions": ["#commits-behind>0"],
+                    "actions": {
+                        "comment": {
+                            "message": "rebase it please: {{commits_behind|length}} commits behind"
+                        }
+                    },
+                },
+                {
+                    "name": "up2date",
+                    "conditions": ["#commits-behind: 0"],
+                    "actions": {"comment": {"message": "good good good"}},
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        p1, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        pr_force_rebase, _ = await self.create_pr(two_commits=True)
+        await self.merge_pull(pr_force_rebase["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(p1["number"])
+        assert len(comments) == 2
+        assert "good good good" == comments[0]["body"]
+        assert "rebase it please: 3 commits behind" == comments[1]["body"]
+
+        comments = await self.get_issue_comments(pr_force_rebase["number"])
+        assert len(comments) == 1
+        assert "good good good" == comments[0]["body"]
+
     async def test_updated_relative_match(self):
         rules = {
             "pull_request_rules": [
@@ -265,6 +305,7 @@ class TestAttributes(base.FunctionalTestBase):
             "status-success": ["Summary"],
             "changes-requested-reviews-by": [],
             "merged": False,
+            "commits-behind": [],
             "head": self.get_full_branch_name("fork/pr2"),
             "author": "mergify-test2",
             "dismissed-reviews-by": [],
