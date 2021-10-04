@@ -89,7 +89,7 @@ class SquashAction(actions.Action):
             message = f"{title}\n\n{message}"
 
         elif self.config["commit_message"] == "all-commits":
-            message = f"{(await ctxt.pull_request.title)} (#{(await ctxt.pull_request.number)})"
+            message = f"{(await ctxt.pull_request.title)} (#{(await ctxt.pull_request.number)})\n"
             message += "\n\n* ".join(
                 [commit["commit"]["message"] for commit in await ctxt.commits]
             )
