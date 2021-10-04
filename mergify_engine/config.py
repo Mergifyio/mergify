@@ -168,6 +168,12 @@ Schema = voluptuous.Schema(
             "ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN",
             default="<ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
         ): str,
+        voluptuous.Required(
+            "TESTING_MERGIFY_TEST_1_ID", default=38494943
+        ): voluptuous.Coerce(int),
+        voluptuous.Required(
+            "TESTING_MERGIFY_TEST_2_ID", default=38495008
+        ): voluptuous.Coerce(int),
     }
 )
 
@@ -217,6 +223,8 @@ LOG_DEBUG_LOGGER_NAMES: typing.List[str]
 ORG_ADMIN_PERSONAL_TOKEN: str
 ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
+TESTING_MERGIFY_TEST_1_ID: int
+TESTING_MERGIFY_TEST_2_ID: int
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 
