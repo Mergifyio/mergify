@@ -328,9 +328,6 @@ async def report(
             pr_data = await ctxt.pull_request.items()
             pprint.pprint(pr_data, width=160)
 
-            is_behind = await ctxt.is_behind
-            print(f"is_behind: {is_behind}")
-
             print(f"mergeable_state: {ctxt.pull['mergeable_state']}")
 
             print("* MERGIFY LAST CHECKS:")

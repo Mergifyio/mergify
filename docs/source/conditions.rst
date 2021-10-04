@@ -194,6 +194,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``number``
      - integer
      - The pull request number.
+   * - ``up-to-date``
+     - Boolean
+     - Whether the pull request is up to date with its base branch
    * - ``review-requested``
      - list of string
      - The list of GitHub user or team login that were requested to review the

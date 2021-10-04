@@ -152,8 +152,8 @@ pull_request_rules:
  'status-failure': [],
  'status-neutral': [],
  'status-success': ['Summary'],
- 'title': 'test_debugger: pull request n1 from fork'}}
-is_behind: False
+ 'title': 'test_debugger: pull request n1 from fork',
+ 'up-to-date': True}}
 mergeable_state: clean
 * MERGIFY LAST CHECKS:
 [Summary]: success | 1 potential rule | {summary_html_url}

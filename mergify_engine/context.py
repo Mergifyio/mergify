@@ -862,6 +862,9 @@ class Context(object):
         elif name == "number":
             return typing.cast(int, self.pull["number"])
 
+        if name == "up-to-date":
+            return not await self.is_behind
+
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
 
@@ -1428,6 +1431,7 @@ class PullRequest(BasePullRequest):
         "number",
         "conflict",
         "linear-history",
+        "up-to-date",
         "base",
         "head",
         "locked",
