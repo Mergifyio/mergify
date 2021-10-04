@@ -194,6 +194,10 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``number``
      - integer
      - The pull request number.
+   * - ``commits-behind``
+     - list of string
+     - The list of commits sha between the head of the base branch and the base
+       of the pull request (maximum 100 last commits sha).
    * - ``review-requested``
      - list of string
      - The list of GitHub user or team login that were requested to review the

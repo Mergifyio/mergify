@@ -288,6 +288,7 @@ assignee = "assignee" + _match_login_or_teams
 label = "label" + _match_with_operator(text)
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
+commits_behind = "commits-behind" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
 number = "number" + match_integer
 review_requests = "review-requested" + _match_login_or_teams
@@ -346,6 +347,7 @@ quantifiable_attributes = (
     | check_skipped
     | check_pending
     | check_stale
+    | commits_behind
 )
 
 locked = _match_boolean("locked")

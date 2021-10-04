@@ -137,6 +137,7 @@ pull_request_rules:
  'check-success-or-neutral': ['Summary'],
  'closed': False,
  'commented-reviews-by': [],
+ 'commits-behind': [],
  'conflict': False,
  'dismissed-reviews-by': [],
  'files': ['test1'],
