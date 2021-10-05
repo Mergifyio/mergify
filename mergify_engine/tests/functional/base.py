@@ -497,13 +497,17 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if RECORD:
             assert self.client_admin.auth.owner == "mergify-test1"
             assert self.client_fork.auth.owner == "mergify-test2"
-            assert self.client_admin.auth.owner_id == 38494943
-            assert self.client_fork.auth.owner_id == 38495008
+            assert self.client_admin.auth.owner_id == config.TESTING_MERGIFY_TEST_1_ID
+            assert self.client_fork.auth.owner_id == config.TESTING_MERGIFY_TEST_2_ID
         else:
             self.client_admin.auth.owner = github_types.GitHubLogin("mergify-test1")
             self.client_fork.auth.owner = github_types.GitHubLogin("mergify-test2")
-            self.client_admin.auth.owner_id = github_types.GitHubAccountIdType(38494943)
-            self.client_fork.auth.owner_id = github_types.GitHubAccountIdType(38495008)
+            self.client_admin.auth.owner_id = github_types.GitHubAccountIdType(
+                config.TESTING_MERGIFY_TEST_1_ID
+            )
+            self.client_fork.auth.owner_id = github_types.GitHubAccountIdType(
+                config.TESTING_MERGIFY_TEST_2_ID
+            )
 
         self.url_origin = (
             f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"

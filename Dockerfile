@@ -29,6 +29,8 @@ RUN python3 -m pip install --no-cache-dir -c ./requirements.txt -e .
 
 ### RUNNER ###
 FROM base-image as runner
+ARG MERGIFYENGINE_VERSION=dev
+LABEL mergify-engine.version="$MERGIFYENGINE_VERSION"
 RUN apt clean -y && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app /app
 COPY --from=builder /venv /venv
@@ -38,4 +40,5 @@ ENV PYTHONUNBUFFERED=1
 ENV DD_DOGSTATSD_DISABLE=1
 ENV DD_TRACE_ENABLED=0
 ENV PATH="/venv/bin:${PATH}"
+ENV MERGIFYENGINE_VERSION=$MERGIFYENGINE_VERSION
 ENTRYPOINT ["/app/entrypoint.sh"]

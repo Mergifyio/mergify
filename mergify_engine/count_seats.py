@@ -365,6 +365,7 @@ async def send_seats(seats: SeatsCountResultT) -> None:
                 json={
                     "write_users": seats.write_users,
                     "active_users": seats.active_users,
+                    "engine_version": config.VERSION,
                     # Deprecated version
                     "seats": seats.write_users,
                 },

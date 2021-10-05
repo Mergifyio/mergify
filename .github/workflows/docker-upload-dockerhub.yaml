@@ -28,6 +28,8 @@ jobs:
         uses: docker/build-push-action@v2.7.0
         with:
           push: true
+          build-args: |
+            MERGIFYENGINE_VERSION=${{ steps.tag.outputs.value }}
           tags: |
             mergifyio/engine:latest
             mergifyio/engine:${{ steps.tag.outputs.value }}
