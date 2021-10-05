@@ -2,7 +2,7 @@ name: Upload temporary docs to GCP
 
 on:
   workflow_run:
-    workflows: ["Documentation"]
+    workflows: ["Continuous Integration (docs)"]
     types:
       - completed
 
