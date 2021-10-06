@@ -681,8 +681,6 @@ class Context(object):
     # FIXME(sileht): https://github.com/python/mypy/issues/5723
     _cache: ContextCache = dataclasses.field(default_factory=ContextCache)  # type: ignore
 
-    SUMMARY_NAME = "Summary"
-
     @property
     def redis(self) -> utils.RedisCache:
         # TODO(sileht): remove me when context split if done
@@ -761,7 +759,7 @@ class Context(object):
         await self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
-            return await check_api.set_check_run(self, self.SUMMARY_NAME, result)
+            return await check_api.set_check_run(self, constants.SUMMARY_NAME, result)
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis

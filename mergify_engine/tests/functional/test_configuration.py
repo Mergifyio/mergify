@@ -17,6 +17,7 @@ from unittest import mock
 
 import yaml
 
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -137,10 +138,9 @@ expected alphabetic or numeric character, but found"""
         p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.run_engine()
         ctxt = await context.Context.create(self.repository_ctxt, p1, [])
-        checks = await ctxt.pull_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert (
-            checks[0]["output"]["title"]
+            summary["output"]["title"]
             == "Configuration changed. This pull request must be merged manually — no rules match, no planned actions"
         )

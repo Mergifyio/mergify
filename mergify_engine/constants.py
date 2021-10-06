@@ -14,8 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+SUMMARY_NAME = "Summary"
+
 MERGE_QUEUE_BRANCH_PREFIX = "mergify/merge-queue"
 MERGE_QUEUE_SUMMARY_NAME = "Queue: Embarked in merge train"
+
 
 MERGIFY_OPENSOURCE_SPONSOR_DOC = (
     "<hr />\n"

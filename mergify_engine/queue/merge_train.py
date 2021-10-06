@@ -546,12 +546,10 @@ You don't need to do anything. Mergify will close this pull request automaticall
             tmp_pull_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
-            check = await tmp_pull_ctxt.get_engine_check_run(
-                context.Context.SUMMARY_NAME
-            )
+            summary = await tmp_pull_ctxt.get_engine_check_run(constants.SUMMARY_NAME)
             if (
-                check is None
-                or check["conclusion"] == check_api.Conclusion.PENDING.value
+                summary is None
+                or summary["conclusion"] == check_api.Conclusion.PENDING.value
             ):
                 reason = f"✨ {reason}. The pull request {self._get_user_refs()} has been re-embarked. ✨"
                 body = await self.generate_merge_queue_summary(

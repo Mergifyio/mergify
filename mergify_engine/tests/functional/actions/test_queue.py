@@ -2554,7 +2554,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await car.delete_pull(reason="testing deleted reason")
 
         ctxt = context.Context(self.repository_ctxt, tmp_pull)
-        summary = await ctxt.get_engine_check_run(context.Context.SUMMARY_NAME)
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
         assert summary is not None
         assert summary["conclusion"] == "cancelled"
         assert "testing deleted reason" in summary["output"]["summary"]
