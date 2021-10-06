@@ -15,10 +15,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
 import daiquiri
 import voluptuous
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import queue
@@ -36,7 +39,7 @@ LOG = daiquiri.getLogger(__name__)
 class MergeAction(merge_base.MergeBaseAction):
     MESSAGE_ACTION_NAME = "Merge"
 
-    validator = {
+    validator_default = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
             "rebase", "merge", "squash"
         ),
@@ -44,6 +47,16 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
             "merge", "squash", "none", None
         ),
+        voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
+        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+            "default", "title+body"
+        ),
+        voluptuous.Required(
+            "priority", default=merge_base.PriorityAliases.medium.value
+        ): merge_base.PrioritySchema,
+    }
+
+    validator_strict_mode = {
         voluptuous.Required("strict", default=False): voluptuous.All(
             voluptuous.Any(
                 bool, "smart", "smart+fastpath", "smart+fasttrack", "smart+ordered"
@@ -54,17 +67,24 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
             "rebase", "merge"
         ),
-        voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
-        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
-        ),
-        voluptuous.Required(
-            "priority", default=merge_base.PriorityAliases.medium.value
-        ): merge_base.PrioritySchema,
     }
 
+    @classmethod
+    def get_config_schema(
+        cls, partial_validation: bool
+    ) -> typing.Dict[typing.Any, typing.Any]:
+        schema = cls.validator_default.copy()
+        if config.ALLOW_MERGE_STRICT_MODE:
+            schema.update(cls.validator_strict_mode)
+        return schema
+
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
+        if not config.ALLOW_MERGE_STRICT_MODE:
+            self.config["strict"] = False
+            self.config["strict_method"] = "merge"
+            self.config["update_bot_account"] = None
+
         self.config["queue_config"] = rules.QueueConfig(
             {
                 "priority": 0,

@@ -296,7 +296,9 @@ async def test_queue_summary(redis_cache):
         [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
     )
     with mock.patch.object(merge.naive.Queue, "from_context", return_value=q):
-        action = merge.MergeAction(voluptuous.Schema(merge.MergeAction.validator)({}))
+        action = merge.MergeAction(
+            voluptuous.Schema(merge.MergeAction.get_schema())({})
+        )
         assert """**Required conditions for merge:**
 
 

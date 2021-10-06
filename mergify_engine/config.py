@@ -134,6 +134,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
             float
         ),
+        voluptuous.Required("ALLOW_MERGE_STRICT_MODE", default=True): CoercedBool,
         # For test suite only (eg: tox -erecord)
         voluptuous.Required(
             "TESTING_FORWARDER_ENDPOINT",
@@ -225,6 +226,7 @@ ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 TESTING_MERGIFY_TEST_1_ID: int
 TESTING_MERGIFY_TEST_2_ID: int
+ALLOW_MERGE_STRICT_MODE: bool
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 
