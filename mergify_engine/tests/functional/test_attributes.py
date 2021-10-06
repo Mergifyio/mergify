@@ -200,10 +200,21 @@ class TestAttributes(base.FunctionalTestBase):
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
+        await self.client_admin.put(
+            f"{self.repository_ctxt.base_url}/pulls/{p1['number']}/update-branch",
+            api_version="lydian",
+            json={"expected_head_sha": p1["head"]["sha"]},
+        )
+        await self.wait_for("pull_request", {"action": "synchronize"})
+
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
         comments = await self.get_issue_comments(p1["number"])
-        assert len(comments) == 2
+        assert len(comments) == 3
         assert "good good good" == comments[0]["body"]
         assert "rebase it please: 3 commits behind" == comments[1]["body"]
+        assert "good good good" == comments[2]["body"]
 
         comments = await self.get_issue_comments(pr_force_rebase["number"])
         assert len(comments) == 1

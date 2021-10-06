@@ -652,6 +652,7 @@ class ContextCache(typing.TypedDict, total=False):
     is_behind: bool
     files: typing.List[github_types.GitHubFile]
     commits: typing.List[github_types.GitHubBranchCommit]
+    commits_behind: typing.List[github_types.SHAType]
 
 
 ContextAttributeType = typing.Union[
@@ -663,6 +664,8 @@ ContextAttributeType = typing.Union[
     date.PartialDatetime,
     datetime.datetime,
     date.RelativeDatetime,
+    typing.List[github_types.SHAType],
+    typing.List[github_types.GitHubLogin],
 ]
 
 
@@ -886,20 +889,7 @@ class Context(object):
             return typing.cast(int, self.pull["number"])
 
         elif name == "commits-behind":
-            if self.pull["merged"]:
-                return []
-            else:
-                return list(
-                    itertools.takewhile(
-                        lambda sha: sha != self.pull["base"]["sha"],
-                        (
-                            c["sha"]
-                            for c in await self.repository.get_commits(
-                                self.pull["base"]["ref"]
-                            )
-                        ),
-                    )
-                )
+            return await self.commits_behind
 
         elif name == "conflict":
             return self.pull["mergeable_state"] == "dirty"
@@ -1227,24 +1217,50 @@ class Context(object):
         except KeyError:
             pass
 
-    @property
-    async def is_behind(self) -> bool:
-        if "is_behind" in self._cache:
-            return self._cache["is_behind"]
-
-        branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
-        branch = typing.cast(
-            github_types.GitHubBranch,
-            await self.client.item(f"{self.base_url}/branches/{branch_name_escaped}"),
-        )
+    async def _get_external_parents(self) -> typing.Set[github_types.SHAType]:
+        known_commits_sha = [commit["sha"] for commit in await self.commits]
+        external_parents_sha = {self.pull["base"]["sha"]}
         for commit in await self.commits:
             for parent in commit["parents"]:
-                if parent["sha"] == branch["commit"]["sha"]:
-                    self._cache["is_behind"] = False
-                    return False
+                if parent["sha"] not in known_commits_sha:
+                    external_parents_sha.add(parent["sha"])
+        return external_parents_sha
 
-        self._cache["is_behind"] = True
-        return True
+    @property
+    async def commits_behind(self) -> typing.List[github_types.SHAType]:
+        if "commits_behind" not in self._cache:
+            if self.pull["merged"]:
+                self._cache["commits_behind"] = []
+            else:
+                external_parents_sha = await self._get_external_parents()
+                self._cache["commits_behind"] = list(
+                    itertools.takewhile(
+                        lambda sha: sha not in external_parents_sha,
+                        (
+                            c["sha"]
+                            for c in await self.repository.get_commits(
+                                self.pull["base"]["ref"]
+                            )
+                        ),
+                    )
+                )
+        return self._cache["commits_behind"]
+
+    @property
+    async def is_behind(self) -> bool:
+        if "is_behind" not in self._cache:
+            branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
+            branch = typing.cast(
+                github_types.GitHubBranch,
+                await self.client.item(
+                    f"{self.base_url}/branches/{branch_name_escaped}"
+                ),
+            )
+            external_parents_sha = await self._get_external_parents()
+            self._cache["is_behind"] = (
+                branch["commit"]["sha"] not in external_parents_sha
+            )
+        return self._cache["is_behind"]
 
     def is_merge_queue_pr(self) -> bool:
         return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
