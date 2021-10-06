@@ -22,6 +22,7 @@ import yaml
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.clients import github
 from mergify_engine.rules import live_resolvers
@@ -45,12 +46,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p = await self.get_pull(p["number"])
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert (
             "no rules configured, just listening for commands"
-            == checks[0]["output"]["title"]
+            == summary["output"]["title"]
         )
 
     async def test_empty_configuration(self):
@@ -60,12 +60,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         p = await self.get_pull(p["number"])
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert (
             "no rules configured, just listening for commands"
-            == checks[0]["output"]["title"]
+            == summary["output"]["title"]
         )
 
     async def test_merge_with_not_merged_attribute(self):
@@ -547,9 +546,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
             await live_resolvers.teams(repository, ["@invalid/team/break-here"])
 
-        summary = [
-            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
-        ][0]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert summary["output"]["title"] == "2 faulty rules and 2 potential rules"
         for message in (
             "Team `@mergifyio-testing/noexists` does not exist",
@@ -834,9 +832,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             if c["name"] == "Rule: merge (merge)"
         ]
         assert checks == []
-        summary = [
-            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
-        ][0]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert (
             f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
@@ -1160,20 +1157,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             )
         )
 
-        checks = await ctxt.pull_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
-        completed_at = checks[0]["completed_at"]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        completed_at = summary["completed_at"]
 
         await self.create_comment(p["number"], "@mergifyio refresh")
 
         await self.run_engine()
 
         del ctxt._cache["pull_check_runs"]
-        checks = await ctxt.pull_check_runs
-        assert len(checks) == 1
-        assert checks[0]["name"] == "Summary"
-        assert completed_at != checks[0]["completed_at"]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert completed_at != summary["completed_at"]
 
         comments = await self.get_issue_comments(p["number"])
         assert (
