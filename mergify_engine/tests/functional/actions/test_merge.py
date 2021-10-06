@@ -153,6 +153,12 @@ class TestMergeAction(base.FunctionalTestBase):
         await self.run_engine(1)  # ensure we handle the 3 refresh here.
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
+
+        summary = [
+            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
+        ][0]
+        assert "brownout" in summary["output"]["summary"]
+
         q = await naive.Queue.from_context(ctxt)
         pulls_in_queue = await q.get_pulls()
         assert pulls_in_queue == [p_high["number"], p_medium["number"], p_low["number"]]

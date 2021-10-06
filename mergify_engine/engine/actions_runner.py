@@ -37,6 +37,26 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 %s
 </details>"""
 
+STRICT_MODE_DEPRECATION_GHES = """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `strict` mode of the merge action.**
+> This option will be removed on version 2.0.0.
+> For more information: https://blog.mergify.io/strict-mode-deprecation/
+
+"""
+
+
+STRICT_MODE_DEPRECATION_SASS = """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `strict` mode of the merge action.**
+> A brownout is planned for the whole December 6th, 2021 day.
+> This option will be removed on January 10th, 2022.
+> For more information: https://blog.mergify.io/strict-mode-deprecation/
+
+"""
+
 
 async def get_already_merged_summary(
     ctxt: context.Context, match: rules.RulesEvaluator
@@ -119,9 +139,21 @@ async def gen_summary(
     pull_request_rules: rules.PullRequestRules,
     match: rules.RulesEvaluator,
 ) -> typing.Tuple[str, str]:
-
     summary = ""
     summary += await get_already_merged_summary(ctxt, match)
+
+    has_merge_action_with_strict_mode = any(
+        action
+        for rule in match.rules
+        for name, action in rule.actions.items()
+        if name == "merge" and action.config["strict"]
+    )
+    if has_merge_action_with_strict_mode:
+        if config.is_saas():
+            summary += STRICT_MODE_DEPRECATION_SASS
+        else:
+            summary += STRICT_MODE_DEPRECATION_GHES
+
     if ctxt.configuration_changed:
         summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)
