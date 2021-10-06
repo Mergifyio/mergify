@@ -285,18 +285,22 @@ _T_get_auth = typing.Union[
 
 
 async def get_owner_id_from_login(owner_login: str) -> github_types.GitHubAccountIdType:
-    url = f"{config.GITHUB_API_URL}/users/{owner_login}"
-    async with http.AsyncClient() as client:
+    async with AsyncGithubClient(auth=github_app.GithubBearerAuth()) as client:
         try:
-            user = (await client.get(url)).json()
+            installation = typing.cast(
+                github_types.GitHubInstallation,
+                await client.item(
+                    f"{config.GITHUB_API_URL}/users/{owner_login}/installation"
+                ),
+            )
         except http.HTTPNotFound as e:
             LOG.error(
                 "Can't get owner id from login.",
                 gh_owner=owner_login,
                 error_message=e.message,
             )
-            raise http.HTTPNotFound
-    return github_types.GitHubAccountIdType(user["id"])
+            raise
+    return installation["account"]["id"]
 
 
 def get_auth(
