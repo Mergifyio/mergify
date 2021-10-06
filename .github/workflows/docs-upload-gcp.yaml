@@ -21,7 +21,7 @@ jobs:
           result-encoding: string
           script: |
             console.log(github.event);
-            var artifacts = await github.actions.listWorkflowRunArtifacts({
+            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
                run_id: ${{github.event.workflow_run.id }},
@@ -53,7 +53,7 @@ jobs:
         with:
           script: |
             var pr = "${{ steps.download-artifact.outputs.result }}";
-            var resp = await github.repos.createCommitStatus({
+            var resp = await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: "${{ github.event.workflow_run.head_sha }}",
