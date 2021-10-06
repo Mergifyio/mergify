@@ -247,3 +247,7 @@ if globals()["STREAM_URL"] is None:
 if not CONFIG["PRIVATE_KEY"].startswith("----"):
     CONFIG["PRIVATE_KEY"] = base64.b64decode(CONFIG["PRIVATE_KEY"])
     PRIVATE_KEY = CONFIG["PRIVATE_KEY"]
+
+
+def is_saas() -> bool:
+    return typing.cast(str, globals()["GITHUB_API_URL"]) == "https://api.github.com"
