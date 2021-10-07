@@ -24,8 +24,8 @@ the pull request to a draft automatically since it's likely not ready to review.
 .. code-block:: yaml
 
     pull_request_rules:
-    - name: convert to draft
-    conditions:
-        - "#check-failed>0"
+      - name: convert to draft
+        conditions:
+          - "#check-failed>0"
         actions:
           draft:
