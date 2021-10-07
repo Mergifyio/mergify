@@ -264,6 +264,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     updated_at: ISODateTimeType
     created_at: ISODateTimeType
     closed_at: typing.Optional[ISODateTimeType]
+    node_id: str
 
 
 # https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads

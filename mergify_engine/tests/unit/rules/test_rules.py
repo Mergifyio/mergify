@@ -1006,6 +1006,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         repository,
         github_types.GitHubPullRequest(
             {
+                "node_id": "42",
                 "locked": False,
                 "assignees": [],
                 "requested_reviewers": [],
