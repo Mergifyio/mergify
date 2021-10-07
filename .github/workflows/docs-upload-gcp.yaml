@@ -21,15 +21,15 @@ jobs:
           result-encoding: string
           script: |
             console.log(github.event);
-            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            var { data } = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
                run_id: ${{github.event.workflow_run.id }},
             });
-            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+            var matchArtifact = data.artifacts.filter((artifact) => {
               return artifact.name.startsWith("docs-pr-")
             })[0];
-            var download = await github.actions.downloadArtifact({
+            var download = await github.rest.actions.downloadArtifact({
                owner: context.repo.owner,
                repo: context.repo.repo,
                artifact_id: matchArtifact.id,
