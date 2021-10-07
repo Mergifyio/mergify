@@ -54,6 +54,7 @@ GH_REPO = github_types.GitHubRepository(
 )
 GH_PULL = github_types.GitHubPullRequest(
     {
+        "node_id": "42",
         "locked": False,
         "assignees": [],
         "requested_reviewers": [],

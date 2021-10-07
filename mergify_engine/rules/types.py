@@ -81,6 +81,7 @@ _DUMMY_PR = DummyPullRequest(
         None,  # type: ignore
         github_types.GitHubPullRequest(
             {
+                "node_id": "42",
                 "locked": False,
                 "assignees": [],
                 "requested_reviewers": [],

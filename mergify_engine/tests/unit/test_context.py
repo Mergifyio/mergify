@@ -407,6 +407,7 @@ async def test_context_depends_on():
 
     pull = github_types.GitHubPullRequest(
         {
+            "node_id": "42",
             "locked": False,
             "assignees": [],
             "requested_reviewers": [],
@@ -527,6 +528,7 @@ async def test_context_body_null():
 
     pull = github_types.GitHubPullRequest(
         {
+            "node_id": "42",
             "locked": False,
             "assignees": [],
             "requested_reviewers": [],

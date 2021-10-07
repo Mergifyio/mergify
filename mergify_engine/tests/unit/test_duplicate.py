@@ -111,6 +111,7 @@ async def test_get_commits_to_cherry_pick_rebase(
     ctxt = await context.Context.create(
         repository,
         {
+            "node_id": "42",
             "locked": False,
             "assignees": [],
             "requested_reviewers": [],
@@ -299,6 +300,7 @@ async def test_get_commits_to_cherry_pick_merge(
     ctxt = await context.Context.create(
         repository,
         {
+            "node_id": "42",
             "locked": False,
             "assignees": [],
             "requested_reviewers": [],

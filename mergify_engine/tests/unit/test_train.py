@@ -123,6 +123,7 @@ def fake_client():
 
 async def fake_context(repository, number, **kwargs):
     pull: github_types.GitHubPullRequest = {
+        "node_id": "42",
         "locked": False,
         "assignees": [],
         "requested_reviewers": [],
