@@ -49,16 +49,32 @@ jobs:
         with:
           path: docs
           destination: mergify-docs-preview/${{steps.download-artifact.outputs.result}}
+
       - uses: actions/github-script@v5
+        if: always()
         with:
           script: |
-            var pr = "${{ steps.download-artifact.outputs.result }}";
+            var target_url = "";
+            var state = "error";
+            if ("${{ job.status }}" === "success") {
+              var pr = "${{ steps.download-artifact.outputs.result }}";
+              target_url = `https://docs-preview.mergify.io/${pr}/docs`,
+              state = "success";
+            } else {
+              const { data } = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId
+              });
+              target_url = data.jobs[0].html_url ;
+              state = "failure";
+            }
             var resp = await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: "${{ github.event.workflow_run.head_sha }}",
               context: "Documentation Preview",
-              state: "success",
-              target_url: `https://docs-preview.mergify.io/${pr}/docs`,
+              state: state,
+              target_url: target_url
             });
             console.log(resp)
