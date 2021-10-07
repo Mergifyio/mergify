@@ -79,6 +79,7 @@ async def test_summary_synchronization_cache(
     ctxt = await context.Context.create(
         repository,
         {
+            "node_id": "42",
             "locked": False,
             "assignees": [],
             "requested_reviewers": [],
