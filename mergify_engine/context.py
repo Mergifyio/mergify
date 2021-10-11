@@ -761,7 +761,12 @@ class Context(object):
         await self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
-            return await check_api.set_check_run(self, constants.SUMMARY_NAME, result)
+            return await check_api.set_check_run(
+                self,
+                constants.SUMMARY_NAME,
+                result,
+                external_id=str(self.pull["number"]),
+            )
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis

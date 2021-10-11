@@ -197,7 +197,12 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         # be stuck.
         previous_summary = await _get_summary_from_synchronize_event(ctxt)
 
-    if previous_summary:
+    # Sync only if the external_id is the expected one
+    if previous_summary and (
+        previous_summary["external_id"] is None
+        or previous_summary["external_id"] == ""
+        or previous_summary["external_id"] == str(ctxt.pull["number"])
+    ):
         await ctxt.set_summary_check(
             check_api.Result(
                 check_api.Conclusion(previous_summary["conclusion"]),
@@ -205,14 +210,10 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
                 summary=previous_summary["output"]["summary"],
             )
         )
-
-    summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-    if summary is None:
-        ctxt.log.warning(
-            "the pull request doesn't have a summary",
-            last_summary_head_sha=sha,
-            head_sha=ctxt.pull["head"]["sha"],
-            previous_summary=previous_summary,
+    elif previous_summary:
+        ctxt.log.info(
+            "got a previous summary, but collision detected with another pull request",
+            other_pull=previous_summary["external_id"],
         )
 
 
@@ -318,6 +319,35 @@ async def run(
 
     await _ensure_summary_on_head_sha(ctxt)
 
+    summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+    if (
+        summary
+        and summary["external_id"] is not None
+        and summary["external_id"] != ""
+        and summary["external_id"] != str(ctxt.pull["number"])
+    ):
+        other_ctxt = await ctxt.repository.get_pull_request_context(
+            github_types.GitHubPullRequestNumber(int(summary["external_id"]))
+        )
+        # NOTE(sileht): allow to override the summary of another pull request
+        # only if this one is closed, but this can still confuse users as the
+        # check-runs created by merge/queue action will not be cleaned.
+        # TODO(sileht): maybe cancel all other mergify engine check-runs in this case?
+        if not other_ctxt.closed:
+            # TODO(sileht): try to report that without check-runs/statuses to the user
+            # and without spamming him with comment
+            ctxt.log.info(
+                "sha collision detected between pull requests",
+                other_pull=summary["external_id"],
+            )
+            return None
+
+    if not ctxt.has_been_opened() and summary is None:
+        ctxt.log.warning(
+            "the pull request doesn't have a summary",
+            head_sha=ctxt.pull["head"]["sha"],
+        )
+
     ctxt.log.debug("engine handle actions")
     if ctxt.is_merge_queue_pr():
         return await queue_runner.handle(mergify_config["queue_rules"], ctxt)
@@ -364,6 +394,7 @@ async def create_initial_summary(
                 "title": "Your rules are under evaluation",
                 "summary": "Be patient, the page will be updated soon.",
             },
+            "external_id": str(event["pull_request"]["number"]),
         }
         try:
             await client.post(
