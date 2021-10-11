@@ -15,6 +15,7 @@
 # under the License.
 import datetime
 import logging
+from unittest import mock
 
 from first import first
 import pytest
@@ -486,3 +487,35 @@ class TestMergeAction(base.FunctionalTestBase):
         assert check["output"]["title"] == "The rule/action does not exists anymore"
         q = await naive.Queue.from_context(ctxt)
         assert len(await q.get_pulls()) == 0
+
+    @mock.patch.object(config, "ALLOW_MERGE_STRICT_MODE", False)
+    async def test_strict_mode_brownout(self):
+
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {
+                        "merge": {"strict": "smart+ordered", "priority": "high"}
+                    },
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        checks = await context.Context(self.repository_ctxt, p).pull_engine_check_runs
+        assert len(checks) == 1
+        assert "failure" == checks[0]["conclusion"]
+        assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
+        assert (
+            "extra keys not allowed @ pull_request_rules → item 0 → actions → merge → strict"
+            == checks[0]["output"]["summary"]
+        )
