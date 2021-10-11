@@ -409,7 +409,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
 - [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from fork** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]
 - [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
 """
-        assert expected == summary["output"]["summary"][: len(expected)]
+        assert expected in summary["output"]["summary"]
 
     async def test_statuses_error(self):
         rules = {
