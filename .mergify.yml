@@ -2,7 +2,8 @@ defaults:
   actions:
     queue:
       name: default
-      method: rebase
+      method: squash
+      commit_message: title+body
     squash:
       commit_message: first-commit
 
@@ -45,10 +46,11 @@ pull_request_rules:
     conditions:
       - base=main
       - author=@devs
-      # - check-success=Semantic Pull Request
+      - check-success=semantic-pull-request
       - body~=(?m)^Fixes MERGIFY-ENGINE-
       - label=hotfix
       - "#changes-requested-reviews-by=0"
+      - "#commits=1"
       - label!=work-in-progress
       - label!=manual merge
     actions:
@@ -58,7 +60,7 @@ pull_request_rules:
   - name: automatic merge
     conditions:
       - base=main
-      # - check-success=Semantic Pull Request
+      - check-success=semantic-pull-request
       - check-success=requirements
       - check-success=pep8
       - check-success=py39
@@ -67,6 +69,7 @@ pull_request_rules:
       - check-success=heroku
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
+      - "#commits=1"
       - label!=work-in-progress
       - label!=manual merge
     actions:
@@ -74,11 +77,12 @@ pull_request_rules:
 
   - name: automatic merge from dependabot
     conditions:
-      # - check-success=Semantic Pull Request
+      - check-success=semantic-pull-request
       - check-success=requirements
       - author=dependabot[bot]
       - label!=work-in-progress
       - label!=manual merge
+      - "#commits=1"
     actions:
       queue:
         name: lowprio
