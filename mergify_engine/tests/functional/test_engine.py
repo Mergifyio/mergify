@@ -837,7 +837,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         summary = [
             c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
         ][0]
-        assert f"""### Rule: merge (merge)
+        assert (
+            f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
 - [ ] any of: [🛡 GitHub branch protection]
   - [ ] `check-success=continuous-integration/fake-ci`
@@ -856,8 +857,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
 ### Rule: merge (comment)
 - [X] `base={self.main_branch_name}`
-""" == "\n".join(
-            summary["output"]["summary"].split("\n")[:20]
+"""
+            in summary["output"]["summary"]
         )
 
         await self.create_status(p)
