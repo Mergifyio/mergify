@@ -756,6 +756,8 @@ class Context(object):
         previous_sha = await self.get_cached_last_summary_head_sha()
         # NOTE(sileht): we first commit in redis the future sha,
         # so engine.create_initial_summary() cannot creates a second SUMMARY
+        # We don't delete the old redis_last_summary_pulls_key in case of the
+        # API call fails, so no other pull request can takeover this sha
         await self._save_cached_last_summary_head_sha(self.pull["head"]["sha"])
 
         try:
@@ -763,7 +765,9 @@ class Context(object):
         except Exception:
             if previous_sha:
                 # Restore previous sha in redis
-                await self._save_cached_last_summary_head_sha(previous_sha)
+                await self._save_cached_last_summary_head_sha(
+                    previous_sha, self.pull["head"]["sha"]
+                )
             raise
 
     @staticmethod
@@ -772,6 +776,14 @@ class Context(object):
         repo = pull["base"]["repo"]["id"]
         pull_number = pull["number"]
         return f"summary-sha~{owner}~{repo}~{pull_number}"
+
+    @staticmethod
+    def redis_last_summary_pulls_key(
+        owner_id: github_types.GitHubAccountIdType,
+        repo_id: github_types.GitHubRepositoryIdType,
+        sha: github_types.SHAType,
+    ) -> str:
+        return f"summary-pulls~{owner_id}~{repo_id}~{sha}"
 
     @classmethod
     async def get_cached_last_summary_head_sha_from_pull(
@@ -784,6 +796,25 @@ class Context(object):
             await redis_cache.get(cls.redis_last_summary_head_sha_key(pull)),
         )
 
+    @classmethod
+    async def summary_exists(
+        cls,
+        redis_cache: utils.RedisCache,
+        owner_id: github_types.GitHubAccountIdType,
+        repo_id: github_types.GitHubRepositoryIdType,
+        pull: github_types.GitHubPullRequest,
+    ) -> bool:
+        sha_exists = bool(
+            await redis_cache.exists(
+                cls.redis_last_summary_pulls_key(owner_id, repo_id, pull["head"]["sha"])
+            )
+        )
+        if sha_exists:
+            return True
+
+        sha = await cls.get_cached_last_summary_head_sha_from_pull(redis_cache, pull)
+        return sha is not None and sha == pull["head"]["sha"]
+
     async def get_cached_last_summary_head_sha(
         self,
     ) -> typing.Optional[github_types.SHAType]:
@@ -793,18 +824,49 @@ class Context(object):
         )
 
     async def clear_cached_last_summary_head_sha(self) -> None:
-        await self.redis.delete(self.redis_last_summary_head_sha_key(self.pull))
+        pipe = await self.redis.pipeline()
+        await pipe.delete(self.redis_last_summary_head_sha_key(self.pull))
+        await pipe.delete(
+            self.redis_last_summary_pulls_key(
+                self.repository.installation.owner_id,
+                self.repository.repo["id"],
+                self.pull["head"]["sha"],
+            ),
+            self.pull["number"],
+        )
+        await pipe.execute()
 
     async def _save_cached_last_summary_head_sha(
-        self, sha: github_types.SHAType
+        self,
+        sha: github_types.SHAType,
+        old_sha: typing.Optional[github_types.SHAType] = None,
     ) -> None:
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
+        pipe = await self.redis.pipeline()
         await self.redis.set(
             self.redis_last_summary_head_sha_key(self.pull),
             sha,
             ex=SUMMARY_SHA_EXPIRATION,
         )
+        await pipe.set(
+            self.redis_last_summary_pulls_key(
+                self.repository.installation.owner_id,
+                self.repository.repo["id"],
+                sha,
+            ),
+            self.pull["number"],
+            ex=SUMMARY_SHA_EXPIRATION,
+        )
+        if old_sha is not None:
+            await pipe.delete(
+                self.redis_last_summary_pulls_key(
+                    self.repository.installation.owner_id,
+                    self.repository.repo["id"],
+                    old_sha,
+                ),
+            )
+        await pipe.execute()
 
     async def consolidated_reviews(
         self,
