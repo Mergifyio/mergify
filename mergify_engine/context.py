@@ -1230,18 +1230,22 @@ class Context(object):
             if self.pull["merged"]:
                 self._cache["commits_behind"] = []
             else:
-                external_parents_sha = await self._get_external_parents()
-                self._cache["commits_behind"] = list(
-                    itertools.takewhile(
-                        lambda sha: sha not in external_parents_sha,
-                        (
-                            c["sha"]
-                            for c in await self.repository.get_commits(
-                                self.pull["base"]["ref"]
-                            )
-                        ),
+                try:
+                    commits = await self.repository.get_commits(
+                        self.pull["base"]["ref"]
                     )
-                )
+                except http.HTTPNotFound:
+                    self._cache["commits_behind"] = [
+                        github_types.SHAType("<base-branch-deleted>")
+                    ] * 100
+                else:
+                    external_parents_sha = await self._get_external_parents()
+                    self._cache["commits_behind"] = list(
+                        itertools.takewhile(
+                            lambda sha: sha not in external_parents_sha,
+                            (c["sha"] for c in commits),
+                        )
+                    )
         return self._cache["commits_behind"]
 
     @property
