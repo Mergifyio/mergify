@@ -17,6 +17,7 @@ import first
 
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
@@ -123,7 +124,7 @@ async def _get_summary_from_sha(
         await check_api.get_checks_for_ref(
             ctxt,
             sha,
-            check_name=ctxt.SUMMARY_NAME,
+            check_name=constants.SUMMARY_NAME,
         ),
         key=lambda c: c["app"]["id"] == config.INTEGRATION_ID,
     )
@@ -205,7 +206,7 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
             )
         )
 
-    summary = await ctxt.get_engine_check_run(context.Context.SUMMARY_NAME)
+    summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
     if summary is None:
         ctxt.log.warning(
             "the pull request doesn't have a summary",
@@ -353,7 +354,7 @@ async def create_initial_summary(
 
     async with github.aget_client(owner) as client:
         post_parameters = {
-            "name": context.Context.SUMMARY_NAME,
+            "name": constants.SUMMARY_NAME,
             "head_sha": event["pull_request"]["head"]["sha"],
             "status": check_api.Status.IN_PROGRESS.value,
             "started_at": date.utcnow().isoformat(),

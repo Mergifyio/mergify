@@ -15,6 +15,7 @@
 # under the License.
 
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import subscription
 from mergify_engine.tests.functional import base
@@ -39,8 +40,7 @@ class TestSubscription(base.FunctionalTestBase):
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        checks_abuse = await ctxt.pull_engine_check_runs
-        assert len(checks_abuse) == 1
-        assert checks_abuse[0]["name"] == "Summary"
-        assert "Abuse" == checks_abuse[0]["output"]["summary"]
-        assert "Mergify is disabled" == checks_abuse[0]["output"]["title"]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert "Abuse" == summary["output"]["summary"]
+        assert "Mergify is disabled" == summary["output"]["title"]

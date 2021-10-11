@@ -20,6 +20,7 @@ from freezegun import freeze_time
 import pytest
 import yaml
 
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -114,9 +115,8 @@ class TestAttributes(base.FunctionalTestBase):
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         await self.run_engine()
         assert (await self.get_pull(pr["number"]))["state"] == "open"
-        summary = [
-            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
-        ][0]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         expected = (
             "### Rule: ~~merge (close)~~\n:no_entry_sign: **Disabled: code freeze**\n"
         )
@@ -399,9 +399,8 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         assert await ctxt._get_consolidated_data("depends-on") == [f"#{pr2['number']}"]
 
         repo_url = ctxt.pull["base"]["repo"]["html_url"]
-        summary = [
-            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
-        ][0]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         expected = f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
 - [X] `label=automerge`

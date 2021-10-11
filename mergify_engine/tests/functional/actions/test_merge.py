@@ -22,6 +22,7 @@ import pytest
 import yaml
 
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.queue import naive
 from mergify_engine.tests.functional import base
@@ -155,9 +156,8 @@ class TestMergeAction(base.FunctionalTestBase):
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
-        summary = [
-            c for c in await ctxt.pull_engine_check_runs if c["name"] == "Summary"
-        ][0]
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         assert "brownout" in summary["output"]["summary"]
 
         q = await naive.Queue.from_context(ctxt)

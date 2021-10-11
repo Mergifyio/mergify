@@ -237,7 +237,7 @@ async def get_summary_check_result(
             "summary changed",
             summary={
                 "title": summary_title,
-                "name": ctxt.SUMMARY_NAME,
+                "name": constants.SUMMARY_NAME,
                 "summary": summary,
             },
             sources=ctxt.sources,
@@ -253,7 +253,7 @@ async def get_summary_check_result(
             "summary unchanged",
             summary={
                 "title": summary_title,
-                "name": ctxt.SUMMARY_NAME,
+                "name": constants.SUMMARY_NAME,
                 "summary": summary,
             },
             sources=ctxt.sources,
@@ -576,10 +576,10 @@ async def handle(
         # NOTE(sileht): Only comment/command, don't need to go further
         return None
 
-    checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
-
-    summary_check = checks.get(ctxt.SUMMARY_NAME)
+    summary_check = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
     previous_conclusions = load_conclusions(ctxt, summary_check)
+
+    checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
     await cleanup_pending_actions_with_no_associated_rules(
         ctxt, match, checks, previous_conclusions
     )
