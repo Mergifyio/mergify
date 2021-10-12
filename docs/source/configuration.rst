@@ -335,14 +335,14 @@ request, you can use the following command line:
 
 .. code:: bash
 
-    $ curl -F 'data=@.mergify.yml' https://gh.mergify.io/validate
+    $ curl -F 'data=@.mergify.yml' https://engine.mergify.io/validate
 
 
 Or by uploading the configuration file with this form:
 
 .. raw:: html
 
-    <form method=post enctype=multipart/form-data action=https://gh.mergify.io/validate target=_blank>
+    <form method=post enctype=multipart/form-data action=https://engine.mergify.io/validate target=_blank>
       <input type=file name=data>
       <input type=submit value=Validate>
     </form>
