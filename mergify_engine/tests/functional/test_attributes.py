@@ -316,6 +316,7 @@ class TestAttributes(base.FunctionalTestBase):
             "status-success": ["Summary"],
             "changes-requested-reviews-by": [],
             "merged": False,
+            "commits": ["test_draft: pull request n2 from fork"],
             "commits-behind": [],
             "head": self.get_full_branch_name("fork/pr2"),
             "author": "mergify-test2",

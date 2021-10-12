@@ -137,6 +137,7 @@ pull_request_rules:
  'check-success-or-neutral': ['Summary'],
  'closed': False,
  'commented-reviews-by': [],
+ 'commits': ['test_debugger: pull request n1 from fork'],
  'commits-behind': [],
  'conflict': False,
  'dismissed-reviews-by': [],

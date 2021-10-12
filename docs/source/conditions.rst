@@ -194,6 +194,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``number``
      - integer
      - The pull request number.
+   * - ``commits``
+     - list of string
+     - The list of commit messages of the pull request.
    * - ``commits-behind``
      - list of string
      - The list of commits sha between the head of the base branch and the base
