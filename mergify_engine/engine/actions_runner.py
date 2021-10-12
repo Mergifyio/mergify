@@ -28,6 +28,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import subscription
+from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
 from mergify_engine.queue import naive
 
@@ -134,6 +135,19 @@ async def gen_summary_rules(
     return summary
 
 
+def _has_merge_action_with_strict_mode(
+    pull_request_rules: rules.PullRequestRules,
+) -> bool:
+
+    return any(
+        action
+        for rule in pull_request_rules
+        for name, action in rule.actions.items()
+        if name == "merge"
+        and action.config["strict"] is not merge_base.StrictMergeParameter.false
+    )
+
+
 async def gen_summary(
     ctxt: context.Context,
     pull_request_rules: rules.PullRequestRules,
@@ -142,13 +156,7 @@ async def gen_summary(
     summary = ""
     summary += await get_already_merged_summary(ctxt, match)
 
-    has_merge_action_with_strict_mode = any(
-        action
-        for rule in match.rules
-        for name, action in rule.actions.items()
-        if name == "merge" and action.config["strict"]
-    )
-    if has_merge_action_with_strict_mode:
+    if _has_merge_action_with_strict_mode(pull_request_rules):
         if config.is_saas():
             summary += STRICT_MODE_DEPRECATION_SASS
         else:
