@@ -13,7 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import typing
 
 import voluptuous
 
@@ -25,6 +25,7 @@ from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import subscription
 from mergify_engine.actions import utils as action_utils
+from mergify_engine.rules import conditions
 from mergify_engine.rules import types
 
 
@@ -78,6 +79,18 @@ class RebaseAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
             )
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        return [
+            conditions.RuleCondition(
+                "-closed", description=":pushpin: rebase requirement"
+            )
+        ]
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"

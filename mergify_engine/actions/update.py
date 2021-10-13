@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2020 Mehdi Abaakouk <sileht@mergify.io>
+#  Copyright © 2020–2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -21,6 +21,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
+from mergify_engine.rules import conditions
 
 
 class UpdateAction(actions.Action):
@@ -55,6 +56,18 @@ class UpdateAction(actions.Action):
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Branch already up to date", ""
             )
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        return [
+            conditions.RuleCondition(
+                "-closed", description=":pushpin: update requirement"
+            )
+        ]
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
