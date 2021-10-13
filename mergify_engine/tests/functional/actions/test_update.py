@@ -1,0 +1,53 @@
+# -*- encoding: utf-8 -*-
+#
+# Copyright © 2018–2021 Mergify SAS
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+import yaml
+
+from mergify_engine import config
+from mergify_engine.tests.functional import base
+
+
+class TestUpdateAction(base.FunctionalTestBase):
+    async def test_update_action(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "update",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"update": {}},
+                },
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}", "label=merge"],
+                    "actions": {"merge": {}},
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        commits = await self.get_commits(p2["number"])
+        assert len(commits) == 1
+        await self.add_label(p1["number"], "merge")
+
+        await self.run_engine()
+        p1 = await self.get_pull(p1["number"])
+        assert p1["merged"]
+        commits = await self.get_commits(p2["number"])
+        assert len(commits) == 2
+        assert commits[-1]["commit"]["author"]["name"] == config.BOT_USER_LOGIN
+        assert commits[-1]["commit"]["message"].startswith("Merge branch")
