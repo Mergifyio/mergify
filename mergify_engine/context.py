@@ -913,6 +913,9 @@ class Context(object):
         elif name == "files":
             return [f["filename"] for f in await self.files]
 
+        elif name == "commits":
+            return [c["commit"]["message"] for c in await self.commits]
+
         elif name == "approved-reviews-by":
             _, approvals = await self.consolidated_reviews()
             return [r["user"]["login"] for r in approvals if r["state"] == "APPROVED"]
@@ -1510,6 +1513,7 @@ class PullRequest(BasePullRequest):
         "check-skipped",
         "check-pending",
         "check-stale",
+        "commits",
         "commits-behind",
         "files",
     }

@@ -289,6 +289,7 @@ label = "label" + _match_with_operator(text)
 title = "title" + _match_with_operator(text)
 files = "files" + _match_with_operator(text)
 commits_behind = "commits-behind" + _match_with_operator(text)
+commits = "commits" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
 number = "number" + match_integer
 review_requests = "review-requested" + _match_login_or_teams
@@ -332,6 +333,7 @@ quantifiable_attributes = (
     | files
     | milestone
     | number
+    | commits
     | review_requests
     | review_approved_by
     | review_dismissed_by
