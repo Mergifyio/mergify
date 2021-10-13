@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestRebaseAction(base.FunctionalTestBase):
-    async def _do_test_rebase(self):
+    async def test_rebase_ok(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -48,8 +48,5 @@ class TestRebaseAction(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
 
         final_sha = p["head"]["sha"]
-        return pr_initial_sha, final_sha
 
-    async def test_rebase_ok(self):
-        pr_initial_sha, final_sha = await self._do_test_rebase()
         self.assertNotEqual(pr_initial_sha, final_sha)
