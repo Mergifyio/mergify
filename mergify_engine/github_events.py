@@ -180,7 +180,8 @@ async def push_to_worker(
         owner_id = event["repository"]["owner"]["id"]
         repo_id = event["repository"]["id"]
         repo_name = event["repository"]["name"]
-        pull_number = event["pull_request"]["number"]
+        if event["pull_request"] is not None:
+            pull_number = event["pull_request"]["number"]
 
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
