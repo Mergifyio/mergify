@@ -936,23 +936,30 @@ class Train(queue.QueueBase):
     async def iter_trains(
         cls,
         installation: context.Installation,
-        repository_id: typing.Union[
-            github_types.GitHubRepositoryIdType, typing.Literal["*"]
-        ] = "*",
+        repository: typing.Optional[context.Repository] = None,
         *,
         exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
     ) -> typing.AsyncIterator["Train"]:
+        repo_filter: typing.Union[
+            github_types.GitHubRepositoryIdType, typing.Literal["*"]
+        ] = "*"
+        if repository is not None:
+            repo_filter = repository.repo["id"]
+
         async for train_name in installation.redis.scan_iter(
-            cls.get_redis_key_for(installation.owner_id, repository_id, "*"),
+            cls.get_redis_key_for(installation.owner_id, repo_filter, "*"),
             count=10000,
         ):
             train_name_split = train_name.split("~")
-            repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
             ref = github_types.GitHubRefType(train_name_split[3])
             if exclude_ref is not None and ref == exclude_ref:
                 continue
-            repository = await installation.get_repository_by_id(repo_id)
-            yield cls(repository, ref)
+
+            if repository is None:
+                repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
+                yield cls(await installation.get_repository_by_id(repo_id), ref)
+            else:
+                yield cls(repository, ref)
 
     async def load(self) -> None:
         train_raw = await self.repository.installation.redis.get(self._get_redis_key())
@@ -1008,13 +1015,13 @@ class Train(queue.QueueBase):
             key=lambda car: car.queue_pull_request_number == ctxt.pull["number"],
         )
 
-    async def refresh(self) -> None:
+    async def get_queue_rules(self) -> typing.Optional[rules.QueueRules]:
         config_file = await self.repository.get_mergify_config_file()
         if config_file is None:
             self.log.warning(
                 "train can't be refreshed, the mergify configuration is missing",
             )
-            return
+            return None
         try:
             mergify_config = rules.get_mergify_config(config_file)
         except rules.InvalidRules as e:  # pragma: no cover
@@ -1023,9 +1030,15 @@ class Train(queue.QueueBase):
                 summary=str(e),
                 annotations=e.get_annotations(e.filename),
             )
-            return
+            return None
 
-        queue_rules = mergify_config["queue_rules"]
+        return mergify_config["queue_rules"]
+
+    async def refresh(self) -> None:
+
+        queue_rules = await self.get_queue_rules()
+        if queue_rules is None:
+            return
 
         # NOTE(sileht): workaround for cleaning unwanted PRs queued by this bug:
         # https://github.com/Mergifyio/mergify-engine/pull/2958
@@ -1519,7 +1532,7 @@ class Train(queue.QueueBase):
     ) -> None:
         async for train in cls.iter_trains(
             ctxt.repository.installation,
-            ctxt.repository.repo["id"],
+            ctxt.repository,
             exclude_ref=exclude_ref,
         ):
             await train.load()

@@ -65,6 +65,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "LOG_DEBUG_LOGGER_NAMES", default=""
         ): CommaSeparatedStringList,
+        voluptuous.Required("ENABLE_API", default=False): CoercedBool,
         voluptuous.Required("LOG_LEVEL", default="INFO"): CoercedLoggingLevel,
         voluptuous.Required("LOG_RATELIMIT", default=False): CoercedBool,
         voluptuous.Required("LOG_STDOUT", default=True): CoercedBool,
@@ -180,6 +181,7 @@ Schema = voluptuous.Schema(
 
 # Config variables available
 VERSION: str
+ENABLE_API: bool
 SENTRY_URL: str
 SENTRY_ENVIRONMENT: str
 CACHE_TOKEN_SECRET: str

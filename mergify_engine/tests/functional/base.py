@@ -331,6 +331,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # during replay.
         config.BUCKET_PROCESSING_MAX_SECONDS = 100000
 
+        config.ENABLE_API = True
+
         self.existing_labels: typing.List[str] = []
         self.protected_branches: typing.Set[str] = set()
         self.pr_counter: int = 0

@@ -17,6 +17,7 @@ import itertools
 import operator
 import time
 import typing
+from unittest import mock
 
 from first import first
 import pytest
@@ -2123,6 +2124,76 @@ class TestQueueAction(base.FunctionalTestBase):
             f"{self.RECORD_CONFIG['repository_id']}": {
                 self.main_branch_name: [p3["number"], p1["number"], p2["number"]]
             }
+        }
+
+        # Queue API with token
+        r = await self.app.get(
+            f"/api/repos/{config.TESTING_ORGANIZATION_NAME}/{config.TESTING_REPOSITORY_NAME}/queues",
+            headers={
+                "Authorization": f"bearer {config.ORG_ADMIN_PERSONAL_TOKEN}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "queues": [
+                {
+                    "branch": {"name": self.main_branch_name},
+                    "pull_requests": [
+                        {
+                            "number": p3["number"],
+                            "position": 0,
+                            "queued_at": mock.ANY,
+                            "priority": 2000,
+                            "queue_rule": {
+                                "config": {
+                                    "allow_inplace_speculative_checks": True,
+                                    "batch_size": 1,
+                                    "priority": 0,
+                                    "speculative_checks": 5,
+                                },
+                                "name": "default",
+                            },
+                            "speculative_check_pull_request": {
+                                "in_place": True,
+                                "number": p3["number"],
+                            },
+                        },
+                        {
+                            "number": p1["number"],
+                            "position": 1,
+                            "priority": 2000,
+                            "queue_rule": {
+                                "config": {
+                                    "allow_inplace_speculative_checks": True,
+                                    "batch_size": 1,
+                                    "priority": 0,
+                                    "speculative_checks": 5,
+                                },
+                                "name": "default",
+                            },
+                            "queued_at": mock.ANY,
+                            "speculative_check_pull_request": None,
+                        },
+                        {
+                            "number": p2["number"],
+                            "position": 2,
+                            "priority": 2000,
+                            "queue_rule": {
+                                "config": {
+                                    "allow_inplace_speculative_checks": True,
+                                    "batch_size": 1,
+                                    "priority": 0,
+                                    "speculative_checks": 5,
+                                },
+                                "name": "default",
+                            },
+                            "queued_at": mock.ANY,
+                            "speculative_check_pull_request": None,
+                        },
+                    ],
+                }
+            ],
         }
 
         # ensure it have been rebased and tmp merge-queue pr of p1 have all commits
