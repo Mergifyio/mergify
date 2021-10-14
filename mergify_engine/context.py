@@ -100,7 +100,7 @@ class Installation:
             )
         return self._user_tokens
 
-    USER_ID_MAPPING_CACHE_KEY: str = "user-id-mapping"
+    USER_ID_MAPPING_CACHE_KEY = "user-id-mapping"
 
     async def get_user(
         self, login: github_types.GitHubLogin
