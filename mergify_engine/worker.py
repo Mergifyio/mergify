@@ -456,7 +456,7 @@ class StreamProcessor:
         self, bucket_key: OrgBucketNameType, installation: context.Installation
     ) -> None:
         opened_pulls_by_repo: typing.Dict[
-            github_types.GitHubRepositoryName,
+            github_types.GitHubRepositoryIdType,
             typing.List[github_types.GitHubPullRequest],
         ] = {}
 
@@ -524,17 +524,17 @@ class StreamProcessor:
                 logger.debug(
                     "unpack events without pull request number", count=len(messages)
                 )
-                if repo_name not in opened_pulls_by_repo:
+                if repo_id not in opened_pulls_by_repo:
                     try:
-                        opened_pulls_by_repo[repo_name] = [
+                        opened_pulls_by_repo[repo_id] = [
                             p
                             async for p in installation.client.items(
-                                f"/repos/{installation.owner_login}/{repo_name}/pulls",
+                                f"/repositories/{repo_id}/pulls"
                             )
                         ]
                     except Exception as e:
                         if exceptions.should_be_ignored(e):
-                            opened_pulls_by_repo[repo_name] = []
+                            opened_pulls_by_repo[repo_id] = []
                         else:
                             raise
 
@@ -548,7 +548,7 @@ class StreamProcessor:
                         repo_id,
                         repo_name,
                         source,
-                        opened_pulls_by_repo[repo_name],
+                        opened_pulls_by_repo[repo_id],
                         message[b"score"],
                     )
                     logger.debug("event unpacked into %d messages", converted_messages)
