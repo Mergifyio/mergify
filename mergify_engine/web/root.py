@@ -43,6 +43,7 @@ from mergify_engine.web import badges
 from mergify_engine.web import config_validator
 from mergify_engine.web import redis
 from mergify_engine.web import simulator
+from mergify_engine.web.api import root
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -51,6 +52,7 @@ app = fastapi.FastAPI()
 app.mount("/simulator", simulator.app)
 app.mount("/validate", config_validator.app)
 app.mount("/badges", badges.app)
+app.mount("/api", root.app)
 
 # Set the maximum timeout to 5 seconds: GitHub is not going to wait for
 # more than 10 seconds for us to accept an event, so if we're unable to

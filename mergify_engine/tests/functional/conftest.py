@@ -31,6 +31,7 @@ from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
+from mergify_engine.dashboard import application as application_mod
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens as user_tokens_mod
 from mergify_engine.web import root as web_root
@@ -60,6 +61,7 @@ async def mergify_web_client() -> typing.AsyncGenerator[httpx.AsyncClient, None]
 
 
 class DashboardFixture(typing.NamedTuple):
+    api_key_admin: str
     subscription: subscription.Subscription
     user_tokens: user_tokens_mod.UserTokens
 
@@ -75,6 +77,8 @@ async def dashboard(
         subscription_active = marker.args[0]
     elif is_unittest_class:
         subscription_active = request.cls.SUBSCRIPTION_ACTIVE
+
+    api_key_admin = "a" * 64
 
     sub = subscription.Subscription(
         redis_cache,
@@ -169,7 +173,28 @@ async def dashboard(
     patcher.start()
     request.addfinalizer(patcher.stop)
 
+    async def fake_application_get(redis_cache, api_access_key, api_secret_key):
+        if (
+            api_access_key == api_key_admin[:32]
+            and api_secret_key == api_key_admin[32:]
+        ):
+            return application_mod.Application(
+                redis_cache,
+                api_access_key,
+                api_secret_key,
+                config.TESTING_ORGANIZATION_ID,
+            )
+        raise application_mod.ApplicationUserNotFound()
+
+    patcher = mock.patch(
+        "mergify_engine.dashboard.application.ApplicationGitHubCom.get",
+        side_effect=fake_application_get,
+    )
+    patcher.start()
+    request.addfinalizer(patcher.stop)
+
     return DashboardFixture(
+        api_key_admin,
         sub,
         user_tokens,
     )
