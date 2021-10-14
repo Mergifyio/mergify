@@ -15,6 +15,7 @@
 # under the License.
 import yaml
 
+from mergify_engine import context
 from mergify_engine.tests.functional import base
 
 
@@ -50,3 +51,40 @@ class TestRebaseAction(base.FunctionalTestBase):
         final_sha = p["head"]["sha"]
 
         self.assertNotEqual(pr_initial_sha, final_sha)
+
+    async def test_rebase_on_closed_pr_deleted_branch(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "rebase",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"rebase": {}},
+                },
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}", "label=merge"],
+                    "actions": {"merge": {}, "delete_head_branch": {}},
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        commits = await self.get_commits(p2["number"])
+        assert len(commits) == 1
+        await self.add_label(p1["number"], "merge")
+
+        await self.run_engine()
+        p1 = await self.get_pull(p1["number"])
+        assert p1["merged"]
+        commits = await self.get_commits(p2["number"])
+        assert len(commits) == 1
+        # Now merge p2 so p1 is not up to date
+        await self.add_label(p2["number"], "merge")
+        await self.run_engine()
+        ctxt = await context.Context.create(self.repository_ctxt, p1, [])
+        checks = await ctxt.pull_engine_check_runs
+        for check in checks:
+            assert check["conclusion"] == "success", check
