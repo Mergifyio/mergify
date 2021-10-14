@@ -341,8 +341,8 @@ GitHubEventPullRequestReviewCommentActionType = typing.Literal[
 class GitHubEventPullRequestReviewComment(GitHubEvent):
     repository: GitHubRepository
     action: GitHubEventPullRequestReviewCommentActionType
-    pull_request: GitHubPullRequest
-    comment: GitHubComment
+    pull_request: typing.Optional[GitHubPullRequest]
+    comment: typing.Optional[GitHubComment]
 
 
 GitHubEventPullRequestReviewActionType = typing.Literal[
