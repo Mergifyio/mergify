@@ -1,5 +1,8 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2018–2021 Mergify SAS
+#
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -13,6 +16,7 @@
 # under the License.
 
 import dataclasses
+import json
 import re
 import typing
 
@@ -34,7 +38,13 @@ from mergify_engine.rules import conditions
 LOG = daiquiri.getLogger(__name__)
 
 COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
-COMMAND_RESULT_MATCHER = re.compile(r"\*Command `([^`]*)`: (pending|success|failure)\*")
+COMMAND_RESULT_MATCHER_OLD = re.compile(
+    r"\*Command `([^`]*)`: (pending|success|failure)\*"
+)
+COMMAND_RESULT_MATCHER = re.compile(
+    r"^-\*- Mergify Payload -\*-\n(.+)\n^-\*- Mergify Payload End -\*-",
+    re.MULTILINE,
+)
 
 MERGE_QUEUE_COMMAND_MESSAGE = "Command not allowed on merge queue pull request."
 UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command. Please consult [the commands documentation](https://docs.mergify.io/commands.html) \U0001F4DA."
@@ -77,9 +87,7 @@ def load_command(
     mergify_config: rules.MergifyConfig,
     message: str,
 ) -> Command:
-    """Load an action from a message.
-
-    :return: A tuple with 3 values: the command name, the commands args and the action."""
+    """Load an action from a message."""
     action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(message)
     if match and match[1] in action_classes:
@@ -135,7 +143,9 @@ async def run_pending_commands_tasks(
     ):
         if comment["user"]["id"] != config.BOT_USER_ID:
             continue
-        match = COMMAND_RESULT_MATCHER.search(comment["body"])
+
+        # Old format
+        match = COMMAND_RESULT_MATCHER_OLD.search(comment["body"])
         if match:
             command = match[1]
             state = match[2]
@@ -143,6 +153,40 @@ async def run_pending_commands_tasks(
                 pendings.add(command)
             elif command in pendings:
                 pendings.remove(command)
+
+            continue
+
+        # New format
+        match = COMMAND_RESULT_MATCHER.search(comment["body"])
+
+        if match is None:
+            continue
+
+        try:
+            payload = json.loads(match[1])
+        except Exception:
+            LOG.warning("Unable to load command payload: %s", match[1])
+            continue
+
+        command = payload.get("command")
+        if not command:
+            continue
+
+        conclusion_str = payload.get("conclusion")
+
+        try:
+            conclusion = check_api.Conclusion(conclusion_str)
+        except ValueError:
+            LOG.error("Unable to load conclusions %s", conclusion_str)
+            continue
+
+        if conclusion == check_api.Conclusion.PENDING:
+            pendings.add(command)
+        elif command in pendings:
+            try:
+                pendings.remove(command)
+            except KeyError:
+                LOG.error("Unable to remove command: %s", command)
 
     for pending in pendings:
         await handle(ctxt, mergify_config, f"@Mergifyio {pending}", None, rerun=True)
@@ -166,30 +210,46 @@ async def run_command(
     )
     await conds([ctxt.pull_request])
     if conds.match:
-        report = await command.action.run(
+        result = await command.action.run(
             ctxt,
             rules.EvaluatedRule(rules.PullRequestRule("", None, conds, {}, False)),
         )
     else:
-        report = check_api.Result(
+        result = check_api.Result(
             check_api.Conclusion.PENDING,
-            f"{command_full} is pending",
-            "",
+            "Waiting for conditions",
+            conds.get_summary(),
         )
 
-    conclusion = report.conclusion.name.lower()
-    summary = "> " + "\n> ".join(report.summary.split("\n")).strip()
-
     ctxt.log.info(
-        "command %s",
-        conclusion,
+        "command %s: %s",
+        command.name,
+        result.conclusion,
         command_full=command_full,
-        report=report,
+        result=result,
         user=user["login"] if user else None,
     )
+    # NOTE: Do not serialize this with Mergify JSON encoder:
+    # we don't want to allow loading/unloading weird value/classes
+    # this could be modified by a user, so we keep it really straightforward
+    payload = {
+        "command": command_full,
+        "conclusion": result.conclusion.value,
+    }
     return (
-        report,
-        f"**Command `{command_full}`: {conclusion}**\n> **{report.title}**\n{summary}\n",
+        result,
+        f"""> {command_full}
+
+#### {result.conclusion.emoji} {result.title}
+
+{result.summary}
+<!--
+DO NOT EDIT
+-*- Mergify Payload -*-
+{json.dumps(payload)}
+-*- Mergify Payload End -*-
+-->
+""",
     )
 
 

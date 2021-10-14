@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2018–2021 Mergify SAS
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -27,6 +29,11 @@ class TestCommandBackport(base.FunctionalTestBase):
         await self.create_comment(
             p["number"], f"@mergifyio backport {stable_branch} {feature_branch}"
         )
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(p["number"])
+        assert len(comments) == 2, comments
+        assert "Waiting for conditions" in comments[-1]["body"]
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -41,7 +48,8 @@ class TestCommandBackport(base.FunctionalTestBase):
         )
         assert 1 == len(pulls_feature)
         comments = await self.get_issue_comments(p["number"])
-        assert len(comments) == 2
+        assert len(comments) == 3
+        assert "Backports have been created" in comments[-1]["body"]
         reactions = [
             r
             async for r in self.client_admin.items(
