@@ -133,6 +133,7 @@ pull_request_rules:
   - name: warn on conflicts
     conditions:
       - conflict
+      - -closed
     actions:
       comment:
         message: "@{{author}} this pull request is now in conflict 😩"
