@@ -523,8 +523,9 @@ async def test_year_near_datetime() -> None:
 
 async def test_time_near_datetime() -> None:
     with freeze_time("2012-01-06T05:08:00", tz_offset=0) as frozen_time:
-        now = frozen_time().replace(tzinfo=UTC)
-        time_now = date.Time(now.hour, now.minute, now.tzinfo)
+        tzinfo = UTC
+        now = frozen_time().replace(tzinfo=tzinfo)
+        time_now = date.Time(now.hour, now.minute, tzinfo)
         atmidnight = now.replace(
             day=now.day + 1,
             hour=0,
@@ -723,8 +724,9 @@ async def test_relative_datetime() -> None:
 
 async def test_multiple_near_datetime() -> None:
     with freeze_time("2012-01-14T05:08:00", tz_offset=0) as frozen_time:
-        now = frozen_time().replace(tzinfo=UTC)
-        now_time = date.Time(now.hour, now.minute, now.tzinfo)
+        tzinfo = UTC
+        now = frozen_time().replace(tzinfo=tzinfo)
+        now_time = date.Time(now.hour, now.minute, tzinfo)
         atmidnight = now.replace(
             day=now.day + 1,
             hour=0,
@@ -733,6 +735,7 @@ async def test_multiple_near_datetime() -> None:
             microsecond=0,
         )
         in_two_hours = now + datetime.timedelta(hours=2)
+        assert tzinfo == in_two_hours.tzinfo
         in_two_hours_time = date.Time(
             in_two_hours.hour, in_two_hours.minute, in_two_hours.tzinfo
         )
