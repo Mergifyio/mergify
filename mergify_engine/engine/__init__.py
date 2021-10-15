@@ -328,12 +328,13 @@ async def run(
 async def create_initial_summary(
     redis: utils.RedisCache, event: github_types.GitHubEventPullRequest
 ) -> None:
-    owner = event["repository"]["owner"]["id"]
+    owner = event["repository"]["owner"]
+    repo = event["pull_request"]["base"]["repo"]
 
     if not await redis.exists(
         context.Repository.get_config_location_cache_key(
-            event["pull_request"]["base"]["repo"]["owner"]["login"],
-            event["pull_request"]["base"]["repo"]["name"],
+            owner["login"],
+            repo["name"],
         )
     ):
         # Mergify is probably not activated on this repo
@@ -345,14 +346,14 @@ async def create_initial_summary(
     # the summary twice. Since this method can ran in parallel of the worker
     # this is not a 100% reliable solution, but if we post a duplicate summary
     # check_api.set_check_run() handle this case and update both to not confuse users.
-    sha = await context.Context.get_cached_last_summary_head_sha_from_pull(
-        redis, event["pull_request"]
+    summary_exists = await context.Context.summary_exists(
+        redis, owner["id"], repo["id"], event["pull_request"]
     )
 
-    if sha is not None or sha == event["pull_request"]["head"]["sha"]:
+    if summary_exists:
         return
 
-    async with github.aget_client(owner) as client:
+    async with github.aget_client(owner["id"]) as client:
         post_parameters = {
             "name": constants.SUMMARY_NAME,
             "head_sha": event["pull_request"]["head"]["sha"],
