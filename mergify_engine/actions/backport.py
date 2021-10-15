@@ -30,6 +30,7 @@ class BackportAction(copy.CopyAction):
         | actions.ActionFlag.ALLOW_AS_COMMAND
         | actions.ActionFlag.ALWAYS_SEND_REPORT
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
+        | actions.ActionFlag.ALLOW_AS_PENDING_COMMAND
     )
 
     KIND: duplicate_pull.KindT = "backport"
