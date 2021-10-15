@@ -26,6 +26,6 @@ the pull request to a draft automatically since it's likely not ready to review.
     pull_request_rules:
       - name: convert to draft
         conditions:
-          - "#check-failed>0"
+          - "#check-failure>0"
         actions:
           draft:
