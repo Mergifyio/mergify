@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2018–2021 Mergify SAS
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -67,6 +69,35 @@ class Conclusion(enum.Enum):
     NEUTRAL = "neutral"
     STALE = "stale"
     ACTION_REQUIRED = "action_required"
+
+    @staticmethod
+    def _normalize(value: str) -> str:
+        """Return normalized value."""
+        return value.lower().replace("_", " ")
+
+    @property
+    def emoji(self) -> typing.Optional[str]:
+        if self.value is None:
+            return "🟠"
+        elif self.value == "success":
+            return "✅"
+        elif self.value == "failure":
+            return "❌"
+        elif self.value in ("skipped", "neutral", "stale"):
+            return "☑️"
+        elif self.value == "action_required":
+            return "⚠️"
+
+        return None
+
+    def __str__(self) -> str:
+        prefix = self.emoji
+        if prefix is None:
+            prefix = ""
+        else:
+            prefix = prefix + " "
+
+        return prefix + self._normalize(self.name)
 
 
 json.register_type(Conclusion)
