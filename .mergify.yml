@@ -3,6 +3,7 @@ defaults:
     queue:
       name: default
       method: squash
+      update_method: rebase
       commit_message: title+body
     squash:
       commit_message: first-commit
