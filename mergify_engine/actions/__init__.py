@@ -59,6 +59,9 @@ class ActionFlag(enum.Flag):
     # This makes checks created by mergify retriggering Mergify, beware to
     # not create something that endup with a infinite loop of events
     ALLOW_RETRIGGER_MERGIFY = enum.auto()
+    # Allow to return this command as pending if does not match its conditions
+    # requirements.
+    ALLOW_AS_PENDING_COMMAND = enum.auto()
 
 
 def get_classes() -> typing.Dict[str, "Action"]:

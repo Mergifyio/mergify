@@ -214,10 +214,16 @@ async def run_command(
             ctxt,
             rules.EvaluatedRule(rules.PullRequestRule("", None, conds, {}, False)),
         )
-    else:
+    elif actions.ActionFlag.ALLOW_AS_PENDING_COMMAND in command.action.flags:
         result = check_api.Result(
             check_api.Conclusion.PENDING,
             "Waiting for conditions",
+            conds.get_summary(),
+        )
+    else:
+        result = check_api.Result(
+            check_api.Conclusion.NEUTRAL,
+            "Conditions do not match",
             conds.get_summary(),
         )
 
