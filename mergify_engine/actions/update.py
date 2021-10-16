@@ -36,25 +36,20 @@ class UpdateAction(actions.Action):
 
     @staticmethod
     async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
-        if await ctxt.is_behind:
-            try:
-                await branch_updater.update_with_api(ctxt)
-            except branch_updater.BranchUpdateFailure as e:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    e.title,
-                    e.message,
-                )
-            else:
-                await signals.send(ctxt, "action.update")
-                return check_api.Result(
-                    check_api.Conclusion.SUCCESS,
-                    "Branch has been successfully updated",
-                    "",
-                )
-        else:
+        try:
+            await branch_updater.update_with_api(ctxt)
+        except branch_updater.BranchUpdateFailure as e:
             return check_api.Result(
-                check_api.Conclusion.SUCCESS, "Branch already up to date", ""
+                check_api.Conclusion.FAILURE,
+                e.title,
+                e.message,
+            )
+        else:
+            await signals.send(ctxt, "action.update")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "Branch has been successfully updated",
+                "",
             )
 
     async def get_conditions_requirements(
@@ -63,10 +58,16 @@ class UpdateAction(actions.Action):
     ) -> typing.List[
         typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
     ]:
+        description = ":pushpin: update requirement"
         return [
             conditions.RuleCondition(
-                "-closed", description=":pushpin: update requirement"
-            )
+                "-closed",
+                description=description,
+            ),
+            conditions.RuleCondition(
+                "#commits-behind>0",
+                description=description,
+            ),
         ]
 
     async def cancel(
