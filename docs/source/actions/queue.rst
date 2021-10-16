@@ -182,6 +182,12 @@ If an embarked pull request doesn't match the ``queue_rules`` anymore, it is
 removed from the merge train. All pull requests embarked after it are
 disembarked and re-embarked.
 
+.. warning::
+
+   With speculative checks, pull requests are tested against the base branch
+   within another temporary pull request. This requires the branch protection
+   settings ``Require branches to be up to date before merging`` to be
+   disabled. If you require a linear history, just set the queue option ``merge: rebase``.
 
 Batch Size
 ----------
