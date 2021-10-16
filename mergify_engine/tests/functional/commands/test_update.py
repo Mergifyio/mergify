@@ -25,7 +25,7 @@ class TestCommandUpdate(base.FunctionalTestBase):
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(p["number"])
         assert len(comments) == 2, comments
-        assert "Branch already up to date" in comments[-1]["body"]
+        assert "Conditions do not match" in comments[-1]["body"]
 
     async def test_command_update_pending(self) -> None:
         await self.setup_repo()
