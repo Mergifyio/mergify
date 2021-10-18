@@ -46,39 +46,33 @@ class RebaseAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if await ctxt.is_behind:
-            try:
-                bot_account = await action_utils.render_bot_account(
-                    ctxt,
-                    self.config["bot_account"],
-                    option_name="bot_account",
-                    required_feature=subscription.Features.BOT_ACCOUNT,
-                    missing_feature_message="Rebase with `update_bot_account` set is unavailable",
-                )
-            except action_utils.RenderBotAccountFailure as e:
-                return check_api.Result(e.status, e.title, e.reason)
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                option_name="bot_account",
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Rebase with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
 
-            try:
-                await branch_updater.rebase_with_git(
-                    ctxt, subscription.Features.BOT_ACCOUNT, bot_account
-                )
-            except branch_updater.BranchUpdateFailure as e:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE, e.title, e.message
-                )
+        try:
+            await branch_updater.rebase_with_git(
+                ctxt, subscription.Features.BOT_ACCOUNT, bot_account
+            )
+        except branch_updater.BranchUpdateFailure as e:
+            return check_api.Result(check_api.Conclusion.FAILURE, e.title, e.message)
 
-            await signals.send(
-                ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
-            )
-            return check_api.Result(
-                check_api.Conclusion.SUCCESS,
-                "Branch has been successfully rebased",
-                "",
-            )
-        else:
-            return check_api.Result(
-                check_api.Conclusion.SUCCESS, "Branch already up to date", ""
-            )
+        await signals.send(
+            ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
+        )
+
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS,
+            "Branch has been successfully rebased",
+            "",
+        )
 
     async def get_conditions_requirements(
         self,
@@ -86,10 +80,16 @@ class RebaseAction(actions.Action):
     ) -> typing.List[
         typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
     ]:
+        description = ":pushpin: rebase requirement"
         return [
             conditions.RuleCondition(
-                "-closed", description=":pushpin: rebase requirement"
-            )
+                "-closed",
+                description=description,
+            ),
+            conditions.RuleCondition(
+                "#commits-behind>0",
+                description=description,
+            ),
         ]
 
     async def cancel(
