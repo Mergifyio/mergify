@@ -223,6 +223,7 @@ class AsyncClient(httpx.AsyncClient):
             base_url=base_url,
             headers=final_headers,
             timeout=timeout,
+            follow_redirects=True,
         )
 
     @connectivity_issue_retry
