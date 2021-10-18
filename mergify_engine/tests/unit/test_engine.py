@@ -220,7 +220,7 @@ async def test_configuration_changed(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
-    github_server.check_assertions()
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -331,7 +331,7 @@ async def test_configuration_duplicated(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
-    github_server.check_assertions()
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -431,7 +431,7 @@ async def test_configuration_not_changed(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert not changed
 
-    github_server.check_assertions()
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -518,7 +518,7 @@ async def test_configuration_initial(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
-    github_server.check_assertions()
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.parametrize(
