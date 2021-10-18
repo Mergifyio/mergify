@@ -23,9 +23,9 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
-from mergify_engine import subscription
-from mergify_engine import user_tokens
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 
 
 class BranchUpdateFailure(Exception):

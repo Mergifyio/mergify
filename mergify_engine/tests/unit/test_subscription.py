@@ -4,9 +4,9 @@ import pytest
 from pytest_httpserver import httpserver
 
 from mergify_engine import exceptions
-from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
 
 
 @pytest.mark.asyncio

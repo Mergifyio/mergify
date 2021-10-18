@@ -41,11 +41,11 @@ from mergify_engine import constants
 from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import subscription as subscription_mod
-from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription as subscription_mod
+from mergify_engine.dashboard import user_tokens
 
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month

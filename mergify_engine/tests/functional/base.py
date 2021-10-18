@@ -39,13 +39,13 @@ from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine import gitter
-from mergify_engine import subscription
-from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 from mergify_engine.web import root
 
 
@@ -550,12 +550,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             )
 
         mock.patch(
-            "mergify_engine.subscription.Subscription._retrieve_subscription_from_db",
+            "mergify_engine.dashboard.subscription.Subscription._retrieve_subscription_from_db",
             side_effect=fake_retrieve_subscription_from_db,
         ).start()
 
         mock.patch(
-            "mergify_engine.subscription.Subscription.get_subscription",
+            "mergify_engine.dashboard.subscription.Subscription.get_subscription",
             side_effect=fake_subscription,
         ).start()
 
@@ -572,12 +572,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             return user_tokens.UserTokens(redis_cache, owner_id, {})
 
         mock.patch(
-            "mergify_engine.user_tokens.UserTokensGitHubCom._retrieve_from_db",
+            "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom._retrieve_from_db",
             side_effect=fake_retrieve_user_tokens_from_db,
         ).start()
 
         mock.patch(
-            "mergify_engine.user_tokens.UserTokensGitHubCom.get",
+            "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom.get",
             side_effect=fake_user_tokens,
         ).start()
 

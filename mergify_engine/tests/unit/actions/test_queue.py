@@ -23,9 +23,9 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import subscription
 from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
 
 
 def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:

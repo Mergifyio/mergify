@@ -20,8 +20,8 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
-from mergify_engine import user_tokens
-from mergify_engine.subscription import Features
+from mergify_engine.dashboard import user_tokens
+from mergify_engine.dashboard.subscription import Features
 
 
 @dataclasses.dataclass

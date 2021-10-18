@@ -21,8 +21,8 @@ import pytest
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import subscription
 from mergify_engine import utils
+from mergify_engine.dashboard import subscription
 
 
 @pytest.mark.asyncio
