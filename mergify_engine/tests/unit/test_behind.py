@@ -25,12 +25,26 @@ def create_commit(sha=None):
     return {"sha": sha, "parents": []}
 
 
-@pytest.fixture(params=["U-A-B-C", "O-A-B-C", "O-A-BO-C", "O-A-BU-C", "O-A-B-CU"])
+@pytest.fixture(
+    params=[
+        "U-A-B-C",
+        "O-A-B-C",
+        "O-A-BO-C",
+        "O-A-BU-C",
+        "O-A-B-CU",
+        "O-A-PB-CU",
+        "P-A-B-CU",
+        "P-A-B-C",
+        "O-AP-BP-C",
+        "O-AP-B-CP",
+    ]
+)
 def commits_tree_generator(request):
     # NOTE(sileht):
     # tree direction: ->
     # U: mean HEAD of base branch
     # O: mean old commit of base branch
+    # P: mean another unknown branch
     commits = []
     cur = create_commit()
     tree = request.param
@@ -47,6 +61,8 @@ def commits_tree_generator(request):
             cur["parents"].append(create_commit("base"))
         elif elem == "O":
             cur["parents"].append(create_commit("outdated"))
+        elif elem == "P":
+            cur["parents"].append(create_commit("random-branch"))
         else:
             cur["parents"].append(create_commit(f"sha-{elem}"))
     commits.append(cur)
