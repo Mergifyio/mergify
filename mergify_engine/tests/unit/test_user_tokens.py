@@ -3,8 +3,8 @@ from unittest import mock
 import pytest
 
 from mergify_engine import config
-from mergify_engine import user_tokens
 from mergify_engine.clients import http
+from mergify_engine.dashboard import user_tokens
 
 
 @pytest.mark.asyncio

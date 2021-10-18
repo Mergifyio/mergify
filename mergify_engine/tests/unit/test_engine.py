@@ -23,9 +23,9 @@ from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.dashboard import subscription
 from mergify_engine.engine import actions_runner
 
 

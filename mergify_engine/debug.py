@@ -28,12 +28,12 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine import subscription
-from mergify_engine import user_tokens
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 from mergify_engine.engine import actions_runner
 from mergify_engine.queue import merge_train
 from mergify_engine.queue import naive

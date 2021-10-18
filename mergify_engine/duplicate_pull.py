@@ -25,7 +25,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine.clients import http
-from mergify_engine.user_tokens import UserTokensUser
+from mergify_engine.dashboard.user_tokens import UserTokensUser
 
 
 @dataclasses.dataclass

@@ -70,11 +70,11 @@ from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import service
 from mergify_engine import signals
-from mergify_engine import subscription
 from mergify_engine import utils
 from mergify_engine import worker_lua
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
 
 

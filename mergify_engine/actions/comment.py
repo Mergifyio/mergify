@@ -23,10 +23,10 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
-from mergify_engine import subscription
-from mergify_engine import user_tokens
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import types
 
 

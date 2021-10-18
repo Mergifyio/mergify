@@ -27,9 +27,9 @@ from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import signals
-from mergify_engine import subscription
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
+from mergify_engine.dashboard import subscription
 from mergify_engine.rules import types
 
 

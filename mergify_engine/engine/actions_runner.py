@@ -27,8 +27,8 @@ from mergify_engine import delayed_refresh
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import subscription
 from mergify_engine.actions import merge_base
+from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
 from mergify_engine.queue import naive
 

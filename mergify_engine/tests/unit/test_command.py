@@ -20,10 +20,10 @@ import pytest
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import subscription
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
 from mergify_engine.clients import github
+from mergify_engine.dashboard import subscription
 from mergify_engine.engine import commands_runner
 
 

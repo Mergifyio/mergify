@@ -25,8 +25,8 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import squash_pull
-from mergify_engine import subscription
 from mergify_engine.actions import utils as action_utils
+from mergify_engine.dashboard import subscription
 from mergify_engine.rules import types
 
 
