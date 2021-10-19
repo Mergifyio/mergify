@@ -42,7 +42,7 @@ STRICT_MODE_DEPRECATION_GHES = """
 :bangbang: **Action Required** :bangbang:
 
 > **The configuration uses the deprecated `strict` mode of the merge action.**
-> This option will be removed on version 2.0.0.
+> This option will be removed on version 3.0.0.
 > For more information: https://blog.mergify.io/strict-mode-deprecation/
 
 """
