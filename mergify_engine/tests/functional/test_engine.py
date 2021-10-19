@@ -1172,7 +1172,18 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         comments = await self.get_issue_comments(p["number"])
         assert (
-            "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
+            """> refresh
+
+#### ✅ Pull request refreshed
+
+
+<!--
+DO NOT EDIT
+-*- Mergify Payload -*-
+{"command": "refresh", "conclusion": "success"}
+-*- Mergify Payload End -*-
+-->
+"""
             == comments[-1]["body"]
         )
 
