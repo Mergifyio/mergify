@@ -582,7 +582,7 @@ class InvalidRules(Exception):
 
 
 class Defaults(typing.TypedDict):
-    actions: typing.Dict[str, actions.ActionSchema]
+    actions: typing.Dict[str, typing.Any]
 
 
 class MergifyConfig(typing.TypedDict):

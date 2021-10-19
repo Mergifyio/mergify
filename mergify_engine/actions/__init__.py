@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
 import abc
 import dataclasses
 import enum
@@ -38,7 +39,7 @@ CANCELLED_CHECK_REPORT = check_api.Result(
 global _ACTIONS_CLASSES
 _ACTIONS_CLASSES: typing.Optional[typing.Dict[str, "Action"]] = None
 
-ActionSchema = typing.NewType("ActionSchema", voluptuous.All)  # type: ignore
+RawConfigT = typing.Dict[str, typing.Any]
 
 
 @enum.unique
@@ -76,7 +77,7 @@ def get_classes() -> typing.Dict[str, "Action"]:
 
 def get_action_schemas(
     partial_validation: bool = False,
-) -> typing.Dict[str, ActionSchema]:
+) -> typing.Dict[str, typing.Any]:
     return {
         name: obj.get_schema(partial_validation)
         for name, obj in get_classes().items()
@@ -95,7 +96,8 @@ def get_commands() -> typing.Dict[str, "Action"]:
 @dataclasses.dataclass  # type: ignore[misc]
 class Action(abc.ABC):
     # FIXME: this might be more precise if we replace voluptuous by pydantic somehow?
-    config: typing.Dict[str, typing.Any]
+    config: RawConfigT
+    raw_config: RawConfigT
 
     flags: typing.ClassVar[ActionFlag] = ActionFlag.NONE
     validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]]
@@ -106,14 +108,17 @@ class Action(abc.ABC):
         pass
 
     @classmethod
-    def get_schema(cls, partial_validation: bool = False) -> ActionSchema:
-        return ActionSchema(
-            voluptuous.All(
-                voluptuous.Coerce(lambda v: {} if v is None else v),
+    def get_schema(cls, partial_validation: bool = False) -> typing.Any:
+        def schema(raw_config: typing.Optional[RawConfigT]) -> typing.Any:
+            if raw_config is None:
+                raw_config = {}
+            schema = voluptuous.All(
                 cls.get_config_schema(partial_validation),
-                voluptuous.Coerce(cls),
+                voluptuous.Coerce(lambda v: cls(v, raw_config)),
             )
-        )
+            return voluptuous.Schema(schema)(raw_config)
+
+        return schema
 
     @classmethod
     def get_config_schema(
