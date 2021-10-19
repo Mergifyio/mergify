@@ -94,6 +94,7 @@ Options
      - :ref:`data type template`
      -
      - |premium plan tag|
+       |deprecated tag|
        For certain actions, such as rebasing branches, Mergify has to
        impersonate a GitHub user. You can specify the account to use with this
        option. If no ``update_bot_account`` is set, Mergify picks randomly one of the
