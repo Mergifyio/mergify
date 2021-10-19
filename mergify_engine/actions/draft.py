@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
@@ -90,6 +91,10 @@ class DraftAction(actions.Action):
                 "",
             )
         ctxt.pull["draft"] = True
+
+        await signals.send(
+            ctxt, "action.draft", {"bot_account": bool(self.config["bot_account"])}
+        )
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             "Pull request successfully converted to draft",
