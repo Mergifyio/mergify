@@ -483,10 +483,22 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         self.client_integration = github.aget_client(config.TESTING_ORGANIZATION_ID)
         self.client_admin = github.AsyncGithubInstallationClient(
-            auth=github.GithubTokenAuth(token=config.ORG_ADMIN_PERSONAL_TOKEN)
+            auth=github.GithubTokenAuth(
+                token=config.ORG_ADMIN_PERSONAL_TOKEN,
+                owner_id=github_types.GitHubAccountIdType(
+                    config.TESTING_MERGIFY_TEST_1_ID
+                ),
+                owner=github_types.GitHubLogin("mergify-test1"),
+            )
         )
         self.client_fork = github.AsyncGithubInstallationClient(
-            auth=github.GithubTokenAuth(token=self.FORK_PERSONAL_TOKEN)
+            auth=github.GithubTokenAuth(
+                token=self.FORK_PERSONAL_TOKEN,
+                owner_id=github_types.GitHubAccountIdType(
+                    config.TESTING_MERGIFY_TEST_2_ID
+                ),
+                owner=github_types.GitHubLogin("mergify-test2"),
+            )
         )
         self.addAsyncCleanup(self.client_integration.aclose)
         self.addAsyncCleanup(self.client_admin.aclose)
@@ -494,20 +506,10 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         await self.client_admin.item("/user")
         await self.client_fork.item("/user")
-        if RECORD:
-            assert self.client_admin.auth.owner == "mergify-test1"
-            assert self.client_fork.auth.owner == "mergify-test2"
-            assert self.client_admin.auth.owner_id == config.TESTING_MERGIFY_TEST_1_ID
-            assert self.client_fork.auth.owner_id == config.TESTING_MERGIFY_TEST_2_ID
-        else:
-            self.client_admin.auth.owner = github_types.GitHubLogin("mergify-test1")
-            self.client_fork.auth.owner = github_types.GitHubLogin("mergify-test2")
-            self.client_admin.auth.owner_id = github_types.GitHubAccountIdType(
-                config.TESTING_MERGIFY_TEST_1_ID
-            )
-            self.client_fork.auth.owner_id = github_types.GitHubAccountIdType(
-                config.TESTING_MERGIFY_TEST_2_ID
-            )
+        assert self.client_admin.auth.owner == "mergify-test1"
+        assert self.client_fork.auth.owner == "mergify-test2"
+        assert self.client_admin.auth.owner_id == config.TESTING_MERGIFY_TEST_1_ID
+        assert self.client_fork.auth.owner_id == config.TESTING_MERGIFY_TEST_2_ID
 
         self.url_origin = (
             f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
