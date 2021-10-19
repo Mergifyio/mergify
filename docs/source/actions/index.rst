@@ -29,6 +29,7 @@ options.
    comment
    delete_head_branch
    dismiss_reviews
+   edit
    label
    merge
    post_check
