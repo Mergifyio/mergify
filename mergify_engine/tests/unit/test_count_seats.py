@@ -90,7 +90,7 @@ async def test_send_seats(httpserver: httpserver.HTTPServer) -> None:
 
     assert len(httpserver.log) == 1
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 GITHUB_SAMPLE_EVENTS = {}

@@ -204,7 +204,7 @@ async def test_subscription_on_premise_valid(
         )
 
     assert len(httpserver.log) == 1
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -227,7 +227,7 @@ async def test_subscription_on_premise_wrong_token(
             )
 
     assert len(httpserver.log) == 1
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -250,4 +250,4 @@ async def test_subscription_on_premise_invalid_sub(
             )
 
     assert len(httpserver.log) == 1
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]

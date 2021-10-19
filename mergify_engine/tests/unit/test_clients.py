@@ -74,7 +74,7 @@ async def test_client_installation_token_with_owner_id(
 
     assert len(httpserver.log) == 3
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
@@ -129,13 +129,13 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
         "/app/installations/12345/access_tokens"
     ).respond_with_json(
         {"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"},
-        headers={"X-RateLimit-Remaining": 5000, "X-RateLimit-Reset": 1234567890},
+        headers={"X-RateLimit-Remaining": "5000", "X-RateLimit-Reset": "1234567890"},
     )
 
     httpserver.expect_oneshot_request("/repos/owner/repo/pull/1").respond_with_json(
         {"message": "quota !"},
         status=403,
-        headers={"X-RateLimit-Remaining": 0, "X-RateLimit-Reset": 1234567890},
+        headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1234567890"},
     )
 
     with mock.patch(
@@ -146,7 +146,7 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
             with pytest.raises(exceptions.RateLimited):
                 await client.item(f"/repos/{owner_login}/{repo}/pull/1")
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -164,7 +164,7 @@ async def test_client_HTTP_400(httpserver: httpserver.HTTPServer) -> None:
     assert exc_info.value.response.status_code == 400
     assert str(exc_info.value.request.url) == httpserver.url_for("/")
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -183,7 +183,7 @@ async def test_client_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     assert exc_info.value.response.status_code == 500
     assert str(exc_info.value.request.url) == httpserver.url_for("/")
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -205,7 +205,7 @@ async def test_client_temporary_HTTP_500(httpserver: httpserver.HTTPServer) -> N
     # 4 retries
     assert len(httpserver.log) == 4
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -236,7 +236,7 @@ async def _do_test_client_retry_429(
     assert len(httpserver.log) == 2
     elapsed_seconds = (records[0] - now).total_seconds()
     assert expected_seconds - 1 < elapsed_seconds <= expected_seconds + 1
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -293,7 +293,7 @@ async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -
         "/app/installations/12345/access_tokens"
     )
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
@@ -322,7 +322,7 @@ async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -
         "/user/12345/installation"
     )
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
@@ -343,7 +343,7 @@ async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -
 
     assert len(httpserver.log) == 1
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
@@ -368,7 +368,7 @@ async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -
 
     assert len(httpserver.log) == 2
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
@@ -416,4 +416,4 @@ async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> 
     assert str(exc_info.value.request.url) == httpserver.url_for("/")
     assert len(httpserver.log) == 3
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore [no-untyped-call]
