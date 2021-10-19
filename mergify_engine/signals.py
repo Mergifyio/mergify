@@ -31,6 +31,7 @@ EventName = typing.Literal[
     "action.copy",
     "action.close",
     "action.comment",
+    "action.draft",
     "action.delete_head_branch",
     "action.dismiss_reviews",
     "action.label",
