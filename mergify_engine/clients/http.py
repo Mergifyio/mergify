@@ -123,8 +123,8 @@ class wait_retry_after_header(tenacity.wait.wait_base):
 
 
 def extract_github_extra(client):
-    if client.auth and hasattr(client.auth, "owner"):
-        return client.auth.owner
+    if client.auth and hasattr(client.auth, "owner_login"):
+        return client.auth.owner_login
 
 
 def before_log(retry_state):

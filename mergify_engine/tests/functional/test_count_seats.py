@@ -99,16 +99,16 @@ class TestCountSeats(base.FunctionalTestBase):
             raise RuntimeError("client_admin owner_id is None")
         if self.client_fork.auth.owner_id is None:
             raise RuntimeError("client_fork owner_id is None")
-        if self.client_admin.auth.owner is None:
+        if self.client_admin.auth.owner_login is None:
             raise RuntimeError("client_admin owner is None")
-        if self.client_fork.auth.owner is None:
+        if self.client_fork.auth.owner_login is None:
             raise RuntimeError("client_fork owner is None")
         repository["active_users"] = {
             count_seats.ActiveUser(
-                self.client_admin.auth.owner_id, self.client_admin.auth.owner
+                self.client_admin.auth.owner_id, self.client_admin.auth.owner_login
             ),
             count_seats.ActiveUser(
-                self.client_fork.auth.owner_id, self.client_fork.auth.owner
+                self.client_fork.auth.owner_id, self.client_fork.auth.owner_login
             ),
         }
         return count_seats.Seats(collaborators)

@@ -71,18 +71,27 @@ class InstallationInaccessible(Exception):
 
 
 class GithubTokenAuth(httpx.Auth):
-    owner_id: typing.Optional[github_types.GitHubAccountIdType]
-    owner: typing.Optional[github_types.GitHubLogin]
+    owner_id: github_types.GitHubAccountIdType
+    owner_login: github_types.GitHubLogin
 
     def __init__(
         self,
         token: str,
-        owner: typing.Optional[github_types.GitHubLogin] = None,
-        owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
+        # TODO(sileht): these arguments are a mess currently, they can be two
+        # things:
+        # * account of the token
+        # * account the token acts on behalf
+        # we should fix this by removing it, or always passing an installation
+        # to clear of what is it. Since I suspect it's only used by logging, we
+        # maybe able to entirely remove it from the Auth classes can work.
+        owner_id: github_types.GitHubAccountIdType,
+        owner_login: github_types.GitHubLogin,
     ) -> None:
         self._token = token
-        self.owner = owner
         self.owner_id = owner_id
+        self.owner_login = owner_login
+
+        # TODO(sileht): We don't known and we don't care, this should be dropped
         self.permissions_need_to_be_updated = False
 
     @property
@@ -101,15 +110,6 @@ class GithubTokenAuth(httpx.Auth):
 
     def auth_flow(self, request):
         request.headers["Authorization"] = f"token {self._token}"
-        if self.owner_id is None or self.owner is None:
-            with self.response_body_read():
-                user_response = yield self.build_request(
-                    "GET", f"{config.GITHUB_API_URL}/user"
-                )
-                http.raise_for_status(user_response)
-                account = typing.cast(github_types.GitHubAccount, user_response.json())
-                self.owner_id = account["id"]
-                self.owner = account["login"]
         yield request
 
     def build_request(self, method, url):
@@ -122,18 +122,24 @@ class GithubTokenAuth(httpx.Auth):
 
 
 class GithubAppInstallationAuth(httpx.Auth):
+    installation: github_types.GitHubInstallation
 
-    installation: typing.Optional[github_types.GitHubInstallation]
+    def __init__(self, installation: github_types.GitHubInstallation) -> None:
+        self.installation = installation
+        self._cached_token = CachedToken.get(self.installation["id"])
 
-    def __init__(
-        self,
-        owner_id: github_types.GitHubAccountIdType,
-    ) -> None:
-        self.owner_id = owner_id
+        # TODO(sileht): This has nothing to do here, get rid of this
+        self.permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
+            self.installation
+        )
 
-        self._cached_token: typing.Optional[CachedToken] = None
-        self.installation = None
-        self.permissions_need_to_be_updated = False
+    @property
+    def owner_id(self):
+        return self.installation["account"]["id"]
+
+    @property
+    def owner_login(self):
+        return self.installation["account"]["login"]
 
     @contextlib.contextmanager
     def response_body_read(self):
@@ -146,30 +152,6 @@ class GithubAppInstallationAuth(httpx.Auth):
     def auth_flow(
         self, request: httpx.Request
     ) -> typing.Generator[httpx.Request, httpx.Response, None]:
-        if self.installation is None:
-            with self.response_body_read():
-                installation_response = yield self.build_installation_request()
-                if installation_response.status_code == 401:  # due to jwt
-                    installation_response = yield self.build_installation_request(
-                        force=True
-                    )
-                if installation_response.is_redirect:
-                    installation_response = yield self.build_installation_request(
-                        url=installation_response.headers["Location"],
-                    )
-
-                if installation_response.status_code == 404:
-                    LOG.debug(
-                        "Mergify not installed",
-                        gh_owner_id=self.owner_id,
-                        error_message=installation_response.json()["message"],
-                    )
-                    raise exceptions.MergifyNotInstalled()
-
-                http.raise_for_status(installation_response)
-
-                self._set_installation(installation_response)
-
         token = self._get_access_token()
         if token:
             request.headers["Authorization"] = f"token {token}"
@@ -189,7 +171,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                 if "This installation has been suspended" in error_message:
                     LOG.debug(
                         "Mergify installation suspended",
-                        gh_owner=self.owner,
+                        gh_owner=self.owner_login,
                         error_message=error_message,
                     )
                     raise exceptions.MergifyNotInstalled()
@@ -199,13 +181,6 @@ class GithubAppInstallationAuth(httpx.Auth):
 
         request.headers["Authorization"] = f"token {token}"
         yield request
-
-    def build_installation_request(
-        self, url: typing.Optional[str] = None, force: bool = False
-    ) -> httpx.Request:
-        if url is None:
-            url = f"{config.GITHUB_API_URL}/user/{self.owner_id}/installation"
-        return self.build_github_app_request("GET", url, force=force)
 
     def build_access_token_request(self, force: bool = False) -> httpx.Request:
         if self.installation is None:
@@ -224,17 +199,6 @@ class GithubAppInstallationAuth(httpx.Auth):
         headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"  # type: ignore[no-untyped-call]
         return httpx.Request(method, url, headers=headers)
 
-    def _set_installation(self, installation_response: httpx.Response) -> None:
-        self.installation = typing.cast(
-            github_types.GitHubInstallation, installation_response.json()
-        )
-        self.owner = self.installation["account"]["login"]
-        self.owner_id = self.installation["account"]["id"]
-        self.permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
-            self.installation
-        )
-        self._cached_token = CachedToken.get(self.installation["id"])
-
     def _set_access_token(
         self, data: github_types.GitHubInstallationAccessToken
     ) -> str:
@@ -248,7 +212,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         LOG.info(
             "New token acquired",
-            gh_owner=self.owner,
+            gh_owner=self.owner_login,
             expire_at=self._cached_token.expiration,
         )
         return self._cached_token.token
@@ -260,7 +224,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         elif self._cached_token.expiration <= now:
             LOG.info(
                 "Token expired",
-                gh_owner=self.owner,
+                gh_owner=self.owner_login,
                 expire_at=self._cached_token.expiration,
             )
             self._cached_token.invalidate()
@@ -278,37 +242,44 @@ class GithubAppInstallationAuth(httpx.Auth):
             raise RuntimeError("get_access_token() call on an unused client")
 
 
-_T_get_auth = typing.Union[
-    GithubAppInstallationAuth,
-    GithubTokenAuth,
-]
-
-
-async def get_owner_id_from_login(owner_login: str) -> github_types.GitHubAccountIdType:
+async def get_installation_from_account_id(
+    account_id: github_types.GitHubAccountIdType,
+) -> github_types.GitHubInstallation:
     async with AsyncGithubClient(auth=github_app.GithubBearerAuth()) as client:
         try:
-            installation = typing.cast(
+            return typing.cast(
                 github_types.GitHubInstallation,
                 await client.item(
-                    f"{config.GITHUB_API_URL}/users/{owner_login}/installation"
+                    f"{config.GITHUB_API_URL}/user/{account_id}/installation"
                 ),
             )
         except http.HTTPNotFound as e:
-            LOG.error(
-                "Can't get owner id from login.",
-                gh_owner=owner_login,
+            LOG.debug(
+                "Mergify not installed",
+                gh_owner_id=account_id,
                 error_message=e.message,
             )
-            raise
-    return installation["account"]["id"]
+            raise exceptions.MergifyNotInstalled()
 
 
-def get_auth(
-    owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
-) -> _T_get_auth:
-    if owner_id is None:
-        raise ValueError("No owner provided")
-    return GithubAppInstallationAuth(owner_id=owner_id)
+async def get_installation_from_login(
+    login: github_types.GitHubLogin,
+) -> github_types.GitHubInstallation:
+    async with AsyncGithubClient(auth=github_app.GithubBearerAuth()) as client:
+        try:
+            return typing.cast(
+                github_types.GitHubInstallation,
+                await client.item(
+                    f"{config.GITHUB_API_URL}/users/{login}/installation"
+                ),
+            )
+        except http.HTTPNotFound as e:
+            LOG.debug(
+                "Mergify not installed",
+                gh_owner=login,
+                error_message=e.message,
+            )
+            raise exceptions.MergifyNotInstalled()
 
 
 def _check_rate_limit(response: httpx.Response) -> None:
@@ -349,7 +320,7 @@ def _inject_options(func: typing.Any) -> typing.Any:
             headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
         if oauth_token:
             kwargs["auth"] = GithubTokenAuth(
-                oauth_token, self.auth.owner, self.auth.owner_id
+                oauth_token, self.auth.owner_id, self.auth.owner_login
             )
         return await func(url, headers=headers, **kwargs)
 
@@ -357,9 +328,16 @@ def _inject_options(func: typing.Any) -> typing.Any:
 
 
 class AsyncGithubClient(http.AsyncClient):
-    auth: typing.Union[github_app.GithubBearerAuth, _T_get_auth]
+    auth: typing.Union[
+        github_app.GithubBearerAuth, GithubAppInstallationAuth, GithubTokenAuth
+    ]
 
-    def __init__(self, auth: typing.Union[github_app.GithubBearerAuth, _T_get_auth]):
+    def __init__(
+        self,
+        auth: typing.Union[
+            github_app.GithubBearerAuth, GithubAppInstallationAuth, GithubTokenAuth
+        ],
+    ):
         super().__init__(
             base_url=config.GITHUB_API_URL,
             auth=auth,
@@ -384,7 +362,9 @@ class AsyncGithubClient(http.AsyncClient):
                 raise TypeError(
                     "oauth_token is not supported for GithubBearerAuth auth"
                 )
-            kwargs["auth"] = GithubTokenAuth(oauth_token, owner_id=self.auth.owner_id)
+            kwargs["auth"] = GithubTokenAuth(
+                oauth_token, self.auth.owner_id, self.auth.owner_login
+            )
         return kwargs
 
     async def get(  # type: ignore[override]
@@ -510,9 +490,18 @@ class AsyncGithubClient(http.AsyncClient):
 
 
 class AsyncGithubInstallationClient(AsyncGithubClient):
-    auth: _T_get_auth
+    auth: typing.Union[
+        GithubAppInstallationAuth,
+        GithubTokenAuth,
+    ]
 
-    def __init__(self, auth: _T_get_auth):
+    def __init__(
+        self,
+        auth: typing.Union[
+            GithubAppInstallationAuth,
+            GithubTokenAuth,
+        ],
+    ):
         self._requests: typing.List[typing.Tuple[str, str]] = []
         self._requests_ratio: int = 1
         super().__init__(auth=auth)
@@ -568,7 +557,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
                 LOGGING_REQUESTS_THRESHOLD_ABSOLUTE,
                 nb_requests / self._requests_ratio,
                 nb_requests,
-                gh_owner=self.auth.owner,
+                gh_owner=self.auth.owner_login,
                 requests=self._requests,
                 requests_ratio=self._requests_ratio,
             )
@@ -576,7 +565,6 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
 
 
 def aget_client(
-    owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
-    auth: typing.Optional[_T_get_auth] = None,
+    installation: github_types.GitHubInstallation,
 ) -> AsyncGithubInstallationClient:
-    return AsyncGithubInstallationClient(auth or get_auth(owner_id=owner_id))
+    return AsyncGithubInstallationClient(GithubAppInstallationAuth(installation))

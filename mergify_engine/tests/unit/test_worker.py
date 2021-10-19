@@ -29,7 +29,16 @@ from mergify_engine import exceptions
 from mergify_engine import logs
 from mergify_engine import worker
 from mergify_engine import worker_lua
+from mergify_engine.clients import github_app
 from mergify_engine.clients import http
+
+
+FAKE_INSTALLATION = {
+    "id": 12345,
+    "account": {"id": 123, "login": "owner"},
+    "target_type": "Organization",
+    "permissions": github_app.EXPECTED_MINIMAL_PERMISSIONS["Organization"],
+}
 
 
 async def run_worker(test_timeout=10, **kwargs):
@@ -56,10 +65,17 @@ class InstallationMatcher:
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_waiting_tasks(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     buckets = set()
     bucket_sources = set()
     for installation_id in range(8):
@@ -132,23 +148,25 @@ async def test_worker_with_waiting_tasks(
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.clients.github.aget_client")
 @mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
 async def test_worker_expanded_events(
     extract_pull_numbers_from_event,
     aget_client,
+    get_installation_from_account_id,
     run_engine,
     _,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     client = mock.Mock(
-        name="foo",
-        owner="owner",
-        repo="repo",
         auth=mock.Mock(
-            installation={"id": 12345}, owner="owner", repo="repo", owner_id=123
+            owner_id=123,
+            owner_login="owner",
+            installation=get_installation_from_account_id.return_value,
         ),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
@@ -264,10 +282,17 @@ async def test_worker_expanded_events(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_one_task(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     await worker.push(
         redis_stream,
         123,
@@ -328,10 +353,17 @@ async def test_worker_with_one_task(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_unexisting_stream(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     p = worker.StreamProcessor(redis_stream, redis_cache)
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
@@ -339,10 +371,17 @@ async def test_consume_unexisting_stream(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_good_stream(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     await worker.push(
         redis_stream,
         123,
@@ -404,9 +443,11 @@ async def test_consume_good_stream(
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_pull(
     run_engine,
+    get_installation_from_account_id,
     _,
     logger_class,
     redis_stream,
@@ -415,6 +456,7 @@ async def test_stream_processor_retrying_pull(
     logs.setup_logging()
     logger = logger_class.return_value
 
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     # One retries once, the other reaches max_retry
     run_engine.side_effect = [
         exceptions.MergeableStateUnknown(mock.Mock()),
@@ -535,12 +577,14 @@ async def test_stream_processor_retrying_pull(
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(
-    run_engine, _, logger, redis_stream, redis_cache
+    run_engine, get_installation_from_account_id, _, logger, redis_stream, redis_cache
 ):
     logs.setup_logging()
 
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -624,12 +668,14 @@ async def test_stream_processor_retrying_stream_recovered(
 @pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(
-    run_engine, _, logger, redis_stream, redis_cache
+    run_engine, get_installation_from_account_id, _, logger, redis_stream, redis_cache
 ):
     logs.setup_logging()
 
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -717,13 +763,20 @@ async def test_stream_processor_retrying_stream_failure(
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_pull_unexpected_error(
-    run_engine, _, logger_class, redis_stream, redis_cache
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    logger_class,
+    redis_stream,
+    redis_cache,
 ):
     logs.setup_logging()
     logger = logger_class.return_value
 
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     run_engine.side_effect = Exception
 
     await worker.push(
@@ -753,11 +806,18 @@ async def test_stream_processor_pull_unexpected_error(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_date_scheduling(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
 
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     # Don't process it before 2040
     with freeze_time("2040-01-01"):
         await worker.push(
@@ -899,10 +959,12 @@ async def test_worker_debug_report(_, redis_stream, redis_cache, logger_checker)
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_after_read_error(
-    run_engine, _, redis_stream, redis_cache
+    run_engine, get_installation_from_account_id, _, redis_stream, redis_cache
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 503
@@ -923,10 +985,17 @@ async def test_stream_processor_retrying_after_read_error(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_ignore_503(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     response = mock.Mock()
     response.text = "Server Error: Sorry, this diff is taking too long to generate."
     response.status_code = 503
@@ -957,10 +1026,17 @@ async def test_stream_processor_ignore_503(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_multiple_workers(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     buckets = set()
     bucket_sources = set()
     for installation_id in range(100):
@@ -1018,10 +1094,18 @@ async def test_worker_with_multiple_workers(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_reschedule(
-    run_engine, _, redis_stream, redis_cache, logger_checker, monkeypatch
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
+    monkeypatch,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis_stream,
@@ -1062,10 +1146,18 @@ async def test_worker_reschedule(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_stuck_shutdown(
-    run_engine, _, redis_stream, redis_cache, logger_checker
+    run_engine,
+    get_installation_from_account_id,
+    _,
+    redis_stream,
+    redis_cache,
+    logger_checker,
 ):
+    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+
     async def fake_engine(*args, **kwargs):
         await asyncio.sleep(10000000)
 

@@ -205,9 +205,10 @@ async def report(
         print(f"{url} is not valid")
         return None
 
-    owner_id = await github.get_owner_id_from_login(owner_login)
+    installation_json = await github.get_installation_from_login(owner_login)
+    owner_id = installation_json["account"]["id"]
     try:
-        client = github.aget_client(github_types.GitHubAccountIdType(owner_id))
+        client = github.aget_client(installation_json)
     except exceptions.MergifyNotInstalled:
         print(f"* Mergify is not installed on account {owner_login}")
         return None
@@ -221,7 +222,7 @@ async def report(
 
     print(f"* INSTALLATION ID: {client.auth.installation['id']}")
 
-    if client.auth.owner_id is None:
+    if owner_id is None:
         raise RuntimeError("Unable to get owner_id")
 
     if repo is None:
@@ -229,20 +230,18 @@ async def report(
     else:
         slug = owner_login + "/" + repo
 
-    cached_sub = await subscription.Subscription.get_subscription(
-        redis_cache, client.auth.owner_id
-    )
+    cached_sub = await subscription.Subscription.get_subscription(redis_cache, owner_id)
     db_sub = await subscription.Subscription._retrieve_subscription_from_db(
-        redis_cache, client.auth.owner_id
+        redis_cache, owner_id
     )
 
-    cached_tokens = await user_tokens.UserTokens.get(redis_cache, client.auth.owner_id)
+    cached_tokens = await user_tokens.UserTokens.get(redis_cache, owner_id)
     if issubclass(user_tokens.UserTokens, user_tokens.UserTokensGitHubCom):
         db_tokens = typing.cast(
             user_tokens.UserTokens,
             (
                 await user_tokens.UserTokensGitHubCom._retrieve_from_db(
-                    redis_cache, client.auth.owner_id
+                    redis_cache, owner_id
                 )
             ),
         )
@@ -266,7 +265,7 @@ async def report(
     await report_worker_status(owner_login)
 
     installation = context.Installation(
-        client.auth.owner_id, owner_login, cached_sub, client, redis_cache
+        owner_id, owner_login, cached_sub, client, redis_cache
     )
 
     if repo is not None:

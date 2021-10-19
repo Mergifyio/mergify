@@ -383,7 +383,8 @@ async def create_initial_summary(
     if summary_exists:
         return
 
-    async with github.aget_client(owner["id"]) as client:
+    installation_json = await github.get_installation_from_account_id(owner["id"])
+    async with github.aget_client(installation_json) as client:
         post_parameters = {
             "name": constants.SUMMARY_NAME,
             "head_sha": event["pull_request"]["head"]["sha"],

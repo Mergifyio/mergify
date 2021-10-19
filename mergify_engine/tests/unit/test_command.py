@@ -22,7 +22,6 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
-from mergify_engine.clients import github
 from mergify_engine.dashboard import subscription
 from mergify_engine.engine import commands_runner
 
@@ -171,19 +170,12 @@ async def test_run_command_without_rerun_and_without_user(redis_cache):
 
 
 @pytest.mark.asyncio
-async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch):
+async def test_run_command_with_rerun_and_without_user(redis_cache):
 
-    client = github.aget_client(owner_id=123)
+    client = mock.Mock()
+    client.post = mock.AsyncMock()
 
     ctxt = await _create_context(redis_cache, client)
-
-    http_calls = []
-
-    async def mock_post(*args, **kwargs):
-        http_calls.append((args, kwargs))
-        return
-
-    monkeypatch.setattr(client, "post", mock_post)
 
     await commands_runner.handle(
         ctxt=ctxt,
@@ -192,9 +184,10 @@ async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch)
         user=None,
         rerun=True,
     )
-
+    assert len(client.post.call_args_list) == 1
     assert (
-        "Sorry but I didn't understand the command." in http_calls[0][1]["json"]["body"]
+        "Sorry but I didn't understand the command."
+        in client.post.call_args_list[0][1]["json"]["body"]
     )
 
 
@@ -234,10 +227,9 @@ async def test_run_command_with_rerun_and_without_user(redis_cache, monkeypatch)
     ],
 )
 @pytest.mark.asyncio
-async def test_run_command_with_user(
-    user_id, permission, result, redis_cache, monkeypatch
-):
-    client = github.aget_client(owner_id=123)
+async def test_run_command_with_user(user_id, permission, result, redis_cache):
+
+    client = mock.Mock()
 
     ctxt = await _create_context(redis_cache, client)
 
@@ -250,28 +242,14 @@ async def test_run_command_with_user(
         },
     )
 
-    class MockResponse:
-        @staticmethod
-        def json():
-            return {
-                "permission": permission,
-                "user": {
-                    "login": "wall-e",
-                },
-            }
-
-    async def mock_get(*args, **kwargs):
-        return MockResponse()
-
-    monkeypatch.setattr(client, "get", mock_get)
-
-    http_calls = []
-
-    async def mock_post(*args, **kwargs):
-        http_calls.append((args, kwargs))
-        return
-
-    monkeypatch.setattr(client, "post", mock_post)
+    client.item = mock.AsyncMock()
+    client.item.return_value = {
+        "permission": permission,
+        "user": {
+            "login": "wall-e",
+        },
+    }
+    client.post = mock.AsyncMock()
 
     await commands_runner.handle(
         ctxt=ctxt,
@@ -280,29 +258,23 @@ async def test_run_command_with_user(
         user=None,
         rerun=True,
     )
-    assert len(http_calls) == 0
+    assert len(client.post.call_args_list) == 0
 
     await commands_runner.handle(
         ctxt=ctxt, mergify_config={}, comment="@mergifyio something", user=user
     )
 
-    assert len(http_calls) == 1
-    assert result in http_calls[0][1]["json"]["body"]
+    assert len(client.post.call_args_list) == 1
+    assert result in client.post.call_args_list[0][1]["json"]["body"]
 
 
 @pytest.mark.asyncio
-async def test_run_command_with_wrong_arg(redis_cache, monkeypatch):
-    client = github.aget_client(owner_id=123)
+async def test_run_command_with_wrong_arg(redis_cache):
+
+    client = mock.Mock()
+    client.post = mock.AsyncMock()
 
     ctxt = await _create_context(redis_cache, client)
-
-    http_calls = []
-
-    async def mock_post(*args, **kwargs):
-        http_calls.append((args, kwargs))
-        return
-
-    monkeypatch.setattr(client, "post", mock_post)
 
     await commands_runner.handle(
         ctxt=ctxt,
@@ -312,7 +284,7 @@ async def test_run_command_with_wrong_arg(redis_cache, monkeypatch):
         user=None,
     )
 
-    assert len(http_calls) == 1
-    assert http_calls[0][1]["json"]["body"].startswith(
+    assert len(client.post.call_args_list) == 1
+    assert client.post.call_args_list[0][1]["json"]["body"].startswith(
         "Sorry but I didn't understand the arguments of the command `squash`"
     )

@@ -192,8 +192,9 @@ async def test_configuration_changed(
         f"{BASE_URL}/check-runs", method="POST"
     ).respond_with_json({}, status=200)
 
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["id"])
+        github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -303,8 +304,9 @@ async def test_configuration_duplicated(
         f"{BASE_URL}/check-runs", method="POST"
     ).respond_with_json({}, status=200)
 
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["id"])
+        github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -403,8 +405,9 @@ async def test_configuration_not_changed(
         f"{BASE_URL}/check-runs", method="POST"
     ).respond_with_json({}, status=200)
 
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["id"])
+        github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
@@ -491,8 +494,9 @@ async def test_configuration_initial(
         f"{BASE_URL}/check-runs", method="POST"
     ).respond_with_json({}, status=200)
 
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
-        github.get_auth(GH_OWNER["id"])
+        github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
             GH_OWNER["id"],
