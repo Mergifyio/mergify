@@ -519,3 +519,38 @@ class TestMergeAction(base.FunctionalTestBase):
             "extra keys not allowed @ pull_request_rules → item 0 → actions → merge → strict"
             == checks[0]["output"]["summary"]
         )
+
+    async def test_merge_template(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "merge": {
+                            "commit_message": "template",
+                            "commit_message_template": """{{ title }} (#{{ number }})
+{{body}}
+superRP!
+""",
+                        }
+                    },
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr(message="mergify-test3")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        p2 = await self.get_pull(p["number"])
+        self.assertEqual(True, p2["merged"])
+        p3 = await self.get_commit(p2["merge_commit_sha"])
+        assert (
+            f"""test_merge_template: pull request n1 from fork (#{p2['number']})
+
+mergify-test3
+superRP!"""
+            == p3["commit"]["message"]
+        )

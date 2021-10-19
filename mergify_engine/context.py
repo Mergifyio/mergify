@@ -1632,52 +1632,41 @@ class PullRequest(BasePullRequest):
 
     async def get_commit_message(
         self,
-        mode: typing.Literal["default", "title+body"] = "default",
+        mode: typing.Literal["default", "title+body", "template"] = "default",
+        template: typing.Optional[str] = None,
     ) -> typing.Optional[typing.Tuple[str, str]]:
-        body = typing.cast(str, await self.body)
 
         if mode == "title+body":
+            body = typing.cast(str, await self.body)
             # Include PR number to mimic default GitHub format
             return (
                 f"{(await self.title)} (#{(await self.number)})",
                 body,
             )
 
-        if not body:
+        if mode == "default":
+            body = typing.cast(str, await self.body)
+            if not body:
+                return None
+            found = False
+            message_lines = []
+            for line in body.split("\n"):
+                if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
+                    found = True
+                elif found and MARKDOWN_TITLE_RE.match(line):
+                    break
+                elif found:
+                    message_lines.append(line)
+                if found:
+                    template = "\n".join(line.strip() for line in message_lines)
+        if template is None:
             return None
 
-        found = False
-        message_lines = []
-
-        for line in body.split("\n"):
-            if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
-                found = True
-            elif found and MARKDOWN_TITLE_RE.match(line):
-                break
-            elif found:
-                message_lines.append(line)
-
-        # Remove the first empty lines
-        message_lines = list(
-            itertools.dropwhile(lambda x: not x.strip(), message_lines)
+        template_title, _, template_message = template.strip().partition("\n")
+        return (
+            await self.render_template(template_title),
+            await self.render_template(template_message.strip()),
         )
-
-        if found and message_lines:
-            title = message_lines.pop(0)
-
-            # Remove the empty lines between title and message body
-            message_lines = list(
-                itertools.dropwhile(lambda x: not x.strip(), message_lines)
-            )
-
-            return (
-                await self.render_template(title.strip()),
-                await self.render_template(
-                    "\n".join(line.strip() for line in message_lines)
-                ),
-            )
-
-        return None
 
 
 @dataclasses.dataclass
