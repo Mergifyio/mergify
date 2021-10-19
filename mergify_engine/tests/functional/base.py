@@ -471,19 +471,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.client_admin = github.AsyncGithubInstallationClient(
             auth=github.GithubTokenAuth(
                 token=config.ORG_ADMIN_PERSONAL_TOKEN,
-                owner_id=github_types.GitHubAccountIdType(
-                    config.TESTING_MERGIFY_TEST_1_ID
-                ),
-                owner_login=github_types.GitHubLogin("mergify-test1"),
             )
         )
         self.client_fork = github.AsyncGithubInstallationClient(
             auth=github.GithubTokenAuth(
                 token=self.FORK_PERSONAL_TOKEN,
-                owner_id=github_types.GitHubAccountIdType(
-                    config.TESTING_MERGIFY_TEST_2_ID
-                ),
-                owner_login=github_types.GitHubLogin("mergify-test2"),
             )
         )
         self.addAsyncCleanup(self.client_integration.aclose)
@@ -492,17 +484,15 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         await self.client_admin.item("/user")
         await self.client_fork.item("/user")
-        assert self.client_admin.auth.owner_login == "mergify-test1"
-        assert self.client_fork.auth.owner_login == "mergify-test2"
-        assert self.client_admin.auth.owner_id == config.TESTING_MERGIFY_TEST_1_ID
-        assert self.client_fork.auth.owner_id == config.TESTING_MERGIFY_TEST_2_ID
 
         self.url_origin = (
             f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
         )
-        self.url_fork = f"/repos/{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}"
+        self.url_fork = f"/repos/mergify-test2/{self.RECORD_CONFIG['repository_name']}"
         self.git_origin = f"{config.GITHUB_URL}/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
-        self.git_fork = f"{config.GITHUB_URL}/{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}"
+        self.git_fork = (
+            f"{config.GITHUB_URL}/mergify-test2/{self.RECORD_CONFIG['repository_name']}"
+        )
 
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
@@ -689,7 +679,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
-            f"{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}",
+            f"mergify-test2/{self.RECORD_CONFIG['repository_name']}",
         )
         await self.git("config", "user.name", f"{config.CONTEXT}-tester")
         await self.git("remote", "add", "origin", self.git_origin)
@@ -834,7 +824,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         if base_repo == "fork":
             client = self.client_fork
-            login = self.client_fork.auth.owner_login
+            login = github_types.GitHubLogin("mergifyi-test2")
         else:
             client = self.client_admin
             login = github_types.GitHubLogin("mergifyio-testing")
