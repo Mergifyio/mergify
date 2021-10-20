@@ -377,8 +377,9 @@ def _dt_op(
 ) -> typing.Callable[[typing.Any, typing.Any], datetime.datetime]:
     def _operator(value: typing.Any, ref: typing.Any) -> datetime.datetime:
         try:
-            dt_value = _as_datetime(value)
-            dt_ref = _as_datetime(ref)
+            dt_value = _as_datetime(value).astimezone(datetime.timezone.utc)
+            dt_ref = _as_datetime(ref).astimezone(datetime.timezone.utc)
+
             handle_equality = op in (
                 operator.eq,
                 operator.ne,
@@ -409,8 +410,7 @@ def _dt_op(
                     )
                 elif isinstance(ref, date.RelativeDatetime):
                     return date.utcnow() + datetime.timedelta(minutes=1)
-                else:
-                    return _dt_in_future(dt_ref + datetime.timedelta(minutes=1))
+                return _dt_in_future(dt_ref + datetime.timedelta(minutes=1))
             elif dt_value < dt_ref:
                 if isinstance(ref, date.RelativeDatetime):
                     if op in (operator.ge, operator.gt):

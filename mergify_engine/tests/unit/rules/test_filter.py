@@ -865,3 +865,49 @@ async def test_parser_group() -> None:
         filter.BinaryFilter({"and": ({"=": ("head", "foobar")}, {">": ("#files", 3)})})
     )
     assert string == "(head=foobar and #files>3)"
+
+
+def get_scheduled_pr() -> FakePR:
+    return FakePR(
+        {
+            "current-day-of-week": date.DayOfWeek(date.utcnow().isoweekday()),
+            "current-year": date.Year(date.utcnow().year),
+            "current-day": date.Day(date.utcnow().day),
+            "number": 3433,
+            "current-time": date.utcnow(),
+            "current-month": date.Month(date.utcnow().month),
+        }
+    )
+
+
+async def test_schedule_with_timezone() -> None:
+    with freeze_time("2021-10-19T22:01:31.610725", tz_offset=0) as frozen_time:
+        tree = parser.search.parseString(
+            "schedule=Mon-Fri 09:00-17:30[Europe/Paris]", parseAll=True
+        )[0]
+        f = filter.NearDatetimeFilter(tree)
+
+        today = frozen_time().replace(tzinfo=UTC)
+
+        next_refreshes = [
+            "2021-10-20T00:00:00",
+            "2021-10-20T07:00:00",
+            # TODO(sileht): we could drop that one for day.Time and operator ge
+            "2021-10-20T07:01:00",
+            # TODO(sileht): we could drop that one for day.Time and operator le
+            "2021-10-20T15:30:00",
+            "2021-10-20T15:31:00",
+            "2021-10-21T00:00:00",
+            "2021-10-21T07:00:00",
+        ]
+        for next_refresh in next_refreshes:
+            next_refresh_dt = datetime.datetime.fromisoformat(next_refresh).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            assert await f(get_scheduled_pr()) == next_refresh_dt
+            frozen_time.move_to(next_refresh_dt)
+
+        frozen_time.move_to(today.replace(day=23))
+        assert await f(get_scheduled_pr()) == datetime.datetime(
+            2021, 10, 24, 0, 0, tzinfo=datetime.timezone.utc
+        )
