@@ -144,3 +144,28 @@ expected alphabetic or numeric character, but found"""
             summary["output"]["title"]
             == "Configuration changed. This pull request must be merged manually — no rules match, no planned actions"
         )
+
+    async def test_invalid_action_option(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "conditions": ["base=main"],
+                    "actions": {
+                        "comment": {"unknown": "hello"},
+                    },
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert summary["output"]["title"] == "The Mergify configuration is invalid"
+        assert (
+            summary["output"]["summary"]
+            == "extra keys not allowed @ pull_request_rules → item 0 → actions → comment → unknown"
+        )

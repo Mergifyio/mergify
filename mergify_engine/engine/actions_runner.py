@@ -27,7 +27,6 @@ from mergify_engine import delayed_refresh
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine.actions import merge_base
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
 from mergify_engine.queue import naive
@@ -144,7 +143,11 @@ def _has_merge_action_with_strict_mode(
         for rule in pull_request_rules
         for name, action in rule.actions.items()
         if name == "merge"
-        and action.config["strict"] is not merge_base.StrictMergeParameter.false
+        and (
+            "strict" in action.raw_config
+            or "update_bot_account" in action.raw_config
+            or "strict_method" in action.raw_config
+        )
     )
 
 
