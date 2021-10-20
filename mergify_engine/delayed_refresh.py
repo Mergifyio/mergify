@@ -58,23 +58,14 @@ async def plan_next_refresh(
     if best_bet is None or best_bet >= date.DT_MAX:
         removed = await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)
         if removed is not None and removed > 0:
-            LOG.info(
-                "unplan to refresh pull request",
-                gh_owner=ctxt.repository.installation.owner_login,
-                gh_repo=ctxt.repository.repo["name"],
-                gh_pull=ctxt.pull["number"],
-            )
+            ctxt.log.info("unplan to refresh pull request")
     else:
         await ctxt.redis.zadd(
             DELAYED_REFRESH_KEY,
             **{zset_subkey: best_bet.timestamp()},
         )
-        LOG.info(
-            "plan to refresh pull request",
-            gh_owner=ctxt.repository.installation.owner_login,
-            gh_repo=ctxt.repository.repo["name"],
-            gh_pull=ctxt.pull["number"],
-            refresh_planned_at=best_bet.timestamp(),
+        ctxt.log.info(
+            "plan to refresh pull request", refresh_planned_at=best_bet.isoformat()
         )
 
 
