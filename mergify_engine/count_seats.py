@@ -135,7 +135,7 @@ async def store_active_users(
     users = {}
 
     def _add_user(user: github_types.GitHubAccount) -> None:
-        if user["id"] == config.BOT_USER_ID:
+        if user["login"].endswith("[bot]"):
             return
         elif user["login"] == "web-flow":
             return
