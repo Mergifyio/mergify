@@ -226,5 +226,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 "merge_bot_account": bool(self.config["merge_bot_account"]),
                 "update_bot_account": bool(self.config["update_bot_account"]),
                 "strict": self.config["strict"].value,
+                "commit_message": self.config["commit_message"],
+                "commit_message_set": "commit_message" in self.raw_config,
             },
         )
