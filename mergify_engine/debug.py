@@ -29,7 +29,6 @@ from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import utils
-from mergify_engine.actions import merge_base
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
@@ -152,7 +151,7 @@ async def report_queue(title: str, q: queue.QueueT) -> None:
         pulls, key=lambda p: pulls_priorities[p]
     ):
         try:
-            fancy_priority = merge_base.PriorityAliases(priority).name
+            fancy_priority = queue.PriorityAliases(priority).name
         except ValueError:
             fancy_priority = str(priority)
         formatted_pulls = ", ".join((f"#{p}" for p in grouped_pulls))

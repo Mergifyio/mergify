@@ -13,10 +13,12 @@
 # under the License.
 import abc
 import dataclasses
+import enum
 import functools
 import typing
 
 import daiquiri
+import voluptuous
 
 from mergify_engine import context
 from mergify_engine import github_types
@@ -25,6 +27,31 @@ from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+class PriorityAliases(enum.Enum):
+    low = 1000
+    medium = 2000
+    high = 3000
+
+
+def Priority(v):
+    try:
+        return PriorityAliases[v].value
+    except KeyError:
+        return v
+
+
+MAX_PRIORITY: int = 10000
+# NOTE(sileht): We use the max priority as an offset to order queue
+QUEUE_PRIORITY_OFFSET: int = MAX_PRIORITY
+
+PrioritySchema = voluptuous.All(
+    voluptuous.Any("low", "medium", "high", int),
+    voluptuous.Coerce(Priority),
+    int,
+    voluptuous.Range(min=1, max=MAX_PRIORITY),
+)
 
 
 class PullQueueConfig(typing.TypedDict):

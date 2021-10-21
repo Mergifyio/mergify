@@ -52,8 +52,8 @@ class MergeAction(merge_base.MergeBaseAction):
             "default", "title+body"
         ),
         voluptuous.Required(
-            "priority", default=merge_base.PriorityAliases.medium.value
-        ): merge_base.PrioritySchema,
+            "priority", default=queue.PriorityAliases.medium.value
+        ): queue.PrioritySchema,
     }
 
     validator_strict_mode = {
@@ -99,7 +99,7 @@ class MergeAction(merge_base.MergeBaseAction):
     ) -> check_api.Result:
         if self.config[
             "priority"
-        ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
+        ] != queue.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
             subscription.Features.PRIORITY_QUEUES
         ):
             return check_api.Result(
@@ -197,7 +197,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 )
                 config = await q.get_config(pull_number)
                 try:
-                    fancy_priority = merge_base.PriorityAliases(config["priority"]).name
+                    fancy_priority = queue.PriorityAliases(config["priority"]).name
                 except ValueError:
                     fancy_priority = str(config["priority"])
 
