@@ -16,7 +16,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py39
+      - check-success=py310
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -26,7 +26,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py39
+      - check-success=py310
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -37,7 +37,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py39
+      - check-success=py310
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -71,7 +71,7 @@ pull_request_rules:
       - check-success=semantic-pull-request
       - check-success=requirements
       - check-success=pep8
-      - check-success=py39
+      - check-success=py310
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -133,7 +133,7 @@ pull_request_rules:
       - -closed
       - check-success=requirements
       - check-success=pep8
-      - check-success=py39
+      - check-success=py310
       - check-success=docs
       - check-success=docker
       - check-success=heroku
