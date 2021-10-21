@@ -165,6 +165,10 @@ class EventReader:
         hostname = parse.urlparse(config.GITHUB_URL).hostname
         self._namespace_endpoint = f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}/{repository_id}"
 
+    async def aclose(self) -> None:
+        await self.drain()
+        await self._session.aclose()
+
     async def drain(self) -> None:
         # NOTE(sileht): Drop any pending events still on the server
         r = await self._session.request(
@@ -625,7 +629,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.app.aclose()
         await root.shutdown()
 
-        await self._event_reader.drain()
+        await self._event_reader.aclose()
         await self.clear_redis_stream()
         mock.patch.stopall()
 
