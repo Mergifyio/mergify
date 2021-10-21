@@ -15,7 +15,7 @@ import dataclasses
 import datetime
 import typing
 
-import aredis
+import yaaredis
 
 from mergify_engine.clients import http
 
@@ -106,7 +106,7 @@ def need_retry(
         elif exception.response.status_code == 403:
             return datetime.timedelta(minutes=3)
 
-    elif isinstance(exception, aredis.exceptions.ConnectionError):
+    elif isinstance(exception, yaaredis.exceptions.ConnectionError):
         return datetime.timedelta(minutes=1)
 
     return None

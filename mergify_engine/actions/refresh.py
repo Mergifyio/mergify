@@ -32,7 +32,7 @@ class RefreshAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        with utils.aredis_for_stream() as redis_stream:
+        with utils.yaaredis_for_stream() as redis_stream:
             await utils.send_pull_refresh(
                 ctxt.redis,
                 redis_stream,

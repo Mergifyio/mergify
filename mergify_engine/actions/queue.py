@@ -219,7 +219,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # update the associated transient pull request.
             # This is mandatory to filter out refresh to avoid loop
             # of refreshes between this PR and the transient one.
-            with utils.aredis_for_stream() as redis_stream:
+            with utils.yaaredis_for_stream() as redis_stream:
                 await utils.send_pull_refresh(
                     ctxt.repository.installation.redis,
                     redis_stream,
@@ -249,7 +249,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # update the associated transient pull request.
             # This is mandatory to filter out refresh to avoid loop
             # of refreshes between this PR and the transient one.
-            with utils.aredis_for_stream() as redis_stream:
+            with utils.yaaredis_for_stream() as redis_stream:
                 await utils.send_pull_refresh(
                     ctxt.repository.installation.redis,
                     redis_stream,

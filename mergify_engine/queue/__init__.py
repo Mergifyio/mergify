@@ -102,7 +102,7 @@ class QueueBase(abc.ABC):
         ] = None,
     ) -> None:
 
-        with utils.aredis_for_stream() as redis_stream:
+        with utils.yaaredis_for_stream() as redis_stream:
             for pull_number in await self.get_pulls():
                 if (
                     except_pull_request is not None

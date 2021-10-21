@@ -52,12 +52,12 @@ import signal
 import time
 import typing
 
-import aredis
 import daiquiri
 from datadog import statsd
 from ddtrace import tracer
 import msgpack
 import tenacity
+import yaaredis
 
 from mergify_engine import config
 from mergify_engine import context
@@ -146,7 +146,7 @@ def get_low_priority_minimal_score() -> float:
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(aredis.ConnectionError),
+    retry=tenacity.retry_if_exception_type(yaaredis.ConnectionError),
     reraise=True,
 )
 async def push(
@@ -277,7 +277,7 @@ class StreamProcessor:
         try:
             yield
         except Exception as e:
-            if isinstance(e, aredis.exceptions.ConnectionError):
+            if isinstance(e, yaaredis.exceptions.ConnectionError):
                 statsd.increment("redis.client.connection.errors")
 
             if isinstance(e, exceptions.MergeableStateUnknown) and attempts_key:
@@ -358,7 +358,7 @@ class StreamProcessor:
                     await self._consume_buckets(org_bucket_name, installation)
 
                 await self._refresh_merge_trains(org_bucket_name, installation)
-        except aredis.exceptions.ConnectionError:
+        except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "Stream Processor lost Redis connection",
@@ -370,7 +370,7 @@ class StreamProcessor:
             )
             try:
                 await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
-            except aredis.exceptions.ConnectionError:
+            except yaaredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "fail to drop org bucket, it will be retried",
@@ -419,7 +419,7 @@ class StreamProcessor:
                 owner_login,
                 date.utcnow(),
             )
-        except aredis.exceptions.ConnectionError:
+        except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "fail to cleanup org bucket, it maybe partially replayed",
@@ -845,7 +845,7 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.debug("worker %s killed", worker_id)
                 return
-            except aredis.exceptions.ConnectionError:
+            except yaaredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning("worker %s lost Redis connection", worker_id, exc_info=True)
                 await self._sleep_or_stop()
@@ -921,7 +921,7 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.debug("monitoring task killed")
                 return
-            except aredis.ConnectionError:
+            except yaaredis.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning("monitoring task lost Redis connection", exc_info=True)
             except Exception:
@@ -939,7 +939,7 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.debug("delayed refresh task killed")
                 return
-            except aredis.ConnectionError:
+            except yaaredis.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning("delayed refresh task lost Redis connection", exc_info=True)
             except Exception:
@@ -958,8 +958,8 @@ class Worker:
     async def start(self) -> None:
         self._stopping.clear()
 
-        self._redis_stream = utils.create_aredis_for_stream()
-        self._redis_cache = utils.create_aredis_for_cache()
+        self._redis_stream = utils.create_yaaredis_for_stream()
+        self._redis_cache = utils.create_yaaredis_for_cache()
 
         if "stream" in self.enabled_services:
             worker_ids = self.get_worker_ids()
@@ -1011,7 +1011,7 @@ class Worker:
             self._redis_cache.connection_pool.disconnect()
             self._redis_cache = None
 
-        await utils.stop_pending_aredis_tasks()
+        await utils.stop_pending_yaaredis_tasks()
         LOG.info("redis finalized")
 
         LOG.info("shutdown finished")
@@ -1058,7 +1058,7 @@ async def async_status() -> None:
     process_count: int = config.STREAM_PROCESSES
     worker_count: int = worker_per_process * process_count
 
-    redis_stream = utils.create_aredis_for_stream()
+    redis_stream = utils.create_yaaredis_for_stream()
     org_bucket_selector = OrgBucketSelector(redis_stream, 0, worker_count)
 
     def sorter(item: typing.Tuple[bytes, float]) -> int:
@@ -1089,7 +1089,7 @@ async def async_reschedule_now() -> int:
     parser.add_argument("org", help="Organization")
     args = parser.parse_args()
 
-    redis = utils.create_aredis_for_stream()
+    redis = utils.create_yaaredis_for_stream()
     org_buckets = await redis.zrangebyscore("streams", min=0, max="+inf")
     expected_org = f"~{args.org.lower()}"
     for org_bucket in org_buckets:

@@ -28,10 +28,10 @@ LOG = daiquiri.getLogger(__name__)
 
 async def startup() -> None:
     global _AREDIS_STREAM, _AREDIS_CACHE
-    _AREDIS_STREAM = utils.create_aredis_for_stream(
+    _AREDIS_STREAM = utils.create_yaaredis_for_stream(
         max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
     )
-    _AREDIS_CACHE = utils.create_aredis_for_cache(
+    _AREDIS_CACHE = utils.create_yaaredis_for_cache(
         max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
     )
 
@@ -44,7 +44,7 @@ async def shutdown() -> None:
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
     LOG.info("asgi: waiting redis pending tasks to complete")
-    await utils.stop_pending_aredis_tasks()
+    await utils.stop_pending_yaaredis_tasks()
     LOG.info("asgi: finished redis shutdown")
 
 

@@ -42,26 +42,26 @@ def setup_new_event_loop() -> None:
 
 @pytest.fixture()
 async def redis_cache() -> typing.AsyncGenerator[utils.RedisCache, None]:
-    with utils.aredis_for_cache() as client:
+    with utils.yaaredis_for_cache() as client:
         await client.flushdb()
         try:
             yield client
         finally:
             await client.flushdb()
             client.connection_pool.disconnect()
-            await utils.stop_pending_aredis_tasks()
+            await utils.stop_pending_yaaredis_tasks()
 
 
 @pytest.fixture()
 async def redis_stream() -> typing.AsyncGenerator[utils.RedisStream, None]:
-    with utils.aredis_for_stream() as client:
+    with utils.yaaredis_for_stream() as client:
         await client.flushdb()
         try:
             yield client
         finally:
             await client.flushdb()
             client.connection_pool.disconnect()
-            await utils.stop_pending_aredis_tasks()
+            await utils.stop_pending_yaaredis_tasks()
 
 
 @pytest.fixture()

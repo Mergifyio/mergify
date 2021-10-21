@@ -17,8 +17,8 @@ import hashlib
 import typing
 import uuid
 
-import aredis.exceptions
 import daiquiri
+import yaaredis.exceptions
 
 from mergify_engine import github_types
 from mergify_engine import utils
@@ -56,7 +56,7 @@ async def run_script(
         args = keys + args
     try:
         return await redis.evalsha(sha, len(keys), *args)
-    except aredis.exceptions.NoScriptError:
+    except yaaredis.exceptions.NoScriptError:
         newsha = await redis.script_load(script)
         if newsha != sha:
             LOG.error(
