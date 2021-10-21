@@ -349,7 +349,9 @@ class StreamProcessor:
                 sub = await subscription.Subscription.get_subscription(
                     self.redis_cache, owner_id
                 )
-            async with github.aget_client(owner_id) as client:
+
+            installation_raw = await github.get_installation_from_account_id(owner_id)
+            async with github.aget_client(installation_raw) as client:
                 installation = context.Installation(
                     owner_id, owner_login, sub, client, self.redis_cache
                 )

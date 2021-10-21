@@ -63,13 +63,15 @@ async def test_client_installation_token_with_owner_id(
             "/", headers={"Authorization": "token <installation-token>"}
         ).respond_with_json({"work": True}, status=200)
 
+        installation_json = await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
         async with github.AsyncGithubInstallationClient(
-            github.get_auth(owner_id=github_types.GitHubAccountIdType(12345))
+            github.GithubAppInstallationAuth(installation_json)
         ) as client:
-
             ret = await client.get(httpserver.url_for("/"))
             assert ret.json()["work"]
-            assert client.auth.owner == "testing"
+            assert client.auth.owner_login == "testing"
             assert client.auth.owner_id == 12345
 
     assert len(httpserver.log) == 3
@@ -84,6 +86,19 @@ async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
+        httpserver.expect_request("/user/12345/installation").respond_with_json(
+            {
+                "id": 12345,
+                "target_type": "User",
+                "permissions": {
+                    "checks": "write",
+                    "contents": "write",
+                    "pull_requests": "write",
+                },
+                "account": {"login": "testing", "id": 12345},
+            }
+        )
+
         httpserver.expect_request("/user").respond_with_json(
             {
                 "login": "testing",
@@ -94,8 +109,11 @@ async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
             "/", headers={"Authorization": "token <user-token>"}
         ).respond_with_json({"work": True}, status=200)
 
+        installation_json = await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
         async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
+            github.GithubAppInstallationAuth(installation_json)
         ) as client:
             ret = await client.get(
                 httpserver.url_for("/"),
@@ -142,7 +160,8 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        async with github.aget_client(owner_id) as client:
+        installation_json = await github.get_installation_from_account_id(owner_id)
+        async with github.aget_client(installation_json) as client:
             with pytest.raises(exceptions.RateLimited):
                 await client.item(f"/repos/{owner_login}/{repo}/pull/1")
 
@@ -277,8 +296,11 @@ async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
+        installation_json = await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
         async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
+            github.GithubAppInstallationAuth(installation_json)
         ) as client:
             with pytest.raises(http.HTTPServerSideError) as exc_info:
                 await client.get(httpserver.url_for("/"))
@@ -302,15 +324,15 @@ async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -
     httpserver.expect_request("/user/12345/installation").respond_with_data(
         "This is an 5XX error", status=500
     )
+
     with mock.patch(
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
-        ) as client:
-            with pytest.raises(http.HTTPServerSideError) as exc_info:
-                await client.get(httpserver.url_for("/"))
+        with pytest.raises(http.HTTPServerSideError) as exc_info:
+            await github.get_installation_from_account_id(
+                github_types.GitHubAccountIdType(12345)
+            )
 
     # 5 retries
     assert len(httpserver.log) == 5
@@ -335,11 +357,10 @@ async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
-        ) as client:
-            with pytest.raises(exceptions.MergifyNotInstalled):
-                await client.get(httpserver.url_for("/"))
+        with pytest.raises(exceptions.MergifyNotInstalled):
+            await github.get_installation_from_account_id(
+                github_types.GitHubAccountIdType(12345)
+            )
 
     assert len(httpserver.log) == 1
 
@@ -360,11 +381,10 @@ async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
-        async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
-        ) as client:
-            with pytest.raises(exceptions.MergifyNotInstalled):
-                await client.get(httpserver.url_for("/"))
+        with pytest.raises(exceptions.MergifyNotInstalled):
+            await github.get_installation_from_account_id(
+                github_types.GitHubAccountIdType(12345)
+            )
 
     assert len(httpserver.log) == 2
 
@@ -404,8 +424,11 @@ async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> 
         "mergify_engine.config.GITHUB_API_URL",
         httpserver.url_for("/")[:-1],
     ):
+        installation_json = await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
         async with github.AsyncGithubInstallationClient(
-            github.get_auth(github_types.GitHubAccountIdType(12345))
+            github.GithubAppInstallationAuth(installation_json)
         ) as client:
             with pytest.raises(http.HTTPClientSideError) as exc_info:
                 await client.get(httpserver.url_for("/"))

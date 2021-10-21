@@ -53,7 +53,7 @@ class TestActionSquash(base.FunctionalTestBase):
         await self.git("push", "--quiet", repo_name, branch_name)
 
         client = self.client_fork
-        owner_name = self.client_fork.auth.owner
+        owner_login = self.client_fork.auth.owner_login
 
         # create a PR with several commits to squash
         pr = (
@@ -61,7 +61,7 @@ class TestActionSquash(base.FunctionalTestBase):
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_name}:{branch_name}",
+                    "head": f"{owner_login}:{branch_name}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
 

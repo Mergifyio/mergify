@@ -104,8 +104,8 @@ async def voluptuous_errors(
 async def _simulator(
     redis_cache: utils.RedisCache,
     pull_request_rules: rules.PullRequestRules,
-    owner: github_types.GitHubLogin,
-    repo: str,
+    owner_login: github_types.GitHubLogin,
+    repo_name: github_types.GitHubRepositoryName,
     pull_number: int,
     token: str,
 ) -> typing.Tuple[str, str]:
@@ -114,27 +114,30 @@ async def _simulator(
             github.GithubAppInstallationAuth,
             github.GithubTokenAuth,
         ]
+        installation_json = await github.get_installation_from_login(owner_login)
+        owner_id = installation_json["account"]["id"]
         if token:
-            auth = github.GithubTokenAuth(token)
+            auth = github.GithubTokenAuth(token, owner_id, owner_login)
         else:
-            owner_id = await github.get_owner_id_from_login(owner)
-            auth = github.get_auth(github_types.GitHubAccountIdType(owner_id))
+            auth = github.GithubAppInstallationAuth(installation_json)
 
-        async with github.aget_client(auth=auth) as client:
+        async with github.AsyncGithubInstallationClient(auth=auth) as client:
             try:
-                data = await client.item(f"/repos/{owner}/{repo}/pulls/{pull_number}")
+                data = await client.item(
+                    f"/repos/{owner_login}/{repo_name}/pulls/{pull_number}"
+                )
             except http.HTTPNotFound:
                 raise PullRequestUrlInvalid(
-                    message=f"Pull request {owner}/{repo}/pulls/{pull_number} not found"
+                    message=f"Pull request {owner_login}/{repo_name}/pulls/{pull_number} not found"
                 )
 
             sub = await subscription.Subscription.get_subscription(
-                redis_cache, data["base"]["user"]["id"]
+                redis_cache, owner_id
             )
 
             installation = context.Installation(
-                data["base"]["user"]["id"],
-                owner,
+                owner_id,
+                owner_login,
                 sub,
                 client,
                 redis_cache,
@@ -146,7 +149,7 @@ async def _simulator(
             return await actions_runner.gen_summary(ctxt, pull_request_rules, match)
     except exceptions.MergifyNotInstalled:
         raise PullRequestUrlInvalid(
-            message=f"Mergify not installed on repository '{owner}/{repo}'"
+            message=f"Mergify not installed on repository '{owner_login}/{repo_name}'"
         )
 
 
@@ -172,8 +175,8 @@ async def simulator(
         title, summary = await _simulator(
             redis_cache,
             data["mergify.yml"]["pull_request_rules"],
-            owner=data["pull_request"][0],
-            repo=data["pull_request"][1],
+            owner_login=data["pull_request"][0],
+            repo_name=data["pull_request"][1],
             pull_number=data["pull_request"][2],
             token=token,
         )

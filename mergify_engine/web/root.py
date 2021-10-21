@@ -78,11 +78,11 @@ async def redis_errors(
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}",  # noqa: FS003
+    "/refresh/{owner_login}/{repo_name}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_repo(
-    owner: github_types.GitHubLogin,
+    owner_login: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
@@ -91,13 +91,10 @@ async def refresh_repo(
         redis.get_redis_stream
     ),
 ) -> responses.Response:
-    async with github.aget_client(
-        owner_id=github_types.GitHubAccountIdType(
-            await github.get_owner_id_from_login(owner)
-        )
-    ) as client:
+    installation_json = await github.get_installation_from_login(owner_login)
+    async with github.aget_client(installation_json) as client:
         try:
-            repository = await client.item(f"/repos/{owner}/{repo_name}")
+            repository = await client.item(f"/repos/{owner_login}/{repo_name}")
         except http.HTTPNotFound:
             return responses.JSONResponse(
                 status_code=404, content="repository not found"
@@ -113,11 +110,11 @@ RefreshActionSchema = voluptuous.Schema(voluptuous.Any("user", "admin", "interna
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}/pull/{pull_request_number}",  # noqa: FS003
+    "/refresh/{owner_login}/{repo_name}/pull/{pull_request_number}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_pull(
-    owner: github_types.GitHubLogin,
+    owner_login: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
     pull_request_number: github_types.GitHubPullRequestNumber,
     action: github_types.GitHubEventRefreshActionType = "user",
@@ -129,13 +126,11 @@ async def refresh_pull(
     ),
 ) -> responses.Response:
     action = RefreshActionSchema(action)
-    async with github.aget_client(
-        owner_id=github_types.GitHubAccountIdType(
-            await github.get_owner_id_from_login(owner)
-        )
-    ) as client:
+
+    installation_json = await github.get_installation_from_login(owner_login)
+    async with github.aget_client(installation_json) as client:
         try:
-            repository = await client.item(f"/repos/{owner}/{repo_name}")
+            repository = await client.item(f"/repos/{owner_login}/{repo_name}")
         except http.HTTPNotFound:
             return responses.JSONResponse(
                 status_code=404, content="repository not found"
@@ -153,11 +148,11 @@ async def refresh_pull(
 
 
 @app.post(
-    "/refresh/{owner}/{repo_name}/branch/{branch}",  # noqa: FS003
+    "/refresh/{owner_login}/{repo_name}/branch/{branch}",  # noqa: FS003
     dependencies=[fastapi.Depends(auth.signature)],
 )
 async def refresh_branch(
-    owner: github_types.GitHubLogin,
+    owner_login: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
     branch: str,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
@@ -167,13 +162,10 @@ async def refresh_branch(
         redis.get_redis_stream
     ),
 ) -> responses.Response:
-    async with github.aget_client(
-        owner_id=github_types.GitHubAccountIdType(
-            await github.get_owner_id_from_login(owner)
-        )
-    ) as client:
+    installation_json = await github.get_installation_from_login(owner_login)
+    async with github.aget_client(installation_json) as client:
         try:
-            repository = await client.item(f"/repos/{owner}/{repo_name}")
+            repository = await client.item(f"/repos/{owner_login}/{repo_name}")
         except http.HTTPNotFound:
             return responses.JSONResponse(
                 status_code=404, content="repository not found"
@@ -338,9 +330,11 @@ async def queues(
     token = request.headers.get("Authorization")
     if token:
         token = token[6:]  # Drop 'token '
-        # Check this token as access to this organization
-        auth = github.GithubTokenAuth(token)
-        async with github.aget_client(auth=auth) as client:
+        installation_json = await github.get_installation_from_account_id(owner_id)
+        owner_login = installation_json["account"]["login"]
+        auth = github.GithubTokenAuth(token, owner_id, owner_login)
+        async with github.AsyncGithubInstallationClient(auth=auth) as client:
+            # Check this token as access to this organization
             try:
                 await client.item(f"/user/{owner_id}")
             except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
@@ -357,7 +351,7 @@ async def queues(
         queue_type, _, repo_id, branch = queue.split("~")
         if auth is not None:
             # Check this token as access to this repository
-            async with github.aget_client(auth=auth) as client:
+            async with github.AsyncGithubInstallationClient(auth=auth) as client:
                 try:
                     await client.item(f"/repositories/{repo_id}")
                 except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):

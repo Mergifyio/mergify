@@ -373,27 +373,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 return_value="<TOKEN>",
             ).start()
 
-            # NOTE(sileht): httpx pyvcr stubs does not replay auth_flow as it directly patch client.send()
-            # So anything occurring during auth_flow have to be mocked during replay
-            def get_auth(owner_id=None, auth=None):
-                if auth is None:
-                    auth = github.get_auth(owner_id)
-                    auth.installation = {
-                        "id": config.INSTALLATION_ID,
-                        "permissions": {
-                            "workflows": "write",
-                        },
-                    }
-                    auth.permissions_need_to_be_updated = False
-                    auth.owner_id = config.TESTING_ORGANIZATION_ID
-                    auth.owner = config.TESTING_ORGANIZATION_NAME
-                return auth
-
-            def github_aclient(owner_id=None, auth=None):
-                return github.AsyncGithubInstallationClient(get_auth(owner_id, auth))
-
-            mock.patch.object(github, "aget_client", github_aclient).start()
-
         mock.patch.object(branch_updater.gitter, "Gitter", self.get_gitter).start()
         mock.patch.object(duplicate_pull.gitter, "Gitter", self.get_gitter).start()
 
@@ -481,14 +460,17 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         cassette.__enter__()
         self.addCleanup(cassette.__exit__)
 
-        self.client_integration = github.aget_client(config.TESTING_ORGANIZATION_ID)
+        installation_json = await github.get_installation_from_account_id(
+            config.TESTING_ORGANIZATION_ID
+        )
+        self.client_integration = github.aget_client(installation_json)
         self.client_admin = github.AsyncGithubInstallationClient(
             auth=github.GithubTokenAuth(
                 token=config.ORG_ADMIN_PERSONAL_TOKEN,
                 owner_id=github_types.GitHubAccountIdType(
                     config.TESTING_MERGIFY_TEST_1_ID
                 ),
-                owner=github_types.GitHubLogin("mergify-test1"),
+                owner_login=github_types.GitHubLogin("mergify-test1"),
             )
         )
         self.client_fork = github.AsyncGithubInstallationClient(
@@ -497,7 +479,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 owner_id=github_types.GitHubAccountIdType(
                     config.TESTING_MERGIFY_TEST_2_ID
                 ),
-                owner=github_types.GitHubLogin("mergify-test2"),
+                owner_login=github_types.GitHubLogin("mergify-test2"),
             )
         )
         self.addAsyncCleanup(self.client_integration.aclose)
@@ -506,17 +488,17 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         await self.client_admin.item("/user")
         await self.client_fork.item("/user")
-        assert self.client_admin.auth.owner == "mergify-test1"
-        assert self.client_fork.auth.owner == "mergify-test2"
+        assert self.client_admin.auth.owner_login == "mergify-test1"
+        assert self.client_fork.auth.owner_login == "mergify-test2"
         assert self.client_admin.auth.owner_id == config.TESTING_MERGIFY_TEST_1_ID
         assert self.client_fork.auth.owner_id == config.TESTING_MERGIFY_TEST_2_ID
 
         self.url_origin = (
             f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
         )
-        self.url_fork = f"/repos/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
+        self.url_fork = f"/repos/{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}"
         self.git_origin = f"{config.GITHUB_URL}/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}"
-        self.git_fork = f"{config.GITHUB_URL}/{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}"
+        self.git_fork = f"{config.GITHUB_URL}/{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}"
 
         self.installation_ctxt = context.Installation(
             config.TESTING_ORGANIZATION_ID,
@@ -703,7 +685,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.add_cred(
             self.FORK_PERSONAL_TOKEN,
             "",
-            f"{self.client_fork.auth.owner}/{self.RECORD_CONFIG['repository_name']}",
+            f"{self.client_fork.auth.owner_login}/{self.RECORD_CONFIG['repository_name']}",
         )
         await self.git("config", "user.name", f"{config.CONTEXT}-tester")
         await self.git("remote", "add", "origin", self.git_origin)
@@ -848,7 +830,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         if base_repo == "fork":
             client = self.client_fork
-            login = self.client_fork.auth.owner
+            login = self.client_fork.auth.owner_login
         else:
             client = self.client_admin
             login = github_types.GitHubLogin("mergifyio-testing")

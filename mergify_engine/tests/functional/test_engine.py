@@ -24,7 +24,6 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
-from mergify_engine.clients import github
 from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
 
@@ -494,12 +493,11 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, commits = await self.create_pr()
         await self.run_engine()
 
-        client = github.aget_client(p["base"]["user"]["id"])
         installation = context.Installation(
             p["base"]["user"]["id"],
             p["base"]["user"]["login"],
             self.subscription,
-            client,
+            self.client_integration,
             self.redis_cache,
         )
         repository = context.Repository(installation, p["base"]["repo"])

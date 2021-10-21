@@ -40,7 +40,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.git("push", "--quiet", repo_name, branch_name)
 
         client = self.client_fork
-        owner_name = self.client_fork.auth.owner
+        owner_login = self.client_fork.auth.owner_login
 
         # create a PR with several commits to squash
         pr = (
@@ -48,7 +48,7 @@ class TestCommandSquash(base.FunctionalTestBase):
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_name}:{branch_name}",
+                    "head": f"{owner_login}:{branch_name}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
                     "draft": False,
@@ -111,13 +111,13 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.git("push", "--quiet", repo_name, branch_name2)
 
         client = self.client_fork
-        owner_name = self.client_fork.auth.owner
+        owner_login = self.client_fork.auth.owner_login
 
         # create a merge between this 2 branches
         await client.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_name,
+                "owner": owner_login,
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
@@ -130,7 +130,7 @@ class TestCommandSquash(base.FunctionalTestBase):
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_name}:{branch_name1}",
+                    "head": f"{owner_login}:{branch_name1}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
 
@@ -203,13 +203,13 @@ Awesome body
         await self.git("push", "--quiet", repo_name, branch_name2)
 
         client = self.client_fork
-        owner_name = self.client_fork.auth.owner
+        owner_login = self.client_fork.auth.owner_login
 
         # create a merge between this 2 branches
         await client.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_name,
+                "owner": owner_login,
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
@@ -236,7 +236,7 @@ Awesome body
         await client.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_name,
+                "owner": owner_login,
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name3,
@@ -249,7 +249,7 @@ Awesome body
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_name}:{branch_name1}",
+                    "head": f"{owner_login}:{branch_name1}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
                     "draft": False,
