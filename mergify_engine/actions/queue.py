@@ -79,8 +79,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "default", "title+body"
             ),
             voluptuous.Required(
-                "priority", default=merge_base.PriorityAliases.medium.value
-            ): merge_base.PrioritySchema,
+                "priority", default=queue.PriorityAliases.medium.value
+            ): queue.PrioritySchema,
         }
 
     async def _subscription_status(
@@ -120,7 +120,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             )
         elif self.config[
             "priority"
-        ] != merge_base.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
+        ] != queue.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
             subscription.Features.PRIORITY_QUEUES
         ):
             return check_api.Result(

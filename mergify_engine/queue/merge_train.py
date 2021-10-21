@@ -34,7 +34,6 @@ from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import utils
-from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
@@ -500,7 +499,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 )
                 pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pull/{embarked_pull.user_pull_request_number}"
                 try:
-                    fancy_priority = merge_base.PriorityAliases(
+                    fancy_priority = queue.PriorityAliases(
                         embarked_pull.config["priority"]
                     ).name
                 except ValueError:
