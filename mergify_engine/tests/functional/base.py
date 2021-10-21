@@ -441,7 +441,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.app = httpx.AsyncClient(app=root.app, base_url="http://localhost")
 
         await self.clear_redis_cache()
-        self.redis_cache = utils.create_aredis_for_cache(max_idle_time=0)
+        self.redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
         self.subscription = subscription.Subscription(
             self.redis_cache,
             config.TESTING_ORGANIZATION_ID,
@@ -602,12 +602,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     @staticmethod
     async def clear_redis_stream() -> None:
-        with utils.aredis_for_stream() as redis_stream:
+        with utils.yaaredis_for_stream() as redis_stream:
             await redis_stream.flushall()
 
     @staticmethod
     async def clear_redis_cache() -> None:
-        with utils.aredis_for_cache() as redis_stream:
+        with utils.yaaredis_for_cache() as redis_stream:
             await redis_stream.flushall()
 
     async def asyncTearDown(self):

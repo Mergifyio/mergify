@@ -23,8 +23,8 @@ import ssl
 import typing
 import uuid
 
-import aredis
 import daiquiri
+import yaaredis
 
 from mergify_engine import config
 from mergify_engine import github_types
@@ -34,12 +34,12 @@ LOG = daiquiri.getLogger()
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 
-# NOTE(sileht): I wonder with mypy thing aredis.StrictRedis is Any...
-RedisCache = typing.NewType("RedisCache", aredis.StrictRedis)  # type: ignore
-RedisStream = typing.NewType("RedisStream", aredis.StrictRedis)  # type: ignore
+# NOTE(sileht): I wonder with mypy thing yaaredis.StrictRedis is Any...
+RedisCache = typing.NewType("RedisCache", yaaredis.StrictRedis)  # type: ignore
+RedisStream = typing.NewType("RedisStream", yaaredis.StrictRedis)  # type: ignore
 
 
-def redis_from_url(url: str, **options: typing.Any) -> aredis.StrictRedis:
+def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
     ssl_scheme = "rediss://"
     if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith(ssl_scheme):
         final_url = f"redis://{url[len(ssl_scheme):]}"
@@ -49,10 +49,10 @@ def redis_from_url(url: str, **options: typing.Any) -> aredis.StrictRedis:
         options["ssl_context"] = ctx
     else:
         final_url = url
-    return aredis.StrictRedis.from_url(final_url, **options)
+    return yaaredis.StrictRedis.from_url(final_url, **options)
 
 
-def create_aredis_for_cache(
+def create_yaaredis_for_cache(
     max_idle_time: int = 60, max_connections: typing.Optional[int] = None
 ) -> RedisCache:
     client = redis_from_url(
@@ -65,15 +65,15 @@ def create_aredis_for_cache(
 
 
 @contextlib.contextmanager
-def aredis_for_cache() -> typing.Iterator[RedisCache]:
-    client = create_aredis_for_cache(max_idle_time=0)
+def yaaredis_for_cache() -> typing.Iterator[RedisCache]:
+    client = create_yaaredis_for_cache(max_idle_time=0)
     try:
         yield client
     finally:
         client.connection_pool.disconnect()
 
 
-def create_aredis_for_stream(
+def create_yaaredis_for_stream(
     max_idle_time: int = 60,
     max_connections: typing.Optional[int] = None,
 ) -> RedisStream:
@@ -84,15 +84,15 @@ def create_aredis_for_stream(
 
 
 @contextlib.contextmanager
-def aredis_for_stream() -> typing.Iterator[RedisCache]:
-    client = create_aredis_for_stream(max_idle_time=0)
+def yaaredis_for_stream() -> typing.Iterator[RedisCache]:
+    client = create_yaaredis_for_stream(max_idle_time=0)
     try:
         yield client
     finally:
         client.connection_pool.disconnect()
 
 
-async def stop_pending_aredis_tasks() -> None:
+async def stop_pending_yaaredis_tasks() -> None:
     tasks = [
         task
         for task in asyncio.all_tasks()

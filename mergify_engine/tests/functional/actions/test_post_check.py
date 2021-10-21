@@ -120,7 +120,7 @@ Rule list:
 class TestPostCheckActionNoSub(base.FunctionalTestBase):
     async def test_checks_feature_disabled(self):
         self.subscription = subscription.Subscription(
-            utils.create_aredis_for_cache(max_idle_time=0),
+            utils.create_yaaredis_for_cache(max_idle_time=0),
             config.INSTALLATION_ID,
             "You're not nice",
             frozenset(

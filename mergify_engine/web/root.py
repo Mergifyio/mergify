@@ -16,7 +16,6 @@
 import collections
 import typing
 
-import aredis
 import daiquiri
 from datadog import statsd
 import fastapi
@@ -24,6 +23,7 @@ import httpx
 from starlette import requests
 from starlette import responses
 import voluptuous
+import yaaredis
 
 # To load the json serializer need to read queues
 from mergify_engine import check_api  # noqa
@@ -68,9 +68,9 @@ async def shutdown() -> None:
     await redis.shutdown()
 
 
-@app.exception_handler(aredis.exceptions.ConnectionError)
+@app.exception_handler(yaaredis.exceptions.ConnectionError)
 async def redis_errors(
-    request: requests.Request, exc: aredis.exceptions.ConnectionError
+    request: requests.Request, exc: yaaredis.exceptions.ConnectionError
 ) -> responses.JSONResponse:
     statsd.increment("redis.client.connection.errors")
     LOG.warning("FastAPI lost Redis connection", exc_info=exc)

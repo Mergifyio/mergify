@@ -405,7 +405,7 @@ async def count_and_send(redis_cache: utils.RedisCache) -> None:
 
 
 async def report(args: argparse.Namespace) -> None:
-    redis_cache = utils.create_aredis_for_cache()
+    redis_cache = utils.create_yaaredis_for_cache()
     if args.daemon:
         service.setup("count-seats")
         await count_and_send(redis_cache)
