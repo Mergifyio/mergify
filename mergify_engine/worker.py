@@ -350,16 +350,16 @@ class StreamProcessor:
                     self.redis_cache, owner_id
                 )
 
-            installation_raw = await github.get_installation_from_account_id(owner_id)
-            async with github.aget_client(installation_raw) as client:
-                installation = context.Installation(
-                    owner_id, owner_login, sub, client, self.redis_cache
+                installation_raw = await github.get_installation_from_account_id(
+                    owner_id
                 )
-
-                async with self._translate_exception_to_retries(org_bucket_name):
+                async with github.aget_client(installation_raw) as client:
+                    installation = context.Installation(
+                        owner_id, owner_login, sub, client, self.redis_cache
+                    )
                     await self._consume_buckets(org_bucket_name, installation)
+                    await self._refresh_merge_trains(org_bucket_name, installation)
 
-                await self._refresh_merge_trains(org_bucket_name, installation)
         except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
@@ -432,12 +432,9 @@ class StreamProcessor:
     async def _refresh_merge_trains(
         self, org_bucket_name: OrgBucketNameType, installation: context.Installation
     ) -> None:
-        async with self._translate_exception_to_retries(
-            org_bucket_name,
-        ):
-            async for train in merge_train.Train.iter_trains(installation):
-                await train.load()
-                await train.refresh()
+        async for train in merge_train.Train.iter_trains(installation):
+            await train.load()
+            await train.refresh()
 
     @staticmethod
     def _extract_infos_from_bucket_sources_key(
