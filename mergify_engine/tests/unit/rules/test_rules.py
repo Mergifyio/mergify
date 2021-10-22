@@ -552,7 +552,6 @@ async def test_get_mergify_config_location_from_cache(
     redis_cache: utils.RedisCache,
 ) -> None:
     client = mock.AsyncMock()
-    client.auth.owner = "foo"
     client.item.side_effect = [
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),
         http.HTTPNotFound("Not Found", request=mock.Mock(), response=mock.Mock()),

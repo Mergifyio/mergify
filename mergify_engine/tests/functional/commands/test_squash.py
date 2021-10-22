@@ -39,16 +39,13 @@ class TestCommandSquash(base.FunctionalTestBase):
 
         await self.git("push", "--quiet", repo_name, branch_name)
 
-        client = self.client_fork
-        owner_login = self.client_fork.auth.owner_login
-
         # create a PR with several commits to squash
         pr = (
-            await client.post(
+            await self.client_fork.post(
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_login}:{branch_name}",
+                    "head": f"mergify-test2:{branch_name}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
                     "draft": False,
@@ -69,7 +66,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         # get the PR
-        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
+        pr = await self.client_fork.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
     async def test_squash_several_commits_with_one_merge_commit_and_custom_message(
@@ -110,14 +107,11 @@ class TestCommandSquash(base.FunctionalTestBase):
 
         await self.git("push", "--quiet", repo_name, branch_name2)
 
-        client = self.client_fork
-        owner_login = self.client_fork.auth.owner_login
-
         # create a merge between this 2 branches
-        await client.post(
+        await self.client_fork.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_login,
+                "owner": "mergify-test2",
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
@@ -126,11 +120,11 @@ class TestCommandSquash(base.FunctionalTestBase):
 
         # create a new PR between main & fork
         pr = (
-            await client.post(
+            await self.client_fork.post(
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_login}:{branch_name1}",
+                    "head": f"mergify-test2:{branch_name1}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
 
@@ -157,7 +151,7 @@ Awesome body
         # wait after the update & get the PR
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
+        pr = await self.client_fork.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
         ctxt = await context.Context.create(self.repository_ctxt, pr, [])
@@ -202,14 +196,11 @@ Awesome body
 
         await self.git("push", "--quiet", repo_name, branch_name2)
 
-        client = self.client_fork
-        owner_login = self.client_fork.auth.owner_login
-
         # create a merge between this 2 branches
-        await client.post(
+        await self.client_fork.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_login,
+                "owner": "mergify-test2",
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name2,
@@ -233,10 +224,10 @@ Awesome body
         await self.git("push", "--quiet", repo_name, branch_name3)
 
         # create a PR between this branche n3 & n1
-        await client.post(
+        await self.client_fork.post(
             f"{self.url_fork}/merges",
             json={
-                "owner": owner_login,
+                "owner": "mergify-test2",
                 "repo": self.RECORD_CONFIG["repository_name"],
                 "base": branch_name1,
                 "head": branch_name3,
@@ -245,11 +236,11 @@ Awesome body
 
         # create a new PR between main & fork
         pr = (
-            await client.post(
+            await self.client_fork.post(
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_login}:{branch_name1}",
+                    "head": f"mergify-test2:{branch_name1}",
                     "title": "squash the PR",
                     "body": "This is a squash_test",
                     "draft": False,
@@ -270,5 +261,5 @@ Awesome body
         # wait after the update & get the PR
         await self.wait_for("pull_request", {"action": "synchronize"})
 
-        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
+        pr = await self.client_fork.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1

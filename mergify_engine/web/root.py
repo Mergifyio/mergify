@@ -330,9 +330,7 @@ async def queues(
     token = request.headers.get("Authorization")
     if token:
         token = token[6:]  # Drop 'token '
-        installation_json = await github.get_installation_from_account_id(owner_id)
-        owner_login = installation_json["account"]["login"]
-        auth = github.GithubTokenAuth(token, owner_id, owner_login)
+        auth = github.GithubTokenAuth(token)
         async with github.AsyncGithubInstallationClient(auth=auth) as client:
             # Check this token as access to this organization
             try:

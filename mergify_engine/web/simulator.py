@@ -117,7 +117,7 @@ async def _simulator(
         installation_json = await github.get_installation_from_login(owner_login)
         owner_id = installation_json["account"]["id"]
         if token:
-            auth = github.GithubTokenAuth(token, owner_id, owner_login)
+            auth = github.GithubTokenAuth(token)
         else:
             auth = github.GithubAppInstallationAuth(installation_json)
 

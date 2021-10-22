@@ -95,20 +95,14 @@ class TestCountSeats(base.FunctionalTestBase):
             )
         ]
 
-        if self.client_admin.auth.owner_id is None:
-            raise RuntimeError("client_admin owner_id is None")
-        if self.client_fork.auth.owner_id is None:
-            raise RuntimeError("client_fork owner_id is None")
-        if self.client_admin.auth.owner_login is None:
-            raise RuntimeError("client_admin owner is None")
-        if self.client_fork.auth.owner_login is None:
-            raise RuntimeError("client_fork owner is None")
         repository["active_users"] = {
             count_seats.ActiveUser(
-                self.client_admin.auth.owner_id, self.client_admin.auth.owner_login
+                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_1_ID),
+                github_types.GitHubLogin("mergify-test1"),
             ),
             count_seats.ActiveUser(
-                self.client_fork.auth.owner_id, self.client_fork.auth.owner_login
+                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_2_ID),
+                github_types.GitHubLogin("mergify-test2"),
             ),
         }
         return count_seats.Seats(collaborators)
@@ -163,12 +157,6 @@ class TestCountSeats(base.FunctionalTestBase):
         user_admin, timestamp_admin = active_users[0]
         user_fork, timestamp_fork = active_users[1]
         assert timestamp_admin <= now and timestamp_admin > now - 60
-        assert (
-            user_admin
-            == f"{self.client_admin.auth.owner_id}~{self.client_admin.auth.owner}"
-        )
+        assert user_admin == f"{config.TESTING_MERGIFY_TEST_1_ID}~mergify-test1"
         assert timestamp_fork <= now and timestamp_fork > now - 60
-        assert (
-            user_fork
-            == f"{self.client_fork.auth.owner_id}~{self.client_fork.auth.owner}"
-        )
+        assert user_fork == f"{config.TESTING_MERGIFY_TEST_2_ID}~mergify-test2"

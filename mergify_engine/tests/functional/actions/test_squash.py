@@ -52,16 +52,13 @@ class TestActionSquash(base.FunctionalTestBase):
 
         await self.git("push", "--quiet", repo_name, branch_name)
 
-        client = self.client_fork
-        owner_login = self.client_fork.auth.owner_login
-
         # create a PR with several commits to squash
         pr = (
-            await client.post(
+            await self.client_fork.post(
                 f"{self.url_origin}/pulls",
                 json={
                     "base": self.main_branch_name,
-                    "head": f"{owner_login}:{branch_name}",
+                    "head": f"mergify-test2:{branch_name}",
                     "title": "squash the PR",
                     "body": """This is a squash_test
 
@@ -85,7 +82,7 @@ Awesome body
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         # get the PR
-        pr = await client.item(f"{self.url_origin}/pulls/{pr['number']}")
+        pr = await self.client_fork.item(f"{self.url_origin}/pulls/{pr['number']}")
         assert pr["commits"] == 1
 
         ctxt = await context.Context.create(self.repository_ctxt, pr, [])

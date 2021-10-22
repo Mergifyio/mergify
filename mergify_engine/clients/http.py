@@ -122,15 +122,15 @@ class wait_retry_after_header(tenacity.wait.wait_base):
         return max(0, (d - date.utcnow()).total_seconds())
 
 
-def extract_github_extra(client):
-    if client.auth and hasattr(client.auth, "owner_login"):
-        return client.auth.owner_login
+def extract_organization_login(client):
+    if client.auth and hasattr(client.auth, "_owner_login"):
+        return client.auth._owner_login
 
 
 def before_log(retry_state):
     client = retry_state.args[0]
     method = retry_state.args[1]
-    gh_owner = extract_github_extra(client)
+    gh_owner = extract_organization_login(client)
     url = retry_state.args[2]
     LOG.debug(
         "http request starts",
@@ -145,7 +145,7 @@ def after_log(retry_state):
     client = retry_state.args[0]
     method = retry_state.args[1]
     url = retry_state.args[2]
-    gh_owner = extract_github_extra(client)
+    gh_owner = extract_organization_login(client)
     error_message = None
     response = None
     exc_info = None

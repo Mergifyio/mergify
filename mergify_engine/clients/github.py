@@ -71,25 +71,8 @@ class InstallationInaccessible(Exception):
 
 
 class GithubTokenAuth(httpx.Auth):
-    owner_id: github_types.GitHubAccountIdType
-    owner_login: github_types.GitHubLogin
-
-    def __init__(
-        self,
-        token: str,
-        # TODO(sileht): these arguments are a mess currently, they can be two
-        # things:
-        # * account of the token
-        # * account the token acts on behalf
-        # we should fix this by removing it, or always passing an installation
-        # to clear of what is it. Since I suspect it's only used by logging, we
-        # maybe able to entirely remove it from the Auth classes can work.
-        owner_id: github_types.GitHubAccountIdType,
-        owner_login: github_types.GitHubLogin,
-    ) -> None:
+    def __init__(self, token: str) -> None:
         self._token = token
-        self.owner_id = owner_id
-        self.owner_login = owner_login
 
         # TODO(sileht): We don't known and we don't care, this should be dropped
         self.permissions_need_to_be_updated = False
@@ -134,11 +117,11 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
 
     @property
-    def owner_id(self):
+    def _owner_id(self):
         return self.installation["account"]["id"]
 
     @property
-    def owner_login(self):
+    def _owner_login(self):
         return self.installation["account"]["login"]
 
     @contextlib.contextmanager
@@ -171,7 +154,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                 if "This installation has been suspended" in error_message:
                     LOG.debug(
                         "Mergify installation suspended",
-                        gh_owner=self.owner_login,
+                        gh_owner=self._owner_login,
                         error_message=error_message,
                     )
                     raise exceptions.MergifyNotInstalled()
@@ -212,7 +195,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         LOG.info(
             "New token acquired",
-            gh_owner=self.owner_login,
+            gh_owner=self._owner_login,
             expire_at=self._cached_token.expiration,
         )
         return self._cached_token.token
@@ -224,7 +207,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         elif self._cached_token.expiration <= now:
             LOG.info(
                 "Token expired",
-                gh_owner=self.owner_login,
+                gh_owner=self._owner_login,
                 expire_at=self._cached_token.expiration,
             )
             self._cached_token.invalidate()
@@ -319,9 +302,7 @@ def _inject_options(func: typing.Any) -> typing.Any:
         if api_version:
             headers["Accept"] = f"application/vnd.github.{api_version}-preview+json"
         if oauth_token:
-            kwargs["auth"] = GithubTokenAuth(
-                oauth_token, self.auth.owner_id, self.auth.owner_login
-            )
+            kwargs["auth"] = GithubTokenAuth(oauth_token)
         return await func(url, headers=headers, **kwargs)
 
     return wrapper
@@ -344,9 +325,6 @@ class AsyncGithubClient(http.AsyncClient):
             headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
 
-    def __repr__(self):
-        return f"<AsyncGithubInstallationClient owner='{self.auth.owner}'>"
-
     def _prepare_request_kwargs(
         self,
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
@@ -362,9 +340,7 @@ class AsyncGithubClient(http.AsyncClient):
                 raise TypeError(
                     "oauth_token is not supported for GithubBearerAuth auth"
                 )
-            kwargs["auth"] = GithubTokenAuth(
-                oauth_token, self.auth.owner_id, self.auth.owner_login
-            )
+            kwargs["auth"] = GithubTokenAuth(oauth_token)
         return kwargs
 
     async def get(  # type: ignore[override]
@@ -557,7 +533,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
                 LOGGING_REQUESTS_THRESHOLD_ABSOLUTE,
                 nb_requests / self._requests_ratio,
                 nb_requests,
-                gh_owner=self.auth.owner_login,
+                gh_owner=http.extract_organization_login(self),
                 requests=self._requests,
                 requests_ratio=self._requests_ratio,
             )
