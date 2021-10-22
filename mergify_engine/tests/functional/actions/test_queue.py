@@ -1238,7 +1238,18 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(mq_pr_number)
         assert (
-            "**Command `refresh`: success**\n> **Pull request refreshed**\n> \n"
+            """> refresh
+
+#### ✅ Pull request refreshed
+
+
+<!--
+DO NOT EDIT
+-*- Mergify Payload -*-
+{"command": "refresh", "conclusion": "success"}
+-*- Mergify Payload End -*-
+-->
+"""
             == comments[-1]["body"]
         )
 

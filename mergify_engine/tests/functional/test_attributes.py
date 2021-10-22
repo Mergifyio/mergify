@@ -322,6 +322,7 @@ class TestAttributes(base.FunctionalTestBase):
             "author": "mergify-test2",
             "dismissed-reviews-by": [],
             "merged-by": "",
+            "queue-position": -1,
             "check-failure": [],
             "status-failure": [],
             "title": "test_draft: pull request n2 from fork",
@@ -469,3 +470,55 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
+
+    async def test_queued(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=ready-to-merge",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+                {
+                    "name": "Add queued label",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "queue-position>=0",
+                    ],
+                    "actions": {"label": {"add": ["queued"]}},
+                },
+                {
+                    "name": "Remove queued label",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "queue-position=-1",
+                    ],
+                    "actions": {"label": {"remove": ["queued"]}},
+                },
+            ],
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr()
+
+        await self.add_label(p["number"], "ready-to-merge")
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+        assert "queued" in [label["name"] for label in p["labels"]]
+
+        await self.remove_label(p["number"], "ready-to-merge")
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+        assert "queued" not in [label["name"] for label in p["labels"]]

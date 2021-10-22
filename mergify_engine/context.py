@@ -916,6 +916,13 @@ class Context(object):
         if name == "assignee":
             return [a["login"] for a in self.pull["assignees"]]
 
+        elif name == "queue-position":
+            q = await merge_train.Train.from_context(self)
+            position = await q.get_position(self)
+            if position is None:
+                return -1
+            return position
+
         elif name == "label":
             return [label["name"] for label in self.pull["labels"]]
 
@@ -1560,6 +1567,7 @@ class PullRequest(BasePullRequest):
         "locked",
         "title",
         "body",
+        "queue-position",
     }
 
     LIST_ATTRIBUTES = {
@@ -1710,3 +1718,7 @@ class QueuePullRequest(BasePullRequest):
             return await self.queue_context._get_consolidated_data(fancy_name)
         else:
             return await self.context._get_consolidated_data(fancy_name)
+
+
+# circular import
+from mergify_engine.queue import merge_train  # noqa
