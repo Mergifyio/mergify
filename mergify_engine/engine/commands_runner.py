@@ -218,13 +218,13 @@ async def run_command(
     elif actions.ActionFlag.ALLOW_AS_PENDING_COMMAND in command.action.flags:
         result = check_api.Result(
             check_api.Conclusion.PENDING,
-            "Waiting for conditions",
+            "Waiting for conditions to match",
             conds.get_summary(),
         )
     else:
         result = check_api.Result(
             check_api.Conclusion.NEUTRAL,
-            "Conditions do not match",
+            "Nothing to do",
             conds.get_summary(),
         )
 
@@ -249,7 +249,11 @@ async def run_command(
 
 #### {result.conclusion.emoji} {result.title}
 
+<details>
+
 {result.summary}
+
+</details>
 <!--
 DO NOT EDIT
 -*- Mergify Payload -*-
