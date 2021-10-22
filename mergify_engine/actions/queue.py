@@ -76,7 +76,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "rebase", "merge"
             ),
             voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-                "default", "title+body", "template"
+                "default", "title+body"
             ),
             voluptuous.Required(
                 "commit_message_template", default=None

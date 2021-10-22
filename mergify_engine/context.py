@@ -1652,7 +1652,8 @@ class PullRequest(BasePullRequest):
                 body,
             )
 
-        if mode == "default":
+        if template is None:
+            # No template from configuration, looks at template from body
             body = typing.cast(str, await self.body)
             if not body:
                 return None
@@ -1667,6 +1668,7 @@ class PullRequest(BasePullRequest):
                     message_lines.append(line)
                 if found:
                     template = "\n".join(line.strip() for line in message_lines)
+
         if template is None:
             return None
 

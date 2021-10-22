@@ -528,7 +528,6 @@ class TestMergeAction(base.FunctionalTestBase):
                     "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "merge": {
-                            "commit_message": "template",
                             "commit_message_template": """{{ title }} (#{{ number }})
 {{body}}
 superRP!

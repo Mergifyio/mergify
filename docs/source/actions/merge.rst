@@ -117,19 +117,18 @@ Options
        ``merge`` method. Possible values are:
 
        * ``default`` to use the default commit message provided by GitHub
+         or defined in ``commit_message_template``
          or defined in the pull request body (see :ref:`commit message`).
 
        * ``title+body`` means to use the title and body from the pull request
          itself as the commit message. The pull request number will be added to
          end of the title.
 
-       * ``template`` to use the content from ``commit_message_template``.
-
    * - ``commit_message_template``
      - :ref:`data type template`
      -
      - Template to use as the commit message when using the ``merge`` or ``squash`` merge method
-       and ``commit_message`` is set to ``template``.
+       and ``commit_message`` is set to ``default``.
 
 .. _queue-depends-on:
 
