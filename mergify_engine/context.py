@@ -71,8 +71,7 @@ class PullRequestAttributeError(AttributeError):
 
 @dataclasses.dataclass
 class Installation:
-    owner_id: github_types.GitHubAccountIdType
-    owner_login: github_types.GitHubLogin
+    installation: github_types.GitHubInstallation
     subscription: subscription_mod.Subscription = dataclasses.field(repr=False)
     client: github.AsyncGithubInstallationClient = dataclasses.field(repr=False)
     redis: utils.RedisCache = dataclasses.field(repr=False)
@@ -83,6 +82,14 @@ class Installation:
     _user_tokens: typing.Optional[user_tokens.UserTokens] = dataclasses.field(
         default=None, repr=False
     )
+
+    @property
+    def owner_id(self) -> github_types.GitHubAccountIdType:
+        return self.installation["account"]["id"]
+
+    @property
+    def owner_login(self) -> github_types.GitHubLogin:
+        return self.installation["account"]["login"]
 
     async def get_user_tokens(self) -> user_tokens.UserTokens:
         # NOTE(sileht): For the simulator all contexts are built with a user

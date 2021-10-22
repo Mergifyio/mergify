@@ -495,8 +495,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
 
         self.installation_ctxt = context.Installation(
-            config.TESTING_ORGANIZATION_ID,
-            config.TESTING_ORGANIZATION_NAME,
+            installation_json,
             self.subscription,
             self.client_integration,
             self.redis_cache,

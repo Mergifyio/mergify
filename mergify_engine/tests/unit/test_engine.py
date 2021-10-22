@@ -34,7 +34,7 @@ OTHER_FAKE_MERGIFY_CONTENT = base64.b64encode(b"whatever:").decode()
 
 GH_OWNER = github_types.GitHubAccount(
     {
-        "login": github_types.GitHubLogin("owner"),
+        "login": github_types.GitHubLogin("testing"),
         "id": github_types.GitHubAccountIdType(12345),
         "type": "User",
         "avatar_url": "",
@@ -142,13 +142,13 @@ async def test_configuration_changed(
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
             "id": 12345,
-            "target_type": "User",
             "permissions": {
                 "checks": "write",
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing", "id": 12345},
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
         }
     )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
@@ -197,8 +197,7 @@ async def test_configuration_changed(
         github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
-            GH_OWNER["id"],
-            GH_OWNER["login"],
+            installation_json,
             subscription.Subscription(
                 redis_cache,
                 0,
@@ -232,13 +231,13 @@ async def test_configuration_duplicated(
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
             "id": 12345,
-            "target_type": "User",
             "permissions": {
                 "checks": "write",
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing", "id": 12345},
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
         }
     )
 
@@ -309,8 +308,7 @@ async def test_configuration_duplicated(
         github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
-            GH_OWNER["id"],
-            GH_OWNER["login"],
+            installation_json,
             subscription.Subscription(
                 redis_cache,
                 0,
@@ -344,13 +342,13 @@ async def test_configuration_not_changed(
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
             "id": 12345,
-            "target_type": "User",
             "permissions": {
                 "checks": "write",
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing", "id": 12345},
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
         }
     )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
@@ -410,8 +408,7 @@ async def test_configuration_not_changed(
         github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
-            GH_OWNER["id"],
-            GH_OWNER["login"],
+            installation_json,
             subscription.Subscription(
                 redis_cache,
                 0,
@@ -445,13 +442,13 @@ async def test_configuration_initial(
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
             "id": 12345,
-            "target_type": "User",
             "permissions": {
                 "checks": "write",
                 "contents": "write",
                 "pull_requests": "write",
             },
-            "account": {"login": "testing", "id": 12345},
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
         }
     )
     github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
@@ -499,8 +496,7 @@ async def test_configuration_initial(
         github.GithubAppInstallationAuth(installation_json)
     ) as client:
         installation = context.Installation(
-            GH_OWNER["id"],
-            GH_OWNER["login"],
+            installation_json,
             subscription.Subscription(
                 redis_cache,
                 0,

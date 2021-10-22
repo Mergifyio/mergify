@@ -186,7 +186,16 @@ async def prepare_context(client, redis_cache, subscribed=True):
             "default_branch": github_types.GitHubRefType("ref"),
         }
     )
-    installation = context.Installation(123, "Mergifyio", sub, client, redis_cache)
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
+    installation = context.Installation(installation_json, sub, client, redis_cache)
     repository = context.Repository(installation, gh_repo)
     return await context.Context.create(
         repository,

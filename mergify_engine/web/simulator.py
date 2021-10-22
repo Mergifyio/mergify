@@ -136,8 +136,7 @@ async def _simulator(
             )
 
             installation = context.Installation(
-                owner_id,
-                owner_login,
+                installation_json,
                 sub,
                 client,
                 redis_cache,
