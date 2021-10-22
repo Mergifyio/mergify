@@ -444,6 +444,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         try:
             commit_title_and_message = await ctxt.pull_request.get_commit_message(
                 self.config["commit_message"],
+                self.config["commit_message_template"],
             )
         except context.RenderTemplateFailure as rmf:
             return check_api.Result(

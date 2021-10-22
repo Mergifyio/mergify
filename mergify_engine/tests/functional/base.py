@@ -999,6 +999,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             )
         ]
 
+    async def get_commit(
+        self, sha: github_types.SHAType
+    ) -> github_types.GitHubBranchCommit:
+        return typing.cast(
+            github_types.GitHubBranchCommit,
+            await self.client_admin.item(f"{self.url_origin}/commits/{sha}"),
+        )
+
     async def get_head_commit(self) -> github_types.GitHubBranchCommit:
         return typing.cast(
             github_types.GitHubBranch,

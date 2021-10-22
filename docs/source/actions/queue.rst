@@ -297,6 +297,14 @@ These are the options of the ``queue`` action:
          itself as the commit message. The pull request number will be added to
          end of the title.
 
+       * ``template`` to use the content from ``commit_message_template``.
+
+   * - ``commit_message_template``
+     - :ref:`data type template`
+     -
+     - Template to use as the commit message when using the ``merge`` or ``squash`` merge method
+       and ``commit_message`` is set to ``template``.
+
 .. _queue rules:
 
 Queue Rules

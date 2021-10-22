@@ -49,8 +49,11 @@ class MergeAction(merge_base.MergeBaseAction):
         ),
         voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
         voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
+            "default", "title+body", "template"
         ),
+        voluptuous.Required(
+            "commit_message_template", default=None
+        ): types.Jinja2WithNone,
         voluptuous.Required(
             "priority", default=queue.PriorityAliases.medium.value
         ): queue.PrioritySchema,
