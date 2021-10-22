@@ -28,7 +28,6 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine.actions import merge_base
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
 
@@ -255,7 +254,7 @@ def get_config(
     effective_priority = typing.cast(
         int,
         priority
-        + QUEUE_RULES[queue_name].config["priority"] * merge_base.QUEUE_PRIORITY_OFFSET,
+        + QUEUE_RULES[queue_name].config["priority"] * queue.QUEUE_PRIORITY_OFFSET,
     )
     return queue.PullQueueConfig(
         name=queue_name,

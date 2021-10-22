@@ -20,7 +20,6 @@ import re
 import typing
 
 import daiquiri
-import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import branch_updater
@@ -53,12 +52,6 @@ FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
 
-class PriorityAliases(enum.Enum):
-    low = 1000
-    medium = 2000
-    high = 3000
-
-
 class StrictMergeParameter(enum.Enum):
     true = True
     false = False
@@ -67,26 +60,6 @@ class StrictMergeParameter(enum.Enum):
 
 
 mergify_json.register_type(StrictMergeParameter)
-
-
-def Priority(v):
-    try:
-        return PriorityAliases[v].value
-    except KeyError:
-        return v
-
-
-MAX_PRIORITY: int = 10000
-# NOTE(sileht): We use the max priority as an offset to order queue
-QUEUE_PRIORITY_OFFSET: int = MAX_PRIORITY
-
-
-PrioritySchema = voluptuous.All(
-    voluptuous.Any("low", "medium", "high", int),
-    voluptuous.Coerce(Priority),
-    int,
-    voluptuous.Range(min=1, max=MAX_PRIORITY),
-)
 
 
 def strict_merge_parameter(v):
@@ -408,7 +381,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         self.config["effective_priority"] = typing.cast(
             int,
             self.config["priority"]
-            + self.config["queue_config"]["priority"] * QUEUE_PRIORITY_OFFSET,
+            + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
         )
 
     async def _sync_with_base_branch(
