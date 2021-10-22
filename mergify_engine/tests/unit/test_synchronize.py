@@ -51,6 +51,14 @@ async def test_summary_synchronization_cache(
             "owner": gh_owner,
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
 
     async def items(*args, **kwargs):
         if False:
@@ -69,8 +77,7 @@ async def test_summary_synchronization_cache(
         redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
     installation = context.Installation(
-        gh_owner["id"],
-        gh_owner["login"],
+        installation_json,
         sub,
         client,
         redis_cache,

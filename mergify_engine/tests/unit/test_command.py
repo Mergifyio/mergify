@@ -158,9 +158,17 @@ async def _create_context(
         }
     )
 
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        github_types.GitHubAccountIdType(123),
-        github_types.GitHubLogin("Mergifyio"),
+        installation_json,
         sub,
         client,
         redis_cache,

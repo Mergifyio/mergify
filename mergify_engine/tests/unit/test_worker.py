@@ -26,6 +26,7 @@ import pytest
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import exceptions
+from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import worker
 from mergify_engine import worker_lua
@@ -35,10 +36,26 @@ from mergify_engine.clients import http
 
 FAKE_INSTALLATION = {
     "id": 12345,
-    "account": {"id": 123, "login": "owner"},
+    "account": {"id": 123, "login": "owner-123"},
     "target_type": "Organization",
     "permissions": github_app.EXPECTED_MINIMAL_PERMISSIONS["Organization"],
 }
+
+
+def fake_get_installation_from_account_id(
+    owner_id: github_types.GitHubAccountIdType,
+) -> github_types.GitHubInstallation:
+    return {
+        "id": github_types.GitHubInstallationIdType(12345),
+        "account": {
+            "id": owner_id,
+            "login": github_types.GitHubLogin(f"owner-{owner_id}"),
+            "type": "User",
+            "avatar_url": "",
+        },
+        "target_type": "Organization",
+        "permissions": github_app.EXPECTED_MINIMAL_PERMISSIONS["Organization"],
+    }
 
 
 async def run_worker(test_timeout=10, **kwargs):
@@ -75,7 +92,7 @@ async def test_worker_with_waiting_tasks(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     buckets = set()
     bucket_sources = set()
     for installation_id in range(8):
@@ -161,12 +178,12 @@ async def test_worker_expanded_events(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     client = mock.Mock(
         auth=mock.Mock(
             owner_id=123,
-            owner_login="owner",
-            installation=get_installation_from_account_id.return_value,
+            owner_login="owner-123",
+            installation=fake_get_installation_from_account_id(123),
         ),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
@@ -179,7 +196,7 @@ async def test_worker_expanded_events(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         None,
@@ -189,7 +206,7 @@ async def test_worker_expanded_events(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         None,
@@ -199,7 +216,7 @@ async def test_worker_expanded_events(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -208,7 +225,7 @@ async def test_worker_expanded_events(
     )
 
     assert 1 == await redis_stream.zcard("streams")
-    assert 2 == await redis_stream.zcard("bucket~123~owner")
+    assert 2 == await redis_stream.zcard("bucket~123~owner-123")
     assert 1 == len(await redis_stream.keys("bucket~*"))
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~0")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~123")
@@ -225,7 +242,7 @@ async def test_worker_expanded_events(
     # push event on pull request with other events must go last
     assert 3 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         123,
@@ -248,7 +265,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[1] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         789,
@@ -266,7 +283,7 @@ async def test_worker_expanded_events(
         ],
     )
     assert run_engine.mock_calls[2] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         456,
@@ -292,11 +309,11 @@ async def test_worker_with_one_task(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -306,7 +323,7 @@ async def test_worker_with_one_task(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -317,7 +334,7 @@ async def test_worker_with_one_task(
     # Check everything we push are in redis
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 1 == len(await redis_stream.keys("bucket-sources~*"))
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
 
@@ -332,7 +349,7 @@ async def test_worker_with_one_task(
     # Check engine have been run with expect data
     assert 1 == len(run_engine.mock_calls)
     assert run_engine.mock_calls[0] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         123,
@@ -363,7 +380,7 @@ async def test_consume_unexisting_stream(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     p = worker.StreamProcessor(redis_stream, redis_cache)
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
@@ -381,11 +398,11 @@ async def test_consume_good_stream(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -395,7 +412,7 @@ async def test_consume_good_stream(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -406,16 +423,16 @@ async def test_consume_good_stream(
     # Check everything we push are in redis
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 1 == len(await redis_stream.keys("bucket-sources~*"))
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         123,
@@ -456,7 +473,7 @@ async def test_stream_processor_retrying_pull(
     logs.setup_logging()
     logger = logger_class.return_value
 
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     # One retries once, the other reaches max_retry
     run_engine.side_effect = [
         exceptions.MergeableStateUnknown(mock.Mock()),
@@ -469,7 +486,7 @@ async def test_stream_processor_retrying_pull(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -479,7 +496,7 @@ async def test_stream_processor_retrying_pull(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         42,
@@ -490,18 +507,18 @@ async def test_stream_processor_retrying_pull(
     # Check everything we push are in redis
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 2 == await redis_stream.zcard("bucket~123~owner")
+    assert 2 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == len(await redis_stream.keys("bucket-sources~*"))
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
         mock.call(
-            InstallationMatcher(owner="owner"),
+            InstallationMatcher(owner="owner-123"),
             123,
             "repo",
             123,
@@ -514,7 +531,7 @@ async def test_stream_processor_retrying_pull(
             ],
         ),
         mock.call(
-            InstallationMatcher(owner="owner"),
+            InstallationMatcher(owner="owner-123"),
             123,
             "repo",
             42,
@@ -531,28 +548,28 @@ async def test_stream_processor_retrying_pull(
     # Check stream still there and attempts recorded
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 2 == await redis_stream.zcard("bucket~123~owner")
+    assert 2 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == len(await redis_stream.keys("bucket-sources~*"))
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
     assert {
-        b"pull~owner~repo~42": b"1",
-        b"pull~owner~repo~123": b"1",
+        b"pull~owner-123~repo~42": b"1",
+        b"pull~owner-123~repo~123": b"1",
     } == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 1 == len(await redis_stream.keys("bucket-sources~*"))
     assert 0 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
 
     assert 1 == len(await redis_stream.hgetall("attempts"))
     assert len(run_engine.mock_calls) == 4
-    assert {b"pull~owner~repo~42": b"2"} == await redis_stream.hgetall("attempts")
+    assert {b"pull~owner-123~repo~42": b"2"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 5
 
     # Too many retries, everything is gone
@@ -569,7 +586,7 @@ async def test_stream_processor_retrying_pull(
     )
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
-    assert 0 == await redis_stream.zcard("bucket~123~owner")
+    assert 0 == await redis_stream.zcard("bucket~123~owner-123")
     assert 0 == len(await redis_stream.keys("bucket-sources~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
@@ -584,7 +601,7 @@ async def test_stream_processor_retrying_stream_recovered(
 ):
     logs.setup_logging()
 
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -595,7 +612,7 @@ async def test_stream_processor_retrying_stream_recovered(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -605,7 +622,7 @@ async def test_stream_processor_retrying_stream_recovered(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -615,16 +632,16 @@ async def test_stream_processor_retrying_stream_recovered(
 
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         123,
@@ -645,19 +662,19 @@ async def test_stream_processor_retrying_stream_recovered(
     # Check stream still there and attempts recorded
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == len(await redis_stream.hgetall("attempts"))
 
-    assert {b"bucket~123~owner": b"1"} == await redis_stream.hgetall("attempts")
+    assert {b"bucket~123~owner-123": b"1"} == await redis_stream.hgetall("attempts")
 
     run_engine.side_effect = None
 
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 2
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
-    assert 0 == await redis_stream.zcard("bucket~123~owner")
+    assert 0 == await redis_stream.zcard("bucket~123~owner-123")
     assert 0 == len(await redis_stream.keys("bucket-sources~*"))
 
     assert 1 == len(logger.info.mock_calls)
@@ -675,7 +692,7 @@ async def test_stream_processor_retrying_stream_failure(
 ):
     logs.setup_logging()
 
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -686,7 +703,7 @@ async def test_stream_processor_retrying_stream_failure(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -696,7 +713,7 @@ async def test_stream_processor_retrying_stream_failure(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -706,16 +723,16 @@ async def test_stream_processor_retrying_stream_failure(
 
     assert 1 == await redis_stream.zcard("streams")
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
-        InstallationMatcher(owner="owner"),
+        InstallationMatcher(owner="owner-123"),
         123,
         "repo",
         123,
@@ -738,13 +755,13 @@ async def test_stream_processor_retrying_stream_failure(
     assert 1 == len(await redis_stream.keys("bucket~*"))
     assert 1 == len(await redis_stream.hgetall("attempts"))
 
-    assert {b"bucket~123~owner": b"1"} == await redis_stream.hgetall("attempts")
+    assert {b"bucket~123~owner-123": b"1"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 2
-    assert {b"bucket~123~owner": b"2"} == await redis_stream.hgetall("attempts")
+    assert {b"bucket~123~owner-123": b"2"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 3
 
     # Still there
@@ -755,7 +772,7 @@ async def test_stream_processor_retrying_stream_failure(
     assert logger.info.mock_calls[2].args == ("failed to process org bucket, retrying",)
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
-    assert 1 == await redis_stream.zcard("bucket~123~owner")
+    assert 1 == await redis_stream.zcard("bucket~123~owner-123")
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == len(await redis_stream.hgetall("attempts"))
 
@@ -776,13 +793,13 @@ async def test_stream_processor_pull_unexpected_error(
     logs.setup_logging()
     logger = logger_class.return_value
 
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     run_engine.side_effect = Exception
 
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -791,8 +808,8 @@ async def test_stream_processor_pull_unexpected_error(
     )
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
-    await p.consume("bucket~123~owner", 123, "owner")
-    await p.consume("bucket~123~owner", 123, "owner")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
@@ -817,33 +834,33 @@ async def test_stream_processor_date_scheduling(
     logger_checker,
 ):
 
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     # Don't process it before 2040
     with freeze_time("2040-01-01"):
         await worker.push(
             redis_stream,
             123,
-            "owner1",
+            "owner-123",
             123,
             "repo",
             123,
             "pull_request",
             {"payload": "whatever"},
         )
-        unwanted_owner_id = "owner1"
+        unwanted_owner_id = "owner-123"
 
     with freeze_time("2020-01-01"):
         await worker.push(
             redis_stream,
-            123,
-            "owner2",
+            234,
+            "owner-234",
             123,
             "repo",
             321,
             "pull_request",
             {"payload": "foobar"},
         )
-        wanted_owner_id = "owner2"
+        wanted_owner_id = "owner-234"
 
     assert 2 == (await redis_stream.zcard("streams"))
     assert 2 == len(await redis_stream.keys("bucket~*"))
@@ -964,7 +981,7 @@ async def test_worker_debug_report(_, redis_stream, redis_cache, logger_checker)
 async def test_stream_processor_retrying_after_read_error(
     run_engine, get_installation_from_account_id, _, redis_stream, redis_cache
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 503
@@ -975,7 +992,7 @@ async def test_stream_processor_retrying_after_read_error(
 
     p = worker.StreamProcessor(redis_stream, redis_cache)
 
-    installation = context.Installation(123, "owner", {}, None, None)
+    installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
     with pytest.raises(worker.OrgBucketRetry):
         async with p._translate_exception_to_retries(
             worker.OrgBucketNameType("stream~owner~123")
@@ -995,7 +1012,7 @@ async def test_stream_processor_ignore_503(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     response = mock.Mock()
     response.text = "Server Error: Sorry, this diff is taking too long to generate."
     response.status_code = 503
@@ -1008,7 +1025,7 @@ async def test_stream_processor_ignore_503(
     await worker.push(
         redis_stream,
         123,
-        "owner1",
+        "owner-123",
         123,
         "repo",
         123,
@@ -1036,7 +1053,7 @@ async def test_worker_with_multiple_workers(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     buckets = set()
     bucket_sources = set()
     for installation_id in range(100):
@@ -1105,12 +1122,12 @@ async def test_worker_reschedule(
     logger_checker,
     monkeypatch,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,
@@ -1133,7 +1150,7 @@ async def test_worker_reschedule(
     )
     assert planned_for == planned_for_not_rescheduled
 
-    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "OwNer"])
+    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "OwNer-123"])
     ret = await worker.async_reschedule_now()
     assert ret == 0
 
@@ -1156,7 +1173,7 @@ async def test_worker_stuck_shutdown(
     redis_cache,
     logger_checker,
 ):
-    get_installation_from_account_id.return_value = FAKE_INSTALLATION
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
 
     async def fake_engine(*args, **kwargs):
         await asyncio.sleep(10000000)
@@ -1165,7 +1182,7 @@ async def test_worker_stuck_shutdown(
     await worker.push(
         redis_stream,
         123,
-        "owner",
+        "owner-123",
         123,
         "repo",
         123,

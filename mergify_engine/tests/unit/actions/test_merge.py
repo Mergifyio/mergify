@@ -72,6 +72,14 @@ PR = {
     "requested_teams": [],
     "milestone": None,
 }
+GH_INSTALLATION = github_types.GitHubInstallation(
+    {
+        "id": github_types.GitHubInstallationIdType(12345),
+        "target_type": GH_OWNER["type"],
+        "permissions": {},
+        "account": GH_OWNER,
+    }
+)
 
 
 @pytest.mark.parametrize(
@@ -172,7 +180,7 @@ async def test_merge_commit_message(body, title, message, mode):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(123, "whatever", {}, client, None)
+    installation = context.Installation(GH_INSTALLATION, {}, client, None)
     repository = context.Repository(installation, GH_REPO, 123)
     repository._cache["branch_protections"] = {"main": None}
     ctxt = await context.Context.create(repository=repository, pull=pull)
@@ -222,7 +230,7 @@ async def test_merge_commit_message_undefined(body):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(123, "whatever", {}, client, None)
+    installation = context.Installation(GH_INSTALLATION, {}, client, None)
     repository = context.Repository(installation, GH_REPO, 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as x:
@@ -250,7 +258,7 @@ async def test_merge_commit_message_syntax_error(body, error, redis_cache):
     pull = PR.copy()
     pull["body"] = body
     client = mock.MagicMock()
-    installation = context.Installation(123, "whatever", {}, client, redis_cache)
+    installation = context.Installation(GH_INSTALLATION, {}, client, redis_cache)
     repository = context.Repository(installation, GH_REPO, 123)
     pr = await context.Context.create(repository=repository, pull=pull)
     with pytest.raises(context.RenderTemplateFailure) as rmf:
