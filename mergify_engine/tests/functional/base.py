@@ -824,7 +824,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         if base_repo == "fork":
             client = self.client_fork
-            login = github_types.GitHubLogin("mergifyi-test2")
+            login = github_types.GitHubLogin("mergify-test2")
         else:
             client = self.client_admin
             login = github_types.GitHubLogin("mergifyio-testing")
