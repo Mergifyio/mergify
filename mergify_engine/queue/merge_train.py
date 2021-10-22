@@ -1153,11 +1153,10 @@ class Train(queue.QueueBase):
             queue_name=config["name"],
         )
 
-        # Refresh summary of others
+        # Refresh summary of all pull requests
         await self._refresh_pulls(
             ctxt.pull["base"]["repo"],
             source="pull added to queue",
-            except_pull_request=ctxt.pull["number"],
         )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
@@ -1188,6 +1187,7 @@ class Train(queue.QueueBase):
             await self._refresh_pulls(
                 ctxt.pull["base"]["repo"],
                 source="pull removed from queue",
+                additional_pull_request=ctxt.pull["number"],
             )
             return
 
@@ -1204,7 +1204,9 @@ class Train(queue.QueueBase):
         await self.save()
         ctxt.log.info("removed from train", position=position)
         await self._refresh_pulls(
-            ctxt.pull["base"]["repo"], source="pull removed from queue"
+            ctxt.pull["base"]["repo"],
+            source="pull removed from queue",
+            additional_pull_request=ctxt.pull["number"],
         )
 
     async def _split_failed_batches(self, queue_rules: rules.QueueRules) -> None:

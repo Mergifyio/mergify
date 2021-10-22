@@ -150,6 +150,7 @@ pull_request_rules:
  'merged-by': '',
  'milestone': '',
  'number': {p['number']},
+ 'queue-position': -1,
  'review-requested': [],
  'status-failure': [],
  'status-neutral': [],

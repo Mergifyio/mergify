@@ -26,7 +26,12 @@ from mergify_engine import date
 
 git_branch = pyparsing.CharsNotIn("~^: []\\")
 regexp = pyparsing.CharsNotIn("")
-integer = pyparsing.Word(pyparsing.nums).setParseAction(lambda toks: int(toks[0]))
+positive_integer = pyparsing.Word(pyparsing.nums).setParseAction(
+    lambda toks: int(toks[0])
+)
+integer = pyparsing.Combine(
+    pyparsing.Optional(pyparsing.Literal("-")) + pyparsing.Word(pyparsing.nums)
+).setParseAction(lambda toks: int(toks[0]))
 github_login = pyparsing.Word(pyparsing.alphanums + "-[]")
 github_team = pyparsing.Combine(
     pyparsing.Literal("@") + github_login + pyparsing.Literal("/") + github_login
@@ -232,6 +237,7 @@ def _match_boolean(literal: str) -> pyparsing.Token:
     )
 
 
+match_positive_integer = simple_operators + positive_integer
 match_integer = simple_operators + integer
 
 
@@ -291,7 +297,8 @@ files = "files" + _match_with_operator(text)
 commits_behind = "commits-behind" + _match_with_operator(text)
 commits = "commits" + _match_with_operator(text)
 milestone = "milestone" + _match_with_operator(milestone)
-number = "number" + match_integer
+number = "number" + match_positive_integer
+queue_position = "queue-position" + match_integer
 review_requests = "review-requested" + _match_login_or_teams
 review_approved_by = "approved-reviews-by" + _match_login_or_teams
 review_dismissed_by = "dismissed-reviews-by" + _match_login_or_teams
@@ -350,6 +357,7 @@ quantifiable_attributes = (
     | check_pending
     | check_stale
     | commits_behind
+    | queue_position
 )
 
 locked = _match_boolean("locked")
