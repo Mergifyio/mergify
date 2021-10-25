@@ -35,7 +35,6 @@ from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
-from mergify_engine.rules import conditions
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -714,17 +713,3 @@ In the meantime, the pull request must be merged manually."
             and "required_linear_history" in protection
             and protection["required_linear_history"]["enabled"]
         )
-
-    async def get_conditions_requirements(
-        self,
-        ctxt: context.Context,
-    ) -> typing.List[
-        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
-    ]:
-        branch_protection_conditions = (
-            await conditions.get_branch_protection_conditions(
-                ctxt.repository, ctxt.pull["base"]["ref"]
-            )
-        )
-        depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
-        return branch_protection_conditions + depends_on_conditions
