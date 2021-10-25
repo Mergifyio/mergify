@@ -14,11 +14,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import argparse
-import copy
 import time
+import typing
 from unittest import mock
 
-import pytest
 import yaml
 
 from mergify_engine import config
@@ -28,59 +27,7 @@ from mergify_engine import json
 from mergify_engine.tests.functional import base
 
 
-REPOSITORIES = (
-    (258840104, "functional-testing-repo"),
-    (399462964, "functional-testing-repo-ErwanSimonetti"),
-    (265231765, "functional-testing-repo-private"),
-    (399426199, "functional-testing-repo-sileht"),
-    (269274944, "gh-action-tests"),
-    (210296945, "git-pull-request"),
-)
-
-
-@pytest.mark.skip(
-    "Thoses tests aren't reliable, the testing organization could change repo-wise, user-wise etc."
-)
 class TestCountSeats(base.FunctionalTestBase):
-    ORGANIZATION = count_seats.SeatAccount(
-        github_types.GitHubAccountIdType(40527191),
-        github_types.GitHubLogin("mergifyio-testing"),
-    )
-
-    COLLABORATORS: count_seats.CollaboratorsT = {
-        ORGANIZATION: {
-            count_seats.SeatRepository(
-                github_types.GitHubRepositoryIdType(_id),
-                github_types.GitHubRepositoryName(_name),
-            ): {
-                "write_users": {
-                    count_seats.SeatAccount(
-                        github_types.GitHubAccountIdType(2644),
-                        github_types.GitHubLogin("jd"),
-                    ),
-                    count_seats.SeatAccount(
-                        github_types.GitHubAccountIdType(38494943),
-                        github_types.GitHubLogin("mergify-test1"),
-                    ),
-                    count_seats.SeatAccount(
-                        github_types.GitHubAccountIdType(58822980),
-                        github_types.GitHubLogin("mergify-test3"),
-                    ),
-                    count_seats.SeatAccount(
-                        github_types.GitHubAccountIdType(74646794),
-                        github_types.GitHubLogin("mergify-test4"),
-                    ),
-                    count_seats.SeatAccount(
-                        github_types.GitHubAccountIdType(200878),
-                        github_types.GitHubLogin("sileht"),
-                    ),
-                },
-                "active_users": None,
-            }
-            for _id, _name in REPOSITORIES
-        }
-    }
-
     async def _prepare_repo(self) -> count_seats.Seats:
         await self.setup_repo()
         await self.create_pr()
@@ -88,23 +35,67 @@ class TestCountSeats(base.FunctionalTestBase):
 
         # NOTE(sileht): we add active users only on the repository used for
         # recording the fixture
-        collaborators = copy.deepcopy(self.COLLABORATORS)
-        repository = collaborators[self.ORGANIZATION][
-            count_seats.SeatRepository(
-                self.repository_ctxt.repo["id"], self.repository_ctxt.repo["name"]
-            )
-        ]
 
-        repository["active_users"] = {
-            count_seats.ActiveUser(
-                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_1_ID),
-                github_types.GitHubLogin("mergify-test1"),
-            ),
-            count_seats.ActiveUser(
-                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_2_ID),
-                github_types.GitHubLogin("mergify-test2"),
-            ),
+        repos = (
+            await self.client_admin.get(
+                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/repos"
+            )
+        ).json()
+        members = (
+            await self.client_admin.get(
+                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+            )
+        ).json()
+        write_users = {
+            count_seats.SeatAccount(
+                github_types.GitHubAccountIdType(member["id"]),
+                github_types.GitHubLogin(member["login"]),
+            )
+            for member in members
         }
+        organization = {}
+        for repo in repos:
+            active_users = None
+            key_repo = count_seats.SeatRepository(
+                github_types.GitHubRepositoryIdType(repo["id"]),
+                github_types.GitHubRepositoryName(repo["name"]),
+            )
+            if repo["id"] == self.repository_ctxt.repo["id"]:
+                active_users = {
+                    count_seats.ActiveUser(
+                        github_types.GitHubAccountIdType(
+                            config.TESTING_MERGIFY_TEST_1_ID
+                        ),
+                        github_types.GitHubLogin("mergify-test1"),
+                    ),
+                    count_seats.ActiveUser(
+                        github_types.GitHubAccountIdType(
+                            config.TESTING_MERGIFY_TEST_2_ID
+                        ),
+                        github_types.GitHubLogin("mergify-test2"),
+                    ),
+                }
+            write_users_used: typing.Union[
+                typing.Set[count_seats.SeatAccount], mock.ANY
+            ]
+            if repo["name"] == "functional-testing-repo":
+                write_users_used = write_users
+            else:
+                write_users_used = mock.ANY
+            organization[key_repo] = count_seats.CollaboratorsSetsT(
+                {
+                    "write_users": write_users_used,
+                    "active_users": active_users,
+                }
+            )
+
+        collaborators = {
+            count_seats.SeatAccount(
+                github_types.GitHubAccountIdType(config.TESTING_ORGANIZATION_ID),
+                github_types.GitHubLogin(config.TESTING_ORGANIZATION_NAME),
+            ): organization
+        }
+
         return count_seats.Seats(collaborators)
 
     async def test_get_collaborators(self) -> None:
@@ -115,21 +106,83 @@ class TestCountSeats(base.FunctionalTestBase):
 
     async def test_count_seats(self) -> None:
         await self._prepare_repo()
-        assert (
-            await count_seats.Seats.get(self.redis_cache)
-        ).count() == count_seats.SeatsCountResultT(5, 2)
+        members = (
+            await self.client_admin.get(
+                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+            )
+        ).json()
+        seats_count = (await count_seats.Seats.get(self.redis_cache)).count()
+        assert seats_count.write_users >= len(members)
+        assert seats_count.active_users == 2
 
-    @pytest.mark.skip(
-        reason="The tests shouldn't have hardcoded repos and users in case of change in the testing organization."
-    )
     async def test_run_count_seats_report(self) -> None:
+        await self.setup_repo()
+        await self.create_pr()
+        await self.run_engine()
+        if github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_1_ID) is None:
+            raise RuntimeError("client_admin owner_id is None")
+        if github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_2_ID) is None:
+            raise RuntimeError("client_fork owner_id is None")
+        if github_types.GitHubLogin("mergify-test1") is None:
+            raise RuntimeError("client_admin owner is None")
+        if github_types.GitHubLogin("mergify-test2") is None:
+            raise RuntimeError("client_fork owner is None")
         args = argparse.Namespace(json=True, daemon=False)
         with mock.patch("sys.stdout") as stdout:
             with mock.patch.object(config, "SUBSCRIPTION_TOKEN"):
                 await count_seats.report(args)
                 s = "".join(call.args[0] for call in stdout.write.mock_calls)
-                expected_seats = count_seats.Seats(self.COLLABORATORS)
-                assert json.loads(s) == expected_seats.jsonify()
+                json_reports = json.loads(s)
+                assert list(json_reports.keys()) == ["organizations"]
+                assert len(json_reports["organizations"]) == 1
+
+                org = json_reports["organizations"][0]
+                assert org["id"] == config.TESTING_ORGANIZATION_ID
+                assert org["login"] == config.TESTING_ORGANIZATION_NAME
+
+                repos = (
+                    await self.client_admin.get(
+                        url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/repos"
+                    )
+                ).json()
+                expected_repositories = sorted(
+                    [(repo["id"], repo["name"]) for repo in repos]
+                )
+                assert (
+                    sorted([(repo["id"], repo["name"]) for repo in org["repositories"]])
+                    == expected_repositories
+                )
+
+                members = (
+                    await self.client_admin.get(
+                        url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+                    )
+                ).json()
+                users_expected = {(member["id"], member["login"]) for member in members}
+                for repo in org["repositories"]:
+                    if repo["name"] == "functional-testing-repo":
+                        users_retrieved = {
+                            (write_user["id"], write_user["login"])
+                            for write_user in repo["collaborators"]["write_users"]
+                        }
+                        assert users_retrieved.issubset(users_expected)
+                        assert len(repo["collaborators"]["write_users"]) == len(members)
+                    if repo["id"] == self.repository_ctxt.repo["id"]:
+                        assert repo["collaborators"]["active_users"] == [
+                            {
+                                "id": github_types.GitHubAccountIdType(
+                                    config.TESTING_MERGIFY_TEST_1_ID
+                                ),
+                                "login": github_types.GitHubLogin("mergify-test1"),
+                            },
+                            {
+                                "id": github_types.GitHubAccountIdType(
+                                    config.TESTING_MERGIFY_TEST_2_ID
+                                ),
+                                "login": github_types.GitHubLogin("mergify-test2"),
+                            },
+                        ]
+                        assert len(repo["collaborators"]["active_users"]) == 2
 
     async def test_stored_user_in_redis(self):
         rules = {
