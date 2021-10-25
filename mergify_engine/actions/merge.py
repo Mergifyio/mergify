@@ -30,6 +30,7 @@ from mergify_engine import signals
 from mergify_engine.actions import merge_base
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import naive
+from mergify_engine.rules import conditions
 from mergify_engine.rules import types
 
 
@@ -233,3 +234,17 @@ class MergeAction(merge_base.MergeBaseAction):
                 "commit_message_set": "commit_message" in self.raw_config,
             },
         )
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        branch_protection_conditions = (
+            await conditions.get_branch_protection_conditions(
+                ctxt.repository, ctxt.pull["base"]["ref"]
+            )
+        )
+        depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
+        return branch_protection_conditions + depends_on_conditions

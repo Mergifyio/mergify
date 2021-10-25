@@ -30,6 +30,7 @@ from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import conditions
 from mergify_engine.rules import types
 
 
@@ -84,6 +85,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required(
                 "priority", default=queue.PriorityAliases.medium.value
             ): queue.PrioritySchema,
+            voluptuous.Required("require_branch_protection", default=True): bool,
         }
 
     async def _subscription_status(
@@ -428,3 +430,22 @@ Then, re-embark the pull request into the merge queue by posting the comment
             if attr not in context.QueuePullRequest.QUEUE_ATTRIBUTES:
                 return True
         return False
+
+    async def get_conditions_requirements(
+        self,
+        ctxt: context.Context,
+    ) -> typing.List[
+        typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+    ]:
+        branch_protection_conditions = []
+        if (
+            self.config["require_branch_protection"]
+            or self.queue_rule.config["speculative_checks"] > 1
+        ):
+            branch_protection_conditions = (
+                await conditions.get_branch_protection_conditions(
+                    ctxt.repository, ctxt.pull["base"]["ref"]
+                )
+            )
+        depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
+        return branch_protection_conditions + depends_on_conditions

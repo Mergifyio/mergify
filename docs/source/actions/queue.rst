@@ -304,6 +304,12 @@ These are the options of the ``queue`` action:
      - Template to use as the commit message when using the ``merge`` or ``squash`` merge method
        and ``commit_message`` is set to ``default``.
 
+   * - ``require_branch_protection``
+     - bool
+     - true
+     - Whether branch protections are required for queueing pull requests. This
+       option is ignored if the target queue has ``speculative_checks > 1``.
+
 .. _queue rules:
 
 Queue Rules
